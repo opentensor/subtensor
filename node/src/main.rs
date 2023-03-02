@@ -1,4 +1,4 @@
-//! Substrate Node Template CLI library.
+//! Substrate Node Subtensor CLI library.
 #![warn(missing_docs)]
 
 mod chain_spec;
