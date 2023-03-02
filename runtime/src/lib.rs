@@ -47,6 +47,8 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+pub use pallet_subtensor;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -272,6 +274,85 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+// Configure the pallet subtensor.
+parameter_types! {
+	pub const SubtensorInitialRho: u16 = 30;
+    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
+    pub const SubtensorInitialWeightCuts: u16 = 3;
+    pub const SubtensorInitialMaxAllowedUids: u16 = 512;
+    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 0;
+    pub const SubtensorInitialEmissionValue: u16 = 0;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = u16::MAX;
+    pub const SubtensorInitialValidatorBatchSize: u16 = 10;
+    pub const SubtensorInitialValidatorSequenceLen: u16 = 10;
+    pub const SubtensorInitialValidatorEpochLen: u16 = 1000;
+    pub const SubtensorInitialValidatorEpochsPerReset: u16 = 60;
+    pub const SubtensorInitialValidatorExcludeQuantile: u16 = 10; // 0.1
+    pub const SubtensorInitialValidatorPruneLen: u64 = 0;
+    pub const SubtensorInitialValidatorLogitsDivergence: u64 = 0;
+    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 100;
+    pub const SubtensorInitialTempo: u16 = 0;
+    pub const SubtensorInitialDifficulty: u64 = 1;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 100;
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
+    pub const SubtensorInitialImmunityPeriod: u16 = 200;
+    pub const SubtensorInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 50;
+    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorInitialBondsMovingAverage: u64 = 900000;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorInitialMinDifficulty: u64 = 1;
+    pub const SubtensorInitialMaxDifficulty: u64 = 10;
+    pub const SubtensorInitialServingRateLimit: u64 = 1000; 
+	pub const SubtensorInitialBurn: u64 = 0; 
+	pub const SubtensorInitialMinBurn: u64 = 0; 
+	pub const SubtensorInitialMaxBurn: u64 = 1_000_000_000;
+}
+
+impl pallet_subtensor::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type InitialRho = SubtensorInitialRho;
+	type InitialKappa = SubtensorInitialKappa;
+	type InitialWeightCuts = SubtensorInitialWeightCuts;
+	type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
+	type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
+	type InitialIssuance = SubtensorInitialIssuance;
+	type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
+	type InitialEmissionValue = SubtensorInitialEmissionValue;
+	type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
+	type InitialValidatorBatchSize = SubtensorInitialValidatorBatchSize;
+	type InitialValidatorSequenceLen = SubtensorInitialValidatorSequenceLen;
+	type InitialValidatorEpochLen = SubtensorInitialValidatorEpochLen;
+	type InitialValidatorEpochsPerReset = SubtensorInitialValidatorEpochsPerReset;
+	type InitialValidatorExcludeQuantile = SubtensorInitialValidatorExcludeQuantile;
+	type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
+	type InitialValidatorLogitsDivergence = SubtensorInitialValidatorLogitsDivergence;
+	type InitialScalingLawPower = SubtensorInitialScalingLawPower;
+	type InitialSynergyScalingLawPower = SubtensorInitialSynergyScalingLawPower;
+	type InitialTempo = SubtensorInitialTempo;
+	type InitialDifficulty = SubtensorInitialDifficulty;
+	type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;
+	type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
+	type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
+	type InitialActivityCutoff = SubtensorInitialActivityCutoff;
+	type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
+	type InitialPruningScore = SubtensorInitialPruningScore;
+	type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
+	type InitialDefaultTake = SubtensorInitialDefaultTake;
+	type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
+	type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
+	type InitialMinDifficulty = SubtensorInitialMinDifficulty;
+	type InitialServingRateLimit = SubtensorInitialServingRateLimit;
+	type InitialBurn = SubtensorInitialBurn;
+	type InitialMaxBurn = SubtensorInitialMaxBurn;
+	type InitialMinBurn = SubtensorInitialMinBurn;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -288,6 +369,9 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
+
+		// Subtensor
+		Subtensor: pallet_subtensor::{Pallet, Call, Storage, Event<T>}  = 41,
 	}
 );
 
@@ -333,6 +417,7 @@ mod benches {
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
+		[pallet_subtensor, Subtensor]
 		[pallet_timestamp, Timestamp]
 	);
 }
