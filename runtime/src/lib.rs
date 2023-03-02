@@ -47,10 +47,7 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-<<<<<<< Updated upstream
-=======
 // Subtensor module
->>>>>>> Stashed changes
 pub use pallet_subtensor;
 
 /// An index to a block.
@@ -377,87 +374,6 @@ construct_runtime!(
 	}
 );
 
-
-// Configure the pallet subtensor.
-parameter_types! {
-	pub const ParatensorInitialRho: u16 = 30;
-    pub const ParatensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
-    pub const ParatensorInitialWeightCuts: u16 = 3;
-    pub const ParatensorInitialMaxAllowedUids: u16 = 512;
-    pub const ParatensorInitialIssuance: u64 = 0;
-    pub const ParatensorInitialMinAllowedWeights: u16 = 0;
-    pub const ParatensorInitialEmissionValue: u16 = 0;
-    pub const ParatensorInitialMaxWeightsLimit: u16 = u16::MAX;
-    pub const ParatensorInitialValidatorBatchSize: u16 = 10;
-    pub const ParatensorInitialValidatorSequenceLen: u16 = 10;
-    pub const ParatensorInitialValidatorEpochLen: u16 = 1000;
-    pub const ParatensorInitialValidatorEpochsPerReset: u16 = 60;
-    pub const ParatensorInitialValidatorExcludeQuantile: u16 = 10; // 0.1
-    pub const ParatensorInitialValidatorPruneLen: u64 = 0;
-    pub const ParatensorInitialValidatorLogitsDivergence: u64 = 0;
-    pub const ParatensorInitialScalingLawPower: u16 = 50; // 0.5
-    pub const ParatensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
-    pub const ParatensorInitialMaxAllowedValidators: u16 = 100;
-    pub const ParatensorInitialTempo: u16 = 0;
-    pub const ParatensorInitialDifficulty: u64 = 1;
-    pub const ParatensorInitialAdjustmentInterval: u16 = 100;
-    pub const ParatensorInitialTargetRegistrationsPerInterval: u16 = 2;
-    pub const ParatensorInitialImmunityPeriod: u16 = 200;
-    pub const ParatensorInitialActivityCutoff: u16 = 5000;
-    pub const ParatensorInitialMaxRegistrationsPerBlock: u16 = 50;
-    pub const ParatensorInitialPruningScore : u16 = u16::MAX;
-    pub const ParatensorInitialBondsMovingAverage: u64 = 900000;
-    pub const ParatensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const ParatensorInitialWeightsVersionKey: u64 = 0;
-    pub const ParatensorInitialMinDifficulty: u64 = 1;
-    pub const ParatensorInitialMaxDifficulty: u64 = 10;
-    pub const ParatensorInitialServingRateLimit: u64 = 1000; 
-	pub const ParatensorInitialBurn: u64 = 0; 
-	pub const ParatensorInitialMinBurn: u64 = 0; 
-	pub const ParatensorInitialMaxBurn: u64 = 1_000_000_000;
-}
-
-impl pallet_subtensor::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type InitialRho = ParatensorInitialRho;
-	type InitialKappa = ParatensorInitialKappa;
-	type InitialWeightCuts = ParatensorInitialWeightCuts;
-	type InitialMaxAllowedUids = ParatensorInitialMaxAllowedUids;
-	type InitialBondsMovingAverage = ParatensorInitialBondsMovingAverage;
-	type InitialIssuance = ParatensorInitialIssuance;
-	type InitialMinAllowedWeights = ParatensorInitialMinAllowedWeights;
-	type InitialEmissionValue = ParatensorInitialEmissionValue;
-	type InitialMaxWeightsLimit = ParatensorInitialMaxWeightsLimit;
-	type InitialValidatorBatchSize = ParatensorInitialValidatorBatchSize;
-	type InitialValidatorSequenceLen = ParatensorInitialValidatorSequenceLen;
-	type InitialValidatorEpochLen = ParatensorInitialValidatorEpochLen;
-	type InitialValidatorEpochsPerReset = ParatensorInitialValidatorEpochsPerReset;
-	type InitialValidatorExcludeQuantile = ParatensorInitialValidatorExcludeQuantile;
-	type InitialValidatorPruneLen = ParatensorInitialValidatorPruneLen;
-	type InitialValidatorLogitsDivergence = ParatensorInitialValidatorLogitsDivergence;
-	type InitialScalingLawPower = ParatensorInitialScalingLawPower;
-	type InitialSynergyScalingLawPower = ParatensorInitialSynergyScalingLawPower;
-	type InitialTempo = ParatensorInitialTempo;
-	type InitialDifficulty = ParatensorInitialDifficulty;
-	type InitialAdjustmentInterval = ParatensorInitialAdjustmentInterval;
-	type InitialTargetRegistrationsPerInterval = ParatensorInitialTargetRegistrationsPerInterval;
-	type InitialImmunityPeriod = ParatensorInitialImmunityPeriod;
-	type InitialActivityCutoff = ParatensorInitialActivityCutoff;
-	type InitialMaxRegistrationsPerBlock = ParatensorInitialMaxRegistrationsPerBlock;
-	type InitialPruningScore = ParatensorInitialPruningScore;
-	type InitialMaxAllowedValidators = ParatensorInitialMaxAllowedValidators;
-	type InitialDefaultTake = ParatensorInitialDefaultTake;
-	type InitialWeightsVersionKey = ParatensorInitialWeightsVersionKey;
-	type InitialMaxDifficulty = ParatensorInitialMaxDifficulty;
-	type InitialMinDifficulty = ParatensorInitialMinDifficulty;
-	type InitialServingRateLimit = ParatensorInitialServingRateLimit;
-	type InitialBurn = ParatensorInitialBurn;
-	type InitialMaxBurn = ParatensorInitialMaxBurn;
-	type InitialMinBurn = ParatensorInitialMinBurn;
-}
-
-
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
@@ -500,7 +416,7 @@ mod benches {
 		[frame_benchmarking, BaselineBench::<Runtime>]
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
-		[pallet_subtensor, Subtensor]
+		[pallet_subtensor, SubtensorModule]
 		[pallet_timestamp, Timestamp]
 	);
 }
