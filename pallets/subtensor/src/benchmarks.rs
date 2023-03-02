@@ -97,7 +97,7 @@ benchmarks! {
         
   }: register( RawOrigin::Signed( caller.clone() ), netuid, block_number, nonce, work, hotkey, coldkey )
 
- /* benchmark_epoch_with_weights { 
+ benchmark_epoch_with_weights { 
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     Subtensor::<T>::create_network_with_weights(
@@ -108,7 +108,7 @@ benchmarks! {
       100u16.into(), // n_vals
       1000u16.into() // nweights
     );
-  }: _( RawOrigin::Signed( caller.clone() ) ) */
+  }: _( RawOrigin::Signed( caller.clone() ) ) 
 
   benchmark_set_weights {
     
