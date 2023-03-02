@@ -1,0 +1,23 @@
+[package]
+name = "subtensor-custom-rpc-runtime-api"
+version = "0.0.2"
+edition = "2021"
+authors = ['Cameron Fairchild <https://github.com/camfairchild>']
+repository = 'https://github.com/opentensor/paratensor'
+description = "A pallet that adds a custom runtime API to paratensor"
+license = "MIT"
+publish = false
+
+[dependencies]
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.37", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.37" }
+serde = { version = "1.0.132", features = ["derive"], default-features = false }
+
+# local 
+pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"sp-api/std",
+]
