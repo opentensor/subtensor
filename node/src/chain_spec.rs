@@ -7,6 +7,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_core::crypto::Ss58Codec;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -34,6 +35,21 @@ where
 /// Generate an Aura authority key.
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+}
+
+pub fn authority_keys_from_ss58(s_aura :&str, s_grandpa : &str) -> (AuraId, GrandpaId) {
+	(
+		get_aura_from_ss58_addr(s_aura),
+		get_grandpa_from_ss58_addr(s_grandpa),
+	)
+}
+
+pub fn get_aura_from_ss58_addr(s: &str) -> AuraId {
+	Ss58Codec::from_ss58check(s).unwrap()
+}
+
+pub fn get_grandpa_from_ss58_addr(s: &str) -> GrandpaId {
+	Ss58Codec::from_ss58check(s).unwrap()
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
@@ -124,6 +140,42 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	))
 }
 
+pub fn finney_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Finney",
+		// ID
+		"Finney",
+		ChainType::Development,
+		move || {
+			testnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities (Validators)
+				vec![authority_keys_from_ss58("5Egz1kszkGoAsKLQerCmYYhNGMpf5ub32oq6Qbcuf8YLouvV", "5HHrLkyPGRA9jqb9jsHZq1XoZGfDvz8yUbXb44v13sRErboL")], // key 1
+				// Sudo account
+				Ss58Codec::from_ss58check("5G3rrAtAsZiZsRKhi9y7yckwhB6HL8AwD8K3J28YNX4n2tMZ").unwrap(), 
+				// Pre-funded accounts
+				vec![
+				],
+				true,
+			)
+		},
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		None,
+		None,
+		// Properties
+		None,
+		// Extensions
+		None,
+	))
+}
+
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
@@ -152,5 +204,38 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
+//		subtensor_module: Default::default(),
+	}
+}
+
+/// Configure initial storage state for FRAME modules.
+fn finney_genesis(
+	wasm_binary: &[u8],
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	root_key: AccountId,
+	endowed_accounts: Vec<AccountId>,
+	_enable_println: bool,
+) -> GenesisConfig {
+	GenesisConfig {
+		system: SystemConfig {
+			// Add Wasm runtime to storage.
+			code: wasm_binary.to_vec(),
+		},
+		balances: BalancesConfig {
+			// Configure endowed accounts with initial balance of 1 << 60.
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+		},
+		aura: AuraConfig {
+			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+		},
+		grandpa: GrandpaConfig {
+			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			// Assign network admin rights.
+			key: Some(root_key),
+		},
+		transaction_payment: Default::default(),
+//		subtensor_module: Default::default(),
 	}
 }
