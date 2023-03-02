@@ -1,4 +1,4 @@
-// RUST_BACKTRACE=1 cargo test epoch -- test_nill_epoch_paratensor test_1_graph test_10_graph test_512_graph test_4096_graph test_4096_graph_random_weights test_active_stake test_outdated_weights test_zero_weights --exact
+// RUST_BACKTRACE=1 cargo test epoch -- test_nill_epoch_subtensor test_1_graph test_10_graph test_512_graph test_4096_graph test_4096_graph_random_weights test_active_stake test_outdated_weights test_zero_weights --exact
 
 use crate::mock::*;
 use rand::{Rng, thread_rng, SeedableRng, rngs::StdRng, seq::SliceRandom, distributions::Uniform};
@@ -276,7 +276,7 @@ fn test_overflow() {
 
 // Test an epoch on an empty graph.
 #[test]
-fn test_nill_epoch_paratensor() {
+fn test_nill_epoch_subtensor() {
 	new_test_ext().execute_with(|| {
         log::info!( "test_nill_epoch:" );
 		SubtensorModule::epoch( 0, 0 );
