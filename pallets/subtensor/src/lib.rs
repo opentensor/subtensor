@@ -5,7 +5,32 @@
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
+use frame_system::{
+	self as system,
+	ensure_signed
+};
 
+use frame_support::
+{
+	dispatch,
+	ensure,
+	traits:: {
+		Currency,
+		tokens::{
+			WithdrawReasons
+		},
+		ExistenceRequirement
+	}
+};
+
+/// =========================
+///	==== Pallet Imports =====
+/// =========================
+mod weights;
+mod utils;
+mod uids;
+mod networks;
+mod staking;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -599,43 +624,76 @@ pub mod pallet {
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
-		#[pallet::call_index(0)]
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
-			let who = ensure_signed(origin)?;
 
-			// Update storage.
-			<Something<T>>::put(something);
-
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-			// Return a successful DispatchResultWithPostInfo
-			Ok(())
-		}
-
-		/// An example dispatchable that may throw a custom error.
-		#[pallet::call_index(1)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			// Read a value from storage.
-			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => return Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
-					Ok(())
-				},
-			}
+		/// --- Sets the caller weights for the incentive mechanism. The call can be
+		/// made from the hotkey account so is potentially insecure, however, the damage
+		/// of changing weights is minimal if caught early. This function includes all the
+		/// checks that the passed weights meet the requirements. Stored as u16s they represent
+		/// rational values in the range [0,1] which sum to 1 and can be interpreted as
+		/// probabilities. The specific weights determine how inflation propagates outward
+		/// from this peer. 
+		/// 
+		/// Note: The 16 bit integers weights should represent 1.0 as the max u16.
+		/// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
+		/// elements is larger or smaller than the amount of elements * u16_max, all elements
+		/// will be corrected for this deviation. 
+		/// 
+		/// # Args:
+		/// 	* `origin`: (<T as frame_system::Config>Origin):
+		/// 		- The caller, a hotkey who wishes to set their weights.
+		///
+		/// 	* `netuid` (u16):
+		/// 		- The network uid we are setting these weights on.
+		/// 
+		/// 	* `dests` (Vec<u16>):
+		/// 		- The edge endpoint for the weight, i.e. j for w_ij.
+		///
+		/// 	* 'weights' (Vec<u16>):
+		/// 		- The u16 integer encoded weights. Interpreted as rational
+		/// 		values in the range [0,1]. They must sum to in32::MAX.
+		///
+		/// 	* 'version_key' ( u64 ):
+    	/// 		- The network version key to check if the validator is up to date.
+		///
+		/// # Event:
+		/// 	* WeightsSet;
+		/// 		- On successfully setting the weights on chain.
+		///
+		/// # Raises:
+		/// 	* 'NetworkDoesNotExist':
+		/// 		- Attempting to set weights on a non-existent network.
+		///
+		/// 	* 'NotRegistered':
+		/// 		- Attempting to set weights from a non registered account.
+		///
+		/// 	* 'WeightVecNotEqualSize':
+		/// 		- Attempting to set weights with uids not of same length.
+		///
+		/// 	* 'DuplicateUids':
+		/// 		- Attempting to set weights with duplicate uids.
+		///		
+		///     * 'TooManyUids':
+		/// 		- Attempting to set weights above the max allowed uids.
+		///
+		/// 	* 'InvalidUid':
+		/// 		- Attempting to set weights with invalid uids.
+		///
+		/// 	* 'NotSettingEnoughWeights':
+		/// 		- Attempting to set weights with fewer weights than min.
+		///
+		/// 	* 'MaxWeightExceeded':
+		/// 		- Attempting to set weights with max value exceeding limit.
+        #[pallet::weight((Weight::from_ref_time(15_979_124_000 as u64)
+		.saturating_add(T::DbWeight::get().reads(4104 as u64))
+		.saturating_add(T::DbWeight::get().writes(2 as u64)), DispatchClass::Normal, Pays::No))]
+		pub fn set_weights(
+			origin:OriginFor<T>, 
+			netuid: u16,
+			dests: Vec<u16>, 
+			weights: Vec<u16>,
+			version_key: u64 
+		) -> DispatchResult {
+			Self::do_set_weights( origin, netuid, dests, weights, version_key )
 		}
 	}
 }
