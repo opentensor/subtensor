@@ -6,10 +6,12 @@
 pub use pallet::*;
 
 
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use frame_support::traits::{Currency};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -20,7 +22,86 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
+		/// --- Currency type that will be used to place deposits on neurons
+		type Currency: Currency<Self::AccountId> + Send + Sync;
+
+		/// =================================
+		/// ==== Initial Value Constants ====
+		/// =================================
+		#[pallet::constant] /// Initial currency issuance.
+		type InitialIssuance: Get<u64>;
+		#[pallet::constant] /// Initial min allowed weights setting.
+		type InitialMinAllowedWeights: Get<u16>;
+		#[pallet::constant] /// Initial Emission Ratio
+		type InitialEmissionValue: Get<u16>;
+		#[pallet::constant] /// Initial max weight limit.
+		type InitialMaxWeightsLimit: Get<u16>;
+		#[pallet::constant] /// Tempo for each network
+		type InitialTempo: Get<u16>;
+		#[pallet::constant] /// Initial Difficulty.
+		type InitialDifficulty: Get<u64>;
+		#[pallet::constant] /// Initial Max Difficulty.
+		type InitialMaxDifficulty: Get<u64>;
+		#[pallet::constant] /// Initial Min Difficulty.
+		type InitialMinDifficulty: Get<u64>;
+		#[pallet::constant] /// Initial Burn.
+		type InitialBurn: Get<u64>;
+		#[pallet::constant] /// Initial Max Burn.
+		type InitialMaxBurn: Get<u64>;
+		#[pallet::constant] /// Initial Min Burn.
+		type InitialMinBurn: Get<u64>;
+		#[pallet::constant] /// Initial adjustment interval.
+		type InitialAdjustmentInterval: Get<u16>;
+		#[pallet::constant] /// Initial bonds moving average.
+		type InitialBondsMovingAverage: Get<u64>;
+		#[pallet::constant] /// Initial target registrations per interval.
+		type InitialTargetRegistrationsPerInterval: Get<u16>;
+		#[pallet::constant] /// Initial number of weight cuts in epoch.
+		type InitialWeightCuts: Get<u16>;
+		#[pallet::constant] /// Rho constant
+		type InitialRho: Get<u16>;
+		#[pallet::constant] /// Kappa constant
+		type InitialKappa: Get<u16>;		
+		#[pallet::constant] /// Max UID constant.
+		type InitialMaxAllowedUids: Get<u16>;
+		#[pallet::constant] /// Default Batch size.
+		type InitialValidatorBatchSize: Get<u16>;
+		#[pallet::constant] /// Default Batch size.
+		type InitialValidatorSequenceLen: Get<u16>;
+		#[pallet::constant] /// Default Epoch length.
+		type InitialValidatorEpochLen: Get<u16>;
+		#[pallet::constant] /// Default Reset length.
+		type InitialValidatorEpochsPerReset: Get<u16>;
+		#[pallet::constant] /// Initial validator exclude quantile.
+		type InitialValidatorExcludeQuantile: Get<u16>;
+		#[pallet::constant] /// Initial validator logits divergence penalty/threshold.
+		type InitialValidatorLogitsDivergence: Get<u64>;
+		#[pallet::constant] /// Initial validator context pruning length.
+		type InitialValidatorPruneLen: Get<u64>; 
+		#[pallet::constant] /// Initial scaling law power.
+		type InitialScalingLawPower: Get<u16>;
+		#[pallet::constant] /// Initial synergy scaling law power.
+		type InitialSynergyScalingLawPower: Get<u16>;
+		#[pallet::constant] /// Immunity Period Constant.
+		type InitialImmunityPeriod: Get<u16>;
+		#[pallet::constant] /// Activity constant
+		type InitialActivityCutoff: Get<u16>;
+		#[pallet::constant] /// Initial max registrations per block.
+		type InitialMaxRegistrationsPerBlock: Get<u16>;
+		#[pallet::constant] /// Initial pruning score for each neuron
+		type InitialPruningScore: Get<u16>;	
+		#[pallet::constant] /// Initial allowed validators per network.
+		type InitialMaxAllowedValidators: Get<u16>;
+		#[pallet::constant] /// Initial default delegation take.
+		type InitialDefaultTake: Get<u16>;
+		#[pallet::constant] /// Initial weights version key.
+		type InitialWeightsVersionKey: Get<u64>;
+		#[pallet::constant] /// Initial serving rate limit.
+		type InitialServingRateLimit: Get<u64>;
 	}
+
+	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/main-docs/build/runtime-storage/
