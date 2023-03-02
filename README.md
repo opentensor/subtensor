@@ -13,10 +13,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
 
 </div>
-This repository contains Bittensor's substrate-chain. Subtensor contains the trusted logic which 
+This repository contains Bittensor's substrate-chain. Subtensor contains the trusted logic which:
+
 1. Runs Bittensor's consensus mechanism
-2. Advertises neuron information, IPs, etc
-3. and facilitates value transfer via TAO.
+1. Advertises neuron information, IPs, etc
+1. and facilitates value transfer via TAO.
 
 </div>
 ## System Requirements
