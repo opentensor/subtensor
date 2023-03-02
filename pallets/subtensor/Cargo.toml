@@ -30,6 +30,7 @@ serde_with = { version = "=2.0.0", default-features = false, features=["macros"]
 sp-runtime = { version = "7.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.37" }
 sp-std = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.37" }
 log = { version = "0.4.14", default-features = false }
+substrate-fixed = { git = 'https://github.com/encointer/substrate-fixed.git', tag = "v0.5.9" }
 
 
 [dev-dependencies]
