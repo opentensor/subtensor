@@ -575,6 +575,25 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 	}
 
+	/// ================
+	/// ==== Hooks =====
+	/// ================
+	#[pallet::hooks] 
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> { 
+		/// ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
+		///
+		/// # Args:
+		/// 	* 'n': (T::BlockNumber):
+		/// 		- The number of the block we are initializing.
+		fn on_initialize( _block_number: BlockNumberFor<T> ) -> Weight {
+			//Self::block_step();
+			
+			return Weight::from_ref_time(110_634_229_000 as u64)
+						.saturating_add(T::DbWeight::get().reads(8304 as u64))
+						.saturating_add(T::DbWeight::get().writes(110 as u64));
+		}
+	}
+
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
