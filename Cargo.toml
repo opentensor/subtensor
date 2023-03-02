@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "node",
-    "pallets/subtensor",
     "runtime",
 ]
 [profile.release]
