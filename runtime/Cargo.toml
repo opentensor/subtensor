@@ -13,6 +13,8 @@ repository = "https://github.com/substrate-developer-hub/substrate-node-subtenso
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../pallets/subtensor" }
+
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
 
@@ -94,13 +96,13 @@ runtime-benchmarks = [
 	"pallet-grandpa/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-subtensor/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"frame-executive/try-runtime",
 	"frame-system/try-runtime",
 	"frame-support/try-runtime",
-	"pallet-subtensor/try-runtime",
 	"pallet-aura/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-grandpa/try-runtime",
@@ -108,4 +110,5 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
+	"pallet-subtensor/try-runtime",
 ]
