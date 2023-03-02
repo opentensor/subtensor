@@ -8,6 +8,23 @@
                                                                              
 ```
 
+# **Subtensor** <!-- omit in toc -->
+[![Discord Chat](https://img.shields.io/discord/308323056592486420.svg)](https://discord.gg/bittensor)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+
+</div>
+This repository contains Bittensor's substrate-chain. Subtensor contains the trusted logic which 
+1. Runs Bittensor's consensus mechanism
+2. Advertises neuron information, IPs, etc
+3. and facilitates value transfer via TAO.
+
+## System Requirements
+* The binaries in ./bin/release are x86_64 binaries to be used with the Linux kernel.  
+* Subtensor needs ~286 MiB to run.                      
+* Architectures other than x86_64 are currently not supported.
+* OSs other than Linux and MacOS are currently not supported.   
+
+
 [![Try on playground](https://img.shields.io/badge/Playground-Node_Template-brightgreen?logo=Parity%20Substrate)](https://docs.substrate.io/playground/) [![Matrix](https://img.shields.io/matrix/substrate-technical:matrix.org)](https://matrix.to/#/#substrate-technical:matrix.org)
 
 A fresh FRAME-based [Substrate](https://www.substrate.io/) node, ready for hacking :rocket:
