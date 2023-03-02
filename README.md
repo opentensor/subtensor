@@ -20,6 +20,7 @@ This repository contains Bittensor's substrate-chain. Subtensor contains the tru
 1. and facilitates value transfer via TAO.
 
 </div>
+
 ## System Requirements
 
 * The binaries in ./bin/release are x86_64 binaries to be used with the Linux kernel.  
