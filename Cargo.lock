@@ -4060,6 +4060,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
+ "subtensor-custom-rpc-runtime-api",
 ]
 
 [[package]]
@@ -4369,6 +4370,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
  "serde",
@@ -7750,6 +7752,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42ee6433ecef213b2e72f587ef64a2f5943e7cd16fbd82dbe8bc07486c534c86"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "subtensor-custom-rpc-runtime-api"
+version = "0.0.2"
+dependencies = [
+ "frame-support",
+ "pallet-subtensor",
+ "serde",
+ "sp-api",
 ]
 
 [[package]]

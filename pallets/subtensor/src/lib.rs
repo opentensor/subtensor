@@ -53,18 +53,20 @@ mod benchmarks;
 ///	==== Pallet Imports =====
 /// =========================
 mod block_step;
-mod delegate_info;
+
 mod epoch;
 mod math;
 mod networks;
-mod neuron_info;
 mod registration;
 mod serving;
 mod staking;
-mod subnet_info;
 mod utils;
 mod uids;
 mod weights;
+
+pub mod delegate_info;
+pub mod neuron_info;
+pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -1424,7 +1426,7 @@ pub mod pallet {
 		} 
 	}	
 
-	// ---- Paratensor helper functions.
+	// ---- Subtensor helper functions.
 	impl<T: Config> Pallet<T> {
 		// --- Returns the transaction priority for setting weights.
 		pub fn get_priority_set_weights( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
@@ -1459,9 +1461,9 @@ impl Default for CallType {
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-pub struct ParatensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
-impl<T: Config + Send + Sync + TypeInfo> ParatensorSignedExtension<T> where
+impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T> where
 	T::RuntimeCall: Dispatchable<Info=DispatchInfo, PostInfo=PostDispatchInfo>,
 	<T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
@@ -1482,18 +1484,18 @@ impl<T: Config + Send + Sync + TypeInfo> ParatensorSignedExtension<T> where
 	}
 }
 
-impl <T:Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for ParatensorSignedExtension<T> {
+impl <T:Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedExtension<T> {
 	fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
 		write!(f, "SubtensorSignedExtension")
 	}
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for ParatensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExtension<T>
     where
         T::RuntimeCall: Dispatchable<Info=DispatchInfo, PostInfo=PostDispatchInfo>,
         <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-	const IDENTIFIER: &'static str = "ParatensorSignedExtension";
+	const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
 	type AccountId = T::AccountId;
 	type Call = T::RuntimeCall;

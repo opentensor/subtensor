@@ -9,7 +9,7 @@ use frame_system::{ensure_signed};
 use sp_std::vec::Vec;
 use substrate_fixed::types::I32F32;
 
-const LOG_TARGET: &'static str = "runtime::paratensor::registration";
+const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
 
