@@ -19,3 +19,7 @@
 # direnv files
 .envrc
 .direnv
+
+# Vim (BTW™)
+*.swp
+*.swo
