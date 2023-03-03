@@ -636,6 +636,69 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 	}
 
+	/// ==================
+	/// ==== Genesis =====
+	/// ==================
+
+	#[pallet::genesis_config]
+	#[cfg(feature = "std")]
+	pub struct GenesisConfig<T: Config> {
+		pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, u64)>)>
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { 
+				stakes: Default::default()
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			let netuid: u16 = 4;
+			let mut next_uid = 0;
+
+			for (coldkey, hotkeys) in self.stakes.iter() {
+				for (hotkey, stake) in hotkeys.iter() {
+					// Increase the uid count.
+					SubnetworkN::<T>::insert( netuid, next_uid );
+	
+					// Expand Yuma Consensus with new position.
+					Rank::<T>::mutate(netuid, |v| v.push(0) );
+					Trust::<T>::mutate(netuid, |v| v.push(0) );
+					Active::<T>::mutate(netuid, |v| v.push( true ) );
+					Emission::<T>::mutate(netuid, |v| v.push(0) );
+					Consensus::<T>::mutate(netuid, |v| v.push(0) );
+					Incentive::<T>::mutate(netuid, |v| v.push(0) );
+					Dividends::<T>::mutate(netuid, |v| v.push(0) );
+					LastUpdate::<T>::mutate(netuid, |v| v.push( 0 ) );
+					PruningScores::<T>::mutate(netuid, |v| v.push(0) );
+					ValidatorTrust::<T>::mutate(netuid, |v| v.push(0) );
+					ValidatorPermit::<T>::mutate(netuid, |v| v.push(false) );
+			
+					// Insert account information.
+					Keys::<T>::insert( netuid, next_uid, hotkey.clone() ); // Make hotkey - uid association.
+					Uids::<T>::insert( netuid, hotkey.clone(), next_uid ); // Make uid - hotkey association.
+					BlockAtRegistration::<T>::insert( netuid, next_uid, 0 ); // Fill block at registration.
+					IsNetworkMember::<T>::insert( hotkey.clone(), netuid, true ); // Fill network is member.
+	
+					// Fill stake information.
+					Owner::<T>::insert(hotkey.clone(), coldkey.clone());
+	
+					TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
+					TotalColdkeyStake::<T>::insert(coldkey.clone(), TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake));
+	
+					Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
+	
+					next_uid += 1;
+				}
+			}
+		}
+	}
+
 	/// ================
 	/// ==== Hooks =====
 	/// ================
