@@ -117,6 +117,12 @@ Running individual tests
 SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo test <your test name> -- --nocapture
 ```
 
+Running code coverage
+```bash
+SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo tarpaulin --skip-clean
+```
+> Note; above requires `cargo-tarpaulin` is installed to the host, eg. `cargo install cargo-tarpaulin`
+
 </div>
 > Development chain means that the state of our chain will be in a tmp folder while the nodes are
 > running. Also, **alice** account will be authority and sudo account as declared in the
