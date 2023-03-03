@@ -78,7 +78,7 @@ Once the project has been built, the following command can be used to explore al
 subcommands:
 
 ```sh
-./target/release/subtensor -h
+./target/release/node-subtensor -h
 ```
 
 ## Run
@@ -92,13 +92,13 @@ node.
 This command will start the single-node development chain with non-persistent state:
 
 ```bash
-./target/release/subtensor --dev
+./target/release/node-subtensor --dev
 ```
 
 Purge the development chain's state:
 
 ```bash
-./target/release/subtensor purge-chain --dev
+./target/release/node-subtensor purge-chain --dev
 ```
 
 Start the development chain with detailed logging:
