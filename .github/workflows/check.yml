@@ -42,3 +42,15 @@ jobs:
         run: >
           pushd node &&
           cargo check --features=runtime-benchmarks --release
+
+      - name: Test pallets/subtensor
+        run: |
+          SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo test pallets/subtensor
+
+      - name: Test node
+        run: |
+          SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo test node
+
+      - name: Test runtime
+        run: |
+          SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo test runtime
