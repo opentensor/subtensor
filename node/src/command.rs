@@ -40,7 +40,6 @@ impl SubstrateCli for Cli {
 			"dev" => Box::new(chain_spec::development_config()?),
 			"" | "local" => Box::new(chain_spec::local_testnet_config()?),
 			"finney" =>Box::new(chain_spec::finney_config()?),
-			"nakamoto" => Box::new(chain_spec::nakamoto_config(std::path::PathBuf::from("nakamoto_gen.json"))?),
 			path =>
 				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
 		})
