@@ -636,9 +636,113 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 	}
 
+	// ==================
+	// ==== Genesis =====
+	// ==================
+
+	#[pallet::genesis_config]
+	#[cfg(feature = "std")]
+	pub struct GenesisConfig<T: Config> {
+		pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, u64)>)>
+	}
+
+	#[cfg(feature = "std")]
+	impl<T: Config> Default for GenesisConfig<T> {
+		fn default() -> Self {
+			Self { 
+				stakes: Default::default()
+			}
+		}
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+		fn build(&self) {
+			let netuid: u16 = 3;
+			let tempo = 99;
+			let max_uids = 4096;
+			
+			// The functions for initializing new networks/setting defaults cannot be run directly from genesis functions like extrinsics would
+			// --- 1. Set network to 0 size.
+			SubnetworkN::<T>::insert( netuid, 0 );
+
+			// --- 2. Set this network uid to alive.
+			NetworksAdded::<T>::insert( netuid, true );
+			
+			// --- 3. Fill tempo memory item.
+			Tempo::<T>::insert( netuid, tempo );
+	
+			// --- 4 Fill modality item.
+			NetworkModality::<T>::insert( netuid, 1 );
+	
+			// --- 5. Increase total network count.
+			TotalNetworks::<T>::mutate( |n| *n += 1 );
+
+			// Make network parameters explicit.
+			if !Tempo::<T>::contains_key( netuid ) { Tempo::<T>::insert( netuid, Tempo::<T>::get( netuid ));}
+			if !Kappa::<T>::contains_key( netuid ) { Kappa::<T>::insert( netuid, Kappa::<T>::get( netuid ));}
+			if !Difficulty::<T>::contains_key( netuid ) { Difficulty::<T>::insert( netuid, Difficulty::<T>::get( netuid ));}
+			if !MaxAllowedUids::<T>::contains_key( netuid ) { MaxAllowedUids::<T>::insert( netuid, MaxAllowedUids::<T>::get( netuid ));}
+			if !ImmunityPeriod::<T>::contains_key( netuid ) { ImmunityPeriod::<T>::insert( netuid, ImmunityPeriod::<T>::get( netuid ));}
+			if !ActivityCutoff::<T>::contains_key( netuid ) { ActivityCutoff::<T>::insert( netuid, ActivityCutoff::<T>::get( netuid ));}
+			if !EmissionValues::<T>::contains_key( netuid ) { EmissionValues::<T>::insert( netuid, EmissionValues::<T>::get( netuid ));}   
+			if !MaxWeightsLimit::<T>::contains_key( netuid ) { MaxWeightsLimit::<T>::insert( netuid, MaxWeightsLimit::<T>::get( netuid ));}
+			if !ValidatorEpochLen::<T>::contains_key( netuid ) { ValidatorEpochLen::<T>::insert( netuid, ValidatorEpochLen::<T>::get( netuid ));}
+			if !MinAllowedWeights::<T>::contains_key( netuid ) { MinAllowedWeights::<T>::insert( netuid, MinAllowedWeights::<T>::get( netuid )); }
+			if !ValidatorBatchSize::<T>::contains_key( netuid ) { ValidatorBatchSize::<T>::insert( netuid, ValidatorBatchSize::<T>::get( netuid ));}
+			if !ValidatorEpochsPerReset::<T>::contains_key( netuid ) { ValidatorEpochsPerReset::<T>::insert( netuid, ValidatorEpochsPerReset::<T>::get( netuid ));}
+			if !ValidatorSequenceLength::<T>::contains_key( netuid ) { ValidatorSequenceLength::<T>::insert( netuid, ValidatorSequenceLength::<T>::get( netuid ));}
+			if !RegistrationsThisInterval::<T>::contains_key( netuid ) { RegistrationsThisInterval::<T>::insert( netuid, RegistrationsThisInterval::<T>::get( netuid ));}
+			if !POWRegistrationsThisInterval::<T>::contains_key( netuid ) { POWRegistrationsThisInterval::<T>::insert( netuid, POWRegistrationsThisInterval::<T>::get( netuid ));}
+			if !BurnRegistrationsThisInterval::<T>::contains_key( netuid ) { BurnRegistrationsThisInterval::<T>::insert( netuid, BurnRegistrationsThisInterval::<T>::get( netuid ));}
+
+			// Set max allowed uids
+			MaxAllowedUids::<T>::insert( netuid, max_uids );
+
+			let mut next_uid = 0;
+
+			for (coldkey, hotkeys) in self.stakes.iter() {
+				for (hotkey, stake) in hotkeys.iter() {
+					// Increase the uid count.
+					SubnetworkN::<T>::insert( netuid, next_uid );
+	
+					// Expand Yuma Consensus with new position.
+					Rank::<T>::mutate(netuid, |v| v.push(0) );
+					Trust::<T>::mutate(netuid, |v| v.push(0) );
+					Active::<T>::mutate(netuid, |v| v.push( true ) );
+					Emission::<T>::mutate(netuid, |v| v.push(0) );
+					Consensus::<T>::mutate(netuid, |v| v.push(0) );
+					Incentive::<T>::mutate(netuid, |v| v.push(0) );
+					Dividends::<T>::mutate(netuid, |v| v.push(0) );
+					LastUpdate::<T>::mutate(netuid, |v| v.push( 0 ) );
+					PruningScores::<T>::mutate(netuid, |v| v.push(0) );
+					ValidatorTrust::<T>::mutate(netuid, |v| v.push(0) );
+					ValidatorPermit::<T>::mutate(netuid, |v| v.push(false) );
+			
+					// Insert account information.
+					Keys::<T>::insert( netuid, next_uid, hotkey.clone() ); // Make hotkey - uid association.
+					Uids::<T>::insert( netuid, hotkey.clone(), next_uid ); // Make uid - hotkey association.
+					BlockAtRegistration::<T>::insert( netuid, next_uid, 0 ); // Fill block at registration.
+					IsNetworkMember::<T>::insert( hotkey.clone(), netuid, true ); // Fill network is member.
+	
+					// Fill stake information.
+					Owner::<T>::insert(hotkey.clone(), coldkey.clone());
+	
+					TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
+					TotalColdkeyStake::<T>::insert(coldkey.clone(), TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake));
+	
+					Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
+	
+					next_uid += 1;
+				}
+			}
+		}
+	}
+
 	// ================
 	// ==== Hooks =====
 	// ================
+  
 	#[pallet::hooks] 
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> { 
 		// ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)

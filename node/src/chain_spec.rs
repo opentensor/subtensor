@@ -1,6 +1,6 @@
 use node_subtensor_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	SystemConfig, WASM_BINARY, SubtensorModuleConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -140,8 +140,67 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	))
 }
 
+// Includes for nakamoto genesis
+use std::{fs::File, path::PathBuf};
+use serde::{Deserialize};
+use serde_json as json;
+
+// Configure storage from nakamoto data
+#[derive(Deserialize, Debug)]
+struct ColdkeyHotkeys {
+	stakes: std::collections::HashMap<String, std::collections::HashMap<String, u64>>,
+	balances: std::collections::HashMap<String, u64>
+}
+
 pub fn finney_config() -> Result<ChainSpec, String> {
+	let path: PathBuf = std::path::PathBuf::from("nakamoto_gen.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+	// We mmap the file into memory first, as this is *a lot* faster than using
+	// `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
+	let file = File::open(&path)
+		.map_err(|e| format!("Error opening genesis file `{}`: {}", path.display(), e))?;
+
+	// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
+	//         underneath us while it is mapped; in practice it's unlikely to be a problem
+	let bytes = unsafe {
+		memmap2::Mmap::map(&file)
+			.map_err(|e| format!("Error mmaping genesis file `{}`: {}", path.display(), e))?
+	};
+
+	let old_state: ColdkeyHotkeys =
+		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
+
+	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, u64)>)> = Vec::new();
+	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
+		let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+		let coldkey_account = sp_runtime::AccountId32::from(coldkey);
+
+		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+
+		for (hotkey_str, amount) in hotkeys.iter() {
+			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
+
+			processed_hotkeys.push((hotkey_account, *amount));
+		}
+
+		processed_stakes.push((coldkey_account, processed_hotkeys));
+	}
+
+	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+	for (key_str, amount) in old_state.balances.iter() {
+		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
+		let key_account = sp_runtime::AccountId32::from(key);
+
+		/*
+		if *amount < 1_000_000 {
+			continue
+		}
+		*/
+			
+		processed_balances.push((key_account, *amount))
+	}
 
 	Ok(ChainSpec::from_genesis(
 		// Name
@@ -150,7 +209,7 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 		"Finney",
 		ChainType::Development,
 		move || {
-			testnet_genesis(
+			finney_genesis(
 				wasm_binary,
 				// Initial PoA authorities (Validators)
 				// aura | grandpa
@@ -182,6 +241,8 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 				vec![
 				],
 				true,
+				processed_stakes.clone(),
+				processed_balances.clone()
 			)
 		},
 		// Bootnodes
@@ -226,7 +287,7 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		//subtensor_module: Default::default(),
+		subtensor_module: Default::default(),
 	}
 }
 
@@ -235,8 +296,11 @@ fn finney_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
+	stakes: Vec<(AccountId, Vec<(AccountId, u64)>)>,
+	balances: Vec<(AccountId, u64)>
+
 ) -> GenesisConfig {
 	GenesisConfig {
 		system: SystemConfig {
@@ -245,7 +309,7 @@ fn finney_genesis(
 		},
 		balances: BalancesConfig {
 			// Configure endowed accounts with initial balance of 1 << 60.
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			balances: balances.iter().cloned().map(|k| k).collect(),
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -258,6 +322,8 @@ fn finney_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-		//subtensor_module: Default::default(),
+		subtensor_module: SubtensorModuleConfig {
+			stakes: stakes
+		},
 	}
 }
