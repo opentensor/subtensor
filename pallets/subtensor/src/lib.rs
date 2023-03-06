@@ -658,6 +658,7 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
+			// Subnet config values
 			let netuid: u16 = 3;
 			let tempo = 99;
 			let max_uids = 4096;
