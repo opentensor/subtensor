@@ -533,7 +533,7 @@ fn test_sudo_set_network_connection_requirement() {
     });
 }
 
-/// -------- tests for PendingEmissionValues --------
+// -------- tests for PendingEmissionValues --------
 #[test]
 fn test_sudo_test_tempo_pending_emissions_ok() {
 	new_test_ext().execute_with(|| {

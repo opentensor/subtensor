@@ -13,7 +13,7 @@ mod mock;
 	subscribing::subscribe() tests
 *********************************************/
 
-/// Tests a basic registration dispatch passes.
+// Tests a basic registration dispatch passes.
 #[test]
 fn test_registration_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {

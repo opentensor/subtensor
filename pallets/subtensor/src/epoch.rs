@@ -7,8 +7,8 @@ use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> {
 
-    /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
-    /// (Dense version used only for testing purposes.)
+    // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
+    // (Dense version used only for testing purposes.)
     pub fn epoch_dense( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
   
         // Get subnetwork size.
@@ -265,19 +265,19 @@ impl<T: Config> Pallet<T> {
 
     }
 
-    /// Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and 
-    /// returns the emissions for uids/hotkeys in a given `netuid`.
-    ///
-    /// # Args:
-    /// 	* 'netuid': ( u16 ):
-    ///         - The network to distribute the emission onto.
-    /// 		
-    /// 	* 'rao_emission': ( u64 ):
-    ///         - The total emission for the epoch.
-    ///
-    /// 	* 'debug' ( bool ):
-    /// 		- Print debugging outputs.
-    ///    
+    // Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and 
+    // returns the emissions for uids/hotkeys in a given `netuid`.
+    //
+    // # Args:
+    // 	* 'netuid': ( u16 ):
+    //         - The network to distribute the emission onto.
+    // 		
+    // 	* 'rao_emission': ( u64 ):
+    //         - The total emission for the epoch.
+    //
+    // 	* 'debug' ( bool ):
+    // 		- Print debugging outputs.
+    //    
     pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
