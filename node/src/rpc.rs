@@ -38,6 +38,9 @@ where
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
 	P: TransactionPool + 'static,
+	C::Api: subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block>,
+	C::Api: subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block>,
+	C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>,
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
