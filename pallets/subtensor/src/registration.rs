@@ -60,33 +60,33 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The signature of the calling coldkey. 
-    ///             Burned registers can only be created by the coldkey.
-    ///
-    /// 	* 'netuid' (u16):
-    /// 		- The u16 network identifier.
-    /// 
-    /// 	* 'hotkey' ( T::AccountId ):
-    /// 		- Hotkey to be registered to the network.
-    ///   
-    /// # Event:
-    /// 	* NeuronRegistered;
-    /// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
-    ///
-    /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
-    /// 		- Attempting to registed to a non existent network.
-    ///
-    /// 	* 'TooManyRegistrationsThisBlock':
-    /// 		- This registration exceeds the total allowed on this network this block.
-    ///
-    /// 	* 'AlreadyRegistered':
-    /// 		- The hotkey is already registered on this network.
-    ///
+    // ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the calling coldkey. 
+    //             Burned registers can only be created by the coldkey.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    // 
+    // 	* 'hotkey' ( T::AccountId ):
+    // 		- Hotkey to be registered to the network.
+    //   
+    // # Event:
+    // 	* NeuronRegistered;
+    // 		- On successfully registereing a uid to a neuron slot on a subnetwork.
+    //
+    // # Raises:
+    // 	* 'NetworkDoesNotExist':
+    // 		- Attempting to registed to a non existent network.
+    //
+    // 	* 'TooManyRegistrationsThisBlock':
+    // 		- This registration exceeds the total allowed on this network this block.
+    //
+    // 	* 'AlreadyRegistered':
+    // 		- The hotkey is already registered on this network.
+    //
     pub fn do_burned_registration( 
         origin: T::RuntimeOrigin,
         netuid: u16, 
@@ -164,56 +164,56 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic do_registration.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The signature of the calling hotkey.
-    ///
-    /// 	* 'netuid' (u16):
-    /// 		- The u16 network identifier.
-    ///
-    /// 	* 'block_number' ( u64 ):
-    /// 		- Block hash used to prove work done.
-    ///
-    /// 	* 'nonce' ( u64 ):
-    /// 		- Positive integer nonce used in POW.
-    ///
-    /// 	* 'work' ( Vec<u8> ):
-    /// 		- Vector encoded bytes representing work done.
-    ///
-    /// 	* 'hotkey' ( T::AccountId ):
-    /// 		- Hotkey to be registered to the network.
-    ///
-    /// 	* 'coldkey' ( T::AccountId ):
-    /// 		- Associated coldkey account.
-    ///
-    /// # Event:
-    /// 	* NeuronRegistered;
-    /// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
-    ///
-    /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
-    /// 		- Attempting to registed to a non existent network.
-    ///
-    /// 	* 'TooManyRegistrationsThisBlock':
-    /// 		- This registration exceeds the total allowed on this network this block.
-    ///
-    /// 	* 'AlreadyRegistered':
-    /// 		- The hotkey is already registered on this network.
-    ///
-    /// 	* 'InvalidWorkBlock':
-    /// 		- The work has been performed on a stale, future, or non existent block.
-    ///
-    /// 	* 'WorkRepeated':
-    /// 		- This work for block has already been used.
-    ///
-    /// 	* 'InvalidDifficulty':
-    /// 		- The work does not match the difficutly.
-    ///
-    /// 	* 'InvalidSeal':
-    /// 		- The seal is incorrect.
-    ///
+    // ---- The implementation for the extrinsic do_registration.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the calling hotkey.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'block_number' ( u64 ):
+    // 		- Block hash used to prove work done.
+    //
+    // 	* 'nonce' ( u64 ):
+    // 		- Positive integer nonce used in POW.
+    //
+    // 	* 'work' ( Vec<u8> ):
+    // 		- Vector encoded bytes representing work done.
+    //
+    // 	* 'hotkey' ( T::AccountId ):
+    // 		- Hotkey to be registered to the network.
+    //
+    // 	* 'coldkey' ( T::AccountId ):
+    // 		- Associated coldkey account.
+    //
+    // # Event:
+    // 	* NeuronRegistered;
+    // 		- On successfully registereing a uid to a neuron slot on a subnetwork.
+    //
+    // # Raises:
+    // 	* 'NetworkDoesNotExist':
+    // 		- Attempting to registed to a non existent network.
+    //
+    // 	* 'TooManyRegistrationsThisBlock':
+    // 		- This registration exceeds the total allowed on this network this block.
+    //
+    // 	* 'AlreadyRegistered':
+    // 		- The hotkey is already registered on this network.
+    //
+    // 	* 'InvalidWorkBlock':
+    // 		- The work has been performed on a stale, future, or non existent block.
+    //
+    // 	* 'WorkRepeated':
+    // 		- This work for block has already been used.
+    //
+    // 	* 'InvalidDifficulty':
+    // 		- The work does not match the difficutly.
+    //
+    // 	* 'InvalidSeal':
+    // 		- The seal is incorrect.
+    //
     pub fn do_registration( 
         origin: T::RuntimeOrigin,
         netuid: u16, 
@@ -305,8 +305,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// --- Checks if the hotkey passes the topk prunning requirement in all connected networks.
-    ///
+    // --- Checks if the hotkey passes the topk prunning requirement in all connected networks.
+    //
     pub fn passes_network_connection_requirement( netuid_a: u16, hotkey: &T::AccountId ) -> bool {
         // --- 1. We are iterating over all networks to see if there is a registration connection.
         for (netuid_b, exists) in NetworksAdded::<T>::iter() {
@@ -352,8 +352,8 @@ impl<T: Config> Pallet<T> {
         return real_hash
     }
 
-    /// Determine which peer to prune from the network by finding the element with the lowest pruning score.
-    /// This function will always return an element to prune.
+    // Determine which peer to prune from the network by finding the element with the lowest pruning score.
+    // This function will always return an element to prune.
     pub fn get_neuron_to_prune(netuid: u16) -> u16 {
         let mut min_block_at_registration: u64 = u64::MAX; // Far Future.
         let mut min_score : u16 = u16::MAX;
@@ -384,10 +384,10 @@ impl<T: Config> Pallet<T> {
         uid_with_min_score
     } 
 
-    /// Determine whether the given hash satisfies the given difficulty.
-    /// The test is done by multiplying the two together. If the product
-    /// overflows the bounds of U256, then the product (and thus the hash)
-    /// was too high.
+    // Determine whether the given hash satisfies the given difficulty.
+    // The test is done by multiplying the two together. If the product
+    // overflows the bounds of U256, then the product (and thus the hash)
+    // was too high.
     pub fn hash_meets_difficulty(hash: &H256, difficulty: U256) -> bool {
         let bytes: &[u8] = &hash.as_bytes();
         let num_hash: U256 = U256::from( bytes );

@@ -2,30 +2,30 @@ use super::*;
 
 impl<T: Config> Pallet<T> { 
 
-    /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The signature of the caller's coldkey.
-    ///
-    /// 	* 'hotkey' (T::AccountId):
-    /// 		- The hotkey we are delegating (must be owned by the coldkey.)
-    ///
-    /// 	* 'take' (u16):
-    /// 		- The stake proportion that this hotkey takes from delegations.
-    ///
-    /// # Event:
-    /// 	* DelegateAdded;
-    /// 		- On successfully setting a hotkey as a delegate.
-    ///
-    /// # Raises:
-    /// 	* 'NotRegistered':
-    /// 		- The hotkey we are delegating is not registered on the network.
-    ///
-    /// 	* 'NonAssociatedColdKey':
-    /// 		- The hotkey we are delegating is not owned by the calling coldket.
-    ///
-    ///
+    // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The hotkey we are delegating (must be owned by the coldkey.)
+    //
+    // 	* 'take' (u16):
+    // 		- The stake proportion that this hotkey takes from delegations.
+    //
+    // # Event:
+    // 	* DelegateAdded;
+    // 		- On successfully setting a hotkey as a delegate.
+    //
+    // # Raises:
+    // 	* 'NotRegistered':
+    // 		- The hotkey we are delegating is not registered on the network.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- The hotkey we are delegating is not owned by the calling coldket.
+    //
+    //
 	pub fn do_become_delegate(
         origin: T::RuntimeOrigin, 
         hotkey: T::AccountId, 
@@ -55,36 +55,36 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The signature of the caller's coldkey.
-    ///
-    /// 	* 'hotkey' (T::AccountId):
-    /// 		- The associated hotkey account.
-    ///
-    /// 	* 'stake_to_be_added' (u64):
-    /// 		- The amount of stake to be added to the hotkey staking account.
-    ///
-    /// # Event:
-    /// 	* StakeAdded;
-    /// 		- On the successfully adding stake to a global account.
-    ///
-    /// # Raises:
-    /// 	* 'CouldNotConvertToBalance':
-    /// 		- Unable to convert the passed stake value to a balance.
-    ///
-    /// 	* 'NotEnoughBalanceToStake':
-    /// 		- Not enough balance on the coldkey to add onto the global account.
-    ///
-    /// 	* 'NonAssociatedColdKey':
-    /// 		- The calling coldkey is not associated with this hotkey.
-    ///
-    /// 	* 'BalanceWithdrawalError':
-    /// 		- Errors stemming from transaction pallet.
-    ///
-    ///
+    // ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The associated hotkey account.
+    //
+    // 	* 'stake_to_be_added' (u64):
+    // 		- The amount of stake to be added to the hotkey staking account.
+    //
+    // # Event:
+    // 	* StakeAdded;
+    // 		- On the successfully adding stake to a global account.
+    //
+    // # Raises:
+    // 	* 'CouldNotConvertToBalance':
+    // 		- Unable to convert the passed stake value to a balance.
+    //
+    // 	* 'NotEnoughBalanceToStake':
+    // 		- Not enough balance on the coldkey to add onto the global account.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- The calling coldkey is not associated with this hotkey.
+    //
+    // 	* 'BalanceWithdrawalError':
+    // 		- Errors stemming from transaction pallet.
+    //
+    //
 	pub fn do_add_stake(
         origin: T::RuntimeOrigin, 
         hotkey: T::AccountId, 
@@ -121,36 +121,36 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The signature of the caller's coldkey.
-    ///
-    /// 	* 'hotkey' (T::AccountId):
-    /// 		- The associated hotkey account.
-    ///
-    /// 	* 'stake_to_be_added' (u64):
-    /// 		- The amount of stake to be added to the hotkey staking account.
-    ///
-    /// # Event:
-    /// 	* StakeRemoved;
-    /// 		- On the successfully removing stake from the hotkey account.
-    ///
-    /// # Raises:
-    /// 	* 'NotRegistered':
-    /// 		- Thrown if the account we are attempting to unstake from is non existent.
-    ///
-    /// 	* 'NonAssociatedColdKey':
-    /// 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
-    ///
-    /// 	* 'NotEnoughStaketoWithdraw':
-    /// 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount. 
-    ///
-    /// 	* 'CouldNotConvertToBalance':
-    /// 		- Thrown if we could not convert this amount to a balance.
-    ///
-    ///
+    // ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The associated hotkey account.
+    //
+    // 	* 'stake_to_be_added' (u64):
+    // 		- The amount of stake to be added to the hotkey staking account.
+    //
+    // # Event:
+    // 	* StakeRemoved;
+    // 		- On the successfully removing stake from the hotkey account.
+    //
+    // # Raises:
+    // 	* 'NotRegistered':
+    // 		- Thrown if the account we are attempting to unstake from is non existent.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
+    //
+    // 	* 'NotEnoughStaketoWithdraw':
+    // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount. 
+    //
+    // 	* 'CouldNotConvertToBalance':
+    // 		- Thrown if we could not convert this amount to a balance.
+    //
+    //
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin, 
         hotkey: T::AccountId, 
@@ -188,56 +188,56 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Returns true if the passed hotkey allow delegative staking. 
-    ///
+    // Returns true if the passed hotkey allow delegative staking. 
+    //
     pub fn hotkey_is_delegate( hotkey: &T::AccountId ) -> bool {
 		return Delegates::<T>::contains_key( hotkey );
     }
 
-    /// Sets the hotkey as a delegate with take.
-    ///
+    // Sets the hotkey as a delegate with take.
+    //
     pub fn delegate_hotkey( hotkey: &T::AccountId, take: u16 ) {
         Delegates::<T>::insert( hotkey, take );
     }
 
-    /// Returns the total amount of stake in the staking table.
-    ///
+    // Returns the total amount of stake in the staking table.
+    //
     pub fn get_total_stake() -> u64 { 
         return TotalStake::<T>::get();
     }
 
-    /// Increases the total amount of stake by the passed amount.
-    ///
+    // Increases the total amount of stake by the passed amount.
+    //
     pub fn increase_total_stake( increment: u64 ) { 
         TotalStake::<T>::put( Self::get_total_stake().saturating_add( increment ) );
     }
 
-    /// Decreases the total amount of stake by the passed amount.
-    ///
+    // Decreases the total amount of stake by the passed amount.
+    //
     pub fn decrease_total_stake( decrement: u64 ) { 
         TotalStake::<T>::put( Self::get_total_stake().saturating_sub( decrement ) );
     }
 
-    /// Returns the total amount of stake under a hotkey (delegative or otherwise)
-    ///
+    // Returns the total amount of stake under a hotkey (delegative or otherwise)
+    //
     pub fn get_total_stake_for_hotkey( hotkey: &T::AccountId ) -> u64 { 
         return TotalHotkeyStake::<T>::get( hotkey ); 
     }
 
-    /// Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    ///
+    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
+    //
      pub fn get_total_stake_for_coldkey( coldkey: &T::AccountId ) -> u64 { 
          return TotalColdkeyStake::<T>::get( coldkey ); 
      }
 
-    /// Returns the stake under the cold - hot pairing in the staking table.
-    ///
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
     pub fn get_stake_for_coldkey_and_hotkey( coldkey: &T::AccountId, hotkey: &T::AccountId ) -> u64 { 
         return Stake::<T>::get( hotkey, coldkey );
     }
 
-    /// Creates a cold - hot pairing account if the hotkey is not already an active account.
-    ///
+    // Creates a cold - hot pairing account if the hotkey is not already an active account.
+    //
     pub fn create_account_if_non_existent( coldkey: &T::AccountId, hotkey: &T::AccountId ) {
         if !Self::hotkey_account_exists( hotkey ) {
             Stake::<T>::insert( hotkey, coldkey, 0 ); 
@@ -245,20 +245,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns the coldkey owning this hotkey. This function should only be called for active accounts.
-    ///
+    // Returns the coldkey owning this hotkey. This function should only be called for active accounts.
+    //
     pub fn get_owning_coldkey_for_hotkey( hotkey: &T::AccountId ) ->  T::AccountId { 
         return Owner::<T>::get( hotkey );
     }
 
-    /// Returns true if the hotkey account has been created.
-    ///
+    // Returns true if the hotkey account has been created.
+    //
     pub fn hotkey_account_exists( hotkey: &T::AccountId ) -> bool {
 		return Owner::<T>::contains_key( hotkey );
     }
 
-    /// Return true if the passed coldkey owns the hotkey. 
-    ///
+    // Return true if the passed coldkey owns the hotkey. 
+    //
     pub fn coldkey_owns_hotkey( coldkey: &T::AccountId, hotkey: &T::AccountId ) -> bool {
         if Self::hotkey_account_exists( hotkey ){
 		    return Owner::<T>::get( hotkey ) == *coldkey;
@@ -267,27 +267,27 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Returns true if the cold-hot staking account has enough balance to fufil the decrement.
-    ///
+    // Returns true if the cold-hot staking account has enough balance to fufil the decrement.
+    //
     pub fn has_enough_stake( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ) -> bool {
         return Self::get_stake_for_coldkey_and_hotkey( coldkey, hotkey ) >= decrement;
     }
 
-    /// Increases the stake on the hotkey account under its owning coldkey.
-    ///
+    // Increases the stake on the hotkey account under its owning coldkey.
+    //
     pub fn increase_stake_on_hotkey_account( hotkey: &T::AccountId, increment: u64 ){
         Self::increase_stake_on_coldkey_hotkey_account( &Self::get_owning_coldkey_for_hotkey( hotkey ), hotkey, increment );
     }
 
-    /// Decreases the stake on the hotkey account under its owning coldkey.
-    ///
+    // Decreases the stake on the hotkey account under its owning coldkey.
+    //
     pub fn decrease_stake_on_hotkey_account( hotkey: &T::AccountId, decrement: u64 ){
         Self::decrease_stake_on_coldkey_hotkey_account( &Self::get_owning_coldkey_for_hotkey( hotkey ), hotkey, decrement );
     }
 
-    /// Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    /// This function should be called rather than set_stake under account.
-    /// 
+    // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
+    // This function should be called rather than set_stake under account.
+    // 
     pub fn increase_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ){
         TotalColdkeyStake::<T>::insert(coldkey, TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment) );
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
@@ -297,8 +297,8 @@ impl<T: Config> Pallet<T> {
 
     }
 
-    /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    ///
+    // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
+    //
     pub fn decrease_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
         TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
