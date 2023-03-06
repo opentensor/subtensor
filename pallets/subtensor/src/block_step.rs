@@ -131,7 +131,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 2. The hotkey is a delegate. We first distribute a proportion of the emission to the hotkey
-        // directly as a function of its 'take'
+        // directly as a function of its "take"
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
         let delegate_take: u64 = Self::calculate_delegate_proportional_take( hotkey, emission );
         let remaining_emission: u64 = emission - delegate_take;
@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
         return proportional_emission.to_num::<u64>();
     }
 
-    /// Returns the delegated stake 'take' assigend to this key. (If exists, otherwise 0)
+    /// Returns the delegated stake "take" assigend to this key. (If exists, otherwise 0)
     ///
     pub fn calculate_delegate_proportional_take( hotkey: &T::AccountId, emission: u64 ) -> u64 {
         if Self::hotkey_is_delegate( hotkey ) {

@@ -9,16 +9,16 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_network.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- Must be sudo.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     ///
-    /// 	* 'tempo' ( u16 ):
+    /// 	* "tempo" ( u16 ):
     /// 		- Number of blocks between epoch step.
     ///
-    /// 	* 'modality' ( u16 ):
+    /// 	* "modality" ( u16 ):
     /// 		- Network modality specifier.
     ///
     /// # Event:
@@ -26,13 +26,13 @@ impl<T: Config> Pallet<T> {
     /// 		- On successfully creation of a network.
     ///
     /// # Raises:
-    /// 	* 'NetworkExist':
+    /// 	* "NetworkExist":
     /// 		- Attempting to register an already existing.
     ///
-    /// 	* 'InvalidModality':
+    /// 	* "InvalidModality":
     /// 		- Attempting to register a network with an invalid modality.
     ///
-    /// 	* 'InvalidTempo':
+    /// 	* "InvalidTempo":
     /// 		- Attempting to register a network with an invalid tempo.
     ///
     pub fn do_add_network( 
@@ -68,10 +68,10 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_network.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- Must be sudo.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     ///
     /// # Event:
@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
     /// 		- On the successfull removing of this network.
     ///
     /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
+    /// 	* "NetworkDoesNotExist":
     /// 		- Attempting to remove a non existent network.
     ///
     pub fn do_remove_network( origin: T::RuntimeOrigin, netuid: u16 ) -> dispatch::DispatchResult {
@@ -103,7 +103,7 @@ impl<T: Config> Pallet<T> {
 
     /// ---- The implementation for the extrinsic sudo_add_network_connect_requirement.
     /// Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The caller, must be sudo.
     ///
     /// 	* `netuid_a` (u16):
@@ -133,7 +133,7 @@ impl<T: Config> Pallet<T> {
 
     /// ---- The implementation for the extrinsic sudo_remove_network_connect_requirement.
     /// Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The caller, must be sudo.
     ///
     /// 	* `netuid_a` (u16):
@@ -160,7 +160,7 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic set_emission_values.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- Must be sudo.
     ///
    	/// 	* `netuids` (Vec<u16>):
@@ -174,7 +174,7 @@ impl<T: Config> Pallet<T> {
     /// 		- On the successfull removing of this network.
     ///
     /// # Raises:
-    /// 	* 'EmissionValuesDoesNotMatchNetworks':
+    /// 	* "EmissionValuesDoesNotMatchNetworks":
     /// 		- Attempting to remove a non existent network.
     ///
     pub fn do_set_emission_values( 

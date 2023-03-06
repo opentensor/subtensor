@@ -269,13 +269,13 @@ impl<T: Config> Pallet<T> {
     /// returns the emissions for uids/hotkeys in a given `netuid`.
     ///
     /// # Args:
-    /// 	* 'netuid': ( u16 ):
+    /// 	* "netuid": ( u16 ):
     ///         - The network to distribute the emission onto.
     /// 		
-    /// 	* 'rao_emission': ( u64 ):
+    /// 	* "rao_emission": ( u64 ):
     ///         - The total emission for the epoch.
     ///
-    /// 	* 'debug' ( bool ):
+    /// 	* "debug" ( bool ):
     /// 		- Print debugging outputs.
     ///    
     pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {

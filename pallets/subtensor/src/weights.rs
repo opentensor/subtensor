@@ -8,19 +8,19 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic set_weights.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the calling hotkey.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     ///
-    /// 	* 'uids' ( Vec<u16> ):
+    /// 	* "uids" ( Vec<u16> ):
     /// 		- The uids of the weights to be set on the chain.
     ///
-    /// 	* 'values' ( Vec<u16> ):
+    /// 	* "values" ( Vec<u16> ):
     /// 		- The values of the weights to set on the chain.
     ///
-    /// 	* 'version_key' ( u64 ):
+    /// 	* "version_key" ( u64 ):
     /// 		- The network version key.
     ///
     /// # Event:
@@ -28,42 +28,42 @@ impl<T: Config> Pallet<T> {
     /// 		- On successfully setting the weights on chain.
     ///
     /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
+    /// 	* "NetworkDoesNotExist":
     /// 		- Attempting to set weights on a non-existent network.
     ///
-    /// 	* 'NotRegistered':
+    /// 	* "NotRegistered":
     /// 		- Attempting to set weights from a non registered account.
     ///
-    /// 	* 'IncorrectNetworkVersionKey':
+    /// 	* "IncorrectNetworkVersionKey":
     /// 		- Attempting to set weights without having an up-to-date version_key.
     ///
-    /// 	* 'SettingWeightsTooFast':
+    /// 	* "SettingWeightsTooFast":
     /// 		- Attempting to set weights faster than the weights_set_rate_limit.
     ///
-    /// 	* 'NoValidatorPermit':
+    /// 	* "NoValidatorPermit":
     /// 		- Attempting to set non-self weights without a validator permit.
     ///
-    /// 	* 'WeightVecNotEqualSize':
+    /// 	* "WeightVecNotEqualSize":
     /// 		- Attempting to set weights with uids not of same length.
     ///
-    /// 	* 'DuplicateUids':
+    /// 	* "DuplicateUids":
     /// 		- Attempting to set weights with duplicate uids.
     /// 
-    ///     * 'TooManyUids':
+    ///     * "TooManyUids":
     /// 		- Attempting to set weights above the max allowed uids.
     ///
-    /// 	* 'InvalidUid':
+    /// 	* "InvalidUid":
     /// 		- Attempting to set weights with invalid uids.
     ///
-    /// 	* 'NotSettingEnoughWeights':
+    /// 	* "NotSettingEnoughWeights":
     /// 		- Attempting to set weights with fewer weights than min.
     ///
-    /// 	* 'MaxWeightExceeded':
+    /// 	* "MaxWeightExceeded":
     /// 		- Attempting to set weights with max value exceeding limit.
     ///
     pub fn do_set_weights( origin: T::RuntimeOrigin, netuid: u16, uids: Vec<u16>, values: Vec<u16>, version_key:u64 ) -> dispatch::DispatchResult{
 
-        // --- 1. Check the caller's signature. This is the hotkey of a registered account.
+        // --- 1. Check the caller"s signature. This is the hotkey of a registered account.
         let hotkey = ensure_signed( origin )?;
         log::info!("do_set_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})", hotkey, netuid, uids, values );
 

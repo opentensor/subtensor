@@ -63,14 +63,14 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the calling coldkey. 
     ///             Burned registers can only be created by the coldkey.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     /// 
-    /// 	* 'hotkey' ( T::AccountId ):
+    /// 	* "hotkey" ( T::AccountId ):
     /// 		- Hotkey to be registered to the network.
     ///   
     /// # Event:
@@ -78,13 +78,13 @@ impl<T: Config> Pallet<T> {
     /// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
     ///
     /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
+    /// 	* "NetworkDoesNotExist":
     /// 		- Attempting to registed to a non existent network.
     ///
-    /// 	* 'TooManyRegistrationsThisBlock':
+    /// 	* "TooManyRegistrationsThisBlock":
     /// 		- This registration exceeds the total allowed on this network this block.
     ///
-    /// 	* 'AlreadyRegistered':
+    /// 	* "AlreadyRegistered":
     /// 		- The hotkey is already registered on this network.
     ///
     pub fn do_burned_registration( 
@@ -167,25 +167,25 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_registration.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the calling hotkey.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     ///
-    /// 	* 'block_number' ( u64 ):
+    /// 	* "block_number" ( u64 ):
     /// 		- Block hash used to prove work done.
     ///
-    /// 	* 'nonce' ( u64 ):
+    /// 	* "nonce" ( u64 ):
     /// 		- Positive integer nonce used in POW.
     ///
-    /// 	* 'work' ( Vec<u8> ):
+    /// 	* "work" ( Vec<u8> ):
     /// 		- Vector encoded bytes representing work done.
     ///
-    /// 	* 'hotkey' ( T::AccountId ):
+    /// 	* "hotkey" ( T::AccountId ):
     /// 		- Hotkey to be registered to the network.
     ///
-    /// 	* 'coldkey' ( T::AccountId ):
+    /// 	* "coldkey" ( T::AccountId ):
     /// 		- Associated coldkey account.
     ///
     /// # Event:
@@ -193,25 +193,25 @@ impl<T: Config> Pallet<T> {
     /// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
     ///
     /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
+    /// 	* "NetworkDoesNotExist":
     /// 		- Attempting to registed to a non existent network.
     ///
-    /// 	* 'TooManyRegistrationsThisBlock':
+    /// 	* "TooManyRegistrationsThisBlock":
     /// 		- This registration exceeds the total allowed on this network this block.
     ///
-    /// 	* 'AlreadyRegistered':
+    /// 	* "AlreadyRegistered":
     /// 		- The hotkey is already registered on this network.
     ///
-    /// 	* 'InvalidWorkBlock':
+    /// 	* "InvalidWorkBlock":
     /// 		- The work has been performed on a stale, future, or non existent block.
     ///
-    /// 	* 'WorkRepeated':
+    /// 	* "WorkRepeated":
     /// 		- This work for block has already been used.
     ///
-    /// 	* 'InvalidDifficulty':
+    /// 	* "InvalidDifficulty":
     /// 		- The work does not match the difficutly.
     ///
-    /// 	* 'InvalidSeal':
+    /// 	* "InvalidSeal":
     /// 		- The seal is incorrect.
     ///
     pub fn do_registration( 

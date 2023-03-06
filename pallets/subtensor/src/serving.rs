@@ -8,31 +8,31 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     ///
-    /// 	* 'version' (u64):
+    /// 	* "version" (u64):
     /// 		- The bittensor version identifier.
     ///
-    /// 	* 'ip' (u64):
+    /// 	* "ip" (u64):
     /// 		- The endpoint ip information as a u128 encoded integer.
     ///
-    /// 	* 'port' (u16):
+    /// 	* "port" (u16):
     /// 		- The endpoint port information as a u16 encoded integer.
     /// 
-    /// 	* 'ip_type' (u8):
+    /// 	* "ip_type" (u8):
     /// 		- The endpoint ip version as a u8, 4 or 6.
     ///
-    /// 	* 'protocol' (u8):
+    /// 	* "protocol" (u8):
     /// 		- UDP:1 or TCP:0 
     ///
-    /// 	* 'placeholder1' (u8):
+    /// 	* "placeholder1" (u8):
     /// 		- Placeholder for further extra params.
     ///
-    /// 	* 'placeholder2' (u8):
+    /// 	* "placeholder2" (u8):
     /// 		- Placeholder for further extra params.
     ///
     /// # Event:
@@ -40,19 +40,19 @@ impl<T: Config> Pallet<T> {
     /// 		- On successfully serving the axon info.
     ///
     /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
+    /// 	* "NetworkDoesNotExist":
     /// 		- Attempting to set weights on a non-existent network.
     ///
-    /// 	* 'NotRegistered':
+    /// 	* "NotRegistered":
     /// 		- Attempting to set weights from a non registered account.
     ///
-    /// 	* 'InvalidIpType':
+    /// 	* "InvalidIpType":
     /// 		- The ip type is not 4 or 6.
     ///
-    /// 	* 'InvalidIpAddress':
+    /// 	* "InvalidIpAddress":
     /// 		- The numerically encoded ip address does not resolve to a proper ip.
     ///
-    /// 	* 'ServingRateLimitExceeded':
+    /// 	* "ServingRateLimitExceeded":
     /// 		- Attempting to set prometheus information withing the rate limit min.
     ///
     pub fn do_serve_axon( 
@@ -102,22 +102,22 @@ impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic serve_prometheus.
     ///
     /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	* "origin": (<T as frame_system::Config>RuntimeOrigin):
     /// 		- The signature of the caller.
     ///
-    /// 	* 'netuid' (u16):
+    /// 	* "netuid" (u16):
     /// 		- The u16 network identifier.
     ///
-    /// 	* 'version' (u64):
+    /// 	* "version" (u64):
     /// 		- The bittensor version identifier.
     ///
-    /// 	* 'ip' (u64):
+    /// 	* "ip" (u64):
     /// 		- The prometheus ip information as a u128 encoded integer.
     ///
-    /// 	* 'port' (u16):
+    /// 	* "port" (u16):
     /// 		- The prometheus port information as a u16 encoded integer.
     /// 
-    /// 	* 'ip_type' (u8):
+    /// 	* "ip_type" (u8):
     /// 		- The prometheus ip version as a u8, 4 or 6.
     ///
     /// # Event:
@@ -125,19 +125,19 @@ impl<T: Config> Pallet<T> {
     /// 		- On successfully serving the axon info.
     ///
     /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
+    /// 	* "NetworkDoesNotExist":
     /// 		- Attempting to set weights on a non-existent network.
     ///
-    /// 	* 'NotRegistered':
+    /// 	* "NotRegistered":
     /// 		- Attempting to set weights from a non registered account.
     ///
-    /// 	* 'InvalidIpType':
+    /// 	* "InvalidIpType":
     /// 		- The ip type is not 4 or 6.
     ///
-    /// 	* 'InvalidIpAddress':
+    /// 	* "InvalidIpAddress":
     /// 		- The numerically encoded ip address does not resolve to a proper ip.
     ///
-    /// 	* 'ServingRateLimitExceeded':
+    /// 	* "ServingRateLimitExceeded":
     /// 		- Attempting to set prometheus information withing the rate limit min.
     ///
     pub fn do_serve_prometheus( 
