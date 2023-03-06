@@ -703,9 +703,6 @@ pub mod pallet {
 
 			for (coldkey, hotkeys) in self.stakes.iter() {
 				for (hotkey, stake) in hotkeys.iter() {
-					// Increase the uid count.
-					SubnetworkN::<T>::insert( netuid, next_uid );
-	
 					// Expand Yuma Consensus with new position.
 					Rank::<T>::mutate(netuid, |v| v.push(0) );
 					Trust::<T>::mutate(netuid, |v| v.push(0) );
@@ -736,6 +733,9 @@ pub mod pallet {
 					next_uid += 1;
 				}
 			}
+
+	 	 	// Set correct length for Subnet neurons
+			SubnetworkN::<T>::insert( netuid, next_uid );
 		}
 	}
 
