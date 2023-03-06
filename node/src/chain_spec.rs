@@ -153,7 +153,7 @@ struct ColdkeyHotkeys {
 }
 
 pub fn finney_config() -> Result<ChainSpec, String> {
-	let path: PathBuf = std::path::PathBuf::from("nakamoto_gen.json");
+	let path: PathBuf = std::path::PathBuf::from("/Users/ec2-user/repos/subtensorv3/nakamoto_gen.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// We mmap the file into memory first, as this is *a lot* faster than using
