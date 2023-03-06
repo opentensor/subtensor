@@ -42,11 +42,11 @@ parameter_types! {
 #[allow(dead_code)]
 pub type AccountId = u64;
 
-/// Balance of an account.
+// Balance of an account.
 #[allow(dead_code)]
 pub type Balance = u128;
 
-/// An index to a block.
+// An index to a block.
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 

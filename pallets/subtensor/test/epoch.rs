@@ -15,7 +15,7 @@ pub fn fixed_to_u16( x: I32F32 ) -> u16 { x.to_num::<u16>() }
 
 pub fn fixed_proportion_to_u16( x: I32F32 ) -> u16 { fixed_to_u16( x * I32F32::from_num( u16::MAX )) }
 
-/// Normalizes (sum to 1 except 0) the input vector directly in-place.
+// Normalizes (sum to 1 except 0) the input vector directly in-place.
 #[allow(dead_code)]
 pub fn inplace_normalize( x: &mut Vec<I32F32> ) {
     let x_sum: I32F32 = x.iter().sum();
@@ -25,7 +25,7 @@ pub fn inplace_normalize( x: &mut Vec<I32F32> ) {
     }
 }
 
-/// Inplace normalize the passed positive integer weights so that they sum to u16 max value.
+// Inplace normalize the passed positive integer weights so that they sum to u16 max value.
 fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
 	let sum: u64 = weights.iter().map(|x| *x as u64).sum();
 	if sum == 0 { return weights; }
@@ -33,7 +33,7 @@ fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
 	return weights;
 }
 
-/// Return as usize an I32F32 ratio of a usize input, avoiding the 0% and 100% extremes.
+// Return as usize an I32F32 ratio of a usize input, avoiding the 0% and 100% extremes.
 fn non_extreme_fixed_ratio(ratio: I32F32, total: usize) -> usize {
 	if total == 0 { return total }
 	let mut subset: usize = (ratio * I32F32::from_num(total)).to_num::<usize>();
@@ -46,7 +46,7 @@ fn non_extreme_fixed_ratio(ratio: I32F32, total: usize) -> usize {
 	return subset
 }
 
-/// Box-Muller Transform converting two uniform random samples to a normal random sample.
+// Box-Muller Transform converting two uniform random samples to a normal random sample.
 fn normal(size: usize, rng: &mut StdRng, dist: &Uniform<u16>) -> Vec<I32F32> {
 	let max: I32F32 = I32F32::from_num(u16::MAX);
 	let two: I32F32 = I32F32::from_num(2);
@@ -65,7 +65,7 @@ fn normal(size: usize, rng: &mut StdRng, dist: &Uniform<u16>) -> Vec<I32F32> {
 	normal
 }
 
-/// Returns validators and servers uids with either blockwise, regular, or random interleaving.
+// Returns validators and servers uids with either blockwise, regular, or random interleaving.
 fn distribute_nodes(validators_n: usize, network_n: usize, interleave: usize) -> (Vec<u16>, Vec<u16>) {
 	let mut validators: Vec<u16> = vec![];
 	let mut servers: Vec<u16> = vec![];
@@ -173,7 +173,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 	// }
 }
 
-/// Generate a random graph that is split into a major and minor set, each setting specific weight on itself and the complement on the other.
+// Generate a random graph that is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, validators_n: usize, network_n: usize, interleave: usize) -> (Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u64>, Vec<Vec<(u16, u16)>>) {
 	let servers_n: usize = network_n - validators_n;
 	let major_servers_n: usize = non_extreme_fixed_ratio(major_stake, servers_n);
@@ -217,7 +217,7 @@ fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, 
 	(validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights)
 }
 
-/// Test consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other. Asserts that the major emission ratio >= major stake ratio.
+// Test consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other. Asserts that the major emission ratio >= major stake ratio.
 #[test]
 fn test_consensus_guarantees() {
 	let netuid: u16 = 0;
@@ -375,7 +375,7 @@ fn test_10_graph() {
 	});
 }
 
-/// Test an epoch on a graph with 512 nodes, of which the first 64 are validators setting non-self weights, and the rest servers setting only self-weights.
+// Test an epoch on a graph with 512 nodes, of which the first 64 are validators setting non-self weights, and the rest servers setting only self-weights.
 #[test]
 fn test_512_graph() {
 	let netuid: u16 = 0;
@@ -419,7 +419,7 @@ fn test_512_graph() {
 	}
 }
 
-/// Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting random non-self weights, and the rest servers setting only self-weights.
+// Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting random non-self weights, and the rest servers setting only self-weights.
 #[test]
 fn test_512_graph_random_weights() {
 	let netuid: u16 = 0;
@@ -467,7 +467,7 @@ fn test_512_graph_random_weights() {
 	}
 }
 
-/// Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting non-self weights, and the rest servers setting only self-weights.
+// Test an epoch on a graph with 4096 nodes, of which the first 256 are validators setting non-self weights, and the rest servers setting only self-weights.
 // #[test]
 #[allow(dead_code)]
 fn test_4096_graph() {
@@ -513,8 +513,8 @@ fn test_4096_graph() {
 	}
 }
 
-/// Test an epoch_sparse on a graph with 16384 nodes, of which the first 512 are validators setting non-self weights, and the rest servers setting only self-weights.
-/// #[test]
+// Test an epoch_sparse on a graph with 16384 nodes, of which the first 512 are validators setting non-self weights, and the rest servers setting only self-weights.
+// #[test]
 #[allow(dead_code)]
 fn test_16384_graph_sparse() {
 	new_test_ext().execute_with(|| {
@@ -553,7 +553,7 @@ fn test_16384_graph_sparse() {
 	});
 }
 
-/// Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
+// Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]
 fn test_active_stake() {
 	new_test_ext().execute_with(|| {
@@ -696,7 +696,7 @@ fn test_active_stake() {
 	});
 }
 
-/// Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
+// Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
 #[test]
 fn test_outdated_weights() {
 	new_test_ext().execute_with(|| {
@@ -809,7 +809,7 @@ fn test_outdated_weights() {
 	});
 }
 
-/// Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
+// Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
 #[test]
 fn test_zero_weights() {
 	new_test_ext().execute_with(|| {
@@ -920,7 +920,7 @@ fn test_zero_weights() {
 	});
 }
 
-/// Test that epoch assigns validator permits to highest stake uids, varies uid interleaving and stake values.
+// Test that epoch assigns validator permits to highest stake uids, varies uid interleaving and stake values.
 #[test]
 fn test_validator_permits() {
 	let netuid: u16 = 0;
@@ -994,42 +994,42 @@ fn test_validator_permits() {
 	}
 }
 
-/// Map the retention graph for consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
-/// 
-/// ```python
-/// import torch
-/// import matplotlib.pyplot as plt
-/// from matplotlib.pyplot import cm
-/// %matplotlib inline
-/// 
-/// with open('finney_consensus.txt') as f:  # test output saved to finney_consensus.txt
-///     retention_map = eval(f.read())
-/// 
-/// grid = {}
-/// for major_stake, major_weight, minor_weight, major_ratio in retention_map:
-///     major_stake = f'{major_stake:.2f}'
-///     grid.setdefault(major_stake, torch.zeros((51, 51)))
-///     grid[major_stake][int(round(50 * major_weight))][int(round(50 * minor_weight))] = major_ratio
-///
-/// fig = plt.figure(figsize=(6, 6)); ax = fig.gca()
-/// ax.set_xticks(torch.arange(0, 1, 0.05))
-/// ax.set_yticks(torch.arange(0, 1., 0.05))
-/// ax.set_xticklabels([f'{_:.2f}'[1:] for _ in torch.arange(0, 1., 0.05)])
-/// plt.grid(); plt.rc('grid', linestyle="dotted", color=[0.85, 0.85, 0.85])
-///
-/// isolate = ['0.60']; stakes = [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
-/// colors = cm.viridis(torch.linspace(0, 1, len(stakes) + 1))
-/// _x = torch.linspace(0, 1, 51); _y = torch.linspace(0, 1, 51)
-/// x, y = torch.meshgrid(_x, _y, indexing='ij')
-/// for i, stake in enumerate(stakes):
-///     contours = plt.contour(x, y, grid[f'{stake:.2f}'], levels=[0., stake], colors=[colors[i + 1]])
-///     if f'{stake:.2f}' in isolate:
-///         contours.collections[1].set_linewidth(3)
-///     plt.clabel(contours, inline=True, fontsize=10)
-///
-/// plt.title(f'Major emission [$stake_{{maj}}=emission_{{maj}}$ retention lines]')
-/// plt.ylabel('Minor self-weight'); plt.xlabel('Major self-weight'); plt.show()
-/// ```
+// Map the retention graph for consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
+// 
+// ```python
+// import torch
+// import matplotlib.pyplot as plt
+// from matplotlib.pyplot import cm
+// %matplotlib inline
+// 
+// with open('finney_consensus.txt') as f:  # test output saved to finney_consensus.txt
+//     retention_map = eval(f.read())
+// 
+// grid = {}
+// for major_stake, major_weight, minor_weight, major_ratio in retention_map:
+//     major_stake = f'{major_stake:.2f}'
+//     grid.setdefault(major_stake, torch.zeros((51, 51)))
+//     grid[major_stake][int(round(50 * major_weight))][int(round(50 * minor_weight))] = major_ratio
+//
+// fig = plt.figure(figsize=(6, 6)); ax = fig.gca()
+// ax.set_xticks(torch.arange(0, 1, 0.05))
+// ax.set_yticks(torch.arange(0, 1., 0.05))
+// ax.set_xticklabels([f'{_:.2f}'[1:] for _ in torch.arange(0, 1., 0.05)])
+// plt.grid(); plt.rc('grid', linestyle="dotted", color=[0.85, 0.85, 0.85])
+//
+// isolate = ['0.60']; stakes = [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+// colors = cm.viridis(torch.linspace(0, 1, len(stakes) + 1))
+// _x = torch.linspace(0, 1, 51); _y = torch.linspace(0, 1, 51)
+// x, y = torch.meshgrid(_x, _y, indexing='ij')
+// for i, stake in enumerate(stakes):
+//     contours = plt.contour(x, y, grid[f'{stake:.2f}'], levels=[0., stake], colors=[colors[i + 1]])
+//     if f'{stake:.2f}' in isolate:
+//         contours.collections[1].set_linewidth(3)
+//     plt.clabel(contours, inline=True, fontsize=10)
+//
+// plt.title(f'Major emission [$stake_{{maj}}=emission_{{maj}}$ retention lines]')
+// plt.ylabel('Minor self-weight'); plt.xlabel('Major self-weight'); plt.show()
+// ```
 // #[test]
 fn _map_consensus_guarantees() {
 	let netuid: u16 = 0;

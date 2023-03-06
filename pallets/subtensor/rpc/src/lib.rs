@@ -49,9 +49,9 @@ impl<C, M> SubtensorCustom<C, M> {
 	}
 }
 
-/// Error type of this RPC api.
+// Error type of this RPC api.
 pub enum Error {
-	/// The call to runtime failed.
+	// The call to runtime failed.
 	RuntimeError,
 }
 
