@@ -390,6 +390,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -629,6 +630,35 @@ impl_runtime_apis! {
 			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
 			Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
+		}
+	}
+	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
+		fn get_delegates() -> Vec<pallet_subtensor::delegate_info::DelegateInfo> {
+			SubtensorModule::get_delegates()
+		}
+
+		fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<pallet_subtensor::delegate_info::DelegateInfo> {
+			SubtensorModule::get_delegate(delegate_account_vec)
+		}
+	}
+
+	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
+		fn get_neurons(netuid: u16) -> Vec<pallet_subtensor::neuron_info::NeuronInfo> {
+			SubtensorModule::get_neurons(netuid)
+		}
+
+		fn get_neuron(netuid: u16, uid: u16) -> Option<pallet_subtensor::neuron_info::NeuronInfo> {
+			SubtensorModule::get_neuron(netuid, uid)
+		}
+	}
+
+	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
+		fn get_subnet_info(netuid: u16) -> Option<pallet_subtensor::subnet_info::SubnetInfo> {
+			SubtensorModule::get_subnet_info(netuid)
+		}
+
+		fn get_subnets_info() -> Vec<Option<pallet_subtensor::subnet_info::SubnetInfo>> {
+			SubtensorModule::get_subnets_info()
 		}
 	}
 }
