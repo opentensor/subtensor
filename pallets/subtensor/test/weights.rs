@@ -28,7 +28,7 @@ fn test_set_weights_dispatch_info_ok() {
 	});
 }
 
-/// Test ensures that uid has validator permit to set non-self weights.
+// Test ensures that uid has validator permit to set non-self weights.
 #[test]
 fn test_weights_err_no_validator_permit() {
 	new_test_ext().execute_with(|| {
@@ -55,7 +55,7 @@ fn test_weights_err_no_validator_permit() {
 	});
 }
 
-/// Test ensures that a uid can only set weights if it has the valid weights set version key.
+// Test ensures that a uid can only set weights if it has the valid weights set version key.
 #[test]
 fn test_weights_version_key() {
 	new_test_ext().execute_with(|| {
@@ -89,7 +89,7 @@ fn test_weights_version_key() {
 	});
 }
 
-/// Test ensures that uid has validator permit to set non-self weights.
+// Test ensures that uid has validator permit to set non-self weights.
 #[test]
 fn test_weights_err_setting_weights_too_fast() {
 	new_test_ext().execute_with(|| {
@@ -129,7 +129,7 @@ fn test_weights_err_setting_weights_too_fast() {
 	});
 }
 
-/// Test ensures that uids -- weights must have the same size.
+// Test ensures that uids -- weights must have the same size.
 #[test]
 fn test_weights_err_weights_vec_not_equal_size() {
 	new_test_ext().execute_with(|| {
@@ -147,7 +147,7 @@ fn test_weights_err_weights_vec_not_equal_size() {
 	});
 }
 
-/// Test ensures that uids can have not duplicates
+// Test ensures that uids can have not duplicates
 #[test]
 fn test_weights_err_has_duplicate_ids() {
 	new_test_ext().execute_with(|| {
@@ -185,7 +185,7 @@ fn test_weights_err_has_duplicate_ids() {
 	});
 }
 
-/// Test ensures weights cannot exceed max weight limit.
+// Test ensures weights cannot exceed max weight limit.
 #[test]
 fn test_weights_err_max_weight_limit() { //TO DO SAM: uncomment when we implement run_to_block fn
 	new_test_ext().execute_with(|| { 
@@ -244,7 +244,7 @@ fn test_weights_err_max_weight_limit() { //TO DO SAM: uncomment when we implemen
 	});
 }
 
-/// Tests the call requires a valid origin.
+// Tests the call requires a valid origin.
 #[test]
 fn test_no_signature() {
 	new_test_ext().execute_with(|| {
@@ -255,7 +255,7 @@ fn test_no_signature() {
 	});
 }
 
-/// Tests that weights cannot be set BY non-registered hotkeys.
+// Tests that weights cannot be set BY non-registered hotkeys.
 #[test]
 fn test_set_weights_err_not_active() {
 	new_test_ext().execute_with(|| {
