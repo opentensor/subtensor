@@ -1,15 +1,19 @@
+//! RPC interface for the custom Subtensor rpc methods
+
 use jsonrpsee::{
 	core::RpcResult,
 	proc_macros::rpc,
 	types::error::{CallError, ErrorObject},
 };
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	generic::BlockId,
-	traits::Block as BlockT,
+	traits::{Block as BlockT},
 };
 use std::sync::Arc;
+
+
+use sp_api::ProvideRuntimeApi;
 
 pub use subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi;
 use pallet_subtensor::delegate_info::DelegateInfo as DelegateInfoStruct;
@@ -38,20 +42,22 @@ pub trait SubtensorCustomApi<BlockHash> {
 	fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<Option<SubnetInfoStruct>>>;
 }
 
-pub struct SubtensorCustom<C, M> {
+pub struct SubtensorCustom<C, P> {
+	/// Shared reference to the client.
 	client: Arc<C>,
-	_marker: std::marker::PhantomData<M>,
+	_marker: std::marker::PhantomData<P>,
 }
 
-impl<C, M> SubtensorCustom<C, M> {
+impl<C, P> SubtensorCustom<C, P> {
+	/// Creates a new instance of the TransactionPayment Rpc helper.
 	pub fn new(client: Arc<C>) -> Self {
 		Self { client, _marker: Default::default() }
 	}
 }
 
-// Error type of this RPC api.
+/// Error type of this RPC api.
 pub enum Error {
-	// The call to runtime failed.
+	/// The call to runtime failed.
 	RuntimeError,
 }
 
