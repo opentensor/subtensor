@@ -226,7 +226,7 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-//		subtensor_module: Default::default(),
+		//subtensor_module: Default::default(),
 	}
 }
 
@@ -258,6 +258,6 @@ fn finney_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-//		subtensor_module: Default::default(),
+		//subtensor_module: Default::default(),
 	}
 }
