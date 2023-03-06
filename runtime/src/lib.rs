@@ -632,6 +632,7 @@ impl_runtime_apis! {
 			Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
 		}
 	}
+
 	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
 		fn get_delegates() -> Vec<pallet_subtensor::delegate_info::DelegateInfo> {
 			SubtensorModule::get_delegates()

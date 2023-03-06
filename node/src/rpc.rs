@@ -37,16 +37,20 @@ where
 	C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
 	C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
 	C::Api: BlockBuilder<Block>,
-	P: TransactionPool + 'static,
 	C::Api: subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block>,
 	C::Api: subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block>,
 	C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>,
+	P: TransactionPool + 'static
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
 	use substrate_frame_rpc_system::{System, SystemApiServer};
+	use subtensor_custom_rpc::{SubtensorCustomApiServer, SubtensorCustom};
 
 	let mut module = RpcModule::new(());
 	let FullDeps { client, pool, deny_unsafe } = deps;
+
+	// Custom RPC methods for Paratensor
+	module.merge(SubtensorCustom::new(client.clone()).into_rpc())?;
 
 	module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 	module.merge(TransactionPayment::new(client).into_rpc())?;
