@@ -7,8 +7,9 @@ echo "*** Installing substrate support libraries"
 # verify md5
 curl https://getsubstrate.io -sSf > support_install.sh
 if ! md5sum --status --check <<< "7296b9d45a89e973528c3ae31719ff08 support_install.sh"; then
-	echo "Substrate library script checksum not valid, exiting."
-	exit
+	_status="${?}"
+	printf >&2 "Substrate library script checksum not valid, exiting.\n"
+	exit "${_status}"
 fi
 chmod +rx support_install.sh
 bash support_install.sh
