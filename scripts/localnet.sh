@@ -1,13 +1,22 @@
 #!/bin/bash
 
 : "${CHAIN:=local}"
+: "${BUILD_BINARY:=1}"
+
+if [[ $BUILD_BINARY == "1" ]]; then
+	echo "*** Building substrate binary..."
+	cargo build 1>/dev/null
+	echo "*** Binary compiled"
+fi
 
 echo "*** Building chainspec..."
-./target/debug/node-subtensor build-spec -lnone --disable-default-bootnode --chain $CHAIN > $CHAIN.json
+./target/debug/node-subtensor build-spec --disable-default-bootnode --chain $CHAIN > $CHAIN.json
+echo "*** Chainspec built and output to file"
 
 echo "*** Purging previous state..."
 ./target/debug/node-subtensor purge-chain -y --base-path /tmp/bob --chain=$CHAIN.json 2>&1 > /dev/null
 ./target/debug/node-subtensor purge-chain -y --base-path /tmp/alice --chain=$CHAIN.json 2>&1 > /dev/null
+echo "*** Previous chainstate purged"
 
 echo "*** Starting localnet nodes..."
 alice_start="./target/debug/node-subtensor --base-path /tmp/alice --chain=$CHAIN.json --alice --port 30334 --ws-port 9946 --rpc-port 9934 --validator --rpc-cors=all"
