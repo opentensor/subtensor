@@ -29,4 +29,4 @@ echo "*** Building node binary..."
 cargo build
 
 echo "*** Setup complete, use localnet.sh in scripts to start a local network."
-exit
+
