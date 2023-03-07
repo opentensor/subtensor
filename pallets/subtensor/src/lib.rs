@@ -658,25 +658,21 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
+			// Subnet config values
 			let netuid: u16 = 3;
 			let tempo = 99;
 			let max_uids = 4096;
 			
 			// The functions for initializing new networks/setting defaults cannot be run directly from genesis functions like extrinsics would
-			// --- 1. Set network to 0 size.
-			SubnetworkN::<T>::insert( netuid, 0 );
-
-			// --- 2. Set this network uid to alive.
-			NetworksAdded::<T>::insert( netuid, true );
+			// --- Set this network uid to alive.
+			NetworksAdded::<T>::insert(netuid, true);
 			
-			// --- 3. Fill tempo memory item.
-			Tempo::<T>::insert( netuid, tempo );
+			// --- Fill tempo memory item.
+			Tempo::<T>::insert(netuid, tempo);
 	
-			// --- 4 Fill modality item.
-			NetworkModality::<T>::insert( netuid, 1 );
-	
-			// --- 5. Increase total network count.
-			TotalNetworks::<T>::mutate( |n| *n += 1 );
+			// --- Fill modality item.
+			// Only modality 0 exists (text)
+			NetworkModality::<T>::insert(netuid, 0);
 
 			// Make network parameters explicit.
 			if !Tempo::<T>::contains_key( netuid ) { Tempo::<T>::insert( netuid, Tempo::<T>::get( netuid ));}
@@ -697,30 +693,30 @@ pub mod pallet {
 			if !BurnRegistrationsThisInterval::<T>::contains_key( netuid ) { BurnRegistrationsThisInterval::<T>::insert( netuid, BurnRegistrationsThisInterval::<T>::get( netuid ));}
 
 			// Set max allowed uids
-			MaxAllowedUids::<T>::insert( netuid, max_uids );
+			MaxAllowedUids::<T>::insert(netuid, max_uids);
 
 			let mut next_uid = 0;
 
 			for (coldkey, hotkeys) in self.stakes.iter() {
 				for (hotkey, stake) in hotkeys.iter() {
 					// Expand Yuma Consensus with new position.
-					Rank::<T>::mutate(netuid, |v| v.push(0) );
-					Trust::<T>::mutate(netuid, |v| v.push(0) );
-					Active::<T>::mutate(netuid, |v| v.push( true ) );
-					Emission::<T>::mutate(netuid, |v| v.push(0) );
-					Consensus::<T>::mutate(netuid, |v| v.push(0) );
-					Incentive::<T>::mutate(netuid, |v| v.push(0) );
-					Dividends::<T>::mutate(netuid, |v| v.push(0) );
-					LastUpdate::<T>::mutate(netuid, |v| v.push( 0 ) );
-					PruningScores::<T>::mutate(netuid, |v| v.push(0) );
-					ValidatorTrust::<T>::mutate(netuid, |v| v.push(0) );
-					ValidatorPermit::<T>::mutate(netuid, |v| v.push(false) );
+					Rank::<T>::mutate(netuid, |v| v.push(0));
+					Trust::<T>::mutate(netuid, |v| v.push(0));
+					Active::<T>::mutate(netuid, |v| v.push(true));
+					Emission::<T>::mutate(netuid, |v| v.push(0));
+					Consensus::<T>::mutate(netuid, |v| v.push(0));
+					Incentive::<T>::mutate(netuid, |v| v.push(0));
+					Dividends::<T>::mutate(netuid, |v| v.push(0));
+					LastUpdate::<T>::mutate(netuid, |v| v.push(0));
+					PruningScores::<T>::mutate(netuid, |v| v.push(0));
+					ValidatorTrust::<T>::mutate(netuid, |v| v.push(0));
+					ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));
 			
 					// Insert account information.
-					Keys::<T>::insert( netuid, next_uid, hotkey.clone() ); // Make hotkey - uid association.
-					Uids::<T>::insert( netuid, hotkey.clone(), next_uid ); // Make uid - hotkey association.
-					BlockAtRegistration::<T>::insert( netuid, next_uid, 0 ); // Fill block at registration.
-					IsNetworkMember::<T>::insert( hotkey.clone(), netuid, true ); // Fill network is member.
+					Keys::<T>::insert(netuid, next_uid, hotkey.clone()); // Make hotkey - uid association.
+					Uids::<T>::insert(netuid, hotkey.clone(), next_uid); // Make uid - hotkey association.
+					BlockAtRegistration::<T>::insert(netuid, next_uid, 0); // Fill block at registration.
+					IsNetworkMember::<T>::insert(hotkey.clone(), netuid, true); // Fill network is member.
 	
 					// Fill stake information.
 					Owner::<T>::insert(hotkey.clone(), coldkey.clone());
@@ -735,7 +731,10 @@ pub mod pallet {
 			}
 
 	 	 	// Set correct length for Subnet neurons
-			SubnetworkN::<T>::insert( netuid, next_uid );
+			SubnetworkN::<T>::insert(netuid, next_uid);
+
+			// --- Increase total network count.
+			TotalNetworks::<T>::mutate(|n| *n += 1);
 		}
 	}
 
