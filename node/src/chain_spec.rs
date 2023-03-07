@@ -153,7 +153,7 @@ struct ColdkeyHotkeys {
 }
 
 pub fn finney_config() -> Result<ChainSpec, String> {
-	let path: PathBuf = std::path::PathBuf::from("/Users/ec2-user/repos/subtensorv3/nakamoto_gen.json");
+	let path: PathBuf = std::path::PathBuf::from("/Users/sam/Documents/GIT/subtensorv3/nakamoto_gen.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// We mmap the file into memory first, as this is *a lot* faster than using
@@ -295,7 +295,7 @@ fn finney_genesis(
 	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 	stakes: Vec<(AccountId, Vec<(AccountId, u64)>)>,
-	balances: Vec<(AccountId, u64)>
+	_balances: Vec<(AccountId, u64)>
 
 ) -> GenesisConfig {
 	GenesisConfig {
@@ -305,7 +305,10 @@ fn finney_genesis(
 		},
 		balances: BalancesConfig {
 			// Configure endowed accounts with initial balance of 1 << 60.
-			balances: balances.iter().cloned().map(|k| k).collect(),
+			//balances: balances.iter().cloned().map(|k| k).collect(),
+			balances: vec![ 
+				(Ss58Codec::from_ss58check("5G3rrAtAsZiZsRKhi9y7yckwhB6HL8AwD8K3J28YNX4n2tMZ").unwrap(),10000000000)
+				],
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
