@@ -193,12 +193,6 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
 		let key_account = sp_runtime::AccountId32::from(key);
 
-		/*
-		if *amount < 1_000_000 {
-			continue
-		}
-		*/
-			
 		processed_balances.push((key_account, *amount))
 	}
 
@@ -214,6 +208,8 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 				// Initial PoA authorities (Validators)
 				// aura | grandpa
 				vec![
+					// Keys for debug
+					//authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob"),
 					authority_keys_from_ss58("5EJUcFbe74FDQwPsZDbRVpdDxVZQQxjoGZA9ayJqJTbcRrGf", "5GRcfchgXZjkCfqgNvfjicjJw3vVGF4Ahqon2w8RfjXwyzy4"),// key 1
 					authority_keys_from_ss58("5H5oVSbQxDSw1TohAvLvp9CTAua6PN4yHme19UrG4c1ojS8J", "5FAEYaHLZmLRX4XFs2SBHbLhkysbSPrcTp51w6sQNaYLa7Tu"), // key 2
 					authority_keys_from_ss58("5CfBazEwCAsmscGj1J9rhXess9ZXZ5qYcuZvFWii9sxT977v", "5F6LgDAenzchE5tPmFHKGueYy1rj85oB2yxvm1xyKLVvk4gy"), // key 3
