@@ -101,15 +101,15 @@ fn test_burned_registration_ok() {
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		let hotkey_account_id = 1;
-		let burn_cost:u64 = 1000;
-		let coldkey_account_id = 667; // Neighbour of the beast, har har
+		let burn_cost = 1000;
+		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
 		//add network
 		SubtensorModule::set_burn( netuid, burn_cost);
 		add_network(netuid, tempo, 0);
 		// Give it some $$$ in his coldkey balance
 		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id, 10000 );
 		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid,  hotkey_account_id, coldkey_account_id));
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid,  hotkey_account_id));
 		// Check if balance has  decreased to pay for the burn.
 		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64, 10000 - burn_cost); // funds drained on reg.
 		// Check if neuron has added to the specified network(netuid)
@@ -144,13 +144,13 @@ fn test_burn_adjustment() {
 		let hotkey_account_id_1 = 1;
 		let coldkey_account_id_1 = 1; 
 		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id_1, 10000 );
-		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1), netuid,  hotkey_account_id_1, coldkey_account_id_1));
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1), netuid,  hotkey_account_id_1));
 
 		// Register key 2.
 		let hotkey_account_id_2 = 2;
 		let coldkey_account_id_2 = 2; 
 		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id_2, 10000 );
-		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2), netuid,  hotkey_account_id_2, coldkey_account_id_2));
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2), netuid,  hotkey_account_id_2));
 
 		// We are over the number of regs allowed this interval.
 		// Step the block and trigger the adjustment.
