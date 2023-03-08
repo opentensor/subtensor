@@ -1529,7 +1529,7 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 		who: &Self::AccountId,
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		_len: usize,
 	) -> TransactionValidity {
 		match call.is_sub_type() {
 			Some(Call::set_weights{netuid, ..}) => {
@@ -1606,13 +1606,13 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
 	fn post_dispatch(
         maybe_pre: Option<Self::Pre>,
-        info: &DispatchInfoOf<Self::Call>,
-        post_info: &PostDispatchInfoOf<Self::Call>,
-        len: usize,
-        result: &dispatch::DispatchResult,
+        _info: &DispatchInfoOf<Self::Call>,
+        _post_info: &PostDispatchInfoOf<Self::Call>,
+        _len: usize,
+        _result: &dispatch::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
 
-		if let Some((call_type, transaction_fee, who)) = maybe_pre {
+		if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
 			match call_type {
 				CallType::SetWeights => {
 					log::debug!("Not Implemented!");
