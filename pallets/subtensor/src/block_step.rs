@@ -100,7 +100,7 @@ impl<T: Config> Pallet<T> {
             let emission_tuples_this_block: Vec<(T::AccountId, u64)> = Self::epoch( netuid, emission_to_drain );
                 
             // --- 6. Check that the emission does not exceed the allowed total.
-            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(h,e)| *e as u128 ).sum();
+            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(_account_id, e)| *e as u128 ).sum();
             if emission_sum > emission_to_drain as u128 { continue } // Saftey check.
 
             // --- 7. Sink the emission tuples onto the already loaded.
