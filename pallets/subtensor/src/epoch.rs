@@ -35,6 +35,9 @@ impl<T: Config> Pallet<T> {
         let inactive: Vec<bool> = last_update.iter().map(| updated | *updated + activity_cutoff < current_block ).collect();
         log::trace!( "Inactive:\n{:?}\n", inactive.clone() );
 
+        // Logical negation of inactive.
+        let active: Vec<bool> = inactive.iter().map(|&b| !b).collect();
+
         // Block at registration vector (block when each neuron was most recently registered).
         let block_at_registration: Vec<u64> = Self::get_block_at_registration( netuid );
         log::trace!( "Block at registration:\n{:?}\n", block_at_registration.clone() );
@@ -232,6 +235,7 @@ impl<T: Config> Pallet<T> {
         let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
         Rank::<T>::insert( netuid, cloned_ranks);
         Trust::<T>::insert( netuid, cloned_trust);
@@ -302,6 +306,9 @@ impl<T: Config> Pallet<T> {
         // Inactive mask.
         let inactive: Vec<bool> = last_update.iter().map(| updated | *updated + activity_cutoff < current_block ).collect();
         log::trace!( "Inactive: {:?}", inactive.clone() );
+
+        // Logical negation of inactive.
+        let active: Vec<bool> = inactive.iter().map(|&b| !b).collect();
 
         // Block at registration vector (block when each neuron was most recently registered).
         let block_at_registration: Vec<u64> = Self::get_block_at_registration( netuid );
@@ -516,7 +523,7 @@ impl<T: Config> Pallet<T> {
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
         Rank::<T>::insert( netuid, cloned_ranks);
         Trust::<T>::insert( netuid, cloned_trust);
