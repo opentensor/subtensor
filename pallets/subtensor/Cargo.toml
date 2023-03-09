@@ -33,6 +33,7 @@ log = { version = "0.4.14", default-features = false }
 substrate-fixed = { git = 'https://github.com/encointer/substrate-fixed.git', tag = "v0.5.9" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.37" }
 ndarray = { version = "0.15.0", default-features = false }
+rand = "0.8.5"
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.37", features = ["std"] }
