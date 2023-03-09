@@ -272,9 +272,9 @@ where
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		let coefficient = WeightToFeeCoefficient {
 			coeff_integer: C::get(),
-			coeff_frac: Perbill::zero(),
+			coeff_frac: Perbill::from_percent(1),
 			negative: false,
-			degree: 10,
+			degree: 1,
 		};
 
 		smallvec!(coefficient)
