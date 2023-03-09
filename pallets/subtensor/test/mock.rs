@@ -115,6 +115,7 @@ parameter_types! {
 	pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
 	pub const InitialWeightsVersionKey: u16 = 0; 
 	pub const InitialServingRateLimit: u64 = 0; // No limit.
+	pub const InitialTxRateLimit: u64 = 0; // No limit.
 
 	pub const InitialBurn: u64 = 0; 
 	pub const InitialMinBurn: u64 = 0; 
@@ -179,6 +180,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialMaxDifficulty = InitialMaxDifficulty;
 	type InitialMinDifficulty = InitialMinDifficulty;
 	type InitialServingRateLimit = InitialServingRateLimit;
+	type InitialTxRateLimit = InitialTxRateLimit;
 	type InitialBurn = InitialBurn;
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
