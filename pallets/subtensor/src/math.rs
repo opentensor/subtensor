@@ -2254,4 +2254,66 @@ mod tests {
         assert_vec_compare( &matmul( &w, &vec![ I32F32::from_num(2.0); 3] ), &vec![ I32F32::from_num(6),  I32F32::from_num(12),  I32F32::from_num(18)], epsilon );
     }
 
+    #[test]
+    fn test_math_fixed_to_u16() {
+        let expected: u16 = u16::MIN;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+
+        let expected: u16 = u16::MAX / 2;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+
+        let expected: u16 = u16::MAX;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_math_fixed_to_u16_panics() {
+        let bad_input = I32F32::from_num(u32::MAX);
+        fixed_to_u16(bad_input);
+
+        let bad_input = I32F32::from_num(-1);
+        fixed_to_u16(bad_input);
+    }
+
+    // TODO: Investigate why `I32F32` and not `I64F64`
+    #[test]
+    fn test_math_fixed_to_u64() {
+        let expected: u64 = u64::MIN;
+        assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+
+        // let expected: u64 = u64::MAX / 2;
+        // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+
+        // let expected: u64 = u64::MAX;
+        // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_math_fixed_to_u64_panics() {
+        let bad_input = I32F32::from_num(-1);
+        fixed_to_u64(bad_input);
+    }
+
+    #[test]
+    fn test_math_fixed64_to_u64() {
+        let expected: u64 = u64::MIN;
+        assert_eq!(fixed64_to_u64(I64F64::from_num(expected)), expected);
+
+        let input: i64 = i64::MAX / 2;
+        let expected: u64 = u64::try_from(input).unwrap();
+        assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
+
+        let input: i64 = i64::MAX;
+        let expected: u64 = u64::try_from(input).unwrap();
+        assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_math_fixed64_to_u64_panics() {
+        let bad_input = I64F64::from_num(-1);
+        fixed64_to_u64(bad_input);
+    }
 }
