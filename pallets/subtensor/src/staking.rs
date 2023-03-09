@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T> {
         ensure!( !Self::hotkey_is_delegate( &hotkey ), Error::<T>::AlreadyDelegate );
 
 		// --- 5. Ensure we don't exceed tx rate limit
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&hotkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
 
         // --- 6. Delegate the key.
         Self::delegate_hotkey( &hotkey, take );
@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::remove_balance_from_coldkey_account( &coldkey, stake_as_balance.unwrap() ) == true, Error::<T>::BalanceWithdrawalError );
 
 		// --- 7. Ensure we don't exceed tx rate limit
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&hotkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
 
         // --- 8. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
@@ -188,7 +188,7 @@ impl<T: Config> Pallet<T> {
         ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
 		// --- 6. Ensure we don't exceed tx rate limit
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&hotkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
 
         // --- 7. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
