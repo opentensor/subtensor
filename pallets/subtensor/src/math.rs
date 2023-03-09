@@ -537,11 +537,31 @@ pub fn clip_sparse( sparse_matrix: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32, 
     result
 }
 
-/// Stake-weighted median score finding algorithm, based on a random pivot binary search.
-/// stake is assumed to be normalized, 0 <= score <= 1
-/// majority: the majority stake level, e.g. 0.51
-/// partition_lo: partition minimum stake
-/// partition_hi: partition maximum stake
+// Stake-weighted median score finding algorithm, based on a random pivot binary search.
+//
+// # Args:
+// 	* 'stake': ( &Vec<I32F32> ):
+//         - stake, assumed to be normalized.
+// 		
+// 	* 'score': ( &Vec<I32F32> ):
+//         - score for which median is sought, 0 <= score <= 1
+//
+// 	* 'partition_idx' ( &Vec<usize> ):
+// 		- indices as input partition
+//
+// 	* 'minority' ( I32F32 ):
+// 		- minority_ratio = 1 - majority_ratio
+//
+// 	* 'partition_lo' ( I32F32 ):
+// 		- lower edge of stake for partition, where partition is a segment [lo, hi] inside stake integral [0, 1].
+//
+// 	* 'partition_hi' ( I32F32 ):
+// 		- higher edge of stake for partition, where partition is a segment [lo, hi] inside stake integral [0, 1].
+// 
+// # Returns:
+//     * 'median': ( I32F32 ):
+//         - median via random pivot binary search.
+// 
 #[allow(dead_code)]
 pub fn weighted_median( stake: &Vec<I32F32>, score: &Vec<I32F32>, partition_idx: &Vec<usize>, minority: I32F32, partition_lo: I32F32, partition_hi: I32F32) -> I32F32 {
     let n = partition_idx.len();
@@ -566,17 +586,13 @@ pub fn weighted_median( stake: &Vec<I32F32>, score: &Vec<I32F32>, partition_idx:
             upper.push(idx);
         }
     }
-    // dbg!(&stake, &score, &partition_idx, minority, partition_lo, partition_hi, lo_stake, hi_stake, &lower, &upper);
     if (partition_lo + lo_stake <= minority) && (minority < partition_hi - hi_stake) {
-        // dbg!(partition_lo + lo_stake, minority, partition_hi - hi_stake);
         return pivot;
     }
     else if (minority < partition_lo + lo_stake) && (lower.len() > 0) {
-        // dbg!(minority, partition_lo + lo_stake);
         return weighted_median(stake, score, &lower, minority, partition_lo, partition_lo + lo_stake);
     }
     else if (partition_hi - hi_stake <= minority) && (upper.len() > 0) {
-        // dbg!(partition_hi - hi_stake, minority);
         return weighted_median(stake, score, &upper, minority, partition_hi - hi_stake, partition_hi);
     }
     pivot
@@ -1750,7 +1766,7 @@ mod tests {
         let mut rng = thread_rng();
         let zero: I32F32 = fixed(0.);
         let one: I32F32 = fixed(1.);
-        for _ in 0..10 {
+        for _ in 0..100 {
             let stake: Vec<I32F32> = vec_to_fixed(&vec![ ]);
             let score: Vec<I32F32> = vec_to_fixed(&vec![ ]);
             let majority: I32F32 = fixed(0.51);
@@ -1812,7 +1828,7 @@ mod tests {
             assert_eq!(fixed(0.6), weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
 
             let n: usize = 100;
-            for majority in vec_to_fixed(&vec![ 0.0000001, 0.25, 0.48999999999999, 0.49, 0.49000000000001, 0.5, 0.509999999999, 0.51, 0.5100000000001, 0.9999999]) {
+            for majority in vec_to_fixed(&vec![ 0., 0.0000001, 0.25, 0.48999999999999, 0.49, 0.49000000000001, 0.5, 0.509999999999, 0.51, 0.5100000000001, 0.9999999, 1.]) {
                 for allow_equal in vec![false, true] {
                     let mut stake: Vec<I32F32> = vec![ ];
                     let mut score: Vec<I32F32> = vec![ ];
@@ -1838,23 +1854,41 @@ mod tests {
                     let total_stake: I32F32 = stake.iter().sum();
                     let mut minority: I32F32 = total_stake - majority;
                     if minority < zero { minority = zero; }
-                    let mut median: I32F32 = zero;
+                    let mut medians: Vec<I32F32> = vec![];
+                    let mut median_stake: I32F32 = zero;
+                    let mut median_set = false;
                     let mut stake_sum: I32F32 = zero;
                     for i in 0..n {
                         stake_sum += stake[i];
-                        if stake_sum >= minority {
-                            median = score[i];
-                            break;
+                        if !median_set && stake_sum >= minority {
+                            median_stake = stake_sum;
+                            median_set = true;
+                        }
+                        if median_set {
+                            if median_stake < stake_sum {
+                                if median_stake == minority && !medians.contains(&score[i]) {
+                                    medians.push(score[i]);
+                                }
+                                break;
+                            }
+                            if !medians.contains(&score[i]) {
+                                medians.push(score[i]);
+                            }
                         }
                     }
+                    if medians.len() == 0 {
+                        medians.push(zero);
+                    }
                     let stake_idx: Vec<usize> = (0..stake.len()).collect();
-                    assert_eq!(median, weighted_median(&stake, &score, &stake_idx, minority, zero, total_stake));
+                    let result: I32F32 = weighted_median(&stake, &score, &stake_idx, minority, zero, total_stake);
+                    assert!(medians.contains(&result));
                     for _ in 0..10 {
                         let mut permuted_uids: Vec<usize> = (0..n).collect();
                         permuted_uids.shuffle(&mut thread_rng());
                         stake = permuted_uids.iter().map(|&i| stake[i]).collect();
                         score = permuted_uids.iter().map(|&i| score[i]).collect();
-                        assert_eq!(median, weighted_median(&stake, &score, &stake_idx, minority, zero, total_stake));
+                        let result: I32F32 = weighted_median(&stake, &score, &stake_idx, minority, zero, total_stake);
+                        assert!(medians.contains(&result));
                     }
                 }
             }
