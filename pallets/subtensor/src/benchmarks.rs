@@ -305,12 +305,18 @@ benchmarks! {
   benchmark_sudo_set_emission_values{
     let tempo: u16 = 1;
     let modality: u16 = 0;
-    let netuids: Vec<u16> = vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    let emission: Vec<u64> = vec![100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000];
+    let netuids: Vec<u16> = vec![0, 1, 2, 4, 5, 6, 7, 8, 9];
+    let emission: Vec<u64> = vec![100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000];
 
-    for netuid in 0..10 as u16 {
-      assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    }
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 0, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 1, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 2, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 4, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 5, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 6, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 7, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 8, tempo.into(), modality.into()));
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 9, tempo.into(), modality.into()));
 
   }: sudo_set_emission_values(RawOrigin::<AccountIdOf<T>>::Root, netuids, emission)
 
