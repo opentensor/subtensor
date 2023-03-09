@@ -43,10 +43,8 @@ jobs:
           pushd node &&
           cargo build --features=runtime-benchmarks --release
 
+
       - name: Run unit tests
         run: >
           pushd node &&
           cargo test
-      - name: Run Benchmarks
-        run: >
-          ./target/release/node-subtensor benchmark pallet --chain finney --execution=native --wasm-execution=compiled --pallet pallet-subtensor --extrinsic '*' --output benchmarking.txt
