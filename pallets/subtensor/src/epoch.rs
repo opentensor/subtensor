@@ -523,7 +523,8 @@ impl<T: Config> Pallet<T> {
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();Active::<T>::insert( netuid, active.clone() );
+        let cloned_weight_consensus: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
         Rank::<T>::insert( netuid, cloned_ranks);
         Trust::<T>::insert( netuid, cloned_trust);
