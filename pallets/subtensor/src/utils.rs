@@ -411,7 +411,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_max_burn( origin:T::RuntimeOrigin, netuid: u16, max_burn: u64 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_burn( netuid, max_burn );
+        Self::set_max_burn( netuid, max_burn );
         log::info!("MaxBurnSet( netuid: {:?} max_burn: {:?} ) ", netuid, max_burn );
         Self::deposit_event( Event::MaxBurnSet( netuid, max_burn ) );
         Ok(())
