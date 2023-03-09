@@ -2256,13 +2256,13 @@ mod tests {
 
     #[test]
     fn test_math_fixed_to_u16() {
-        let expected: u16 = u16::MIN;
+        let expected = u16::MIN;
         assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
 
-        let expected: u16 = u16::MAX / 2;
+        let expected = u16::MAX / 2;
         assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
 
-        let expected: u16 = u16::MAX;
+        let expected = u16::MAX;
         assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
     }
 
@@ -2279,13 +2279,13 @@ mod tests {
     // TODO: Investigate why `I32F32` and not `I64F64`
     #[test]
     fn test_math_fixed_to_u64() {
-        let expected: u64 = u64::MIN;
+        let expected = u64::MIN;
         assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
 
-        // let expected: u64 = u64::MAX / 2;
+        // let expected = u64::MAX / 2;
         // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
 
-        // let expected: u64 = u64::MAX;
+        // let expected = u64::MAX;
         // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
     }
 
@@ -2298,15 +2298,15 @@ mod tests {
 
     #[test]
     fn test_math_fixed64_to_u64() {
-        let expected: u64 = u64::MIN;
+        let expected = u64::MIN;
         assert_eq!(fixed64_to_u64(I64F64::from_num(expected)), expected);
 
-        let input: i64 = i64::MAX / 2;
-        let expected: u64 = u64::try_from(input).unwrap();
+        let input = i64::MAX / 2;
+        let expected = u64::try_from(input).unwrap();
         assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
 
-        let input: i64 = i64::MAX;
-        let expected: u64 = u64::try_from(input).unwrap();
+        let input = i64::MAX;
+        let expected = u64::try_from(input).unwrap();
         assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
     }
 
