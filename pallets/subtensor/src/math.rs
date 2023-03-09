@@ -2316,4 +2316,23 @@ mod tests {
         let bad_input = I64F64::from_num(-1);
         fixed64_to_u64(bad_input);
     }
+
+    /* @TODO: find the _true_ max, and half, input values */
+    #[test]
+    fn test_math_fixed64_to_fixed32() {
+        let input = u64::MIN;
+        let expected = u32::try_from(input).unwrap();
+        assert_eq!(fixed64_to_fixed32(I64F64::from_num(expected)), expected);
+
+        let expected = u32::MAX / 2;
+        let input = u64::try_from(expected).unwrap();
+        assert_eq!(fixed64_to_fixed32(I64F64::from_num(input)), expected);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_math_fixed64_to_fixed32_panics() {
+        let bad_input = I64F64::from_num(u32::MAX);
+        fixed64_to_fixed32(bad_input);
+    }
 }
