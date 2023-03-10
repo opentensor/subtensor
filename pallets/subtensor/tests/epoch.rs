@@ -1024,35 +1024,38 @@ fn test_validator_permits() {
 	}
 }
 
-// Map the retention graph for consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
+// Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // 
-// ```python
-// import torch
+// ```import torch
 // import matplotlib.pyplot as plt
 // from matplotlib.pyplot import cm
 // %matplotlib inline
-// 
-// with open('finney_consensus.txt') as f:  # test output saved to finney_consensus.txt
-//     retention_map = eval(f.read())
-// 
-// grid = {}
-// for major_stake, major_weight, minor_weight, major_ratio in retention_map:
-//     major_stake = f'{major_stake:.2f}'
-//     grid.setdefault(major_stake, torch.zeros((51, 51)))
-//     grid[major_stake][int(round(50 * major_weight))][int(round(50 * minor_weight))] = major_ratio
 //
-// fig = plt.figure(figsize=(6, 6)); ax = fig.gca()
-// ax.set_xticks(torch.arange(0, 1, 0.05))
-// ax.set_yticks(torch.arange(0, 1., 0.05))
+// with open('finney_consensus_0.4.txt') as f:  # test output saved to finney_consensus.txt
+//     retention_map = eval(f.read())
+//
+// major_ratios = {}
+// avg_weight_devs = {}
+// for major_stake, major_weight, minor_weight, avg_weight_dev, major_ratio in retention_map:
+//     major_stake = f'{major_stake:.2f}'
+//     maj, min = int(round(50 * major_weight)), int(round(50 * minor_weight))
+//     avg_weight_devs.setdefault(major_stake, torch.zeros((51, 51)))
+//     avg_weight_devs[major_stake][maj][min] = avg_weight_dev
+//     major_ratios.setdefault(major_stake, torch.zeros((51, 51)))
+//     major_ratios[major_stake][maj][min] = major_ratio
+//
+// _x = torch.linspace(0, 1, 51); _y = torch.linspace(0, 1, 51)
+// x, y = torch.meshgrid(_x, _y, indexing='ij')
+//
+// fig = plt.figure(figsize=(6, 6), dpi=70); ax = fig.gca()
+// ax.set_xticks(torch.arange(0, 1, 0.05)); ax.set_yticks(torch.arange(0, 1., 0.05))
 // ax.set_xticklabels([f'{_:.2f}'[1:] for _ in torch.arange(0, 1., 0.05)])
 // plt.grid(); plt.rc('grid', linestyle="dotted", color=[0.85, 0.85, 0.85])
 //
-// isolate = ['0.60']; stakes = [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+// isolate = ['0.60']; stakes = [0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99]
 // colors = cm.viridis(torch.linspace(0, 1, len(stakes) + 1))
-// _x = torch.linspace(0, 1, 51); _y = torch.linspace(0, 1, 51)
-// x, y = torch.meshgrid(_x, _y, indexing='ij')
 // for i, stake in enumerate(stakes):
-//     contours = plt.contour(x, y, grid[f'{stake:.2f}'], levels=[0., stake], colors=[colors[i + 1]])
+//     contours = plt.contour(x, y, major_ratios[f'{stake:.2f}'], levels=[0., stake], colors=[colors[i + 1]])
 //     if f'{stake:.2f}' in isolate:
 //         contours.collections[1].set_linewidth(3)
 //     plt.clabel(contours, inline=True, fontsize=10)
@@ -1069,7 +1072,7 @@ fn _map_consensus_guarantees() {
 	let interleave = 0;
 	let weight_stddev: I32F32 = fixed(0.4);
 	println!("[");
-	for _major_stake in vec![0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95] {
+	for _major_stake in vec![0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99] {
 		let major_stake: I32F32 = I32F32::from_num(_major_stake);
 		for _major_weight in 0..51 {
 			let major_weight: I32F32 = I32F32::from_num(50 - _major_weight) / I32F32::from_num(50);
