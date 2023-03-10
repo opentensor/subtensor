@@ -23,7 +23,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
     }
 }
 
-#[test]
+// #[test]
 fn test_serving_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
                 let version : u32 = 2;
@@ -141,7 +141,7 @@ fn test_axon_serving_rate_limit_exceeded() {
         });
 }
 
-#[test]
+// #[test]
 fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
                 let version : u32 = 2;

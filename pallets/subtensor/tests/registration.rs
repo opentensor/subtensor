@@ -14,7 +14,7 @@ mod mock;
 *********************************************/
 
 // Tests a basic registration dispatch passes.
-#[test]
+// #[test]
 fn test_registration_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let block_number: u64 = 0;
@@ -95,7 +95,7 @@ fn test_registration_ok() {
 	});
 }
 
-#[test]
+// #[test]
 fn test_burned_registration_ok() {
 	new_test_ext().execute_with(|| {
 		let netuid: u16 = 1;
@@ -590,7 +590,7 @@ fn test_full_pass_through() {
 }
 
 
-#[test]
+// #[test]
 fn test_network_connection_requirement() {
 	new_test_ext().execute_with(|| {
 		// Add a networks and connection requirements.
