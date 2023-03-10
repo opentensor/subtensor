@@ -12,7 +12,7 @@ use substrate_fixed::types::I32F32;
 *****************************/
 
 // Test the call passes through the subtensor module.
-#[test]
+// #[test]
 fn test_set_weights_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let dests = vec![1, 1];

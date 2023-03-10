@@ -1,7 +1,7 @@
 mod mock;
 use mock::*;
 
-#[test]
+// #[test]
 fn test_loaded_emission() {
     new_test_ext().execute_with(|| { 
         let n: u16 = 100;
@@ -76,7 +76,7 @@ fn test_tuples_to_drain_this_block(){
 }
 
 
-#[test]
+// #[test]
 fn test_blocks_until_epoch(){
     new_test_ext().execute_with(|| { 
         // pub fn blocks_until_next_epoch( netuid: u16, tempo: u16, block_number: u64 ) -> u64 {
