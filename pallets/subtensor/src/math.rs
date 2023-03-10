@@ -2,7 +2,6 @@ use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
-use rand::{Rng, thread_rng, seq::SliceRandom};
 
 #[allow(dead_code)]
 pub fn fixed(val: f32) -> I32F32 { I32F32::from_num(val) }
@@ -537,7 +536,9 @@ pub fn clip_sparse( sparse_matrix: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32, 
     result
 }
 
-// Stake-weighted median score finding algorithm, based on a random pivot binary search.
+// Stake-weighted median score finding algorithm, based on a mid pivot binary search.
+// Normally a random pivot is used, but to ensure full determinism the mid point is chosen instead.
+// Assumes relatively random score order for efficiency, typically less than O(nlogn) complexity.
 //
 // # Args:
 // 	* 'stake': ( &Vec<I32F32> ):
@@ -568,9 +569,8 @@ pub fn weighted_median( stake: &Vec<I32F32>, score: &Vec<I32F32>, partition_idx:
     if n == 0 { return I32F32::from_num( 0 ); }
     if n == 1 { return score[partition_idx[0]]; }
     assert!( stake.len() == score.len() );
-    let mut rng = thread_rng(); 
-    let rand_idx = rng.gen_range(0..n);
-    let pivot: I32F32 = score[partition_idx[rand_idx]];
+    let mid_idx: usize = n / 2;
+    let pivot: I32F32 = score[partition_idx[mid_idx]];
     let mut lo_stake: I32F32 = I32F32::from_num(0);
     let mut hi_stake: I32F32 = I32F32::from_num(0);
     let mut lower: Vec<usize> = vec![];
@@ -758,6 +758,7 @@ mod tests {
     use crate::math::*;
     use substrate_fixed::transcendental::exp;
     use substrate_fixed::types::{I32F32, I64F64, I96F32, I110F18};
+    use rand::{Rng, thread_rng, seq::SliceRandom};
 
     fn assert_float_compare(a: I32F32, b: I32F32, epsilon: I32F32 ) {
         assert!( I32F32::abs( a - b ) <= epsilon, "a({:?}) != b({:?})", a, b);
@@ -1760,7 +1761,7 @@ mod tests {
         inplace_clip(&mut matrix, I32F32::from_num(8), I32F32::from_num(100), I32F32::from_num(1));
         assert_mat_compare(&matrix, &target, I32F32::from_num( 0 ));
     }
-    
+
     #[test]
     fn test_math_weighted_median() {
         let mut rng = thread_rng();
@@ -1894,7 +1895,7 @@ mod tests {
             }
         }
     }
-
+    
     #[test]
     fn test_math_weighted_median_col() {
         let stake: Vec<I32F32> = vec_to_fixed(&vec![ ]);
