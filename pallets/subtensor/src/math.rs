@@ -2,6 +2,10 @@ use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
+use rand::{Rng, thread_rng, seq::SliceRandom};
+
+#[allow(dead_code)]
+pub fn fixed(val: f32) -> I32F32 { I32F32::from_num(val) }
 
 #[allow(dead_code)]
 pub fn fixed_to_u16( x: I32F32 ) -> u16 { x.to_num::<u16>() }
@@ -128,6 +132,20 @@ pub fn inplace_normalize_64( x: &mut Vec<I64F64> ) {
     for i in 0..x.len() {
         x[i] = x[i]/x_sum;
     }
+}
+
+/// Returns x / y for input vectors x and y, if y == 0 return 0.
+#[allow(dead_code)]
+pub fn vecdiv( x: &Vec<I32F32>, y: &Vec<I32F32> ) -> Vec<I32F32> {
+    assert_eq!( x.len(), y.len() );
+    let n = x.len();
+    let mut result: Vec<I32F32> = vec![ I32F32::from_num(0); n ];
+    for i in 0..n {
+        if y[i] != 0 {
+            result[i] = x[i] / y[i];
+        }
+    }
+    result
 }
 
 // Normalizes (sum to 1 except 0) each row (dim=0) of a matrix in-place.
@@ -517,6 +535,104 @@ pub fn clip_sparse( sparse_matrix: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32, 
         }
     }
     result
+}
+
+/// Stake-weighted median score finding algorithm, based on a random pivot binary search.
+/// stake is assumed to be normalized, 0 <= score <= 1
+/// majority: the majority stake level, e.g. 0.51
+/// partition_lo: partition minimum stake
+/// partition_hi: partition maximum stake
+#[allow(dead_code)]
+pub fn weighted_median( stake: &Vec<I32F32>, score: &Vec<I32F32>, partition_idx: &Vec<usize>, minority: I32F32, partition_lo: I32F32, partition_hi: I32F32) -> I32F32 {
+    let n = partition_idx.len();
+    if n == 0 { return I32F32::from_num( 0 ); }
+    if n == 1 { return score[partition_idx[0]]; }
+    assert!( stake.len() == score.len() );
+    let mut rng = thread_rng(); 
+    let rand_idx = rng.gen_range(0..n);
+    let pivot: I32F32 = score[partition_idx[rand_idx]];
+    let mut lo_stake: I32F32 = I32F32::from_num(0);
+    let mut hi_stake: I32F32 = I32F32::from_num(0);
+    let mut lower: Vec<usize> = vec![];
+    let mut upper: Vec<usize> = vec![];
+    for &idx in partition_idx.iter() {
+        if score[idx] == pivot { continue; }
+        if score[idx] < pivot {
+            lo_stake += stake[idx];
+            lower.push(idx);
+        }
+        else {
+            hi_stake += stake[idx];
+            upper.push(idx);
+        }
+    }
+    // dbg!(&stake, &score, &partition_idx, minority, partition_lo, partition_hi, lo_stake, hi_stake, &lower, &upper);
+    if (partition_lo + lo_stake <= minority) && (minority < partition_hi - hi_stake) {
+        // dbg!(partition_lo + lo_stake, minority, partition_hi - hi_stake);
+        return pivot;
+    }
+    else if (minority < partition_lo + lo_stake) && (lower.len() > 0) {
+        // dbg!(minority, partition_lo + lo_stake);
+        return weighted_median(stake, score, &lower, minority, partition_lo, partition_lo + lo_stake);
+    }
+    else if (partition_hi - hi_stake <= minority) && (upper.len() > 0) {
+        // dbg!(partition_hi - hi_stake, minority);
+        return weighted_median(stake, score, &upper, minority, partition_hi - hi_stake, partition_hi);
+    }
+    pivot
+}
+
+/// Column-wise weighted median, e.g. stake-weighted median scores per server (column) over all validators (rows).
+#[allow(dead_code)]
+pub fn weighted_median_col( stake: &Vec<I32F32>, score: &Vec<Vec<I32F32>>, majority: I32F32 ) -> Vec<I32F32> {
+    let rows = stake.len();
+    let columns = score[0].len();
+    let zero: I32F32 = I32F32::from_num(0);
+    let mut median: Vec<I32F32> = vec![ zero; columns ];
+    for c in 0..columns {
+        let mut use_stake: Vec<I32F32> = vec![ ];
+        let mut use_score: Vec<I32F32> = vec![ ];
+        for r in 0..rows {
+            assert_eq!(columns, score[r].len());
+            if stake[r] > zero {
+                use_stake.push(stake[r]);
+                use_score.push(score[r][c]);
+            }
+        }
+        if use_stake.len() > 0 {
+            inplace_normalize(&mut use_stake);
+            let stake_sum: I32F32 = use_stake.iter().sum();
+            let minority: I32F32 = stake_sum - majority;
+            median[c] = weighted_median(&use_stake, &use_score, &(0..use_stake.len()).collect(), minority, zero, stake_sum);
+        }
+    }
+    median
+}
+
+/// Column-wise weighted median, e.g. stake-weighted median scores per server (column) over all validators (rows).
+#[allow(dead_code)]
+pub fn weighted_median_col_sparse( stake: &Vec<I32F32>, score: &Vec<Vec<(u16, I32F32)>>, columns: u16, majority: I32F32 ) -> Vec<I32F32> {
+    let rows = stake.len();
+    let zero: I32F32 = I32F32::from_num(0);
+    let mut use_stake: Vec<I32F32> = stake.iter().copied().filter(|&s| s > zero).collect();
+    inplace_normalize(&mut use_stake);
+    let stake_sum: I32F32 = use_stake.iter().sum();
+    let stake_idx: Vec<usize> = (0..use_stake.len()).collect();
+    let minority: I32F32 = stake_sum - majority;
+    let mut use_score: Vec<Vec<I32F32>> = vec![ vec![ zero; use_stake.len() ]; columns as usize ];
+    let mut median: Vec<I32F32> = vec![ zero; columns as usize ];
+    let mut k: usize = 0;
+    for r in 0..rows {
+        if stake[r] <= zero { continue; }
+        for (c, val) in score[r].iter() {
+            use_score[*c as usize][k] = *val;
+        }
+        k += 1;
+    }
+    for c in 0..columns as usize {
+        median[c] = weighted_median(&use_stake, &use_score[c], &stake_idx, minority, zero, stake_sum);
+    }
+    median
 }
 
 // Element-wise product of two matrices.
@@ -968,6 +1084,24 @@ mod tests {
         let mut x2: Vec<I64F64> = vec![ I64F64::from_num(-1.0),  I64F64::from_num(10.0),  I64F64::from_num(30.0)]; 
         inplace_normalize_64(&mut x2);
         assert_vec_compare_64( &x2, &vec![ I64F64::from_num(-0.0256410255),  I64F64::from_num(0.2564102563),  I64F64::from_num(0.769230769)], epsilon );
+    }
+
+    #[test]
+    fn test_math_vecdiv() {
+        let x: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        let y: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        let result: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        assert_eq!(result, vecdiv( &x, &y ));
+
+        let x: Vec<I32F32> = vec_to_fixed(&vec![ 0., 1., 0., 1. ]);
+        let y: Vec<I32F32> = vec_to_fixed(&vec![ 0., 1., 1., 0. ]);
+        let result: Vec<I32F32> = vec_to_fixed(&vec![ 0., 1., 0., 0. ]);
+        assert_eq!(result, vecdiv( &x, &y ));
+
+        let x: Vec<I32F32> = vec_to_fixed(&vec![ 1., 1., 10. ]);
+        let y: Vec<I32F32> = vec_to_fixed(&vec![ 2., 3., 2. ]);
+        let result: Vec<I32F32> = vec![fixed(1.) / fixed(2.), fixed(1.) / fixed(3.), fixed(5.) ];
+        assert_eq!(result, vecdiv( &x, &y ));
     }
 
     #[test]
@@ -1609,6 +1743,196 @@ mod tests {
         let target = vec_to_mat_fixed(&target, 4, false);
         inplace_clip(&mut matrix, I32F32::from_num(8), I32F32::from_num(100), I32F32::from_num(1));
         assert_mat_compare(&matrix, &target, I32F32::from_num( 0 ));
+    }
+    
+    #[test]
+    fn test_math_weighted_median() {
+        let mut rng = thread_rng();
+        let zero: I32F32 = fixed(0.);
+        let one: I32F32 = fixed(1.);
+        for _ in 0..10 {
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(zero, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = normalize(&vec_to_fixed(&vec![ 0.51 ]));
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(one, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.49, 0.51 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(one, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.51, 0.49 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(fixed(0.5), weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.49, 0., 0.51 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 0.7, 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(one, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.49, 0.01, 0.5 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 0.7, 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(fixed(0.7), weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.49, 0.51, 0.0 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 0.7, 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(fixed(0.7), weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.0, 0.49, 0.51 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 0.7, 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(one, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.0, 0.49, 0.0, 0.51 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 0.5, 1., 1. ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(one, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.0, 0.49, 0.0, 0.51, 0.0 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.5, 0.5, 1., 1., 0.5 ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(one, weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.2, 0.2, 0.2, 0.2, 0.2 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.8, 0.2, 1., 0.6, 0.4 ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(fixed(0.6), weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1 ]);
+            let score: Vec<I32F32> = vec_to_fixed(&vec![ 0.8, 0.8, 0.2, 0.2, 1.0, 1.0, 0.6, 0.6, 0.4, 0.4 ]);
+            let majority: I32F32 = fixed(0.51);
+            assert_eq!(fixed(0.6), weighted_median(&stake, &score, &(0..stake.len()).collect(), one - majority, zero, stake.iter().sum()));
+
+            let n: usize = 100;
+            for majority in vec_to_fixed(&vec![ 0.0000001, 0.25, 0.48999999999999, 0.49, 0.49000000000001, 0.5, 0.509999999999, 0.51, 0.5100000000001, 0.9999999]) {
+                for allow_equal in vec![false, true] {
+                    let mut stake: Vec<I32F32> = vec![ ];
+                    let mut score: Vec<I32F32> = vec![ ];
+                    let mut last_score: I32F32 = zero;
+                    for i in 0..n {
+                        if allow_equal {
+                            match rng.gen_range(0..2) {
+                                1 => stake.push(one),
+                                _ => stake.push(zero)
+                            }
+                            match rng.gen_range(0..2) {
+                                1 => last_score += one,
+                                _ => ()
+                            }
+                            score.push(last_score);
+                        }
+                        else {
+                            stake.push(one);
+                            score.push(I32F32::from_num(i));
+                        }
+                    }
+                    inplace_normalize(&mut stake);
+                    let total_stake: I32F32 = stake.iter().sum();
+                    let mut minority: I32F32 = total_stake - majority;
+                    if minority < zero { minority = zero; }
+                    let mut median: I32F32 = zero;
+                    let mut stake_sum: I32F32 = zero;
+                    for i in 0..n {
+                        stake_sum += stake[i];
+                        if stake_sum >= minority {
+                            median = score[i];
+                            break;
+                        }
+                    }
+                    let stake_idx: Vec<usize> = (0..stake.len()).collect();
+                    assert_eq!(median, weighted_median(&stake, &score, &stake_idx, minority, zero, total_stake));
+                    for _ in 0..10 {
+                        let mut permuted_uids: Vec<usize> = (0..n).collect();
+                        permuted_uids.shuffle(&mut thread_rng());
+                        stake = permuted_uids.iter().map(|&i| stake[i]).collect();
+                        score = permuted_uids.iter().map(|&i| score[i]).collect();
+                        assert_eq!(median, weighted_median(&stake, &score, &stake_idx, minority, zero, total_stake));
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_math_weighted_median_col() {
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        let weights: Vec<Vec<I32F32>> = vec![ vec![ ] ];
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        assert_eq!(median, weighted_median_col(&stake, &weights, fixed(0.5)));
+
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0. ]);
+        let weights: Vec<f32> = vec![   0., 0.,
+                                        0., 0.];
+        let weights: Vec<Vec<I32F32>> = vec_to_mat_fixed(&weights, 2, false);
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0. ]);
+        assert_eq!(median, weighted_median_col(&stake, &weights, fixed(0.5)));
+
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.75, 0.25, 0. ]);
+        let weights: Vec<f32> = vec![   0., 0.1, 0., 
+                                        0., 0.2, 0.4, 
+                                        0., 0.3, 0.1,
+                                        0., 0.4, 0.5];
+        let weights: Vec<Vec<I32F32>> = vec_to_mat_fixed(&weights, 4, false);
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.3, 0.4 ]);
+        assert_eq!(median, weighted_median_col(&stake, &weights, fixed(0.24)));
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.2, 0.4 ]);
+        assert_eq!(median, weighted_median_col(&stake, &weights, fixed(0.26)));
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.2, 0.1 ]);
+        assert_eq!(median, weighted_median_col(&stake, &weights, fixed(0.76)));
+
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.3, 0.2, 0.5 ]);
+        let weights: Vec<f32> = vec![   0., 0.1, 0., 
+                                        0., 0.2, 0.4, 
+                                        0., 0.3, 0.1,
+                                        0., 0., 0.5];
+        let weights: Vec<Vec<I32F32>> = vec_to_mat_fixed(&weights, 4, false);
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0., 0.4 ]);
+        assert_eq!(median, weighted_median_col(&stake, &weights, fixed(0.51)));
+    }
+
+    #[test]
+    fn test_math_weighted_median_col_sparse() {
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        let weights: Vec<Vec<(u16, I32F32)>> = vec![ vec![ ] ];
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        assert_eq!(median, weighted_median_col_sparse(&stake, &weights, 0, fixed(0.5)));
+
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0. ]);
+        let weights: Vec<f32> = vec![   0., 0.,
+                                        0., 0.];
+        let weights: Vec<Vec<(u16, I32F32)>> = vec_to_sparse_mat_fixed(&weights, 2, false);
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0. ]);
+        assert_eq!(median, weighted_median_col_sparse(&stake, &weights, 2, fixed(0.5)));
+
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.75, 0.25, 0. ]);
+        let weights: Vec<f32> = vec![   0., 0.1, 0., 
+                                        0., 0.2, 0.4, 
+                                        0., 0.3, 0.1,
+                                        0., 0.4, 0.5];
+        let weights: Vec<Vec<(u16, I32F32)>> = vec_to_sparse_mat_fixed(&weights, 4, false);
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.3, 0.4 ]);
+        assert_eq!(median, weighted_median_col_sparse(&stake, &weights, 3, fixed(0.24)));
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.2, 0.4 ]);
+        assert_eq!(median, weighted_median_col_sparse(&stake, &weights, 3, fixed(0.26)));
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.2, 0.1 ]);
+        assert_eq!(median, weighted_median_col_sparse(&stake, &weights, 3, fixed(0.76)));
+
+        let stake: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0.3, 0.2, 0.5 ]);
+        let weights: Vec<f32> = vec![   0., 0.1, 0., 
+                                        0., 0.2, 0.4, 
+                                        0., 0.3, 0.1,
+                                        0., 0., 0.5];
+        let weights: Vec<Vec<(u16, I32F32)>> = vec_to_sparse_mat_fixed(&weights, 4, false);
+        let median: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0., 0.4 ]);
+        assert_eq!(median, weighted_median_col_sparse(&stake, &weights, 3, fixed(0.51)));
     }
 
     #[test]
