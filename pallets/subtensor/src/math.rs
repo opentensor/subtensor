@@ -2335,4 +2335,59 @@ mod tests {
         let bad_input = I64F64::from_num(u32::MAX);
         fixed64_to_fixed32(bad_input);
     }
+
+    #[test]
+    fn test_math_u16_to_fixed() {
+        let input = u16::MIN;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+
+        let input = u16::MAX / 2;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+
+        let input = u16::MAX;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+    }
+
+    #[test]
+    fn test_math_u16_proportion_to_fixed() {
+        let input = u16::MIN;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_proportion_to_fixed(input), expected);
+    }
+
+    #[test]
+    fn test_fixed_proportion_to_u16() {
+        let expected = u16::MIN;
+        let input = I32F32::from_num(expected);
+        assert_eq!(fixed_proportion_to_u16(input), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_fixed_proportion_to_u16_panics() {
+        let expected = u16::MAX;
+        let input = I32F32::from_num(expected);
+        fixed_proportion_to_u16(input);
+    }
+
+    #[test]
+    fn test_vec_fixed64_to_fixed32() {
+        let input = vec![ I64F64::from_num(i32::MIN) ];
+        let expected = vec![ I32F32::from_num(i32::MIN) ];
+        assert_eq!(vec_fixed64_to_fixed32(input), expected);
+
+        let input = vec![ I64F64::from_num(i32::MAX) ];
+        let expected = vec![ I32F32::from_num(i32::MAX) ];
+        assert_eq!(vec_fixed64_to_fixed32(input), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_vec_fixed64_to_fixed32_panics() {
+        let bad_input = vec![ I64F64::from_num(i64::MAX) ];
+        vec_fixed64_to_fixed32(bad_input);
+    }
 }
