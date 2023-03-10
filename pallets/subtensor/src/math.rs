@@ -2267,7 +2267,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "overflow")]
     fn test_math_fixed_to_u16_panics() {
         let bad_input = I32F32::from_num(u32::MAX);
         fixed_to_u16(bad_input);
@@ -2290,7 +2290,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "-1 overflows")]
     fn test_math_fixed_to_u64_panics() {
         let bad_input = I32F32::from_num(-1);
         fixed_to_u64(bad_input);
@@ -2311,7 +2311,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "-1 overflows")]
     fn test_math_fixed64_to_u64_panics() {
         let bad_input = I64F64::from_num(-1);
         fixed64_to_u64(bad_input);
@@ -2330,7 +2330,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
+    #[should_panic(expected = "overflow")]
     fn test_math_fixed64_to_fixed32_panics() {
         let bad_input = I64F64::from_num(u32::MAX);
         fixed64_to_fixed32(bad_input);
@@ -2391,3 +2391,4 @@ mod tests {
         vec_fixed64_to_fixed32(bad_input);
     }
 }
+
