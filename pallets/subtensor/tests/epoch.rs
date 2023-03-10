@@ -960,7 +960,7 @@ fn test_validator_permits() {
 		for (network_n, validators_n) in vec![(2, 1), (4, 2), (8, 4)] {
 			for assignment in 0..=1 {
 				let (validators, servers) = distribute_nodes(validators_n as usize, network_n as usize, interleave as usize);
-				let mut correct: bool = true;
+				let correct: bool = true;
 				let mut stake: Vec<u64> = vec![0; network_n];
 				for validator in &validators {
 					stake[*validator as usize] = match assignment {
