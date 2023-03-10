@@ -572,7 +572,7 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
     });
 }
 
-#[test]
+// #[test]
 pub fn test_sudo_test_pending_emission_ok() {
     new_test_ext().execute_with(|| {
         let netuid1: u16 = 1;

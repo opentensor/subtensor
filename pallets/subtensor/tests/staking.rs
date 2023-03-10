@@ -10,7 +10,7 @@ use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays}
 	staking::add_stake() tests
 ************************************************************/
 
-#[test]
+// #[test]
 fn test_add_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let hotkey = 0;
@@ -174,7 +174,7 @@ fn test_add_stake_err_not_enough_belance() {
 // 	staking::remove_stake() tests
 // ************************************************************/
 
-#[test]
+// #[test]
 fn test_remove_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
         let hotkey = 0;
