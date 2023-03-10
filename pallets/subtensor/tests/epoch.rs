@@ -1,5 +1,3 @@
-// RUST_BACKTRACE=1 cargo test epoch -- test_nill_epoch_subtensor test_1_graph test_10_graph test_512_graph test_4096_graph test_4096_graph_random_weights test_active_stake test_outdated_weights test_zero_weights --exact
-
 use crate::mock::*;
 use rand::{Rng, thread_rng, SeedableRng, rngs::StdRng, seq::SliceRandom, distributions::Uniform};
 use substrate_fixed::types::{I32F32, I64F64};
@@ -174,7 +172,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 }
 
 // Generate a random graph that is split into a major and minor set, each setting specific weight on itself and the complement on the other.
-fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, validators_n: usize, network_n: usize, interleave: usize) -> (Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u64>, Vec<Vec<(u16, u16)>>) {
+fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, weight_stddev: I32F32, validators_n: usize, network_n: usize, interleave: usize) -> (Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u64>, Vec<Vec<(u16, u16)>>, I32F32) {
 	let servers_n: usize = network_n - validators_n;
 	let major_servers_n: usize = non_extreme_fixed_ratio(major_stake, servers_n);
 	let major_validators_n: usize = non_extreme_fixed_ratio(major_stake, validators_n);
@@ -193,28 +191,59 @@ fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, 
     let dist = Uniform::new(0, u16::MAX);
 
 	let mut stake: Vec<u64> = vec![0; network_n];
+	let mut stake_fixed: Vec<I32F32> = vec![zero; network_n];
 	for (ratio, vals) in vec![(major_stake, &major_validators), (one - major_stake, &minor_validators)] {
 		let mut sample = normal(vals.len(), &mut rng, &dist).iter().map(|x: &I32F32| { let v: I32F32 = (stddev * x) + one; if v < zero {zero} else {v} }).collect();
 		inplace_normalize(&mut sample);
 		for (i, &val) in vals.iter().enumerate() {
 			stake[val as usize] = ( I64F64::from_num(ratio) * I64F64::from_num(sample[i]) * total_stake ).to_num::<u64>();
+			stake_fixed[val as usize] = I32F32::from_num(I64F64::from_num(ratio) * I64F64::from_num(sample[i]));
 		}
 	}
 	
 	let mut weights: Vec<Vec<(u16, u16)>> = vec![ vec![]; network_n as usize ];
+	let mut weights_fixed: Vec<Vec<I32F32>> = vec![ vec![zero; network_n]; network_n ];
 	for (first, second, vals) in vec![(major_weight, one - major_weight, &major_validators), (one - minor_weight, minor_weight, &minor_validators)] {
 		for &val in vals {
 			for (weight, srvs) in vec![(first, &major_servers), (second, &minor_servers)] {
-				let mut sample: Vec<I32F32> = normal(srvs.len(), &mut rng, &dist).iter().map(|x: &I32F32| { let v: I32F32 = (stddev * x) + one; if v < zero {zero} else {v} }).collect();
+				let mut sample: Vec<I32F32> = normal(srvs.len(), &mut rng, &dist).iter().map(|x: &I32F32| { let v: I32F32 = (weight_stddev * x) + one; if v < zero {zero} else {v} }).collect();
 				inplace_normalize(&mut sample);
 
 				for (i, &srv) in srvs.iter().enumerate() {
 					weights[val as usize].push( (srv, fixed_proportion_to_u16(weight * sample[i])) );
+					weights_fixed[val as usize][srv as usize] = weight * sample[i];
 				}
+			}
+			inplace_normalize(&mut weights_fixed[val as usize]);
+		}
+	}
+
+	inplace_normalize(&mut stake_fixed);
+
+	// Calculate stake-weighted mean per server
+	let mut weight_mean: Vec<I32F32> = vec![ zero; network_n ];
+	for val in 0..network_n {
+		if stake_fixed[val] > zero {
+			for srv in 0..network_n {
+				weight_mean[srv] += stake_fixed[val] * weights_fixed[val][srv];
 			}
 		}
 	}
-	(validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights)
+
+	// Calculate stake-weighted absolute standard deviation
+	let mut weight_dev: Vec<I32F32> = vec![ zero; network_n ];
+	for val in 0..network_n {
+		if stake_fixed[val] > zero {
+			for srv in 0..network_n {
+				weight_dev[srv] += stake_fixed[val] * (weight_mean[srv] - weights_fixed[val][srv]).abs();
+			}
+		}
+	}
+
+	// Calculate rank-weighted mean of weight_dev
+	let avg_weight_dev: I32F32 = weight_dev.iter().sum::<I32F32>() / weight_mean.iter().sum::<I32F32>();
+	
+	(validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, avg_weight_dev)
 }
 
 // Test consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other. Asserts that the major emission ratio >= major stake ratio.
@@ -226,8 +255,8 @@ fn test_consensus_guarantees() {
 	let epochs: u16 = 1;
 	let interleave = 2;
 	log::info!( "test_consensus_guarantees ({network_n:?}, {validators_n:?} validators)" );
-	for (major_stake, major_weight, minor_weight) in vec![(0.6, 0.76, 0.8), (0.6, 0.76, 1.), (0.6, 0.92, 1.), (0.6, 0.94, 1.)] {
-		let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights) = split_graph(fixed(major_stake), fixed(major_weight), fixed(minor_weight), validators_n as usize, network_n as usize, interleave as usize);
+	for (major_stake, major_weight, minor_weight, weight_stddev) in vec![(0.51, 1., 1., 0.001), (0.51, 0.03, 0., 0.001), (0.51, 0.51, 0.49, 0.001), (0.51, 0.51, 1., 0.001), (0.51, 0.61, 0.8, 0.1), (0.6, 0.67, 0.65, 0.2), (0.6, 0.74, 0.77, 0.4), (0.6, 0.76, 0.8, 0.4), (0.6, 0.76, 1., 0.4), (0.6, 0.92, 1., 0.4), (0.6, 0.94, 1., 0.4), (0.65, 0.78, 0.85, 0.6), (0.7, 0.81, 0.85, 0.8), (0.7, 0.83, 0.85, 1.)] {
+		let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, _avg_weight_dev) = split_graph(fixed(major_stake), fixed(major_weight), fixed(minor_weight), fixed(weight_stddev), validators_n as usize, network_n as usize, interleave as usize);
 
 		new_test_ext().execute_with(|| {
 			init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, false);
@@ -407,7 +436,7 @@ fn test_512_graph() {
 					assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &(uid as u64) ), 0 );
 					assert_eq!( SubtensorModule::get_rank_for_uid( netuid, uid ), 146 ); // Note R = floor(1 / (512 - 64) * 65_535) = 146
 					assert_eq!( SubtensorModule::get_trust_for_uid( netuid, uid ), 65535 );
-					assert_eq!( SubtensorModule::get_consensus_for_uid( netuid, uid ), 65534 ); // Note C = 1/(1+exp(-10*(1-0.5)))
+					assert_eq!( SubtensorModule::get_consensus_for_uid( netuid, uid ), 146 ); // Note C = floor(1 / (512 - 64) * 65_535) = 146
 					assert_eq!( SubtensorModule::get_incentive_for_uid( netuid, uid ), 146 ); // Note I = floor(1 / (512 - 64) * 65_535) = 146
 					assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, uid ), 0 );
 					assert_eq!( SubtensorModule::get_emission_for_uid( netuid, uid ), 1116071 ); // Note E = floor(0.5 / (512 - 64) * 1_000_000_000) = 1_116_071
@@ -499,10 +528,10 @@ fn test_4096_graph() {
 				}
 				for uid in &servers {
 					assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &(*uid as u64) ), 0 );
-					assert_eq!( SubtensorModule::get_rank_for_uid( netuid, *uid ), 17 ); // Note R = floor(1 / (4096 - 256) * 65_535) = 16
+					assert_eq!( SubtensorModule::get_rank_for_uid( netuid, *uid ), 17 ); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
 					assert_eq!( SubtensorModule::get_trust_for_uid( netuid, *uid ), 65535 );
-					assert_eq!( SubtensorModule::get_consensus_for_uid( netuid, *uid ), 65534 ); // Note C = 1/(1+exp(-30*(1-0.5)))
-					assert_eq!( SubtensorModule::get_incentive_for_uid( netuid, *uid ), 17 ); // Note I = floor(1 / (4096 - 256) * 65_535) = 16
+					assert_eq!( SubtensorModule::get_consensus_for_uid( netuid, *uid ), 17 ); // Note C = floor(1 / (4096 - 256) * 65_535) = 17
+					assert_eq!( SubtensorModule::get_incentive_for_uid( netuid, *uid ), 17 ); // Note I = floor(1 / (4096 - 256) * 65_535) = 17
 					assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, *uid ), 0 );
 					assert_eq!( SubtensorModule::get_emission_for_uid( netuid, *uid ), 130208 ); // Note E = floor(0.5 / (4096 - 256) * 1_000_000_000) = 130208
 					assert_eq!( bonds[*uid as usize][validator], 0.0 );
@@ -543,7 +572,7 @@ fn test_16384_graph_sparse() {
 			assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &(uid as u64) ), 0 );
 			assert_eq!( SubtensorModule::get_rank_for_uid( netuid, uid ), 4 ); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
 			assert_eq!( SubtensorModule::get_trust_for_uid( netuid, uid ), 65535 );
-			assert_eq!( SubtensorModule::get_consensus_for_uid( netuid, uid ), 65096 ); // Note C = 1/(1+exp(-10*(1-0.5))) = 0.9932 => (0.9932*65_535) = floor( 65089.362 )
+			assert_eq!( SubtensorModule::get_consensus_for_uid( netuid, uid ), 4 ); // Note C = floor(1 / (16384 - 512) * 65_535) = 4
 			assert_eq!( SubtensorModule::get_incentive_for_uid( netuid, uid ), 4 ); // Note I = floor(1 / (16384 - 512) * 65_535) = 4
 			assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, uid ), 0 );
 			assert_eq!( SubtensorModule::get_emission_for_uid( netuid, uid ), 31517 ); // Note E = floor(0.5 / (16384 - 512) * 1_000_000_000) = 31502 (discrepancy)
@@ -786,25 +815,27 @@ fn test_outdated_weights() {
 			W (0): [[(2, 0.6666666665), (3, 0.3333333333)], [(2, 0.8666666665)], [], []]
 			W (1): [[(2, 0.6666666665), (3, 0.3333333333)], [(2, 0.7797101443)], [], []]
 			W (2): [[(2, 0.6666666665), (3, 0.3333333333)], [(2, 0.727605936)], [], []]
-			R: [0, 0, 0.8070547648, 0.192945235]
-			W (threshold): [[(2, 1), (3, 1)], [(2, 1)], [], []]
-			T: [0, 0, 0.6666666665, 0.3333333333]
-			C: [0.000000306, 0.000000306, 0.9933086704, 0.0066943727]
-			I: [0, 0, 0.998391365, 0.0016086348]
+			R (before): [0, 0, 0.5555555553, 0.111111111]
+			C: [0, 0, 0.6666666665, 0]
+			W: [[(2, 0.6666666665)], [(2, 0.6666666665)], [], []]
+			Tv: [0.6666666665, 0.6666666665, 0, 0]
+			R (after): [0, 0, 0.444444444, 0]
+			T: [0, 0, 0.7999999996, 0]
+			I (=R): [0, 0, 1, 0]
 			B: [[(2, 0.4999923704), (3, 0.4999923704)], [(2, 0.4999923704), (3, 0.4999923704)], [], []]
 			B (outdatedmask): [[(2, 0.4999923704), (3, 0.4999923704)], [(2, 0.4999923704)], [], []]
 			B (mask+norm): [[(2, 0.5), (3, 1)], [(2, 0.5)], [], []]
-			ΔB: [[(2, 0.222222222), (3, 0.111111111)], [(2, 0.2425353117)], [], []]
-			ΔB (norm): [[(2, 0.4781465728), (3, 1)], [(2, 0.521853427)], [], []]
-			emaB: [[(2, 0.4978146572), (3, 1)], [(2, 0.5021853426)], [], []]
-			D: [0.49862249, 0.5013775097, 0, 0]
-			nE: [0.249311245, 0.2506887547, 0.4991956824, 0.0008043174]
-			E: [249311245, 250688754, 499195682, 804317]
-			P: [0.249311245, 0.2506887547, 0.4991956824, 0.0008043174] */
+			ΔB: [[(2, 0.222222222)], [(2, 0.222222222)], [], []]
+			ΔB (norm): [[(2, 0.5)], [(2, 0.5)], [], []]
+			emaB: [[(2, 0.5), (3, 1)], [(2, 0.5)], [], []]
+			D: [0.5, 0.5, 0, 0]
+			nE: [0.25, 0.25, 0.5, 0]
+			E: [250000000, 250000000, 500000000, 0]
+			P: [0.25, 0.25, 0.5, 0] */
 		let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, 0 ), 32677 ); // Note D = floor(0.49862249 * 65_535)
-		assert_eq!( SubtensorModule::get_emission_for_uid( netuid, 0 ), 249311245 ); // Note E = 0.5 * 0.49862249 * 1_000_000_000 = 249311245
-		assert_eq!( bonds[0][2], I32F32::from_num(32624) / I32F32::from_num(65_535) ); // floor(0.4978146572*(2^16-1))/(2^16-1)
+		assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, 0 ), 32767 ); // Note D = floor(0.5 * 65_535)
+		assert_eq!( SubtensorModule::get_emission_for_uid( netuid, 0 ), 250000000 ); // Note E = 0.5 * 0.5 * 1_000_000_000 = 249311245
+		assert_eq!( bonds[0][2], I32F32::from_num(32767) / I32F32::from_num(65_535) ); // floor(0.5*(2^16-1))/(2^16-1)
 		assert_eq!( bonds[0][3], I32F32::from_num(1) ); // only uid0 has updated weights for new reg
 	});
 }
@@ -929,9 +960,8 @@ fn test_validator_permits() {
 		for (network_n, validators_n) in vec![(2, 1), (4, 2), (8, 4)] {
 			for assignment in 0..=1 {
 				let (validators, servers) = distribute_nodes(validators_n as usize, network_n as usize, interleave as usize);
-				let mut correct: bool = true;
+				let correct: bool = true;
 				let mut stake: Vec<u64> = vec![0; network_n];
-				correct = true;
 				for validator in &validators {
 					stake[*validator as usize] = match assignment {
 						1 => *validator as u64 + network_n as u64,
@@ -994,35 +1024,38 @@ fn test_validator_permits() {
 	}
 }
 
-// Map the retention graph for consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
+// Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // 
-// ```python
-// import torch
+// ```import torch
 // import matplotlib.pyplot as plt
 // from matplotlib.pyplot import cm
 // %matplotlib inline
-// 
-// with open('finney_consensus.txt') as f:  # test output saved to finney_consensus.txt
-//     retention_map = eval(f.read())
-// 
-// grid = {}
-// for major_stake, major_weight, minor_weight, major_ratio in retention_map:
-//     major_stake = f'{major_stake:.2f}'
-//     grid.setdefault(major_stake, torch.zeros((51, 51)))
-//     grid[major_stake][int(round(50 * major_weight))][int(round(50 * minor_weight))] = major_ratio
 //
-// fig = plt.figure(figsize=(6, 6)); ax = fig.gca()
-// ax.set_xticks(torch.arange(0, 1, 0.05))
-// ax.set_yticks(torch.arange(0, 1., 0.05))
+// with open('finney_consensus_0.4.txt') as f:  # test output saved to finney_consensus.txt
+//     retention_map = eval(f.read())
+//
+// major_ratios = {}
+// avg_weight_devs = {}
+// for major_stake, major_weight, minor_weight, avg_weight_dev, major_ratio in retention_map:
+//     major_stake = f'{major_stake:.2f}'
+//     maj, min = int(round(50 * major_weight)), int(round(50 * minor_weight))
+//     avg_weight_devs.setdefault(major_stake, torch.zeros((51, 51)))
+//     avg_weight_devs[major_stake][maj][min] = avg_weight_dev
+//     major_ratios.setdefault(major_stake, torch.zeros((51, 51)))
+//     major_ratios[major_stake][maj][min] = major_ratio
+//
+// _x = torch.linspace(0, 1, 51); _y = torch.linspace(0, 1, 51)
+// x, y = torch.meshgrid(_x, _y, indexing='ij')
+//
+// fig = plt.figure(figsize=(6, 6), dpi=70); ax = fig.gca()
+// ax.set_xticks(torch.arange(0, 1, 0.05)); ax.set_yticks(torch.arange(0, 1., 0.05))
 // ax.set_xticklabels([f'{_:.2f}'[1:] for _ in torch.arange(0, 1., 0.05)])
 // plt.grid(); plt.rc('grid', linestyle="dotted", color=[0.85, 0.85, 0.85])
 //
-// isolate = ['0.60']; stakes = [0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95]
+// isolate = ['0.60']; stakes = [0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99]
 // colors = cm.viridis(torch.linspace(0, 1, len(stakes) + 1))
-// _x = torch.linspace(0, 1, 51); _y = torch.linspace(0, 1, 51)
-// x, y = torch.meshgrid(_x, _y, indexing='ij')
 // for i, stake in enumerate(stakes):
-//     contours = plt.contour(x, y, grid[f'{stake:.2f}'], levels=[0., stake], colors=[colors[i + 1]])
+//     contours = plt.contour(x, y, major_ratios[f'{stake:.2f}'], levels=[0., stake], colors=[colors[i + 1]])
 //     if f'{stake:.2f}' in isolate:
 //         contours.collections[1].set_linewidth(3)
 //     plt.clabel(contours, inline=True, fontsize=10)
@@ -1037,17 +1070,18 @@ fn _map_consensus_guarantees() {
 	let validators_n: u16 = 64;
 	let epochs: u16 = 1;
 	let interleave = 0;
+	let weight_stddev: I32F32 = fixed(0.4);
 	println!("[");
-	for _major_stake in vec![0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95] {
+	for _major_stake in vec![0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99] {
 		let major_stake: I32F32 = I32F32::from_num(_major_stake);
-		for _major_weight in 0..40 {
+		for _major_weight in 0..51 {
 			let major_weight: I32F32 = I32F32::from_num(50 - _major_weight) / I32F32::from_num(50);
-			for _minor_weight in 0..50 {
+			for _minor_weight in 0..51 {
 				let minor_weight: I32F32 = I32F32::from_num(50 - _minor_weight) / I32F32::from_num(50);
-				let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights) = split_graph(major_stake, major_weight, minor_weight, validators_n as usize, network_n as usize, interleave as usize);
+				let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, avg_weight_dev) = split_graph(major_stake, major_weight, minor_weight, weight_stddev, validators_n as usize, network_n as usize, interleave as usize);
 
 				new_test_ext().execute_with(|| {
-					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, false);
+					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, true);
 
 					let mut major_emission: I64F64 = I64F64::from_num(0);
 					let mut minor_emission: I64F64 = I64F64::from_num(0);
@@ -1062,7 +1096,7 @@ fn _map_consensus_guarantees() {
 						}
 					}
 					let major_ratio: I32F32 = I32F32::from_num(major_emission / (major_emission + minor_emission));
-					println!("[{major_stake}, {major_weight:.2}, {minor_weight:.2}, {major_ratio:.3}], ");
+					println!("[{major_stake}, {major_weight:.2}, {minor_weight:.2}, {avg_weight_dev:.3}, {major_ratio:.3}], ");
 				});
 			}	
 		}
