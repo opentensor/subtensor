@@ -20,7 +20,6 @@ pub struct NeuronInfo {
     emission: u64,
     incentive: u16,
     consensus: u16,
-    weight_consensus: u16,
     trust: u16,
     validator_trust: u16,
     dividends: u16,
@@ -70,7 +69,6 @@ impl<T: Config> Pallet<T> {
             let emission = Self::get_emission_for_uid( netuid, uid as u16 );
             let incentive = Self::get_incentive_for_uid( netuid, uid as u16 );
             let consensus = Self::get_consensus_for_uid( netuid, uid as u16 );
-            let weight_consensus = Self::get_weight_consensus_for_uid( netuid, uid as u16 );
             let trust = Self::get_trust_for_uid( netuid, uid as u16 );
             let validator_trust = Self::get_validator_trust_for_uid( netuid, uid as u16 );
             let dividends = Self::get_dividends_for_uid( netuid, uid as u16 );
@@ -101,7 +99,6 @@ impl<T: Config> Pallet<T> {
                 emission,
                 incentive,
                 consensus,
-                weight_consensus,
                 trust,
                 validator_trust,
                 dividends,
@@ -148,7 +145,6 @@ impl<T: Config> Pallet<T> {
         let emission = Self::get_emission_for_uid( netuid, uid as u16 );
         let incentive = Self::get_incentive_for_uid( netuid, uid as u16 );
         let consensus = Self::get_consensus_for_uid( netuid, uid as u16 );
-        let weight_consensus = Self::get_weight_consensus_for_uid( netuid, uid as u16 );
         let trust = Self::get_trust_for_uid( netuid, uid as u16 );
         let validator_trust = Self::get_validator_trust_for_uid( netuid, uid as u16 );
         let dividends = Self::get_dividends_for_uid( netuid, uid as u16 );
@@ -179,7 +175,6 @@ impl<T: Config> Pallet<T> {
             emission,
             incentive,
             consensus,
-            weight_consensus,
             trust,
             validator_trust,
             dividends,
