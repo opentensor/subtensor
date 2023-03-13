@@ -185,7 +185,7 @@ impl<T: Config> Pallet<T> {
     pub fn axon_passes_rate_limit( prev_axon_info: &AxonInfoOf, current_block: u64 ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit();
         let last_serve = prev_axon_info.block;
-        return rate_limit == 0 || current_block - last_serve >= rate_limit;
+        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
     }
 
     pub fn prometheus_passes_rate_limit( prev_prometheus_info: &PrometheusInfoOf, current_block: u64 ) -> bool {
