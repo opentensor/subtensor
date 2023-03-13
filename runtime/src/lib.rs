@@ -109,7 +109,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 101,
+	spec_version: 103,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -314,7 +314,6 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
 	pub const SubtensorInitialRho: u16 = 30;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
-    pub const SubtensorInitialWeightCuts: u16 = 3;
     pub const SubtensorInitialMaxAllowedUids: u16 = 512;
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 0;
@@ -354,7 +353,6 @@ impl pallet_subtensor::Config for Runtime {
 	type Currency = Balances;
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;
-	type InitialWeightCuts = SubtensorInitialWeightCuts;
 	type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
 	type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
 	type InitialIssuance = SubtensorInitialIssuance;

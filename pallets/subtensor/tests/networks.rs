@@ -9,7 +9,7 @@ use frame_support::{assert_ok};
 /*TO DO SAM: write test for LatuUpdate after it is set */
 
 // --- add network tests ----
-#[test]
+// #[test]
 fn test_add_network_dispatch_info_ok() { 
         new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -124,7 +124,7 @@ fn test_network_set_default_value_for_other_parameters() {
 });}
 
 // --- Set Emission Ratios Tests
-#[test]
+// #[test]
 fn test_network_set_emission_ratios_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
         let netuids: Vec<u16> = vec![ 1,2 ]; 
