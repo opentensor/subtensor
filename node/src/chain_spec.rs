@@ -153,7 +153,7 @@ struct ColdkeyHotkeys {
 }
 
 pub fn finney_config() -> Result<ChainSpec, String> {
-	let path: PathBuf = std::path::PathBuf::from("/Users/alashaabana/.bittensor/subtensorv3/nakamoto_gen.json");
+	let path: PathBuf = std::path::PathBuf::from("./nakamoto_gen.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// We mmap the file into memory first, as this is *a lot* faster than using
@@ -198,9 +198,9 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Finney",
+		"Bittensor",
 		// ID
-		"Finney",
+		"bittensor",
 		ChainType::Development,
 		move || {
 			finney_genesis(
@@ -246,7 +246,7 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 		// Telemetry
 		None,
 		// Protocol ID
-		None,
+		Some("bittensor"),
 		None,
 		// Properties
 		None,
