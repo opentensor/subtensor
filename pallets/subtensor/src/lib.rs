@@ -511,8 +511,6 @@ pub mod pallet {
 	pub(super) type LastUpdate<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
 	#[pallet::storage] // --- DMAP ( netuid ) --> validator_trust
 	pub(super) type ValidatorTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> weight_consensus
-	pub(super) type WeightConsensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
 	#[pallet::storage] // --- DMAP ( netuid ) --> pruning_scores
 	pub(super) type PruningScores<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T> >;
 	#[pallet::storage] // --- DMAP ( netuid ) --> validator_permit

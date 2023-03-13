@@ -39,7 +39,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_update( netuid:u16 ) -> Vec<u64> { LastUpdate::<T>::get( netuid ) }
     pub fn get_pruning_score( netuid:u16 ) -> Vec<u16> { PruningScores::<T>::get( netuid ) }
     pub fn get_validator_trust( netuid:u16 ) -> Vec<u16> { ValidatorTrust::<T>::get( netuid ) }
-    pub fn get_weight_consensus( netuid:u16 ) -> Vec<u16> { WeightConsensus::<T>::get( netuid ) }
     pub fn get_validator_permit( netuid:u16 ) -> Vec<bool> { ValidatorPermit::<T>::get( netuid ) }
 
     // ==================================
@@ -84,7 +83,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_update_for_uid( netuid:u16, uid: u16) -> u64 { let vec = LastUpdate::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
     pub fn get_pruning_score_for_uid( netuid:u16, uid: u16) -> u16 { let vec = PruningScores::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return u16::MAX } }
     pub fn get_validator_trust_for_uid( netuid:u16, uid: u16) -> u16 { let vec = ValidatorTrust::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
-    pub fn get_weight_consensus_for_uid( netuid:u16, uid: u16) -> u16 { let vec = WeightConsensus::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
     pub fn get_validator_permit_for_uid( netuid:u16, uid: u16) -> bool { let vec = ValidatorPermit::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return false } }
 
     // ============================

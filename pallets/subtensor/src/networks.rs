@@ -300,7 +300,6 @@ impl<T: Config> Pallet<T> {
         LastUpdate::<T>::remove( netuid );
         ValidatorPermit::<T>::remove( netuid );
         ValidatorTrust::<T>::remove( netuid );
-        WeightConsensus::<T>::remove( netuid );
 
         // --- 2. Erase network parameters.
         Tempo::<T>::remove( netuid );
