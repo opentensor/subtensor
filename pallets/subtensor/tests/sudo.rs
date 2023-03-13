@@ -13,7 +13,6 @@ fn test_defaults() {
         add_network(netuid, 10, 0);
         assert_eq!( SubtensorModule::get_number_of_subnets(), 1 ); // There is a single network.
         assert_eq!( SubtensorModule::get_subnetwork_n( netuid ), 0 ); // Network size is zero.
-        assert_eq!( SubtensorModule::get_weight_cuts( netuid ), 3 );
         assert_eq!( SubtensorModule::get_rho( netuid ), 30 );
         assert_eq!( SubtensorModule::get_tempo( netuid ), 10 );
         assert_eq!( SubtensorModule::get_kappa( netuid ), 32_767 );
@@ -369,21 +368,6 @@ fn test_sudo_set_max_allowed_uids() {
         assert_eq!( SubtensorModule::get_max_allowed_uids(netuid), init_value);
         assert_ok!( SubtensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
         assert_eq!( SubtensorModule::get_max_allowed_uids(netuid), to_be_set);
-    });
-}
-
-#[test]
-fn test_sudo_set_weight_cuts() {
-	new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 3;
-        let init_value: u16 = SubtensorModule::get_weight_cuts( netuid );
-        add_network(netuid, 10, 0);
-		assert_eq!( SubtensorModule::sudo_set_weight_cuts(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
-        assert_eq!( SubtensorModule::sudo_set_weight_cuts(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
-        assert_eq!( SubtensorModule::get_weight_cuts(netuid), init_value);
-        assert_ok!( SubtensorModule::sudo_set_weight_cuts(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
-        assert_eq!( SubtensorModule::get_weight_cuts(netuid), to_be_set);
     });
 }
 

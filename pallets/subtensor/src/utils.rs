@@ -349,17 +349,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
             
-    pub fn get_weight_cuts( netuid: u16 ) -> u16  { WeightCuts::<T>::get( netuid ) }
-    pub fn set_weight_cuts( netuid: u16, weight_cuts: u16 ) { WeightCuts::<T>::insert( netuid, weight_cuts ); }
-    pub fn do_sudo_set_weight_cuts( origin:T::RuntimeOrigin, netuid: u16, weight_cuts: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_weight_cuts( netuid, weight_cuts );
-        log::info!("WeightCutsSet( netuid: {:?} weight_cuts: {:?} ) ", netuid, weight_cuts );
-        Self::deposit_event( Event::WeightCutsSet( netuid, weight_cuts ) );
-        Ok(())
-    }
-            
     pub fn get_activity_cutoff( netuid: u16 ) -> u16  { ActivityCutoff::<T>::get( netuid ) }
     pub fn set_activity_cutoff( netuid: u16, activity_cutoff: u16 ) { ActivityCutoff::<T>::insert( netuid, activity_cutoff ); }
     pub fn do_sudo_set_activity_cutoff( origin:T::RuntimeOrigin, netuid: u16, activity_cutoff: u16 ) -> DispatchResult {
