@@ -27,7 +27,7 @@ fn test_defaults() {
         assert_eq!( SubtensorModule::get_max_allowed_uids( netuid ), 2 );
         assert_eq!( SubtensorModule::get_min_allowed_weights( netuid ), 0 );
         assert_eq!( SubtensorModule::get_adjustment_interval( netuid ), 100 );
-        assert_eq!( SubtensorModule::get_bonds_moving_average( netuid ), 500_000 );
+        assert_eq!( SubtensorModule::get_bonds_moving_average( netuid ), 900_000 );
         assert_eq!( SubtensorModule::get_validator_batch_size( netuid ), 10 );
         assert_eq!( SubtensorModule::get_last_adjustment_block( netuid ), 0 );
         assert_eq!( SubtensorModule::get_last_mechanism_step_block( netuid ), 0 );
