@@ -12,6 +12,7 @@ use pallet_grandpa::{
 
 use frame_support::pallet_prelude::Get;
 
+use pallet_subtensor::InfoResponse;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -24,10 +25,12 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
+
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use serde_json as serde_json;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -667,32 +670,68 @@ impl_runtime_apis! {
 	}
 
 	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
-		fn get_delegates() -> Vec<pallet_subtensor::delegate_info::DelegateInfo> {
-			SubtensorModule::get_delegates()
+		fn get_delegates() -> InfoResponse {
+			let result = SubtensorModule::get_delegates();
+			InfoResponse {
+				body: serde_json::to_string(&result).unwrap().as_bytes().to_vec(),
+			}
 		}
 
-		fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<pallet_subtensor::delegate_info::DelegateInfo> {
-			SubtensorModule::get_delegate(delegate_account_vec)
+		fn get_delegate(delegate_account_vec: Vec<u8>) -> InfoResponse {
+			let result = SubtensorModule::get_delegate(delegate_account_vec);
+			if result.is_some() {
+				InfoResponse {
+					body: serde_json::to_string(&result).unwrap().as_bytes().to_vec(),
+				}
+			} else {
+				InfoResponse {
+					body: "null".to_owned().as_bytes().to_vec(),
+				}
+			}
 		}
 	}
 
 	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
-		fn get_neurons(netuid: u16) -> Vec<pallet_subtensor::neuron_info::NeuronInfo> {
-			SubtensorModule::get_neurons(netuid)
+		fn get_neurons(netuid: u16) -> InfoResponse {
+			let result = SubtensorModule::get_neurons(netuid);
+			InfoResponse {
+				body: serde_json::to_string(&result).unwrap().as_bytes().to_vec(),
+			}
 		}
 
-		fn get_neuron(netuid: u16, uid: u16) -> Option<pallet_subtensor::neuron_info::NeuronInfo> {
-			SubtensorModule::get_neuron(netuid, uid)
+		fn get_neuron(netuid: u16, uid: u16) -> InfoResponse {
+			let result = SubtensorModule::get_neuron(netuid, uid);
+			if result.is_some() {
+				InfoResponse {
+					body: serde_json::to_string(&result).unwrap().as_bytes().to_vec(),
+				}
+			} else {
+				InfoResponse {
+					body: "null".to_owned().as_bytes().to_vec(),
+				}
+			}
 		}
 	}
 
 	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-		fn get_subnet_info(netuid: u16) -> Option<pallet_subtensor::subnet_info::SubnetInfo> {
-			SubtensorModule::get_subnet_info(netuid)
+		fn get_subnet_info(netuid: u16) -> InfoResponse {
+			let result = SubtensorModule::get_subnet_info(netuid);
+			if result.is_some() {
+				InfoResponse {
+					body: serde_json::to_string(&result).unwrap().as_bytes().to_vec(),
+				}
+			} else {
+				InfoResponse {
+					body: "null".to_owned().as_bytes().to_vec(),
+				}
+			}
 		}
 
-		fn get_subnets_info() -> Vec<Option<pallet_subtensor::subnet_info::SubnetInfo>> {
-			SubtensorModule::get_subnets_info()
+		fn get_subnets_info() -> InfoResponse {
+			let result = SubtensorModule::get_subnets_info();
+			InfoResponse {
+				body: serde_json::to_string(&result).unwrap().as_bytes().to_vec(),
+			}
 		}
 	}
 }

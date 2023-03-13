@@ -72,11 +72,12 @@ pub mod subnet_info;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::{Currency};
+	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
 	use serde::{Serialize, Deserialize};
 	use serde_with::{serde_as, DisplayFromStr};
 	use frame_support::inherent::Vec;
+	use scale_info::prelude::string::String;
 
 
 	#[pallet::pallet]
@@ -180,6 +181,11 @@ pub mod pallet {
 				id: v.clone()
 			}
 		}
+	}
+
+	#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
+	pub struct InfoResponse {
+		pub body: Vec<u8> // Return all custom RPCs in this format
 	}
 
 	// ============================
