@@ -107,10 +107,7 @@ impl<T: Config> Pallet<T> {
 	pub fn get_last_tx_block( key: &T::AccountId ) -> u64 { LastTxBlock::<T>::get( key ) }
 	pub fn exceeds_tx_rate_limit( prev_tx_block: u64, current_block: u64 ) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
-		if rate_limit == 0 {
-			return false;
-		}
-		if prev_tx_block == 0 {
+		if rate_limit == 0 || prev_tx_block == 0 {
 			return false;
 		}
 
