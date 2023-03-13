@@ -206,7 +206,7 @@ impl<T: Config> Pallet<T> {
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_pruning_scores: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
@@ -215,7 +215,7 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::insert( netuid, cloned_consensus );
         Incentive::<T>::insert( netuid, cloned_incentive );
         Dividends::<T>::insert( netuid, cloned_dividends );
-        PruningScores::<T>::insert( netuid, cloned_prunning_socres );
+        PruningScores::<T>::insert( netuid, cloned_pruning_scores );
         ValidatorTrust::<T>::insert( netuid, cloned_validator_trust );
         ValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
 
@@ -469,7 +469,7 @@ impl<T: Config> Pallet<T> {
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_pruning_scores: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
@@ -478,7 +478,7 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::insert( netuid, cloned_consensus );
         Incentive::<T>::insert( netuid, cloned_incentive );
         Dividends::<T>::insert( netuid, cloned_dividends );
-        PruningScores::<T>::insert( netuid, cloned_prunning_socres );
+        PruningScores::<T>::insert( netuid, cloned_pruning_scores );
         ValidatorTrust::<T>::insert( netuid, cloned_validator_trust );
         ValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
 
