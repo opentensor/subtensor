@@ -685,7 +685,7 @@ impl_runtime_apis! {
 				}
 			} else {
 				InfoResponse {
-					body: "null".to_owned().as_bytes().to_vec(),
+					body: vec![],
 				}
 			}
 		}
@@ -707,7 +707,7 @@ impl_runtime_apis! {
 				}
 			} else {
 				InfoResponse {
-					body: "null".to_owned().as_bytes().to_vec(),
+					body: vec![],
 				}
 			}
 		}
@@ -722,7 +722,7 @@ impl_runtime_apis! {
 				}
 			} else {
 				InfoResponse {
-					body: "null".to_owned().as_bytes().to_vec(),
+					body: vec![]
 				}
 			}
 		}
