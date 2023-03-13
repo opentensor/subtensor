@@ -158,7 +158,8 @@ impl<T: Config> Pallet<T> {
         // log::trace!( "ΔB:\n{:?}\n", &bonds_delta );
     
         // Compute bonds moving average.
-        let alpha: I32F32 = I32F32::from_num( 0.1 );
+        let bonds_moving_average: I64F64 = I64F64::from_num( Self::get_bonds_moving_average( netuid ) ) / I64F64::from_num( 1_000_000 );
+        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
         let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds, alpha );
         inplace_col_normalize( &mut ema_bonds ); // sum_i b_ij = 1
         // log::trace!( "emaB:\n{:?}\n", &ema_bonds );
@@ -205,7 +206,7 @@ impl<T: Config> Pallet<T> {
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_pruning_scores: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
@@ -214,7 +215,7 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::insert( netuid, cloned_consensus );
         Incentive::<T>::insert( netuid, cloned_incentive );
         Dividends::<T>::insert( netuid, cloned_dividends );
-        PruningScores::<T>::insert( netuid, cloned_prunning_socres );
+        PruningScores::<T>::insert( netuid, cloned_pruning_scores );
         ValidatorTrust::<T>::insert( netuid, cloned_validator_trust );
         ValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
 
@@ -416,7 +417,8 @@ impl<T: Config> Pallet<T> {
         // log::trace!( "ΔB (norm): {:?}", &bonds_delta );
     
         // Compute bonds moving average.
-        let alpha: I32F32 = I32F32::from_num( 0.1 );
+        let bonds_moving_average: I64F64 = I64F64::from_num( Self::get_bonds_moving_average( netuid ) ) / I64F64::from_num( 1_000_000 );
+        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
         let mut ema_bonds: Vec<Vec<(u16, I32F32)>> = mat_ema_sparse( &bonds_delta, &bonds, alpha );
 
         // Normalize EMA bonds.
@@ -467,7 +469,7 @@ impl<T: Config> Pallet<T> {
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_prunning_socres: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_pruning_scores: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
@@ -476,7 +478,7 @@ impl<T: Config> Pallet<T> {
         Consensus::<T>::insert( netuid, cloned_consensus );
         Incentive::<T>::insert( netuid, cloned_incentive );
         Dividends::<T>::insert( netuid, cloned_dividends );
-        PruningScores::<T>::insert( netuid, cloned_prunning_socres );
+        PruningScores::<T>::insert( netuid, cloned_pruning_scores );
         ValidatorTrust::<T>::insert( netuid, cloned_validator_trust );
         ValidatorPermit::<T>::insert( netuid, new_validator_permits.clone() );
 

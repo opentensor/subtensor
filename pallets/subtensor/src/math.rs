@@ -815,6 +815,15 @@ mod tests {
         // let one: I96F32 = I96F32::from_num(1);
         // let prod_96: I96F32 = (I96F32::from_num(max_32) + one) * I96F32::from_num(max_u64); // overflows
         let _prod_110: I110F18 = I110F18::from_num(max_32) * I110F18::from_num(max_u64);
+
+        let bonds_moving_average_val: u64 = 900_000 as u64;
+        let bonds_moving_average: I64F64 = I64F64::from_num( bonds_moving_average_val ) / I64F64::from_num( 1_000_000 );
+        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
+        assert_eq!( I32F32::from_num(0.1), alpha);
+
+        let bonds_moving_average: I64F64 = I64F64::from_num( max_32 ) / I64F64::from_num( max_32 );
+        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
+        assert_eq!( I32F32::from_num(0), alpha);
     }
 
     #[test]

@@ -474,16 +474,6 @@ benchmarks! {
 
   }: sudo_set_kappa(RawOrigin::<AccountIdOf<T>>::Root, netuid, kappa)
 
-  benchmark_sudo_set_weight_cuts {
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let weight_cuts: u16 = 3;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_weight_cuts(RawOrigin::<AccountIdOf<T>>::Root, netuid, weight_cuts)
-
   benchmark_sudo_set_max_allowed_uids {
     let netuid: u16 = 1;
     let tempo: u16 = 1;
