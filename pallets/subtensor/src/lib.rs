@@ -1265,9 +1265,7 @@ pub mod pallet {
 			Self::do_sudo_set_tx_rate_limit( origin, tx_rate_limit )
 		}
 
-		#[pallet::weight((Weight::from_ref_time(39_699_000 as u64)
-		.saturating_add(T::DbWeight::get().reads(1 as u64))
-		.saturating_add(T::DbWeight::get().writes(1 as u64)), DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_burn( origin:OriginFor<T>, netuid: u16, max_burn: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_max_burn( origin, netuid, max_burn )
 		}
