@@ -635,7 +635,7 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[cfg(feature = "std")]
 	pub struct GenesisConfig<T: Config> {
-		pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, u64)>)>
+		pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>
 	}
 
 	#[cfg(feature = "std")]
@@ -690,7 +690,9 @@ pub mod pallet {
 			let mut next_uid = 0;
 
 			for (coldkey, hotkeys) in self.stakes.iter() {
-				for (hotkey, stake) in hotkeys.iter() {
+				for (hotkey, stake_uid) in hotkeys.iter() {
+					let (stake, uid) = stake_uid;
+
 					// Expand Yuma Consensus with new position.
 					Rank::<T>::mutate(netuid, |v| v.push(0));
 					Trust::<T>::mutate(netuid, |v| v.push(0));
@@ -705,9 +707,9 @@ pub mod pallet {
 					ValidatorPermit::<T>::mutate(netuid, |v| v.push(false));
 			
 					// Insert account information.
-					Keys::<T>::insert(netuid, next_uid, hotkey.clone()); // Make hotkey - uid association.
-					Uids::<T>::insert(netuid, hotkey.clone(), next_uid); // Make uid - hotkey association.
-					BlockAtRegistration::<T>::insert(netuid, next_uid, 0); // Fill block at registration.
+					Keys::<T>::insert(netuid, uid, hotkey.clone()); // Make hotkey - uid association.
+					Uids::<T>::insert(netuid, hotkey.clone(), uid); // Make uid - hotkey association.
+					BlockAtRegistration::<T>::insert(netuid, uid, 0); // Fill block at registration.
 					IsNetworkMember::<T>::insert(hotkey.clone(), netuid, true); // Fill network is member.
 	
 					// Fill stake information.
