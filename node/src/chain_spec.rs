@@ -9,6 +9,7 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_core::crypto::Ss58Codec;
 
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -243,7 +244,9 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 			)
 		},
 		// Bootnodes
-		vec![],
+		vec![
+			"/ip4/13.58.175.193/tcp/30333/p2p/12D3KooWEXY393DjTvBip3DnZeJkSAeZrg6edxqu45ywHzzQS2BY".parse().unwrap()
+		],
 		// Telemetry
 		None,
 		// Protocol ID
