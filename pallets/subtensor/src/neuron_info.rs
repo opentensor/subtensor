@@ -1,4 +1,5 @@
 use super::*;
+use crate::math::*;
 use serde::{Serialize, Deserialize};
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
@@ -25,8 +26,8 @@ pub struct NeuronInfo {
     dividends: u16,
     last_update: u64,
     validator_permit: bool,
-    weights: Vec<(u16, u16)>, // map of uid to weight
-    bonds: Vec<(u16, u16)>, // map of uid to bond
+    weights: Vec<u16>, // Vec uid to weight
+    bonds: Vec<u16>, // Vec uid to bond
     pruning_score: u16
 }
 
@@ -37,33 +38,27 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut neurons = Vec::new();
-        let n = SubnetworkN::<T>::get( netuid ); 
+        let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
             let uid = uid;
             let netuid = netuid;
 
-            let hotkey = Keys::<T>::get( netuid, uid as u16 ).clone();
-
-            let axon_ = Axons::<T>::get( hotkey.clone() );
-            let axon_info;
-            if axon_.is_some() {
-                axon_info = axon_.unwrap();
+            let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
+            let hotkey;
+            if _hotkey.is_err() {
+                break;
             } else {
-                axon_info = AxonInfo::default();
+                // No error, hotkey was registered
+                hotkey = _hotkey.expect("Hotkey should exist");
             }
 
-            let promo_ = Prometheus::<T>::get( hotkey.clone() );
-            let prometheus_info;
-            if promo_.is_some() {
-                prometheus_info = promo_.unwrap();
-            } else {
-                prometheus_info = PrometheusInfo::default();
-            }
+            let axon_info = Self::get_axon_info( &hotkey.clone() );
+
+            let prometheus_info = Self::get_prometheus_info( &hotkey.clone() );
 
             
             let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
             
-            // TODO: replace with last_update check if we remove Active storage
             let active = Self::get_active_for_uid( netuid, uid as u16 );
             let rank = Self::get_rank_for_uid( netuid, uid as u16 );
             let emission = Self::get_emission_for_uid( netuid, uid as u16 );
@@ -76,8 +71,8 @@ impl<T: Config> Pallet<T> {
             let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
             let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-            let weights = Weights::<T>::get( netuid, uid as u16 );
-            let bonds = Bonds::<T>::get( netuid, uid as u16 );
+            let weights = vec_fixed_proportions_to_u16(Self::get_weights(netuid)[uid as usize]);
+            let bonds = vec_fixed_proportions_to_u16(Self::get_bonds(netuid)[uid as usize]);
             
             let mut stakes = Vec::<(DeAccountId, u64)>::new();
             for ( coldkey, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() ) {
