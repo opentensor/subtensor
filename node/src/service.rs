@@ -75,7 +75,7 @@ pub fn new_partial(
 
 	let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
 		config.wasm_method,
-		config.default_heap_pages,
+		Some(16348),		// Give it a high amount of heap space
 		config.max_runtime_instances,
 		config.runtime_cache_size,
 	);
