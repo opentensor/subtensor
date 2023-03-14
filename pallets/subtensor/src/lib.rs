@@ -183,11 +183,6 @@ pub mod pallet {
 		}
 	}
 
-	#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-	pub struct InfoResponse {
-		pub body: Vec<u8> // Return all custom RPCs in this format
-	}
-
 	// ============================
 	// ==== Staking + Accounts ====
 	// ============================

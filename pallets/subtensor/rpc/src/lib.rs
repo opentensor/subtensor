@@ -85,8 +85,6 @@ where
 				"Unable to get delegates info.",
 				Some(e.to_string()),
 			)).into()
-		}).map(|info| {
-			info.body
 		})
 	}
 
@@ -104,8 +102,6 @@ where
 				"Unable to get delegate info.",
 				Some(e.to_string()),
 			)).into()
-		}).map(|info| {
-			info.body
 		})
 	}
 
@@ -123,8 +119,6 @@ where
 				"Unable to get neurons info.",
 				Some(e.to_string()),
 			)).into()
-		}).map(|info| {
-			info.body
 		})
 	}
 
@@ -142,8 +136,6 @@ where
 				"Unable to get neuron info.",
 				Some(e.to_string()),
 			)).into()
-		}).map(|info| {
-			info.body
 		})
 	}
 	
@@ -159,8 +151,6 @@ where
 				"Unable to get subnet info.",
 				Some(e.to_string()),
 			)).into()
-		}).map(|info| {
-			info.body
 		})
 	}
 
@@ -179,8 +169,6 @@ where
 			"Unable to get subnets info.",
 			Some(e.to_string()),
 			)).into()
-		}).map(|info| {
-			info.body
 		})
 	}
 }
