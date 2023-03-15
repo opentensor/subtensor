@@ -24,6 +24,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
+
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -667,32 +668,56 @@ impl_runtime_apis! {
 	}
 
 	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
-		fn get_delegates() -> Vec<pallet_subtensor::delegate_info::DelegateInfo> {
-			SubtensorModule::get_delegates()
+		fn get_delegates() -> Vec<u8> {
+			let result = SubtensorModule::get_delegates();
+			serde_json::to_string(&result).expect("Could not convert DelegateInfo list to JSON")
+				.as_bytes().to_vec()
 		}
 
-		fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<pallet_subtensor::delegate_info::DelegateInfo> {
-			SubtensorModule::get_delegate(delegate_account_vec)
+		fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
+			let result = SubtensorModule::get_delegate(delegate_account_vec);
+			if result.is_some() {
+				serde_json::to_string(&result).expect("Could not convert DelegateInfo to JSON")
+					.as_bytes().to_vec()
+			} else {
+				vec![]
+			}
 		}
 	}
 
 	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
-		fn get_neurons(netuid: u16) -> Vec<pallet_subtensor::neuron_info::NeuronInfo> {
-			SubtensorModule::get_neurons(netuid)
+		fn get_neurons(netuid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_neurons(netuid);
+			serde_json::to_string(&result).expect("Could not convert NeuronInfo Vec to JSON")
+				.as_bytes().to_vec()
 		}
 
-		fn get_neuron(netuid: u16, uid: u16) -> Option<pallet_subtensor::neuron_info::NeuronInfo> {
-			SubtensorModule::get_neuron(netuid, uid)
+		fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_neuron(netuid, uid);
+			if result.is_some() {
+				serde_json::to_string(&result).expect("Could not convert NeuronInfo to JSON")
+					.as_bytes().to_vec()
+			} else {
+				vec![]
+			}
 		}
 	}
 
 	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-		fn get_subnet_info(netuid: u16) -> Option<pallet_subtensor::subnet_info::SubnetInfo> {
-			SubtensorModule::get_subnet_info(netuid)
+		fn get_subnet_info(netuid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_subnet_info(netuid);
+			if result.is_some() {
+				serde_json::to_string(&result).expect("Could not convert SubnetInfo to JSON")
+					.as_bytes().to_vec()
+			} else {
+				vec![]
+			}
 		}
 
-		fn get_subnets_info() -> Vec<Option<pallet_subtensor::subnet_info::SubnetInfo>> {
-			SubtensorModule::get_subnets_info()
+		fn get_subnets_info() -> Vec<u8> {
+			let result = SubtensorModule::get_subnets_info();
+			serde_json::to_string(&result).expect("Could not convert SubnetInfo list to JSON")
+				.as_bytes().to_vec()
 		}
 	}
 }
