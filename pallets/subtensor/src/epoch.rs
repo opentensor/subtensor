@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
 
         // Clip weights at majority consensus
         let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
-        let consensus: Vec<I32F32> = weighted_median_col( &stake, &weights, kappa );
+        let consensus: Vec<I32F32> = weighted_median_col( &active_stake, &weights, kappa );
         inplace_col_clip( &mut weights, &consensus );
         let validator_trust: Vec<I32F32> = row_sum( &weights );
 
@@ -367,7 +367,7 @@ impl<T: Config> Pallet<T> {
 
         // Clip weights at majority consensus
         let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
-        let consensus: Vec<I32F32> = weighted_median_col_sparse( &stake, &weights, n, kappa );
+        let consensus: Vec<I32F32> = weighted_median_col_sparse( &active_stake, &weights, n, kappa );
         log::trace!( "C: {:?}", &consensus );
 
         weights = col_clip_sparse( &weights, &consensus );
