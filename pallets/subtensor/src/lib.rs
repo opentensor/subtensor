@@ -352,12 +352,12 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultServingRateLimit<T: Config>() -> u64 { T::InitialServingRateLimit::get() }
 
-	#[pallet::storage] // --- ITEM ( serving_rate_limit )
-	pub(super) type ServingRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultServingRateLimit<T>>;
-	#[pallet::storage] // --- MAP ( hotkey ) --> axon_info
-	pub(super) type Axons<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
-	#[pallet::storage] // --- MAP ( hotkey ) --> prometheus_info
-	pub(super) type Prometheus<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid ) --> serving_rate_limit
+	pub type ServingRateLimit<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>> ;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
+	pub(super) type Axons<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
+	pub(super) type Prometheus<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
 
 	// =======================================
 	// ==== Subnetwork Hyperparam storage ====
@@ -563,8 +563,8 @@ pub mod pallet {
 		ImmunityPeriodSet( u16, u16), // --- Event created when immunity period is set for a subnet.
 		BondsMovingAverageSet( u16, u64), // --- Event created when bonds moving average is set for a subnet.
 		MaxAllowedValidatorsSet( u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
-		AxonServed( T::AccountId ), // --- Event created when the axon server information is added to the network.
-		PrometheusServed( T::AccountId ), // --- Event created when the axon server information is added to the network.
+		AxonServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
+		PrometheusServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
 		EmissionValuesSet(), // --- Event created when emission ratios fr all networks is set.
 		NetworkConnectionAdded( u16, u16, u16 ), // --- Event created when a network connection requirement is added.
 		NetworkConnectionRemoved( u16, u16 ), // --- Event created when a network connection requirement is removed.
@@ -573,7 +573,7 @@ pub mod pallet {
 		WeightsVersionKeySet( u16, u64 ), // --- Event created when weights version key is set for a network.
 		MinDifficultySet( u16, u64 ), // --- Event created when setting min difficutly on a network.
 		MaxDifficultySet( u16, u64 ), // --- Event created when setting max difficutly on a network.
-		ServingRateLimitSet( u64 ), // --- Event created when setting the prometheus serving rate limit.
+		ServingRateLimitSet( u16, u64 ), // --- Event created when setting the prometheus serving rate limit.
 		BurnSet( u16, u64 ), // --- Event created when setting burn on a network.
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
@@ -1005,6 +1005,7 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
 		pub fn serve_axon(
 			origin:OriginFor<T>, 
+			netuid: u16,
 			version: u32, 
 			ip: u128, 
 			port: u16, 
@@ -1013,19 +1014,20 @@ pub mod pallet {
 			placeholder1: u8, 
 			placeholder2: u8,
 		) -> DispatchResult {
-			Self::do_serve_axon( origin, version, ip, port, ip_type, protocol, placeholder1, placeholder2 ) 
+			Self::do_serve_axon( origin, netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2 ) 
 		}
 		#[pallet::weight((Weight::from_ref_time(17_000_000)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
 		pub fn serve_prometheus(
 			origin:OriginFor<T>, 
+			netuid: u16,
 			version: u32, 
 			ip: u128, 
 			port: u16, 
 			ip_type: u8,
 		) -> DispatchResult {
-			Self::do_serve_prometheus( origin, version, ip, port, ip_type ) 
+			Self::do_serve_prometheus( origin, netuid, version, ip, port, ip_type ) 
 		}
 
 
@@ -1270,8 +1272,8 @@ pub mod pallet {
 		}
 		#[pallet::weight((Weight::from_ref_time(10_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_serving_rate_limit( origin:OriginFor<T>, serving_rate_limit: u64 ) -> DispatchResult {  
-			Self::do_sudo_set_serving_rate_limit( origin, serving_rate_limit )
+		pub fn sudo_set_serving_rate_limit( origin:OriginFor<T>, netuid: u16, serving_rate_limit: u64 ) -> DispatchResult {  
+			Self::do_sudo_set_serving_rate_limit( origin, netuid, serving_rate_limit )
 		}
 
 		#[pallet::weight((Weight::from_ref_time(14_000_000)
