@@ -603,5 +603,59 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 
   }: sudo_set_max_registrations_per_block(RawOrigin::<AccountIdOf<T>>::Root, netuid, max_registrations_per_block)
+
+  benchmark_burned_register {
+    let netuid: u16 = 1;
+    let mut seed : u32 = 1;
+    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: T::AccountId = account("Test", 0, seed);
+    let modality: u16 = 0;
+    let tempo: u16 = 1;
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000);
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+
+  }: burned_register(RawOrigin::Signed( coldkey.clone() ), netuid, hotkey)
+
+  benchmark_sudo_set_validator_epoch_length {
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let validator_epoch_len: u16 = 10;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_validator_epoch_len(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_epoch_len)
+
+  benchmark_sudo_set_burn {
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let burn: u64 = 10;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_burn(RawOrigin::<AccountIdOf<T>>::Root, netuid, burn)
+
+  benchmark_sudo_set_max_burn {
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let max_burn: u64 = 10;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_max_burn(RawOrigin::<AccountIdOf<T>>::Root, netuid, max_burn)
+
+  benchmark_sudo_set_min_burn {
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let min_burn: u64 = 10;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_min_burn(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_burn)
 }
 
