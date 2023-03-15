@@ -306,7 +306,7 @@ benchmarks! {
     let tempo: u16 = 1;
     let modality: u16 = 0;
     let netuids: Vec<u16> = vec![0, 1, 2, 4, 5, 6, 7, 8, 9];
-    let emission: Vec<u64> = vec![100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000];
+    let emission: Vec<u64> = vec![100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 100000000, 200000000];
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 0, tempo.into(), modality.into()));
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 1, tempo.into(), modality.into()));
