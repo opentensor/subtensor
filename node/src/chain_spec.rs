@@ -148,12 +148,12 @@ use serde_json as json;
 // Configure storage from nakamoto data
 #[derive(Deserialize, Debug)]
 struct ColdkeyHotkeys {
-	stakes: std::collections::HashMap<String, std::collections::HashMap<String, u64>>,
+	stakes: std::collections::HashMap<String, std::collections::HashMap<String, (u64, u16)>>,
 	balances: std::collections::HashMap<String, u64>
 }
 
 pub fn finney_config() -> Result<ChainSpec, String> {
-	let path: PathBuf = std::path::PathBuf::from("./nakamoto_gen.json");
+	let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
 
 	// We mmap the file into memory first, as this is *a lot* faster than using
@@ -171,18 +171,19 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 	let old_state: ColdkeyHotkeys =
 		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
 
-	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, u64)>)> = Vec::new();
+	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, (u64, u16))>)> = Vec::new();
 	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
 		let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
 		let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
-		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
-		for (hotkey_str, amount) in hotkeys.iter() {
+		for (hotkey_str, amount_uid) in hotkeys.iter() {
+			let (amount, uid) = amount_uid;
 			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
 			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
-			processed_hotkeys.push((hotkey_account, *amount));
+			processed_hotkeys.push((hotkey_account, (*amount, *uid)));
 		}
 
 		processed_stakes.push((coldkey_account, processed_hotkeys));
@@ -294,7 +295,7 @@ fn finney_genesis(
 	root_key: AccountId,
 	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
-	stakes: Vec<(AccountId, Vec<(AccountId, u64)>)>,
+	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
 	balances: Vec<(AccountId, u64)>
 
 ) -> GenesisConfig {
