@@ -14,7 +14,9 @@ pub struct DelegateInfo {
     delegate_ss58: DeAccountId,
     take: u16,
     nominators: Vec<(DeAccountId, u64)>, // map of nominator_ss58 to stake amount
-    owner_ss58: DeAccountId
+    owner_ss58: DeAccountId,
+    registrations: Vec<u16>, // vec of subnets this delegate is registered on
+    validator_permits: Vec<u16>, // vec of subnets this delegate has validator permits for
 }
 
 impl<T: Config> Pallet<T> {
@@ -24,39 +26,53 @@ impl<T: Config> Pallet<T> {
         }
 
         let delegate: AccountIdOf<T> = T::AccountId::decode( &mut delegate_account_vec.as_bytes_ref() ).unwrap();
-
+        
         let mut nominators = Vec::<(DeAccountId, u64)>::new();
 
         for ( nominator, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( delegate.clone() ) {
             nominators.push( ( nominator.clone().encode().into(), stake ) );
         }
 
-        let owner = <Owner<T>>::get( delegate.clone() );
+        let registrations = Self::get_registered_networks_for_hotkey( &delegate.clone() );
+        let mut validator_permits = Vec::<u16>::new();
+        for netuid in registrations.iter() {
+            let uid = Self::get_uid_for_net_and_hotkey( *netuid, &delegate.clone());
+            if !uid.is_ok() {
+                continue; // this should never happen
+            } else {
+                let validator_permit = Self::get_validator_permit_for_uid( *netuid, uid.expect("Delegate's UID should be ok") );
+                if validator_permit {
+                    validator_permits.push( *netuid );
+                }
+            }
+        }
+            
+
+        let owner = Self::get_owning_coldkey_for_hotkey( &delegate.clone() );
+        let take = <Delegates<T>>::get( delegate.clone() );
 
         return Some( DelegateInfo {
             delegate_ss58: delegate.clone().encode().into(),
-            take: <Delegates<T>>::get( delegate.clone() ),
+            take,
             nominators,
-            owner_ss58: owner.clone().encode().into()
+            owner_ss58: owner.clone().encode().into(),
+            registrations,
+            validator_permits
         });
 	}
 
+
+
     pub fn get_delegates() -> Vec<DelegateInfo> {
         let mut delegates = Vec::<DelegateInfo>::new();
-        for ( delegate, take ) in < Delegates<T> as IterableStorageMap<T::AccountId, u16> >::iter() {
-            let mut nominators = Vec::<(DeAccountId, u64)>::new();
-            for ( nominator, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( delegate.clone() ) {
-                nominators.push( ( nominator.clone().encode().into(), stake ) );
+        for delegate in < Delegates<T> as IterableStorageMap<T::AccountId, u16> >::iter_keys() {
+            
+            let delegate_info = Self::get_delegate( delegate.clone().encode() );
+            if delegate_info.is_none() {
+                continue;
+            } else {
+                delegates.push( delegate_info.expect("DelegateInfo was None after check") );
             }
-
-            let owner = <Owner<T>>::get( delegate.clone() );
-
-            delegates.push( DelegateInfo {
-                delegate_ss58: delegate.clone().encode().into(),
-                take,
-                nominators,
-                owner_ss58: owner.clone().encode().into()
-            });
         }
 
         return delegates;
