@@ -95,12 +95,9 @@ impl<T: Config> Pallet<T> {
             .map(|(i, b)| (i.into(), b.into()))
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
-        let mut stakes = Vec::<(T::AccountId, u64)>::new();
-        for ( coldkey, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() ) {
-            stakes.push( (coldkey.clone(), stake) );
-        }
-
-        let stake = stakes;
+        let stake: Vec<(T::AccountId, Compact<u64>)> = < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() )
+            .map(|(coldkey, stake)| (coldkey, stake.into()))
+            .collect();
 
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
@@ -110,7 +107,7 @@ impl<T: Config> Pallet<T> {
             active,
             axon_info,
             prometheus_info,
-            stake: stake.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            stake,
             rank: rank.into(),
             emission: emission.into(),
             incentive: incentive.into(),
