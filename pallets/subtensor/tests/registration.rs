@@ -14,7 +14,7 @@ mod mock;
 *********************************************/
 
 // Tests a basic registration dispatch passes.
-// #[test]
+#[test]
 fn test_registration_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let block_number: u64 = 0;
@@ -95,7 +95,7 @@ fn test_registration_ok() {
 	});
 }
 
-// #[test]
+#[test]
 fn test_burned_registration_ok() {
 	new_test_ext().execute_with(|| {
 		let netuid: u16 = 1;
@@ -109,7 +109,7 @@ fn test_burned_registration_ok() {
 		// Give it some $$$ in his coldkey balance
 		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id, 10000 );
 		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid,  hotkey_account_id));
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), netuid,  hotkey_account_id));
 		// Check if balance has  decreased to pay for the burn.
 		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64, 10000 - burn_cost); // funds drained on reg.
 		// Check if neuron has added to the specified network(netuid)
@@ -590,7 +590,7 @@ fn test_full_pass_through() {
 }
 
 
-// #[test]
+#[test]
 fn test_network_connection_requirement() {
 	new_test_ext().execute_with(|| {
 		// Add a networks and connection requirements.
@@ -647,7 +647,7 @@ fn test_network_connection_requirement() {
 		// Lets register key 4 with higher prunining score.
 		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 10142084);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[3] ), netuid_b, 0, nonce, work, hotkeys[3], coldkeys[3]) );
-		SubtensorModule::set_pruning_score_for_uid( netuid_b, SubtensorModule::get_uid_for_net_and_hotkey( netuid_b, &hotkeys[2] ).unwrap(), 1); // Set prunning score to 1.
+		SubtensorModule::set_pruning_score_for_uid( netuid_b, SubtensorModule::get_uid_for_net_and_hotkey( netuid_b, &hotkeys[3] ).unwrap(), 1); // Set prunning score to 1.
 
 		// Attempted register of key 3 fails because of bad prunning score on B.
 		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 11142084);
