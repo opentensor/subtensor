@@ -72,11 +72,12 @@ pub mod subnet_info;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::{Currency};
+	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
 	use serde::{Serialize, Deserialize};
 	use serde_with::{serde_as, DisplayFromStr};
 	use frame_support::inherent::Vec;
+	use scale_info::prelude::string::String;
 
 
 	#[pallet::pallet]
@@ -351,12 +352,12 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultServingRateLimit<T: Config>() -> u64 { T::InitialServingRateLimit::get() }
 
-	#[pallet::storage] // --- ITEM ( serving_rate_limit )
-	pub(super) type ServingRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultServingRateLimit<T>>;
-	#[pallet::storage] // --- MAP ( hotkey ) --> axon_info
-	pub(super) type Axons<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
-	#[pallet::storage] // --- MAP ( hotkey ) --> prometheus_info
-	pub(super) type Prometheus<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid ) --> serving_rate_limit
+	pub type ServingRateLimit<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>> ;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
+	pub(super) type Axons<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
+	pub(super) type Prometheus<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
 
 	// =======================================
 	// ==== Subnetwork Hyperparam storage ====
@@ -515,15 +516,6 @@ pub mod pallet {
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> bonds
     pub(super) type Bonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
 
-
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
-	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
-
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
@@ -562,8 +554,8 @@ pub mod pallet {
 		ImmunityPeriodSet( u16, u16), // --- Event created when immunity period is set for a subnet.
 		BondsMovingAverageSet( u16, u64), // --- Event created when bonds moving average is set for a subnet.
 		MaxAllowedValidatorsSet( u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
-		AxonServed( T::AccountId ), // --- Event created when the axon server information is added to the network.
-		PrometheusServed( T::AccountId ), // --- Event created when the axon server information is added to the network.
+		AxonServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
+		PrometheusServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
 		EmissionValuesSet(), // --- Event created when emission ratios fr all networks is set.
 		NetworkConnectionAdded( u16, u16, u16 ), // --- Event created when a network connection requirement is added.
 		NetworkConnectionRemoved( u16, u16 ), // --- Event created when a network connection requirement is removed.
@@ -572,20 +564,15 @@ pub mod pallet {
 		WeightsVersionKeySet( u16, u64 ), // --- Event created when weights version key is set for a network.
 		MinDifficultySet( u16, u64 ), // --- Event created when setting min difficutly on a network.
 		MaxDifficultySet( u16, u64 ), // --- Event created when setting max difficutly on a network.
-		ServingRateLimitSet( u64 ), // --- Event created when setting the prometheus serving rate limit.
+		ServingRateLimitSet( u16, u64 ), // --- Event created when setting the prometheus serving rate limit.
 		BurnSet( u16, u64 ), // --- Event created when setting burn on a network.
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
-		SomethingStored { something: u32, who: T::AccountId },
 	}
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
-		// Error names should be descriptive.
-		NoneValue,
-		// Errors should have helpful documentation associated with them.
-		StorageOverflow,
 		InvalidConnectionRequirement, // --- Thrown if we are attempting to create an invalid connection requirement.
 		NetworkDoesNotExist, // --- Thrown when the network does not exist.
 		NetworkExist, // --- Thrown when the network already exist.
@@ -716,6 +703,9 @@ pub mod pallet {
 	
 					TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
 					TotalColdkeyStake::<T>::insert(coldkey.clone(), TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake));
+
+					// Update total issuance value
+					TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 	
 					Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 	
@@ -815,7 +805,9 @@ pub mod pallet {
 		//
 		// 	* 'MaxWeightExceeded':
 		// 		- Attempting to set weights with max value exceeding limit.
-        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(10_151_000_000)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
 		pub fn set_weights(
 			origin:OriginFor<T>, 
 			netuid: u16,
@@ -892,7 +884,9 @@ pub mod pallet {
 		// 		- Errors stemming from transaction pallet.
 		//
 		//
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(65_000_000)
+		.saturating_add(T::DbWeight::get().reads(8))
+		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
 		pub fn add_stake(
 			origin: OriginFor<T>, 
 			hotkey: T::AccountId, 
@@ -933,7 +927,9 @@ pub mod pallet {
 		// 		- Thrown if we could not convert this amount to a balance.
 		//
 		//
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(66_000_000)
+		.saturating_add(T::DbWeight::get().reads(8))
+		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
 		pub fn remove_stake(
 			origin: OriginFor<T>, 
 			hotkey: T::AccountId, 
@@ -993,9 +989,12 @@ pub mod pallet {
 		// 	* 'ServingRateLimitExceeded':
 		// 		- Attempting to set prometheus information withing the rate limit min.
 		//
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(19_000_000)
+		.saturating_add(T::DbWeight::get().reads(2))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
 		pub fn serve_axon(
 			origin:OriginFor<T>, 
+			netuid: u16,
 			version: u32, 
 			ip: u128, 
 			port: u16, 
@@ -1004,17 +1003,20 @@ pub mod pallet {
 			placeholder1: u8, 
 			placeholder2: u8,
 		) -> DispatchResult {
-			Self::do_serve_axon( origin, version, ip, port, ip_type, protocol, placeholder1, placeholder2 ) 
+			Self::do_serve_axon( origin, netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2 ) 
 		}
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(17_000_000)
+		.saturating_add(T::DbWeight::get().reads(2))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
 		pub fn serve_prometheus(
 			origin:OriginFor<T>, 
+			netuid: u16,
 			version: u32, 
 			ip: u128, 
 			port: u16, 
 			ip_type: u8,
 		) -> DispatchResult {
-			Self::do_serve_prometheus( origin, version, ip, port, ip_type ) 
+			Self::do_serve_prometheus( origin, netuid, version, ip, port, ip_type ) 
 		}
 
 
@@ -1068,7 +1070,9 @@ pub mod pallet {
 		// 	* 'InvalidSeal':
 		// 		- The seal is incorrect.
 		//
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(91_000_000)
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
 		pub fn register( 
 				origin:OriginFor<T>, 
 				netuid: u16,
@@ -1080,7 +1084,9 @@ pub mod pallet {
 		) -> DispatchResult { 
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
 		}
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(89_000_000)
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
 		pub fn burned_register( 
 				origin:OriginFor<T>, 
 				netuid: u16,
@@ -1088,7 +1094,9 @@ pub mod pallet {
 		) -> DispatchResult { 
 			Self::do_burned_registration(origin, netuid, hotkey)
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(81_000_000)
+		.saturating_add(T::DbWeight::get().reads(21))
+		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_register( 
 				origin:OriginFor<T>, 
 				netuid: u16,
@@ -1130,7 +1138,9 @@ pub mod pallet {
 		// 	* 'InvalidTempo':
 		// 		- Attempting to register a network with an invalid tempo.
 		//
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(50_000_000)
+		.saturating_add(T::DbWeight::get().reads(17))
+		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_add_network(
 			origin: OriginFor<T>,
 			netuid: u16,
@@ -1156,7 +1166,9 @@ pub mod pallet {
 		// 	* 'NetworkDoesNotExist':
 		// 		- Attempting to remove a non existent network.
 		//
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(42_000_000)
+		.saturating_add(T::DbWeight::get().reads(2))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_remove_network(
 			origin: OriginFor<T>,
 			netuid: u16
@@ -1175,7 +1187,9 @@ pub mod pallet {
 		// 	* `emission` (Vec<u64>):
 		// 		- The emission values associated with passed netuids in order.
 		// 
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(28_000_000)
+		.saturating_add(T::DbWeight::get().reads(12))
+		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_emission_values(
 			origin: OriginFor<T>,
 			netuids: Vec<u16>,
@@ -1202,7 +1216,9 @@ pub mod pallet {
 		// 	* `requirement` (u16):
 		// 		- The topk percentile prunning score requirement (u16:MAX normalized.)
 		//
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(17_000_000)
+		.saturating_add(T::DbWeight::get().reads(2))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_add_network_connection_requirement( origin:OriginFor<T>, netuid_a: u16, netuid_b: u16, requirement: u16 ) -> DispatchResult { 
 			Self::do_sudo_add_network_connection_requirement( origin, netuid_a, netuid_b, requirement )
 		}
@@ -1218,7 +1234,8 @@ pub mod pallet {
 		// 	* `netuid_b` (u16):
 		// 		- The required network connection to remove.
 		//   
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(15_000_000)
+		.saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_remove_network_connection_requirement( origin:OriginFor<T>, netuid_a: u16, netuid_b: u16 ) -> DispatchResult { 
 			Self::do_sudo_remove_network_connection_requirement( origin, netuid_a, netuid_b )
 		}
@@ -1237,129 +1254,189 @@ pub mod pallet {
 		// 	* `hyperparameter value` (u16):
 		// 		- The value of the hyper parameter.
 		//   
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(11_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_default_take( origin:OriginFor<T>, default_take: u16 ) -> DispatchResult {  
 			Self::do_sudo_set_default_take( origin, default_take )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_serving_rate_limit( origin:OriginFor<T>, serving_rate_limit: u64 ) -> DispatchResult {  
-			Self::do_sudo_set_serving_rate_limit( origin, serving_rate_limit )
+		#[pallet::weight((Weight::from_ref_time(10_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_serving_rate_limit( origin:OriginFor<T>, netuid: u16, serving_rate_limit: u64 ) -> DispatchResult {  
+			Self::do_sudo_set_serving_rate_limit( origin, netuid, serving_rate_limit )
 		}
 
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_burn( origin:OriginFor<T>, netuid: u16, max_burn: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_max_burn( origin, netuid, max_burn )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_min_burn( origin:OriginFor<T>, netuid: u16, min_burn: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_min_burn( origin, netuid, min_burn )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_burn( origin:OriginFor<T>, netuid: u16, burn: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_burn( origin, netuid, burn )
 		}
 
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_difficulty( origin:OriginFor<T>, netuid: u16, max_difficulty: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_max_difficulty( origin, netuid, max_difficulty )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_min_difficulty( origin:OriginFor<T>, netuid: u16, min_difficulty: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_min_difficulty( origin, netuid, min_difficulty )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(15_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_weights_set_rate_limit( origin:OriginFor<T>, netuid: u16, weights_set_rate_limit: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_weights_set_rate_limit( origin, netuid, weights_set_rate_limit )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_weights_version_key( origin:OriginFor<T>, netuid: u16, weights_version_key: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_weights_version_key( origin, netuid, weights_version_key )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_bonds_moving_average( origin:OriginFor<T>, netuid: u16, bonds_moving_average: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_bonds_moving_average( origin, netuid, bonds_moving_average )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_allowed_validators( origin:OriginFor<T>, netuid: u16, max_allowed_validators: u16 ) -> DispatchResult {  
 			Self::do_sudo_set_max_allowed_validators( origin, netuid, max_allowed_validators )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_difficulty( origin:OriginFor<T>, netuid: u16, difficulty: u64 ) -> DispatchResult {
 			Self::do_sudo_set_difficulty( origin, netuid, difficulty )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_adjustment_interval( origin:OriginFor<T>, netuid: u16, adjustment_interval: u16 ) -> DispatchResult { 
 			Self::do_sudo_set_adjustment_interval( origin, netuid, adjustment_interval )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_target_registrations_per_interval( origin:OriginFor<T>, netuid: u16, target_registrations_per_interval: u16 ) -> DispatchResult {
 			Self::do_sudo_set_target_registrations_per_interval( origin, netuid, target_registrations_per_interval )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_activity_cutoff( origin:OriginFor<T>, netuid: u16, activity_cutoff: u16 ) -> DispatchResult {
 			Self::do_sudo_set_activity_cutoff( origin, netuid, activity_cutoff )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_rho( origin:OriginFor<T>, netuid: u16, rho: u16 ) -> DispatchResult {
 			Self::do_sudo_set_rho( origin, netuid, rho )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((	Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_kappa( origin:OriginFor<T>, netuid: u16, kappa: u16 ) -> DispatchResult {
 			Self::do_sudo_set_kappa( origin, netuid, kappa )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(18_000_000)
+		.saturating_add(T::DbWeight::get().reads(2))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_allowed_uids( origin:OriginFor<T>, netuid: u16, max_allowed_uids: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_allowed_uids(origin, netuid, max_allowed_uids )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_min_allowed_weights( origin:OriginFor<T>, netuid: u16, min_allowed_weights: u16 ) -> DispatchResult {
 			Self::do_sudo_set_min_allowed_weights( origin, netuid, min_allowed_weights )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_batch_size( origin:OriginFor<T>, netuid: u16, validator_batch_size: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_batch_size( origin, netuid, validator_batch_size )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_sequence_length( origin:OriginFor<T>, netuid: u16, validator_sequence_length: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_sequence_length(origin, netuid, validator_sequence_length )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_epochs_per_reset( origin:OriginFor<T>, netuid: u16, validator_epochs_per_reset: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_epochs_per_reset( origin, netuid, validator_epochs_per_reset )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_exclude_quantile( origin:OriginFor<T>, netuid: u16, validator_exclude_quantile: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_exclude_quantile( origin, netuid, validator_exclude_quantile )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_prune_len( origin:OriginFor<T>, netuid: u16, validator_prune_len: u64 ) -> DispatchResult {
 			Self::do_sudo_set_validator_prune_len( origin, netuid, validator_prune_len )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_logits_divergence( origin:OriginFor<T>, netuid: u16,validator_logits_divergence: u64 ) -> DispatchResult {
 			Self::do_sudo_set_validator_logits_divergence( origin, netuid, validator_logits_divergence )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_validator_epoch_len( origin:OriginFor<T>, netuid: u16,validator_epoch_length: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_epoch_length( origin, netuid, validator_epoch_length )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_scaling_law_power( origin:OriginFor<T>, netuid: u16, scaling_law_power: u16 ) -> DispatchResult {
 			Self::do_sudo_set_scaling_law_power( origin, netuid, scaling_law_power )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_synergy_scaling_law_power( origin:OriginFor<T>, netuid: u16, synergy_scaling_law_power: u16 ) -> DispatchResult {
 			Self::do_sudo_set_synergy_scaling_law_power( origin, netuid, synergy_scaling_law_power )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_immunity_period( origin:OriginFor<T>, netuid: u16, immunity_period: u16 ) -> DispatchResult {
 			Self::do_sudo_set_immunity_period( origin, netuid, immunity_period )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_weight_limit( origin:OriginFor<T>, netuid: u16, max_weight_limit: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_weight_limit( origin, netuid, max_weight_limit )
 		}
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(15_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
 			Self::do_sudo_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
@@ -1410,7 +1487,9 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
+		.saturating_add(T::DbWeight::get().reads(8303))
+		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
 			Self::epoch( 11, 1_000_000_000 );
 			Ok(())
@@ -1518,7 +1597,7 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 		who: &Self::AccountId,
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		_len: usize,
 	) -> TransactionValidity {
 		match call.is_sub_type() {
 			Some(Call::set_weights{netuid, ..}) => {
@@ -1595,13 +1674,13 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
 	fn post_dispatch(
         maybe_pre: Option<Self::Pre>,
-        info: &DispatchInfoOf<Self::Call>,
-        post_info: &PostDispatchInfoOf<Self::Call>,
-        len: usize,
-        result: &dispatch::DispatchResult,
+        _info: &DispatchInfoOf<Self::Call>,
+        _post_info: &PostDispatchInfoOf<Self::Call>,
+        _len: usize,
+        _result: &dispatch::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
 
-		if let Some((call_type, transaction_fee, who)) = maybe_pre {
+		if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
 			match call_type {
 				CallType::SetWeights => {
 					log::debug!("Not Implemented!");
