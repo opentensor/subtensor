@@ -7,9 +7,9 @@ use crate::system::ensure_root;
 
 impl<T: Config> Pallet<T> {
 
-    /// ========================
-	/// ==== Global Setters ====
-	/// ========================
+    // ========================
+	// ==== Global Setters ====
+	// ========================
     pub fn set_tempo( netuid: u16, tempo: u16 ) { Tempo::<T>::insert( netuid, tempo ); }
     pub fn set_last_adjustment_block( netuid: u16, last_adjustment_block: u64 ) { LastAdjustmentBlock::<T>::insert( netuid, last_adjustment_block ); }
     pub fn set_blocks_since_last_step( netuid: u16, blocks_since_last_step: u64 ) { BlocksSinceLastStep::<T>::insert( netuid, blocks_since_last_step ); }
@@ -19,16 +19,16 @@ impl<T: Config> Pallet<T> {
     pub fn set_pow_registrations_this_interval( netuid: u16, pow_registrations_this_interval: u16 ) { POWRegistrationsThisInterval::<T>::insert(netuid, pow_registrations_this_interval); }
     pub fn set_burn_registrations_this_interval( netuid: u16, burn_registrations_this_interval: u16 ) { BurnRegistrationsThisInterval::<T>::insert(netuid, burn_registrations_this_interval); }
 
-    /// ========================
-	/// ==== Global Getters ====
-	/// ========================
+    // ========================
+	// ==== Global Getters ====
+	// ========================
     pub fn get_total_issuance() -> u64 { TotalIssuance::<T>::get() }
     pub fn get_block_emission() -> u64 { BlockEmission::<T>::get() }
     pub fn get_current_block_as_u64( ) -> u64 { TryInto::try_into( <frame_system::Pallet<T>>::block_number() ).ok().expect("blockchain will not exceed 2^64 blocks; QED.") }
 
-    /// ==============================
-	/// ==== YumaConsensus params ====
-	/// ==============================
+    // ==============================
+	// ==== YumaConsensus params ====
+	// ==============================
     pub fn get_rank( netuid:u16 ) -> Vec<u16> { Rank::<T>::get( netuid ) }
     pub fn get_trust( netuid:u16 ) -> Vec<u16> { Trust::<T>::get( netuid ) }
     pub fn get_active( netuid:u16 ) -> Vec<bool> { Active::<T>::get( netuid ) }
@@ -39,12 +39,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_update( netuid:u16 ) -> Vec<u64> { LastUpdate::<T>::get( netuid ) }
     pub fn get_pruning_score( netuid:u16 ) -> Vec<u16> { PruningScores::<T>::get( netuid ) }
     pub fn get_validator_trust( netuid:u16 ) -> Vec<u16> { ValidatorTrust::<T>::get( netuid ) }
-    pub fn get_weight_consensus( netuid:u16 ) -> Vec<u16> { WeightConsensus::<T>::get( netuid ) }
     pub fn get_validator_permit( netuid:u16 ) -> Vec<bool> { ValidatorPermit::<T>::get( netuid ) }
 
-    /// ==================================
-	/// ==== YumaConsensus UID params ====
-	/// ==================================
+    // ==================================
+	// ==== YumaConsensus UID params ====
+	// ==================================
     pub fn set_last_update_for_uid( netuid:u16, uid: u16, last_update: u64 ) { 
         let mut updated_last_update_vec = Self::get_last_update( netuid ); 
         if (uid as usize) < updated_last_update_vec.len() { 
@@ -84,12 +83,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_update_for_uid( netuid:u16, uid: u16) -> u64 { let vec = LastUpdate::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
     pub fn get_pruning_score_for_uid( netuid:u16, uid: u16) -> u16 { let vec = PruningScores::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return u16::MAX } }
     pub fn get_validator_trust_for_uid( netuid:u16, uid: u16) -> u16 { let vec = ValidatorTrust::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
-    pub fn get_weight_consensus_for_uid( netuid:u16, uid: u16) -> u16 { let vec = WeightConsensus::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return 0 } }
     pub fn get_validator_permit_for_uid( netuid:u16, uid: u16) -> bool { let vec = ValidatorPermit::<T>::get( netuid ); if (uid as usize) < vec.len() { return vec[uid as usize] } else{ return false } }
 
-    /// ============================
-	/// ==== Subnetwork Getters ====
-	/// ============================
+    // ============================
+	// ==== Subnetwork Getters ====
+	// ============================
     pub fn get_tempo( netuid:u16 ) -> u16{ Tempo::<T>::get( netuid ) }
     pub fn get_emission_value( netuid: u16 ) -> u64 { EmissionValues::<T>::get( netuid ) }
     pub fn get_pending_emission( netuid:u16 ) -> u64{ PendingEmission::<T>::get( netuid ) }
@@ -103,9 +101,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_burn_registrations_this_interval( netuid: u16 ) -> u16 { BurnRegistrationsThisInterval::<T>::get( netuid ) } 
     pub fn get_neuron_block_at_registration( netuid: u16, neuron_uid: u16 ) -> u64 { BlockAtRegistration::<T>::get( netuid, neuron_uid )}
 
-    /// ========================
-	/// ==== Sudo calls ========
-	/// ========================
+    // ========================
+	// ==== Sudo calls ========
+	// ========================
     pub fn get_default_take() -> u16 { DefaultTake::<T>::get() }
     pub fn set_default_take( default_take: u16 ) { DefaultTake::<T>::put( default_take ) }
     pub fn do_sudo_set_default_take( origin: T::RuntimeOrigin, default_take: u16 ) -> DispatchResult { 
@@ -116,13 +114,13 @@ impl<T: Config> Pallet<T> {
         Ok(()) 
     }
 
-    pub fn get_serving_rate_limit() -> u64 { ServingRateLimit::<T>::get() }
-    pub fn set_serving_rate_limit( serving_rate_limit: u64 ) { ServingRateLimit::<T>::put( serving_rate_limit ) }
-    pub fn do_sudo_set_serving_rate_limit( origin: T::RuntimeOrigin, serving_rate_limit: u64 ) -> DispatchResult { 
+    pub fn get_serving_rate_limit( netuid: u16 ) -> u64 { ServingRateLimit::<T>::get(netuid) }
+    pub fn set_serving_rate_limit( netuid: u16, serving_rate_limit: u64 ) { ServingRateLimit::<T>::insert( netuid, serving_rate_limit ) }
+    pub fn do_sudo_set_serving_rate_limit( origin: T::RuntimeOrigin, netuid: u16, serving_rate_limit: u64 ) -> DispatchResult { 
         ensure_root( origin )?;
-        Self::set_serving_rate_limit( serving_rate_limit );
+        Self::set_serving_rate_limit( netuid, serving_rate_limit );
         log::info!("ServingRateLimitSet( serving_rate_limit: {:?} ) ", serving_rate_limit );
-        Self::deposit_event( Event::ServingRateLimitSet( serving_rate_limit ) );
+        Self::deposit_event( Event::ServingRateLimitSet( netuid, serving_rate_limit ) );
         Ok(()) 
     }
 
@@ -348,17 +346,6 @@ impl<T: Config> Pallet<T> {
         Self::set_rho( netuid, rho );
         log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho );
         Self::deposit_event( Event::RhoSet( netuid, rho ) );
-        Ok(())
-    }
-            
-    pub fn get_weight_cuts( netuid: u16 ) -> u16  { WeightCuts::<T>::get( netuid ) }
-    pub fn set_weight_cuts( netuid: u16, weight_cuts: u16 ) { WeightCuts::<T>::insert( netuid, weight_cuts ); }
-    pub fn do_sudo_set_weight_cuts( origin:T::RuntimeOrigin, netuid: u16, weight_cuts: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_weight_cuts( netuid, weight_cuts );
-        log::info!("WeightCutsSet( netuid: {:?} weight_cuts: {:?} ) ", netuid, weight_cuts );
-        Self::deposit_event( Event::WeightCutsSet( netuid, weight_cuts ) );
         Ok(())
     }
             

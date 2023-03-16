@@ -6,35 +6,35 @@ use frame_system::ensure_root;
 impl<T: Config> Pallet<T> { 
 
 
-    /// ---- The implementation for the extrinsic add_network.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- Must be sudo.
-    ///
-    /// 	* 'netuid' (u16):
-    /// 		- The u16 network identifier.
-    ///
-    /// 	* 'tempo' ( u16 ):
-    /// 		- Number of blocks between epoch step.
-    ///
-    /// 	* 'modality' ( u16 ):
-    /// 		- Network modality specifier.
-    ///
-    /// # Event:
-    /// 	* NetworkAdded;
-    /// 		- On successfully creation of a network.
-    ///
-    /// # Raises:
-    /// 	* 'NetworkExist':
-    /// 		- Attempting to register an already existing.
-    ///
-    /// 	* 'InvalidModality':
-    /// 		- Attempting to register a network with an invalid modality.
-    ///
-    /// 	* 'InvalidTempo':
-    /// 		- Attempting to register a network with an invalid tempo.
-    ///
+    // ---- The implementation for the extrinsic add_network.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- Must be sudo.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'tempo' ( u16 ):
+    // 		- Number of blocks between epoch step.
+    //
+    // 	* 'modality' ( u16 ):
+    // 		- Network modality specifier.
+    //
+    // # Event:
+    // 	* NetworkAdded;
+    // 		- On successfully creation of a network.
+    //
+    // # Raises:
+    // 	* 'NetworkExist':
+    // 		- Attempting to register an already existing.
+    //
+    // 	* 'InvalidModality':
+    // 		- Attempting to register a network with an invalid modality.
+    //
+    // 	* 'InvalidTempo':
+    // 		- Attempting to register a network with an invalid tempo.
+    //
     pub fn do_add_network( 
         origin: T::RuntimeOrigin, 
         netuid: u16, 
@@ -65,23 +65,23 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    /// ---- The implementation for the extrinsic remove_network.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- Must be sudo.
-    ///
-    /// 	* 'netuid' (u16):
-    /// 		- The u16 network identifier.
-    ///
-    /// # Event:
-    /// 	* NetworkRemoved;
-    /// 		- On the successfull removing of this network.
-    ///
-    /// # Raises:
-    /// 	* 'NetworkDoesNotExist':
-    /// 		- Attempting to remove a non existent network.
-    ///
+    // ---- The implementation for the extrinsic remove_network.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- Must be sudo.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // # Event:
+    // 	* NetworkRemoved;
+    // 		- On the successfull removing of this network.
+    //
+    // # Raises:
+    // 	* 'NetworkDoesNotExist':
+    // 		- Attempting to remove a non existent network.
+    //
     pub fn do_remove_network( origin: T::RuntimeOrigin, netuid: u16 ) -> dispatch::DispatchResult {
 
         // --- 1. Ensure the function caller it Sudo.
@@ -101,20 +101,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic sudo_add_network_connect_requirement.
-    /// Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The caller, must be sudo.
-    ///
-    /// 	* `netuid_a` (u16):
-    /// 		- The network we are adding the requirment to (parent network)
-    ///
-    /// 	* `netuid_b` (u16):
-    /// 		- The network we the requirement refers to (child network)
-    ///
-    /// 	* `prunning_score_requirement` (u16):
-    /// 		- The topk percentile prunning score requirement (u16:MAX normalized.)
-    ///
+    // ---- The implementation for the extrinsic sudo_add_network_connect_requirement.
+    // Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The caller, must be sudo.
+    //
+    // 	* `netuid_a` (u16):
+    // 		- The network we are adding the requirment to (parent network)
+    //
+    // 	* `netuid_b` (u16):
+    // 		- The network we the requirement refers to (child network)
+    //
+    // 	* `prunning_score_requirement` (u16):
+    // 		- The topk percentile prunning score requirement (u16:MAX normalized.)
+    //
     pub fn do_sudo_add_network_connection_requirement(
         origin: T::RuntimeOrigin, 
         netuid_a: u16,
@@ -131,17 +131,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic sudo_remove_network_connect_requirement.
-    /// Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- The caller, must be sudo.
-    ///
-    /// 	* `netuid_a` (u16):
-    /// 		- The network we are removing the requirment from.
-    ///
-    /// 	* `netuid_b` (u16):
-    /// 		- The required network connection to remove.
-    ///   
+    // ---- The implementation for the extrinsic sudo_remove_network_connect_requirement.
+    // Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The caller, must be sudo.
+    //
+    // 	* `netuid_a` (u16):
+    // 		- The network we are removing the requirment from.
+    //
+    // 	* `netuid_b` (u16):
+    // 		- The required network connection to remove.
+    //   
     pub fn do_sudo_remove_network_connection_requirement(
         origin: T::RuntimeOrigin, 
         netuid_a: u16,
@@ -157,26 +157,26 @@ impl<T: Config> Pallet<T> {
     }
 
 
-    /// ---- The implementation for the extrinsic set_emission_values.
-    ///
-    /// # Args:
-    /// 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    /// 		- Must be sudo.
-    ///
-   	/// 	* `netuids` (Vec<u16>):
-	/// 		- A vector of network uids values. This must include all netuids.
-	///
-	/// 	* `emission` (Vec<u64>):
-	/// 		- The emission values associated with passed netuids in order.
-    ///
-    /// # Event:
-    /// 	* NetworkRemoved;
-    /// 		- On the successfull removing of this network.
-    ///
-    /// # Raises:
-    /// 	* 'EmissionValuesDoesNotMatchNetworks':
-    /// 		- Attempting to remove a non existent network.
-    ///
+    // ---- The implementation for the extrinsic set_emission_values.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- Must be sudo.
+    //
+   	// 	* `netuids` (Vec<u16>):
+	// 		- A vector of network uids values. This must include all netuids.
+	//
+	// 	* `emission` (Vec<u64>):
+	// 		- The emission values associated with passed netuids in order.
+    //
+    // # Event:
+    // 	* NetworkRemoved;
+    // 		- On the successfull removing of this network.
+    //
+    // # Raises:
+    // 	* 'EmissionValuesDoesNotMatchNetworks':
+    // 		- Attempting to remove a non existent network.
+    //
     pub fn do_set_emission_values( 
         origin: T::RuntimeOrigin, 
         netuids: Vec<u16>,
@@ -212,8 +212,8 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Initializes a new subnetwork under netuid with parameters.
-    ///
+    // Initializes a new subnetwork under netuid with parameters.
+    //
     pub fn init_new_network( netuid:u16, tempo:u16, modality:u16 ){
 
         // --- 1. Set network to 0 size.
@@ -235,8 +235,8 @@ impl<T: Config> Pallet<T> {
         Self::set_default_values_for_all_parameters( netuid );
     }
 
-    /// Removes the network (netuid) and all of its parameters.
-    ///
+    // Removes the network (netuid) and all of its parameters.
+    //
     pub fn remove_network( netuid:u16 ) {
 
         // --- 1. Remove network count.
@@ -256,9 +256,9 @@ impl<T: Config> Pallet<T> {
     }
 
 
-    /// Explicitly sets all network parameters to their default values.
-    /// Note: this is required because, although there are defaults, they are not explicitly set until this call.
-    ///
+    // Explicitly sets all network parameters to their default values.
+    // Note: this is required because, although there are defaults, they are not explicitly set until this call.
+    //
     pub fn set_default_values_for_all_parameters(netuid: u16){
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key( netuid ) { Tempo::<T>::insert( netuid, Tempo::<T>::get( netuid ));}
@@ -279,8 +279,8 @@ impl<T: Config> Pallet<T> {
         if !BurnRegistrationsThisInterval::<T>::contains_key( netuid ) { BurnRegistrationsThisInterval::<T>::insert( netuid, BurnRegistrationsThisInterval::<T>::get( netuid ));}
     }
 
-    /// Explicitly erases all data associated with this network.
-    ///
+    // Explicitly erases all data associated with this network.
+    //
     pub fn erase_all_network_data(netuid: u16){
 
         // --- 1. Remove incentive mechanism memory.
@@ -300,7 +300,6 @@ impl<T: Config> Pallet<T> {
         LastUpdate::<T>::remove( netuid );
         ValidatorPermit::<T>::remove( netuid );
         ValidatorTrust::<T>::remove( netuid );
-        WeightConsensus::<T>::remove( netuid );
 
         // --- 2. Erase network parameters.
         Tempo::<T>::remove( netuid );
@@ -322,14 +321,14 @@ impl<T: Config> Pallet<T> {
     }
 
 
-    /// --- Returns true if a network connection exists.
-    ///
+    // --- Returns true if a network connection exists.
+    //
     pub fn network_connection_requirement_exists( netuid_a: u16, netuid_b: u16 ) -> bool {
         NetworkConnect::<T>::contains_key( netuid_a, netuid_b )
     }
 
-    /// --- Returns the network connection requirment between net A and net B.
-    ///
+    // --- Returns the network connection requirment between net A and net B.
+    //
     pub fn get_network_connection_requirement( netuid_a: u16, netuid_b: u16 ) -> u16 {
         if Self::network_connection_requirement_exists( netuid_a, netuid_b ){
             return NetworkConnect::<T>::get( netuid_a, netuid_b ).unwrap();
@@ -339,20 +338,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// --- Adds a network b connection requirement to network a. 
-    ///
+    // --- Adds a network b connection requirement to network a. 
+    //
     pub fn add_connection_requirement( netuid_a: u16, netuid_b: u16, requirement: u16 ) {
         NetworkConnect::<T>::insert( netuid_a, netuid_b, requirement );
     }
 
-    /// --- Removes the network b connection requirement from network a. 
-    ///
+    // --- Removes the network b connection requirement from network a. 
+    //
     pub fn remove_connection_requirment( netuid_a: u16, netuid_b: u16) {
         if Self::network_connection_requirement_exists(netuid_a, netuid_b) { NetworkConnect::<T>::remove( netuid_a, netuid_b ); }
     }
 
-    /// Returns true if the items contain duplicates.
-    ///
+    // Returns true if the items contain duplicates.
+    //
     fn has_duplicate_netuids( netuids: &Vec<u16> ) -> bool {
         let mut parsed: Vec<u16> = Vec::new();
         for item in netuids {
@@ -362,8 +361,8 @@ impl<T: Config> Pallet<T> {
         return false;
     }
 
-    /// Checks for any invalid netuids on this network.
-    ///
+    // Checks for any invalid netuids on this network.
+    //
     pub fn contains_invalid_netuids( netuids: &Vec<u16> ) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist( *netuid ) {
@@ -373,35 +372,35 @@ impl<T: Config> Pallet<T> {
         return false;
     }
 
-    /// Set emission values for the passed networks. 
-    ///
+    // Set emission values for the passed networks. 
+    //
     pub fn set_emission_values( netuids: &Vec<u16>, emission: &Vec<u64> ){
         for (i, netuid_i) in netuids.iter().enumerate() {
             Self::set_emission_for_network( *netuid_i, emission[i] ); 
         }
     }
 
-    /// Set the emission on a single network.
-    ///
+    // Set the emission on a single network.
+    //
     pub fn set_emission_for_network( netuid: u16, emission: u64 ){
         EmissionValues::<T>::insert( netuid, emission );
     }
 
-    /// Returns true if the subnetwork exists.
-    ///
+    // Returns true if the subnetwork exists.
+    //
     pub fn if_subnet_exist( netuid: u16 ) -> bool{
         return NetworksAdded::<T>::get( netuid );
     }
 
-    /// Returns true if the passed modality is allowed.
-    ///
+    // Returns true if the passed modality is allowed.
+    //
     pub fn if_modality_is_valid( modality: u16 ) -> bool{
         let allowed_values: Vec<u16> = vec![0, 1, 2];
         return allowed_values.contains( &modality );
     } 
 
-    /// Returns true if the passed tempo is allowed.
-    ///
+    // Returns true if the passed tempo is allowed.
+    //
     pub fn if_tempo_is_valid(tempo: u16) -> bool {
         tempo < u16::MAX
     }

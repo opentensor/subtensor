@@ -38,25 +38,25 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let rho = <Rho<T>>::get(netuid);
-        let kappa = <Kappa<T>>::get(netuid);
-        let difficulty = <Difficulty<T>>::get(netuid);
-        let immunity_period = <ImmunityPeriod<T>>::get(netuid);
-        let validator_batch_size = <ValidatorBatchSize<T>>::get(netuid);
-        let validator_sequence_length = <ValidatorSequenceLength<T>>::get(netuid);
-        let validator_epochs_per_reset = <ValidatorEpochsPerReset<T>>::get(netuid);
-        let validator_epoch_length = <ValidatorEpochLen<T>>::get(netuid);
-        let max_allowed_validators = <MaxAllowedValidators<T>>::get(netuid);
-        let min_allowed_weights = <MinAllowedWeights<T>>::get(netuid);
-        let max_weights_limit = <MaxWeightsLimit<T>>::get(netuid);
-        let scaling_law_power = <ScalingLawPower<T>>::get(netuid);
-        let synergy_scaling_law_power = <SynergyScalingLawPower<T>>::get(netuid);
-        let subnetwork_n = <SubnetworkN<T>>::get(netuid);
-        let max_allowed_uids = <MaxAllowedUids <T>>::get(netuid);
-        let blocks_since_last_step = <BlocksSinceLastStep <T>>::get(netuid);
-        let tempo = <Tempo <T>>::get(netuid);
+        let rho = Self::get_rho(netuid);
+        let kappa = Self::get_kappa(netuid);
+        let difficulty = Self::get_difficulty_as_u64(netuid);
+        let immunity_period = Self::get_immunity_period(netuid);
+        let validator_batch_size = Self::get_validator_batch_size(netuid);
+        let validator_sequence_length = Self::get_validator_sequence_length(netuid);
+        let validator_epochs_per_reset = Self::get_validator_epochs_per_reset(netuid);
+        let validator_epoch_length = Self::get_validator_epoch_length(netuid);
+        let max_allowed_validators = Self::get_max_allowed_validators(netuid);
+        let min_allowed_weights = Self::get_min_allowed_weights(netuid);
+        let max_weights_limit = Self::get_max_weight_limit(netuid);
+        let scaling_law_power = Self::get_scaling_law_power(netuid);
+        let synergy_scaling_law_power = Self::get_synergy_scaling_law_power(netuid);
+        let subnetwork_n = Self::get_subnetwork_n(netuid);
+        let max_allowed_uids = Self::get_max_allowed_uids(netuid);
+        let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
+        let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality <T>>::get(netuid);
-        let emission_values = <EmissionValues <T>>::get(netuid);
+        let emission_values = Self::get_emission_value(netuid);
 
 
         let mut network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
