@@ -17,15 +17,15 @@ echo "*** Building chainspec..."
 echo "*** Chainspec built and output to file"
 
 echo "*** Purging previous state..."
-./target/debug/node-subtensor purge-chain -y --base-path /tmp/bob --chain=$FULL_PATH 2>&1 > /dev/null
-./target/debug/node-subtensor purge-chain -y --base-path /tmp/alice --chain=$FULL_PATH 2>&1 > /dev/null
+./target/debug/node-subtensor purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
+./target/debug/node-subtensor purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
 echo "*** Previous chainstate purged"
 
 echo "*** Starting localnet nodes..."
 alice_start=(
 	./target/release/node-subtensor
 	--base-path /tmp/alice
-	--chain=$FULL_PATH
+	--chain="$FULL_PATH"
 	--alice
 	--port 30334
 	--ws-port 9946
@@ -38,7 +38,7 @@ alice_start=(
 bob_start=(
 	./target/release/node-subtensor
 	--base-path /tmp/bob
-	--chain=$FULL_PATH
+	--chain="$FULL_PATH"
 	--bob
 	--port 30335
 	--ws-port 9947
