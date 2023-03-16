@@ -85,16 +85,12 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
         let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-        let weights = Self::get_weights(netuid)[uid as usize].iter()
-            .enumerate()
-            .map(|(i, w)| (i as u16, fixed_proportion_to_u16(*w)))
+        let weights = <Weights<T>>::get(netuid, uid).iter()
             .filter(|(_, b)| *b > 0)
-            .map(|(i, b)| (i.into(), b.into()))
+            .map(|(i, w)| (i.into(), w.into()))
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
-        let bonds = Self::get_bonds(netuid)[uid as usize].iter()
-            .enumerate()
-            .map(|(i, b)| (i as u16, fixed_proportion_to_u16(*b)))
+        let bonds = <Bonds<T>>::get(netuid, uid).iter()
             .filter(|(_, b)| *b > 0)
             .map(|(i, b)| (i.into(), b.into()))
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
