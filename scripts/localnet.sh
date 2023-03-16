@@ -17,8 +17,8 @@ echo "*** Building chainspec..."
 echo "*** Chainspec built and output to file"
 
 echo "*** Purging previous state..."
-./target/debug/node-subtensor purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
-./target/debug/node-subtensor purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
+./target/release/node-subtensor purge-chain -y --base-path /tmp/bob --chain="$FULL_PATH" >/dev/null 2>&1
+./target/release/node-subtensor purge-chain -y --base-path /tmp/alice --chain="$FULL_PATH" >/dev/null 2>&1
 echo "*** Previous chainstate purged"
 
 echo "*** Starting localnet nodes..."
