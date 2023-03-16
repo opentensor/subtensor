@@ -239,6 +239,7 @@ benchmarks! {
   benchmark_serve_axon{
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+    let netuid: u16 = 1;
     let version: u32 =  2;
     let ip: u128 = 1676056785;
     let port: u16 = 128;
@@ -247,21 +248,23 @@ benchmarks! {
     let placeholder1: u8 = 0;
     let placeholder2: u8 = 0;
 
-    Subtensor::<T>::set_serving_rate_limit(0);
+    Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
-  }: serve_axon(RawOrigin::Signed( caller.clone() ), version, ip, port, ip_type, protocol, placeholder1, placeholder2)
+  }: serve_axon(RawOrigin::Signed( caller.clone() ), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2)
 
   benchmark_serve_prometheus {
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+    let netuid: u16 = 1;
     let version: u32 = 2;
     let ip: u128 = 1676056785;
     let port: u16 = 128;
     let ip_type: u8 = 4;
+    
 
-    Subtensor::<T>::set_serving_rate_limit(0);
+    Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
-  }: serve_prometheus(RawOrigin::Signed( caller.clone() ), version, ip, port, ip_type)
+  }: serve_prometheus(RawOrigin::Signed( caller.clone() ), netuid, version, ip, port, ip_type)
 
   benchmark_sudo_register {
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
@@ -351,8 +354,9 @@ benchmarks! {
 
   benchmark_sudo_set_serving_rate_limit {
     let serving_rate_limit: u64 = 100;
+    let netuid: u16 = 1;
 
-  }: sudo_set_serving_rate_limit(RawOrigin::<AccountIdOf<T>>::Root, serving_rate_limit)
+  }: sudo_set_serving_rate_limit(RawOrigin::<AccountIdOf<T>>::Root, netuid, serving_rate_limit)
 
   benchmark_sudo_set_max_difficulty {
     let netuid: u16 = 1;
