@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "integration-tests",
     "node",
     "pallets/subtensor",
     "runtime",
