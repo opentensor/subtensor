@@ -556,7 +556,7 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
     });
 }
 
-// #[test]
+#[test]
 pub fn test_sudo_test_pending_emission_ok() {
     new_test_ext().execute_with(|| {
         let netuid1: u16 = 1;
@@ -576,7 +576,7 @@ pub fn test_sudo_test_pending_emission_ok() {
 
         step_block(3);
 
-        assert_eq!(SubtensorModule::get_pending_emission(netuid1), 750000000); // 250000000 + 250000000 + 250000000
+        assert_eq!(SubtensorModule::get_pending_emission(netuid1), 0); // emission drained at block 3 for tempo 5
         assert_eq!(SubtensorModule::get_pending_emission(netuid2), 2250000000); // 750000000 + 750000000 + 750000000
     });
 }

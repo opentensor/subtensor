@@ -352,12 +352,12 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultServingRateLimit<T: Config>() -> u64 { T::InitialServingRateLimit::get() }
 
-	#[pallet::storage] // --- ITEM ( serving_rate_limit )
-	pub(super) type ServingRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultServingRateLimit<T>>;
-	#[pallet::storage] // --- MAP ( hotkey ) --> axon_info
-	pub(super) type Axons<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
-	#[pallet::storage] // --- MAP ( hotkey ) --> prometheus_info
-	pub(super) type Prometheus<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid ) --> serving_rate_limit
+	pub type ServingRateLimit<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>> ;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
+	pub(super) type Axons<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
+	pub(super) type Prometheus<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
 
 	// =======================================
 	// ==== Subnetwork Hyperparam storage ====
@@ -516,15 +516,6 @@ pub mod pallet {
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> bonds
     pub(super) type Bonds<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T> >;
 
-
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
-	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
-
 	// Pallets use events to inform users when important changes are made.
 	// https://docs.substrate.io/main-docs/build/events-errors/
 	#[pallet::event]
@@ -563,8 +554,8 @@ pub mod pallet {
 		ImmunityPeriodSet( u16, u16), // --- Event created when immunity period is set for a subnet.
 		BondsMovingAverageSet( u16, u64), // --- Event created when bonds moving average is set for a subnet.
 		MaxAllowedValidatorsSet( u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
-		AxonServed( T::AccountId ), // --- Event created when the axon server information is added to the network.
-		PrometheusServed( T::AccountId ), // --- Event created when the axon server information is added to the network.
+		AxonServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
+		PrometheusServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
 		EmissionValuesSet(), // --- Event created when emission ratios fr all networks is set.
 		NetworkConnectionAdded( u16, u16, u16 ), // --- Event created when a network connection requirement is added.
 		NetworkConnectionRemoved( u16, u16 ), // --- Event created when a network connection requirement is removed.
@@ -573,20 +564,15 @@ pub mod pallet {
 		WeightsVersionKeySet( u16, u64 ), // --- Event created when weights version key is set for a network.
 		MinDifficultySet( u16, u64 ), // --- Event created when setting min difficutly on a network.
 		MaxDifficultySet( u16, u64 ), // --- Event created when setting max difficutly on a network.
-		ServingRateLimitSet( u64 ), // --- Event created when setting the prometheus serving rate limit.
+		ServingRateLimitSet( u16, u64 ), // --- Event created when setting the prometheus serving rate limit.
 		BurnSet( u16, u64 ), // --- Event created when setting burn on a network.
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
-		SomethingStored { something: u32, who: T::AccountId },
 	}
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
-		// Error names should be descriptive.
-		NoneValue,
-		// Errors should have helpful documentation associated with them.
-		StorageOverflow,
 		InvalidConnectionRequirement, // --- Thrown if we are attempting to create an invalid connection requirement.
 		NetworkDoesNotExist, // --- Thrown when the network does not exist.
 		NetworkExist, // --- Thrown when the network already exist.
@@ -717,6 +703,9 @@ pub mod pallet {
 	
 					TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
 					TotalColdkeyStake::<T>::insert(coldkey.clone(), TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake));
+
+					// Update total issuance value
+					TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 	
 					Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 	
@@ -1005,6 +994,7 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
 		pub fn serve_axon(
 			origin:OriginFor<T>, 
+			netuid: u16,
 			version: u32, 
 			ip: u128, 
 			port: u16, 
@@ -1013,19 +1003,20 @@ pub mod pallet {
 			placeholder1: u8, 
 			placeholder2: u8,
 		) -> DispatchResult {
-			Self::do_serve_axon( origin, version, ip, port, ip_type, protocol, placeholder1, placeholder2 ) 
+			Self::do_serve_axon( origin, netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2 ) 
 		}
 		#[pallet::weight((Weight::from_ref_time(17_000_000)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
 		pub fn serve_prometheus(
 			origin:OriginFor<T>, 
+			netuid: u16,
 			version: u32, 
 			ip: u128, 
 			port: u16, 
 			ip_type: u8,
 		) -> DispatchResult {
-			Self::do_serve_prometheus( origin, version, ip, port, ip_type ) 
+			Self::do_serve_prometheus( origin, netuid, version, ip, port, ip_type ) 
 		}
 
 
@@ -1270,8 +1261,8 @@ pub mod pallet {
 		}
 		#[pallet::weight((Weight::from_ref_time(10_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_serving_rate_limit( origin:OriginFor<T>, serving_rate_limit: u64 ) -> DispatchResult {  
-			Self::do_sudo_set_serving_rate_limit( origin, serving_rate_limit )
+		pub fn sudo_set_serving_rate_limit( origin:OriginFor<T>, netuid: u16, serving_rate_limit: u64 ) -> DispatchResult {  
+			Self::do_sudo_set_serving_rate_limit( origin, netuid, serving_rate_limit )
 		}
 
 		#[pallet::weight((Weight::from_ref_time(14_000_000)
@@ -1606,7 +1597,7 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 		who: &Self::AccountId,
 		call: &Self::Call,
 		_info: &DispatchInfoOf<Self::Call>,
-		len: usize,
+		_len: usize,
 	) -> TransactionValidity {
 		match call.is_sub_type() {
 			Some(Call::set_weights{netuid, ..}) => {
@@ -1683,13 +1674,13 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
 	fn post_dispatch(
         maybe_pre: Option<Self::Pre>,
-        info: &DispatchInfoOf<Self::Call>,
-        post_info: &PostDispatchInfoOf<Self::Call>,
-        len: usize,
-        result: &dispatch::DispatchResult,
+        _info: &DispatchInfoOf<Self::Call>,
+        _post_info: &PostDispatchInfoOf<Self::Call>,
+        _len: usize,
+        _result: &dispatch::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
 
-		if let Some((call_type, transaction_fee, who)) = maybe_pre {
+		if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
 			match call_type {
 				CallType::SetWeights => {
 					log::debug!("Not Implemented!");

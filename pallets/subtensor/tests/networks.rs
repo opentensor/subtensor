@@ -9,7 +9,7 @@ use frame_support::{assert_ok};
 /*TO DO SAM: write test for LatuUpdate after it is set */
 
 // --- add network tests ----
-// #[test]
+#[test]
 fn test_add_network_dispatch_info_ok() { 
         new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -124,7 +124,7 @@ fn test_network_set_default_value_for_other_parameters() {
 });}
 
 // --- Set Emission Ratios Tests
-// #[test]
+#[test]
 fn test_network_set_emission_ratios_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
         let netuids: Vec<u16> = vec![ 1,2 ]; 
@@ -132,7 +132,7 @@ fn test_network_set_emission_ratios_dispatch_info_ok() {
         let call = RuntimeCall::SubtensorModule(SubtensorCall::sudo_set_emission_values{ netuids, emission });
         assert_eq!(call.get_dispatch_info(), DispatchInfo {
                 weight: frame_support::weights::Weight::from_ref_time(0),
-                class: DispatchClass::Normal,
+                class: DispatchClass::Operational,
                 pays_fee: Pays::No
         });
 });}

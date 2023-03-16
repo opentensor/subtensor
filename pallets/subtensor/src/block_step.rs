@@ -21,7 +21,7 @@ impl<T: Config> Pallet<T> {
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
     // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
     //
-    pub fn blocks_until_next_epoch( netuid: u16, tempo: u16, block_number: u64 ) -> u64 {
+    pub fn blocks_until_next_epoch( netuid: u16, tempo: u16, block_number: u64 ) -> u64 { 
         if tempo == 0 { return 1000 } // Special case: tempo = 0, the network never runs.
         // tempo | netuid | # first epoch block
         //   1        0               0
@@ -82,8 +82,7 @@ impl<T: Config> Pallet<T> {
             // --- 2. Queue the emission due to this network.
             let new_queued_emission = EmissionValues::<T>::get( netuid );
             PendingEmission::<T>::mutate( netuid, | queued | *queued += new_queued_emission );
-            log::debug!("netuid_i: {:?} queued_emission: +{:?} ", netuid, new_queued_emission );
-
+            log::debug!("netuid_i: {:?} queued_emission: +{:?} ", netuid, new_queued_emission );  
             // --- 3. Check to see if this network has reached tempo.
             if Self::blocks_until_next_epoch( netuid, tempo, block_number ) != 0 {
                 // --- 3.1 No epoch, increase blocks since last step and continue,
@@ -93,14 +92,14 @@ impl<T: Config> Pallet<T> {
 
             // --- 4 This network is at tempo and we are running its epoch.
             // First frain the queued emission.
-            let emission_to_drain:u64 = PendingEmission::<T>::get( netuid );
+            let emission_to_drain:u64 = PendingEmission::<T>::get( netuid ); 
             PendingEmission::<T>::insert( netuid, 0 );
 
             // --- 5. Run the epoch mechanism and return emission tuples for hotkeys in the network.
             let emission_tuples_this_block: Vec<(T::AccountId, u64)> = Self::epoch( netuid, emission_to_drain );
                 
             // --- 6. Check that the emission does not exceed the allowed total.
-            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(h,e)| *e as u128 ).sum();
+            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(_account_id, e)| *e as u128 ).sum();
             if emission_sum > emission_to_drain as u128 { continue } // Saftey check.
 
             // --- 7. Sink the emission tuples onto the already loaded.
@@ -221,10 +220,9 @@ impl<T: Config> Pallet<T> {
                 let current_burn: u64 = Self::get_burn_as_u64( netuid );
                 let current_difficulty: u64 = Self::get_difficulty_as_u64( netuid );
                 let registrations_this_interval: u16 = Self::get_registrations_this_interval( netuid );
-                let pow_registrations_this_interval: u16 = Self::get_burn_registrations_this_interval( netuid );
+                let pow_registrations_this_interval: u16 = Self::get_pow_registrations_this_interval( netuid );
                 let burn_registrations_this_interval: u16 = Self::get_burn_registrations_this_interval( netuid );
                 let target_registrations_this_interval: u16 = Self::get_target_registrations_per_interval( netuid );
-
                 // --- 5. Adjust burn + pow
                 // There are four cases to consider. A, B, C, D
                 if registrations_this_interval > target_registrations_this_interval {

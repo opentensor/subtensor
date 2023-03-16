@@ -114,13 +114,13 @@ impl<T: Config> Pallet<T> {
         Ok(()) 
     }
 
-    pub fn get_serving_rate_limit() -> u64 { ServingRateLimit::<T>::get() }
-    pub fn set_serving_rate_limit( serving_rate_limit: u64 ) { ServingRateLimit::<T>::put( serving_rate_limit ) }
-    pub fn do_sudo_set_serving_rate_limit( origin: T::RuntimeOrigin, serving_rate_limit: u64 ) -> DispatchResult { 
+    pub fn get_serving_rate_limit( netuid: u16 ) -> u64 { ServingRateLimit::<T>::get(netuid) }
+    pub fn set_serving_rate_limit( netuid: u16, serving_rate_limit: u64 ) { ServingRateLimit::<T>::insert( netuid, serving_rate_limit ) }
+    pub fn do_sudo_set_serving_rate_limit( origin: T::RuntimeOrigin, netuid: u16, serving_rate_limit: u64 ) -> DispatchResult { 
         ensure_root( origin )?;
-        Self::set_serving_rate_limit( serving_rate_limit );
+        Self::set_serving_rate_limit( netuid, serving_rate_limit );
         log::info!("ServingRateLimitSet( serving_rate_limit: {:?} ) ", serving_rate_limit );
-        Self::deposit_event( Event::ServingRateLimitSet( serving_rate_limit ) );
+        Self::deposit_event( Event::ServingRateLimitSet( netuid, serving_rate_limit ) );
         Ok(()) 
     }
 
