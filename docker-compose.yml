@@ -17,5 +17,5 @@ services:
       - "9933"
     environment:
       - CARGO_HOME=/var/www/node-subtensor/.cargo
-    command: bash -c "./node-subtensor --base-path /root/.local/share/node-subtensor/ --chain finney --rpc-external --ws-external --rpc-cors all --no-mdns --ws-max-connections 10000 --in-peers 500 --out-peers 500"
+    command: bash -c "./node-subtensor --base-path /tmp/blockchain --chain /raw_spec.json --rpc-external --ws-external --rpc-cors all --no-mdns --ws-max-connections 10000 --in-peers 500 --out-peers 500 --bootnodes /ip4/13.58.175.193/tcp/30333/p2p/12D3KooWEXY393DjTvBip3DnZeJkSAeZrg6edxqu45ywHzzQS2BY"
 
