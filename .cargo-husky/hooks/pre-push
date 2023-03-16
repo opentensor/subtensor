@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -EeT
+
+printf '+cargo test\n'
+
+cargo test
+
