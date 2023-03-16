@@ -24,8 +24,8 @@ pub struct NeuronInfo<T: Config> {
     dividends: u16,
     last_update: u64,
     validator_permit: bool,
-    weights: Vec<u16>, // Vec uid to weight
-    bonds: Vec<u16>, // Vec uid to bond
+    weights: Vec<(u16, u16)>, // Vec of (uid, weight)
+    bonds: Vec<(u16, u16)>, // Vec of (uid, bond)
     pruning_score: u16
 }
 
@@ -85,10 +85,16 @@ impl<T: Config> Pallet<T> {
         let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
         let weights = Self::get_weights(netuid)[uid as usize].iter()
-            .map(|x| fixed_proportion_to_u16(*x)).collect::<Vec<u16>>();
+            .enumerate()
+            .map(|(i, w)| (i as u16, fixed_proportion_to_u16(*w)))
+            .filter(|(_, b)| *b > 0)
+            .collect::<Vec<(u16, u16)>>();
         
         let bonds = Self::get_bonds(netuid)[uid as usize].iter()
-            .map(|x| fixed_proportion_to_u16(*x)).collect::<Vec<u16>>();
+            .enumerate()
+            .map(|(i, b)| (i as u16, fixed_proportion_to_u16(*b)))
+            .filter(|(_, b)| *b > 0)
+            .collect::<Vec<(u16, u16)>>();
         
         let mut stakes = Vec::<(T::AccountId, u64)>::new();
         for ( coldkey, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() ) {
