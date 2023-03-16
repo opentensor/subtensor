@@ -13,17 +13,18 @@ use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
 
+
 use std::{sync::Arc, time::Duration};
 
-/// Generates extrinsics for the `benchmark overhead` command.
-///
-/// Note: Should only be used for benchmarking.
+// Generates extrinsics for the `benchmark overhead` command.
+//
+// Note: Should only be used for benchmarking.
 pub struct RemarkBuilder {
 	client: Arc<FullClient>,
 }
 
 impl RemarkBuilder {
-	/// Creates a new [`Self`] from the given client.
+	// Creates a new [`Self`] from the given client.
 	pub fn new(client: Arc<FullClient>) -> Self {
 		Self { client }
 	}
@@ -52,9 +53,9 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for RemarkBuilder {
 	}
 }
 
-/// Generates `Balances::TransferKeepAlive` extrinsics for the benchmarks.
-///
-/// Note: Should only be used for benchmarking.
+// Generates `Balances::TransferKeepAlive` extrinsics for the benchmarks.
+//
+// Note: Should only be used for benchmarking.
 pub struct TransferKeepAliveBuilder {
 	client: Arc<FullClient>,
 	dest: AccountId,
@@ -62,7 +63,7 @@ pub struct TransferKeepAliveBuilder {
 }
 
 impl TransferKeepAliveBuilder {
-	/// Creates a new [`Self`] from the given client.
+	// Creates a new [`Self`] from the given client.
 	pub fn new(client: Arc<FullClient>, dest: AccountId, value: Balance) -> Self {
 		Self { client, dest, value }
 	}
@@ -95,9 +96,9 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
 	}
 }
 
-/// Create a transaction using the given `call`.
-///
-/// Note: Should only be used for benchmarking.
+// Create a transaction using the given `call`.
+//
+// Note: Should only be used for benchmarking.
 pub fn create_benchmark_extrinsic(
 	client: &FullClient,
 	sender: sp_core::sr25519::Pair,
@@ -150,9 +151,9 @@ pub fn create_benchmark_extrinsic(
 	)
 }
 
-/// Generates inherent data for the `benchmark overhead` command.
-///
-/// Note: Should only be used for benchmarking.
+// Generates inherent data for the `benchmark overhead` command.
+//
+// Note: Should only be used for benchmarking.
 pub fn inherent_benchmark_data() -> Result<InherentData> {
 	let mut inherent_data = InherentData::new();
 	let d = Duration::from_millis(0);

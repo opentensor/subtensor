@@ -10,7 +10,7 @@ publish = false
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"], default-features = false }
 serde = { version = "1.0.132", features = ["derive"], default-features = false }
 
 # Substrate packages

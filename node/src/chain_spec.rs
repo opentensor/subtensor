@@ -1,6 +1,6 @@
 use node_subtensor_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY,
+	SystemConfig, WASM_BINARY, SubtensorModuleConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -12,10 +12,10 @@ use sp_core::crypto::Ss58Codec;
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
-/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
+// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
-/// Generate a crypto pair from seed.
+// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
@@ -24,7 +24,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 
 type AccountPublic = <Signature as Verify>::Signer;
 
-/// Generate an account ID from seed.
+// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
 	AccountPublic: From<<TPublic::Pair as Pair>::Public>,
@@ -32,7 +32,7 @@ where
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Generate an Aura authority key.
+// Generate an Aura authority key.
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
@@ -140,26 +140,82 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	))
 }
 
+// Includes for nakamoto genesis
+use std::{fs::File, path::PathBuf};
+use serde::{Deserialize};
+use serde_json as json;
+
+// Configure storage from nakamoto data
+#[derive(Deserialize, Debug)]
+struct ColdkeyHotkeys {
+	stakes: std::collections::HashMap<String, std::collections::HashMap<String, (u64, u16)>>,
+	balances: std::collections::HashMap<String, u64>
+}
+
 pub fn finney_config() -> Result<ChainSpec, String> {
+	let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+	// We mmap the file into memory first, as this is *a lot* faster than using
+	// `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
+	let file = File::open(&path)
+		.map_err(|e| format!("Error opening genesis file `{}`: {}", path.display(), e))?;
+
+	// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
+	//         underneath us while it is mapped; in practice it's unlikely to be a problem
+	let bytes = unsafe {
+		memmap2::Mmap::map(&file)
+			.map_err(|e| format!("Error mmaping genesis file `{}`: {}", path.display(), e))?
+	};
+
+	let old_state: ColdkeyHotkeys =
+		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
+
+	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, (u64, u16))>)> = Vec::new();
+	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
+		let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+		let coldkey_account = sp_runtime::AccountId32::from(coldkey);
+
+		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
+
+		for (hotkey_str, amount_uid) in hotkeys.iter() {
+			let (amount, uid) = amount_uid;
+			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
+
+			processed_hotkeys.push((hotkey_account, (*amount, *uid)));
+		}
+
+		processed_stakes.push((coldkey_account, processed_hotkeys));
+	}
+
+	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+	for (key_str, amount) in old_state.balances.iter() {
+		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
+		let key_account = sp_runtime::AccountId32::from(key);
+
+		processed_balances.push((key_account, *amount))
+	}
 
 	Ok(ChainSpec::from_genesis(
 		// Name
-		"Finney",
+		"Bittensor",
 		// ID
-		"Finney",
+		"bittensor",
 		ChainType::Development,
 		move || {
-			testnet_genesis(
+			finney_genesis(
 				wasm_binary,
 				// Initial PoA authorities (Validators)
 				// aura | grandpa
 				vec![
+					// Keys for debug
+					//authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob"),
 					authority_keys_from_ss58("5EJUcFbe74FDQwPsZDbRVpdDxVZQQxjoGZA9ayJqJTbcRrGf", "5GRcfchgXZjkCfqgNvfjicjJw3vVGF4Ahqon2w8RfjXwyzy4"),// key 1
-					/*authority_keys_from_ss58("5H5oVSbQxDSw1TohAvLvp9CTAua6PN4yHme19UrG4c1ojS8J", "5FAEYaHLZmLRX4XFs2SBHbLhkysbSPrcTp51w6sQNaYLa7Tu"), // key 2
+					authority_keys_from_ss58("5H5oVSbQxDSw1TohAvLvp9CTAua6PN4yHme19UrG4c1ojS8J", "5FAEYaHLZmLRX4XFs2SBHbLhkysbSPrcTp51w6sQNaYLa7Tu"), // key 2
 					authority_keys_from_ss58("5CfBazEwCAsmscGj1J9rhXess9ZXZ5qYcuZvFWii9sxT977v", "5F6LgDAenzchE5tPmFHKGueYy1rj85oB2yxvm1xyKLVvk4gy"), // key 3
 					authority_keys_from_ss58("5HZDvVFWH3ifx1Sx8Uaaa7oiT6U4fAKrR3LKy9r1zFnptc1z", "5GJY6A1X8KNvqHcf42Cpr5HZzG95FZVJkTHJvnHSBGgshEWn"), // key 4
-					authority_keys_from_ss58("5H3v2VfQmsAAgj63EDaB1ZWmruTHHkJ4kci5wkt6SwMi2VW1", "5FXVk1gEsNweTB6AvS5jAWCivXQHTcyCWXs21wHvRU5UTZtb"), // key 5
+					/*authority_keys_from_ss58("5H3v2VfQmsAAgj63EDaB1ZWmruTHHkJ4kci5wkt6SwMi2VW1", "5FXVk1gEsNweTB6AvS5jAWCivXQHTcyCWXs21wHvRU5UTZtb"), // key 5
 					authority_keys_from_ss58("5CPhKdvHmMqRmMUrpFnvLc6GUcduVwpNHsPPEhnYQ7QXjPdz", "5GAzG6PhVvpeoZVkKupa2uZDrhwsUmk5fCHgwq95cN9s3Dvi"), // key 6
 					authority_keys_from_ss58("5DZTjVhqVjHyhXLhommE4jqY9w1hJEKNQWJ8p6QnUWghRYS1", "5HmGN73kkcHaKNJrSPAxwiwAiiCkztDZ1AYi4gkpv6jaWaxi"), // key 7
 					authority_keys_from_ss58("5ETyBUhi3uVCzsk4gyTmtf41nheH7wALqQQxbUkmRPNqEMGS", "5Cq63ca5KM5qScJYmQi7PvFPhJ6Cxr6yw6Xg9dLYoRYg33rN"), // key 8
@@ -182,6 +238,8 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 				vec![
 				],
 				true,
+				processed_stakes.clone(),
+				processed_balances.clone()
 			)
 		},
 		// Bootnodes
@@ -189,7 +247,7 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 		// Telemetry
 		None,
 		// Protocol ID
-		None,
+		Some("bittensor"),
 		None,
 		// Properties
 		None,
@@ -198,7 +256,7 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 	))
 }
 
-/// Configure initial storage state for FRAME modules.
+// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -226,17 +284,20 @@ fn testnet_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-//		subtensor_module: Default::default(),
+		subtensor_module: Default::default(),
 	}
 }
 
-/// Configure initial storage state for FRAME modules.
+// Configure initial storage state for FRAME modules.
 fn finney_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
+	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
+	balances: Vec<(AccountId, u64)>
+
 ) -> GenesisConfig {
 	GenesisConfig {
 		system: SystemConfig {
@@ -245,7 +306,8 @@ fn finney_genesis(
 		},
 		balances: BalancesConfig {
 			// Configure endowed accounts with initial balance of 1 << 60.
-			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+			//balances: balances.iter().cloned().map(|k| k).collect(),
+			balances: balances.iter().cloned().map(|k| k).collect(),
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -258,6 +320,8 @@ fn finney_genesis(
 			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
-//		subtensor_module: Default::default(),
+		subtensor_module: SubtensorModuleConfig {
+			stakes: stakes
+		},
 	}
 }

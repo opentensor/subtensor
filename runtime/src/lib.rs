@@ -9,6 +9,10 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
+
+use frame_support::pallet_prelude::Get;
+
+use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -20,6 +24,7 @@ use sp_runtime::{
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature,
 };
+
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -33,9 +38,9 @@ pub use frame_support::{
 	},
 	weights::{
 		constants::{
-			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
+			BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND, 
 		},
-		IdentityFee, Weight,
+		IdentityFee, Weight, WeightToFeeCoefficients, WeightToFeeCoefficient, WeightToFeePolynomial
 	},
 	StorageValue,
 };
@@ -50,39 +55,39 @@ pub use sp_runtime::{Perbill, Permill};
 // Subtensor module
 pub use pallet_subtensor;
 
-/// An index to a block.
+// An index to a block.
 pub type BlockNumber = u32;
 
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
+// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 pub type Signature = MultiSignature;
 
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
+// Some way of identifying an account on the chain. We intentionally make it equivalent
+// to the public key of our transaction signing scheme.
 pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-/// Balance of an account.
+// Balance of an account.
 pub type Balance = u64;
 
-/// Index of a transaction in the chain.
+// Index of a transaction in the chain.
 pub type Index = u32;
 
-/// A hash of some data used by the chain.
+// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 
-/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
-/// the specifics of the runtime. They can then be made to be agnostic over specific formats
-/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
-/// to even the core data structures.
+// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
+// the specifics of the runtime. They can then be made to be agnostic over specific formats
+// of data like extrinsics, allowing for them to continue syncing the network through upgrades
+// to even the core data structures.
 pub mod opaque {
 	use super::*;
 
 	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
-	/// Opaque block header type.
+	// Opaque block header type.
 	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	/// Opaque block type.
+	// Opaque block type.
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-	/// Opaque block identifier type.
+	// Opaque block identifier type.
 	pub type BlockId = generic::BlockId<Block>;
 
 	impl_opaque_keys! {
@@ -105,7 +110,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 100,
+	spec_version: 104,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -118,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -129,7 +134,7 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-/// The version information used to identify this runtime when compiled natively.
+// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
@@ -140,67 +145,67 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
-	/// We allow for 2 seconds of compute with a 6 second average block time.
+	// We allow for 2 seconds of compute with a 6 second average block time.
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::with_sensible_defaults(
 			Weight::from_parts(2u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
 			NORMAL_DISPATCH_RATIO,
 		);
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
-		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+		::max_with_normal_ratio(10 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
 	pub const SS58Prefix: u8 = 42;
 }
 
 // Configure FRAME pallets to include in runtime.
 
 impl frame_system::Config for Runtime {
-	/// The basic call filter to use in dispatchable.
+	// The basic call filter to use in dispatchable.
 	type BaseCallFilter = frame_support::traits::Everything;
-	/// Block & extrinsics weights: base values and limits.
+	// Block & extrinsics weights: base values and limits.
 	type BlockWeights = BlockWeights;
-	/// The maximum length of a block (in bytes).
+	// The maximum length of a block (in bytes).
 	type BlockLength = BlockLength;
-	/// The identifier used to distinguish between accounts.
+	// The identifier used to distinguish between accounts.
 	type AccountId = AccountId;
-	/// The aggregated dispatch type that is available for extrinsics.
+	// The aggregated dispatch type that is available for extrinsics.
 	type RuntimeCall = RuntimeCall;
-	/// The lookup mechanism to get account ID from whatever is passed in dispatchers.
+	// The lookup mechanism to get account ID from whatever is passed in dispatchers.
 	type Lookup = AccountIdLookup<AccountId, ()>;
-	/// The index type for storing how many extrinsics an account has signed.
+	// The index type for storing how many extrinsics an account has signed.
 	type Index = Index;
-	/// The index type for blocks.
+	// The index type for blocks.
 	type BlockNumber = BlockNumber;
-	/// The type for hashing blocks and tries.
+	// The type for hashing blocks and tries.
 	type Hash = Hash;
-	/// The hashing algorithm used.
+	// The hashing algorithm used.
 	type Hashing = BlakeTwo256;
-	/// The header type.
+	// The header type.
 	type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	/// The ubiquitous event type.
+	// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	/// The ubiquitous origin type.
+	// The ubiquitous origin type.
 	type RuntimeOrigin = RuntimeOrigin;
-	/// Maximum number of block number to block hash mappings to keep (oldest pruned first).
+	// Maximum number of block number to block hash mappings to keep (oldest pruned first).
 	type BlockHashCount = BlockHashCount;
-	/// The weight of database operations that the runtime can invoke.
+	// The weight of database operations that the runtime can invoke.
 	type DbWeight = RocksDbWeight;
-	/// Version of the runtime.
+	// Version of the runtime.
 	type Version = Version;
-	/// Converts a module to the index of the module in `construct_runtime!`.
-	///
-	/// This type is being generated by `construct_runtime!`.
+	// Converts a module to the index of the module in `construct_runtime!`.
+	//
+	// This type is being generated by `construct_runtime!`.
 	type PalletInfo = PalletInfo;
-	/// What to do if a new account is created.
+	// What to do if a new account is created.
 	type OnNewAccount = ();
-	/// What to do if an account is fully reaped from the system.
+	// What to do if an account is fully reaped from the system.
 	type OnKilledAccount = ();
-	/// The data to be stored in an account.
+	// The data to be stored in an account.
 	type AccountData = pallet_balances::AccountData<Balance>;
-	/// Weight information for the extrinsics of this pallet.
+	// Weight information for the extrinsics of this pallet.
 	type SystemWeightInfo = ();
-	/// This is used as an identifier of the chain. 42 is the generic substrate prefix.
+	// This is used as an identifier of the chain. 42 is the generic substrate prefix.
 	type SS58Prefix = SS58Prefix;
-	/// The set code logic, just the default since we're not a parachain.
+	// The set code logic, just the default since we're not a parachain.
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
@@ -233,23 +238,23 @@ impl pallet_grandpa::Config for Runtime {
 }
 
 impl pallet_timestamp::Config for Runtime {
-	/// A timestamp: milliseconds since the unix epoch.
+	// A timestamp: milliseconds since the unix epoch.
 	type Moment = u64;
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
 }
 
-/// Existential deposit.
+// Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u64 = 500;
 
 impl pallet_balances::Config for Runtime {
 	type MaxLocks = ConstU32<50>;
 	type MaxReserves = ();
 	type ReserveIdentifier = [u8; 8];
-	/// The type for recording an account's balance.
+	// The type for recording an account's balance.
 	type Balance = Balance;
-	/// The ubiquitous event type.
+	// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type DustRemoval = ();
 	type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
@@ -257,17 +262,48 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 }
 
+pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+
+impl<C> WeightToFeePolynomial for LinearWeightToFee<C>
+where
+	C: Get<Balance>,
+{
+	type Balance = Balance;
+
+	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+		let coefficient = WeightToFeeCoefficient {
+			coeff_integer: C::get(),
+			coeff_frac: Perbill::from_percent(1),
+			negative: false,
+			degree: 1,
+		};
+
+		smallvec!(coefficient)
+	}
+}
+
 parameter_types! {
+	// Used with LinearWeightToFee conversion.
+	pub const FeeWeightRatio: u64 = 1;
+	pub const TransactionByteFee: u128 = 1;
 	pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+
 	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
-	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
+	//type TransactionByteFee = TransactionByteFee;
+
+	// Convert dispatch weight to a chargeable fee.
+	type WeightToFee = LinearWeightToFee<FeeWeightRatio>;
+
+	type FeeMultiplierUpdate = ();
+
+	type OperationalFeeMultiplier = ConstU8<1>;
+
 	type LengthToFee = IdentityFee<Balance>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+	//type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -279,7 +315,6 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
 	pub const SubtensorInitialRho: u16 = 30;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2 
-    pub const SubtensorInitialWeightCuts: u16 = 3;
     pub const SubtensorInitialMaxAllowedUids: u16 = 512;
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 0;
@@ -319,7 +354,6 @@ impl pallet_subtensor::Config for Runtime {
 	type Currency = Balances;
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;
-	type InitialWeightCuts = SubtensorInitialWeightCuts;
 	type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
 	type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
 	type InitialIssuance = SubtensorInitialIssuance;
@@ -374,13 +408,13 @@ construct_runtime!(
 	}
 );
 
-/// The address format for describing accounts.
+// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
-/// Block header type as expected by this runtime.
+// Block header type as expected by this runtime.
 pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-/// Block type as expected by this runtime.
+// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-/// The SignedExtension to the basic transaction logic.
+// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
 	frame_system::CheckNonZeroSender<Runtime>,
 	frame_system::CheckSpecVersion<Runtime>,
@@ -390,14 +424,15 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	
 );
 
-/// Unchecked extrinsic type as expected by this runtime.
+// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
-/// The payload being signed in transactions.
+// The payload being signed in transactions.
 pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
-/// Executive: handles dispatch to the various modules.
+// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
 	Block,
@@ -629,6 +664,60 @@ impl_runtime_apis! {
 			// NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
 			// have a backtrace here.
 			Executive::try_execute_block(block, state_root_check, signature_check, select).expect("execute-block failed")
+		}
+	}
+
+	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
+		fn get_delegates() -> Vec<u8> {
+			let result = SubtensorModule::get_delegates();
+			serde_json::to_string(&result).expect("Could not convert DelegateInfo list to JSON")
+				.as_bytes().to_vec()
+		}
+
+		fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
+			let result = SubtensorModule::get_delegate(delegate_account_vec);
+			if result.is_some() {
+				serde_json::to_string(&result).expect("Could not convert DelegateInfo to JSON")
+					.as_bytes().to_vec()
+			} else {
+				vec![]
+			}
+		}
+	}
+
+	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
+		fn get_neurons(netuid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_neurons(netuid);
+			serde_json::to_string(&result).expect("Could not convert NeuronInfo Vec to JSON")
+				.as_bytes().to_vec()
+		}
+
+		fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_neuron(netuid, uid);
+			if result.is_some() {
+				serde_json::to_string(&result).expect("Could not convert NeuronInfo to JSON")
+					.as_bytes().to_vec()
+			} else {
+				vec![]
+			}
+		}
+	}
+
+	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
+		fn get_subnet_info(netuid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_subnet_info(netuid);
+			if result.is_some() {
+				serde_json::to_string(&result).expect("Could not convert SubnetInfo to JSON")
+					.as_bytes().to_vec()
+			} else {
+				vec![]
+			}
+		}
+
+		fn get_subnets_info() -> Vec<u8> {
+			let result = SubtensorModule::get_subnets_info();
+			serde_json::to_string(&result).expect("Could not convert SubnetInfo list to JSON")
+				.as_bytes().to_vec()
 		}
 	}
 }
