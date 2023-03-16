@@ -27,7 +27,7 @@ pub struct NeuronInfo<T: Config> {
     validator_permit: bool,
     weights: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, weight)
     bonds: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, bond)
-    pruning_score: u16
+    pruning_score: Compact<u16>,
 }
 
 impl<T: Config> Pallet<T> {
