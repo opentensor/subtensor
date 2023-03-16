@@ -17,6 +17,7 @@ pub struct DelegateInfo {
     owner_ss58: DeAccountId,
     registrations: Vec<u16>, // vec of subnets this delegate is registered on
     validator_permits: Vec<u16>, // vec of subnets this delegate has validator permits for
+    return_per_1000: u64, // return of delegator's stake per 1000 TAO staked over 24h -> 7200 blocks
 }
 
 impl<T: Config> Pallet<T> {
@@ -35,15 +36,21 @@ impl<T: Config> Pallet<T> {
 
         let registrations = Self::get_registered_networks_for_hotkey( &delegate.clone() );
         let mut validator_permits = Vec::<u16>::new();
+        let mut emissions: u128 = 0;
+        
         for netuid in registrations.iter() {
-            let uid = Self::get_uid_for_net_and_hotkey( *netuid, &delegate.clone());
-            if !uid.is_ok() {
+            let _uid = Self::get_uid_for_net_and_hotkey( *netuid, &delegate.clone());
+            if !_uid.is_ok() {
                 continue; // this should never happen
             } else {
-                let validator_permit = Self::get_validator_permit_for_uid( *netuid, uid.expect("Delegate's UID should be ok") );
+                let uid = _uid.expect("Delegate's UID should be ok");
+                let validator_permit = Self::get_validator_permit_for_uid( *netuid, uid );
                 if validator_permit {
                     validator_permits.push( *netuid );
                 }
+                
+                let emission = Self::get_emission_for_uid( *netuid, uid) as u128;
+                emissions += emission;
             }
         }
             
@@ -51,13 +58,19 @@ impl<T: Config> Pallet<T> {
         let owner = Self::get_owning_coldkey_for_hotkey( &delegate.clone() );
         let take = <Delegates<T>>::get( delegate.clone() );
 
+        let total_stake = Self::get_total_stake_for_hotkey( &delegate.clone() );
+        
+        let emissions_per_day = emissions * 72;
+        let return_per_1000 = emissions_per_day / (total_stake as u128 / 1000);
+
         return Some( DelegateInfo {
             delegate_ss58: delegate.clone().encode().into(),
             take,
             nominators,
             owner_ss58: owner.clone().encode().into(),
             registrations,
-            validator_permits
+            validator_permits,
+            return_per_1000: return_per_1000 as u64,
         });
 	}
 
