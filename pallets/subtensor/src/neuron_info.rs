@@ -67,9 +67,9 @@ impl<T: Config> Pallet<T> {
             hotkey = _hotkey.expect("Hotkey should exist");
         }
 
-        let axon_info = Self::get_axon_info( &hotkey.clone() );
+        let axon_info = Self::get_axon_info( netuid, &hotkey.clone() );
 
-        let prometheus_info = Self::get_prometheus_info( &hotkey.clone() );
+        let prometheus_info = Self::get_prometheus_info( netuid, &hotkey.clone() );
 
         
         let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
