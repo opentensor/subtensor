@@ -4,30 +4,31 @@ use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use alloc::vec::Vec;
+use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo {
-    netuid: u16,
-    rho: u16,
-    kappa: u16,
-    difficulty: u64,
-    immunity_period: u16,
-    validator_batch_size: u16,
-    validator_sequence_length: u16,
-    validator_epochs_per_reset: u16,
-    validator_epoch_length: u16,
-    max_allowed_validators: u16,
-    min_allowed_weights: u16,
-    max_weights_limit: u16,
-    scaling_law_power: u16,
-    synergy_scaling_law_power: u16,
-    subnetwork_n: u16,
-    max_allowed_uids: u16,
-    blocks_since_last_step: u64,
-    tempo: u16,
-    network_modality: u16,
-    network_connect: Vec<[u16; 2]>,
-    emission_values: u64
+    netuid: Compact<u16>,
+    rho: Compact<u16>,
+    kappa: Compact<u16>,
+    difficulty: Compact<u64>,
+    immunity_period: Compact<u16>,
+    validator_batch_size: Compact<u16>,
+    validator_sequence_length: Compact<u16>,
+    validator_epochs_per_reset: Compact<u16>,
+    validator_epoch_length: Compact<u16>,
+    max_allowed_validators: Compact<u16>,
+    min_allowed_weights: Compact<u16>,
+    max_weights_limit: Compact<u16>,
+    scaling_law_power: Compact<u16>,
+    synergy_scaling_law_power: Compact<u16>,
+    subnetwork_n: Compact<u16>,
+    max_allowed_uids: Compact<u16>,
+    blocks_since_last_step: Compact<u64>,
+    tempo: Compact<u16>,
+    network_modality: Compact<u16>,
+    network_connect: Vec<[Compact<u16>; 2]>,
+    emission_values: Compact<u64>
 }
 
 impl<T: Config> Pallet<T> {
@@ -57,34 +58,34 @@ impl<T: Config> Pallet<T> {
         let emission_values = Self::get_emission_value(netuid);
 
 
-        let mut network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
+        let mut network_connect: Vec<[Compact<u16>; 2]> = Vec::<[Compact<u16>; 2]>::new();
 
         for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
-            network_connect.push([_netuid_, con_req]);
+            network_connect.push([_netuid_.into(), con_req.into()]);
         }
 
         return Some(SubnetInfo {
-            rho,
-            kappa,
-            difficulty,
-            immunity_period,
-            netuid,
-            validator_batch_size,
-            validator_sequence_length,
-            validator_epochs_per_reset,
-            validator_epoch_length,
-            max_allowed_validators,
-            min_allowed_weights,
-            max_weights_limit,
-            scaling_law_power,
-            synergy_scaling_law_power,
-            subnetwork_n,
-            max_allowed_uids,
-            blocks_since_last_step,
-            tempo,
-            network_modality,
+            rho: rho.into(),
+            kappa: kappa.into(),
+            difficulty: difficulty.into(),
+            immunity_period: immunity_period.into(),
+            netuid: netuid.into(),
+            validator_batch_size: validator_batch_size.into(),
+            validator_sequence_length: validator_sequence_length.into(),
+            validator_epochs_per_reset: validator_epochs_per_reset.into(),
+            validator_epoch_length: validator_epoch_length.into(),
+            max_allowed_validators: max_allowed_validators.into(),
+            min_allowed_weights: min_allowed_weights.into(),
+            max_weights_limit: max_weights_limit.into(),
+            scaling_law_power: scaling_law_power.into(),
+            synergy_scaling_law_power: synergy_scaling_law_power.into(),
+            subnetwork_n: subnetwork_n.into(),
+            max_allowed_uids: max_allowed_uids.into(),
+            blocks_since_last_step: blocks_since_last_step.into(),
+            tempo: tempo.into(),
+            network_modality: network_modality.into(),
             network_connect,
-            emission_values
+            emission_values: emission_values.into()
         })
 	}
 

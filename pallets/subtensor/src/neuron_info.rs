@@ -4,28 +4,29 @@ use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use alloc::vec::Vec;
+use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfo<T: Config> {
     hotkey: T::AccountId,
     coldkey: T::AccountId,
-    uid: u16,
-    netuid: u16,
+    uid: Compact<u16>,
+    netuid: Compact<u16>,
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(T::AccountId, u64)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
-    rank: u16,
-    emission: u64,
-    incentive: u16,
-    consensus: u16,
-    trust: u16,
-    validator_trust: u16,
-    dividends: u16,
-    last_update: u64,
+    stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    rank: Compact<u16>,
+    emission: Compact<u64>,
+    incentive: Compact<u16>,
+    consensus: Compact<u16>,
+    trust: Compact<u16>,
+    validator_trust: Compact<u16>,
+    dividends: Compact<u16>,
+    last_update: Compact<u64>,
     validator_permit: bool,
-    weights: Vec<(u16, u16)>, // Vec of (uid, weight)
-    bonds: Vec<(u16, u16)>, // Vec of (uid, bond)
+    weights: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, weight)
+    bonds: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, bond)
     pruning_score: u16
 }
 
@@ -88,13 +89,15 @@ impl<T: Config> Pallet<T> {
             .enumerate()
             .map(|(i, w)| (i as u16, fixed_proportion_to_u16(*w)))
             .filter(|(_, b)| *b > 0)
-            .collect::<Vec<(u16, u16)>>();
+            .map(|(i, b)| (i.into(), b.into()))
+            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
         let bonds = Self::get_bonds(netuid)[uid as usize].iter()
             .enumerate()
             .map(|(i, b)| (i as u16, fixed_proportion_to_u16(*b)))
             .filter(|(_, b)| *b > 0)
-            .collect::<Vec<(u16, u16)>>();
+            .map(|(i, b)| (i.into(), b.into()))
+            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
         let mut stakes = Vec::<(T::AccountId, u64)>::new();
         for ( coldkey, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() ) {
@@ -106,24 +109,24 @@ impl<T: Config> Pallet<T> {
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),
-            uid,
-            netuid,
+            uid: uid.into(),
+            netuid: netuid.into(),
             active,
             axon_info,
             prometheus_info,
-            stake,
-            rank,
-            emission,
-            incentive,
-            consensus,
-            trust,
-            validator_trust,
-            dividends,
-            last_update,
+            stake: stake.into_iter().map(|(k, v)| (k, v.into())).collect(),
+            rank: rank.into(),
+            emission: emission.into(),
+            incentive: incentive.into(),
+            consensus: consensus.into(),
+            trust: trust.into(),
+            validator_trust: validator_trust.into(),
+            dividends: dividends.into(),
+            last_update: last_update.into(),
             validator_permit,
             weights,
             bonds,
-            pruning_score
+            pruning_score: pruning_score.into()
         };
         
         return Some(neuron);
