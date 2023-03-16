@@ -1,7 +1,7 @@
 use crate::{mock::*};
 mod mock;
 
-// #[test]
+#[test]
 fn test_registration_difficulty_adjustment() {
 	new_test_ext().execute_with(|| { 
 
