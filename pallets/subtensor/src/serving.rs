@@ -70,7 +70,7 @@ impl<T: Config> Pallet<T> {
         let hotkey_id = ensure_signed(origin)?;
 
         // --- 2. Ensure the hotkey is registered somewhere.
-        // ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );  
+        ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );  
         
         // --- 3. Check the ip signature validity.
         ensure!( Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType );
@@ -153,7 +153,7 @@ impl<T: Config> Pallet<T> {
         let hotkey_id = ensure_signed(origin)?;
 
         // --- 2. Ensure the hotkey is registered somewhere.
-        // ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );  
+        ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );  
 
         // --- 3. Check the ip signature validity.
         ensure!( Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType );
