@@ -102,6 +102,19 @@ impl<T: Config> Pallet<T> {
     pub fn get_neuron_block_at_registration( netuid: u16, neuron_uid: u16 ) -> u64 { BlockAtRegistration::<T>::get( netuid, neuron_uid )}
 
     // ========================
+	// ==== Rate Limiting =====
+	// ========================
+	pub fn get_last_tx_block( key: &T::AccountId ) -> u64 { LastTxBlock::<T>::get( key ) }
+	pub fn exceeds_tx_rate_limit( prev_tx_block: u64, current_block: u64 ) -> bool {
+        let rate_limit: u64 = Self::get_tx_rate_limit();
+		if rate_limit == 0 || prev_tx_block == 0 {
+			return false;
+		}
+
+        return current_block - prev_tx_block <= rate_limit;
+    }
+
+    // ========================
 	// ==== Sudo calls ========
 	// ========================
     pub fn get_default_take() -> u16 { DefaultTake::<T>::get() }
@@ -111,6 +124,17 @@ impl<T: Config> Pallet<T> {
         Self::set_default_take( default_take );
         log::info!("DefaultTakeSet( default_take: {:?} ) ", default_take);
         Self::deposit_event( Event::DefaultTakeSet( default_take ) );
+        Ok(()) 
+    }
+
+	// Configure tx rate limiting
+	pub fn get_tx_rate_limit() -> u64 { TxRateLimit::<T>::get() }
+    pub fn set_tx_rate_limit( tx_rate_limit: u64 ) { TxRateLimit::<T>::put( tx_rate_limit ) }
+    pub fn do_sudo_set_tx_rate_limit( origin: T::RuntimeOrigin, tx_rate_limit: u64 ) -> DispatchResult { 
+        ensure_root( origin )?;
+        Self::set_tx_rate_limit( tx_rate_limit );
+        log::info!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit );
+        Self::deposit_event( Event::TxRateLimitSet( tx_rate_limit ) );
         Ok(()) 
     }
 
@@ -398,7 +422,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_max_burn( origin:T::RuntimeOrigin, netuid: u16, max_burn: u64 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_burn( netuid, max_burn );
+        Self::set_max_burn( netuid, max_burn );
         log::info!("MaxBurnSet( netuid: {:?} max_burn: {:?} ) ", netuid, max_burn );
         Self::deposit_event( Event::MaxBurnSet( netuid, max_burn ) );
         Ok(())

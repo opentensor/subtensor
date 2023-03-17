@@ -25,6 +25,8 @@ impl<T: Config> Pallet<T> {
     // 	* 'NonAssociatedColdKey':
     // 		- The hotkey we are delegating is not owned by the calling coldket.
     //
+	// 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
     //
 	pub fn do_become_delegate(
         origin: T::RuntimeOrigin, 
@@ -44,14 +46,17 @@ impl<T: Config> Pallet<T> {
         // --- 4. Ensure we are not already a delegate (dont allow changing delegate take.)
         ensure!( !Self::hotkey_is_delegate( &hotkey ), Error::<T>::AlreadyDelegate );
 
-        // --- 4. Delegate the key.
+		// --- 5. Ensure we don't exceed tx rate limit
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+
+        // --- 6. Delegate the key.
         Self::delegate_hotkey( &hotkey, take );
       
-        // --- 5. Emit the staking event.
+        // --- 7. Emit the staking event.
         log::info!("DelegateAdded( coldkey:{:?}, hotkey:{:?}, take:{:?} )", coldkey, hotkey, take );
         Self::deposit_event( Event::DelegateAdded( coldkey, hotkey, take ) );
 
-        // --- 9. Ok and return.
+        // --- 8. Ok and return.
         Ok(())
     }
 
@@ -84,6 +89,8 @@ impl<T: Config> Pallet<T> {
     // 	* 'BalanceWithdrawalError':
     // 		- Errors stemming from transaction pallet.
     //
+	// 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
     //
 	pub fn do_add_stake(
         origin: T::RuntimeOrigin, 
@@ -110,14 +117,17 @@ impl<T: Config> Pallet<T> {
         // --- 6. Ensure the remove operation from the coldkey is a success.
         ensure!( Self::remove_balance_from_coldkey_account( &coldkey, stake_as_balance.unwrap() ) == true, Error::<T>::BalanceWithdrawalError );
 
-        // --- 7. If we reach here, add the balance to the hotkey.
+		// --- 7. Ensure we don't exceed tx rate limit
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+
+        // --- 8. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
  
-        // --- 8. Emit the staking event.
+        // --- 9. Emit the staking event.
         log::info!("StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )", hotkey, stake_to_be_added );
         Self::deposit_event( Event::StakeAdded( hotkey, stake_to_be_added ) );
 
-        // --- 9. Ok and return.
+        // --- 10. Ok and return.
         Ok(())
     }
 
@@ -149,6 +159,9 @@ impl<T: Config> Pallet<T> {
     //
     // 	* 'CouldNotConvertToBalance':
     // 		- Thrown if we could not convert this amount to a balance.
+	//
+    // 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
     //
     //
     pub fn do_remove_stake(
@@ -174,17 +187,20 @@ impl<T: Config> Pallet<T> {
         let stake_to_be_added_as_currency = Self::u64_to_balance( stake_to_be_removed );
         ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
-        // --- 6. We remove the balance from the hotkey.
+		// --- 6. Ensure we don't exceed tx rate limit
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+
+        // --- 7. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
 
-        // --- 7. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account( &coldkey, stake_to_be_added_as_currency.unwrap() );
 
-        // --- 8. Emit the unstaking event.
+        // --- 9. Emit the unstaking event.
         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
         Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );
 
-        // --- 9. Done and ok.
+        // --- 10. Done and ok.
         Ok(())
     }
 
