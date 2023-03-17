@@ -1,13 +1,11 @@
 use super::*;
 use frame_support::IterableStorageDoubleMap;
-use serde::{Serialize, Deserialize};
 use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use alloc::vec::Vec;
 
-#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-#[serde(deny_unknown_fields)]
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo {
     netuid: u16,
     rho: u16,

@@ -216,7 +216,7 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 					authority_keys_from_ss58("5H5oVSbQxDSw1TohAvLvp9CTAua6PN4yHme19UrG4c1ojS8J", "5FAEYaHLZmLRX4XFs2SBHbLhkysbSPrcTp51w6sQNaYLa7Tu"), // key 2
 					authority_keys_from_ss58("5CfBazEwCAsmscGj1J9rhXess9ZXZ5qYcuZvFWii9sxT977v", "5F6LgDAenzchE5tPmFHKGueYy1rj85oB2yxvm1xyKLVvk4gy"), // key 3
 					authority_keys_from_ss58("5HZDvVFWH3ifx1Sx8Uaaa7oiT6U4fAKrR3LKy9r1zFnptc1z", "5GJY6A1X8KNvqHcf42Cpr5HZzG95FZVJkTHJvnHSBGgshEWn"), // key 4
-					/*authority_keys_from_ss58("5H3v2VfQmsAAgj63EDaB1ZWmruTHHkJ4kci5wkt6SwMi2VW1", "5FXVk1gEsNweTB6AvS5jAWCivXQHTcyCWXs21wHvRU5UTZtb"), // key 5
+					authority_keys_from_ss58("5H3v2VfQmsAAgj63EDaB1ZWmruTHHkJ4kci5wkt6SwMi2VW1", "5FXVk1gEsNweTB6AvS5jAWCivXQHTcyCWXs21wHvRU5UTZtb"), // key 5
 					authority_keys_from_ss58("5CPhKdvHmMqRmMUrpFnvLc6GUcduVwpNHsPPEhnYQ7QXjPdz", "5GAzG6PhVvpeoZVkKupa2uZDrhwsUmk5fCHgwq95cN9s3Dvi"), // key 6
 					authority_keys_from_ss58("5DZTjVhqVjHyhXLhommE4jqY9w1hJEKNQWJ8p6QnUWghRYS1", "5HmGN73kkcHaKNJrSPAxwiwAiiCkztDZ1AYi4gkpv6jaWaxi"), // key 7
 					authority_keys_from_ss58("5ETyBUhi3uVCzsk4gyTmtf41nheH7wALqQQxbUkmRPNqEMGS", "5Cq63ca5KM5qScJYmQi7PvFPhJ6Cxr6yw6Xg9dLYoRYg33rN"), // key 8
@@ -231,7 +231,7 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 					authority_keys_from_ss58("5FmxaYznqMqiorPHQgKoRQgEHN7ud4yKsJWr6FvXuS6FS6be", "5Ch5XFMKETDiiPiuhUj9TumUtgsnVG1VzQRvBykP9bRdt4km"), // key 17
 					authority_keys_from_ss58("5GNAkfKYmFbVRAYm1tPr1yG6bHCapaY7WKRmzkEdendDXj1j", "5EC6JjwnE11qaRnjKM85eevQFV1EoaKPPtcBRmTp1XsR7Kx3"), // key 18
 					authority_keys_from_ss58("5GYk3B38R9F2TEcWoqCLojqPwx6AA1TsD3EovoTgggyRdzki", "5FjdhdAxujZVev6HYqQcTB6UBAKfKFKPoftgMLenoxbNWoe2"), // key 19
-					authority_keys_from_ss58("5D7fthS7zBDhwi2u2JYd74t7FpQuseDkUkTuaLZoenXNpXPK", "5DhAKQ4MFg39mQAYzndzbznLGqSV4VMUJUyRXe8QPDqD5G1D"), // key 20*/
+					authority_keys_from_ss58("5D7fthS7zBDhwi2u2JYd74t7FpQuseDkUkTuaLZoenXNpXPK", "5DhAKQ4MFg39mQAYzndzbznLGqSV4VMUJUyRXe8QPDqD5G1D"), // key 20
 					], 
 				// Sudo account
 				Ss58Codec::from_ss58check("5G3rrAtAsZiZsRKhi9y7yckwhB6HL8AwD8K3J28YNX4n2tMZ").unwrap(), 

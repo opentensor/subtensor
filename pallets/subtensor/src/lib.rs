@@ -169,20 +169,6 @@ pub mod pallet {
 
 	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-	#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-	pub struct DeAccountId { // allows us to de/serialize the account id as a u8 vec
-		#[serde(with = "serde_bytes")]
-		id: Vec<u8>
-	}
-
-	impl From<Vec<u8>> for DeAccountId {
-		fn from(v: Vec<u8>) -> Self {
-			DeAccountId {
-				id: v.clone()
-			}
-		}
-	}
-
 	// ============================
 	// ==== Staking + Accounts ====
 	// ============================
@@ -321,12 +307,10 @@ pub mod pallet {
 	// --- Struct for Axon.
 	pub type AxonInfoOf = AxonInfo;
 	
-	#[serde_as]
-	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
 		pub block: u64, // --- Axon serving block.
         pub version: u32, // --- Axon version
-		#[serde_as(as = "DisplayFromStr")] // serialize as string, deserialize from string
         pub ip: u128, // --- Axon u128 encoded ip address of type v6 or v4.
         pub port: u16, // --- Axon u16 encoded port.
         pub ip_type: u8, // --- Axon ip type, 4 for ipv4 and 6 for ipv6.
@@ -337,12 +321,10 @@ pub mod pallet {
 
 	// --- Struct for Prometheus.
 	pub type PrometheusInfoOf = PrometheusInfo;
-	#[serde_as]
-	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
 	pub struct PrometheusInfo {
 		pub block: u64, // --- Prometheus serving block.
         pub version: u32, // --- Prometheus version.
-		#[serde_as(as = "DisplayFromStr")] // serialize as string, deserialize from string
         pub ip: u128, // --- Prometheus u128 encoded ip address of type v6 or v4.
         pub port: u16, // --- Prometheus u16 encoded port.
         pub ip_type: u8, // --- Prometheus ip type, 4 for ipv4 and 6 for ipv6.
