@@ -29,7 +29,7 @@ impl<T: Config> Pallet<T> {
 
         let registrations = Self::get_registered_networks_for_hotkey( &delegate.clone() );
         let mut validator_permits = Vec::<Compact<u16>>::new();
-        let mut emissions: u128 = 0;
+        let mut emissions_per_day: u128 = 0;
         
         for netuid in registrations.iter() {
             let _uid = Self::get_uid_for_net_and_hotkey( *netuid, &delegate.clone());
@@ -43,7 +43,9 @@ impl<T: Config> Pallet<T> {
                 }
                 
                 let emission = Self::get_emission_for_uid( *netuid, uid) as u128;
-                emissions += emission;
+                let tempo = Self::get_tempo( *netuid );
+                let epochs_per_day = 7200 / tempo;
+                emissions_per_day += emission * epochs_per_day as u128;
             }
         }
 
@@ -52,7 +54,6 @@ impl<T: Config> Pallet<T> {
 
         let total_stake = Self::get_total_stake_for_hotkey( &delegate.clone() );
         
-        let emissions_per_day = emissions * 72;
         let return_per_1000 = emissions_per_day / (total_stake as u128 / 1000);
 
         return DelegateInfo {
