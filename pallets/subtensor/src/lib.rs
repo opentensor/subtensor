@@ -142,7 +142,7 @@ pub mod pallet {
 		#[pallet::constant] // Initial validator exclude quantile.
 		type InitialValidatorExcludeQuantile: Get<u16>;
 		#[pallet::constant] // Initial validator logits divergence penalty/threshold.
-		type InitialValidatorLogitsDivergence: Get<u64>;
+		type InitialValidatorLogitsDivergence: Get<u16>;
 		#[pallet::constant] // Initial validator context pruning length.
 		type InitialValidatorPruneLen: Get<u64>; 
 		#[pallet::constant] // Initial scaling law power.
@@ -396,7 +396,7 @@ pub mod pallet {
 	#[pallet::type_value]
 	pub fn DefaultValidatorExcludeQuantile<T: Config>() -> u16 { T::InitialValidatorExcludeQuantile::get() }
 	#[pallet::type_value] 
-	pub fn DefaultValidatorLogitsDivergence<T: Config>() -> u64 { T::InitialValidatorLogitsDivergence::get() }
+	pub fn DefaultValidatorLogitsDivergence<T: Config>() -> u16 { T::InitialValidatorLogitsDivergence::get() }
 	#[pallet::type_value]
 	pub fn DefaultScalingLawPower<T: Config>() -> u16 { T::InitialScalingLawPower::get() }
 	#[pallet::type_value]
@@ -450,7 +450,7 @@ pub mod pallet {
 	#[pallet::storage] // --- MAP ( netuid ) --> validator_exclude_quantile
 	pub type ValidatorExcludeQuantile<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorExcludeQuantile<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> validator_logits_divergence
-	pub type ValidatorLogitsDivergence<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultValidatorLogitsDivergence<T> >;
+	pub type ValidatorLogitsDivergence<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorLogitsDivergence<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> scaling_law_power
 	pub type ScalingLawPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> synergy_scaling_law_power
@@ -541,7 +541,7 @@ pub mod pallet {
 		ValidatorEpochPerResetSet( u16, u16 ), // --- Event created when validator epoch per reset is set for a subnet.
 		ValidatorExcludeQuantileSet( u16, u16 ), // --- Event created when the validator exclude quantile has been set for a subnet.
 		ValidatorEpochLengthSet( u16, u16 ), // --- Event created when the validator epoch length has been set for a subnet.
-		ValidatorLogitsDivergenceSet( u16, u64 ), // --- Event created when the validator logits divergence value has been set.
+		ValidatorLogitsDivergenceSet( u16, u16 ), // --- Event created when the validator logits divergence value has been set.
 		ValidatorPruneLenSet( u16, u64 ), // --- Event created when the validator pruning length has been set.
 		ScalingLawPowerSet( u16, u16 ), // --- Event created when the scaling law power has been set for a subnet.
 		SynergyScalingLawPowerSet( u16, u16 ), // --- Event created when the synergy scaling law has been set for a subnet.
@@ -1402,7 +1402,7 @@ pub mod pallet {
 		#[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_logits_divergence( origin:OriginFor<T>, netuid: u16,validator_logits_divergence: u64 ) -> DispatchResult {
+		pub fn sudo_set_validator_logits_divergence( origin:OriginFor<T>, netuid: u16,validator_logits_divergence: u16 ) -> DispatchResult {
 			Self::do_sudo_set_validator_logits_divergence( origin, netuid, validator_logits_divergence )
 		}
 		#[pallet::weight((Weight::from_ref_time(14_000_000)

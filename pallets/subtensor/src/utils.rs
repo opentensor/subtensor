@@ -226,9 +226,9 @@ impl<T: Config> Pallet<T> {
 		Ok(())
     }
 
-    pub fn get_validator_logits_divergence( netuid: u16 ) -> u64 { ValidatorLogitsDivergence::<T>::get( netuid ) }
-    pub fn set_validator_logits_divergence( netuid: u16, validator_logits_divergence: u64 ) { ValidatorLogitsDivergence::<T>::insert( netuid, validator_logits_divergence ); }
-    pub fn do_sudo_set_validator_logits_divergence( origin:T::RuntimeOrigin, netuid: u16, validator_logits_divergence: u64 ) -> DispatchResult {
+    pub fn get_validator_logits_divergence( netuid: u16 ) -> u16 { ValidatorLogitsDivergence::<T>::get( netuid ) }
+    pub fn set_validator_logits_divergence( netuid: u16, validator_logits_divergence: u16 ) { ValidatorLogitsDivergence::<T>::insert( netuid, validator_logits_divergence ); }
+    pub fn do_sudo_set_validator_logits_divergence( origin:T::RuntimeOrigin, netuid: u16, validator_logits_divergence: u16 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
         Self::set_validator_logits_divergence(netuid, validator_logits_divergence);
