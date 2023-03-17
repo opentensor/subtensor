@@ -1,22 +1,20 @@
 use super::*;
 use crate::math::*;
-use serde::{Serialize, Deserialize};
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use alloc::vec::Vec;
 
-#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct NeuronInfo {
-    hotkey: DeAccountId,
-    coldkey: DeAccountId,
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+pub struct NeuronInfo<T: Config> {
+    hotkey: T::AccountId,
+    coldkey: T::AccountId,
     uid: u16,
     netuid: u16,
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(DeAccountId, u64)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    stake: Vec<(T::AccountId, u64)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
     rank: u16,
     emission: u64,
     incentive: u16,
@@ -32,7 +30,7 @@ pub struct NeuronInfo {
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo> {
+	pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo<T>> {
         if !Self::if_subnet_exist(netuid) {
             return Vec::new();
         }
@@ -57,7 +55,7 @@ impl<T: Config> Pallet<T> {
         neurons
 	}
 
-    fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo> {
+    fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
         let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
         let hotkey;
         if _hotkey.is_err() {
@@ -92,16 +90,16 @@ impl<T: Config> Pallet<T> {
         let bonds = Self::get_bonds(netuid)[uid as usize].iter()
             .map(|x| fixed_proportion_to_u16(*x)).collect::<Vec<u16>>();
         
-        let mut stakes = Vec::<(DeAccountId, u64)>::new();
+        let mut stakes = Vec::<(T::AccountId, u64)>::new();
         for ( coldkey, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() ) {
-            stakes.push( (coldkey.clone().encode().into(), stake) );
+            stakes.push( (coldkey.clone(), stake) );
         }
 
         let stake = stakes;
 
         let neuron = NeuronInfo {
-            hotkey: hotkey.clone().encode().into(),
-            coldkey: coldkey.clone().encode().into(),
+            hotkey: hotkey.clone(),
+            coldkey: coldkey.clone(),
             uid,
             netuid,
             active,
@@ -125,7 +123,7 @@ impl<T: Config> Pallet<T> {
         return Some(neuron);
     }
 
-    pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo> {
+    pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
