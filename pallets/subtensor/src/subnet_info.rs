@@ -27,7 +27,7 @@ pub struct SubnetInfo {
     blocks_since_last_step: Compact<u64>,
     tempo: Compact<u16>,
     network_modality: Compact<u16>,
-    network_connect: Vec<[Compact<u16>; 2]>,
+    network_connect: Vec<[u16; 2]>,
     emission_values: Compact<u64>,
     burn: Compact<u64>,
 }
@@ -60,10 +60,10 @@ impl<T: Config> Pallet<T> {
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
 
 
-        let mut network_connect: Vec<[Compact<u16>; 2]> = Vec::<[Compact<u16>; 2]>::new();
+        let mut network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
 
         for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
-            network_connect.push([_netuid_.into(), con_req.into()]);
+            network_connect.push([_netuid_, con_req]);
         }
 
         return Some(SubnetInfo {
