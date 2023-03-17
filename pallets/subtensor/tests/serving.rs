@@ -26,6 +26,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 #[test]
 fn test_serving_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
+				let netuid: u16 = 1;
                 let version : u32 = 2;
                 let ip: u128 = 1676056785;
                 let port: u16 = 128;
@@ -33,7 +34,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
                 let protocol: u8 = 0;
                 let placeholder1: u8 = 0;
                 let placeholder2: u8 = 0;
-                let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_axon { version, ip, port, ip_type, protocol, placeholder1, placeholder2});
+                let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_axon { netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2});
                 assert_eq!(call.get_dispatch_info(), DispatchInfo {
                         weight: frame_support::weights::Weight::from_ref_time(0),
                         class: DispatchClass::Normal,
@@ -58,8 +59,8 @@ fn test_serving_ok() {
                 let placeholder2: u8 = 0;
                 add_network(netuid, tempo, modality);
                 register_ok_neuron( netuid, hotkey_account_id, 66, 0);
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2));
-                let neuron = SubtensorModule::get_axon_info( &hotkey_account_id );
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
+                let neuron = SubtensorModule::get_axon_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
                 assert_eq!(neuron.version, version);
                 assert_eq!(neuron.port, port);
@@ -86,8 +87,8 @@ fn test_serving_set_metadata_update() {
                 let placeholder2: u8 = 0;
                 add_network(netuid, tempo, modality);
                 register_ok_neuron( netuid, hotkey_account_id, 66, 0);
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2));
-                let neuron = SubtensorModule::get_axon_info( &hotkey_account_id );
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
+                let neuron = SubtensorModule::get_axon_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
                 assert_eq!(neuron.version, version);
                 assert_eq!(neuron.port, port);
@@ -102,8 +103,8 @@ fn test_serving_set_metadata_update() {
                 let protocol2: u8 = protocol + 1;
                 let placeholder12: u8 = placeholder1 + 1;
                 let placeholder22: u8 = placeholder2 + 1;
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version2, ip2, port2, ip_type2, protocol2, placeholder12, placeholder22));
-                let neuron = SubtensorModule::get_axon_info( &hotkey_account_id );
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version2, ip2, port2, ip_type2, protocol2, placeholder12, placeholder22));
+                let neuron = SubtensorModule::get_axon_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip2);
                 assert_eq!(neuron.version, version2);
                 assert_eq!(neuron.port, port2);
@@ -132,23 +133,24 @@ fn test_axon_serving_rate_limit_exceeded() {
                 add_network(netuid, tempo, modality);
                 register_ok_neuron( netuid, hotkey_account_id, 66, 0);
                 // No issue on multiple
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2));
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2));
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2));
-                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2));    
-                SubtensorModule::set_serving_rate_limit( 1 );
-                assert_eq!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type, protocol, placeholder1, placeholder2), Err(Error::<Test>::ServingRateLimitExceeded.into()) );    
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
+                assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));    
+                SubtensorModule::set_serving_rate_limit( netuid, 1 );
+                assert_eq!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2), Err(Error::<Test>::ServingRateLimitExceeded.into()) );    
         });
 }
 
 #[test]
 fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
+				let netuid: u16 = 1;
                 let version : u32 = 2;
                 let ip: u128 = 1676056785;
                 let port: u16 = 128;
                 let ip_type: u8 = 4;
-                let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_prometheus{ version, ip, port, ip_type});
+                let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_prometheus{ netuid, version, ip, port, ip_type});
                 assert_eq!(call.get_dispatch_info(), DispatchInfo {
                         weight: frame_support::weights::Weight::from_ref_time(0),
                         class: DispatchClass::Normal,
@@ -170,8 +172,8 @@ fn test_prometheus_serving_ok() {
                 let modality: u16 = 0;
                 add_network(netuid, tempo, modality);
                 register_ok_neuron( netuid, hotkey_account_id, 66, 0);
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),version, ip, port, ip_type));
-                let neuron = SubtensorModule::get_prometheus_info( &hotkey_account_id );
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
+                let neuron = SubtensorModule::get_prometheus_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
                 assert_eq!(neuron.version, version);
                 assert_eq!(neuron.port, port);
@@ -192,8 +194,8 @@ fn test_prometheus_serving_set_metadata_update() {
                 let modality: u16 = 0;
                 add_network(netuid, tempo, modality);
                 register_ok_neuron( netuid, hotkey_account_id, 66, 0);
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type));
-                let neuron = SubtensorModule::get_prometheus_info( &hotkey_account_id );
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
+                let neuron = SubtensorModule::get_prometheus_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
                 assert_eq!(neuron.version, version);
                 assert_eq!(neuron.port, port);
@@ -202,8 +204,8 @@ fn test_prometheus_serving_set_metadata_update() {
                 let ip2: u128 = ip + 1;
                 let port2: u16 = port + 1;
                 let ip_type2: u8 = 6;
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version2, ip2, port2, ip_type2));
-                let neuron = SubtensorModule::get_prometheus_info(  &hotkey_account_id );
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version2, ip2, port2, ip_type2));
+                let neuron = SubtensorModule::get_prometheus_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip2);
                 assert_eq!(neuron.version, version2);
                 assert_eq!(neuron.port, port2);
@@ -226,12 +228,12 @@ fn test_prometheus_serving_rate_limit_exceeded() {
                 add_network(netuid, tempo, modality);
                 register_ok_neuron( netuid, hotkey_account_id, 66, 0);
                 // No issue on multiple
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type));
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type));
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type));
-                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type));    
-                SubtensorModule::set_serving_rate_limit( 1 );
-                assert_eq!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), version, ip, port, ip_type), Err(Error::<Test>::ServingRateLimitExceeded.into()) );    
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
+                assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));    
+                SubtensorModule::set_serving_rate_limit( netuid, 1 );
+                assert_eq!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type), Err(Error::<Test>::ServingRateLimitExceeded.into()) );    
         });
 }
 
