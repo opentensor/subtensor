@@ -1,4 +1,5 @@
 use super::*;
+use substrate_fixed::types::{U64F64};
 use frame_support::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::{Decode, Encode};
@@ -16,7 +17,8 @@ pub struct DelegateInfo<T: Config> {
     owner_ss58: T::AccountId,
     registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
     validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
-    return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked
+    return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
+    total_daily_return: Compact<u64>, // Delegators current daily return
 }
 
 impl<T: Config> Pallet<T> {
@@ -29,7 +31,7 @@ impl<T: Config> Pallet<T> {
 
         let registrations = Self::get_registered_networks_for_hotkey( &delegate.clone() );
         let mut validator_permits = Vec::<Compact<u16>>::new();
-        let mut emissions_per_day: u128 = 0;
+        let mut emissions_per_day: U64F64 = U64F64::from_num(0);
         
         for netuid in registrations.iter() {
             let _uid = Self::get_uid_for_net_and_hotkey( *netuid, &delegate.clone());
@@ -42,19 +44,19 @@ impl<T: Config> Pallet<T> {
                     validator_permits.push( (*netuid).into() );
                 }
                 
-                let emission = Self::get_emission_for_uid( *netuid, uid) as u128;
-                let tempo = Self::get_tempo( *netuid );
-                let epochs_per_day = 7200 / tempo;
-                emissions_per_day += emission * epochs_per_day as u128;
+                let emission: U64F64 = Self::get_emission_for_uid( *netuid, uid).into();
+                let tempo: U64F64 = Self::get_tempo( *netuid ).into();
+                let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
+                emissions_per_day += emission * epochs_per_day;
             }
         }
 
         let owner = Self::get_owning_coldkey_for_hotkey( &delegate.clone() );
         let take: Compact<u16> = <Delegates<T>>::get( delegate.clone() ).into();
 
-        let total_stake = Self::get_total_stake_for_hotkey( &delegate.clone() );
+        let total_stake: U64F64 = Self::get_total_stake_for_hotkey( &delegate.clone() ).into();
         
-        let return_per_1000 = ( emissions_per_day as f64 *  0.82) / (total_stake as f64 / 1000.0);
+        let return_per_1000: U64F64 = ( emissions_per_day *  U64F64::from_num(0.82)) / (total_stake /  U64F64::from_num(1000));
         
         return DelegateInfo {
             delegate_ss58: delegate.clone(),
@@ -63,7 +65,8 @@ impl<T: Config> Pallet<T> {
             owner_ss58: owner.clone(),
             registrations: registrations.iter().map(|x| x.into()).collect(),
             validator_permits,
-            return_per_1000: (return_per_1000 as u64).into(),
+            return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
+            total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
         };
     }
 
