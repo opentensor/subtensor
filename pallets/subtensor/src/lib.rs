@@ -165,6 +165,8 @@ pub mod pallet {
 		type InitialWeightsVersionKey: Get<u64>;
 		#[pallet::constant] // Initial serving rate limit.
 		type InitialServingRateLimit: Get<u64>;
+		#[pallet::constant] // Initial transaction rate limit.
+		type InitialTxRateLimit: Get<u64>;
 	}
 
 	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -329,6 +331,17 @@ pub mod pallet {
         pub port: u16, // --- Prometheus u16 encoded port.
         pub ip_type: u8, // --- Prometheus ip type, 4 for ipv4 and 6 for ipv6.
 	}
+
+	// Rate limiting
+	#[pallet::type_value]
+	pub fn DefaultTxRateLimit<T: Config>() -> u64 { T::InitialTxRateLimit::get() }
+	#[pallet::type_value]
+	pub fn DefaultLastTxBlock<T: Config>() -> u64 { 0 }
+
+	#[pallet::storage] // --- ITEM ( tx_rate_limit )
+	pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+	#[pallet::storage] // --- MAP ( key ) --> last_block
+	pub(super) type LastTxBlock<T:Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
 
 	#[pallet::type_value] 
@@ -550,6 +563,7 @@ pub mod pallet {
 		BurnSet( u16, u64 ), // --- Event created when setting burn on a network.
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
+		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
 	}
 
 	// Errors inform users that something went wrong.
@@ -594,6 +608,7 @@ pub mod pallet {
 		BalanceSetError, // --- Thrown when an error occurs setting a balance
 		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceed MaxAllowedUids for the network.
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
+		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 	}
 
 	// ==================
@@ -1247,9 +1262,13 @@ pub mod pallet {
 			Self::do_sudo_set_serving_rate_limit( origin, netuid, serving_rate_limit )
 		}
 
-		#[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		// Sudo call for setting tx rate limit
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_tx_rate_limit( origin:OriginFor<T>, tx_rate_limit: u64 ) -> DispatchResult {  
+			Self::do_sudo_set_tx_rate_limit( origin, tx_rate_limit )
+		}
+
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_burn( origin:OriginFor<T>, netuid: u16, max_burn: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_max_burn( origin, netuid, max_burn )
 		}
