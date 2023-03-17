@@ -321,8 +321,8 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
     pub const SubtensorInitialMaxWeightsLimit: u16 = 262;
-    pub const SubtensorInitialValidatorBatchSize: u16 = 32;
-    pub const SubtensorInitialValidatorSequenceLen: u16 = 256;
+    pub const SubtensorInitialValidatorBatchSize: u16 = 10; // 32
+    pub const SubtensorInitialValidatorSequenceLen: u16 = 10; // 256
     pub const SubtensorInitialValidatorEpochLen: u16 = 100;
     pub const SubtensorInitialValidatorEpochsPerReset: u16 = 60;
     pub const SubtensorInitialValidatorExcludeQuantile: u16 = 5; // 0.1
