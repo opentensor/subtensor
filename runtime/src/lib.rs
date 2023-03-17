@@ -348,7 +348,7 @@ parameter_types! {
 	pub const SubtensorInitialBurn: u64 = 0; 
 	pub const SubtensorInitialMinBurn: u64 = 0; 
 	pub const SubtensorInitialMaxBurn: u64 = 1_000_000_000;
-	pub const SubtensorInitialTxRateLimit: u64 = 0;
+	pub const SubtensorInitialTxRateLimit: u64 = 1000;
 }
 
 impl pallet_subtensor::Config for Runtime {
