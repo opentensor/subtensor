@@ -320,14 +320,14 @@ parameter_types! {
     pub const SubtensorInitialIssuance: u64 = 0;
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
-    pub const SubtensorInitialMaxWeightsLimit: u16 = 17_000_000;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = 262;
     pub const SubtensorInitialValidatorBatchSize: u16 = 32;
     pub const SubtensorInitialValidatorSequenceLen: u16 = 256;
     pub const SubtensorInitialValidatorEpochLen: u16 = 100;
     pub const SubtensorInitialValidatorEpochsPerReset: u16 = 60;
     pub const SubtensorInitialValidatorExcludeQuantile: u16 = 5; // 0.1
-    pub const SubtensorInitialValidatorPruneLen: u64 = 0;
-    pub const SubtensorInitialValidatorLogitsDivergence: u64 = 0;
+    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorInitialValidatorLogitsDivergence: u64 = 1844674407370955161;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 100;
