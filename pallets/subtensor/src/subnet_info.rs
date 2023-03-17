@@ -28,7 +28,8 @@ pub struct SubnetInfo {
     tempo: Compact<u16>,
     network_modality: Compact<u16>,
     network_connect: Vec<[Compact<u16>; 2]>,
-    emission_values: Compact<u64>
+    emission_values: Compact<u64>,
+    burn: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -56,6 +57,7 @@ impl<T: Config> Pallet<T> {
         let tempo = Self::get_tempo(netuid);
         let network_modality = <NetworkModality <T>>::get(netuid);
         let emission_values = Self::get_emission_value(netuid);
+        let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
 
 
         let mut network_connect: Vec<[Compact<u16>; 2]> = Vec::<[Compact<u16>; 2]>::new();
@@ -85,7 +87,8 @@ impl<T: Config> Pallet<T> {
             tempo: tempo.into(),
             network_modality: network_modality.into(),
             network_connect,
-            emission_values: emission_values.into()
+            emission_values: emission_values.into(),
+            burn
         })
 	}
 
