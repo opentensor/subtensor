@@ -325,7 +325,7 @@ parameter_types! {
     pub const SubtensorInitialValidatorSequenceLen: u16 = 10; // 256
     pub const SubtensorInitialValidatorEpochLen: u16 = 100;
     pub const SubtensorInitialValidatorEpochsPerReset: u16 = 60;
-    pub const SubtensorInitialValidatorExcludeQuantile: u16 = 5; // 0.1
+    pub const SubtensorInitialValidatorExcludeQuantile: u16 = 6554; // 10% of u16
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialValidatorLogitsDivergence: u16 = 1310; // 2% of u16
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
