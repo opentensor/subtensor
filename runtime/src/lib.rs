@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::Encode;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -110,7 +111,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 104,
+	spec_version: 109,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -670,15 +671,14 @@ impl_runtime_apis! {
 	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
 		fn get_delegates() -> Vec<u8> {
 			let result = SubtensorModule::get_delegates();
-			serde_json::to_string(&result).expect("Could not convert DelegateInfo list to JSON")
-				.as_bytes().to_vec()
+			result.encode()
 		}
 
 		fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
-			let result = SubtensorModule::get_delegate(delegate_account_vec);
-			if result.is_some() {
-				serde_json::to_string(&result).expect("Could not convert DelegateInfo to JSON")
-					.as_bytes().to_vec()
+			let _result = SubtensorModule::get_delegate(delegate_account_vec);
+			if _result.is_some() {
+				let result = _result.expect("Could not convert DelegateInfo to JSON");
+				result.encode()
 			} else {
 				vec![]
 			}
@@ -688,15 +688,14 @@ impl_runtime_apis! {
 	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
 		fn get_neurons(netuid: u16) -> Vec<u8> {
 			let result = SubtensorModule::get_neurons(netuid);
-			serde_json::to_string(&result).expect("Could not convert NeuronInfo Vec to JSON")
-				.as_bytes().to_vec()
+			result.encode()
 		}
 
 		fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
-			let result = SubtensorModule::get_neuron(netuid, uid);
-			if result.is_some() {
-				serde_json::to_string(&result).expect("Could not convert NeuronInfo to JSON")
-					.as_bytes().to_vec()
+			let _result = SubtensorModule::get_neuron(netuid, uid);
+			if _result.is_some() {
+				let result = _result.expect("Could not convert NeuronInfo to JSON");
+				result.encode()
 			} else {
 				vec![]
 			}
@@ -705,10 +704,10 @@ impl_runtime_apis! {
 
 	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
 		fn get_subnet_info(netuid: u16) -> Vec<u8> {
-			let result = SubtensorModule::get_subnet_info(netuid);
-			if result.is_some() {
-				serde_json::to_string(&result).expect("Could not convert SubnetInfo to JSON")
-					.as_bytes().to_vec()
+			let _result = SubtensorModule::get_subnet_info(netuid);
+			if _result.is_some() {
+				let result = _result.expect("Could not convert SubnetInfo to JSON");
+				result.encode()
 			} else {
 				vec![]
 			}
@@ -716,8 +715,7 @@ impl_runtime_apis! {
 
 		fn get_subnets_info() -> Vec<u8> {
 			let result = SubtensorModule::get_subnets_info();
-			serde_json::to_string(&result).expect("Could not convert SubnetInfo list to JSON")
-				.as_bytes().to_vec()
+			result.encode()
 		}
 	}
 }
