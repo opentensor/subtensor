@@ -4,7 +4,7 @@ set -e
 
 echo "*** Start Substrate node subtensor ***"
 
-cd $(dirname ${BASH_SOURCE[0]})/..
+cd "$(dirname "${BASH_SOURCE[0]}")"/..
 
 docker-compose down --remove-orphans
-docker-compose run --rm --service-ports dev $@
+docker-compose run --rm --service-ports dev "$@"

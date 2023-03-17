@@ -1,38 +1,36 @@
 use super::*;
-use crate::math::*;
-use serde::{Serialize, Deserialize};
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use alloc::vec::Vec;
+use codec::Compact;
 
-#[derive(Decode, Encode, Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
-#[serde(deny_unknown_fields)]
-pub struct NeuronInfo {
-    hotkey: DeAccountId,
-    coldkey: DeAccountId,
-    uid: u16,
-    netuid: u16,
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+pub struct NeuronInfo<T: Config> {
+    hotkey: T::AccountId,
+    coldkey: T::AccountId,
+    uid: Compact<u16>,
+    netuid: Compact<u16>,
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(DeAccountId, u64)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
-    rank: u16,
-    emission: u64,
-    incentive: u16,
-    consensus: u16,
-    trust: u16,
-    validator_trust: u16,
-    dividends: u16,
-    last_update: u64,
+    stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    rank: Compact<u16>,
+    emission: Compact<u64>,
+    incentive: Compact<u16>,
+    consensus: Compact<u16>,
+    trust: Compact<u16>,
+    validator_trust: Compact<u16>,
+    dividends: Compact<u16>,
+    last_update: Compact<u64>,
     validator_permit: bool,
-    weights: Vec<u16>, // Vec uid to weight
-    bonds: Vec<u16>, // Vec uid to bond
-    pruning_score: u16
+    weights: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, weight)
+    bonds: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, bond)
+    pruning_score: Compact<u16>,
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo> {
+	pub fn get_neurons(netuid: u16) -> Vec<NeuronInfo<T>> {
         if !Self::if_subnet_exist(netuid) {
             return Vec::new();
         }
@@ -57,7 +55,7 @@ impl<T: Config> Pallet<T> {
         neurons
 	}
 
-    fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo> {
+    fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
         let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
         let hotkey;
         if _hotkey.is_err() {
@@ -67,9 +65,9 @@ impl<T: Config> Pallet<T> {
             hotkey = _hotkey.expect("Hotkey should exist");
         }
 
-        let axon_info = Self::get_axon_info( &hotkey.clone() );
+        let axon_info = Self::get_axon_info( netuid, &hotkey.clone() );
 
-        let prometheus_info = Self::get_prometheus_info( &hotkey.clone() );
+        let prometheus_info = Self::get_prometheus_info( netuid, &hotkey.clone() );
 
         
         let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
@@ -86,46 +84,45 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
         let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-        let weights = Self::get_weights(netuid)[uid as usize].iter()
-            .map(|x| fixed_proportion_to_u16(*x)).collect::<Vec<u16>>();
+        let weights = <Weights<T>>::get(netuid, uid).iter()
+            .filter_map(|(i, w)| if *w > 0 { Some((i.into(), w.into())) } else { None })
+            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
-        let bonds = Self::get_bonds(netuid)[uid as usize].iter()
-            .map(|x| fixed_proportion_to_u16(*x)).collect::<Vec<u16>>();
+        let bonds = <Bonds<T>>::get(netuid, uid).iter()
+            .filter_map(|(i, b)| if *b > 0 { Some((i.into(), b.into())) } else { None })
+            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
-        let mut stakes = Vec::<(DeAccountId, u64)>::new();
-        for ( coldkey, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() ) {
-            stakes.push( (coldkey.clone().encode().into(), stake) );
-        }
-
-        let stake = stakes;
+        let stake: Vec<(T::AccountId, Compact<u64>)> = < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() )
+            .map(|(coldkey, stake)| (coldkey, stake.into()))
+            .collect();
 
         let neuron = NeuronInfo {
-            hotkey: hotkey.clone().encode().into(),
-            coldkey: coldkey.clone().encode().into(),
-            uid,
-            netuid,
+            hotkey: hotkey.clone(),
+            coldkey: coldkey.clone(),
+            uid: uid.into(),
+            netuid: netuid.into(),
             active,
             axon_info,
             prometheus_info,
             stake,
-            rank,
-            emission,
-            incentive,
-            consensus,
-            trust,
-            validator_trust,
-            dividends,
-            last_update,
+            rank: rank.into(),
+            emission: emission.into(),
+            incentive: incentive.into(),
+            consensus: consensus.into(),
+            trust: trust.into(),
+            validator_trust: validator_trust.into(),
+            dividends: dividends.into(),
+            last_update: last_update.into(),
             validator_permit,
             weights,
             bonds,
-            pruning_score
+            pruning_score: pruning_score.into()
         };
         
         return Some(neuron);
     }
 
-    pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo> {
+    pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
