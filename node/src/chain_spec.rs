@@ -245,7 +245,6 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 		},
 		// Bootnodes
 		vec![
-			"/ip4/13.58.175.193/tcp/30333/p2p/12D3KooWEXY393DjTvBip3DnZeJkSAeZrg6edxqu45ywHzzQS2BY".parse().unwrap()
 		],
 		// Telemetry
 		None,
