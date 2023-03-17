@@ -348,6 +348,7 @@ parameter_types! {
 	pub const SubtensorInitialBurn: u64 = 0; 
 	pub const SubtensorInitialMinBurn: u64 = 0; 
 	pub const SubtensorInitialMaxBurn: u64 = 1_000_000_000;
+	pub const SubtensorInitialTxRateLimit: u64 = 0;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -387,6 +388,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialBurn = SubtensorInitialBurn;
 	type InitialMaxBurn = SubtensorInitialMaxBurn;
 	type InitialMinBurn = SubtensorInitialMinBurn;
+	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
