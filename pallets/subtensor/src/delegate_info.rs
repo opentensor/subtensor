@@ -54,8 +54,8 @@ impl<T: Config> Pallet<T> {
 
         let total_stake = Self::get_total_stake_for_hotkey( &delegate.clone() );
         
-        let return_per_1000 = emissions_per_day / (total_stake as u128 / 1000);
-
+        let return_per_1000 = ( emissions_per_day as f64 *  0.82) / (total_stake as f64 / 1000.0);
+        
         return DelegateInfo {
             delegate_ss58: delegate.clone(),
             take,
