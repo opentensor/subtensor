@@ -222,8 +222,8 @@ fn test_sudo_validator_prune_len() {
 fn test_sudo_validator_logits_divergence() {
 	new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let to_be_set: u64 = 10;
-        let init_value: u64 = SubtensorModule::get_validator_logits_divergence( netuid );
+        let to_be_set: u16 = 10;
+        let init_value: u16 = SubtensorModule::get_validator_logits_divergence( netuid );
         add_network(netuid, 10, 0);
 
         assert_eq!( SubtensorModule::sudo_set_validator_logits_divergence(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
