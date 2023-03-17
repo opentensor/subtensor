@@ -4,9 +4,9 @@ services:
   node-subtensor:
     container_name: node-subtensor
     image: opentensor/subtensor:latest
-    cpu_count: 2
-    mem_limit: 4000000000
-    memswap_limit: 8000000000
+    cpu_count: 4
+    mem_limit: 40000000000
+    memswap_limit: 80000000000
     ports:
       - "9944:9944"
       - "30333:30333"
