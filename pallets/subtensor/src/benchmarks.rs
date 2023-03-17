@@ -552,7 +552,7 @@ benchmarks! {
     let netuid: u16 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
-    let validator_logits_divergence: u64 = 100;
+    let validator_logits_divergence: u16 = 100;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 

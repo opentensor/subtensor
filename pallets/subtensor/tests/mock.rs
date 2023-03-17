@@ -126,7 +126,7 @@ parameter_types! {
 	pub const InitialValidatorEpochLen: u16 = 10;
 	pub const InitialValidatorEpochsPerReset: u16 = 10;
 	pub const InitialValidatorExcludeQuantile: u16 = 10;
-	pub const InitialValidatorLogitsDivergence: u64 = 0;
+	pub const InitialValidatorLogitsDivergence: u16 = 0;
 	pub const InitialScalingLawPower: u16 = 50;
 	pub const InitialSynergyScalingLawPower: u16 = 50;
 	pub const InitialMaxAllowedValidators: u16 = 100;
