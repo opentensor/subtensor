@@ -77,9 +77,9 @@ where
 		at: Option<<Block as BlockT>::Hash>
 	) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_delegates(&at).map_err(|e| {
+		api.get_delegates(at).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get delegates info.",
@@ -94,9 +94,9 @@ where
 		at: Option<<Block as BlockT>::Hash>
 	) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_delegate(&at, delegate_account_vec).map_err(|e| {
+		api.get_delegate(at, delegate_account_vec).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get delegate info.",
@@ -111,9 +111,9 @@ where
 		at: Option<<Block as BlockT>::Hash>
 	) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_neurons(&at, netuid).map_err(|e| {
+		api.get_neurons(at, netuid).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get neurons info.",
@@ -128,9 +128,9 @@ where
 		uid: u16, at: Option<<Block as BlockT>::Hash>
 	) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_neuron(&at, netuid, uid).map_err(|e| {
+		api.get_neuron(at, netuid, uid).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get neuron info.",
@@ -141,11 +141,9 @@ where
 	
 	fn get_subnet_info(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(||
-			// If the block hash is not supplied assume the best block.
-			self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_subnet_info(&at, netuid).map_err(|e| {
+		api.get_subnet_info(at, netuid).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get subnet info.",
@@ -159,11 +157,9 @@ where
 		at: Option<<Block as BlockT>::Hash>
 	) -> RpcResult<Vec<u8>> {
 		let api = self.client.runtime_api();
-		let at = BlockId::hash(at.unwrap_or_else(||
-			// If the block hash is not supplied assume the best block.
-			self.client.info().best_hash));
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-		api.get_subnets_info(&at).map_err(|e| {
+		api.get_subnets_info(at).map_err(|e| {
 			CallError::Custom(ErrorObject::owned(
 			Error::RuntimeError.into(),
 			"Unable to get subnets info.",
