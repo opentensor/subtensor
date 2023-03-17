@@ -327,7 +327,7 @@ parameter_types! {
     pub const SubtensorInitialValidatorEpochsPerReset: u16 = 60;
     pub const SubtensorInitialValidatorExcludeQuantile: u16 = 5; // 0.1
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
-    pub const SubtensorInitialValidatorLogitsDivergence: u64 = 1844674407370955161;
+    pub const SubtensorInitialValidatorLogitsDivergence: u64 = u64::MAX * 0.02; // 2% of u64
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 100;
