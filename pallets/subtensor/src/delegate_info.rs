@@ -95,5 +95,27 @@ impl<T: Config> Pallet<T> {
 
         return delegates;
 	}
+
+    pub fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, u64)> {
+        if delegatee_account_vec.len() != 32 {
+            return Vec::new(); // No delegates for invalid account
+        }
+
+        let delegatee: AccountIdOf<T> = T::AccountId::decode( &mut delegatee_account_vec.as_bytes_ref() ).unwrap();
+        
+
+        let mut delegates: Vec<(DelegateInfo<T>, u64)> = Vec::new();
+        for delegate in < Delegates<T> as IterableStorageMap<T::AccountId, u16> >::iter_keys().into_iter() {
+            let staked_to_this_delegatee = Self::get_stake_for_coldkey_and_hotkey( &delegatee.clone(), &delegate.clone() );
+            if staked_to_this_delegatee == 0 {
+                continue; // No stake to this delegate
+            }
+            // Staked to this delegate, so add to list
+            let delegate_info = Self::get_delegate_by_existing_account( delegate.clone() );
+            delegates.push( (delegate_info, staked_to_this_delegatee) );
+        }
+
+        return delegates;
+    }
 }
 

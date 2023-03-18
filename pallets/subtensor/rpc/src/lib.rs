@@ -25,6 +25,8 @@ pub trait SubtensorCustomApi<BlockHash> {
 	fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 	#[method(name = "delegateInfo_getDelegate")]
 	fn get_delegate(&self, delegate_account_vec: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+	#[method(name = "delegateInfo_getDelegated")]
+	fn get_delegated(&self, delegatee_account_vec: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
 	#[method(name = "neuronInfo_getNeurons")]
 	fn get_neurons(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
@@ -100,6 +102,23 @@ where
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get delegate info.",
+				Some(e.to_string()),
+			)).into()
+		})
+	}
+
+	fn get_delegated(
+		&self,
+		delegatee_account_vec: Vec<u8>,
+		at: Option<<Block as BlockT>::Hash>
+	) -> RpcResult<Vec<u8>> {
+		let api = self.client.runtime_api();
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+		api.get_delegated(at, delegatee_account_vec).map_err(|e| {
+			CallError::Custom(ErrorObject::owned(
+				Error::RuntimeError.into(),
+				"Unable to get delegated info.",
 				Some(e.to_string()),
 			)).into()
 		})
