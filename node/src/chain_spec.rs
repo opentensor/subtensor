@@ -9,7 +9,6 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_core::crypto::Ss58Codec;
 
-
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -197,6 +196,12 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 
 		processed_balances.push((key_account, *amount))
 	}
+
+	// Give front-ends necessary data to present to users
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 13116.into());
 
 	Ok(ChainSpec::from_genesis(
 		// Name
