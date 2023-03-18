@@ -692,7 +692,7 @@ impl_runtime_apis! {
 		fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
 			let _result = SubtensorModule::get_delegate(delegate_account_vec);
 			if _result.is_some() {
-				let result = _result.expect("Could not convert DelegateInfo to JSON");
+				let result = _result.expect("Could not get DelegateInfo");
 				result.encode()
 			} else {
 				vec![]
@@ -701,6 +701,21 @@ impl_runtime_apis! {
 	}
 
 	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
+		fn get_neurons_lite(netuid: u16) -> Vec<u8> {
+			let result = SubtensorModule::get_neurons_lite(netuid);
+			result.encode()
+		}
+
+		fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
+			let _result = SubtensorModule::get_neuron_lite(netuid, uid);
+			if _result.is_some() {
+				let result = _result.expect("Could not get NeuronInfoLite");
+				result.encode()
+			} else {
+				vec![]
+			}
+		}
+
 		fn get_neurons(netuid: u16) -> Vec<u8> {
 			let result = SubtensorModule::get_neurons(netuid);
 			result.encode()
@@ -709,7 +724,7 @@ impl_runtime_apis! {
 		fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
 			let _result = SubtensorModule::get_neuron(netuid, uid);
 			if _result.is_some() {
-				let result = _result.expect("Could not convert NeuronInfo to JSON");
+				let result = _result.expect("Could not get NeuronInfo");
 				result.encode()
 			} else {
 				vec![]
@@ -721,7 +736,7 @@ impl_runtime_apis! {
 		fn get_subnet_info(netuid: u16) -> Vec<u8> {
 			let _result = SubtensorModule::get_subnet_info(netuid);
 			if _result.is_some() {
-				let result = _result.expect("Could not convert SubnetInfo to JSON");
+				let result = _result.expect("Could not get SubnetInfo");
 				result.encode()
 			} else {
 				vec![]
