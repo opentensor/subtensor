@@ -698,6 +698,11 @@ impl_runtime_apis! {
 				vec![]
 			}
 		}
+
+		fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
+			let result = SubtensorModule::get_delegated(delegatee_account_vec);
+			result.encode()
+		}
 	}
 
 	impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
