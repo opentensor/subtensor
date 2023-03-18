@@ -379,7 +379,7 @@ fn test_registration_get_neuron_metadata() {
 		//
 		//let neuron_id = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
 		// let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).unwrap();
-		let neuron: AxonInfoOf = SubtensorModule::get_axon_info( &hotkey_account_id );
+		let neuron: AxonInfoOf = SubtensorModule::get_axon_info( netuid, &hotkey_account_id );
 		assert_eq!(neuron.ip, 0);
 		assert_eq!(neuron.version, 0);
 		assert_eq!(neuron.port, 0);
