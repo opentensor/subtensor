@@ -189,12 +189,14 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 		processed_stakes.push((coldkey_account, processed_hotkeys));
 	}
 
+	let mut balances_issuance: u64 = 0;
 	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
 	for (key_str, amount) in old_state.balances.iter() {
 		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
 		let key_account = sp_runtime::AccountId32::from(key);
 
-		processed_balances.push((key_account, *amount))
+		processed_balances.push((key_account, *amount));
+		balances_issuance += *amount;
 	}
 
 	// Give front-ends necessary data to present to users
@@ -245,7 +247,8 @@ pub fn finney_config() -> Result<ChainSpec, String> {
 				],
 				true,
 				processed_stakes.clone(),
-				processed_balances.clone()
+				processed_balances.clone(),
+				balances_issuance
 			)
 		},
 		// Bootnodes
@@ -303,7 +306,8 @@ fn finney_genesis(
 	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
-	balances: Vec<(AccountId, u64)>
+	balances: Vec<(AccountId, u64)>,
+	balances_issuance: u64
 
 ) -> GenesisConfig {
 	GenesisConfig {
@@ -328,7 +332,8 @@ fn finney_genesis(
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: SubtensorModuleConfig {
-			stakes: stakes
+			stakes: stakes,
+			balances_issuance: balances_issuance
 		},
 	}
 }
