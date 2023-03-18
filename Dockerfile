@@ -1,37 +1,43 @@
-# This is an example build stage for the node subtensor. Here we create the binary in a temporary image.
 
-# This is a base image to build substrate nodes
-FROM docker.io/paritytech/ci-linux:production as builder
+ARG BASE_IMAGE=ubuntu:20.04
 
-WORKDIR /node-subtensor
+FROM $BASE_IMAGE as builder
+SHELL ["/bin/bash", "-c"]
+
+# This is being set so that no interactive components are allowed when updating.
+ARG DEBIAN_FRONTEND=noninteractive
+
+LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
+        ai.opentensor.image.vendor="Opentensor Foundation" \
+        ai.opentensor.image.title="opentensor/subtensor" \
+        ai.opentensor.image.description="Opentensor Subtensor Blockchain" \
+        ai.opentensor.image.revision="${VCS_REF}" \
+        ai.opentensor.image.created="${BUILD_DATE}" \
+        ai.opentensor.image.documentation="https://docs.bittensor.com"
+
+# show backtraces
+ENV RUST_BACKTRACE 1
+
+# Necessary libraries for Rust execution
+RUN apt-get update && apt-get install -y curl build-essential protobuf-compiler clang git
+
+# Install cargo and Rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN mkdir -p /subtensor
+WORKDIR /subtensor
 COPY . .
-RUN cargo build --locked --release
 
-# This is the 2nd stage: a very small image where we copy the binary."
-FROM docker.io/library/ubuntu:20.04
-LABEL description="Multistage Docker image for Substrate Node Subtensor" \
-  image.type="builder" \
-  image.authors="you@email.com" \
-  image.vendor="Substrate Developer Hub" \
-  image.description="Multistage Docker image for Substrate Node Subtensor" \
-  image.source="https://github.com/substrate-developer-hub/substrate-node-subtensor" \
-  image.documentation="https://github.com/substrate-developer-hub/substrate-node-subtensor"
+# Update to nightly toolchain
+RUN ./scripts/init.sh
 
-# Copy the node binary.
-COPY --from=builder /node-subtensor/target/release/node-subtensor /usr/local/bin
+# Cargo build
+RUN cargo build --release --features runtime-benchmarks --locked
+EXPOSE 30333 9933 9944
 
-RUN useradd -m -u 1000 -U -s /bin/sh -d /node-dev node-dev && \
-  mkdir -p /chain-data /node-dev/.local/share && \
-  chown -R node-dev:node-dev /chain-data && \
-  ln -s /chain-data /node-dev/.local/share/node-subtensor && \
-  # unclutter and minimize the attack surface
-  rm -rf /usr/bin /usr/sbin && \
-  # check if executable works in this container
-  /usr/local/bin/node-subtensor --version
+FROM $BASE_IMAGE
+COPY --from=builder /subtensor/snapshot.json /
+COPY --from=builder /subtensor/target/release/node-subtensor /
+COPY --from=builder /subtensor/raw_spec.json .
 
-USER node-dev
-
-EXPOSE 30333 9933 9944 9615
-VOLUME ["/chain-data"]
-
-ENTRYPOINT ["/usr/local/bin/node-subtensor"]
