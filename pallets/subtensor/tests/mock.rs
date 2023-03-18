@@ -246,3 +246,4 @@ pub fn add_network(netuid: u16, tempo: u16, modality: u16){
 	let result = SubtensorModule::do_add_network(<<Test as Config>::RuntimeOrigin>::root(), netuid, tempo, modality);
 	assert_ok!(result);
 }
+
