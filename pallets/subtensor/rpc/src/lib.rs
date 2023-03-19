@@ -28,6 +28,11 @@ pub trait SubtensorCustomApi<BlockHash> {
 	#[method(name = "delegateInfo_getDelegated")]
 	fn get_delegated(&self, delegatee_account_vec: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
+
+	#[method(name = "neuronInfo_getNeuronsLite")]
+	fn get_neurons_lite(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+	#[method(name = "neuronInfo_getNeuronLite")]
+	fn get_neuron_lite(&self, netuid: u16, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 	#[method(name = "neuronInfo_getNeurons")]
 	fn get_neurons(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 	#[method(name = "neuronInfo_getNeuron")]
@@ -119,6 +124,41 @@ where
 			CallError::Custom(ErrorObject::owned(
 				Error::RuntimeError.into(),
 				"Unable to get delegated info.",
+				Some(e.to_string()),
+			)).into()
+		})
+	}
+
+	fn get_neurons_lite(
+		&self,
+		netuid: u16,
+		at: Option<<Block as BlockT>::Hash>
+	) -> RpcResult<Vec<u8>> {
+		let api = self.client.runtime_api();
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+		api.get_neurons_lite(at, netuid).map_err(|e| {
+			CallError::Custom(ErrorObject::owned(
+				Error::RuntimeError.into(),
+				"Unable to get neurons lite info.",
+				Some(e.to_string()),
+			)).into()
+		})
+	}
+
+	fn get_neuron_lite(
+		&self,
+		netuid: u16,
+		uid: u16,
+		at: Option<<Block as BlockT>::Hash>
+	) -> RpcResult<Vec<u8>> {
+		let api = self.client.runtime_api();
+		let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+		api.get_neuron_lite(at, netuid, uid).map_err(|e| {
+			CallError::Custom(ErrorObject::owned(
+				Error::RuntimeError.into(),
+				"Unable to get neuron lite info.",
 				Some(e.to_string()),
 			)).into()
 		})
