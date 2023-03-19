@@ -352,36 +352,57 @@ impl<T: Config> Pallet<T> {
         return real_hash
     }
 
-    // Determine which peer to prune from the network by finding the element with the lowest pruning score.
+    // Determine which peer to prune from the network by finding the element with the lowest pruning score out of
+    // immunity period. If all neurons are in immunity period, return node with lowest prunning score.
     // This function will always return an element to prune.
     pub fn get_neuron_to_prune(netuid: u16) -> u16 {
-        let mut min_block_at_registration: u64 = u64::MAX; // Far Future.
         let mut min_score : u16 = u16::MAX;
+        let mut min_score_in_immunity_period = u16::MAX;
         let mut uid_with_min_score = 0;
+        let mut uid_with_min_score_in_immunity_period: u16 =  0;
         if Self::get_subnetwork_n( netuid ) == 0 { return 0 } // If there are no neurons in this network.
         for neuron_uid_i in 0..Self::get_subnetwork_n( netuid ) {
             let pruning_score:u16 = Self::get_pruning_score_for_uid( netuid, neuron_uid_i );
             let block_at_registration: u64 = Self::get_neuron_block_at_registration( netuid, neuron_uid_i );
+            let current_block :u64 = Self::get_current_block_as_u64();
+            let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
             if min_score == pruning_score {
-                // Break ties with block at registration.
-                if min_block_at_registration > block_at_registration{
+                if current_block - block_at_registration <  immunity_period { //neuron is in immunity period
+                    if min_score_in_immunity_period > pruning_score {
+                        min_score_in_immunity_period = pruning_score; 
+                        uid_with_min_score_in_immunity_period = neuron_uid_i;
+                    }
+                }
+                else {
                     min_score = pruning_score; 
-                    min_block_at_registration = block_at_registration;
                     uid_with_min_score = neuron_uid_i;
                 }
             }
             // Find min pruning score.
             else if min_score > pruning_score { 
-                min_score = pruning_score; 
-                min_block_at_registration = block_at_registration;
-                uid_with_min_score = neuron_uid_i;
+                if current_block - block_at_registration <  immunity_period { //neuron is in immunity period
+                    if min_score_in_immunity_period > pruning_score {
+                         min_score_in_immunity_period = pruning_score; 
+                        uid_with_min_score_in_immunity_period = neuron_uid_i;
+                    }
+                }
+                else {
+                    min_score = pruning_score; 
+                    uid_with_min_score = neuron_uid_i;
+                }
             }
         }
-        // We replace the pruning score here with u16 max to ensure that all peers always have a 
-        // pruning score. In the event that every peer has been pruned this function will prune
-        // the last element in the network continually.
-        Self::set_pruning_score_for_uid( netuid, uid_with_min_score, u16::MAX );
-        uid_with_min_score
+        if min_score == u16::MAX { //all neuorns are in immunity period
+            Self::set_pruning_score_for_uid( netuid, uid_with_min_score_in_immunity_period, u16::MAX );
+            return uid_with_min_score_in_immunity_period;
+        }
+        else {
+            // We replace the pruning score here with u16 max to ensure that all peers always have a 
+            // pruning score. In the event that every peer has been pruned this function will prune
+            // the last element in the network continually.
+            Self::set_pruning_score_for_uid( netuid, uid_with_min_score, u16::MAX );
+            return uid_with_min_score;
+        }
     } 
 
     // Determine whether the given hash satisfies the given difficulty.

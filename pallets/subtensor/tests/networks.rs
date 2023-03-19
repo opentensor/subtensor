@@ -18,7 +18,7 @@ fn test_add_network_dispatch_info_ok() {
         let call = RuntimeCall::SubtensorModule(SubtensorCall::sudo_add_network{netuid, tempo, modality});
         assert_eq!(call.get_dispatch_info(), 
                 DispatchInfo {
-                        weight: frame_support::weights::Weight::from_ref_time(0),
+                        weight: frame_support::weights::Weight::from_ref_time(50000000),
                         class: DispatchClass::Operational,
                         pays_fee: Pays::No
                 });
@@ -131,7 +131,7 @@ fn test_network_set_emission_ratios_dispatch_info_ok() {
         let emission: Vec<u64> = vec![ 100000000, 900000000 ]; 
         let call = RuntimeCall::SubtensorModule(SubtensorCall::sudo_set_emission_values{ netuids, emission });
         assert_eq!(call.get_dispatch_info(), DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(0),
+                weight: frame_support::weights::Weight::from_ref_time(28000000),
                 class: DispatchClass::Operational,
                 pays_fee: Pays::No
         });
