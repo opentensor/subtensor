@@ -25,7 +25,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
 		let coldkey: u64 = 0;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::register{netuid, block_number, nonce, work, hotkey, coldkey });
 		assert_eq!(call.get_dispatch_info(), DispatchInfo {
-			weight: frame_support::weights::Weight::from_ref_time(0),
+			weight: frame_support::weights::Weight::from_ref_time(91000000),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No
 		});
@@ -315,7 +315,7 @@ fn test_registration_failed_no_signature() {
 }
 
 #[test]
-fn test_registration_get_uid_to_prune() {
+fn test_registration_get_uid_to_prune_all_in_immunity_period() {
 	new_test_ext().execute_with(|| {
 		let netuid: u16 = 0;
 		add_network(netuid, 0, 0);
@@ -326,6 +326,54 @@ fn test_registration_get_uid_to_prune() {
 		SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
 		assert_eq!(SubtensorModule::get_pruning_score_for_uid( netuid, 0 ), 100 );
 		assert_eq!(SubtensorModule::get_pruning_score_for_uid( netuid, 1 ), 110 );
+		assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
+		assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
+		assert_eq!(SubtensorModule::get_neuron_block_at_registration(netuid, 0), 0);
+		assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);
+	});
+}
+
+#[test]
+fn test_registration_get_uid_to_prune_none_in_immunity_period() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 0;
+		add_network(netuid, 0, 0);
+		log::info!("add netweork");
+		register_ok_neuron( netuid, 0, 0, 39420842 );
+    	register_ok_neuron( netuid, 1, 1, 12412392 );
+		SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
+		SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
+		assert_eq!(SubtensorModule::get_pruning_score_for_uid( netuid, 0 ), 100 );
+		assert_eq!(SubtensorModule::get_pruning_score_for_uid( netuid, 1 ), 110 );
+		assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
+		assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
+		assert_eq!(SubtensorModule::get_neuron_block_at_registration(netuid, 0), 0);
+		step_block(3);
+		assert_eq!(SubtensorModule::get_current_block_as_u64(), 3);
+		assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);
+	});
+}
+
+#[test]
+fn test_registration_get_uid_to_prune_mix() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 0;
+		add_network(netuid, 0, 0);
+		log::info!("add netweork");
+		register_ok_neuron( netuid, 0, 0, 39420842 );
+		SubtensorModule::set_pruning_score_for_uid(netuid, 0, 120);
+		assert_eq!(SubtensorModule::get_pruning_score_for_uid( netuid, 0 ), 120 );
+		step_block(1);
+		register_ok_neuron( netuid, 1, 1, 12412392 );
+		SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
+		assert_eq!(SubtensorModule::get_pruning_score_for_uid( netuid, 1 ), 110 );
+		assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
+		assert_eq!(SubtensorModule::get_current_block_as_u64(), 1);
+		assert_eq!(SubtensorModule::get_neuron_block_at_registration(netuid, 0), 0);
+		assert_eq!(SubtensorModule::get_neuron_block_at_registration(netuid, 1), 1);
+		assert_eq!(SubtensorModule::get_neuron_to_prune(0), 1);
+		step_block(2);
+		assert_eq!(SubtensorModule::get_current_block_as_u64(), 3);
 		assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);
 	});
 }
