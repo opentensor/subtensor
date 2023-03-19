@@ -618,14 +618,16 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[cfg(feature = "std")]
 	pub struct GenesisConfig<T: Config> {
-		pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>
+		pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
+		pub balances_issuance: u64
 	}
 
 	#[cfg(feature = "std")]
 	impl<T: Config> Default for GenesisConfig<T> {
 		fn default() -> Self {
 			Self { 
-				stakes: Default::default()
+				stakes: Default::default(),
+				balances_issuance: 0
 			}
 		}
 	}
@@ -633,6 +635,9 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
+			// Set initial total issuance from balances
+			TotalIssuance::<T>::put(self.balances_issuance);
+
 			// Subnet config values
 			let netuid: u16 = 3;
 			let tempo = 99;
