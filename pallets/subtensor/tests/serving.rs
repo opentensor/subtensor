@@ -36,7 +36,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
                 let placeholder2: u8 = 0;
                 let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_axon { netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2});
                 assert_eq!(call.get_dispatch_info(), DispatchInfo {
-                        weight: frame_support::weights::Weight::from_ref_time(0),
+                        weight: frame_support::weights::Weight::from_ref_time(19000000),
                         class: DispatchClass::Normal,
                         pays_fee: Pays::No
                 });
@@ -152,7 +152,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
                 let ip_type: u8 = 4;
                 let call = RuntimeCall::SubtensorModule(SubtensorCall::serve_prometheus{ netuid, version, ip, port, ip_type});
                 assert_eq!(call.get_dispatch_info(), DispatchInfo {
-                        weight: frame_support::weights::Weight::from_ref_time(0),
+                        weight: frame_support::weights::Weight::from_ref_time(17000000),
                         class: DispatchClass::Normal,
                         pays_fee: Pays::No
                 });
