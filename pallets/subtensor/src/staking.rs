@@ -361,9 +361,4 @@ impl<T: Config> Pallet<T> {
         };
     }
 
-    pub fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) {
-        ensure_root( origin )?;
-        TotalIssuance::<T>::put( total_issuance );
-    }
-
 }
