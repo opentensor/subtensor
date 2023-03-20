@@ -475,6 +475,11 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event( Event::MaxRegistrationsPerBlockSet( netuid, max_registrations_per_block) );
         Ok(())
     }
+    pub fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) -> DispatchResult{
+        ensure_root( origin )?;
+        TotalIssuance::<T>::put( total_issuance );
+        Ok(())
+    }
 
 }
 
