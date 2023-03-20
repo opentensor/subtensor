@@ -280,6 +280,15 @@ fn test_sudo_set_max_weight_limit() {
     });
 }
 
+#[test]
+fn test_sudo_set_issuance() {
+	new_test_ext().execute_with(|| {
+        let to_be_set: u64 = 10;
+		assert_eq!( SubtensorModule::sudo_set_total_issuance(<<Test as Config>::RuntimeOrigin>::signed(0), to_be_set),  Err(DispatchError::BadOrigin.into()) );
+        assert_ok!( SubtensorModule::sudo_set_total_issuance(<<Test as Config>::RuntimeOrigin>::root(), to_be_set) );
+        assert_eq!( SubtensorModule::get_total_issuance(), to_be_set);
+    });
+}
 
 #[test]
 fn test_sudo_set_immunity_period() {

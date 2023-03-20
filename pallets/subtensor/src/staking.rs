@@ -309,7 +309,7 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_add( increment ) );
         Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_add( increment ) );
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_add( increment ) );
-        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( increment ) );
+//        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( increment ) );
 
     }
 
@@ -320,7 +320,7 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
         Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_sub( decrement ) );
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
-        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( decrement ) );
+//        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( decrement ) );
     }
 
 	pub fn u64_to_balance( input: u64 ) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance> { input.try_into().ok() }
@@ -359,6 +359,11 @@ impl<T: Config> Pallet<T> {
                 false
             }
         };
+    }
+
+    pub fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) {
+        ensure_root( origin )?;
+        TotalIssuance::<T>::put( total_issuance );
     }
 
 }

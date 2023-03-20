@@ -63,10 +63,13 @@ impl<T: Config> Pallet<T> {
         for ( netuid, _ ) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
             if !Self::has_loaded_emission_tuples( netuid ) { continue } // There are no tuples to emit.
             let tuples_to_drain: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+            let mut total_emitted: u64 = 0;
             for (hotkey, amount) in tuples_to_drain.iter() {                 
                 Self::emit_inflation_through_hotkey_account( &hotkey, *amount );
+                total_emitted += *amount;
             }            
             LoadedEmission::<T>::remove( netuid );
+            TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( total_emitted ) );
         }
     }
 
