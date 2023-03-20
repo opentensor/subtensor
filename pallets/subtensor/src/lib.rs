@@ -1456,8 +1456,7 @@ pub mod pallet {
 
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
-			Self::do_set_total_issuance(origin, total_issuance);
-			Ok(())
+			Self::do_set_total_issuance(origin, total_issuance)
 		}
 
 
