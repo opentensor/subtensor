@@ -1,15 +1,15 @@
 {
   "name": "Bittensor",
   "id": "bittensor",
-  "chainType": "Development",
+  "chainType": "Live",
   "bootNodes": [],
   "telemetryEndpoints": null,
   "protocolId": "bittensor",
   "properties": {
-    "ss58Format": 13116,
+    "ss58Format": 42,
     "tokenDecimals": 9,
     "tokenSymbol": "TAO"
-},
+  },
   "codeSubstitutes": {},
   "genesis": {
     "runtime": {
