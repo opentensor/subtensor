@@ -4,12 +4,12 @@ Rho: u16 = 10;
 Kappa: u16 = 32_767; // 0.5 = 65535/2 
 MaxAllowedUids: u16 = 4096;
 Issuance: u64 = 0;
-MinAllowedWeights: u16 = 1024;
+MinAllowedWeights: u16 = 50;
 EmissionValue: u16 = 1_000_000_000;
-MaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+MaxWeightsLimit: u16 = 655; // 655/2^16 = 0.01
 ValidatorBatchSize: u16 = 32; // 32
 ValidatorSequenceLen: u16 = 256; // 256
-ValidatorEpochLen: u16 = 100;
+ValidatorEpochLen: u16 = 250;
 ValidatorEpochsPerReset: u16 = 60;
 ValidatorExcludeQuantile: u16 = 6554; // 10% of u16
 ValidatorPruneLen: u64 = 1;
@@ -30,9 +30,10 @@ DefaultTake: u16 = 11_796; // 18% honest number.
 WeightsVersionKey: u64 = 370;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;
-ServingRateLimit: u64 = 50; 
+ServingRateLimit: u64 = 250; 
 Burn: u64 = 1_000_000_000; // 1 tao
 MinBurn: u64 = 1_000_000_000; // 1 tao
 MaxBurn: u64 = 100_000_000_000; // 100 tao
 TxRateLimit: u64 = 1000;
+WeightsSetRateLimit: u64 = 250;
 ```
