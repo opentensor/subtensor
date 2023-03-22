@@ -11,7 +11,8 @@ on:
   push:
     paths:
       - "./**/*.rs"
-      - "!./**/*.md"
+      - "./**/*.yml"
+      # - "!./**/*.md"
 
   ##
   # Run automatically for PRs against default/main branch if Rust files change
