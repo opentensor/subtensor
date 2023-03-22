@@ -23,7 +23,7 @@ use frame_support::{
 			WithdrawReasons
 		},
 		IsSubType,
-		}
+		}, pallet_prelude::TransactionPriority
 };
 
 use sp_std::marker::PhantomData;
@@ -609,7 +609,6 @@ pub mod pallet {
 		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceed MaxAllowedUids for the network.
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-		RegistrationDisabled // --- Thrown when registration is disabled
 	}
 
 	// ==================
@@ -1086,9 +1085,6 @@ pub mod pallet {
 				hotkey: T::AccountId, 
 				coldkey: T::AccountId,
 		) -> DispatchResult { 
-			// --- Disable registrations
-			ensure!( false, Error::<T>::RegistrationDisabled ); 
-
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
 		}
 		#[pallet::weight((Weight::from_ref_time(89_000_000)
@@ -1099,8 +1095,6 @@ pub mod pallet {
 				netuid: u16,
 				hotkey: T::AccountId, 
 		) -> DispatchResult { 
-			ensure!( false, Error::<T>::RegistrationDisabled ); 
-
 			Self::do_burned_registration(origin, netuid, hotkey)
 		}
 		#[pallet::weight((Weight::from_ref_time(81_000_000)
@@ -1619,7 +1613,7 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 	) -> TransactionValidity {
 		match call.is_sub_type() {
 			Some(Call::set_weights{netuid, ..}) => {
-				let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+				let priority: u64 = TransactionPriority::max_value() - Self::get_priority_set_weights(who, *netuid);
                 Ok(ValidTransaction {
                     priority: priority,
                     longevity: 1,
@@ -1628,25 +1622,25 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
             }
 			Some(Call::add_stake{..}) => {
                 Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
+                    priority: TransactionPriority::max_value(),//Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
             Some(Call::remove_stake{..}) => {
                 Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
+                    priority: TransactionPriority::max_value(),
                     ..Default::default()
                 })
             }
             Some(Call::register{..}) => {
                 Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
+                    priority: TransactionPriority::max_value(),
                     ..Default::default()
                 })
             }
 			_ => {
                 Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
+                    priority: TransactionPriority::max_value(),
                     ..Default::default()
                 })
             }
