@@ -74,8 +74,8 @@ jobs:
 
     ##
     steps:
-      - uses: actions/checkout@v2
-        description: Checks-out your repository under $GITHUB_WORKSPACE
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v2
 
       - name: Set RELEASE mode
         if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
