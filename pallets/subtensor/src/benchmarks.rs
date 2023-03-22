@@ -89,6 +89,7 @@ benchmarks! {
     let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce );
 
     assert_ok!(Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
     
     let mut seed : u32 = 1;
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
@@ -123,7 +124,8 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
 
-   assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
+	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+   	assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
     
     let mut seed : u32 = 1; 
     let mut dests: Vec<u16> = vec![];
@@ -164,6 +166,8 @@ benchmarks! {
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+
+	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
@@ -187,6 +191,8 @@ benchmarks! {
     let modality: u16 = 0;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
@@ -215,6 +221,8 @@ benchmarks! {
     let modality: u16 = 0;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+	
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
