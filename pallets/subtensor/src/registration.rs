@@ -100,33 +100,36 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
-        // --- 3. Ensure we are not exceeding the max allowed registrations per block.
+		// --- 3. Ensure the passed network allows registrations.
+		ensure!( Self::if_subnet_allows_registration( netuid ), Error::<T>::RegistrationDisabled ); 
+
+        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
-        // --- 4. Ensure that the key is not already registered.
+        // --- 5. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
-        // --- 5. Ensure that the key passes the registration requirement
+        // --- 6. Ensure that the key passes the registration requirement
         ensure!( Self::passes_network_connection_requirement( netuid, &hotkey ), Error::<T>::DidNotPassConnectedNetworkRequirement );
     
-        // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
+        // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         let registration_cost_as_balance = Self::u64_to_balance( Self::get_burn_as_u64( netuid ) ).unwrap();
         ensure!( Self::can_remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ), Error::<T>::NotEnoughBalanceToStake );
 
-        // --- 7. Ensure the remove operation from the coldkey is a success.
+        // --- 8. Ensure the remove operation from the coldkey is a success.
         ensure!( Self::remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ) == true, Error::<T>::BalanceWithdrawalError );
         
         // The burn occurs here.
         TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( Self::get_burn_as_u64( netuid ) ) );
 
-        // --- 8. If the network account does not exist we will create it here.
+        // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent( &coldkey, &hotkey);         
 
-        // --- 9. Ensure that the pairing is correct.
+        // --- 10. Ensure that the pairing is correct.
         ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 10. Append neuron or prune it.
+        // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
         let current_subnetwork_n: u16 = Self::get_subnetwork_n( netuid );
 
@@ -134,33 +137,33 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::get_max_allowed_uids( netuid ) != 0, Error::<T>::NetworkDoesNotExist );
         
         if current_subnetwork_n < Self::get_max_allowed_uids( netuid ) {
-            // --- 11.1.1 No replacement required, the uid appends the subnetwork.
+            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
 
-            // --- 11.1.2 Expand subnetwork with new account.
+            // --- 12.1.2 Expand subnetwork with new account.
             Self::append_neuron( netuid, &hotkey, current_block_number );
             log::info!("add new neuron account");
         } else {
-            // --- 12.1.1 Replacement required.
+            // --- 13.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
             subnetwork_uid = Self::get_neuron_to_prune( netuid );
 
-            // --- 12.1.1 Replace the neuron account with the new info.
+            // --- 13.1.1 Replace the neuron account with the new info.
             Self::replace_neuron( netuid, subnetwork_uid, &hotkey, current_block_number );
             log::info!("prune neuron");
         }
 
-        // --- 13. Record the registration and increment block and interval counters.
+        // --- 14. Record the registration and increment block and interval counters.
         BurnRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
     
-        // --- 14. Deposit successful event.
+        // --- 15. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
         Self::deposit_event( Event::NeuronRegistered( netuid, subnetwork_uid, hotkey ) );
 
-        // --- 15. Ok and done.
+        // --- 16. Ok and done.
         Ok(())
     }
 
@@ -232,41 +235,44 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
-        // --- 3. Ensure we are not exceeding the max allowed registrations per block.
+		// --- 3. Ensure the passed network allows registrations.
+        ensure!( Self::if_subnet_allows_registration( netuid ), Error::<T>::RegistrationDisabled ); 
+
+        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
-        // --- 4. Ensure that the key is not already registered.
+        // --- 5. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
-        // --- 5. Ensure the passed block number is valid, not in the future or too old.
+        // --- 6. Ensure the passed block number is valid, not in the future or too old.
         // Work must have been done within 3 blocks (stops long range attacks).
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure! (block_number <= current_block_number, Error::<T>::InvalidWorkBlock);
         ensure! (current_block_number - block_number < 3, Error::<T>::InvalidWorkBlock ); 
 
-        // --- 6. Ensure the passed work has not already been used.
+        // --- 7. Ensure the passed work has not already been used.
         ensure!( !UsedWork::<T>::contains_key( &work.clone() ), Error::<T>::WorkRepeated ); 
 
-        // --- 7. Ensure the supplied work passes the difficulty.
+        // --- 8. Ensure the supplied work passes the difficulty.
         let difficulty: U256 = Self::get_difficulty( netuid );
         let work_hash: H256 = Self::vec_to_hash( work.clone() );
         ensure! ( Self::hash_meets_difficulty( &work_hash, difficulty ), Error::<T>::InvalidDifficulty ); // Check that the work meets difficulty.
         
-        // --- 8. Check Work is the product of the nonce and the block number. Add this as used work.
+        // --- 9. Check Work is the product of the nonce and the block number. Add this as used work.
         let seal: H256 = Self::create_seal_hash( block_number, nonce );
         ensure! ( seal == work_hash, Error::<T>::InvalidSeal );
         UsedWork::<T>::insert( &work.clone(), current_block_number );
 
-        // --- 9. Ensure that the key passes the registration requirement
+        // --- 10. Ensure that the key passes the registration requirement
         ensure!( Self::passes_network_connection_requirement( netuid, &hotkey ), Error::<T>::DidNotPassConnectedNetworkRequirement );
 
-        // --- 10. If the network account does not exist we will create it here.
+        // --- 11. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent( &coldkey, &hotkey);         
 
-        // --- 11. Ensure that the pairing is correct.
+        // --- 12. Ensure that the pairing is correct.
         ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 12. Append neuron or prune it.
+        // --- 13. Append neuron or prune it.
         let subnetwork_uid: u16;
         let current_subnetwork_n: u16 = Self::get_subnetwork_n( netuid );
 
@@ -275,19 +281,19 @@ impl<T: Config> Pallet<T> {
         
         if current_subnetwork_n < Self::get_max_allowed_uids( netuid ) {
 
-            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
+            // --- 13.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
 
-            // --- 12.1.2 Expand subnetwork with new account.
+            // --- 13.1.2 Expand subnetwork with new account.
             Self::append_neuron( netuid, &hotkey, current_block_number );
             log::info!("add new neuron account");
         } else {
-            // --- 12.1.1 Replacement required.
+            // --- 13.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
             subnetwork_uid = Self::get_neuron_to_prune( netuid );
 
-            // --- 12.1.1 Replace the neuron account with the new info.
+            // --- 13.1.1 Replace the neuron account with the new info.
             Self::replace_neuron( netuid, subnetwork_uid, &hotkey, current_block_number );
             log::info!("prune neuron");
         }

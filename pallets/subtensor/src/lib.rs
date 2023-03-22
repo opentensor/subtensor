@@ -1091,9 +1091,6 @@ pub mod pallet {
 				hotkey: T::AccountId, 
 				coldkey: T::AccountId,
 		) -> DispatchResult { 
-			// --- Disable registrations
-			ensure!( false, Error::<T>::RegistrationDisabled ); 
-
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
 		}
 		#[pallet::weight((Weight::from_ref_time(89_000_000)
@@ -1104,8 +1101,6 @@ pub mod pallet {
 				netuid: u16,
 				hotkey: T::AccountId, 
 		) -> DispatchResult { 
-			ensure!( false, Error::<T>::RegistrationDisabled ); 
-
 			Self::do_burned_registration(origin, netuid, hotkey)
 		}
 		#[pallet::weight((Weight::from_ref_time(81_000_000)
@@ -1283,6 +1278,12 @@ pub mod pallet {
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_tx_rate_limit( origin:OriginFor<T>, tx_rate_limit: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_tx_rate_limit( origin, tx_rate_limit )
+		}
+
+		// Sudo call for setting registration allowed
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_registration_allowed( origin:OriginFor<T>, netuid: u16, registration_allowed: bool ) -> DispatchResult {  
+			Self::do_sudo_set_network_registration_allowed( origin, netuid, registration_allowed )
 		}
 
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
