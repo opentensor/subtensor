@@ -262,6 +262,8 @@ pub mod pallet {
 	pub fn DefaultNeworksAdded<T: Config>() ->  bool { false }
 	#[pallet::type_value]
 	pub fn DefaultIsNetworkMember<T: Config>() ->  bool { false }
+	#[pallet::type_value]
+	pub fn DefaultRegistrationAllowed<T: Config>() ->  bool { false }
 
 
 	#[pallet::storage] // --- ITEM( tota_number_of_existing_networks )
@@ -276,6 +278,8 @@ pub mod pallet {
 	pub type NetworkConnect<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u16, OptionQuery>;
 	#[pallet::storage] // --- DMAP ( hotkey, netuid ) --> bool
 	pub type IsNetworkMember<T:Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, u16, bool, ValueQuery, DefaultIsNetworkMember<T>>;
+	#[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
+	pub type NetworkRegistrationAllowed<T:Config> = StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
 
 	// ==============================
 	// ==== Subnetwork Features =====
