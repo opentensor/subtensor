@@ -10,9 +10,7 @@ on:
   # Run automatically for any push that changes Rust file(s)
   push:
     paths:
-      - "./**/*.rs"
-      - "**.yml"
-      # - "!./**/*.md"
+      - "**.rs"
 
   ##
   # Run automatically for PRs against default/main branch if Rust files change
@@ -22,8 +20,7 @@ on:
       - $default-branch
 
     paths:
-      - "./**/*.rs"
-      - "!./**/*.md"
+      - "**.rs"
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
@@ -42,7 +39,7 @@ env:
 #
 jobs:
   check:
-    name: Rust checks and tests targeting ${{ matrix.rust-target }} for OS ${{ matrix.os }}
+    name: Tests targeting ${{ matrix.rust-target }} for OS ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     ##
@@ -78,7 +75,7 @@ jobs:
     ##
     steps:
       - uses: actions/checkout@v2
-        # description: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+        description: Checks-out your repository under $GITHUB_WORKSPACE
 
       - name: Set RELEASE mode
         if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
