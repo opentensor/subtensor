@@ -1,50 +1,130 @@
-name: Check Set-Up & Build
+name: Rust build, benchmarks, and tests
 
-# Controls when the action will run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+##
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
+  ##
+  # Run automatically for any push that changes Rust file(s)
   push:
-    branches: [main]
+    paths:
+      - "./**/*.rs"
+      - "!./**/*.md"
+
+  ##
+  # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - $default-branch
 
-  # Allows you to run this workflow manually from the Actions tab
+    paths:
+      - "./**/*.rs"
+      - "!./**/*.md"
+
+  ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+##
+env:
+  CARGO_TERM_COLOR: always
+  VERBOSE: ${{ github.events.input.verbose }}
+
+##
+#
 jobs:
   check:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-22.04
+    name: Rust checks and tests targeting ${{ matrix.rust-target }} for OS ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    ##
+    # Define multiple targets for builds and tests
+    strategy:
+      matrix:
+        rust-branch:
+          - stable
+
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+
+        os:
+          - ubuntu-latest
+          # - macos-latest
+
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+
+    ##
+    env:
+      RELEASE: false
+      RELEASE_NAME: development
+      RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+
+    ##
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
+        # description: Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
 
-      - name: Set-Up
-        run: sudo apt update && sudo apt install -y git clang curl libssl-dev llvm libudev-dev protobuf-compiler
-
-      - name: Install Rustup
+      - name: Set RELEASE mode
+        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+        shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-          source ~/.cargo/env
-          rustup default stable
-          rustup update nightly
-          rustup update stable
-          rustup target add wasm32-unknown-unknown --toolchain nightly
+          set -eET
+          tee -a "${GITHUB_ENV:?Undefined GitHub env file path}" <<'EOF'
+          RELEASE=true
+          RELEASE_NAME=release
+          RUST_BIN_DIR=target/${{ matrix.rust-target }}/release
+          EOF
 
-      - name: Check Build
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          profile: minimal
+
+      - name: Utilize Rust shared cached
+        # description: 🤞 hopefully this improves re-build/test times
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+
+      ## TODO: use `if` conditions in tests to target `--package <name>`
+      - name: Run tests
+        timeout-minutes: 30
         run: |
-          SKIP_WASM_BUILD=1 cargo build --release
+          cargo test --tests
 
-      - name: Check Build for Benchmarking
-        run: >
+      - name: Run benchmarks
+        timeout-minutes: 30
+        run: |
           pushd node &&
-          cargo build --features=runtime-benchmarks --release
+          cargo --features=runtime-benchmarks --release
 
+      - name: Build executable
+        timeout-minutes: 30
+        run: |
+          cargo build --release
 
-      - name: Run unit tests
-        run: >
-          pushd node &&
-          cargo test
+       # ## TODO: Un-comment after live tests
+       # - name: Upload executable
+       #   if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+       #   uses: actions/upload-artifact@v3.1.2
+       #   with:
+       #     name: ${{ matrix.rust-target }}
+       #     path: ${{ env.RUST_BIN_DIR }}
+       #     retention-days: 1
+
