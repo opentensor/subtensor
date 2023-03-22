@@ -568,6 +568,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		RegistrationAllowed( u16, bool ) // --- Event created when registration is allowed/disallowed for a subnet.
 	}
 
 	// Errors inform users that something went wrong.
