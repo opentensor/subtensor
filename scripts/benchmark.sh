@@ -1,0 +1,1 @@
+./target/release/node-subtensor benchmark pallet --chain=specs/finney.json --execution=native  --wasm-execution=compiled --pallet pallet-subtensor --extrinsic '*' --output benchmarking.txt
