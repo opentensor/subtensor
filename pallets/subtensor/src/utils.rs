@@ -383,6 +383,17 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event( Event::ActivityCutoffSet( netuid, activity_cutoff) );
         Ok(())
     }
+
+	// Registration Toggle utils
+	pub fn get_network_registration_allowed( netuid: u16 ) -> bool { NetworkRegistrationAllowed::<T>::get( netuid ) }
+	pub fn set_network_registration_allowed( netuid: u16, registration_allowed: bool ) { NetworkRegistrationAllowed::<T>::insert( netuid, registration_allowed ) }
+	pub fn do_sudo_set_network_registration_allowed( origin: T::RuntimeOrigin, netuid: u16, registration_allowed: bool ) -> DispatchResult { 
+		ensure_root( origin )?;
+		Self::set_network_registration_allowed( netuid, registration_allowed );
+		log::info!("NetworkRegistrationAllowed( registration_allowed: {:?} ) ", registration_allowed );
+		Self::deposit_event( Event::RegistrationAllowed( netuid, registration_allowed ) );
+		Ok(()) 
+	}
             
     pub fn get_target_registrations_per_interval( netuid: u16 ) -> u16 { TargetRegistrationsPerInterval::<T>::get( netuid ) }
     pub fn set_target_registrations_per_interval( netuid: u16, target_registrations_per_interval: u16 ) { TargetRegistrationsPerInterval::<T>::insert( netuid, target_registrations_per_interval ); }

@@ -392,6 +392,12 @@ impl<T: Config> Pallet<T> {
         return NetworksAdded::<T>::get( netuid );
     }
 
+	// Returns true if the subnetwork allows registration.
+    //
+    pub fn if_subnet_allows_registration( netuid: u16 ) -> bool{
+        return NetworkRegistrationAllowed::<T>::get( netuid );
+    }
+
     // Returns true if the passed modality is allowed.
     //
     pub fn if_modality_is_valid( modality: u16 ) -> bool{
