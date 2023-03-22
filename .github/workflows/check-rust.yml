@@ -88,6 +88,11 @@ jobs:
           RUST_BIN_DIR=target/${{ matrix.rust-target }}/release
           EOF
 
+      - name: Install dependencies
+        run: |
+          sudo apt update &&
+          sudo apt install -y git clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
       - name: Install Rust ${{ matrix.rust-branch }}
         uses: actions-rs/toolchain@v1.0.6
         with:
@@ -95,7 +100,6 @@ jobs:
           profile: minimal
 
       - name: Utilize Rust shared cached
-        # description: 🤞 hopefully this improves re-build/test times
         uses: Swatinem/rust-cache@v2.2.1
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
