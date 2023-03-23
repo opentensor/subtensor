@@ -274,8 +274,8 @@ where
 
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		let coefficient = WeightToFeeCoefficient {
-			coeff_integer: C::get(),
-			coeff_frac: Perbill::from_percent(1),
+			coeff_integer: 0,
+			coeff_frac: Perbill::from_parts(1),
 			negative: false,
 			degree: 1,
 		};
@@ -428,7 +428,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	
+	pallet_subtensor::SubtensorSignedExtension<Runtime>
 );
 
 // Unchecked extrinsic type as expected by this runtime.
