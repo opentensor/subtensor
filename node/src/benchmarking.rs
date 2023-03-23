@@ -12,7 +12,7 @@ use sp_core::{Encode, Pair};
 use sp_inherents::{InherentData, InherentDataProvider};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{OpaqueExtrinsic, SaturatedConversion};
-
+use node_subtensor_runtime::pallet_subtensor;
 
 use std::{sync::Arc, time::Duration};
 
@@ -125,6 +125,7 @@ pub fn create_benchmark_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		pallet_subtensor::SubtensorSignedExtension::<runtime::Runtime>::new()
 	);
 
 	let raw_payload = runtime::SignedPayload::from_raw(
@@ -136,6 +137,7 @@ pub fn create_benchmark_extrinsic(
 			runtime::VERSION.transaction_version,
 			genesis_hash,
 			best_hash,
+			(),
 			(),
 			(),
 			(),
