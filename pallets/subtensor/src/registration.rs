@@ -106,7 +106,10 @@ impl<T: Config> Pallet<T> {
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
-        // --- 5. Ensure that the key is not already registered.
+		// --- 4. Ensure we are not exceeding the max allowed registrations per interval.
+		ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
+
+        // --- 4. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
         // --- 6. Ensure that the key passes the registration requirement
@@ -240,6 +243,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
+
+		// --- 5. Ensure we are not exceeding the max allowed registrations per interval.
+		ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
 
         // --- 5. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );

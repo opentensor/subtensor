@@ -614,7 +614,8 @@ pub mod pallet {
 		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceed MaxAllowedUids for the network.
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-		RegistrationDisabled // --- Thrown when registration is disabled
+		RegistrationDisabled, // --- Thrown when registration is disabled
+		TooManyRegistrationsThisInterval // --- Thrown when registration attempt exceeds allowed in interval
 	}
 
 	// ==================
