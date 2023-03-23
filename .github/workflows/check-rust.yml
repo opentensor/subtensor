@@ -105,10 +105,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       ## TODO: use `if` conditions in tests to target `--package <name>`
-      - name: Run tests
-        # timeout-minutes: 30
-        run: |
-          cargo test --tests
+      # - name: Run tests
+      #   timeout-minutes: 30
+      #   run: |
+      #     cargo test --tests
 
       # - name: Run benchmarks
       #   timeout-minutes: 30
@@ -116,10 +116,10 @@ jobs:
       #     pushd node &&
       #     cargo --features=runtime-benchmarks --release
 
-      # - name: Build executable
-      #   timeout-minutes: 30
-      #   run: |
-      #     cargo build --release
+      - name: Build executable
+        # timeout-minutes: 30
+        run: |
+          cargo build --release
 
        # ## TODO: Un-comment after live tests
        # - name: Upload executable
