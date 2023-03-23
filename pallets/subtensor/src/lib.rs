@@ -23,7 +23,7 @@ use frame_support::{
 			WithdrawReasons
 		},
 		IsSubType,
-		}, pallet_prelude::TransactionPriority
+		}
 };
 
 use sp_std::marker::PhantomData;
@@ -1613,7 +1613,7 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 	) -> TransactionValidity {
 		match call.is_sub_type() {
 			Some(Call::set_weights{netuid, ..}) => {
-				let priority: u64 = TransactionPriority::max_value() - Self::get_priority_set_weights(who, *netuid);
+				let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                 Ok(ValidTransaction {
                     priority: priority,
                     longevity: 1,
@@ -1622,25 +1622,25 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
             }
 			Some(Call::add_stake{..}) => {
                 Ok(ValidTransaction {
-                    priority: TransactionPriority::max_value(),//Self::get_priority_vanilla(),
+                    priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
             Some(Call::remove_stake{..}) => {
                 Ok(ValidTransaction {
-                    priority: TransactionPriority::max_value(),
+                    priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
             Some(Call::register{..}) => {
                 Ok(ValidTransaction {
-                    priority: TransactionPriority::max_value(),
+                    priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
 			_ => {
                 Ok(ValidTransaction {
-                    priority: TransactionPriority::max_value(),
+                    priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
