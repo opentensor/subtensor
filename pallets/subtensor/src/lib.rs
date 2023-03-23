@@ -1087,9 +1087,6 @@ pub mod pallet {
 				hotkey: T::AccountId, 
 				coldkey: T::AccountId,
 		) -> DispatchResult { 
-			// --- Disable registrations
-			ensure!( false, Error::<T>::RegistrationDisabled ); 
-
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
 		}
 		#[pallet::weight((Weight::from_ref_time(89_000_000)
@@ -1100,8 +1097,6 @@ pub mod pallet {
 				netuid: u16,
 				hotkey: T::AccountId, 
 		) -> DispatchResult { 
-			ensure!( false, Error::<T>::RegistrationDisabled ); 
-
 			Self::do_burned_registration(origin, netuid, hotkey)
 		}
 		#[pallet::weight((Weight::from_ref_time(81_000_000)
