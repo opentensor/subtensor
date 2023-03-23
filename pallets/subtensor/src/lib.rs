@@ -113,6 +113,8 @@ pub mod pallet {
 		type InitialMaxDifficulty: Get<u64>;
 		#[pallet::constant] // Initial Min Difficulty.
 		type InitialMinDifficulty: Get<u64>;
+		#[pallet::constant] // Initial adjustment interval.
+		type InitialRAORecycledForRegistration: Get<u64>;
 		#[pallet::constant] // Initial Burn.
 		type InitialBurn: Get<u64>;
 		#[pallet::constant] // Initial Max Burn.
@@ -227,6 +229,8 @@ pub mod pallet {
 	pub fn DefaultMaxDifficulty<T: Config>() -> u64 { T::InitialMaxDifficulty::get() }
 	#[pallet::type_value] 
 	pub fn DefaultMaxRegistrationsPerBlock<T: Config>() -> u16 { T::InitialMaxRegistrationsPerBlock::get() }
+	#[pallet::type_value]
+	pub fn DefaultRAORecycledForRegistration<T: Config>() -> u64 { T::InitialRAORecycledForRegistration::get() }
 
 	#[pallet::storage] // ---- StorageItem Global Used Work.
     pub type UsedWork<T:Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
@@ -248,6 +252,8 @@ pub mod pallet {
 	pub type RegistrationsThisBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
 	#[pallet::storage] // --- ITEM( global_max_registrations_per_block ) 
 	pub type MaxRegistrationsPerBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T> >;
+	#[pallet::storage] // --- ITEM ( global_RAO_recycled_for_registration )
+	pub type RAORecycledForRegistration<T> = StorageValue<_, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
 
 	// ==============================
 	// ==== Subnetworks Storage =====

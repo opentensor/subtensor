@@ -114,7 +114,8 @@ impl<T: Config> Pallet<T> {
     
         // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost_as_balance = Self::u64_to_balance( Self::get_burn_as_u64( netuid ) ).unwrap();
+        let registration_cost_as_u64 = Self::get_burn_as_u64( netuid );
+        let registration_cost_as_balance = Self::u64_to_balance( registration_cost_as_u64 ).unwrap();
         ensure!( Self::can_remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ), Error::<T>::NotEnoughBalanceToStake );
 
         // --- 7. Ensure the remove operation from the coldkey is a success.
@@ -158,6 +159,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
+        RAORecycledForRegistration::<T>::put( RAORecycledForRegistration::<T>::get() + Self::get_burn_as_u64( netuid ) );
     
         // --- 14. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
