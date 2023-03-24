@@ -14,10 +14,12 @@ use frame_support::{
 	dispatch,
 	dispatch::{
 		DispatchInfo,
+		DispatchResult,
 		PostDispatchInfo
 	}, ensure, 
 	traits::{
-		Currency, 
+		ReservableCurrency, 
+		Currency,
 		ExistenceRequirement,
 		tokens::{
 			WithdrawReasons
@@ -70,9 +72,8 @@ pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::ReservableCurrency};
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
 	use serde::{Serialize, Deserialize};
 	use serde_with::{serde_as, DisplayFromStr};
@@ -92,7 +93,7 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		// --- Currency type that will be used to place deposits on neurons
-		type Currency: Currency<Self::AccountId> + Send + Sync;
+		type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -609,7 +610,8 @@ pub mod pallet {
 		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceed MaxAllowedUids for the network.
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-		RegistrationDisabled // --- Thrown when registration is disabled
+		RegistrationDisabled, // --- Thrown when registration is disabled
+		InsufficientBalanceToReserve // --- Thrown when the caller attempts to reserve more balance than they have.
 	}
 
 	// ==================
