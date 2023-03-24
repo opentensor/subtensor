@@ -333,29 +333,24 @@ impl<T: Config> Pallet<T> {
     }
 
     // Makes the coldkey reserved balance equal to the total coldkey stake.
-    pub fn fix_reserved_balance_on_coldkey_account( coldkey: &T::AccountId ) -> Result<bool, Error<T>> {
+    pub fn fix_reserved_balance_on_coldkey_account( coldkey: &T::AccountId ) {
         let stake = Self::get_total_stake_for_coldkey( coldkey );
         let reserved = T::Currency::reserved_balance( coldkey );
         
-        let stake_as_currency = Self::u64_to_balance( stake );
-        ensure!( stake_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
+        let stake_as_currency = Self::u64_to_balance( stake ).unwrap_or_default();
 
-        let stake_as_balance = stake_as_currency.unwrap();
-
-        if stake_as_balance > reserved {
-            let diff = stake_as_balance - reserved;
+        if stake_as_currency > reserved {
+            let diff = stake_as_currency - reserved;
             // Increase the reserved balance on the coldkey account by the diff, issuing new TAO.
             // If this fails, the reserved balance will still be less than the stake.
             Self::increase_reserved_stake_on_coldkey_account_issuing(coldkey, diff);
-        } else if stake_as_balance < reserved {
+        } else if stake_as_currency < reserved {
             // Somehow the reserved balance is greater than the stake. This should never happen.
-            let diff = reserved - stake_as_balance;
+            let diff = reserved - stake_as_currency;
             // Remove the diff from the reserved balance on the coldkey account.
             T::Currency::slash_reserved( coldkey, diff ); // This will never fail.
         }
         // Otherwise they are equal and we do nothing.
-
-        Ok(true)
     }
 
     // Decreases UP-TO the reserved stake on the coldkey account by the decrement.
