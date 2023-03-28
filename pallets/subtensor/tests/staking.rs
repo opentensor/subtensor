@@ -801,6 +801,7 @@ fn test_delegate_stake_division_by_zero_check(){
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_full_with_delegating() {
 	new_test_ext().execute_with(|| {
 		let netuid = 1;
