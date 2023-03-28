@@ -29,5 +29,6 @@ _tarpaulin_options+=(
 	--target-dir "${__G_DIR__}/target/${_target_dir_name}"
 )
 
-SKIP_WASM_BUILD=1 cargo +nightly tarpaulin "${_tarpaulin_options[@]}"
+SKIP_WASM_BUILD=1 cargo +nightly tarpaulin "${_tarpaulin_options[@]}" |
+	grep -vE '^\|\|\s+(target/debug)'
 
