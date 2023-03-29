@@ -394,6 +394,71 @@ fn test_set_weights_sum_larger_than_u16_max() {
 	});
 }
 
+/// Check _falsey_ path for weights length
+#[test]
+fn test_is_self_weight_weights_length_not_one() {
+	new_test_ext().execute_with(|| {
+		let max_allowed: u16 = 3;
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+		let uid: u16 = uids[0].clone();
+		let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+
+		let expected = false;
+		let result = SubtensorModule::is_self_weight(uid, &uids, &weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result when `weights.len() != 1`"
+		);
+	});
+}
+
+/// Check _falsey_ path for uid vs uids[0]
+#[test]
+fn test_is_self_weight_uid_not_in_uids() {
+	new_test_ext().execute_with(|| {
+		let max_allowed: u16 = 3;
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+		let uid: u16 = uids[1].clone();
+		let weights: Vec<u16> = vec![0];
+
+		let expected = false;
+		let result = SubtensorModule::is_self_weight(uid, &uids, &weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result when `uid != uids[0]`"
+		);
+	});
+}
+
+/// Check _truthy_ path
+/// @TODO: double-check if this really be desired behavior
+#[test]
+fn test_is_self_weight_uid_in_uids() {
+	new_test_ext().execute_with(|| {
+		let max_allowed: u16 = 1;
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+		let uid: u16 = uids[0].clone();
+		let weights: Vec<u16> = vec![0];
+
+		let expected = true;
+		let result = SubtensorModule::is_self_weight(uid, &uids, &weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result when `uid != uids[0]`"
+		);
+	});
+}
+
+/// Check _truthy_ path
 #[test]
 fn test_check_len_uids_within_allowed_within_network_pool() {
 	new_test_ext().execute_with(|| {
@@ -423,6 +488,7 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
 	});
 }
 
+/// Check _falsey_ path
 #[test]
 fn test_check_len_uids_within_allowed_not_within_network_pool() {
 	new_test_ext().execute_with(|| {
