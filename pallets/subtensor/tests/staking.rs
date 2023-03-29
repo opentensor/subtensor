@@ -17,7 +17,7 @@ fn test_add_stake_dispatch_info_ok() {
 		let amount_staked = 5000;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake{hotkey, amount_staked});
 		assert_eq!(call.get_dispatch_info(), DispatchInfo {
-			weight: frame_support::weights::Weight::from_ref_time(0),
+			weight: frame_support::weights::Weight::from_ref_time(65000000),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No
 		});
@@ -181,7 +181,7 @@ fn test_remove_stake_dispatch_info_ok() {
 		let amount_unstaked = 5000;
 		let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake{hotkey, amount_unstaked});
 		assert_eq!(call.get_dispatch_info(), DispatchInfo {
-			weight: frame_support::weights::Weight::from_ref_time(0),
+			weight: frame_support::weights::Weight::from_ref_time(66000000),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No
 		});
@@ -771,6 +771,9 @@ fn test_full_with_delegating() {
 		register_ok_neuron( netuid, hotkey3, coldkey3, 4124124 );
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey3, 60000);
 		assert_ok!( SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey3), hotkey3, 1000) );
+
+		step_block(3);
+
 		assert_ok!( SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey3), hotkey3, u16::MAX ) ); // Full take. 
 		assert_ok!( SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey3, 1000) );
 		assert_ok!( SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey3, 1000) );
