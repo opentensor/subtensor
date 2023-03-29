@@ -453,7 +453,7 @@ fn test_is_self_weight_uid_in_uids() {
 		assert_eq!(
 			expected,
 			result,
-			"Failed get expected result when `uid != uids[0]`"
+			"Failed get expected result when everything _should_ be fine"
 		);
 	});
 }
