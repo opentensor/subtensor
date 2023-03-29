@@ -209,7 +209,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_validator_exclude_quantile( origin:T::RuntimeOrigin, netuid: u16, validator_exclude_quantile: u16 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        ensure!( validator_exclude_quantile <= 100, Error::<T>::StorageValueOutOfRange ); // The quantile must be between 0 and 100 => 0% and 100%
+        ensure!( validator_exclude_quantile <= u16::MAX, Error::<T>::StorageValueOutOfRange ); // The quantile must be between 0 and u16::MAX => 0% and 100%
         Self::set_validator_exclude_quantile( netuid, validator_exclude_quantile );
         log::info!("ValidatorExcludeQuantileSet( netuid: {:?} validator_exclude_quantile: {:?} ) ", netuid, validator_exclude_quantile);
         Self::deposit_event( Event::ValidatorExcludeQuantileSet( netuid, validator_exclude_quantile ));
