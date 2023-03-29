@@ -980,6 +980,7 @@ fn test_validator_permits() {
 					SubtensorModule::set_max_allowed_uids( netuid, network_n as u16 );
 					assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), network_n as u16 );
 					SubtensorModule::set_max_registrations_per_block( netuid, network_n as u16 );
+					SubtensorModule::set_target_registrations_per_interval(netuid, network_n as u16);
 			
 					// === Register [validator1, validator2, server1, server2]
 					for key in 0..network_n as u64 {

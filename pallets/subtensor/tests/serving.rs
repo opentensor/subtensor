@@ -137,7 +137,7 @@ fn test_axon_serving_rate_limit_exceeded() {
                 assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
                 assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
                 assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));    
-                SubtensorModule::set_serving_rate_limit( netuid, 1 );
+                SubtensorModule::set_serving_rate_limit( netuid, 2 );
                 assert_eq!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2), Err(Error::<Test>::ServingRateLimitExceeded.into()) );    
         });
 }
