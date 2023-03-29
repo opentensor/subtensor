@@ -114,7 +114,10 @@ SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug -- --nocapture
 
 Running individual tests
 ```bash
-SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo test <your test name> -- --nocapture
+SKIP_WASM_BUILD=1 \
+  RUST_LOG=runtime=debug \
+  cargo test <your test name> \
+  -- --nocapture --color always
 ```
 
 Running code coverage
