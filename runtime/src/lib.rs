@@ -349,7 +349,7 @@ parameter_types! {
 	pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
 	pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
 	pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
-	pub const SubtensorInitialTxRateLimit: u64 = 1000;
+	pub const SubtensorInitialTxRateLimit: u64 = 50;
 }
 
 impl pallet_subtensor::Config for Runtime {
