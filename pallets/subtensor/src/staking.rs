@@ -117,13 +117,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
-    
-        // --- 6. Ensure the remove operation from the coldkey is a success.
-        ensure!( Self::remove_balance_from_coldkey_account( &coldkey, stake_as_balance.unwrap() ) == true, Error::<T>::BalanceWithdrawalError );
 
-		// --- 7. Ensure we don't exceed tx rate limit
+        // --- 6. Ensure we don't exceed tx rate limit
 		let block: u64 = Self::get_current_block_as_u64();
 		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
+    
+        // --- 7. Ensure the remove operation from the coldkey is a success.
+        ensure!( Self::remove_balance_from_coldkey_account( &coldkey, stake_as_balance.unwrap() ) == true, Error::<T>::BalanceWithdrawalError );
 
         // --- 8. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
