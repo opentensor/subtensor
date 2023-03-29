@@ -393,3 +393,62 @@ fn test_set_weights_sum_larger_than_u16_max() {
 		assert_eq!(weights_set, vec![u16::MAX/2, u16::MAX/2]);
 	});
 }
+
+#[test]
+fn test_check_len_uids_within_allowed_within_network_pool() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 1;
+
+		let tempo: u16 = 13;
+		let modality: u16 = 0;
+
+		let max_registrations_per_block: u16 = 100;
+
+		add_network(netuid, tempo, modality);
+
+		/* @TODO: use a loop maybe */
+		register_ok_neuron(netuid, 1, 1, 0);
+		register_ok_neuron(netuid, 3, 3, 65555);
+		register_ok_neuron(netuid, 5, 5, 75555);
+		let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
+
+		SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
+		SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|uid| { uid }));
+
+		let expected = true;
+		let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
+		assert_eq!(expected, result, "netuid network length and uids length incompatible");
+	});
+}
+
+#[test]
+fn test_check_len_uids_within_allowed_not_within_network_pool() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 1;
+
+		let tempo: u16 = 13;
+		let modality: u16 = 0;
+
+		let max_registrations_per_block: u16 = 100;
+
+		add_network(netuid, tempo, modality);
+
+		/* @TODO: use a loop maybe */
+		register_ok_neuron(netuid, 1, 1, 0);
+		register_ok_neuron(netuid, 3, 3, 65555);
+		register_ok_neuron(netuid, 5, 5, 75555);
+		let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
+
+		SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
+		SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
+
+		let uids: Vec<u16> = Vec::from_iter((0..(max_allowed + 1)).map(|uid| { uid }));
+
+		let expected = false;
+		let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
+		assert_eq!(expected, result, "Failed to detect incompatible uids for network");
+	});
+}
+
