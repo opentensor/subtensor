@@ -34,6 +34,6 @@ ServingRateLimit: u64 = 250; // [250 @ 7,166]
 Burn: u64 = 100_000_000_000; // 100 tao [100 tao @ 26310]
 MinBurn: u64 = 10_000_000_000; // 10 tao [10 tao @ 26310]
 MaxBurn: u64 = 21_000_000_000_000_000; // 21M tao [21M tao @ 26310]
-TxRateLimit: u64 = 1000;
+TxRateLimit: u64 = 1;
 WeightsSetRateLimit: u64 = 250; // [250 @ 7,168]
 ```
