@@ -18,7 +18,7 @@ ScalingLawPower: u16 = 50; // 0.5
 SynergyScalingLawPower: u16 = 50; // 0.5
 MaxAllowedValidators: u16 = 128;
 Tempo: u16 = 99;
-Difficulty: u64 = 10_000_000;
+Difficulty: u64 = 671_088_640_000_000; // Same as nakamoto at block = 3606775 [671T @ 26310]
 AdjustmentInterval: u16 = 100;
 TargetRegistrationsPerInterval: u16 = 2;
 ImmunityPeriod: u16 = 4096;
@@ -31,9 +31,9 @@ WeightsVersionKey: u64 = 370;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;
 ServingRateLimit: u64 = 250; // [250 @ 7,166]
-Burn: u64 = 1_000_000_000; // 1 tao
-MinBurn: u64 = 1_000_000_000; // 1 tao
-MaxBurn: u64 = 100_000_000_000; // 100 tao
+Burn: u64 = 100_000_000_000; // 100 tao [100 tao @ 26310]
+MinBurn: u64 = 10_000_000_000; // 10 tao [10 tao @ 26310]
+MaxBurn: u64 = 21_000_000_000_000_000; // 21M tao [21M tao @ 26310]
 TxRateLimit: u64 = 50; // 1000 blocks [50 @ 65,000]
 WeightsSetRateLimit: u64 = 250; // [250 @ 7,168]
 ```
