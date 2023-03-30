@@ -394,6 +394,44 @@ fn test_set_weights_sum_larger_than_u16_max() {
 	});
 }
 
+/// Check do nothing path
+#[test]
+fn test_normalize_weights_does_not_mutate_when_sum_is_zero() {
+	new_test_ext().execute_with(|| {
+		let max_allowed: u16 = 3;
+
+		let mut weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_| { 0 }));
+
+		let expected = weights.clone();
+		let result = SubtensorModule::normalize_weights(weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result when everything _should_ be fine"
+		);
+	});
+}
+
+/// Check do something path
+#[test]
+fn test_normalize_weights_does_not_mutate_when_sum_not_zero() {
+	new_test_ext().execute_with(|| {
+		let max_allowed: u16 = 3;
+
+		let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|weight| { weight }));
+
+		let expected = weights.clone();
+		let result = SubtensorModule::normalize_weights(weights);
+
+		assert_eq!(
+			expected.len(),
+			result.len(),
+			"Length of weights changed?!"
+		);
+	});
+}
+
 /// Check _truthy_ path for weights length
 #[test]
 fn test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit() {
