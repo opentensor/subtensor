@@ -394,6 +394,84 @@ fn test_set_weights_sum_larger_than_u16_max() {
 	});
 }
 
+/// Check _truthy_ path for self weight
+#[test]
+fn test_check_length_allows_singleton() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 1;
+
+		let max_allowed: u16 = 1;
+		let min_allowed_weights = max_allowed;
+
+		SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+		let uid: u16 = uids[0].clone();
+		let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+
+		let expected = true;
+		let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result"
+		);
+	});
+}
+
+/// Check _truthy_ path for weights within allowed range
+#[test]
+fn test_check_length_weights_length_exceeds_min_allowed() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 1;
+
+		let max_allowed: u16 = 3;
+		let min_allowed_weights = max_allowed;
+
+		SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+		let uid: u16 = uids[0].clone();
+		let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+
+		let expected = true;
+		let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result"
+		);
+	});
+}
+
+/// Check _falsey_ path for weights outside allowed range
+#[test]
+fn test_check_length_to_few_weights() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 1;
+
+		let max_allowed: u16 = 3;
+		let min_allowed_weights = max_allowed + 1;
+
+		SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
+
+		let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+		let uid: u16 = uids[0].clone();
+		let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| { id + 1 }));
+
+		let expected = false;
+		let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
+
+		assert_eq!(
+			expected,
+			result,
+			"Failed get expected result"
+		);
+	});
+}
+
 /// Check do nothing path
 #[test]
 fn test_normalize_weights_does_not_mutate_when_sum_is_zero() {
