@@ -221,7 +221,7 @@ fn test_registration_too_many_registrations_per_interval() {
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		SubtensorModule::set_max_registrations_per_block( netuid, 11 );
-		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 10 );
+		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 11 );
 
 		SubtensorModule::set_target_registrations_per_interval( netuid, 10 );
 		assert_eq!( SubtensorModule::get_target_registrations_per_interval(netuid), 9 );
