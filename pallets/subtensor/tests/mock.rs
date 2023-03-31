@@ -203,7 +203,7 @@ pub fn test_ext_with_balances(balances : Vec<(u64, u128)>) -> sp_io::TestExterna
 		.build_storage::<Test>()
 		.unwrap();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances: balances.iter().map(|(a, b)| (*a, *b as u64)).collect::<Vec<(u64, u64)>>()  }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

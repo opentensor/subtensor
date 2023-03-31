@@ -215,7 +215,7 @@ fn test_remove_stake_ok_no_emission() {
 		// Do the magic
 		assert_ok!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, amount));
 
-		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), amount as u128);
+		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), amount);
 		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id), 0);
 		assert_eq!(SubtensorModule::get_total_stake(), 0);
 	});
