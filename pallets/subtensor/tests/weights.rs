@@ -478,7 +478,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_is_zero() {
 	new_test_ext().execute_with(|| {
 		let max_allowed: u16 = 3;
 
-		let mut weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_| { 0 }));
+		let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_| { 0 }));
 
 		let expected = weights.clone();
 		let result = SubtensorModule::normalize_weights(weights);
