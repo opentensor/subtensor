@@ -2,7 +2,7 @@ mod mock;
 use mock::*;
 use pallet_subtensor::{Error};
 use frame_system::Config;
-use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
+use frame_support::dispatch::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
 use frame_support::{assert_ok};
 use sp_runtime::DispatchError;
 use substrate_fixed::types::I32F32;
