@@ -14,7 +14,8 @@ use frame_support::{
 	dispatch,
 	dispatch::{
 		DispatchInfo,
-		PostDispatchInfo
+		PostDispatchInfo,
+		RawOrigin
 	}, ensure, 
 	traits::{
 		Currency, 
@@ -33,7 +34,8 @@ use sp_runtime::{
 		Dispatchable,
 		DispatchInfoOf,
 		SignedExtension,
-		PostDispatchInfoOf
+		PostDispatchInfoOf,
+		BadOrigin
 	},
 	transaction_validity::{
 		TransactionValidity,
@@ -1717,3 +1719,18 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
     }
 
 }
+
+/// Ensure that the origin `o` represents an administrator. Returns `Ok` or an `Err` otherwise.
+///
+/// https://github.com/paritytech/substrate/blob/master/frame/system/src/lib.rs#L949-L958
+pub fn ensure_is_admin<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<(), BadOrigin>
+where
+	OuterOrigin: Into<Result<RawOrigin<AccountId>, OuterOrigin>>,
+{
+	match o.into() {
+		Ok(RawOrigin::Root) => Ok(()),
+		// @TODO: Add variants for administrators
+		_ => Err(BadOrigin),
+	}
+}
+

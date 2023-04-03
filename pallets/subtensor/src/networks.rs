@@ -185,6 +185,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure caller is sudo.
         ensure_root( origin )?;
+				// @TODO: replace above with ensure_is_admin
+				// ensure_is_admin( origin )?;
 
         // --- 2. Ensure emission values match up to network uids.
         ensure!( netuids.len() == emission.len(), Error::<T>::WeightVecNotEqualSize );
