@@ -4,7 +4,7 @@ mod mock;
 use mock::*;
 use frame_support::sp_runtime::DispatchError;
 use pallet_subtensor::{Error};
-use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
+use frame_support::dispatch::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
 
 /***********************************************************
 	staking::add_stake() tests
