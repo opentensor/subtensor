@@ -48,7 +48,8 @@ pub fn vec_max_upscale_to_u16( vec: &Vec<I32F32> ) -> Vec<u16> {
             return vec.iter().map(|e: &I32F32| (e * u16_max / *val).to_num::<u16>() ).collect()
         },
         None => {
-            return vec.iter().map(|e: &I32F32| (e * u16_max).to_num::<u16>() ).collect()
+            let sum: I32F32 = vec.iter().sum();
+            return vec.iter().map(|e: &I32F32| (e * u16_max / sum).to_num::<u16>() ).collect()
         }
     }
 }
