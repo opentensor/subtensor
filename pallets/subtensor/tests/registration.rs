@@ -221,10 +221,11 @@ fn test_registration_too_many_registrations_per_interval() {
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		SubtensorModule::set_max_registrations_per_block( netuid, 11 );
-		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 10 );
+		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 11 );
 
-		SubtensorModule::set_target_registrations_per_interval( netuid, 10 );
-		assert_eq!( SubtensorModule::get_target_registrations_per_interval(netuid), 9 );
+		SubtensorModule::set_target_registrations_per_interval( netuid, 3 );
+		assert_eq!( SubtensorModule::get_target_registrations_per_interval(netuid), 3 );
+		// Then the max is 3 * 3 = 9
 
 		let block_number: u64 = 0;
 		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
@@ -237,13 +238,13 @@ fn test_registration_too_many_registrations_per_interval() {
 		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424);
 		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242);
 		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453);
-		let (nonce10, work10): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 345923888);
 		assert_eq!( SubtensorModule::get_difficulty_as_u64(netuid), 10000 );
 
 		//add network
 		add_network(netuid, tempo, 0);
 		
 		// Subscribe and check extrinsic output
+		// Try 10 registrations, this is less than the max per block, but more than the max per interval
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, block_number, nonce0, work0, 0, 0));
 		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 1 );
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(1), netuid, block_number, nonce1, work1, 1, 1));
@@ -262,9 +263,7 @@ fn test_registration_too_many_registrations_per_interval() {
 		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 8 );
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(8), netuid, block_number, nonce8, work8, 8, 8));
 		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 9 );
-		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(9), netuid, block_number, nonce9, work9, 9, 9));
-		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 10 );
-		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(10), netuid, block_number, nonce10, work10, 10, 10);
+		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(9), netuid, block_number, nonce9, work9, 9, 9);
 		assert_eq!( result, Err(Error::<Test>::TooManyRegistrationsThisInterval.into()) );
 	});
 }
