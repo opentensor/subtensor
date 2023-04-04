@@ -25,7 +25,7 @@ fn test_get_neuron_some() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        let uid: u16 = 42;
+        let uid: u16 = 0;
         let hotkey0: u64 = 0;
         let coldkey0: u64 = 0;
 

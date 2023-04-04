@@ -1461,52 +1461,6 @@ pub mod pallet {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
 
-
-		// Benchmarking functions.
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
-			Self::init_new_network( netuid, tempo, 1 );
-			Self::set_max_allowed_uids( netuid, n );
-			let mut seed : u32 = 1;
-			for _ in 0..n {
-				let block_number: u64 = Self::get_current_block_as_u64();
-				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
-				Self::append_neuron( netuid, &hotkey, block_number );
-				seed = seed + 1;
-			}
-			Ok(())
-		}
-
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
-			Self::init_new_network( netuid, tempo, 1 );
-			Self::set_max_allowed_uids( netuid, n );
-			Self::set_max_allowed_validators( netuid, n_vals );
-			Self::set_min_allowed_weights( netuid, n_weights );
-			Self::set_emission_for_network( netuid, 1_000_000_000 );
-			let mut seed : u32 = 1;
-			for _ in 0..n {
-				let block_number: u64 = Self::get_current_block_as_u64();
-				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
-				Self::increase_stake_on_coldkey_hotkey_account( &hotkey, &hotkey, 1_000_000_000 );
-				Self::append_neuron( netuid, &hotkey, block_number );
-				seed = seed + 1;
-			}
-			for uid in 0..n {
-				let uids: Vec<u16> = (0..n_weights).collect();
-				let values: Vec<u16> = vec![1; n_weights as usize];
-				let normalized_values = Self::normalize_weights( values );
-				let mut zipped_weights: Vec<( u16, u16 )> = vec![];
-				for ( uid, val ) in uids.iter().zip(normalized_values.iter()) { zipped_weights.push((*uid, *val)) }
-				if uid < n_vals {
-					Weights::<T>::insert( netuid, uid, zipped_weights );
-				} else {
-					break;
-				}
-			}
-			Ok(())
-		}
-
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
@@ -1538,6 +1492,49 @@ pub mod pallet {
 				return current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
 			}
 			return 0;
+		}
+
+		// Benchmarking functions.
+		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
+			Self::init_new_network( netuid, tempo, 1 );
+			Self::set_max_allowed_uids( netuid, n );
+			let mut seed : u32 = 1;
+			for _ in 0..n {
+				let block_number: u64 = Self::get_current_block_as_u64();
+				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+				Self::append_neuron( netuid, &hotkey, block_number );
+				seed = seed + 1;
+			}
+			Ok(())
+		}
+
+		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
+			Self::init_new_network( netuid, tempo, 1 );
+			Self::set_max_allowed_uids( netuid, n );
+			Self::set_max_allowed_validators( netuid, n_vals );
+			Self::set_min_allowed_weights( netuid, n_weights );
+			Self::set_emission_for_network( netuid, 1_000_000_000 );
+			let mut seed : u32 = 1;
+			for _ in 0..n {
+				let block_number: u64 = Self::get_current_block_as_u64();
+				let hotkey: T::AccountId = T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap();
+				Self::increase_stake_on_coldkey_hotkey_account( &hotkey, &hotkey, 1_000_000_000 );
+				Self::append_neuron( netuid, &hotkey, block_number );
+				seed = seed + 1;
+			}
+			for uid in 0..n {
+				let uids: Vec<u16> = (0..n_weights).collect();
+				let values: Vec<u16> = vec![1; n_weights as usize];
+				let normalized_values = Self::normalize_weights( values );
+				let mut zipped_weights: Vec<( u16, u16 )> = vec![];
+				for ( uid, val ) in uids.iter().zip(normalized_values.iter()) { zipped_weights.push((*uid, *val)) }
+				if uid < n_vals {
+					Weights::<T>::insert( netuid, uid, zipped_weights );
+				} else {
+					break;
+				}
+			}
+			Ok(())
 		}
 	}
 }
