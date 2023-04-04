@@ -111,7 +111,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 			stake = if validators.contains(&key) { stake_per_validator } else { 0 }; // only validators receive stake
 		}
 		// let stake: u128 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
-		SubtensorModule::add_balance_to_coldkey_account( &(key as u64), stake as u128 );
+		SubtensorModule::add_balance_to_coldkey_account( &(key as u64), stake );
 		SubtensorModule::append_neuron( netuid, &(key as u64), 0 );
 		SubtensorModule::increase_stake_on_coldkey_hotkey_account( &(key as u64), &(key as u64), stake as u64 );
 	}
@@ -324,7 +324,7 @@ fn test_1_graph() {
 		let stake_amount: u64 = 1;
 		add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
 		SubtensorModule::set_max_allowed_uids( netuid, 1 ); 
-		SubtensorModule::add_balance_to_coldkey_account( &coldkey, stake_amount as u128 );
+		SubtensorModule::add_balance_to_coldkey_account( &coldkey, stake_amount );
  		SubtensorModule::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_amount );
 		 SubtensorModule::append_neuron( netuid, &hotkey, 0 );
 		assert_eq!( SubtensorModule::get_subnetwork_n(netuid), 1 );
@@ -599,7 +599,7 @@ fn test_active_stake() {
 
 		// === Register [validator1, validator2, server1, server2]
 		for key in 0..n as u64 {
-			SubtensorModule::add_balance_to_coldkey_account( &key, stake as u128 );
+			SubtensorModule::add_balance_to_coldkey_account( &key, stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake );
@@ -741,7 +741,7 @@ fn test_outdated_weights() {
 
 		// === Register [validator1, validator2, server1, server2]
 		for key in 0..n as u64 {
-			SubtensorModule::add_balance_to_coldkey_account( &key, stake as u128 );
+			SubtensorModule::add_balance_to_coldkey_account( &key, stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake );
@@ -860,7 +860,7 @@ fn test_zero_weights() {
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 		}
 		for validator in 0..(n/2) as u64 {
-			SubtensorModule::add_balance_to_coldkey_account( &validator, stake as u128 );
+			SubtensorModule::add_balance_to_coldkey_account( &validator, stake );
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &validator, &validator, stake );
 		}
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -984,7 +984,7 @@ fn test_validator_permits() {
 			
 					// === Register [validator1, validator2, server1, server2]
 					for key in 0..network_n as u64 {
-						SubtensorModule::add_balance_to_coldkey_account( &key, stake[key as usize] as u128 );
+						SubtensorModule::add_balance_to_coldkey_account( &key, stake[key as usize] );
 						let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
 						assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 						SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake[key as usize] );
@@ -1004,7 +1004,7 @@ fn test_validator_permits() {
 
 					// === Increase server stake above validators
 					for server in &servers {
-						SubtensorModule::add_balance_to_coldkey_account( &(*server as u64), 2*network_n as u128 );
+						SubtensorModule::add_balance_to_coldkey_account( &(*server as u64), 2*network_n as u64 );
 						SubtensorModule::increase_stake_on_coldkey_hotkey_account( &(*server as u64), &(*server as u64), 2*network_n as u64 );
 					}
 
