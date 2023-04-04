@@ -111,7 +111,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 104,
+	spec_version: 117,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -274,8 +274,8 @@ where
 
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		let coefficient = WeightToFeeCoefficient {
-			coeff_integer: C::get(),
-			coeff_frac: Perbill::from_percent(1),
+			coeff_integer: 0,
+			coeff_frac: Perbill::from_parts(1),
 			negative: false,
 			degree: 1,
 		};
@@ -428,7 +428,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	
+	pallet_subtensor::SubtensorSignedExtension<Runtime>
 );
 
 // Unchecked extrinsic type as expected by this runtime.

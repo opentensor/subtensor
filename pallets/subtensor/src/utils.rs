@@ -104,6 +104,7 @@ impl<T: Config> Pallet<T> {
     // ========================
 	// ==== Rate Limiting =====
 	// ========================
+	pub fn set_last_tx_block( key: &T::AccountId, block: u64 ) { LastTxBlock::<T>::insert( key, block ) }
 	pub fn get_last_tx_block( key: &T::AccountId ) -> u64 { LastTxBlock::<T>::get( key ) }
 	pub fn exceeds_tx_rate_limit( prev_tx_block: u64, current_block: u64 ) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
@@ -208,7 +209,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_validator_exclude_quantile( origin:T::RuntimeOrigin, netuid: u16, validator_exclude_quantile: u16 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        ensure!( validator_exclude_quantile <= 100, Error::<T>::StorageValueOutOfRange ); // The quantile must be between 0 and 100 => 0% and 100%
+        ensure!( validator_exclude_quantile <= u16::MAX, Error::<T>::StorageValueOutOfRange ); // The quantile must be between 0 and u16::MAX => 0% and 100%
         Self::set_validator_exclude_quantile( netuid, validator_exclude_quantile );
         log::info!("ValidatorExcludeQuantileSet( netuid: {:?} validator_exclude_quantile: {:?} ) ", netuid, validator_exclude_quantile);
         Self::deposit_event( Event::ValidatorExcludeQuantileSet( netuid, validator_exclude_quantile ));
