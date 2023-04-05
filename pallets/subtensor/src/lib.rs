@@ -15,8 +15,8 @@ use frame_support::{
 	dispatch::{
 		DispatchInfo,
 		DispatchResult,
-		PostDispatchInfo
-	}, ensure, 
+		PostDispatchInfo,
+	}, 
 	traits::{
 		ReservableCurrency, 
 		Currency,
@@ -25,7 +25,9 @@ use frame_support::{
 			WithdrawReasons
 		},
 		IsSubType,
-		}
+	},
+	ensure,
+	fail,
 };
 
 use sp_std::marker::PhantomData;
@@ -187,6 +189,8 @@ pub mod pallet {
 	pub fn DefaultTotalIssuance<T: Config>() -> u64 { T::InitialIssuance::get() }
 	#[pallet::type_value] 
 	pub fn DefaultAccount<T: Config>() -> T::AccountId { T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()}
+	#[pallet::type_value]
+	pub fn DefaultReservedBalanceFixed<T: Config>() -> bool { false }
 
 	#[pallet::storage] // --- ITEM ( total_stake )
 	pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -206,6 +210,8 @@ pub mod pallet {
     pub type Delegates<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
 	#[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a hotkey prefixed by hotkey.
     pub type Stake<T:Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+	#[pallet::storage] // --- MAP ( cold ) --> bool | Returns true if the coldkey has had its reserved balance fixed to match Stake map
+	pub type ReservedBalanceFixed<T:Config> = StorageMap<_, Identity, T::AccountId, bool, ValueQuery, DefaultReservedBalanceFixed<T>>;
 
 	// =====================================
 	// ==== Difficulty / Registrations =====
@@ -612,7 +618,9 @@ pub mod pallet {
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
-		InsufficientBalanceToReserve // --- Thrown when the caller attempts to reserve more balance than they have.
+		InsufficientBalanceToReserve, // --- Thrown when the caller attempts to reserve more balance than they have.
+		ColdkeyReservedBalanceAlreadyFixed, // --- Thrown when the caller attempts to fix the reserved balance of a coldkey that is already fixed.
+		ColdkeyReservedBalanceFixFailed, // --- Thrown when the caller attempts to fix the reserved balance of a coldkey and the fix fails.
 	}
 
 	// ==================

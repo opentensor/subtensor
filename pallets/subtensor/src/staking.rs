@@ -122,8 +122,13 @@ impl<T: Config> Pallet<T> {
         // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 7. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
-        Self::fix_reserved_balance_on_coldkey_account( &coldkey );
+        // --- 7. Ensure that the coldkey reserved balance has been fixed, otherwise, fix it.
+        if !Self::is_coldkey_reserved_balance_fixed( &coldkey ) {
+            if !Self::fix_reserved_balance_on_coldkey_account( &coldkey ).is_ok() {
+                log::error!("do_add_stake( coldkey:{:?} ) - Could not fix the reserved balance on the coldkey account.", coldkey );
+                fail!( Error::<T>::ColdkeyReservedBalanceFixFailed );
+            }
+        }
 
         // --- 8. Increase the stake map and the reserved balance on the coldkey account.
         // ---       This will also update the reserved balance on the coldkey account, by adding the stake amount.
@@ -203,7 +208,12 @@ impl<T: Config> Pallet<T> {
         ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
         // --- 7. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
-        Self::fix_reserved_balance_on_coldkey_account( &coldkey );
+        if !Self::is_coldkey_reserved_balance_fixed( &coldkey ) {
+            if !Self::fix_reserved_balance_on_coldkey_account( &coldkey ).is_ok() {
+                log::error!("do_add_stake( coldkey:{:?} ) - Could not fix the reserved balance on the coldkey account.", coldkey );
+                fail!( Error::<T>::ColdkeyReservedBalanceFixFailed );
+            }
+        }
 
         // --- 8. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
@@ -342,25 +352,47 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
     }
 
+    pub fn is_coldkey_reserved_balance_fixed( coldkey: &T::AccountId ) -> bool {
+        return ReservedBalanceFixed::<T>::get( coldkey );
+    }
+
+
     // Makes the coldkey reserved balance equal to the total coldkey stake.
-    pub fn fix_reserved_balance_on_coldkey_account( coldkey: &T::AccountId ) {
+    pub fn fix_reserved_balance_on_coldkey_account( coldkey: &T::AccountId ) -> dispatch::DispatchResult {
+        // Verfiy that the coldkey has not been fixed already.
+        ensure!( !ReservedBalanceFixed::<T>::get( coldkey ), Error::<T>::ColdkeyReservedBalanceAlreadyFixed );
+
+        log::info!("Fixing reserved balance on coldkey account: {:?}", coldkey);
+
         let stake = Self::get_total_stake_for_coldkey( coldkey );
         let reserved = T::Currency::reserved_balance( coldkey );
         
         let stake_as_currency = Self::u64_to_balance( stake ).unwrap_or_default();
-
+        
+        let mut success = true;
         if stake_as_currency > reserved {
             let diff = stake_as_currency - reserved;
             // Increase the reserved balance on the coldkey account by the diff, issuing new TAO.
             // If this fails, the reserved balance will still be less than the stake.
-            Self::increase_reserved_stake_on_coldkey_account_issuing(coldkey, diff);
+            success = Self::increase_reserved_stake_on_coldkey_account_issuing(coldkey, diff);
         } else if stake_as_currency < reserved {
             // Somehow the reserved balance is greater than the stake. This should never happen.
             let diff = reserved - stake_as_currency;
             // Remove the diff from the reserved balance on the coldkey account.
             T::Currency::slash_reserved( coldkey, diff ); // This will never fail.
+            success = true;
         }
         // Otherwise they are equal and we do nothing.
+
+        // Record fixed reserved balance on coldkey account.
+        if success {
+            log::info!("Fixed reserved balance on coldkey account: {:?}, stake: {:?}, reserved: {:?}", coldkey, stake_as_currency, reserved);
+            ReservedBalanceFixed::<T>::insert( coldkey, true );
+        } else {
+            log::info!("Failed to fix reserved balance on coldkey account: {:?}, stake: {:?}, reserved: {:?}", coldkey, stake_as_currency, reserved);
+            fail! ( Error::<T>::ColdkeyReservedBalanceFixFailed )
+        }
+        Ok(())
     }
 
     // Decreases UP-TO the reserved stake on the coldkey account by the decrement.
@@ -382,7 +414,7 @@ impl<T: Config> Pallet<T> {
     // This issues Balance and then reserves it to the coldkey account.
     // Will not fail.
     pub fn increase_reserved_stake_on_coldkey_account_issuing( coldkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> bool {
-        T::Currency::deposit_creating( coldkey, increment_balance ); // Issue the new TAO.
+        T::Currency::deposit_creating( coldkey, increment_balance ); // Issue the new TAO. This gets added to the free balance.
         // Returns false if it fails to reserve.
         T::Currency::reserve( coldkey, increment_balance ).is_ok() // Move to the reserved balance.
     }
