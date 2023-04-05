@@ -252,8 +252,8 @@ pub mod pallet {
 	pub type RegistrationsThisBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
 	#[pallet::storage] // --- ITEM( global_max_registrations_per_block ) 
 	pub type MaxRegistrationsPerBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T> >;
-	#[pallet::storage] // --- ITEM ( global_RAO_recycled_for_registration )
-	pub type RAORecycledForRegistration<T> = StorageValue<_, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
+	#[pallet::storage] // --- MAP ( netuid, global_RAO_recycled_for_registration )
+	pub type RAORecycledForRegistration<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T> >;
 
 	// ==============================
 	// ==== Subnetworks Storage =====
@@ -1463,8 +1463,8 @@ pub mod pallet {
 		}
 
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, rao_recycled: u64 ) -> DispatchResult {
-			Self::do_set_rao_recycled(origin, rao_recycled)
+		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
+			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
 		}
 
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)

@@ -159,7 +159,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
-        RAORecycledForRegistration::<T>::put( RAORecycledForRegistration::<T>::get() + Self::get_burn_as_u64( netuid ) );
+        Self::increase_rao_recycled( netuid, Self::get_burn_as_u64( netuid ) );
     
         // --- 14. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
