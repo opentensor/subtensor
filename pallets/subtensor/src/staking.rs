@@ -105,25 +105,25 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?;
         log::info!("do_add_stake( origin:{:?} hotkey:{:?}, stake_to_be_added:{:?} )", coldkey, hotkey, stake_to_be_added );
 
-        // --- 2. We convert the stake u64 into a balancer.
+        // --- 2. Ensure we don't exceed tx rate limit
+		let block: u64 = Self::get_current_block_as_u64();
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
+
+        // --- 3. We convert the stake u64 into a balancer.
         let stake_as_balance = Self::u64_to_balance( stake_to_be_added );
         ensure!( stake_as_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
  
-        // --- 3. Ensure the callers coldkey has enough balance to perform the transaction.
+        // --- 4. Ensure the callers coldkey has enough balance to perform the transaction.
         ensure!( Self::can_remove_balance_from_coldkey_account( &coldkey, stake_as_balance.unwrap() ), Error::<T>::NotEnoughBalanceToStake );
 
-        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
+        // --- 5. Ensure that the hotkey account exists this is only possible through registration.
         ensure!( Self::hotkey_account_exists( &hotkey ), Error::<T>::NotRegistered );    
 
-        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 6. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
+        // --- 7. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
         Self::fix_reserved_balance_on_coldkey_account( &coldkey );
-        
-        // --- 7. Ensure we don't exceed tx rate limit
-		let block: u64 = Self::get_current_block_as_u64();
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
         // ---       This will also update the reserved balance on the coldkey account, by adding the stake amount.
