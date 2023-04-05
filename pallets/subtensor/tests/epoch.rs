@@ -110,7 +110,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 		else {
 			stake = if validators.contains(&key) { stake_per_validator } else { 0 }; // only validators receive stake
 		}
-		// let stake: u128 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
+		// let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
 		SubtensorModule::add_balance_to_coldkey_account( &(key as u64), stake );
 		SubtensorModule::append_neuron( netuid, &(key as u64), 0 );
 		SubtensorModule::increase_stake_on_coldkey_hotkey_account( &(key as u64), &(key as u64), stake as u64 );
@@ -667,7 +667,8 @@ fn test_active_stake() {
 			D: [0.55, 0.4499999997, 0, 0]
 			nE: [0.275, 0.2249999999, 0.25, 0.25]
 			E: [274999999, 224999999, 250000000, 250000000]
-			P: [0.275, 0.2249999999, 0.25, 0.25] */
+			P: [0.275, 0.2249999999, 0.25, 0.25]
+			P (u16): [65535, 53619, 59577, 59577] */
 		let bonds = SubtensorModule::get_bonds( netuid );
 		assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, 0 ), 36044 ); // Note D = floor((0.5 * 0.9 + 0.1) * 65_535)
 		assert_eq!( SubtensorModule::get_emission_for_uid( netuid, 0 ), 274999999 ); // Note E = 0.5 * 0.55 * 1_000_000_000 = 275_000_000 (discrepancy)
@@ -710,7 +711,8 @@ fn test_active_stake() {
 			D: [0.5450041203, 0.4549958794, 0, 0]
 			nE: [0.27250206, 0.2274979397, 0.25, 0.25]
 			E: [272502060, 227497939, 250000000, 250000000]
-			P: [0.27250206, 0.2274979397, 0.25, 0.25] */
+			P: [0.27250206, 0.2274979397, 0.25, 0.25]
+			P (u16): [65535, 54711, 60123, 60123] */
 		let bonds = SubtensorModule::get_bonds( netuid );
 		assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, 0 ), 35716 ); // Note D = floor((0.55 * 0.9 + 0.5 * 0.1) * 65_535)
 		assert_eq!( SubtensorModule::get_emission_for_uid( netuid, 0 ), 272502060 ); // Note E = 0.5 * (0.55 * 0.9 + 0.5 * 0.1) * 1_000_000_000 = 272_500_000 (discrepancy)
@@ -787,7 +789,7 @@ fn test_outdated_weights() {
 			nE: [0.25, 0.25, 0.3333333333, 0.1666666665]
 			E: [250000000, 250000000, 333333333, 166666666]
 			P: [0.25, 0.25, 0.3333333333, 0.1666666665]
-			n: 4 */
+			P (u16): [49151, 49151, 65535, 32767] */
 
 		// === Dereg server2 at uid3 (least emission) + register new key over uid3
 		let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
@@ -831,7 +833,8 @@ fn test_outdated_weights() {
 			D: [0.5, 0.5, 0, 0]
 			nE: [0.25, 0.25, 0.5, 0]
 			E: [250000000, 250000000, 500000000, 0]
-			P: [0.25, 0.25, 0.5, 0] */
+			P: [0.25, 0.25, 0.5, 0]
+			P (u16): [32767, 32767, 65535, 0] */
 		let bonds = SubtensorModule::get_bonds( netuid );
 		assert_eq!( SubtensorModule::get_dividends_for_uid( netuid, 0 ), 32767 ); // Note D = floor(0.5 * 65_535)
 		assert_eq!( SubtensorModule::get_emission_for_uid( netuid, 0 ), 250000000 ); // Note E = 0.5 * 0.5 * 1_000_000_000 = 249311245
@@ -1004,7 +1007,7 @@ fn test_validator_permits() {
 
 					// === Increase server stake above validators
 					for server in &servers {
-						SubtensorModule::add_balance_to_coldkey_account( &(*server as u64), 2*network_n as u64 );
+						SubtensorModule::add_balance_to_coldkey_account( &(*server as u64), 2 * network_n as u64 );
 						SubtensorModule::increase_stake_on_coldkey_hotkey_account( &(*server as u64), &(*server as u64), 2*network_n as u64 );
 					}
 
