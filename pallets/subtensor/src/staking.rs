@@ -133,11 +133,11 @@ impl<T: Config> Pallet<T> {
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);
  
-        // --- 10. Emit the staking event.
+        // --- 9. Emit the staking event.
         log::info!("StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )", hotkey, stake_to_be_added );
         Self::deposit_event( Event::StakeAdded( hotkey, stake_to_be_added ) );
 
-        // --- 11. Ok and return.
+        // --- 10. Ok and return.
         Ok(())
     }
 
