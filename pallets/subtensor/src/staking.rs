@@ -412,7 +412,6 @@ impl<T: Config> Pallet<T> {
 
     // Increases the reserved stake on the coldkey account by the increment.
     // This issues Balance and then reserves it to the coldkey account.
-    // Will not fail.
     pub fn increase_reserved_stake_on_coldkey_account_issuing( coldkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> bool {
         T::Currency::deposit_creating( coldkey, increment_balance ); // Issue the new TAO. This gets added to the free balance.
         // Returns false if it fails to reserve.
@@ -420,8 +419,8 @@ impl<T: Config> Pallet<T> {
     }
 
     // Increases the reserved stake on the coldkey account by the increment.
+    // Gets the coldkey that owns the hotkey and then calls the above function.
     // This issues Balance and then reserves it to the coldkey account.
-    // Will not fail.
     pub fn increase_reserved_stake_on_coldkey_account_issuing_using_hotkey( hotkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> bool {
         // Get the coldkey for the hotkey.
         let coldkey = Self::get_owning_coldkey_for_hotkey(hotkey);
