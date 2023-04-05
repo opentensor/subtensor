@@ -495,6 +495,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn do_set_rao_recycled(origin: T::RuntimeOrigin, netuid: u16, rao_recycled: u64) -> DispatchResult{
         ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
         Self::set_rao_recycled( netuid, rao_recycled );
         Self::deposit_event( Event::RAORecycledForRegistrationSet( netuid, rao_recycled ) );
         Ok(())
