@@ -125,10 +125,11 @@ impl<T: Config> Pallet<T> {
         // --- 7. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
         Self::fix_reserved_balance_on_coldkey_account( &coldkey );
 
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+        // --- 8. Increase the stake map and the reserved balance on the coldkey account.
         // ---       This will also update the reserved balance on the coldkey account, by adding the stake amount.
-        // --- Throws InsufficientBalanceToReserve if the coldkey account does not have enough balance to reserve.
+        // ---          and move the stake amount from the coldkey free balance.
         Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
+        Self::increase_reserved_stake_on_coldkey_account( &coldkey, stake_as_balance.unwrap() );
 
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);
