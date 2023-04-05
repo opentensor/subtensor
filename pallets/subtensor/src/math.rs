@@ -836,6 +836,13 @@ mod tests {
         }  
     }
     
+    fn assert_vec_compare_u16(va: &Vec<u16>, vb: &Vec<u16>) {
+        assert!(va.len() == vb.len());
+        for i in 0..va.len(){
+            assert_eq!(va[i], vb[i]);
+        }  
+    }
+    
     fn assert_mat_compare(ma: &Vec<Vec<I32F32>>, mb: &Vec<Vec<I32F32>>, epsilon: I32F32) {
         assert!(ma.len() == mb.len());
         for row in 0..ma.len() {
