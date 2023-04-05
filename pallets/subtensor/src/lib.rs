@@ -1461,6 +1461,11 @@ pub mod pallet {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
 
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, rao_recycled: u64 ) -> DispatchResult {
+			Self::do_set_rao_recycled(origin, rao_recycled)
+		}
+
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
