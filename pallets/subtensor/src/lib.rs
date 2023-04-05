@@ -56,6 +56,7 @@ mod benchmarks;
 // =========================
 mod block_step;
 
+mod admins;
 mod epoch;
 mod math;
 mod networks;
@@ -1534,6 +1535,17 @@ pub mod pallet {
 				return current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
 			}
 			return 0;
+		}
+	}
+
+	//
+	impl<T: pallet_collective::Config> Pallet<T> {
+		pub fn add_admin(origin: OriginFor<T>) -> DispatchResult {
+			Self::do_add_admin(origin)
+		}
+
+		pub fn remove_admin(origin: OriginFor<T>) -> DispatchResult {
+			Self::do_remove_admin(origin)
 		}
 	}
 }
