@@ -37,6 +37,29 @@ pub fn vec_u16_proportions_to_fixed( vec: Vec<u16> ) -> Vec<I32F32> { vec.into_i
 pub fn vec_fixed_proportions_to_u16( vec: Vec<I32F32> ) -> Vec<u16> { vec.into_iter().map(|e| fixed_proportion_to_u16(e) ).collect() }
 
 #[allow(dead_code)]
+// Max-upscale vector and convert to u16 so max_value = u16::MAX. Assumes non-negative normalized input.
+pub fn vec_max_upscale_to_u16( vec: &Vec<I32F32> ) -> Vec<u16> {
+    let u16_max: I32F32 = I32F32::from_num( u16::MAX );
+    let threshold: I32F32 = I32F32::from_num( 32768 );
+    let max_value: Option<&I32F32> = vec.iter().max();
+    match max_value {
+        Some(val) => {
+            if *val == I32F32::from_num( 0 ) {
+                return vec.iter().map(|e: &I32F32| (e * u16_max).to_num::<u16>() ).collect()
+            }
+            if *val > threshold {
+                return vec.iter().map(|e: &I32F32| (e * (u16_max / *val)).round().to_num::<u16>() ).collect()
+            }
+            return vec.iter().map(|e: &I32F32| ((e * u16_max) / *val).round().to_num::<u16>() ).collect()
+        },
+        None => {
+            let sum: I32F32 = vec.iter().sum();
+            return vec.iter().map(|e: &I32F32| ((e * u16_max) / sum).to_num::<u16>() ).collect()
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub fn sum( x: &Vec<I32F32> ) -> I32F32 { x.iter().sum() }
 
 // Return true when vector sum is zero.
@@ -782,6 +805,13 @@ mod tests {
         }  
     }
     
+    fn assert_vec_compare_u16(va: &Vec<u16>, vb: &Vec<u16>) {
+        assert!(va.len() == vb.len());
+        for i in 0..va.len(){
+            assert_eq!(va[i], vb[i]);
+        }  
+    }
+    
     fn assert_mat_compare(ma: &Vec<Vec<I32F32>>, mb: &Vec<Vec<I32F32>>, epsilon: I32F32) {
         assert!(ma.len() == mb.len());
         for row in 0..ma.len() {
@@ -805,6 +835,78 @@ mod tests {
 
     fn vec_to_fixed(vector: &Vec<f32>) -> Vec<I32F32> {
         vector.iter().map( | x | I32F32::from_num( *x ) ).collect()
+    }
+
+    #[test]
+    fn test_vec_max_upscale_to_u16() {
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![] );
+        let target: Vec<u16> = vec![];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0. ] );
+        let target: Vec<u16> = vec![ 0 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 0. ] );
+        let target: Vec<u16> = vec![ 0, 0 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 1. ] );
+        let target: Vec<u16> = vec![ 0, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 0.000000001 ] );
+        let target: Vec<u16> = vec![ 0, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 0.000016, 1. ] );
+        let target: Vec<u16> = vec![ 0, 1, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0.000000001, 0.000000001 ] );
+        let target: Vec<u16> = vec![ 65535, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0.000001, 0.000006, 0.000007, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4] );
+        let target: Vec<u16> = vec![ 0, 1, 1, 16, 164, 1638, 16384, 32768, 49151, 65535];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec![ I32F32::from_num(16384) ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec![ I32F32::from_num(32768) ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec![ I32F32::from_num(32769) ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec![ I32F32::from_num(65535) ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec![ I32F32::max_value() ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 1., 65535. ] );
+        let target: Vec<u16> = vec![ 0, 1, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 0.5, 1., 1.5, 2., 32768. ] );
+        let target: Vec<u16> = vec![ 0, 1, 2, 3, 4, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec_to_fixed( &vec![ 0., 0.5, 1., 1.5, 2., 32768., 32769. ] );
+        let target: Vec<u16> = vec![ 0, 1, 2, 3, 4, 65533, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<I32F32> = vec![ I32F32::from_num(0), I32F32::from_num(1), I32F32::from_num(32768), I32F32::from_num(32769), I32F32::max_value() ];
+        let target: Vec<u16> = vec![ 0, 0, 1, 1, 65535 ];
+        let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
     }
 
     #[test]

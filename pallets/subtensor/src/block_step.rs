@@ -195,7 +195,7 @@ impl<T: Config> Pallet<T> {
         return proportional_emission.to_num::<u64>();
     }
 
-    // Returns the delegated stake 'take' assigend to this key. (If exists, otherwise 0)
+    // Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
     //
     pub fn calculate_delegate_proportional_take( hotkey: &T::AccountId, emission: u64 ) -> u64 {
         if Self::hotkey_is_delegate( hotkey ) {
@@ -207,7 +207,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Adjusts the network difficulties/burns of every active network. Reseting state parameters.
+    // Adjusts the network difficulties/burns of every active network. Resetting state parameters.
     //
     pub fn adjust_registration_terms_for_networks( ) {
         
@@ -258,7 +258,7 @@ impl<T: Config> Pallet<T> {
                         Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
                     } else {
                         // D. There are not enough registrations this interval and most of them are burn registrations
-                        // this triggers a decrease in the pow difficutly
+                        // this triggers a decrease in the pow difficulty
                         // pow_difficulty ++ 
                         Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
                     }
@@ -276,8 +276,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Performs the difficutly adjustment by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target * reg_target )
-    // We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficutly bound the range.
+    // Performs the difficulty adjustment by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target * reg_target )
+    // We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
     //
     pub fn adjust_difficulty( 
         netuid: u16,

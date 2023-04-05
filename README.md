@@ -139,19 +139,19 @@ to store different chain databases, as a different folder will be created per di
 is ran. The following commands shows how to use a newly created folder as our db base path.
 
 ```bash
-// Create a folder to use as the db base path
-$ mkdir my-chain-state
+# Create a folder to use as the db base path
+mkdir my-chain-state
 
-// Use of that folder to store the chain state
-$ ./target/release/node-template --dev --base-path ./my-chain-state/
+# Use of that folder to store the chain state
+./target/release/node-template --dev --base-path ./my-chain-state/
 
-// Check the folder structure created inside the base path after running the chain
-$ ls ./my-chain-state
-chains
-$ ls ./my-chain-state/chains/
-dev
-$ ls ./my-chain-state/chains/dev
-db keystore network
+# Check the folder structure created inside the base path after running the chain
+ls ./my-chain-state
+#> chains
+ls ./my-chain-state/chains/
+#> dev
+ls ./my-chain-state/chains/dev
+#> db keystore network
 ```
 
 ### Connect with Polkadot-JS Apps Front-end

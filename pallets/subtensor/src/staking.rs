@@ -47,10 +47,14 @@ impl<T: Config> Pallet<T> {
         ensure!( !Self::hotkey_is_delegate( &hotkey ), Error::<T>::AlreadyDelegate );
 
 		// --- 5. Ensure we don't exceed tx rate limit
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+		let block: u64 = Self::get_current_block_as_u64();
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
 
         // --- 6. Delegate the key.
         Self::delegate_hotkey( &hotkey, take );
+
+		// Set last block for rate limiting
+		Self::set_last_tx_block(&coldkey, block);
       
         // --- 7. Emit the staking event.
         log::info!("DelegateAdded( coldkey:{:?}, hotkey:{:?}, take:{:?} )", coldkey, hotkey, take );
@@ -116,17 +120,18 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
         Self::fix_reserved_balance_on_coldkey_account( &coldkey );
-    
-        // --- 7. Ensure the remove operation from the coldkey is a success.
+        
+        // --- 7. Ensure we don't exceed tx rate limit
+		let block: u64 = Self::get_current_block_as_u64();
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
+
+        // --- 8. Ensure the remove operation from the coldkey is a success.
         // ---       This will also update the reserved balance on the coldkey account, by adding the stake amount.
         // --- Throws InsufficientBalanceToReserve if the coldkey account does not have enough balance to reserve.
-        Self::increase_reserved_stake_on_coldkey_account( &coldkey, stake_as_balance.unwrap() ); //Self::remove_balance_from_coldkey_account( &coldkey, stake_as_balance.unwrap() ) == true, Error::<T>::BalanceWithdrawalError );
-
-		// --- 8. Ensure we don't exceed tx rate limit
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
-
-        // --- 9. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
+
+		// Set last block for rate limiting
+		Self::set_last_tx_block(&coldkey, block);
  
         // --- 10. Emit the staking event.
         log::info!("StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )", hotkey, stake_to_be_added );
@@ -179,34 +184,38 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?;
         log::info!("do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )", coldkey, hotkey, stake_to_be_removed );
 
-        // --- 2. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!( Self::hotkey_account_exists( &hotkey ), Error::<T>::NotRegistered );    
+        // --- 2. Ensure we don't exceed tx rate limit
+		let block: u64 = Self::get_current_block_as_u64();
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
 
-        // --- 3. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 3. Ensure that the hotkey account exists this is only possible through registration.
+        ensure!( Self::hotkey_account_exists( &hotkey ), Error::<T>::NotRegistered );
+
+        // --- 4. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 4. Ensure that the hotkey has enough stake to withdraw.
+        // --- 5. Ensure that the hotkey has enough stake to withdraw.
         ensure!( Self::has_enough_stake( &coldkey, &hotkey, stake_to_be_removed ), Error::<T>::NotEnoughStaketoWithdraw );
-
-        // --- 5. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
-        Self::fix_reserved_balance_on_coldkey_account( &coldkey );
-
+        
         // --- 6. Ensure that we can convert this u64 to a balance.
         let stake_to_be_added_as_currency = Self::u64_to_balance( stake_to_be_removed );
         ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
-		// --- 7. Ensure we don't exceed tx rate limit
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), Self::get_current_block_as_u64() ), Error::<T>::TxRateLimitExceeded );
+        // --- 7. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
+        Self::fix_reserved_balance_on_coldkey_account( &coldkey );
 
         // --- 8. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
 
         // Ensure we can unreserve the stake on the coldkey account.
         ensure!( T::Currency::reserved_balance( &coldkey ) >= stake_to_be_added_as_currency.unwrap(), Error::<T>::BalanceWithdrawalError );
-
+       
         // --- 9. We remove the balance reserved on the coldkey, moving it to the coldkey's free balance.
         Self::decrease_reserved_stake_on_coldkey_account( &coldkey, stake_to_be_added_as_currency.unwrap() );
 
+        // Set last block for rate limiting
+        Self::set_last_tx_block(&coldkey, block);
+        
         // --- 10. Emit the unstaking event.
         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
         Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );
