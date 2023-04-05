@@ -1,4 +1,4 @@
-use frame_support::{assert_ok, traits::Currency};
+use frame_support::{assert_ok, traits::{Currency, ReservableCurrency, Imbalance}};
 use frame_system::{Config};
 mod mock;
 use mock::*;
@@ -278,6 +278,55 @@ fn test_add_stake_total_issuance_no_change() {
 	});
 }
 
+
+#[test]
+fn test_add_stake_reserved_balance_matches() {
+	// When we add stake, the reserved balance on the coldkey account should match the stake
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id = 561337;
+		let coldkey_account_id = 61337;
+        let netuid : u16 = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+
+		//add network
+		add_network(netuid, tempo, 0);
+		
+		// Register neuron
+		register_ok_neuron( netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+
+		// Give it some $$$ in his coldkey balance
+		let initial_balance = 10000;
+		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id, initial_balance );
+
+		// Check we have zero staked before transfer
+		let initial_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+		assert_eq!(initial_stake, 0);
+
+		// Check we have zero reserved balance before transfer
+		let initial_reserved_balance = Balances::reserved_balance(&coldkey_account_id);
+		assert_eq!(initial_reserved_balance, 0);
+
+		// Stake to hotkey account, and check if the result is ok
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, 10000));
+
+		// Check if stake has increased
+		let new_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id);
+		assert_eq!(new_stake, 10000);
+
+		// Check if free balance has decreased
+		let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+		assert_eq!(new_free_balance, 0);
+
+		// Check if total stake has increased accordingly.
+		assert_eq!(SubtensorModule::get_total_stake(), 10000);
+
+		// Check if the reserved balance on the coldkey account matches the stake
+		let reserved_balance = Balances::reserved_balance(&coldkey_account_id);
+		assert_eq!(reserved_balance, 10000);
+	});
+}
+
 // /***********************************************************
 // 	staking::remove_stake() tests
 // ************************************************************/
@@ -455,6 +504,7 @@ fn test_remove_stake_total_issuance_no_change() {
 
 		// Give the neuron some stake to remove
 		SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+		SubtensorModule::increase_reserved_stake_on_coldkey_account_issuing(&coldkey_account_id, amount);
 
 		let total_issuance_after_stake = Balances::total_issuance();
 
@@ -470,6 +520,54 @@ fn test_remove_stake_total_issuance_no_change() {
 		let total_issuance = Balances::total_issuance();
 		assert_eq!(total_issuance, total_issuance_after_stake);
 		assert_eq!(total_issuance, amount);
+	});
+}
+
+#[test]
+fn test_remove_stake_reserved_matches() {
+	// When we remove stake, the reserved balance on the coldkey account should match the stake
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id = 581337;
+		let coldkey_account_id = 81337;
+        let netuid : u16 = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		let amount = 10000;
+
+		//add network
+		add_network(netuid, tempo, 0);
+		
+		// Register neuron
+		register_ok_neuron( netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+
+		// Some basic assertions
+		assert_eq!(SubtensorModule::get_total_stake(), 0);
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id), 0);
+		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
+		let initial_total_balance = Balances::total_balance(&coldkey_account_id);
+		assert_eq!(initial_total_balance, 0);
+		let inital_reserved_balance = Balances::reserved_balance(&coldkey_account_id);
+		assert_eq!(inital_reserved_balance, 0);
+
+		// Give the neuron some stake to remove
+		SubtensorModule::increase_reserved_stake_on_coldkey_account_issuing( &coldkey_account_id, amount);
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_account_id, &hotkey_account_id, amount);
+
+		// Check that the reserved balance on the coldkey account matches the stake
+		let reserved_balance = Balances::reserved_balance(&coldkey_account_id);
+		assert_eq!(reserved_balance, amount);
+
+		// Do the magic
+		assert_ok!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, amount));
+
+		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), amount);
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id), 0);
+		assert_eq!(SubtensorModule::get_total_stake(), 0);
+
+		// Check that the reserved balance on the coldkey account matches the stake
+		let new_reserved_balance = Balances::reserved_balance(&coldkey_account_id);
+		assert_eq!(new_reserved_balance, 0);
+		
 	});
 }
 
@@ -992,4 +1090,213 @@ fn test_full_with_delegating() {
 	});
 }
 
+/************************************************************
+	staking::fix_reserved_balance_on_coldkey_account() tests
+************************************************************/
+#[test]
+fn test_fix_reserved_balance() {
+	new_test_ext().execute_with(|| {
+        let hotkey_id = 4334;
+		let coldkey_id = 87989;
+		let intial_amount = 10_000;
+        let netuid = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		add_network(netuid, tempo, 0);
+		register_ok_neuron( netuid, hotkey_id, coldkey_id, start_nonce);
+		// Increase the stake on the Stake map
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_id, &hotkey_id, intial_amount);
 
+		// Verify the stake on the Stake map
+		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey_id), intial_amount);
+
+		// Verify the reserved balance on the coldkey account does not match
+		assert_ne!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount as u64 ));
+
+		// Fix the reserved balance on the coldkey account
+		assert_ok!(SubtensorModule::fix_reserved_balance_on_coldkey_account(&coldkey_id));
+
+		// Verify the reserved balance on the coldkey account matches
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount));
+
+		// Verify the reserved balance map is good
+		assert!(SubtensorModule::is_coldkey_reserved_balance_fixed(&coldkey_id));
+	});
+}
+
+#[test]
+fn test_fix_reserved_balance_multiple_hotkeys() {
+	new_test_ext().execute_with(|| {
+		let hotkey_id = 4334;
+		let hotkey_id2 = 4335;
+
+		let coldkey_id = 87989;
+		let intial_amount = 10_000;
+
+        let netuid = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		add_network(netuid, tempo, 0);
+		register_ok_neuron( netuid, hotkey_id, coldkey_id, start_nonce);
+		// Increase the stake on the Stake map
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_id, &hotkey_id, intial_amount);
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_id, &hotkey_id2, intial_amount);
+
+		// Verify the stake on the Stake map
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id), intial_amount);
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id2), intial_amount);
+		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey_id), intial_amount * 2);
+
+		// Verify the reserved balance on the coldkey account does not match
+		assert_ne!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount * 2 as u64 ));
+
+		// Fix the reserved balance on the coldkey account
+		assert_ok!(SubtensorModule::fix_reserved_balance_on_coldkey_account(&coldkey_id));
+
+		// Verify the reserved balance on the coldkey account matches
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount * 2));
+	});
+}
+
+#[test]
+fn test_fix_reserved_balance_has_reserved_less() {
+	new_test_ext().execute_with(|| {
+        let hotkey_id = 4334;
+
+		let coldkey_id = 87989;
+		let intial_amount = 10_000;
+		let initial_reserved = 1_000;
+		assert!(initial_reserved < intial_amount);
+        let netuid = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		add_network(netuid, tempo, 0);
+		
+		// Give the coldkey account some reserved balance 
+		assert_eq!(Balances::deposit_creating(&coldkey_id, Balance::from(initial_reserved)).peek(), Balance::from(initial_reserved) );
+		assert_ok!(Balances::reserve(&coldkey_id, Balance::from(initial_reserved)));
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(initial_reserved));
+		assert_ne!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount)); // Sanity check
+
+		register_ok_neuron( netuid, hotkey_id, coldkey_id, start_nonce);
+		// Increase the stake on the Stake map
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_id, &hotkey_id, intial_amount);
+
+		// Verify the stake on the Stake map
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id), intial_amount);
+		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey_id), intial_amount);
+
+		// Verify the reserved balance on the coldkey account does not match
+		assert_ne!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount as u64 ));
+
+		// Fix the reserved balance on the coldkey account
+		assert_ok!(SubtensorModule::fix_reserved_balance_on_coldkey_account(&coldkey_id));
+
+		// Verify the reserved balance on the coldkey account matches
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount));
+	});
+}
+
+#[test]
+fn test_fix_reserved_balance_has_reserved_greater() {
+	new_test_ext().execute_with(|| {
+        let hotkey_id = 4334;
+
+		let coldkey_id = 87989;
+		let intial_amount = 10_000;
+		let initial_reserved = 100_000_000;
+		assert!(initial_reserved > intial_amount);
+        let netuid = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		add_network(netuid, tempo, 0);
+		
+		// Give the coldkey account some reserved balance 
+		assert_eq!(Balances::deposit_creating(&coldkey_id, Balance::from(initial_reserved)).peek(), Balance::from(initial_reserved) );
+		assert_ok!(Balances::reserve(&coldkey_id, Balance::from(initial_reserved)));
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(initial_reserved));
+		assert_ne!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount)); // Sanity check
+
+		register_ok_neuron( netuid, hotkey_id, coldkey_id, start_nonce);
+		// Increase the stake on the Stake map
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_id, &hotkey_id, intial_amount);
+
+		// Verify the stake on the Stake map
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id), intial_amount);
+		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey_id), intial_amount);
+
+		// Verify the reserved balance on the coldkey account does not match
+		assert_ne!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount as u64 ));
+
+		// Fix the reserved balance on the coldkey account
+		assert_ok!(SubtensorModule::fix_reserved_balance_on_coldkey_account(&coldkey_id));
+
+		// Verify the reserved balance on the coldkey account matches
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount));
+	});
+}
+
+#[test]
+fn test_fix_reserved_balance_reserved_equal() {
+	new_test_ext().execute_with(|| {
+        let hotkey_id = 4334;
+
+		let coldkey_id = 87989;
+		let intial_amount = 10_000;
+		let initial_reserved = intial_amount;
+		assert_eq!(initial_reserved, intial_amount);
+        let netuid = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		add_network(netuid, tempo, 0);
+		
+		// Give the coldkey account some reserved balance 
+		assert_eq!(Balances::deposit_creating(&coldkey_id, Balance::from(initial_reserved)).peek(), Balance::from(initial_reserved) );
+		assert_ok!(Balances::reserve(&coldkey_id, Balance::from(initial_reserved)));
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(initial_reserved));
+
+		register_ok_neuron( netuid, hotkey_id, coldkey_id, start_nonce);
+		// Increase the stake on the Stake map
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_id, &hotkey_id, intial_amount);
+
+		// Verify the stake on the Stake map
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id), intial_amount);
+		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey_id), intial_amount);
+
+		// Verify the reserved balance on the coldkey account DO match
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount as u64 ));
+
+		// Fix the reserved balance on the coldkey account
+		assert_ok!(SubtensorModule::fix_reserved_balance_on_coldkey_account(&coldkey_id));
+
+		// Verify the reserved balance on the coldkey account still matches
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(intial_amount));
+	});
+}
+
+
+#[test]
+fn test_increased_reserved_by_hotkey() {
+	new_test_ext().execute_with(|| {
+        let hotkey_id = 4334;
+
+		let coldkey_id = 87989;
+		let amount = 10_000;
+		
+        let netuid = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+		add_network(netuid, tempo, 0);
+		
+		// Give the coldkey account some reserved balance 
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(0 as u64));
+
+		register_ok_neuron( netuid, hotkey_id, coldkey_id, start_nonce);
+		
+		// Increase reserved balance using the hotkey
+		assert!(SubtensorModule::increase_reserved_stake_on_coldkey_account_issuing_using_hotkey(&hotkey_id, amount));
+
+		// Verify the reserved balance on the coldkey account matches
+		assert_eq!(Balances::reserved_balance(&coldkey_id), Balance::from(amount));
+	});
+}
