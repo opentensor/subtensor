@@ -131,8 +131,7 @@ impl<T: Config> Pallet<T> {
         if !Self::hotkey_is_delegate( hotkey ) { 
             // If this fails, the amount goes to the free balance. This will be fixed on the next (un)stake.
             //     due to fix_reserved_balance_on_coldkey_account.
-            Self::increase_reserved_stake_on_coldkey_account_issuing_using_hotkey( &hotkey, Self::u64_to_balance(emission).unwrap_or_default());
-            Self::increase_stake_on_hotkey_account( &hotkey, emission ); 
+            Self::issue_stake_to_hotkey_owner_account( &hotkey, emission );
             return; 
         }
 
@@ -147,20 +146,15 @@ impl<T: Config> Pallet<T> {
             
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
             let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, remaining_emission );
-            Self::increase_stake_on_coldkey_hotkey_account( &owning_coldkey_i, &hotkey, stake_proportion );
-            // If this fails, the amount goes to the free balance. This will be fixed on the next (un)stake.
-            //     due to fix_reserved_balance_on_coldkey_account.
-            Self::increase_reserved_stake_on_coldkey_account_issuing(&owning_coldkey_i, Self::u64_to_balance(stake_proportion).unwrap_or_default() );
-            log::debug!("owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ", owning_coldkey_i, hotkey, stake_proportion );
+            // Issue to the coldkey - hotkey account. Increasing the reserved balance.
+            Self::issue_stake_to_coldkey_hotkey_account( &owning_coldkey_i, &hotkey, stake_proportion );
 
+            log::debug!("owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ", owning_coldkey_i, hotkey, stake_proportion );
         }
 
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of 
         // the delegate and effect calculation in 4.
-        Self::increase_stake_on_hotkey_account( &hotkey, delegate_take );
-        // If this fails, the amount goes to the free balance. This will be fixed on the next (un)stake.
-        //     due to fix_reserved_balance_on_coldkey_account.
-        Self::increase_reserved_stake_on_coldkey_account_issuing_using_hotkey( &hotkey, Self::u64_to_balance(delegate_take).unwrap_or_default() );
+        Self::issue_stake_to_hotkey_owner_account( &hotkey, delegate_take );
         log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey,delegate_take );
     }
 

@@ -22,12 +22,12 @@ use frame_support::{
 		Currency,
 		ExistenceRequirement,
 		tokens::{
-			WithdrawReasons
+			WithdrawReasons,
+			Imbalance
 		},
 		IsSubType,
 	},
 	ensure,
-	fail,
 };
 
 use sp_std::marker::PhantomData;
@@ -42,7 +42,8 @@ use sp_runtime::{
 	transaction_validity::{
 		TransactionValidity,
 		TransactionValidityError
-	}
+	},
+	SaturatedConversion,
 };
 use scale_info::TypeInfo;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
@@ -619,8 +620,6 @@ pub mod pallet {
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		InsufficientBalanceToReserve, // --- Thrown when the caller attempts to reserve more balance than they have.
-		ColdkeyReservedBalanceAlreadyFixed, // --- Thrown when the caller attempts to fix the reserved balance of a coldkey that is already fixed.
-		ColdkeyReservedBalanceFixFailed, // --- Thrown when the caller attempts to fix the reserved balance of a coldkey and the fix fails.
 	}
 
 	// ==================

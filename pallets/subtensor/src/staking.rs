@@ -122,28 +122,19 @@ impl<T: Config> Pallet<T> {
         // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 7. Ensure that the coldkey reserved balance has been fixed, otherwise, fix it.
-        if !Self::is_coldkey_reserved_balance_fixed( &coldkey ) {
-            if !Self::fix_reserved_balance_on_coldkey_account( &coldkey ).is_ok() {
-                log::error!("do_add_stake( coldkey:{:?} ) - Could not fix the reserved balance on the coldkey account.", coldkey );
-                fail!( Error::<T>::ColdkeyReservedBalanceFixFailed );
-            }
-        }
-
-        // --- 8. Increase the stake map and the reserved balance on the coldkey account.
+        // --- 7. Increase the stake map and the reserved balance on the coldkey account.
         // ---       This will also update the reserved balance on the coldkey account, by adding the stake amount.
         // ---          and move the stake amount from the coldkey free balance.
-        Self::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
-        Self::increase_reserved_stake_on_coldkey_account( &coldkey, stake_as_balance.unwrap() );
+        ensure!( Self::reserve_stake_to_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added ).is_ok(), Error::<T>::InsufficientBalanceToReserve );
 
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);
  
-        // --- 9. Emit the staking event.
+        // --- 8. Emit the staking event.
         log::info!("StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )", hotkey, stake_to_be_added );
         Self::deposit_event( Event::StakeAdded( hotkey, stake_to_be_added ) );
 
-        // --- 10. Ok and return.
+        // --- 9. Ok and return.
         Ok(())
     }
 
@@ -207,31 +198,20 @@ impl<T: Config> Pallet<T> {
         let stake_to_be_added_as_currency = Self::u64_to_balance( stake_to_be_removed );
         ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
-        // --- 7. Fix the reserved balance on the coldkey account to match the stake map for total_stake.
-        if !Self::is_coldkey_reserved_balance_fixed( &coldkey ) {
-            if !Self::fix_reserved_balance_on_coldkey_account( &coldkey ).is_ok() {
-                log::error!("do_add_stake( coldkey:{:?} ) - Could not fix the reserved balance on the coldkey account.", coldkey );
-                fail!( Error::<T>::ColdkeyReservedBalanceFixFailed );
-            }
-        }
-
-        // --- 8. We remove the balance from the hotkey.
-        Self::decrease_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
-
         // Ensure we can unreserve the stake on the coldkey account.
         ensure!( T::Currency::reserved_balance( &coldkey ) >= stake_to_be_added_as_currency.unwrap(), Error::<T>::BalanceWithdrawalError );
        
-        // --- 9. We remove the balance reserved on the coldkey, moving it to the coldkey's free balance.
-        Self::decrease_reserved_stake_on_coldkey_account( &coldkey, stake_to_be_added_as_currency.unwrap() );
+        // --- 8. We remove the balance reserved on the coldkey, moving it to the coldkey's free balance.
+        Self::unreserve_stake_from_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
         
-        // --- 10. Emit the unstaking event.
+        // --- 9. Emit the unstaking event.
         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
         Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );
 
-        // --- 11. Done and ok.
+        // --- 10. Done and ok.
         Ok(())
     }
 
@@ -352,80 +332,89 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
     }
 
-    pub fn is_coldkey_reserved_balance_fixed( coldkey: &T::AccountId ) -> bool {
-        return ReservedBalanceFixed::<T>::get( coldkey );
-    }
-
-
-    // Makes the coldkey reserved balance equal to the total coldkey stake.
-    pub fn fix_reserved_balance_on_coldkey_account( coldkey: &T::AccountId ) -> dispatch::DispatchResult {
-        // Verfiy that the coldkey has not been fixed already.
-        ensure!( !ReservedBalanceFixed::<T>::get( coldkey ), Error::<T>::ColdkeyReservedBalanceAlreadyFixed );
-
-        log::info!("Fixing reserved balance on coldkey account: {:?}", coldkey);
-
-        let stake = Self::get_total_stake_for_coldkey( coldkey );
-        let reserved = T::Currency::reserved_balance( coldkey );
-        
-        let stake_as_currency = Self::u64_to_balance( stake ).unwrap_or_default();
-        
-        let mut success = true;
-        if stake_as_currency > reserved {
-            let diff = stake_as_currency - reserved;
-            // Increase the reserved balance on the coldkey account by the diff, issuing new TAO.
-            // If this fails, the reserved balance will still be less than the stake.
-            success = Self::increase_reserved_stake_on_coldkey_account_issuing(coldkey, diff);
-        } else if stake_as_currency < reserved {
-            // Somehow the reserved balance is greater than the stake. This should never happen.
-            let diff = reserved - stake_as_currency;
-            // Remove the diff from the reserved balance on the coldkey account.
-            T::Currency::slash_reserved( coldkey, diff ); // This will never fail.
-            success = true;
-        }
-        // Otherwise they are equal and we do nothing.
-
-        // Record fixed reserved balance on coldkey account.
-        if success {
-            log::info!("Fixed reserved balance on coldkey account: {:?}, stake: {:?}, reserved: {:?}", coldkey, stake_as_currency, reserved);
-            ReservedBalanceFixed::<T>::insert( coldkey, true );
-        } else {
-            log::info!("Failed to fix reserved balance on coldkey account: {:?}, stake: {:?}, reserved: {:?}", coldkey, stake_as_currency, reserved);
-            fail! ( Error::<T>::ColdkeyReservedBalanceFixFailed )
-        }
-        Ok(())
-    }
-
     // Decreases UP-TO the reserved stake on the coldkey account by the decrement.
     // Moves the actual amount from the coldkey reserved balance to the coldkey free balance.
     // "Can not fail" per the docs
-    pub fn decrease_reserved_stake_on_coldkey_account( coldkey: &T::AccountId, decrement_as_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) {
+    // Returns the amount actually unreserved.
+    pub fn decrease_reserved_on_coldkey_account( coldkey: &T::AccountId, decrement_as_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance {
         // Unreserves UP TO the amount. Ensure that the decrement is not greater than the reserved balance before calling.
-        T::Currency::unreserve( coldkey, decrement_as_balance );
+        T::Currency::unreserve( coldkey, decrement_as_balance )
     }
 
     // Increases the reserved stake on the coldkey account by the increment.
     // Pulls this amount from the coldkey free balance.
     // This can fail if the coldkey does not have enough free balance.
-    pub fn increase_reserved_stake_on_coldkey_account( coldkey: &T::AccountId, increment_as_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> bool {
-        T::Currency::reserve( coldkey, increment_as_balance ).is_ok()
+    pub fn increase_reserved_on_coldkey_account( coldkey: &T::AccountId, increment_as_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> dispatch::DispatchResult {
+        T::Currency::reserve( coldkey, increment_as_balance )
     }
 
     // Increases the reserved stake on the coldkey account by the increment.
     // This issues Balance and then reserves it to the coldkey account.
-    pub fn increase_reserved_stake_on_coldkey_account_issuing( coldkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> bool {
-        T::Currency::deposit_creating( coldkey, increment_balance ); // Issue the new TAO. This gets added to the free balance.
-        // Returns false if it fails to reserve.
-        T::Currency::reserve( coldkey, increment_balance ).is_ok() // Move to the reserved balance.
+    pub fn increase_reserved_on_coldkey_account_issuing( coldkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) {
+        // Issue the new TAO. This gets added to the free balance.
+        let balance_issued = T::Currency::deposit_creating( coldkey, increment_balance ); 
+        // Move the amount to the reserved balance.
+        // This will not fail as balance_issued is the amount that was just added to the free balance.
+        Self::increase_reserved_on_coldkey_account( coldkey, balance_issued.peek() ).expect("Could not reserve added balance");
     }
 
     // Increases the reserved stake on the coldkey account by the increment.
     // Gets the coldkey that owns the hotkey and then calls the above function.
     // This issues Balance and then reserves it to the coldkey account.
-    pub fn increase_reserved_stake_on_coldkey_account_issuing_using_hotkey( hotkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> bool {
+    // Doesn't fail, but can
+    pub fn increase_reserved_on_coldkey_account_issuing_using_hotkey( hotkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) {
         // Get the coldkey for the hotkey.
         let coldkey = Self::get_owning_coldkey_for_hotkey(hotkey);
         // Call the issuing function.
-        Self::increase_reserved_stake_on_coldkey_account_issuing(&coldkey, increment_balance)
+        Self::increase_reserved_on_coldkey_account_issuing(&coldkey, increment_balance);
+    }
+
+    // This issues new TAO to the coldkey account and then reserves it.
+    // Then, it increases the stake for the hotkey/coldkey pair.
+    // Doesn't fail
+    pub fn issue_stake_to_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64) {
+        // If the balance is smaller than u64, this will saturate to the max Balance. 
+        let increment_balance = increment.saturated_into::<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>();
+
+        // Modify reserved balance
+        Self::increase_reserved_on_coldkey_account_issuing(coldkey, increment_balance);
+        // Modify stake map
+        Self::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
+    }
+
+    // This issues new TAO to the coldkey account that owns the hotkey and then reserves it.
+    // Then, it increases the stake for the hotkey/coldkey pair.
+    // Doesn't fail
+    pub fn issue_stake_to_hotkey_owner_account( hotkey: &T::AccountId, increment: u64) {
+        let coldkey = &Self::get_owning_coldkey_for_hotkey(hotkey);
+
+        Self::issue_stake_to_coldkey_hotkey_account(coldkey, hotkey, increment);
+    }
+    
+    // Will fail is the free balance is less than the amount.
+    pub fn reserve_stake_to_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, increment: u64 ) -> dispatch::DispatchResult {
+        // If the balance is smaller than u64, this will saturate to the max Balance. 
+        let increment_balance = increment.saturated_into::<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>();
+
+        // Modify stake map
+        Self::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment );
+        
+        // Modify reserved balance
+        // This can fail if the coldkey does not have enough free balance.
+        Self::increase_reserved_on_coldkey_account(coldkey, increment_balance)
+    }
+
+    pub fn unreserve_stake_from_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
+        // If the balance is smaller than u64, this will saturate to the max Balance. 
+        let decrement_balance = decrement.saturated_into::<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>();
+        // Modify reserved balance
+        // This will never fail, but it will unreserve UP TO the amount.
+        let unreserved_balance = Self::decrease_reserved_on_coldkey_account(coldkey, decrement_balance);
+        
+        // Modify stake map using the actual amount unreserved.
+        let unreserved: u64 = unreserved_balance.saturated_into::<u64>();
+
+        Self::decrease_stake_on_coldkey_hotkey_account(coldkey, hotkey, unreserved );
     }
 
 	pub fn u64_to_balance( input: u64 ) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance> { input.try_into().ok() }
