@@ -16,6 +16,8 @@ _target_dir_name='tarpaulin'
 _tarpaulin_options=(
 	--skip-clean
 	--no-fail-fast
+	--ignore-tests
+	--exclude-files "${__G_DIR__}/target/*"
 )
 
 if (( VERBOSE )); then
@@ -28,6 +30,13 @@ fi
 _tarpaulin_options+=(
 	--target-dir "${__G_DIR__}/target/${_target_dir_name}"
 )
+
+##
+# Allow additional CLI parameters too
+_extra_arguments=("${@}")
+if ((${#_extra_arguments[@]})); then
+	_tarpaulin_options+=( "${_extra_arguments[@]}" )
+fi
 
 SKIP_WASM_BUILD=1 cargo +nightly tarpaulin "${_tarpaulin_options[@]}" |
 	grep -vE '^\|\|\s+(target/debug)'
