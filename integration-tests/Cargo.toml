@@ -1,0 +1,20 @@
+[package]
+name = "integration-tests"
+version = "0.0.1"
+description = "Tracks integration tests for Opentensor substrate node"
+authors = ["S0AndS0 <https://github.com/S0AndS0>"]
+edition = "2021"
+license = "Unlicense"
+repository = "https://github.com/opentensor/subtensor"
+
+[dependencies]
+
+##
+# https://github.com/rhysd/cargo-husky
+# https://doc.rust-lang.org/cargo/reference/workspaces.html#the-dependencies-table
+# https://users.rust-lang.org/t/how-do-i-create-integration-tests-in-a-workspace/53215
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]
+# features = ["precommit-hook", "run-cargo-check", "run-cargo-test", "run-cargo-clippy", "run-cargo-fmt"]
