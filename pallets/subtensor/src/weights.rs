@@ -1,4 +1,5 @@
 use super::*;
+use crate::math::*;
 use frame_support::sp_std::vec;
 use sp_std::vec::Vec;
 
@@ -102,15 +103,15 @@ impl<T: Config> Pallet<T> {
         // --- 12. Ensure that the weights have the required length.
         ensure!( Self::check_length( netuid, neuron_uid, &uids, &values ), Error::<T>::NotSettingEnoughWeights );
 
-        // --- 13. Normalize the weights.
-        let normalized_values = Self::normalize_weights( values );
+        // --- 13. Max-upscale the weights.
+        let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16( &values );
 
         // --- 14. Ensure the weights are max weight limited 
-        ensure!( Self::max_weight_limited( netuid, neuron_uid, &uids, &normalized_values ), Error::<T>::MaxWeightExceeded );
+        ensure!( Self::max_weight_limited( netuid, neuron_uid, &uids, &max_upscaled_weights ), Error::<T>::MaxWeightExceeded );
 
         // --- 15. Zip weights for sinking to storage map.
         let mut zipped_weights: Vec<( u16, u16 )> = vec![];
-        for ( uid, val ) in uids.iter().zip(normalized_values.iter()) { zipped_weights.push((*uid, *val)) }
+        for ( uid, val ) in uids.iter().zip(max_upscaled_weights.iter()) { zipped_weights.push((*uid, *val)) }
 
         // --- 16. Set weights under netuid, uid double map entry.
         Weights::<T>::insert( netuid, neuron_uid, zipped_weights );
@@ -221,11 +222,7 @@ impl<T: Config> Pallet<T> {
         if max_weight_limit == u16::MAX { return true; }
     
         // Check if the weights max value is less than or equal to the limit.
-        let max: u16 = *weights.iter().max().unwrap();
-        if max <= max_weight_limit { return true; }
-        
-        // The check has failed.
-        return false;
+        check_vec_max_limited( weights, max_weight_limit)
     }
 
     // Returns true if the uids and weights correspond to a self weight on the uid.
