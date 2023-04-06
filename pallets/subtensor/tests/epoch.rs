@@ -110,7 +110,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 		else {
 			stake = if validators.contains(&key) { stake_per_validator } else { 0 }; // only validators receive stake
 		}
-		// let stake: u128 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
+		// let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
 		SubtensorModule::add_balance_to_coldkey_account( &(key as u64), stake );
 		SubtensorModule::append_neuron( netuid, &(key as u64), 0 );
 		SubtensorModule::increase_stake_on_coldkey_hotkey_account( &(key as u64), &(key as u64), stake as u64 );
@@ -1007,7 +1007,7 @@ fn test_validator_permits() {
 
 					// === Increase server stake above validators
 					for server in &servers {
-						SubtensorModule::add_balance_to_coldkey_account( &(*server as u64), 2*network_n as u64 );
+						SubtensorModule::add_balance_to_coldkey_account( &(*server as u64), 2 * network_n as u64 );
 						SubtensorModule::increase_stake_on_coldkey_hotkey_account( &(*server as u64), &(*server as u64), 2*network_n as u64 );
 					}
 
