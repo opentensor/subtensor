@@ -75,7 +75,10 @@ pub mod subnet_info;
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::Currency;
+
+	// use frame_support::traits::Currency;
+	use frame_support::traits::{Currency, ChangeMembers};
+
 	use frame_support::sp_std::vec;
 	use serde::{Serialize, Deserialize};
 	use serde_with::{serde_as, DisplayFromStr};
@@ -170,6 +173,9 @@ pub mod pallet {
 		type InitialServingRateLimit: Get<u64>;
 		#[pallet::constant] // Initial transaction rate limit.
 		type InitialTxRateLimit: Get<u64>;
+
+		/// What to do when Admins change
+		type ChangeAdmins: ChangeMembers<Self::AccountId>;
 	}
 
 	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -1538,7 +1544,7 @@ pub mod pallet {
 		}
 	}
 
-	//
+	/// Relabel `pallet_collective` interfaces for use as admin accounts
 	impl<T: pallet_collective::Config> Pallet<T> {
 		pub fn add_admin(origin: OriginFor<T>) -> DispatchResult {
 			Self::do_add_admin(origin)
