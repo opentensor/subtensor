@@ -1067,8 +1067,8 @@ fn test_validator_permits() {
 // plt.title(f'Major emission [$stake_{{maj}}=emission_{{maj}}$ retention lines]')
 // plt.ylabel('Minor self-weight'); plt.xlabel('Major self-weight'); plt.show()
 // ```
-// #[test]
-fn _map_consensus_guarantees() {
+#[test]
+fn test_map_consensus_guarantees() {
 	let netuid: u16 = 0;
 	let network_n: u16 = 512;
 	let validators_n: u16 = 64;
