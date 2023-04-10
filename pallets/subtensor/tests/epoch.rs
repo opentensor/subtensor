@@ -172,7 +172,7 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
 }
 
 // Generate a random graph that is split into a major and minor set, each setting specific weight on itself and the complement on the other.
-fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, weight_stddev: I32F32, validators_n: usize, network_n: usize, interleave: usize) -> (Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u64>, Vec<Vec<(u16, u16)>>, I32F32) {
+fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, weight_stddev_major: I32F32, weight_stddev_minor: I32F32, validators_n: usize, network_n: usize, interleave: usize) -> (Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u16>, Vec<u64>, Vec<Vec<(u16, u16)>>, I32F32) {
 	let servers_n: usize = network_n - validators_n;
 	let major_servers_n: usize = non_extreme_fixed_ratio(major_stake, servers_n);
 	let major_validators_n: usize = non_extreme_fixed_ratio(major_stake, validators_n);
@@ -203,7 +203,7 @@ fn split_graph(major_stake: I32F32, major_weight: I32F32, minor_weight: I32F32, 
 	
 	let mut weights: Vec<Vec<(u16, u16)>> = vec![ vec![]; network_n as usize ];
 	let mut weights_fixed: Vec<Vec<I32F32>> = vec![ vec![zero; network_n]; network_n ];
-	for (first, second, vals) in vec![(major_weight, one - major_weight, &major_validators), (one - minor_weight, minor_weight, &minor_validators)] {
+	for (first, second, weight_stddev,  vals) in vec![(major_weight, one - major_weight, weight_stddev_major, &major_validators), (one - minor_weight, minor_weight, weight_stddev_minor, &minor_validators)] {
 		for &val in vals {
 			for (weight, srvs) in vec![(first, &major_servers), (second, &minor_servers)] {
 				let mut sample: Vec<I32F32> = normal(srvs.len(), &mut rng, &dist).iter().map(|x: &I32F32| { let v: I32F32 = (weight_stddev * x) + one; if v < zero {zero} else {v} }).collect();
@@ -256,7 +256,7 @@ fn test_consensus_guarantees() {
 	let interleave = 2;
 	log::info!( "test_consensus_guarantees ({network_n:?}, {validators_n:?} validators)" );
 	for (major_stake, major_weight, minor_weight, weight_stddev) in vec![(0.51, 1., 1., 0.001), (0.51, 0.03, 0., 0.001), (0.51, 0.51, 0.49, 0.001), (0.51, 0.51, 1., 0.001), (0.51, 0.61, 0.8, 0.1), (0.6, 0.67, 0.65, 0.2), (0.6, 0.74, 0.77, 0.4), (0.6, 0.76, 0.8, 0.4), (0.6, 0.76, 1., 0.4), (0.6, 0.92, 1., 0.4), (0.6, 0.94, 1., 0.4), (0.65, 0.78, 0.85, 0.6), (0.7, 0.81, 0.85, 0.8), (0.7, 0.83, 0.85, 1.)] {
-		let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, _avg_weight_dev) = split_graph(fixed(major_stake), fixed(major_weight), fixed(minor_weight), fixed(weight_stddev), validators_n as usize, network_n as usize, interleave as usize);
+		let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, _avg_weight_dev) = split_graph(fixed(major_stake), fixed(major_weight), fixed(minor_weight), fixed(weight_stddev), fixed(weight_stddev), validators_n as usize, network_n as usize, interleave as usize);
 
 		new_test_ext().execute_with(|| {
 			init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, false);
@@ -1069,12 +1069,14 @@ fn test_validator_permits() {
 // ```
 #[test]
 fn test_map_consensus_guarantees() {
+	let args: Vec<String> = std::env::args().collect();
+	let weight_stddev_major: I32F32 = fixed(args[args.len()-2].parse().unwrap_or(0.0));
+	let weight_stddev_minor: I32F32 = fixed(args[args.len()-1].parse().unwrap_or(0.0));
 	let netuid: u16 = 0;
 	let network_n: u16 = 512;
 	let validators_n: u16 = 64;
 	let epochs: u16 = 1;
 	let interleave = 0;
-	let weight_stddev: I32F32 = fixed(0.4);
 	println!("[");
 	for _major_stake in vec![0.51, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 0.99] {
 		let major_stake: I32F32 = I32F32::from_num(_major_stake);
@@ -1082,7 +1084,7 @@ fn test_map_consensus_guarantees() {
 			let major_weight: I32F32 = I32F32::from_num(50 - _major_weight) / I32F32::from_num(50);
 			for _minor_weight in 0..51 {
 				let minor_weight: I32F32 = I32F32::from_num(50 - _minor_weight) / I32F32::from_num(50);
-				let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, avg_weight_dev) = split_graph(major_stake, major_weight, minor_weight, weight_stddev, validators_n as usize, network_n as usize, interleave as usize);
+				let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, avg_weight_dev) = split_graph(major_stake, major_weight, minor_weight, weight_stddev_major, weight_stddev_minor, validators_n as usize, network_n as usize, interleave as usize);
 
 				new_test_ext().execute_with(|| {
 					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, true);
