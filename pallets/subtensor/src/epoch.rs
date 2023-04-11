@@ -131,10 +131,28 @@ impl<T: Config> Pallet<T> {
         // Compute preranks: r_j = SUM(i) w_ij * s_i
         let preranks: Vec<I32F32> = matmul( &weights, &active_stake );
 
+        // Clip weights at stake-weighted consensus.
+        let weight_cuts: u16 = 3; // number of weight cuts.
+        let mut consensus: Vec<I32F32> = vec![ I32F32::from_num(0); n as usize ]; // weight consensus.
+        for i in 0..=weight_cuts {
+            // Calculate specific vote share per weight assigned: [validator] -> [server] -> vote_share.
+            let mut vote_share: Vec<Vec<I32F32>> = row_hadamard( &weights, &active_stake ); // ΔB = W◦S
+            inplace_col_normalize( &mut vote_share ); // sum_i b_ij = 1
+
+            // Calculate the weight consensus for each uid.
+            let weight_votes: Vec<Vec<I32F32>> = hadamard( &vote_share, &weights );
+            consensus = col_sum( &weight_votes );
+
+            // Cut the weights above consensus.
+            if i < weight_cuts {
+                inplace_col_clip( &mut weights, &consensus );
+            } // else do not cut in last iteration, which is only to get final weight_consensus.
+        }
+
         // Clip weights at majority consensus
-        let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
-        let consensus: Vec<I32F32> = weighted_median_col( &active_stake, &weights, kappa );
-        inplace_col_clip( &mut weights, &consensus );
+        // let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
+        // let consensus: Vec<I32F32> = weighted_median_col( &active_stake, &weights, kappa );
+        // inplace_col_clip( &mut weights, &consensus );
         let validator_trust: Vec<I32F32> = row_sum( &weights );
 
         // ====================================
@@ -381,12 +399,30 @@ impl<T: Config> Pallet<T> {
         let preranks: Vec<I32F32> = matmul_sparse( &weights, &active_stake, n );
         // log::trace!( "R (before): {:?}", &preranks );
 
-        // Clip weights at majority consensus
-        let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
-        let consensus: Vec<I32F32> = weighted_median_col_sparse( &active_stake, &weights, n, kappa );
-        log::trace!( "C: {:?}", &consensus );
+        // Clip weights at stake-weighted consensus.
+        let weight_cuts: u16 = 3; // number of weight cuts.
+        let mut consensus: Vec<I32F32> = vec![ I32F32::from_num(0); n as usize ]; // weight consensus.
+        for i in 0..=weight_cuts {
+            // Calculate specific vote share per weight assigned: [validator] -> [server] -> vote_share.
+            let mut vote_share: Vec<Vec<(u16, I32F32)>> = row_hadamard_sparse( &weights, &active_stake ); // ΔB = W◦S
+            inplace_col_normalize_sparse( &mut vote_share, n ); // sum_i b_ij = 1
 
-        weights = col_clip_sparse( &weights, &consensus );
+            // Calculate the weight consensus for each uid.
+            let weight_votes: Vec<Vec<(u16, I32F32)>> = hadamard_sparse( &vote_share, &weights, n );
+            consensus = col_sum_sparse( &weight_votes, n );
+
+            // Cut the weights above consensus.
+            if i < weight_cuts {
+                weights = col_clip_sparse( &weights, &consensus );
+            } // else do not cut in last iteration, which is only to get final weight_consensus.
+        }
+
+        // Clip weights at majority consensus
+        // let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
+        // let consensus: Vec<I32F32> = weighted_median_col_sparse( &active_stake, &weights, n, kappa );
+        // log::trace!( "C: {:?}", &consensus );
+
+        // weights = col_clip_sparse( &weights, &consensus );
         // log::trace!( "W: {:?}", &weights );
 
         let validator_trust: Vec<I32F32> = row_sum_sparse( &weights );
