@@ -1072,6 +1072,7 @@ fn test_map_consensus_guarantees() {
 	let args: Vec<String> = std::env::args().collect();
 	let weight_stddev_major: I32F32 = fixed(args[args.len()-2].parse().unwrap_or(0.0));
 	let weight_stddev_minor: I32F32 = fixed(args[args.len()-1].parse().unwrap_or(0.0));
+	println!("weight_stddev_major: {weight_stddev_major}, weight_stddev_minor: {weight_stddev_minor}");
 	let netuid: u16 = 0;
 	let network_n: u16 = 512;
 	let validators_n: u16 = 64;
