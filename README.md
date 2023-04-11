@@ -114,8 +114,39 @@ SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug -- --nocapture
 
 Running individual tests
 ```bash
-SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo test <your test name> -- --nocapture
+SKIP_WASM_BUILD=1 \
+  RUST_LOG=runtime=debug \
+  cargo test <your test name> \
+  -- --nocapture --color always
 ```
+
+<details>
+  <summary>testing `tests/` tips</summary>
+
+  **`<package-name>`**
+  Available members are found within the project root [`./cargo.toml`](./cargo.toml) file, each
+  point to a sub-directory containing a `cargo.toml` file with a `name` defined.  for example,
+  [`node/cargo.toml`](./node/cargo.toml) has a name of `node-subtensor`
+
+
+  **`<test-name>`**
+  Available tests are often found within either a `tests/` sub-directory or within the relevant
+  `src/` file.  for example [`./node/tests/chain_spec.rs`](./node/tests/chain_spec.rs) has a test
+  named `chain_spec`
+
+  **example**
+  All together we can run all tests in `chain_spec` file from `node-subtensor` project via
+
+  ```bash
+  skip_wasm_build=1 \
+    rust_log=runtime=debug \
+    cargo test \
+    --package node-subtensor \
+    --test chain_spec \
+    -- --color always --nocapture
+  ```
+</details>
+
 
 Running code coverage
 ```bash
@@ -139,19 +170,19 @@ to store different chain databases, as a different folder will be created per di
 is ran. The following commands shows how to use a newly created folder as our db base path.
 
 ```bash
-// Create a folder to use as the db base path
-$ mkdir my-chain-state
+# Create a folder to use as the db base path
+mkdir my-chain-state
 
-// Use of that folder to store the chain state
-$ ./target/release/node-template --dev --base-path ./my-chain-state/
+# Use of that folder to store the chain state
+./target/release/node-template --dev --base-path ./my-chain-state/
 
-// Check the folder structure created inside the base path after running the chain
-$ ls ./my-chain-state
-chains
-$ ls ./my-chain-state/chains/
-dev
-$ ls ./my-chain-state/chains/dev
-db keystore network
+# Check the folder structure created inside the base path after running the chain
+ls ./my-chain-state
+#> chains
+ls ./my-chain-state/chains/
+#> dev
+ls ./my-chain-state/chains/dev
+#> db keystore network
 ```
 
 ### Connect with Polkadot-JS Apps Front-end

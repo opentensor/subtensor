@@ -215,6 +215,60 @@ fn test_registration_too_many_registrations_per_block() {
 }
 
 #[test]
+fn test_registration_too_many_registrations_per_interval() {
+	new_test_ext().execute_with(|| {
+		
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		SubtensorModule::set_max_registrations_per_block( netuid, 11 );
+		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 11 );
+
+		SubtensorModule::set_target_registrations_per_interval( netuid, 3 );
+		assert_eq!( SubtensorModule::get_target_registrations_per_interval(netuid), 3 );
+		// Then the max is 3 * 3 = 9
+
+		let block_number: u64 = 0;
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312);
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414);
+		let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 21813123);
+		let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 148141209);
+		let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 1245235534);
+		let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 256234);
+		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424);
+		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242);
+		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453);
+		assert_eq!( SubtensorModule::get_difficulty_as_u64(netuid), 10000 );
+
+		//add network
+		add_network(netuid, tempo, 0);
+		
+		// Subscribe and check extrinsic output
+		// Try 10 registrations, this is less than the max per block, but more than the max per interval
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, block_number, nonce0, work0, 0, 0));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 1 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(1), netuid, block_number, nonce1, work1, 1, 1));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 2 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(2), netuid, block_number, nonce2, work2, 2, 2));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 3 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(3), netuid, block_number, nonce3, work3, 3, 3));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 4 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(4), netuid, block_number, nonce4, work4, 4, 4));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 5 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(5), netuid, block_number, nonce5, work5, 5, 5));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 6 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(6), netuid, block_number, nonce6, work6, 6, 6));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 7 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(7), netuid, block_number, nonce7, work7, 7, 7));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 8 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(8), netuid, block_number, nonce8, work8, 8, 8));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 9 );
+		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(9), netuid, block_number, nonce9, work9, 9, 9);
+		assert_eq!( result, Err(Error::<Test>::TooManyRegistrationsThisInterval.into()) );
+	});
+}
+
+#[test]
 fn test_registration_immunity_period() { //impl this test when epoch impl and calculating pruning score is done
 	/* TO DO */
 }
