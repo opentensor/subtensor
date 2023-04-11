@@ -993,3 +993,69 @@ fn test_full_with_delegating() {
 }
 
 
+/************************************************************
+	staking::unstake_all_coldkeys_from_hotkey_account() tests
+************************************************************/
+
+#[test]
+fn test_unstake_all_coldkeys_from_hotkey_account() {
+	new_test_ext().execute_with(|| {
+		let hotkey_id = 123570;
+		let coldkey0_id = 123560;
+		
+		let coldkey1_id = 123561;
+		let coldkey2_id = 123562;
+		let coldkey3_id = 123563;
+
+		let amount: u64 = 10000;
+
+        let netuid: u16 = 1;
+
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+
+		// Make subnet
+		add_network(netuid, tempo, 0);
+		// Register delegate
+		register_ok_neuron( netuid, hotkey_id, coldkey0_id, start_nonce);
+		
+		let neuron_uid ;
+        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
+            Ok(k) => neuron_uid = k,
+            Err(e) => panic!("Error: {:?}", e),
+        } 
+		
+		//Add some stake that can be removed
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, amount);
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1_id, &hotkey_id, amount + 2);
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey2_id, &hotkey_id, amount + 3);
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey3_id, &hotkey_id, amount + 4);
+
+		// Verify free balance is 0 for all coldkeys
+		assert_eq!(Balances::free_balance(coldkey0_id), 0);
+		assert_eq!(Balances::free_balance(coldkey1_id), 0);
+		assert_eq!(Balances::free_balance(coldkey2_id), 0);
+		assert_eq!(Balances::free_balance(coldkey3_id), 0);
+
+		// Verify total stake is correct
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), amount * 4 + (2 + 3 + 4));
+
+		// Run unstake_all_coldkeys_from_hotkey_account
+		SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
+
+		// Verify stake is 0
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
+
+		// Vefify stake for all coldkeys is 0
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id), 0);
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id), 0);
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id), 0);
+		assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id), 0);
+
+		// Verify free balance is correct for all coldkeys
+		assert_eq!(Balances::free_balance(coldkey0_id), amount);
+		assert_eq!(Balances::free_balance(coldkey1_id), amount + 2);
+		assert_eq!(Balances::free_balance(coldkey2_id), amount + 3);
+		assert_eq!(Balances::free_balance(coldkey3_id), amount + 4);
+	});
+}
