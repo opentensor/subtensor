@@ -55,6 +55,52 @@ fn test_replace_neuron() {
 }
 
 #[test]
+fn test_replace_neuron_multiple_subnets() {
+	new_test_ext().execute_with(|| {
+        let block_number: u64 = 0;
+		let netuid: u16 = 1;
+        let netuid1: u16 = 2;
+		let tempo: u16 = 13;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5);
+
+		let hotkey_account_id = 1;
+		let coldkey_account_id = 1234;
+
+        let new_hotkey_account_id = 2;
+        let _new_colkey_account_id = 12345;
+
+		//add network
+		add_network(netuid, tempo, 0);
+        add_network(netuid1, tempo, 0);
+		
+		// Register a neuron on both networks.
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id));
+        assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid1, block_number, nonce1, work1, hotkey_account_id, coldkey_account_id));
+
+        // Get UID
+		let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
+        assert_ok!(neuron_uid);
+
+        // Verify neuron is registered on both networks.
+        assert!(SubtensorModule::is_hotkey_registered_on_network(netuid, &hotkey_account_id) );
+        assert!(SubtensorModule::is_hotkey_registered_on_network(netuid1, &hotkey_account_id) );
+        assert!(SubtensorModule::is_hotkey_registered_on_any_network(&hotkey_account_id) );
+
+        // Replace the neuron.
+        // Only replace on ONE network.
+        SubtensorModule::replace_neuron(netuid, neuron_uid.unwrap(), &new_hotkey_account_id, block_number);
+
+        // Check old hotkey is not registered on netuid network.
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
+
+        // Verify still registered on netuid1 network.
+        assert!( SubtensorModule::is_hotkey_registered_on_any_network(&hotkey_account_id) );
+        assert!( SubtensorModule::is_hotkey_registered_on_network(netuid1, &hotkey_account_id) );
+	});
+}
+
+#[test]
 fn test_replace_neuron_multiple_subnets_unstake_all() {
 	new_test_ext().execute_with(|| {
 		let block_number: u64 = 0;
