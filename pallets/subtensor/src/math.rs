@@ -60,6 +60,30 @@ pub fn vec_max_upscale_to_u16( vec: &Vec<I32F32> ) -> Vec<u16> {
 }
 
 #[allow(dead_code)]
+// Max-upscale u16 vector and convert to u16 so max_value = u16::MAX. Assumes u16 vector input.
+pub fn vec_u16_max_upscale_to_u16( vec: &Vec<u16> ) -> Vec<u16> {
+    let vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num( *e ) ).collect();
+    vec_max_upscale_to_u16( &vec_fixed )
+}
+
+#[allow(dead_code)]
+// Checks if u16 vector, when normalized, has a max value not greater than a u16 ratio max_limit.
+pub fn check_vec_max_limited( vec: &Vec<u16>, max_limit: u16 ) -> bool {
+    let max_limit_fixed: I32F32 = I32F32::from_num( max_limit ) / I32F32::from_num( u16::MAX );
+    let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num( *e ) ).collect();
+    inplace_normalize( &mut vec_fixed );
+    let max_value: Option<&I32F32> = vec_fixed.iter().max();
+    match max_value {
+        Some(val) => {
+            return *val <= max_limit_fixed;
+        },
+        None => {
+            return true;
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub fn sum( x: &Vec<I32F32> ) -> I32F32 { x.iter().sum() }
 
 // Return true when vector sum is zero.
@@ -804,7 +828,7 @@ mod tests {
             assert_float_compare_64(va[i], vb[i], epsilon);
         }  
     }
-    
+
     fn assert_vec_compare_u16(va: &Vec<u16>, vb: &Vec<u16>) {
         assert!(va.len() == vb.len());
         for i in 0..va.len(){
@@ -907,6 +931,83 @@ mod tests {
         let target: Vec<u16> = vec![ 0, 0, 1, 1, 65535 ];
         let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
         assert_vec_compare_u16(&result, &target);
+    }
+
+    #[test]
+    fn test_vec_u16_max_upscale_to_u16() {
+        let vector: Vec<u16> = vec![];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+        let vector: Vec<u16> = vec![ 0 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+        let vector: Vec<u16> = vec![ 0, 0 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+        let vector: Vec<u16> = vec![ 1 ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 0, 1 ];
+        let target: Vec<u16> = vec![ 0, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 65534 ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 65535 ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 65535, 65535 ];
+        let target: Vec<u16> = vec![ 65535, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 0, 1, 65534 ];
+        let target: Vec<u16> = vec![ 0, 1, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 0, 1, 2, 3, 4, 65533, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+    }
+
+    #[test]
+    fn test_check_vec_max_limited() {
+        let vector: Vec<u16> = vec![];
+        let max_limit: u16 = 0;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ u16::MAX ];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ u16::MAX ];
+        let max_limit: u16 = u16::MAX - 1;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ u16::MAX ];
+        let max_limit: u16 = 0;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0 ];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX ];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 2;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 2 + 1;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 3 - 1;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 3;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
     }
 
     #[test]
@@ -2356,4 +2457,141 @@ mod tests {
         assert_vec_compare( &matmul( &w, &vec![ I32F32::from_num(2.0); 3] ), &vec![ I32F32::from_num(6),  I32F32::from_num(12),  I32F32::from_num(18)], epsilon );
     }
 
+    #[test]
+    fn test_math_fixed_to_u16() {
+        let expected = u16::MIN;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+
+        let expected = u16::MAX / 2;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+
+        let expected = u16::MAX;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_math_fixed_to_u16_panics() {
+        let bad_input = I32F32::from_num(u32::MAX);
+        fixed_to_u16(bad_input);
+
+        let bad_input = I32F32::from_num(-1);
+        fixed_to_u16(bad_input);
+    }
+
+    // TODO: Investigate why `I32F32` and not `I64F64`
+    #[test]
+    fn test_math_fixed_to_u64() {
+        let expected = u64::MIN;
+        assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+
+        // let expected = u64::MAX / 2;
+        // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+
+        // let expected = u64::MAX;
+        // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "-1 overflows")]
+    fn test_math_fixed_to_u64_panics() {
+        let bad_input = I32F32::from_num(-1);
+        fixed_to_u64(bad_input);
+    }
+
+    #[test]
+    fn test_math_fixed64_to_u64() {
+        let expected = u64::MIN;
+        assert_eq!(fixed64_to_u64(I64F64::from_num(expected)), expected);
+
+        let input = i64::MAX / 2;
+        let expected = u64::try_from(input).unwrap();
+        assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
+
+        let input = i64::MAX;
+        let expected = u64::try_from(input).unwrap();
+        assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "-1 overflows")]
+    fn test_math_fixed64_to_u64_panics() {
+        let bad_input = I64F64::from_num(-1);
+        fixed64_to_u64(bad_input);
+    }
+
+    /* @TODO: find the _true_ max, and half, input values */
+    #[test]
+    fn test_math_fixed64_to_fixed32() {
+        let input = u64::MIN;
+        let expected = u32::try_from(input).unwrap();
+        assert_eq!(fixed64_to_fixed32(I64F64::from_num(expected)), expected);
+
+        let expected = u32::MAX / 2;
+        let input = u64::try_from(expected).unwrap();
+        assert_eq!(fixed64_to_fixed32(I64F64::from_num(input)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_math_fixed64_to_fixed32_panics() {
+        let bad_input = I64F64::from_num(u32::MAX);
+        fixed64_to_fixed32(bad_input);
+    }
+
+    #[test]
+    fn test_math_u16_to_fixed() {
+        let input = u16::MIN;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+
+        let input = u16::MAX / 2;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+
+        let input = u16::MAX;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+    }
+
+    #[test]
+    fn test_math_u16_proportion_to_fixed() {
+        let input = u16::MIN;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_proportion_to_fixed(input), expected);
+    }
+
+    #[test]
+    fn test_fixed_proportion_to_u16() {
+        let expected = u16::MIN;
+        let input = I32F32::from_num(expected);
+        assert_eq!(fixed_proportion_to_u16(input), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_fixed_proportion_to_u16_panics() {
+        let expected = u16::MAX;
+        let input = I32F32::from_num(expected);
+        fixed_proportion_to_u16(input);
+    }
+
+    #[test]
+    fn test_vec_fixed64_to_fixed32() {
+        let input = vec![ I64F64::from_num(i32::MIN) ];
+        let expected = vec![ I32F32::from_num(i32::MIN) ];
+        assert_eq!(vec_fixed64_to_fixed32(input), expected);
+
+        let input = vec![ I64F64::from_num(i32::MAX) ];
+        let expected = vec![ I32F32::from_num(i32::MAX) ];
+        assert_eq!(vec_fixed64_to_fixed32(input), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_vec_fixed64_to_fixed32_panics() {
+        let bad_input = vec![ I64F64::from_num(i64::MAX) ];
+        vec_fixed64_to_fixed32(bad_input);
+    }
 }
+
