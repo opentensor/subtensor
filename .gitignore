@@ -30,3 +30,5 @@ tmp/
 # Resulting chainspec files from localnet
 specs/*.json
 
+# Git merge/rebase artifacts
+*.orig

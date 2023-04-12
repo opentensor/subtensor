@@ -383,13 +383,9 @@ fn test_set_weights_sum_larger_than_u16_max() {
 		assert_ok!(result);
 
 		let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid);
-		let weights_set: Vec<u16> = all_weights[neuron_uid as usize].iter().map(|x| x.to_bits() as u16).collect();
-
-		// Should sum less than u16 max.
-		assert!(weights_set.iter().map(|x| *x as u64).sum::<u64>() <= (u16::MAX as u64) );
-
-		// Should be normalized to 50% each.
-		assert_eq!(weights_set, vec![u16::MAX/2, u16::MAX/2]);
+		let weights_set: &Vec<I32F32> = &all_weights[neuron_uid as usize];
+		assert_eq!( weights_set[0], I32F32::from_num(1) );
+		assert_eq!( weights_set[1], I32F32::from_num(1) );
 	});
 }
 
