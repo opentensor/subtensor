@@ -610,7 +610,8 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
-		TooManyRegistrationsThisInterval // --- Thrown when registration attempt exceeds allowed in interval
+		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
+		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 	}
 
 	// ==================
@@ -1537,12 +1538,10 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
-			if cfg!(feature = "runtime-benchmarks") {
-				Self::epoch( 11, 1_000_000_000 );
-				Ok(())
-			} else {
-				Err(DispatchError::Other("Benchmarking only."))
-			}
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+		
+			Self::epoch( 11, 1_000_000_000 );
+			Ok(())
 		} 
 
 		#[pallet::call_index(48)]
@@ -1550,23 +1549,19 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().reads(12299 as u64))
 		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
-			if cfg!(feature = "runtime-benchmarks") {
-				let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
-				Ok(())
-			} else {
-				Err(DispatchError::Other("Benchmarking only."))
-			}
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+
+			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
+			Ok(())
 		} 
 
 		#[pallet::call_index(49)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
-			if cfg!(feature = "runtime-benchmarks") {
-				Self::drain_emission( 11 );
-				Ok(())
-			} else {
-				Err(DispatchError::Other("Benchmarking only."))
-			}
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+		
+			Self::drain_emission( 11 );
+			Ok(())
 		} 
 	}	
 
