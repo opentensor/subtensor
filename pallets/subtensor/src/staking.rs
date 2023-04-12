@@ -384,11 +384,12 @@ impl<T: Config> Pallet<T> {
                 continue; // Don't unstake if we can't convert to balance.
             } else {
                 // Stake is successfully converted to balance.
-                // Add the balance to the coldkey account.
-                Self::add_balance_to_coldkey_account( &delegate_coldkey_i, stake_i_as_balance.unwrap() );
 
                 // Remove the stake from the coldkey - hotkey pairing.
                 Self::decrease_stake_on_coldkey_hotkey_account( &delegate_coldkey_i, hotkey, stake_i );
+
+                // Add the balance to the coldkey account.
+                Self::add_balance_to_coldkey_account( &delegate_coldkey_i, stake_i_as_balance.unwrap() );
             }
         }
     }
