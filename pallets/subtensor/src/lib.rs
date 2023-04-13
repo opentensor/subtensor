@@ -113,7 +113,7 @@ pub mod pallet {
 		type InitialMaxDifficulty: Get<u64>;
 		#[pallet::constant] // Initial Min Difficulty.
 		type InitialMinDifficulty: Get<u64>;
-		#[pallet::constant] // Initial adjustment interval.
+		#[pallet::constant] // Initial RAO Recycled.
 		type InitialRAORecycledForRegistration: Get<u64>;
 		#[pallet::constant] // Initial Burn.
 		type InitialBurn: Get<u64>;
