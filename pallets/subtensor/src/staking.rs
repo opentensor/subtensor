@@ -1,3 +1,5 @@
+use pallet_balances::NegativeImbalance;
+
 use super::*;
 
 impl<T: Config> Pallet<T> { 
@@ -351,11 +353,15 @@ impl<T: Config> Pallet<T> {
     // Increases the reserved stake on the coldkey account by the increment.
     // This issues Balance and then reserves it to the coldkey account.
     pub fn increase_reserved_on_coldkey_account_issuing( coldkey: &T::AccountId, increment_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) {
-        // Issue the new TAO. This gets added to the free balance.
-        let balance_issued = T::Currency::deposit_creating( coldkey, increment_balance ); 
+        // Issue the new TAO. Avoids overflow of the total supply.
+        let balance_issued = T::Currency::issue( increment_balance );
+        // Get a copy of the acutal balance issued.
+        let balance_issued_copy = balance_issued.peek();
+        // Resolve the balance issued into the free balance.
+        T::Currency::resolve_creating( coldkey, balance_issued ); 
         // Move the amount to the reserved balance.
         // This will not fail as balance_issued is the amount that was just added to the free balance.
-        Self::increase_reserved_on_coldkey_account( coldkey, balance_issued.peek() ).expect("Could not reserve added balance");
+        Self::increase_reserved_on_coldkey_account( coldkey, balance_issued_copy ).expect("Could not reserve added balance");
     }
 
     // Increases the reserved stake on the coldkey account by the increment.
