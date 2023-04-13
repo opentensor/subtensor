@@ -5,7 +5,7 @@ Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 4096;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 50;
-EmissionValue: u16 = 980_000_000; // 0.98 tao/block [1_000_000_000 @ 0]
+EmissionValue: u16 = 1_000_000_000;
 MaxWeightsLimit: u16 = 655; // 655/2^16 = 0.01 [655 @ 7,160]
 ValidatorBatchSize: u16 = 32; // 32
 ValidatorSequenceLen: u16 = 256; // 256
@@ -38,14 +38,14 @@ TxRateLimit: u64 = 1; // [1 @ 64,888]
 WeightsSetRateLimit: u64 = 250; // [250 @ 7,168]
 ```
 
-### netuid 4 (text_prompting)
+### netuid 1 (text_prompting)
 ```rust
 Rho: u16 = 10;
 Kappa: u16 = 32_767; // 0.5 = 65535/2 
 MaxAllowedUids: u16 = 128;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 1;
-EmissionValue: u16 = 20_000_000; // 0.02 tao/block
+EmissionValue: u16 = 0;
 MaxWeightsLimit: u16 = 65535; // 100% of u16
 ValidatorBatchSize: u16 = 1;
 ValidatorSequenceLen: u16 = 2048; // 2048
@@ -56,7 +56,7 @@ ValidatorPruneLen: u64 = 1;
 ValidatorLogitsDivergence: u16 = 1310; // 2% of u16
 ScalingLawPower: u16 = 50; // 0.5
 SynergyScalingLawPower: u16 = 50; // 0.5
-MaxAllowedValidators: u16 = 4;
+MaxAllowedValidators: u16 = 8;
 Tempo: u16 = 99;
 Difficulty: u64 = 10_000_000;
 AdjustmentInterval: u16 = 100;
