@@ -82,7 +82,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Set RELEASE mode
-        if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+        if: github.event_name == 'push' && github.ref == $default-branch
         shell: bash
         run: |
           set -eET
