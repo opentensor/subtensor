@@ -34,7 +34,7 @@ ServingRateLimit: u64 = 250; // [250 @ 7,166]
 Burn: u64 = 100_000_000_000; // 100 tao [100 tao @ 26,310]
 MinBurn: u64 = 1_000_000_000; // 1 tao [1 tao @ 26,310]
 MaxBurn: u64 = 21_000_000_000_000_000; // 21M tao [21M tao @ 26,310]
-TxRateLimit: u64 = 1; // [1 @ 64,888]
+TxRateLimit: u64 = 1; // global setting [1 @ 64,888]
 WeightsSetRateLimit: u64 = 250; // [250 @ 7,168]
 ```
 
@@ -42,7 +42,7 @@ WeightsSetRateLimit: u64 = 250; // [250 @ 7,168]
 ```rust
 Rho: u16 = 10;
 Kappa: u16 = 32_767; // 0.5 = 65535/2 
-MaxAllowedUids: u16 = 128;
+MaxAllowedUids: u16 = 32;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 1;
 EmissionValue: u16 = 0;
@@ -56,11 +56,11 @@ ValidatorPruneLen: u64 = 1;
 ValidatorLogitsDivergence: u16 = 1310; // 2% of u16
 ScalingLawPower: u16 = 50; // 0.5
 SynergyScalingLawPower: u16 = 50; // 0.5
-MaxAllowedValidators: u16 = 8;
+MaxAllowedValidators: u16 = 2;
 Tempo: u16 = 99;
 Difficulty: u64 = 10_000_000;
 AdjustmentInterval: u16 = 100;
-TargetRegistrationsPerInterval: u16 = 2;
+TargetRegistrationsPerInterval: u16 = 8;
 ImmunityPeriod: u16 = 4096;
 ActivityCutoff: u16 = 5000;
 MaxRegistrationsPerBlock: u16 = 1;
@@ -70,10 +70,10 @@ DefaultTake: u16 = 11_796; // 18% honest number.
 WeightsVersionKey: u64 = 370;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;
-ServingRateLimit: u64 = 250; 
+ServingRateLimit: u64 = 10; 
 Burn: u64 = 1_000_000_000; // 1 tao
 MinBurn: u64 = 1_000_000_000; // 1 tao
 MaxBurn: u64 = 100_000_000_000; // 100 tao
-TxRateLimit: u64 = 1;
+TxRateLimit: u64 = 1; // global setting
 WeightsSetRateLimit: u64 = 250;
 ```
