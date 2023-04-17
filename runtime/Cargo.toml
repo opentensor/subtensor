@@ -52,7 +52,6 @@ pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", 
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
 pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
 pallet-bags-list = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
-pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
 pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
 pallet-fast-unstake = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
 pallet-im-online = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
@@ -100,7 +99,6 @@ std = [
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-bags-list/std",
-	"pallet-elections-phragmen/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-fast-unstake/std",
 	"pallet-im-online/std",
@@ -131,7 +129,6 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
-	"pallet-elections-phragmen/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
@@ -157,11 +154,10 @@ try-runtime = [
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-bags-list/try-runtime",
-	"pallet-elections-phragmen/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-staking/try-runtime",
 	"pallet-babe/try-runtime",
-	
+
 ]
