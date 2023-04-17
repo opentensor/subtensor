@@ -588,7 +588,6 @@ pub mod pallet {
 		TooManyRegistrationsThisBlock, // ---- Thrown when registrations this block exceeds allowed number.
 		AlreadyRegistered, // ---- Thrown when the caller requests registering a neuron which already exists in the active set.
 		InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative
-		WorkRepeated, // ---- Thrown when the caller attempts to use a repeated work.
 		InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
 		InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
 		MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids
@@ -1071,9 +1070,6 @@ pub mod pallet {
 		//
 		// 	* 'InvalidWorkBlock':
 		// 		- The work has been performed on a stale, future, or non existent block.
-		//
-		// 	* 'WorkRepeated':
-		// 		- This work for block has already been used.
 		//
 		// 	* 'InvalidDifficulty':
 		// 		- The work does not match the difficutly.
