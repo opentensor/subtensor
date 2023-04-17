@@ -455,7 +455,7 @@ impl<T: Config> Pallet<T> {
     pub fn hash_block_and_hotkey( block_hash_bytes: &[u8], hotkey: &T::AccountId ) -> H512 {
         let binding = hotkey.encode();
         let hotkey_bytes: &[u8] = binding.as_slice();
-        let full_bytes: &[u8; 40] = &[
+        let full_bytes: &[u8; 64] = &[
             block_hash_bytes[0], block_hash_bytes[1], block_hash_bytes[2], block_hash_bytes[3],
             block_hash_bytes[4], block_hash_bytes[5], block_hash_bytes[6], block_hash_bytes[7],
             block_hash_bytes[8], block_hash_bytes[9], block_hash_bytes[10], block_hash_bytes[11],
@@ -468,6 +468,13 @@ impl<T: Config> Pallet<T> {
 
             hotkey_bytes[0], hotkey_bytes[1], hotkey_bytes[2], hotkey_bytes[3],
             hotkey_bytes[4], hotkey_bytes[5], hotkey_bytes[6], hotkey_bytes[7],
+            hotkey_bytes[8], hotkey_bytes[9], hotkey_bytes[10], hotkey_bytes[11],
+            hotkey_bytes[12], hotkey_bytes[13], hotkey_bytes[14], hotkey_bytes[15],
+
+            hotkey_bytes[16], hotkey_bytes[17], hotkey_bytes[18], hotkey_bytes[19],
+            hotkey_bytes[20], hotkey_bytes[21], hotkey_bytes[22], hotkey_bytes[23],
+            hotkey_bytes[24], hotkey_bytes[25], hotkey_bytes[26], hotkey_bytes[27],
+            hotkey_bytes[28], hotkey_bytes[29], hotkey_bytes[30], hotkey_bytes[31],
         ];
         let keccak_512_seal_hash_vec: [u8; 64] = keccak_512 ( full_bytes );
         let seal_hash: H512 = H512::from_slice( &keccak_512_seal_hash_vec );
