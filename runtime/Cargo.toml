@@ -46,6 +46,21 @@ sp-std = { version = "5.0.0", default-features = false, git = "https://github.co
 sp-transaction-pool = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 sp-version = { version = "5.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
+# Decentralized Authorities
+sp-npos-elections = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-authority-discovery = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-babe = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-bags-list = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-elections-phragmen = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-election-provider-multi-phase = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-fast-unstake = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-im-online = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-staking = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+pallet-staking-reward-curve = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39" }
+pallet-staking-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+frame-election-provider-support = { git = "https://github.com/paritytech/substrate", default-features = false , branch = "polkadot-v0.9.39" }
+
 # Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -53,6 +68,7 @@ pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", default-fe
 # Used for runtime benchmarking
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", optional = true , branch = "polkadot-v0.9.39" }
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", optional = true , branch = "polkadot-v0.9.39" }
+pallet-election-provider-support-benchmarking = { git = "https://github.com/paritytech/substrate", default-features = false, optional = true , branch = "polkadot-v0.9.39" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", optional = true , branch = "polkadot-v0.9.39" }
@@ -70,6 +86,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"frame-election-provider-support/std",
 	"pallet-subtensor/std",
 	"pallet-aura/std",
 	"pallet-balances/std",
@@ -79,6 +96,18 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-authority-discovery/std",
+	"pallet-authorship/std",
+	"pallet-babe/std",
+	"pallet-bags-list/std",
+	"pallet-elections-phragmen/std",
+	"pallet-election-provider-multi-phase/std",
+	"pallet-fast-unstake/std",
+	"pallet-im-online/std",
+	"pallet-staking/std",
+	"pallet-staking-reward-curve/std",
+	"pallet-staking-runtime-api/std",
+	"frame-election-provider-support/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -102,6 +131,15 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
+	"pallet-elections-phragmen/runtime-benchmarks",
+	"pallet-election-provider-multi-phase/runtime-benchmarks",
+	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
+	"pallet-fast-unstake/runtime-benchmarks",
+	"pallet-babe/runtime-benchmarks",
+	"pallet-bags-list/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"frame-election-provider-support/runtime-benchmarks",
+
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -116,4 +154,14 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-subtensor/try-runtime",
+	"pallet-authority-discovery/try-runtime",
+	"pallet-authorship/try-runtime",
+	"pallet-bags-list/try-runtime",
+	"pallet-elections-phragmen/try-runtime",
+	"pallet-election-provider-multi-phase/try-runtime",
+	"pallet-fast-unstake/try-runtime",
+	"pallet-im-online/try-runtime",
+	"pallet-staking/try-runtime",
+	"pallet-babe/try-runtime",
+	
 ]
