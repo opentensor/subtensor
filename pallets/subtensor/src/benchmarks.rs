@@ -578,6 +578,16 @@ benchmarks! {
 
   }: sudo_set_synergy_scaling_law_power(RawOrigin::<AccountIdOf<T>>::Root, netuid, synergy_scaling_law_power)
 
+  benchmark_sudo_set_quadratic_voting_power {
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let quadratic_voting_power: u16 = 100;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_quadratic_voting_power(RawOrigin::<AccountIdOf<T>>::Root, netuid, quadratic_voting_power)
+
   benchmark_sudo_set_immunity_period {
     let netuid: u16 = 1;
     let tempo: u16 = 1;

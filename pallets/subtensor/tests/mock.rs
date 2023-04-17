@@ -129,6 +129,7 @@ parameter_types! {
 	pub const InitialValidatorLogitsDivergence: u16 = 0;
 	pub const InitialScalingLawPower: u16 = 50;
 	pub const InitialSynergyScalingLawPower: u16 = 50;
+	pub const InitialQuadraticVotingPower: u16 = 100;
 	pub const InitialMaxAllowedValidators: u16 = 100;
 
 	pub const InitialIssuance: u64 = 548833985028256;
@@ -167,6 +168,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialValidatorLogitsDivergence = InitialValidatorLogitsDivergence;
 	type InitialScalingLawPower = InitialScalingLawPower;
 	type InitialSynergyScalingLawPower = InitialSynergyScalingLawPower;
+	type InitialQuadraticVotingPower = InitialQuadraticVotingPower;
 	type InitialImmunityPeriod = InitialImmunityPeriod;
 	type InitialActivityCutoff = InitialActivityCutoff;
 	type InitialMaxRegistrationsPerBlock = InitialMaxRegistrationsPerBlock;

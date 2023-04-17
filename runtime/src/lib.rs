@@ -331,6 +331,7 @@ parameter_types! {
     pub const SubtensorInitialValidatorLogitsDivergence: u16 = 1310; // 2% of u16
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialQuadraticVotingPower: u16 = 100; // 1.00
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
     pub const SubtensorInitialTempo: u16 = 99;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
@@ -372,6 +373,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialValidatorLogitsDivergence = SubtensorInitialValidatorLogitsDivergence;
 	type InitialScalingLawPower = SubtensorInitialScalingLawPower;
 	type InitialSynergyScalingLawPower = SubtensorInitialSynergyScalingLawPower;
+	type InitialQuadraticVotingPower = SubtensorInitialQuadraticVotingPower;
 	type InitialTempo = SubtensorInitialTempo;
 	type InitialDifficulty = SubtensorInitialDifficulty;
 	type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;

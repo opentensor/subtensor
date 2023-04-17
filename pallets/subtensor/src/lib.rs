@@ -149,6 +149,8 @@ pub mod pallet {
 		type InitialScalingLawPower: Get<u16>;
 		#[pallet::constant] // Initial synergy scaling law power.
 		type InitialSynergyScalingLawPower: Get<u16>;
+		#[pallet::constant] // Initial quadratic voting power.
+		type InitialQuadraticVotingPower: Get<u16>;
 		#[pallet::constant] // Immunity Period Constant.
 		type InitialImmunityPeriod: Get<u16>;
 		#[pallet::constant] // Activity constant
@@ -401,6 +403,8 @@ pub mod pallet {
 	pub fn DefaultScalingLawPower<T: Config>() -> u16 { T::InitialScalingLawPower::get() }
 	#[pallet::type_value]
 	pub fn DefaultSynergyScalingLawPower<T: Config>() -> u16 { T::InitialSynergyScalingLawPower::get() }
+	#[pallet::type_value]
+	pub fn DefaultQuadraticVotingPower<T: Config>() -> u16 { T::InitialQuadraticVotingPower::get() }
 	#[pallet::type_value] 
 	pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 { T::InitialTargetRegistrationsPerInterval::get() }
 
@@ -455,6 +459,8 @@ pub mod pallet {
 	pub type ScalingLawPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> synergy_scaling_law_power
 	pub type SynergyScalingLawPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSynergyScalingLawPower<T> >;
+	#[pallet::storage] // --- MAP ( netuid ) --> quadratic_voting_power
+	pub type QuadraticVotingPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultQuadraticVotingPower<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> target_registrations_this_interval
 	pub type TargetRegistrationsPerInterval<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T> >;
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> block_at_registration
@@ -545,6 +551,7 @@ pub mod pallet {
 		ValidatorPruneLenSet( u16, u64 ), // --- Event created when the validator pruning length has been set.
 		ScalingLawPowerSet( u16, u16 ), // --- Event created when the scaling law power has been set for a subnet.
 		SynergyScalingLawPowerSet( u16, u16 ), // --- Event created when the synergy scaling law has been set for a subnet.
+		QuadraticVotingPowerSet( u16, u16 ), // --- Event created when the quadratic voting power has been set for a subnet.
 		WeightsSetRateLimitSet( u16, u64 ), // --- Event create when weights set rate limit has been set for a subnet.
 		ImmunityPeriodSet( u16, u16), // --- Event created when immunity period is set for a subnet.
 		BondsMovingAverageSet( u16, u64), // --- Event created when bonds moving average is set for a subnet.
@@ -1527,12 +1534,20 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(46)]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_quadratic_voting_power( origin:OriginFor<T>, netuid: u16, quadratic_voting_power: u16 ) -> DispatchResult {
+			Self::do_sudo_set_quadratic_voting_power( origin, netuid, quadratic_voting_power )
+		}
+
+		#[pallet::call_index(47)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
 		
-		#[pallet::call_index(47)]
+		#[pallet::call_index(48)]
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
@@ -1541,7 +1556,7 @@ pub mod pallet {
 			Ok(())
 		} 
 
-		#[pallet::call_index(48)]
+		#[pallet::call_index(49)]
 		#[pallet::weight((Weight::from_ref_time(117_586_465_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(12299 as u64))
 		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
@@ -1550,12 +1565,12 @@ pub mod pallet {
 			Ok(())
 		} 
 
-		#[pallet::call_index(49)]
+		#[pallet::call_index(50)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
 			Self::drain_emission( 11 );
 			Ok(())
-		} 
+		}
 	}	
 
 	// ---- Subtensor helper functions.

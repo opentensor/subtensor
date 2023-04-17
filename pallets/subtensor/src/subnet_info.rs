@@ -22,6 +22,7 @@ pub struct SubnetInfo {
     max_weights_limit: Compact<u16>,
     scaling_law_power: Compact<u16>,
     synergy_scaling_law_power: Compact<u16>,
+    quadratic_voting_power: Compact<u16>,
     subnetwork_n: Compact<u16>,
     max_allowed_uids: Compact<u16>,
     blocks_since_last_step: Compact<u64>,
@@ -51,6 +52,7 @@ impl<T: Config> Pallet<T> {
         let max_weights_limit = Self::get_max_weight_limit(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
         let synergy_scaling_law_power = Self::get_synergy_scaling_law_power(netuid);
+        let quadratic_voting_power = Self::get_quadratic_voting_power(netuid);
         let subnetwork_n = Self::get_subnetwork_n(netuid);
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
@@ -81,6 +83,7 @@ impl<T: Config> Pallet<T> {
             max_weights_limit: max_weights_limit.into(),
             scaling_law_power: scaling_law_power.into(),
             synergy_scaling_law_power: synergy_scaling_law_power.into(),
+            quadratic_voting_power: quadratic_voting_power.into(),
             subnetwork_n: subnetwork_n.into(),
             max_allowed_uids: max_allowed_uids.into(),
             blocks_since_last_step: blocks_since_last_step.into(),

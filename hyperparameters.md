@@ -16,6 +16,7 @@ ValidatorPruneLen: u64 = 1;
 ValidatorLogitsDivergence: u16 = 1310; // 2% of u16
 ScalingLawPower: u16 = 50; // 0.5
 SynergyScalingLawPower: u16 = 50; // 0.5
+QuadraticVotingPower: u16 = 100; // 1.00
 MaxAllowedValidators: u16 = 128;
 Tempo: u16 = 99;
 Difficulty: u64 = 671_088_640_000_000; // Same as nakamoto at block = 3606775 [671T @ 26,310]

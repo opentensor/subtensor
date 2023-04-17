@@ -262,6 +262,18 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_quadratic_voting_power( netuid: u16 ) -> u16 { QuadraticVotingPower::<T>::get( netuid ) }
+    pub fn set_quadratic_voting_power( netuid: u16, quadratic_voting_power: u16 ) { QuadraticVotingPower::<T>::insert( netuid, quadratic_voting_power ); }
+    pub fn do_sudo_set_quadratic_voting_power( origin:T::RuntimeOrigin, netuid: u16, quadratic_voting_power: u16 ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
+        ensure!( (100 <= quadratic_voting_power) && (quadratic_voting_power <= 200), Error::<T>::StorageValueOutOfRange ); // The quadratic voting power must be between 100 and 200 => 1.00 and 2.00
+        Self::set_quadratic_voting_power( netuid, quadratic_voting_power );
+        log::info!("QuadraticVotingPowerSet( netuid: {:?} quadratic_voting_power: {:?} ) ", netuid, quadratic_voting_power);
+        Self::deposit_event( Event::QuadraticVotingPowerSet( netuid, quadratic_voting_power ));
+        Ok(())
+    }
+
     pub fn get_max_weight_limit( netuid: u16) -> u16 { MaxWeightsLimit::<T>::get( netuid ) }    
     pub fn set_max_weight_limit( netuid: u16, max_weight_limit: u16 ) { MaxWeightsLimit::<T>::insert( netuid, max_weight_limit ); }
     pub fn do_sudo_set_max_weight_limit( origin:T::RuntimeOrigin, netuid: u16, max_weight_limit: u16 ) -> DispatchResult {
