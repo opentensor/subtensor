@@ -11,7 +11,9 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::pallet_prelude::Get;
+use frame_support::{pallet_prelude::Get, traits::EitherOfDiverse};
+use frame_support::traits::{EnsureOneOf, ChangeMembers};
+use frame_system::EnsureRoot;
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -313,6 +315,33 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+// Configure collective pallet 
+parameter_types! {
+	pub const CouncilMotionDuration: BlockNumber = 3 * MINUTES;
+	pub const CouncilMaxProposals: u32 = 100;
+	pub const CouncilMaxMembers: u32 = 100;
+}
+
+// We call pallet_collective Council
+impl pallet_collective::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall;
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = CouncilMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+}
+
+// set up a custom origin using collective pallet
+// Custom origin that ensures either root or at least half of the collective's approval
+type EnsureRootOrHalfCouncil = EnsureOneOf<
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionAtLeast< AccountId,  &'static str, 1, 2>
+>;
+
 // Configure the pallet subtensor.
 parameter_types! {
 	pub const SubtensorInitialRho: u16 = 10;
@@ -390,6 +419,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMaxBurn = SubtensorInitialMaxBurn;
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+	type ChangeMembers = Council;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -408,7 +438,8 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
-		SubtensorModule: pallet_subtensor
+		SubtensorModule: pallet_subtensor,
+		Council: pallet_collective,
 	}
 );
 

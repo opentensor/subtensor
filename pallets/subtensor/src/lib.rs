@@ -22,7 +22,7 @@ use frame_support::{
 		tokens::{
 			WithdrawReasons
 		},
-		IsSubType,
+		IsSubType, ChangeMembers,
 		}
 };
 
@@ -70,7 +70,7 @@ pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, traits::ChangeMembers};
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
@@ -93,6 +93,9 @@ pub mod pallet {
 
 		// --- Currency type that will be used to place deposits on neurons
 		type Currency: Currency<Self::AccountId> + Send + Sync;
+
+		// --- ChangeMember type that will be used to set admin members
+		type ChangeMembers: ChangeMembers<Self::AccountId>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -1795,4 +1798,53 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 		Ok(())
     }
 
+}
+
+/*frame_support::parameter_types! {
+	
+	let  AdminMembers: Vec<u64> = vec![];
+	let  Prime: Option<u64> = None;
+} */
+#[derive(Clone)]
+pub struct SubtensorChangeMembers<T: Config>(pub PhantomData<T>);
+
+impl <T: Config> ChangeMembers<T::AccountId> for SubtensorChangeMembers<T>
+{
+
+	fn change_members_sorted(
+			incoming: &[T::AccountId],
+			outgoing: &[T::AccountId],
+			new: &[T::AccountId],
+		) {
+			// new, incoming, outgoing must be sorted.
+			let mut new_sorted = new.to_vec();
+			new_sorted.sort();
+			assert_eq!(new, &new_sorted[..]);
+
+			let mut incoming_sorted = incoming.to_vec();
+			incoming_sorted.sort();
+			assert_eq!(incoming, &incoming_sorted[..]);
+
+			let mut outgoing_sorted = outgoing.to_vec();
+			outgoing_sorted.sort();
+			assert_eq!(outgoing, &outgoing_sorted[..]);
+
+			// incoming and outgoing must be disjoint
+			for x in incoming.iter() {
+				assert!(outgoing.binary_search(x).is_err());
+			}
+
+			/*let mut old_plus_incoming = Members.with(|m| m.borrow().to_vec());
+			old_plus_incoming.extend_from_slice(incoming);
+			old_plus_incoming.sort(); */
+
+			let mut new_plus_outgoing = new.to_vec();
+			new_plus_outgoing.extend_from_slice(outgoing);
+			new_plus_outgoing.sort();
+
+			//assert_eq!(old_plus_incoming, new_plus_outgoing, "change members call is incorrect!");
+
+			//Members.with(|m| *m.borrow_mut() = new.to_vec());
+			//Prime.with(|p| *p.borrow_mut() = None);
+	}
 }

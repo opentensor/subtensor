@@ -1,12 +1,14 @@
 
 use super::*;
-use frame_support::inherent::Vec;
+use frame_support::{inherent::Vec, traits::ChangeMembers};
 use sp_core::U256;
 use frame_support::pallet_prelude::DispatchResult;
 use crate::system::ensure_root;
+pub use pallet_collective::{self as Collective};
+use pallet_collective::Config as CollectiveConfig;
 
 impl<T: Config> Pallet<T> {
-
+ 
     // ========================
 	// ==== Global Setters ====
 	// ========================
@@ -482,6 +484,16 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn do_set_admin_members(origin:T::RuntimeOrigin , members: Vec<&T::AccountId>) -> DispatchResult{
+        ensure_root( origin )?;
+        let old_count = 1;
+        //pallet_collective::Pallet::<T: Config + pallet_collective::Config>::set_members(origin, members, prime, old_count);
+        //Collective::pallet::Pallet::<T>::set_members(origin, members, prime, old_count);
+        //ChangeMembers::set_members_sorted(new_members, old_members)
+        Ok(())
+    } 
+
 }
+
 
 

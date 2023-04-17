@@ -1,6 +1,6 @@
 use node_subtensor_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY, SubtensorModuleConfig
+	SystemConfig, WASM_BINARY, SubtensorModuleConfig, CouncilConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -315,6 +315,10 @@ fn testnet_genesis(
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
+		council: CouncilConfig { // Add initial authorities as collective members
+			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			phantom: Default::default(),
+		},
 	}
 }
 
@@ -355,6 +359,10 @@ fn finney_genesis(
 		subtensor_module: SubtensorModuleConfig {
 			stakes: stakes,
 			balances_issuance: balances_issuance
+		},
+		council: CouncilConfig { // Add initial authorities as collective members
+			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			phantom: Default::default(),
 		},
 	}
 }
