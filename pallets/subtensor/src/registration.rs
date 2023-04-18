@@ -1,7 +1,11 @@
+use core::ops::Add;
+
 use super::*;
 use frame_support::{ pallet_prelude::DispatchResult};
+use pallet_balances::AccountData;
+use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
-use sp_core::{H256, U256};
+use sp_core::{H256, U256, sr25519, Public};
 use crate::system::ensure_root;
 use sp_io::hashing::{sha2_256, keccak_256};
 use frame_system::{ensure_signed};
@@ -451,7 +455,10 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn hash_block_and_hotkey( block_hash_bytes: &[u8], hotkey: &T::AccountId ) -> H256 {
-        let binding = hotkey.encode();
+        // Get the public key from the account id.
+        let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
+
+        let binding = hotkey_pubkey.encode();
         let hotkey_bytes: &[u8] = binding.as_slice();
         let full_bytes: &[u8; 64] = &[
             block_hash_bytes[0], block_hash_bytes[1], block_hash_bytes[2], block_hash_bytes[3],
