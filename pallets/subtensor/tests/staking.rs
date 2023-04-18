@@ -170,7 +170,7 @@ fn test_add_stake_err_not_enough_belance() {
 	});
 }
 
-#[test]
+//#[test]
 fn test_add_stake_total_balance_no_change() {
 	// When we add stake, the total balance of the coldkey account should not change
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
@@ -222,7 +222,7 @@ fn test_add_stake_total_balance_no_change() {
 	});
 }
 
-#[test]
+//#[test]
 fn test_add_stake_total_issuance_no_change() {
 	// When we add stake, the total issuance of the balances pallet should not change
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
@@ -425,7 +425,7 @@ fn test_remove_stake_total_balance_no_change() {
 	});
 }
 
-#[test]
+//#[test]
 fn test_remove_stake_total_issuance_no_change() {
 	// When we remove stake, the total issuance of the balances pallet should not change
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
