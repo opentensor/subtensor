@@ -582,6 +582,14 @@ impl pallet_staking::EraPayout<Balance> for EraPayout {
 	}
 }
 
+/// A reasonable benchmarking config for staking pallet.
+struct StakingBenchmarkingConfig;
+impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
+	type MaxValidators = ConstU32<1000>;
+	type MaxNominators = ConstU32<1000>;
+}
+
+// Staking pallet configuration
 impl pallet_staking::Config for Runtime {
 	type MaxNominations = MaxNominations;
 	type Currency = Balances;
@@ -607,11 +615,12 @@ impl pallet_staking::Config for Runtime {
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
-	type BenchmarkingConfig = runtime_common::StakingBenchmarkingConfig;
+	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type OnStakerSlash = NominationPools;
 	type WeightInfo =  pallet_staking::weights::SubstrateWeight<Runtime>;
 }
 
+// Fast unstaking pallet configuration
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
