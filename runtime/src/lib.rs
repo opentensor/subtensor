@@ -453,7 +453,7 @@ generate_solution_type!(
 pub struct OnChainSeqPhragmen;
 impl onchain::Config for OnChainSeqPhragmen {
 	type System = Runtime;
-	type Solver = SequentialPhragmen<AccountId, runtime_common::elections::OnChainAccuracy>;
+	type Solver = SequentialPhragmen<AccountId, elections::OnChainAccuracy>;
 	type DataProvider = Staking;
 	type WeightInfo = frame_election_provider_support::weights::SubstrateWeight<Runtime>;
 	type MaxWinners = MaxActiveValidators;
@@ -463,7 +463,7 @@ impl onchain::Config for OnChainSeqPhragmen {
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 	type AccountId = AccountId;
-	type MaxLength = OffchainSolutionLengthLimit;
+	type MaxLength = elections::OffchainSolutionLengthLimit;
 	type MaxWeight = OffchainSolutionWeightLimit;
 	type Solution = NposCompactSolution16;
 	type MaxVotesPerVoter = <
@@ -520,7 +520,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 		pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
 		(),
 	>;
-	type BenchmarkingConfig = runtime_common::elections::BenchmarkConfig;
+	type BenchmarkingConfig = elections::BenchmarkConfig;
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
 	type MaxElectingVoters = MaxElectingVoters;
