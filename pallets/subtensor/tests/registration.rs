@@ -1,3 +1,4 @@
+use frame_support::traits::Currency;
 use ndarray::stack_new_axis;
 use pallet_subtensor::{Error, AxonInfoOf};
 use frame_support::{assert_ok};
@@ -519,6 +520,40 @@ fn test_registration_add_network_size() {
 	});
 }
 
+#[test]
+fn test_burn_registration_increase_recycled_rao() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+		let netuid2: u16 = 2;
+
+		let hotkey_account_id = 1;
+		let coldkey_account_id = 667;
+		
+		// Give funds for burn. 1000 TAO
+		let _ = Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000 as u64));
+
+		add_network(netuid, 13, 0);
+		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+
+		add_network(netuid2, 13, 0);
+		assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+
+		run_to_block(1);
+
+		let burn_amount = SubtensorModule::get_burn_as_u64(netuid);
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, hotkey_account_id));
+		assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+
+		run_to_block(2);
+		
+		let burn_amount2 = SubtensorModule::get_burn_as_u64(netuid2);
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid2, hotkey_account_id));
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(2), netuid2, 2));
+		assert_eq!(SubtensorModule::get_rao_recycled(netuid2), burn_amount2 * 2);
+		// Validate netuid is not affected.
+		assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+	});
+}
 
 #[test]
 fn test_full_pass_through() {
