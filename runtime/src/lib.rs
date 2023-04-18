@@ -352,11 +352,7 @@ impl pallet_sudo::Config for Runtime {
 
 // Configure BABE
 parameter_types! {
-	pub EpochDuration: u64 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS as u64,
-		2 * MINUTES as u64,
-		"DOT_EPOCH_DURATION"
-	);
+	pub EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS as u64;
 	pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
 	pub ReportLongevity: u64 =
 		BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
@@ -417,17 +413,8 @@ impl pallet_session::historical::Config for Runtime {
 
 parameter_types! {
 	// phase durations. 1/4 of the last session for each.
-	// in testing: 1min or half of the session for each
-	pub SignedPhase: u32 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
-		"DOT_SIGNED_PHASE"
-	);
-	pub UnsignedPhase: u32 = prod_or_fast!(
-		EPOCH_DURATION_IN_SLOTS / 4,
-		(1 * MINUTES).min(EpochDuration::get().saturated_into::<u32>() / 2),
-		"DOT_UNSIGNED_PHASE"
-	);
+	pub SignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 4; 
+	pub UnsignedPhase: u32 = EPOCH_DURATION_IN_SLOTS / 4;
 
 	// signed config
 	pub const SignedMaxSubmissions: u32 = 16;
@@ -572,19 +559,11 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
 	// Six sessions in an era (24 hours).
-	pub const SessionsPerEra: SessionIndex = prod_or_fast!(6, 1);
+	pub const SessionsPerEra: SessionIndex = 6;
 
 	// 28 eras for unbonding (28 days).
-	pub BondingDuration: sp_staking::EraIndex = prod_or_fast!(
-		28,
-		28,
-		"DOT_BONDING_DURATION"
-	);
-	pub SlashDeferDuration: sp_staking::EraIndex = prod_or_fast!(
-		27,
-		27,
-		"DOT_SLASH_DEFER_DURATION"
-	);
+	pub BondingDuration: sp_staking::EraIndex = 28;
+	pub SlashDeferDuration: sp_staking::EraIndex = 27;
 	pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 	pub const MaxNominatorRewardedPerValidator: u32 = 512;
 	pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
