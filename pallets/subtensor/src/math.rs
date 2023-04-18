@@ -1,6 +1,6 @@
 use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
-use substrate_fixed::transcendental::exp;
+use substrate_fixed::transcendental::{exp, pow};
 use substrate_fixed::types::{I32F32, I64F64};
 
 #[allow(dead_code)]
@@ -177,6 +177,40 @@ pub fn inplace_normalize_64( x: &mut Vec<I64F64> ) {
     if x_sum == I64F64::from_num( 0 ){ return }
     for i in 0..x.len() {
         x[i] = x[i]/x_sum;
+    }
+}
+
+// Raise to power the input vector directly in-place, assumes non-negative input.
+#[allow(dead_code)]
+pub fn inplace_pow( x: &mut Vec<I32F32>, power: I32F32 ) {
+    let zero: I32F32 = I32F32::from_num(0);
+    let one: I32F32 = I32F32::from_num(1);
+    let precision: I32F32 = I32F32::from_num(0.0000000007);
+    for i in 0..x.len() {
+        if x[i] < precision { // prevent transcendental None return error in pow().
+            x[i] = zero;
+        }
+        match pow(x[i], power) {
+            Ok(val) => {
+                x[i] = val;
+            },
+            Err(_err) => {
+                // r = ln::<S, D>(operand)?.checked_mul(exponent.into());
+                // result = exp(r);
+                // result.overflowing_to_num::<D>();
+                if power < one {
+                    x[i] = one;
+                }
+                else if power > one {
+                    if x[i] < one {
+                        x[i] = zero;
+                    }
+                    else if x[i] > one { // handles result.overflowing_to_num::<D>();
+                        x[i] = I32F32::max_value();
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1313,6 +1347,135 @@ mod tests {
         let mut x2: Vec<I64F64> = vec![ I64F64::from_num(-1.0),  I64F64::from_num(10.0),  I64F64::from_num(30.0)]; 
         inplace_normalize_64(&mut x2);
         assert_vec_compare_64( &x2, &vec![ I64F64::from_num(-0.0256410255),  I64F64::from_num(0.2564102563),  I64F64::from_num(0.769230769)], epsilon );
+    }
+
+    #[test]
+    fn test_math_inplace_pow() {
+        let power: I32F32 = I32F32::from_num(1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1);
+        let mut x: Vec<I32F32> = vec![ I32F32::max_value() ];
+        let target: Vec<I32F32> = vec![ I32F32::max_value() ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(0.0000000002);
+        let mut x: Vec<I32F32> = vec![ I32F32::from_num(0.0000000002), I32F32::from_num(0.0000000007), I32F32::from_num(1), I32F32::max_value() ];
+        let target: Vec<I32F32> = vec![ I32F32::from_num(0), I32F32::from_num(0.9999999949), I32F32::from_num(1), I32F32::from_num(1.000000005) ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::max_value();
+        let mut x: Vec<I32F32> = vec![ I32F32::from_num(0.0000000002), I32F32::from_num(0.0000000007), I32F32::from_num(1), I32F32::from_num(1) + I32F32::from_num(0.0000000002), I32F32::from_num(1) + I32F32::from_num(0.0000000004), I32F32::from_num(1.1), I32F32::max_value() ];
+        let target: Vec<I32F32> = vec![ I32F32::from_num(0), I32F32::from_num(0), I32F32::from_num(1), I32F32::from_num(1), I32F32::from_num(1.6487212693), I32F32::max_value(), I32F32::max_value() ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(2);
+        let mut x: Vec<I32F32> = vec![ I32F32::from_num(34346) ];
+        let target: Vec<I32F32> = vec![ I32F32::from_num(1162908189) + I32F32::from_num(0.2287604094) ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(2);
+        let mut x: Vec<I32F32> = vec![ I32F32::from_num(34347) ];
+        let target: Vec<I32F32> = vec![ I32F32::max_value() ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(2);
+        let mut x: Vec<I32F32> = vec![ I32F32::max_value() ];
+        let target: Vec<I32F32> = vec![ I32F32::max_value() ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(0);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(0);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 1. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(0);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ -1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ -1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(0.9);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ -1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ -1., 0., 1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0., 1. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000002, -1., 0., 1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0., 0., 0., 1. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(1.01);
+        let mut x: Vec<I32F32> = vec![ I32F32::from_num(0.00000000001), I32F32::from_num(0.0000000001), I32F32::from_num(0.0000000002), I32F32::from_num(0.0000000006), I32F32::from_num(0.0000000007), I32F32::from_num(0.0000000008), I32F32::from_num(0.0000000009), I32F32::from_num(0.000000001), I32F32::from_num(0.0000000011) ];
+        let target: Vec<I32F32> = vec![ fixed(0.), fixed(0.), fixed(0.), I32F32::from_num(0.0000000007), I32F32::from_num(0.0000000007), I32F32::from_num(0.0000000007), I32F32::from_num(0.000000001), I32F32::from_num(0.000000001), I32F32::from_num(0.0000000014) ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(1.01);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000007, -1., 0., 1. ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000007, 0., 0., 1. ]);
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(1.1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000001, 0.000000001, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 ]);
+        let target: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000001, 0.000000001, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 ]);
+        inplace_pow( &mut x, power );
+        assert_ne!(x, target); // sanity-check
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(1.1);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000001, 0.000000001, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 ]);
+        let target: Vec<I32F32> = vec![I32F32::from_num(0), I32F32::from_num(0.000000006), I32F32::from_num(0.0000000533), I32F32::from_num(0.0000004324), I32F32::from_num(0.000003511), I32F32::from_num(0.0000284805), I32F32::from_num(0.000231013), I32F32::from_num(0.0018738175), I32F32::from_num(0.0151991097), I32F32::from_num(0.1232846722), I32F32::from_num(1.), I32F32::from_num(8.1113085267), I32F32::from_num(65.7933260733)];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(1.9);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000001, 0.000000001, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 ]);
+        let target: Vec<I32F32> = vec![ I32F32::from_num(0.), I32F32::from_num(0.000017656), I32F32::from_num(0.0000616226), I32F32::from_num(0.0002067876), I32F32::from_num(0.0006951955), I32F32::from_num(0.0023357305), I32F32::from_num(0.0078476018), I32F32::from_num(0.02636651), I32F32::from_num(0.088586675), I32F32::from_num(0.2976351418), I32F32::from_num(1), I32F32::from_num(3.3598183382), I32F32::from_num(11.2883792757) ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
+
+        let power: I32F32 = I32F32::from_num(1) / I32F32::from_num(2);
+        let mut x: Vec<I32F32> = vec_to_fixed(&vec![ 0.0000000001, 0.000000001, 0.00000001, 0.0000001, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0 ]);
+        let target: Vec<I32F32> = vec![ I32F32::from_num(0.), I32F32::from_num(0.0000305173), I32F32::from_num(0.0001000585), I32F32::from_num(0.0003160448), I32F32::from_num(0.0010000037), I32F32::from_num(0.0031622893), I32F32::from_num(0.0100000023), I32F32::from_num(0.0316227777), I32F32::from_num(0.0999999957), I32F32::from_num(0.3162277637), I32F32::from_num(1), I32F32::from_num(3.1622777067), I32F32::from_num(10.0000003036) ];
+        inplace_pow( &mut x, power );
+        assert_eq!(x, target);
     }
 
     #[test]
