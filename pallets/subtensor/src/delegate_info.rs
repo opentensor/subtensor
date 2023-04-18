@@ -26,6 +26,8 @@ impl<T: Config> Pallet<T> {
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
 
         for ( nominator, stake ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( delegate.clone() ) {
+            if stake == 0 { continue; }
+            // Only add nominators with stake
             nominators.push( ( nominator.clone(), stake.into() ) );
         }
 

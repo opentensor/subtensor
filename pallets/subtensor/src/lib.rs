@@ -113,6 +113,8 @@ pub mod pallet {
 		type InitialMaxDifficulty: Get<u64>;
 		#[pallet::constant] // Initial Min Difficulty.
 		type InitialMinDifficulty: Get<u64>;
+		#[pallet::constant] // Initial RAO Recycled.
+		type InitialRAORecycledForRegistration: Get<u64>;
 		#[pallet::constant] // Initial Burn.
 		type InitialBurn: Get<u64>;
 		#[pallet::constant] // Initial Max Burn.
@@ -227,6 +229,8 @@ pub mod pallet {
 	pub fn DefaultMaxDifficulty<T: Config>() -> u64 { T::InitialMaxDifficulty::get() }
 	#[pallet::type_value] 
 	pub fn DefaultMaxRegistrationsPerBlock<T: Config>() -> u16 { T::InitialMaxRegistrationsPerBlock::get() }
+	#[pallet::type_value]
+	pub fn DefaultRAORecycledForRegistration<T: Config>() -> u64 { T::InitialRAORecycledForRegistration::get() }
 
 	#[pallet::storage] // ---- StorageItem Global Used Work.
     pub type UsedWork<T:Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
@@ -248,6 +252,8 @@ pub mod pallet {
 	pub type RegistrationsThisBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
 	#[pallet::storage] // --- ITEM( global_max_registrations_per_block ) 
 	pub type MaxRegistrationsPerBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T> >;
+	#[pallet::storage] // --- MAP ( netuid, global_RAO_recycled_for_registration )
+	pub type RAORecycledForRegistration<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T> >;
 
 	// ==============================
 	// ==== Subnetworks Storage =====
@@ -564,6 +570,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
 	}
 
 	// Errors inform users that something went wrong.
@@ -1531,6 +1538,12 @@ pub mod pallet {
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
+		}
+
+		#[pallet::call_index(50)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
+			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
 		}
 
 		#[pallet::call_index(47)]
