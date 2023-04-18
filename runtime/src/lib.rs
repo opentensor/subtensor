@@ -136,6 +136,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
+// 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
+// The choice of is done in accordance to the slot duration and expected target
+// block time, for safely resisting network delays of maximum two seconds.
+// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
+pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
+
 /// The BABE epoch configuration at genesis.
 pub const BABE_GENESIS_EPOCH_CONFIG: babe_primitives::BabeEpochConfiguration =
 	babe_primitives::BabeEpochConfiguration {
@@ -160,6 +166,11 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+
+// Epoch length for authorities
+const EPOCH_DURATION_IN_SLOTS: BlockNumber = 4 * HOURS;
+
+pub const UNITS: u64 = 1_000_000_000;
 
 // The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
