@@ -87,16 +87,16 @@ fn distribute_nodes(validators_n: usize, network_n: usize, interleave: usize) ->
 
 #[allow(dead_code)]
 fn uid_stats(netuid: u16, uid: u16) {
-	log::info!( "stake: {:?}", SubtensorModule::get_total_stake_for_hotkey( &(uid as u64) ) );
-	log::info!( "rank: {:?}", SubtensorModule::get_rank_for_uid( netuid, uid ) );
-	log::info!( "trust: {:?}", SubtensorModule::get_trust_for_uid( netuid, uid ) );
-	log::info!( "consensus: {:?}", SubtensorModule::get_consensus_for_uid( netuid, uid ) );
-	log::info!( "incentive: {:?}", SubtensorModule::get_incentive_for_uid( netuid, uid ) );
-	log::info!( "dividend: {:?}", SubtensorModule::get_dividends_for_uid( netuid, uid ) );
-	log::info!( "emission: {:?}", SubtensorModule::get_emission_for_uid( netuid, uid ) );
+	println!( "stake: {:?}", SubtensorModule::get_total_stake_for_hotkey( &(uid as u64) ) );
+	println!( "rank: {:?}", SubtensorModule::get_rank_for_uid( netuid, uid ) );
+	println!( "trust: {:?}", SubtensorModule::get_trust_for_uid( netuid, uid ) );
+	println!( "consensus: {:?}", SubtensorModule::get_consensus_for_uid( netuid, uid ) );
+	println!( "incentive: {:?}", SubtensorModule::get_incentive_for_uid( netuid, uid ) );
+	println!( "dividend: {:?}", SubtensorModule::get_dividends_for_uid( netuid, uid ) );
+	println!( "emission: {:?}", SubtensorModule::get_emission_for_uid( netuid, uid ) );
 }
 
-fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16>, epochs: u16, stake_per_validator: u64, server_self: bool, input_stake: &Vec<u64>, use_input_stake: bool, input_weights: &Vec<Vec<(u16, u16)>>, use_input_weights: bool, random_weights: bool, random_seed: u64, sparse: bool) {
+fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16>, epochs: u16, stake_per_validator: u64, server_self: bool, input_stake: &Vec<u64>, use_input_stake: bool, input_weights: &Vec<Vec<(u16, u16)>>, use_input_weights: bool, random_weights: bool, random_seed: u64, quadratic_voting_power: u16, sparse: bool) {
 	// === Create the network
 	add_network(netuid, u16::MAX - 1, 0);  // set higher tempo to avoid built-in epoch, then manual epoch instead
 
@@ -122,6 +122,10 @@ fn init_run_epochs(netuid: u16, n: u16, validators: &Vec<u16>, servers: &Vec<u16
     assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), validators.len() as u16);
 	SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
 	run_to_block( 1 ); // run to next block to ensure weights are set on nodes after their registration block
+
+	// === Update quadratic voting
+	assert_ok!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, quadratic_voting_power) );
+	assert_eq!(SubtensorModule::get_quadratic_voting_power(netuid), quadratic_voting_power);
 
 	// === Set weights
 	let mut rng = StdRng::seed_from_u64(random_seed); // constant seed so weights over multiple runs are equal
@@ -259,7 +263,7 @@ fn test_consensus_guarantees() {
 		let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, _avg_weight_dev) = split_graph(fixed(major_stake), fixed(major_weight), fixed(minor_weight), fixed(weight_stddev), validators_n as usize, network_n as usize, interleave as usize);
 
 		new_test_ext().execute_with(|| {
-			init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, false);
+			init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, 100, false);
 
 			let mut major_emission: I64F64 = I64F64::from_num(0);
 			let mut minor_emission: I64F64 = I64F64::from_num(0);
@@ -419,7 +423,7 @@ fn test_512_graph() {
 			let server: usize = servers[0] as usize;
 			let validator: usize = validators[0] as usize;
 			new_test_ext().execute_with(|| {
-				init_run_epochs(netuid, network_n, &validators, &servers, epochs, max_stake_per_validator, server_self, &vec![], false, &vec![], false, false, 0, false);
+				init_run_epochs(netuid, network_n, &validators, &servers, epochs, max_stake_per_validator, server_self, &vec![], false, &vec![], false, false, 0, 100, false);
 				let bonds = SubtensorModule::get_bonds( netuid );
 				for uid in validators {
 					assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &(uid as u64) ), max_stake_per_validator );
@@ -465,7 +469,7 @@ fn test_512_graph_random_weights() {
 			
 			// Dense epoch
 			new_test_ext().execute_with(|| {
-				init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, server_self, &vec![], false, &vec![], false, true, interleave as u64, false);
+				init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, server_self, &vec![], false, &vec![], false, true, interleave as u64, 100, false);
 
 				let bond = SubtensorModule::get_bonds( netuid );
 				for uid in 0..network_n {
@@ -480,7 +484,7 @@ fn test_512_graph_random_weights() {
 
 			// Sparse epoch (same random seed as dense)
 			new_test_ext().execute_with(|| {
-				init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, server_self, &vec![], false, &vec![], false, true, interleave as u64, true);
+				init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, server_self, &vec![], false, &vec![], false, true, interleave as u64, 100, true);
 				// Assert that dense and sparse epoch results are equal
 				let bond = SubtensorModule::get_bonds( netuid );
 				for uid in 0..network_n {
@@ -512,7 +516,7 @@ fn test_4096_graph() {
 		let validator: usize = validators[0] as usize;
 		for server_self in vec![false, true] { // server-self weight off/on
 			new_test_ext().execute_with(|| {
-				init_run_epochs(netuid, network_n, &validators, &servers, epochs, max_stake_per_validator, server_self, &vec![], false, &vec![], false, false, 0, true);
+				init_run_epochs(netuid, network_n, &validators, &servers, epochs, max_stake_per_validator, server_self, &vec![], false, &vec![], false, false, 0, 100, true);
 				assert_eq!(SubtensorModule::get_total_stake(), 21_000_000_000_000_000);
 				let bonds = SubtensorModule::get_bonds( netuid );
 				for uid in &validators {
@@ -555,7 +559,7 @@ fn test_16384_graph_sparse() {
 		let server: u16 = servers[0];
 		let epochs: u16 = 1;
 		log::info!( "test_{n:?}_graph ({validators_n:?} validators)" );
-		init_run_epochs(netuid, n, &validators, &servers, epochs, 1, false, &vec![], false, &vec![], false, false, 0, true);
+		init_run_epochs(netuid, n, &validators, &servers, epochs, 1, false, &vec![], false, &vec![], false, false, 0, 100, true);
 		let bonds = SubtensorModule::get_bonds( netuid );
 		for uid in validators {
 			assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &(uid as u64) ), 1 );
@@ -1028,6 +1032,188 @@ fn test_validator_permits() {
 	}
 }
 
+// Test quadratic voting.
+#[test]
+fn test_quadratic_voting() {
+	new_test_ext().execute_with(|| {
+		let sparse: bool = true;
+		let n: u16 = 16;
+		let validator_n: u16 = 10;
+		let server_n: u16 = n - validator_n;
+		let netuid: u16 = 0;
+		let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+		let block_number: u64 = 0;
+		let stake: u64 = 1;
+		add_network(netuid, tempo, 0);
+		SubtensorModule::set_max_allowed_uids( netuid, n );
+		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+		SubtensorModule::set_max_registrations_per_block( netuid, 2 * n );SubtensorModule::set_target_registrations_per_interval( netuid, 2 * n );
+
+		// === Register [validator_n, server_n]
+		let stakes: Vec<u64> = vec![ 0, 1, 100, 10_000_000_000, 100_000_000_000, 1_000_000_000_000, 10_000_000_000_000, 100_000_000_000_000, 1_000_000_000_000_000, 10_000_000_000_000_000, 1, 1, 1, 1, 1, 1];
+		for key in 0..n as u64 {
+			SubtensorModule::add_balance_to_coldkey_account( &key, stake );
+			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
+			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
+			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stakes[key as usize] );
+		}
+		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
+		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+
+		// === Issue validator permits
+		assert_ok!( SubtensorModule::sudo_set_max_allowed_validators(<<Test as Config>::RuntimeOrigin>::root(), netuid, n) );
+		assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), n);
+		SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
+		run_to_block( 1 ); // run to next block to ensure weights are set on nodes after their registration block
+
+		// === Set weights [val->srv: 1/6]
+		for uid in 0..validator_n as u64 {
+			assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(uid), netuid, (validator_n..n).collect(), vec![ u16::MAX / server_n; server_n as usize ], 0));
+		}
+		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
+		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		/*  current_block: 1
+			activity_cutoff: 5000
+			Last update: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+			Inactive: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+			Block at registration: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			hotkeys: [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12), (13, 13), (14, 14), (15, 15)]
+			S: [0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000898, 0, 0, 0, 0, 0, 0]
+			validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			max_allowed_validators: 16
+			new_validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			S:
+			[0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000905, 0, 0, 0, 0, 0, 0]
+
+			S (effective):
+			[0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000905, 0, 0, 0, 0, 0, 0]
+
+			C: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			Tv: [0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0, 0, 0, 0, 0, 0]
+			T: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+			I (=R): [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			D: [0, 0, 0, 0.0000008983, 0.000008998, 0.000089998, 0.000899997, 0.0089999973, 0.0900000082, 0.900000103, 0, 0, 0, 0, 0, 0]
+			nE: [0, 0, 0, 0.0000004491, 0.000004499, 0.000044999, 0.0004499985, 0.0044999986, 0.0450000041, 0.4500000516, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333]
+			E: [0, 0, 0, 449, 4498, 44998, 449998, 4499998, 45000004, 450000051, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333]
+			P: [0, 0, 0, 0.0000004491, 0.000004499, 0.000044999, 0.0004499985, 0.0044999986, 0.0450000041, 0.4500000516, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333] */
+		let emission: Vec<u64> = vec![0, 0, 0, 449, 4498, 44998, 449998, 4499998, 45000004, 450000051, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333];
+		for uid in 0..n as u16 {
+			assert_eq!( SubtensorModule::get_emission_for_uid( netuid, uid ), emission[uid as usize] );
+		}
+		run_to_block( 2); // run to next block
+
+		// === Update quadratic voting
+		let quadratic_voting_power: u16 = 110;
+		assert_ok!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, quadratic_voting_power) );
+		assert_eq!(SubtensorModule::get_quadratic_voting_power(netuid), quadratic_voting_power);
+
+		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
+		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		/*  current_block: 2
+			activity_cutoff: 5000
+			Last update: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+			Inactive: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+			Block at registration: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			hotkeys: [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12), (13, 13), (14, 14), (15, 15)]
+			S: [0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000898, 0, 0, 0, 0, 0, 0]
+			validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			max_allowed_validators: 16
+			new_validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			S:
+			[0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000905, 0, 0, 0, 0, 0, 0]
+
+			S (effective):
+			[0, 0, 0, 0.0000030778, 0.0000249685, 0.0002025324, 0.0016428044, 0.013325298, 0.1080856072, 0.876715711, 0, 0, 0, 0, 0, 0]
+
+			C: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			Tv: [0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0, 0, 0, 0, 0, 0]
+			T: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+			I (=R): [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			D: [0, 0, 0, 0.0000003073, 0.0000024964, 0.0000889222, 0.0009608497, 0.0094218305, 0.0918114434, 0.8977141501, 0, 0, 0, 0, 0, 0]
+			nE: [0, 0, 0, 0.0000001537, 0.0000012482, 0.000044461, 0.0004804248, 0.0047109153, 0.0459057216, 0.4488570753, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333]
+			E: [0, 0, 0, 153, 1248, 44461, 480424, 4710915, 45905721, 448857075, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333]
+			P: [0, 0, 0, 0.0000001537, 0.0000012482, 0.000044461, 0.0004804248, 0.0047109153, 0.0459057216, 0.4488570753, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333] */
+		let emission: Vec<u64> = vec![0, 0, 0, 153, 1248, 44461, 480424, 4710915, 45905721, 448857075, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333];
+		for uid in 0..n as u16 {
+			assert_eq!( SubtensorModule::get_emission_for_uid( netuid, uid ), emission[uid as usize] );
+		}
+		run_to_block( 3); // run to next block
+
+		// === Update quadratic voting
+		let quadratic_voting_power: u16 = 190;
+		assert_ok!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, quadratic_voting_power) );
+		assert_eq!(SubtensorModule::get_quadratic_voting_power(netuid), quadratic_voting_power);
+
+		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
+		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		/*  current_block: 3
+			activity_cutoff: 5000
+			Last update: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+			Inactive: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+			Block at registration: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			hotkeys: [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12), (13, 13), (14, 14), (15, 15)]
+			S: [0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000898, 0, 0, 0, 0, 0, 0]
+			validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			max_allowed_validators: 16
+			new_validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			S:
+			[0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000905, 0, 0, 0, 0, 0, 0]
+
+			S (effective):
+			[0, 0, 0, 0.0004883485, 0.001640852, 0.005513018, 0.0185227394, 0.0622330478, 0.2090917376, 0.7025102556, 0, 0, 0, 0, 0, 0]
+
+			C: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			Tv: [0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0, 0, 0, 0, 0, 0]
+			T: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+			I (=R): [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			D: [0, 0, 0, 0.0000488344, 0.0001640841, 0.0006199703, 0.0027037784, 0.014697156, 0.103532665, 0.8782335117, 0, 0, 0, 0, 0, 0]
+			nE: [0, 0, 0, 0.0000244172, 0.000082042, 0.0003099851, 0.0013518892, 0.007348578, 0.0517663325, 0.439116756, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333]
+			E: [0, 0, 0, 24417, 82042, 309985, 1351889, 7348577, 51766332, 439116755, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333]
+			P: [0, 0, 0, 0.0000244172, 0.000082042, 0.0003099851, 0.0013518892, 0.007348578, 0.0517663325, 0.439116756, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333] */
+		let emission: Vec<u64> = vec![0, 0, 0, 24417, 82042, 309985, 1351889, 7348577, 51766332, 439116755, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333];
+		for uid in 0..n as u16 {
+			assert_eq!( SubtensorModule::get_emission_for_uid( netuid, uid ), emission[uid as usize] );
+		}
+		run_to_block( 4); // run to next block
+
+		// === Update quadratic voting
+		let quadratic_voting_power: u16 = 200;
+		assert_ok!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, quadratic_voting_power) );
+		assert_eq!(SubtensorModule::get_quadratic_voting_power(netuid), quadratic_voting_power);
+
+		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
+		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		/*  current_block: 4
+			activity_cutoff: 5000
+			Last update: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0]
+			Inactive: [false, false, false, false, false, false, false, false, false, false, false, false, false, false, false, false]
+			Block at registration: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+			hotkeys: [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8), (9, 9), (10, 10), (11, 11), (12, 12), (13, 13), (14, 14), (15, 15)]
+			S: [0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000898, 0, 0, 0, 0, 0, 0]
+			validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			max_allowed_validators: 16
+			new_validator_permits: [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+			S:
+			[0, 0, 0, 0.0000009, 0.0000089998, 0.00009, 0.0008999999, 0.0090000008, 0.090000009, 0.9000000905, 0, 0, 0, 0, 0, 0]
+
+			S (effective):
+			[0, 0, 0, 0.0006839468, 0.0021629417, 0.0068398842, 0.0216296143, 0.0683988552, 0.2162961771, 0.6839885802, 0, 0, 0, 0, 0, 0]
+
+			C: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			Tv: [0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0.999999999, 0, 0, 0, 0, 0, 0]
+			T: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1]
+			I (=R): [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665, 0.1666666665]
+			D: [0, 0, 0, 0.0001095948, 0.0003536283, 0.0012333286, 0.004593797, 0.020065283, 0.114811678, 0.85883269, 0, 0, 0, 0, 0, 0]
+			nE: [0, 0, 0, 0.0000547974, 0.0001768142, 0.0006166643, 0.0022968985, 0.0100326415, 0.057405839, 0.4294163452, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333]
+			E: [0, 0, 0, 54797, 176814, 616664, 2296898, 10032641, 57405838, 429416345, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333]
+			P: [0, 0, 0, 0.0000547974, 0.0001768142, 0.0006166643, 0.0022968985, 0.0100326415, 0.057405839, 0.4294163452, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333, 0.0833333333] */
+		let emission: Vec<u64> = vec![0, 0, 0, 54797, 176814, 616664, 2296898, 10032641, 57405838, 429416345, 83333333, 83333333, 83333333, 83333333, 83333333, 83333333];
+		for uid in 0..n as u16 {
+			assert_eq!( SubtensorModule::get_emission_for_uid( netuid, uid ), emission[uid as usize] );
+		}
+	});
+}
+
 // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // 
 // ```import torch
@@ -1085,7 +1271,7 @@ fn _map_consensus_guarantees() {
 				let (validators, servers, major_validators, minor_validators, major_servers, minor_servers, stake, weights, avg_weight_dev) = split_graph(major_stake, major_weight, minor_weight, weight_stddev, validators_n as usize, network_n as usize, interleave as usize);
 
 				new_test_ext().execute_with(|| {
-					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, true);
+					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, 100, true);
 
 					let mut major_emission: I64F64 = I64F64::from_num(0);
 					let mut minor_emission: I64F64 = I64F64::from_num(0);
