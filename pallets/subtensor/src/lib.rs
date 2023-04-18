@@ -1534,20 +1534,12 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(46)]
-		#[pallet::weight((Weight::from_ref_time(13_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_quadratic_voting_power( origin:OriginFor<T>, netuid: u16, quadratic_voting_power: u16 ) -> DispatchResult {
-			Self::do_sudo_set_quadratic_voting_power( origin, netuid, quadratic_voting_power )
-		}
-
-		#[pallet::call_index(47)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
 		
-		#[pallet::call_index(48)]
+		#[pallet::call_index(47)]
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
@@ -1556,7 +1548,7 @@ pub mod pallet {
 			Ok(())
 		} 
 
-		#[pallet::call_index(49)]
+		#[pallet::call_index(48)]
 		#[pallet::weight((Weight::from_ref_time(117_586_465_000 as u64)
 		.saturating_add(T::DbWeight::get().reads(12299 as u64))
 		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
@@ -1565,11 +1557,19 @@ pub mod pallet {
 			Ok(())
 		} 
 
-		#[pallet::call_index(50)]
+		#[pallet::call_index(49)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
 			Self::drain_emission( 11 );
 			Ok(())
+		}
+
+		#[pallet::call_index(50)]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_quadratic_voting_power( origin:OriginFor<T>, netuid: u16, quadratic_voting_power: u16 ) -> DispatchResult {
+			Self::do_sudo_set_quadratic_voting_power( origin, netuid, quadratic_voting_power )
 		}
 	}	
 
