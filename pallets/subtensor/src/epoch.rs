@@ -100,6 +100,27 @@ impl<T: Config> Pallet<T> {
         inplace_normalize( &mut active_stake );
         log::trace!( "S:\n{:?}\n", &active_stake );
 
+        // ======================
+        // == Quadratic Voting ==
+        // ======================
+
+        // Quadratic voting power: u16 (100 <= value <= 200) produces I32F32 (1.00 <= power <= 2.00)
+        let mut quadratic_voting_power: I32F32 = I32F32::from_num(Self::get_quadratic_voting_power( netuid )) / I32F32::from_num(100);
+        if (quadratic_voting_power < I32F32::from_num(1)) || (I32F32::from_num(2) < quadratic_voting_power) {
+            quadratic_voting_power = I32F32::from_num(1);
+        }
+        
+        // stake = (effective_stake)^(power)
+        // (stake)^(root) = effective_stake
+        let voting_root: I32F32 = I32F32::from_num(1) / I32F32::from_num(quadratic_voting_power);
+
+        // Calculate effective stake
+        inplace_pow( &mut active_stake, voting_root );
+
+        // Normalize effective active stake.
+        inplace_normalize( &mut active_stake );
+        log::trace!( "S (effective):\n{:?}\n", &active_stake );
+
         // =============
         // == Weights ==
         // =============
@@ -348,6 +369,27 @@ impl<T: Config> Pallet<T> {
         // Normalize active stake.
         inplace_normalize( &mut active_stake );
         log::trace!( "S:\n{:?}\n", &active_stake );
+
+        // ======================
+        // == Quadratic Voting ==
+        // ======================
+
+        // Quadratic voting power: u16 (100 <= value <= 200) produces I32F32 (1.00 <= power <= 2.00)
+        let mut quadratic_voting_power: I32F32 = I32F32::from_num(Self::get_quadratic_voting_power( netuid )) / I32F32::from_num(100);
+        if (quadratic_voting_power < I32F32::from_num(1)) || (I32F32::from_num(2) < quadratic_voting_power) {
+            quadratic_voting_power = I32F32::from_num(1);
+        }
+        
+        // stake = (effective_stake)^(power)
+        // (stake)^(root) = effective_stake
+        let voting_root: I32F32 = I32F32::from_num(1) / I32F32::from_num(quadratic_voting_power);
+
+        // Calculate effective stake
+        inplace_pow( &mut active_stake, voting_root );
+
+        // Normalize effective active stake.
+        inplace_normalize( &mut active_stake );
+        log::trace!( "S (effective):\n{:?}\n", &active_stake );
 
         // =============
         // == Weights ==
