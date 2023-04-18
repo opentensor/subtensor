@@ -103,7 +103,6 @@ std = [
 	"pallet-fast-unstake/std",
 	"pallet-im-online/std",
 	"pallet-staking/std",
-	"pallet-staking-reward-curve/std",
 	"pallet-staking-runtime-api/std",
 	"frame-election-provider-support/std",
 	"sp-api/std",
