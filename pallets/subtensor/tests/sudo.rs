@@ -3,7 +3,7 @@ use frame_system::Config;
 mod mock;
 use mock::*;
 use frame_support::sp_runtime::DispatchError;
-use pallet_subtensor::{Error};
+use pallet_subtensor::{Error, Event};
 
 
 #[test]
@@ -524,6 +524,34 @@ fn test_sudo_set_network_connection_requirement() {
         assert_eq!( SubtensorModule::sudo_remove_network_connection_requirement(<<Test as Config>::RuntimeOrigin>::root(), netuid_a, 5 as u16),  Err(Error::<Test>::NetworkDoesNotExist.into()) );
         assert_ok!( SubtensorModule::sudo_remove_network_connection_requirement(<<Test as Config>::RuntimeOrigin>::root(), netuid_a, netuid_b) );
         assert_eq!( SubtensorModule::network_connection_requirement_exists( netuid_a, netuid_b ), false );
+    });
+}
+
+#[test]
+fn test_sudo_set_rao_recycled() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 10;
+        let init_value: u64 = SubtensorModule::get_rao_recycled( netuid );
+        add_network(netuid, 10, 0);
+
+        // Need to run from genesis block
+        run_to_block(1);
+
+		assert_eq!( SubtensorModule::sudo_set_rao_recycled(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
+        assert_eq!( SubtensorModule::sudo_set_rao_recycled(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
+        assert_eq!( SubtensorModule::get_rao_recycled(netuid), init_value);
+
+        // Verify no events emitted matching the expected event
+        assert_eq!(System::events().iter().filter(|r| r.event == RuntimeEvent::SubtensorModule( Event::RAORecycledForRegistrationSet(netuid, to_be_set) )).count(), 0);
+
+        assert_ok!( SubtensorModule::sudo_set_rao_recycled(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
+        assert_eq!( SubtensorModule::get_rao_recycled(netuid), to_be_set);
+
+        // Verify event emitted with correct values
+        assert_eq!(System::events().last().expect(
+            format!("Expected there to be events: {:?}", System::events().to_vec()).as_str()
+        ).event, RuntimeEvent::SubtensorModule( Event::RAORecycledForRegistrationSet(netuid, to_be_set) ));
     });
 }
 

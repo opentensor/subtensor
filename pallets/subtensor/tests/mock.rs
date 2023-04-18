@@ -141,6 +141,7 @@ parameter_types! {
 	pub const InitialRegistrationRequirement: u16 = u16::MAX; // Top 100%
 	pub const InitialMinDifficulty: u64 = 1;
 	pub const InitialMaxDifficulty: u64 = u64::MAX;
+	pub const InitialRAORecycledForRegistration: u64 = 0;
 
 }
 impl pallet_subtensor::Config for Test {
@@ -182,6 +183,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialBurn = InitialBurn;
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
+	type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
 }
 
 // Build genesis storage according to the mock runtime.
