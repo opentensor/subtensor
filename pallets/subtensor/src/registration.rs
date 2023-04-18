@@ -454,9 +454,9 @@ impl<T: Config> Pallet<T> {
     pub fn hash_block_and_hotkey( block_hash_bytes: &[u8], hotkey: &T::AccountId ) -> H256 {
         // Get the public key from the account id.
         let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
-
         let binding = hotkey_pubkey.encode();
-        let hotkey_bytes: &[u8] = binding.as_slice();
+        // Skip extra 0th byte.
+        let hotkey_bytes: &[u8] = binding[1..].as_ref();
         let full_bytes: &[u8; 64] = &[
             block_hash_bytes[0], block_hash_bytes[1], block_hash_bytes[2], block_hash_bytes[3],
             block_hash_bytes[4], block_hash_bytes[5], block_hash_bytes[6], block_hash_bytes[7],
@@ -480,6 +480,7 @@ impl<T: Config> Pallet<T> {
         ];
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256 ( full_bytes );
         let seal_hash: H256 = H256::from_slice( &keccak_256_seal_hash_vec );
+
         return seal_hash;
     }
 
