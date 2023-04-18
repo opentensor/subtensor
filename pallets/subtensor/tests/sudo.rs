@@ -271,10 +271,14 @@ fn test_sudo_set_quadratic_voting_power() {
 	new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 200;
+        let too_small: u16 = 99;
+        let too_large: u16 = 201;
         let init_value: u16 = SubtensorModule::get_quadratic_voting_power( netuid );
         add_network(netuid, 10, 0);
 		assert_eq!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, to_be_set),  Err(DispatchError::BadOrigin.into()) );
         assert_eq!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
+        assert_eq!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, too_small), Err(Error::<Test>::StorageValueOutOfRange.into()) );
+        assert_eq!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, too_large), Err(Error::<Test>::StorageValueOutOfRange.into()) );
         assert_eq!( SubtensorModule::get_quadratic_voting_power(netuid), init_value);
         assert_ok!( SubtensorModule::sudo_set_quadratic_voting_power(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
         assert_eq!( SubtensorModule::get_quadratic_voting_power(netuid), to_be_set);
