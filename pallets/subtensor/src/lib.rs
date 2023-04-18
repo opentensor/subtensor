@@ -617,7 +617,8 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
-		TooManyRegistrationsThisInterval // --- Thrown when registration attempt exceeds allowed in interval
+		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
+		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 	}
 
 	// ==================
@@ -1538,7 +1539,6 @@ pub mod pallet {
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
-		
 
 		#[pallet::call_index(50)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
@@ -1546,12 +1546,13 @@ pub mod pallet {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
 		}
 
-		
 		#[pallet::call_index(47)]
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+		
 			Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 
@@ -1561,6 +1562,8 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().reads(12299 as u64))
 		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+
 			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 
@@ -1568,6 +1571,8 @@ pub mod pallet {
 		#[pallet::call_index(49)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+		
 			Self::drain_emission( 11 );
 			Ok(())
 		} 
@@ -1586,6 +1591,7 @@ pub mod pallet {
 		}
 
 		// Benchmarking functions.
+		#[cfg(feature = "runtime-benchmarks")]
 		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
 			Self::set_max_allowed_uids( netuid, n );
@@ -1599,6 +1605,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[cfg(feature = "runtime-benchmarks")]
 		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
 			Self::set_max_allowed_uids( netuid, n );
