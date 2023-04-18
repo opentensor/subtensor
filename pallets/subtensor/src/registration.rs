@@ -1,14 +1,13 @@
 use super::*;
 use frame_support::{ pallet_prelude::DispatchResult};
+use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_core::{H256, U256};
 use crate::system::ensure_root;
-use sp_io::hashing::sha2_256;
-use sp_io::hashing::{keccak_512, keccak_256};
+use sp_io::hashing::{sha2_256, keccak_256};
 use frame_system::{ensure_signed};
 use sp_std::vec::Vec;
 use substrate_fixed::types::I32F32;
-use sp_core::H512;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
@@ -452,9 +451,12 @@ impl<T: Config> Pallet<T> {
         return hash_as_vec
     }
 
-    pub fn hash_block_and_hotkey( block_hash_bytes: &[u8], hotkey: &T::AccountId ) -> H512 {
-        let binding = hotkey.encode();
-        let hotkey_bytes: &[u8] = binding.as_slice();
+    pub fn hash_block_and_hotkey( block_hash_bytes: &[u8], hotkey: &T::AccountId ) -> H256 {
+        // Get the public key from the account id.
+        let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
+        let binding = hotkey_pubkey.encode();
+        // Skip extra 0th byte.
+        let hotkey_bytes: &[u8] = binding[1..].as_ref();
         let full_bytes: &[u8; 64] = &[
             block_hash_bytes[0], block_hash_bytes[1], block_hash_bytes[2], block_hash_bytes[3],
             block_hash_bytes[4], block_hash_bytes[5], block_hash_bytes[6], block_hash_bytes[7],
@@ -476,8 +478,9 @@ impl<T: Config> Pallet<T> {
             hotkey_bytes[24], hotkey_bytes[25], hotkey_bytes[26], hotkey_bytes[27],
             hotkey_bytes[28], hotkey_bytes[29], hotkey_bytes[30], hotkey_bytes[31],
         ];
-        let keccak_512_seal_hash_vec: [u8; 64] = keccak_512 ( full_bytes );
-        let seal_hash: H512 = H512::from_slice( &keccak_512_seal_hash_vec );
+        let keccak_256_seal_hash_vec: [u8; 32] = keccak_256 ( full_bytes );
+        let seal_hash: H256 = H256::from_slice( &keccak_256_seal_hash_vec );
+
         return seal_hash;
     }
 
