@@ -41,8 +41,8 @@ fn test_registration_difficulty() {
 
 }
 
-#[test]
-fn test_registration_repeat_work() {
+  #[test]
+fn test_registration_invalid_seal_hotkey() {
 	new_test_ext().execute_with(|| {
 		let block_number: u64 = 0;
 		let netuid: u16 = 1;
@@ -50,16 +50,17 @@ fn test_registration_repeat_work() {
 		let hotkey_account_id_1 = 1;
 		let hotkey_account_id_2 = 2;
 		let coldkey_account_id = 667; // Neighbour of the beast, har har
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id_1);
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id_1);
 		
 		//add network
 		add_network(netuid, tempo, 0);
 		
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1), netuid, block_number, nonce, work.clone(), hotkey_account_id_1, coldkey_account_id));
-		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2), netuid, block_number, nonce, work.clone(), hotkey_account_id_2, coldkey_account_id);
-		assert_eq!( result, Err(Error::<Test>::WorkRepeated.into()) );
+		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2), netuid, block_number, nonce2, work2.clone(), hotkey_account_id_2, coldkey_account_id);
+		assert_eq!( result, Err(Error::<Test>::InvalidSeal.into()) );
 	});
-}
+} 
 
 #[test]
 fn test_registration_ok() {
@@ -67,9 +68,9 @@ fn test_registration_ok() {
 		let block_number: u64 = 0;
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 129123813);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667; // Neighbour of the beast, har har
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 129123813, &hotkey_account_id);
 
 		//add network
 		add_network(netuid, tempo, 0);
@@ -173,17 +174,17 @@ fn test_registration_too_many_registrations_per_block() {
 		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 10 );
 
 		let block_number: u64 = 0;
-		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312);
-		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414);
-		let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 21813123);
-		let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 148141209);
-		let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 1245235534);
-		let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 256234);
-		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424);
-		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242);
-		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453);
-		let (nonce10, work10): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 345923888);
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084, &0);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312, &1);
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414, &2);
+		let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 21813123, &3);
+		let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 148141209, &4);
+		let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 1245235534, &5);
+		let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 256234, &6);
+		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424, &7);
+		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242, &8);
+		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453, &9);
+		let (nonce10, work10): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 345923888, &10);
 		assert_eq!( SubtensorModule::get_difficulty_as_u64(netuid), 10000 );
 
 		//add network
@@ -229,16 +230,16 @@ fn test_registration_too_many_registrations_per_interval() {
 		// Then the max is 3 * 3 = 9
 
 		let block_number: u64 = 0;
-		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312);
-		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414);
-		let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 21813123);
-		let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 148141209);
-		let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 1245235534);
-		let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 256234);
-		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424);
-		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242);
-		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453);
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084, &0);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312, &1);
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414, &2);
+		let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 21813123, &3);
+		let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 148141209, &4);
+		let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 1245235534, &5);
+		let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 256234, &6);
+		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424, &7);
+		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242, &8);
+		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453, &9);
 		assert_eq!( SubtensorModule::get_difficulty_as_u64(netuid), 10000 );
 
 		//add network
@@ -281,9 +282,9 @@ fn test_registration_already_active_hotkey() {
 		let block_number: u64 = 0;
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id);
 
 		//add network
 		add_network(netuid, tempo, 0);
@@ -291,9 +292,9 @@ fn test_registration_already_active_hotkey() {
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id));
 
 		let block_number: u64 = 0;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id);
 		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id);
 		assert_eq!( result, Err(Error::<Test>::AlreadyRegistered.into()) );
 	});
@@ -305,9 +306,10 @@ fn test_registration_invalid_seal() {
 		let block_number: u64 = 0;
 		let netuid:u16 =1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, 1, 0);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, 1, 0, &hotkey_account_id);
+		
 
 		//add network
 		add_network(netuid, tempo, 0);
@@ -323,9 +325,10 @@ fn test_registration_invalid_block_number() {
 		let block_number: u64 = 1;
 		let netuid: u16 =1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(netuid, block_number, 0);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(netuid, block_number, 0, &hotkey_account_id);
+		
 		
 		//add network
 		add_network(netuid, tempo, 0);
@@ -341,9 +344,10 @@ fn test_registration_invalid_difficulty() {
 		let block_number: u64 = 0;
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id);
+		
 		//add network
 		add_network(netuid, tempo, 0);
 
@@ -360,9 +364,10 @@ fn test_registration_failed_no_signature() {
 
 		let block_number: u64 = 1;
 		let netuid: u16 = 1;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667; // Neighbour of the beast, har har
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id);
+		
 
 		// Subscribe and check extrinsic output
 		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::none(), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id);
@@ -440,9 +445,10 @@ fn test_registration_pruning() {
 		let netuid: u16 = 1;
 		let block_number: u64 = 0;
 		let tempo: u16 = 13;
-		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084, &hotkey_account_id);
+		
 		
 		//add network
 		add_network(netuid, tempo, 0);
@@ -452,17 +458,19 @@ fn test_registration_pruning() {
 		let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
 		SubtensorModule::set_pruning_score_for_uid(netuid, neuron_uid, 2);
 		//
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312);
 		let hotkey_account_id1 = 2;
 		let coldkey_account_id1 = 668;
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312, &hotkey_account_id1);
+		
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id1), netuid, block_number, nonce1, work1, hotkey_account_id1, coldkey_account_id1));
 		//
 		let neuron_uid1 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id1).unwrap();
 		SubtensorModule::set_pruning_score_for_uid(netuid, neuron_uid1, 3);
 		//
-		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414);
 		let hotkey_account_id2 = 3;
 		let coldkey_account_id2 = 669;
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414, &hotkey_account_id2);
+		
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id2), netuid, block_number, nonce2, work2, hotkey_account_id2, coldkey_account_id2));
 	});
 }
@@ -473,9 +481,10 @@ fn test_registration_get_neuron_metadata() {
 		let netuid: u16 = 1;
 		let block_number: u64 = 0;
 		let tempo: u16 = 13;
-		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084, &hotkey_account_id);
+		
 
 		add_network(netuid, tempo, 0);
 
@@ -496,10 +505,12 @@ fn test_registration_add_network_size() {
         let netuid: u16 = 1;
 		let netuid2: u16 = 2;
 		let block_number: u64 = 0;
-		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid2, block_number, 11231312312);
-		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid2, block_number, 21813123);
 		let hotkey_account_id = 1;
+		let hotkey_account_id1 = 2;
+		let hotkey_account_id2 = 3;
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084, &hotkey_account_id);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid2, block_number, 11231312312, &hotkey_account_id1);
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid2, block_number, 21813123, &hotkey_account_id2);
 		let coldkey_account_id = 667;
 
 		add_network(netuid, 13, 0);
@@ -513,8 +524,8 @@ fn test_registration_add_network_size() {
 		assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 1);
 
 
-		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid2, block_number, nonce1, work1, hotkey_account_id, coldkey_account_id));
-		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(2), netuid2, block_number, nonce2, work2, 2, coldkey_account_id));
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id1), netuid2, block_number, nonce1, work1, hotkey_account_id1, coldkey_account_id));
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id2), netuid2, block_number, nonce2, work2, hotkey_account_id2, coldkey_account_id));
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
 		assert_eq!(SubtensorModule::get_registrations_this_interval(netuid2), 2);
 	});
@@ -749,50 +760,50 @@ fn test_network_connection_requirement() {
 		SubtensorModule::set_max_allowed_uids( netuid_b, 10 ); // Enough for the below tests.
 
 		// Attempt registration on A fails because the hotkey is not registered on network B.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 3942084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 3942084, &0);
 		assert_eq!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[0] ), netuid_a, 0, nonce, work, hotkeys[0], coldkeys[0]), Err(Error::<Test>::DidNotPassConnectedNetworkRequirement.into()) );
 		
 		// Attempt registration on B passes because there is no exterior requirement.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 5942084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 5942084, &0);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[0] ), netuid_b, 0, nonce, work, hotkeys[0], coldkeys[0]) );
 
 		// Attempt registration on A passes because this key is in the top 100 of keys on network B.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 6942084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 6942084, &0);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[0] ), netuid_a, 0, nonce, work, hotkeys[0], coldkeys[0]) );
 
 		// Lets attempt the key registration on A. Fails because we are not in B.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 634242084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 634242084, &1);
 		assert_eq!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[1] ), netuid_a, 0, nonce, work, hotkeys[1], coldkeys[1]), Err(Error::<Test>::DidNotPassConnectedNetworkRequirement.into()) );
 
 		// Lets register the next key on B. Passes, np.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 7942084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 7942084, &1);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[1] ), netuid_b, 0, nonce, work, hotkeys[1], coldkeys[1]) );
 
 		// Lets make the connection requirement harder. Top 0th percentile.
 		SubtensorModule::add_connection_requirement( netuid_a, netuid_b, 0 );
 
 		// Attempted registration passes because the prunning score for hotkey_1 is the top keys on network B.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 8942084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 8942084, &1);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[1] ), netuid_a, 0, nonce, work, hotkeys[1], coldkeys[1]) );
 
 		// Lets register key 3 with lower prunning score.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 9942084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 9942084, &2);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[2] ), netuid_b, 0, nonce, work, hotkeys[2], coldkeys[2]) );
 		SubtensorModule::set_pruning_score_for_uid( netuid_b, SubtensorModule::get_uid_for_net_and_hotkey( netuid_b, &hotkeys[2] ).unwrap(), 0); // Set prunning score to 0.
 		SubtensorModule::set_pruning_score_for_uid( netuid_b, SubtensorModule::get_uid_for_net_and_hotkey( netuid_b, &hotkeys[1] ).unwrap(), 0); // Set prunning score to 0.
 		SubtensorModule::set_pruning_score_for_uid( netuid_b, SubtensorModule::get_uid_for_net_and_hotkey( netuid_b, &hotkeys[0] ).unwrap(), 0); // Set prunning score to 0.
 
 		// Lets register key 4 with higher prunining score.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 10142084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 10142084, &3);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[3] ), netuid_b, 0, nonce, work, hotkeys[3], coldkeys[3]) );
 		SubtensorModule::set_pruning_score_for_uid( netuid_b, SubtensorModule::get_uid_for_net_and_hotkey( netuid_b, &hotkeys[3] ).unwrap(), 1); // Set prunning score to 1.
 
 		// Attempted register of key 3 fails because of bad prunning score on B.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 11142084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_a, 0, 11142084, &2);
 		assert_eq!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[2] ), netuid_a, 0, nonce, work, hotkeys[2], coldkeys[2]), Err(Error::<Test>::DidNotPassConnectedNetworkRequirement.into()) );	
 
 		// Attempt to register key 4 passes because of best prunning score on B.
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 12142084);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 12142084, &3);
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[3] ), netuid_a, 0, nonce, work, hotkeys[3], coldkeys[3]) );
 	});
 }

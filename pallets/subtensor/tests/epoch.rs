@@ -600,7 +600,7 @@ fn test_active_stake() {
 		// === Register [validator1, validator2, server1, server2]
 		for key in 0..n as u64 {
 			SubtensorModule::add_balance_to_coldkey_account( &key, stake );
-			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
+			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &key);
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake );
 		}
@@ -744,7 +744,7 @@ fn test_outdated_weights() {
 		// === Register [validator1, validator2, server1, server2]
 		for key in 0..n as u64 {
 			SubtensorModule::add_balance_to_coldkey_account( &key, stake );
-			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
+			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &key);
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake );
 		}
@@ -793,7 +793,7 @@ fn test_outdated_weights() {
 
 		// === Dereg server2 at uid3 (least emission) + register new key over uid3
 		let new_key: u64 = n as u64; // register a new key while at max capacity, which means the least incentive uid will be deregistered
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &new_key);
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(new_key), netuid, block_number, nonce, work, new_key, new_key));
 		let deregistered_uid: u16 = n-1; // since uid=n-1 only recieved 1/3 of weight, it will get pruned first
 		assert_eq!(new_key, SubtensorModule::get_hotkey_for_net_and_uid(netuid, deregistered_uid).expect("Not registered"));
@@ -859,7 +859,7 @@ fn test_zero_weights() {
 
 		// === Register [validator, server]
 		for key in 0..n as u64 {
-			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
+			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &key);
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 		}
 		for validator in 0..(n/2) as u64 {
@@ -915,7 +915,7 @@ fn test_zero_weights() {
 
 		// === Outdate weights by reregistering servers
 		for new_key in n..n+(n/2) {// register a new key while at max capacity, which means the least emission uid will be deregistered
-			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, new_key as u64 * 1_000_000);
+			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, new_key as u64 * 1_000_000, &(new_key as u64));
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(new_key as u64), netuid, block_number, nonce, work, new_key as u64, new_key as u64));
 		}
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
@@ -988,7 +988,7 @@ fn test_validator_permits() {
 					// === Register [validator1, validator2, server1, server2]
 					for key in 0..network_n as u64 {
 						SubtensorModule::add_balance_to_coldkey_account( &key, stake[key as usize] );
-						let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000);
+						let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &key);
 						assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(key), netuid, block_number, nonce, work, key, key));
 						SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake[key as usize] );
 					}
