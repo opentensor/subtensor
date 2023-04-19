@@ -26,6 +26,7 @@ use frame_support::{
 		}
 };
 
+use pallet_collective::Prime;
 use sp_std::marker::PhantomData;
 use codec::{Decode, Encode};
 use sp_runtime::{
@@ -70,7 +71,7 @@ pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::*, traits::ChangeMembers};
+	use frame_support::{pallet_prelude::{*, StorageMap}, traits::ChangeMembers};
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
@@ -305,6 +306,18 @@ pub mod pallet {
 	#[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
 	pub type LastMechansimStepBlock<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T> >;
 
+	// ==============================
+	// ==== Council Storage =====
+	// ==============================
+	#[pallet::type_value]
+	pub fn EmptyAccountIdVec<T: Config>() -> Vec<T::AccountId> { vec![] }
+
+	#[pallet::storage]  // --- vector of hotkeys (council member Id)
+	//pub(super) type CouncilMembers<T: Config> = StorageMap<_, Identity, u16, Vec<T::AccountId>, ValueQuery, EmptyAccountIdVec<T>>;
+	pub type CouncilMembers<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery, EmptyAccountIdVec<T>>;
+	#[pallet::storage] // --- Prime member
+	pub type PrimeMember<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	
 	// =================================
 	// ==== Axon / Promo Endpoints =====
 	// =================================
@@ -1800,11 +1813,7 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
 }
 
-/*frame_support::parameter_types! {
-	
-	let  AdminMembers: Vec<u64> = vec![];
-	let  Prime: Option<u64> = None;
-} */
+
 #[derive(Clone)]
 pub struct SubtensorChangeMembers<T: Config>(pub PhantomData<T>);
 
@@ -1819,7 +1828,8 @@ impl <T: Config> ChangeMembers<T::AccountId> for SubtensorChangeMembers<T>
 			// new, incoming, outgoing must be sorted.
 			let mut new_sorted = new.to_vec();
 			new_sorted.sort();
-			assert_eq!(new, &new_sorted[..]);
+			assert_eq!(new, &new_sorted[..]); 
+			
 
 			let mut incoming_sorted = incoming.to_vec();
 			incoming_sorted.sort();
@@ -1834,17 +1844,18 @@ impl <T: Config> ChangeMembers<T::AccountId> for SubtensorChangeMembers<T>
 				assert!(outgoing.binary_search(x).is_err());
 			}
 
-			/*let mut old_plus_incoming = Members.with(|m| m.borrow().to_vec());
+			let mut old_plus_incoming = CouncilMembers::<T>::get();
 			old_plus_incoming.extend_from_slice(incoming);
-			old_plus_incoming.sort(); */
+			old_plus_incoming.sort(); 
 
 			let mut new_plus_outgoing = new.to_vec();
 			new_plus_outgoing.extend_from_slice(outgoing);
 			new_plus_outgoing.sort();
 
-			//assert_eq!(old_plus_incoming, new_plus_outgoing, "change members call is incorrect!");
-
-			//Members.with(|m| *m.borrow_mut() = new.to_vec());
-			//Prime.with(|p| *p.borrow_mut() = None);
+			assert_eq!(old_plus_incoming, new_plus_outgoing, "change members call is incorrect!");
+			
+			CouncilMembers::<T>::put(new.to_vec());
+			PrimeMember::<T>::put( T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap());
+			
 	}
 }
