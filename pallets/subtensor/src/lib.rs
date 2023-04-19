@@ -530,6 +530,9 @@ pub mod pallet {
 		StakeRemoved( T::AccountId, u64 ), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
 		WeightsSet( u16, u16 ), // ---- Event created when a caller successfully set's their weights on a subnetwork.
 		NeuronRegistered( u16, u16, T::AccountId ), // --- Event created when a new neuron account has been registered to the chain.
+		HotkeyAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been associated with a coldkey.
+		/// TODO( rusty ): this will take more care, edge cases if the hotkey ends up not having a coldkey but gets referenced somewhere.
+		/// HotkeyDeAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been de-associated with a coldkey.
 		BulkNeuronsRegistered( u16, u16 ), // --- Event created when multiple uids have been concurrently registered.
 		BulkBalancesSet(u16, u16),
 		MaxAllowedUidsSet( u16, u16 ), // --- Event created when max allowed uids has been set for a subnetwor.
@@ -1099,6 +1102,19 @@ pub mod pallet {
 				coldkey: T::AccountId,
 		) -> DispatchResult { 
 			Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+		}
+
+		/// Associates the hotkey to this coldkey.
+		/// TODO(const): this call should be costly.
+		#[pallet::call_index(6)]
+		#[pallet::weight((Weight::from_ref_time(2_000_000_000) /// making this an expensive call?
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+		pub fn associate( 
+				origin:OriginFor<T>, 
+				hotkey: T::AccountId, 
+		) -> DispatchResult { 
+			Self::do_associate(origin, hotkey )
 		}
 
 		#[pallet::call_index(7)]

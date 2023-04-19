@@ -169,6 +169,49 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn do_associate( 
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId, 
+    ) -> DispatchResult {
+        // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
+        let coldkey = ensure_signed( origin )?; 
+        log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
+
+        // --- 2. Check the hotkey isn't already associated with a coldkey.
+        ensure!( !Self::hotkey_account_exists( &hotkey ), Error::<T>::AlreadyRegistered );
+
+        // --- 3. Creates the cold - hot pairing account if the hotkey is not already an active account.
+        Self::create_account_if_non_existent( &coldkey, &hotkey);         
+
+        // --- 4. Deposit successful event.
+        log::info!("HotkeyAssociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
+        Self::deposit_event( Event::HotkeyAssociated( coldkey, hotkey ) );
+
+        // --- 5. Ok and done.
+        Ok(())
+    }
+    
+	/// TODO( rusty ): this will take more care, edge cases if the hotkey ends up not having a coldkey but gets referenced somewhere.
+    // pub fn do_deassociate( 
+    //     origin: T::RuntimeOrigin,
+    //     hotkey: T::AccountId, 
+    // ) -> DispatchResult {
+    //     // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
+    //     let coldkey = ensure_signed( origin )?; 
+    //     log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
+
+    //     // --- 2. Removes the coldkey - hotkey pairing account.
+    //     Self::remove_association( &coldkey, &hotkey);         
+
+    //     // --- 3. Deposit successful event.
+    //     log::info!("HotkeyDeAssociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
+    //     Self::deposit_event( Event::HotkeyDeAssociated( coldkey, hotkey ) );
+
+    //     // --- 4. Ok and done.
+    //     Ok(())
+    // }
+
+
     // ---- The implementation for the extrinsic do_registration.
     //
     // # Args:
