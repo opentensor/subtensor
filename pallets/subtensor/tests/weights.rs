@@ -82,8 +82,11 @@ fn test_weights_version_key() {
 		assert_ok!( SubtensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid0, weights_keys.clone(), weight_values.clone(), key0) );
 		assert_ok!( SubtensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid1, weights_keys.clone(), weight_values.clone(), key1) );
 
+		// validator:20313 >= network:12312 (accepted: validator newer)
+		assert_ok!( SubtensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid0, weights_keys.clone(), weight_values.clone(), key1) );
+
 		// Setting fails with incorrect keys.
-		assert_eq!( SubtensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid0, weights_keys.clone(), weight_values.clone(), key1), Err(Error::<Test>::IncorrectNetworkVersionKey.into()) );
+		// validator:12312 < network:20313 (rejected: validator not updated)
 		assert_eq!( SubtensorModule::set_weights(RuntimeOrigin::signed(hotkey), netuid1, weights_keys.clone(), weight_values.clone(), key0), Err(Error::<Test>::IncorrectNetworkVersionKey.into()) );
 	});
 }
