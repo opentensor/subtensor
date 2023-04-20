@@ -1,3 +1,5 @@
+#![recursion_limit = "512"]
+
 use pallet_subtensor::Error;
 use frame_support::assert_ok;
 use frame_system::Config;
