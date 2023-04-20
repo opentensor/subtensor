@@ -1,9 +1,9 @@
 use frame_support::{assert_ok, parameter_types, traits::{Everything, Hooks}, weights};
 use frame_system::{limits};
-use frame_support::traits:: StorageMapShim;
+use frame_support::traits:: {StorageMapShim, IsType};
 use frame_system as system;
 use frame_system::Config;
-use sp_core::H256;
+use sp_core::{H256, U256, sr25519};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -40,7 +40,7 @@ parameter_types! {
 }
 
 #[allow(dead_code)]
-pub type AccountId = u64;
+pub type AccountId = U256; 
 
 // Balance of an account.
 #[allow(dead_code)]
@@ -78,7 +78,7 @@ impl system::Config for Test {
 	type BlockNumber = u64;
 	type Hash = H256;
 	type Hashing = BlakeTwo256;
-	type AccountId = u64;
+	type AccountId = U256; //SAM
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
 	type RuntimeEvent = RuntimeEvent;
@@ -199,13 +199,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 #[allow(dead_code)]
-pub fn test_ext_with_balances(balances : Vec<(u64, u128)>) -> sp_io::TestExternalities {
+pub fn test_ext_with_balances(balances : Vec<(U256, u128)>) -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::default()
 		.build_storage::<Test>()
 		.unwrap();
 
-	pallet_balances::GenesisConfig::<Test> { balances: balances.iter().map(|(a, b)| (*a, *b as u64)).collect::<Vec<(u64, u64)>>()  }
+	pallet_balances::GenesisConfig::<Test> { balances: balances.iter().map(|(a, b)| (*a, *b as u64)).collect::<Vec<(U256, u64)>>()  }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
@@ -235,7 +235,7 @@ pub(crate) fn run_to_block(n: u64) {
 }
 
 #[allow(dead_code)]
-pub fn register_ok_neuron( netuid: u16, hotkey_account_id: u64, coldkey_account_id: u64, start_nonce: u64) {
+pub fn register_ok_neuron( netuid: u16, hotkey_account_id: U256, coldkey_account_id: U256, start_nonce: u64) {
 	let block_number: u64 = SubtensorModule::get_current_block_as_u64();
 	let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey_account_id);
 	let result = SubtensorModule::register( <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id );
