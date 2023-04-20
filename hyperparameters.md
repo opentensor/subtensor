@@ -11,7 +11,7 @@ Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 64;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 8;
-EmissionValue: u16 = 0;
+EmissionValue: u64 = 0;
 MaxWeightsLimit: u16 = 65535; // 100% of u16
 ValidatorBatchSize: u16 = 1;
 ValidatorSequenceLen: u16 = 2048; // 2048
@@ -49,7 +49,7 @@ Kappa: u16 = 32_767; // 0.5 = 65535/2
 MaxAllowedUids: u16 = 4096;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 50;
-EmissionValue: u16 = 1_000_000_000;
+EmissionValue: u64 = 1_000_000_000;
 MaxWeightsLimit: u16 = 655; // 655/2^16 = 0.01 [655 @ 7,160]
 ValidatorBatchSize: u16 = 32; // 32
 ValidatorSequenceLen: u16 = 256; // 256
