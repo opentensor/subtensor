@@ -486,8 +486,8 @@ pub mod pallet {
 	pub(super) type Uids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> hotkey
 	pub(super) type Keys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
-	#[pallet::storage] // --- DMAP ( netuid ) --> emission
-	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64)>, OptionQuery >;
+	#[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
+	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery >;
 
 	#[pallet::storage] // --- DMAP ( netuid ) --> active
 	pub(super) type Active<T:Config> = StorageMap< _, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
@@ -1560,7 +1560,7 @@ pub mod pallet {
 		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
 			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
 
-			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
+			let _: Vec<(T::AccountId, u64, u64)> = Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 
 

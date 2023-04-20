@@ -170,6 +170,15 @@ pub fn inplace_normalize( x: &mut Vec<I32F32> ) {
     }
 }
 
+// Normalizes (sum to 1 except 0) the input vector directly in-place, using the sum arg.
+#[allow(dead_code)]
+pub fn inplace_normalize_using_sum( x: &mut Vec<I32F32>, x_sum: I32F32 ) {
+    if x_sum == I32F32::from_num( 0.0 as f32 ){ return }
+    for i in 0..x.len() {
+        x[i] = x[i]/x_sum;
+    }
+}
+
 // Normalizes (sum to 1 except 0) the I64F64 input vector directly in-place.
 #[allow(dead_code)]
 pub fn inplace_normalize_64( x: &mut Vec<I64F64> ) {

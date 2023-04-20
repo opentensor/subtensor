@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn has_loaded_emission_tuples( netuid: u16 ) -> bool { LoadedEmission::<T>::contains_key( netuid ) }
-    pub fn get_loaded_emission_tuples( netuid: u16 ) -> Vec<(T::AccountId, u64)> { LoadedEmission::<T>::get( netuid ).unwrap() }
+    pub fn get_loaded_emission_tuples( netuid: u16 ) -> Vec<(T::AccountId, u64, u64)> { LoadedEmission::<T>::get( netuid ).unwrap() }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
     // and distributes small chunks of them at a time.
@@ -62,11 +62,11 @@ impl<T: Config> Pallet<T> {
         // --- 1. We iterate across each network.
         for ( netuid, _ ) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
             if !Self::has_loaded_emission_tuples( netuid ) { continue } // There are no tuples to emit.
-            let tuples_to_drain: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+            let tuples_to_drain: Vec<(T::AccountId, u64, u64)> = Self::get_loaded_emission_tuples( netuid );
             let mut total_emitted: u64 = 0;
-            for (hotkey, amount) in tuples_to_drain.iter() {                 
-                Self::emit_inflation_through_hotkey_account( &hotkey, *amount );
-                total_emitted += *amount;
+            for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {                 
+                Self::emit_inflation_through_hotkey_account( &hotkey, *server_amount, *validator_amount );
+                total_emitted += *server_amount + *validator_amount;
             }            
             LoadedEmission::<T>::remove( netuid );
             TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( total_emitted ) );
@@ -94,22 +94,22 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 4 This network is at tempo and we are running its epoch.
-            // First frain the queued emission.
+            // First drain the queued emission.
             let emission_to_drain:u64 = PendingEmission::<T>::get( netuid ); 
             PendingEmission::<T>::insert( netuid, 0 );
 
             // --- 5. Run the epoch mechanism and return emission tuples for hotkeys in the network.
-            let emission_tuples_this_block: Vec<(T::AccountId, u64)> = Self::epoch( netuid, emission_to_drain );
+            let emission_tuples_this_block: Vec<(T::AccountId, u64, u64)> = Self::epoch( netuid, emission_to_drain );
                 
             // --- 6. Check that the emission does not exceed the allowed total.
-            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(_account_id, e)| *e as u128 ).sum();
+            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(_account_id, ve, se)| *ve as u128 + *se as u128  ).sum();
             if emission_sum > emission_to_drain as u128 { continue } // Saftey check.
 
             // --- 7. Sink the emission tuples onto the already loaded.
-            let mut concat_emission_tuples: Vec<(T::AccountId, u64)> = emission_tuples_this_block.clone();
+            let mut concat_emission_tuples: Vec<(T::AccountId, u64, u64)> = emission_tuples_this_block.clone();
             if Self::has_loaded_emission_tuples( netuid ) {
                 // 7.a We already have loaded emission tuples, so we concat the new ones.
-                let mut current_emission_tuples: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+                let mut current_emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::get_loaded_emission_tuples( netuid );
                 concat_emission_tuples.append( &mut current_emission_tuples );
             } 
             LoadedEmission::<T>::insert( netuid, concat_emission_tuples );
@@ -123,26 +123,29 @@ impl<T: Config> Pallet<T> {
     // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
     // is called after an epoch to distribute the newly minted stake according to delegation.
     //
-    pub fn emit_inflation_through_hotkey_account( hotkey: &T::AccountId, emission: u64) {
+    pub fn emit_inflation_through_hotkey_account( hotkey: &T::AccountId, server_emission: u64, validator_emission: u64 ) {
         
         // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the 
         // coldkey - hotkey account as normal.
         if !Self::hotkey_is_delegate( hotkey ) { 
-            Self::increase_stake_on_hotkey_account( &hotkey, emission ); 
+            Self::increase_stake_on_hotkey_account( &hotkey, server_emission + validator_emission ); 
             return; 
+        } else {
+            // Only the server emission is distributed in-full to the delegate.
+            Self::increase_stake_on_hotkey_account( &hotkey, server_emission );
         }
 
-        // --- 2. The hotkey is a delegate. We first distribute a proportion of the emission to the hotkey
+        // --- 2. The hotkey is a delegate. We first distribute a proportion of the validator_emission to the hotkey
         // directly as a function of its 'take'
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
-        let delegate_take: u64 = Self::calculate_delegate_proportional_take( hotkey, emission );
-        let remaining_emission: u64 = emission - delegate_take;
+        let delegate_take: u64 = Self::calculate_delegate_proportional_take( hotkey, validator_emission );
+        let remaining_validator_emission: u64 = validator_emission - delegate_take;
 
         // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
         for ( owning_coldkey_i, stake_i ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64 >>::iter_prefix( hotkey ) {
             
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, remaining_emission );
+            let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, remaining_validator_emission );
             Self::increase_stake_on_coldkey_hotkey_account( &owning_coldkey_i, &hotkey, stake_proportion );
             log::debug!("owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ", owning_coldkey_i, hotkey, stake_proportion );
 
