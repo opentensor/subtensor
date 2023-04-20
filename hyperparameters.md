@@ -1,5 +1,6 @@
 ### Global settings
 ```rust
+DefaultTake: u16 = 11_796; // 18% honest number.
 TxRateLimit: u64 = 1; // [1 @ 64,888]
 ```
 
@@ -9,7 +10,7 @@ Rho: u16 = 10;
 Kappa: u16 = 32_767; // 0.5 = 65535/2 
 MaxAllowedUids: u16 = 64;
 Issuance: u64 = 0;
-MinAllowedWeights: u16 = 1;
+MinAllowedWeights: u16 = 8;
 EmissionValue: u16 = 0;
 MaxWeightsLimit: u16 = 65535; // 100% of u16
 ValidatorBatchSize: u16 = 1;
@@ -21,7 +22,7 @@ ValidatorPruneLen: u64 = 1;
 ValidatorLogitsDivergence: u16 = 1310; // 2% of u16
 ScalingLawPower: u16 = 50; // 0.5
 SynergyScalingLawPower: u16 = 50; // 0.5
-MaxAllowedValidators: u16 = 2;
+MaxAllowedValidators: u16 = 8;
 Tempo: u16 = 99;
 Difficulty: u64 = 10_000_000;
 AdjustmentInterval: u16 = 100;
@@ -31,7 +32,6 @@ ActivityCutoff: u16 = 5000;
 MaxRegistrationsPerBlock: u16 = 1;
 PruningScore : u16 = u16::MAX;
 BondsMovingAverage: u64 = 900_000;
-DefaultTake: u16 = 11_796; // 18% honest number.
 WeightsVersionKey: u64 = 370;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;
@@ -70,7 +70,6 @@ ActivityCutoff: u16 = 5000; // [5000 @ 7,163]
 MaxRegistrationsPerBlock: u16 = 1;
 PruningScore : u16 = u16::MAX;
 BondsMovingAverage: u64 = 900_000;
-DefaultTake: u16 = 11_796; // 18% honest number.
 WeightsVersionKey: u64 = 370;
 MinDifficulty: u64 = 10_000_000;
 MaxDifficulty: u64 = u64::MAX / 4;
