@@ -1106,8 +1106,10 @@ pub mod pallet {
 
 		/// Associates the hotkey to this coldkey.
 		/// TODO(const): this call should be costly.
-		#[pallet::call_index(6)]
-		#[pallet::weight((Weight::from_ref_time(2_000_000_000) /// making this an expensive call?
+		#[pallet::call_index(51)]
+
+		/* Instead of using high arbitrary weight, we need to use inclusion fees. See [here](https://docs.substrate.io/build/tx-weights-fees/#custom-fees)*/
+		#[pallet::weight((Weight::from_ref_time(2_000_000_000)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
 		pub fn associate( 
