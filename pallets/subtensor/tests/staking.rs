@@ -5,6 +5,7 @@ use mock::*;
 use frame_support::sp_runtime::DispatchError;
 use pallet_subtensor::{Error};
 use frame_support::dispatch::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
+use sp_core::U256;
 
 /***********************************************************
 	staking::add_stake() tests
@@ -13,7 +14,7 @@ use frame_support::dispatch::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays
 #[test]
 fn test_add_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
-		let hotkey = 0;
+		let hotkey = U256::from(0);
 		let amount_staked = 5000;
         let call = RuntimeCall::SubtensorModule(SubtensorCall::add_stake{hotkey, amount_staked});
 		assert_eq!(call.get_dispatch_info(), DispatchInfo {
@@ -26,8 +27,8 @@ fn test_add_stake_dispatch_info_ok() {
 #[test]
 fn test_add_stake_ok_no_emission() {
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 533453;
-		let coldkey_account_id = 55453;
+		let hotkey_account_id = U256::from(533453);
+		let coldkey_account_id = U256::from(55453);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -65,9 +66,9 @@ fn test_add_stake_ok_no_emission() {
 #[test]
 fn test_dividends_with_run_to_block() {
 	new_test_ext().execute_with(|| {
-		let neuron_src_hotkey_id = 1;
-		let neuron_dest_hotkey_id = 2;
-		let coldkey_account_id = 667;
+		let neuron_src_hotkey_id = U256::from(1);
+		let neuron_dest_hotkey_id = U256::from(2);
+		let coldkey_account_id = U256::from(667);
 		let netuid: u16 = 1;
 
 		let initial_stake:u64 = 5000;
@@ -79,7 +80,7 @@ fn test_dividends_with_run_to_block() {
 		SubtensorModule::set_max_registrations_per_block( netuid, 3 );
 		SubtensorModule::set_max_allowed_uids(1, 5);
 		
-		register_ok_neuron( netuid, 0, coldkey_account_id, 2112321);
+		register_ok_neuron( netuid, U256::from(0), coldkey_account_id, 2112321);
 		register_ok_neuron(netuid, neuron_src_hotkey_id, coldkey_account_id, 192213123);
 		register_ok_neuron(netuid, neuron_dest_hotkey_id, coldkey_account_id, 12323);
 
@@ -106,7 +107,7 @@ fn test_dividends_with_run_to_block() {
 #[test]
 fn test_add_stake_err_signature() {
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 654; // bogus
+		let hotkey_account_id = U256::from(654); // bogus
 		let amount = 20000 ; // Not used
 
 		let result = SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::none(), hotkey_account_id, amount);
@@ -117,8 +118,8 @@ fn test_add_stake_err_signature() {
 #[test]
 fn test_add_stake_not_registered_key_pair() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id = 435445;
-		let hotkey_account_id = 54544;
+		let coldkey_account_id = U256::from(435445);
+		let hotkey_account_id = U256::from(54544);
 		let amount = 1337;
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
 		assert_eq!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, amount), Err(Error::<Test>::NotRegistered.into()));
@@ -128,9 +129,9 @@ fn test_add_stake_not_registered_key_pair() {
 #[test]
 fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
 	new_test_ext().execute_with(|| {
-		let coldkey_id = 544;
-		let hotkey_id = 54544;
-		let other_cold_key = 99498;
+		let coldkey_id = U256::from(544);
+		let hotkey_id = U256::from(54544);
+		let other_cold_key = U256::from(99498);
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce : u64 = 0;
@@ -151,8 +152,8 @@ fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
 #[test]
 fn test_add_stake_err_not_enough_belance() {
 	new_test_ext().execute_with(|| {
-		let coldkey_id = 544;
-		let hotkey_id = 54544;
+		let coldkey_id = U256::from(544);
+		let hotkey_id = U256::from(54544);
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -175,8 +176,8 @@ fn test_add_stake_total_balance_no_change() {
 	// When we add stake, the total balance of the coldkey account should not change
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 551337;
-		let coldkey_account_id = 51337;
+		let hotkey_account_id = U256::from(551337);
+		let coldkey_account_id = U256::from(51337);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -227,8 +228,8 @@ fn test_add_stake_total_issuance_no_change() {
 	// When we add stake, the total issuance of the balances pallet should not change
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 561337;
-		let coldkey_account_id = 61337;
+		let hotkey_account_id = U256::from(561337);
+		let coldkey_account_id = U256::from(61337);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -285,7 +286,7 @@ fn test_add_stake_total_issuance_no_change() {
 #[test]
 fn test_remove_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
-        let hotkey = 0;
+        let hotkey = U256::from(0);
 		let amount_unstaked = 5000;
 		let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake{hotkey, amount_unstaked});
 		assert_eq!(call.get_dispatch_info(), DispatchInfo {
@@ -299,8 +300,8 @@ fn test_remove_stake_dispatch_info_ok() {
 #[test]
 fn test_remove_stake_ok_no_emission() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id = 4343;
-		let hotkey_account_id = 4968585;
+		let coldkey_account_id = U256::from(4343);
+		let hotkey_account_id = U256::from(4968585);
 		let amount = 10000;
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
@@ -332,7 +333,7 @@ fn test_remove_stake_ok_no_emission() {
 #[test]
 fn test_remove_stake_err_signature() {
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id : u64 = 4968585;
+		let hotkey_account_id = U256::from(4968585);
 		let amount = 10000; // Amount to be removed
 
 		let result = SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::none(), hotkey_account_id, amount);
@@ -343,9 +344,9 @@ fn test_remove_stake_err_signature() {
 #[test]
 fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
 	new_test_ext().execute_with(|| {
-        let coldkey_id = 544;
-		let hotkey_id = 54544;
-		let other_cold_key = 99498;
+        let coldkey_id = U256::from(544);
+		let hotkey_id = U256::from(54544);
+		let other_cold_key = U256::from(99498);
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -364,8 +365,8 @@ fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
 #[test]
 fn test_remove_stake_no_enough_stake() {
 	new_test_ext().execute_with(|| {
-        let coldkey_id = 544;
-		let hotkey_id = 54544;
+        let coldkey_id = U256::from(544);
+		let hotkey_id = U256::from(54544);
 		let amount = 10000;
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
@@ -389,8 +390,8 @@ fn test_remove_stake_total_balance_no_change() {
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
 	//    then the removed stake just becomes free balance
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 571337;
-		let coldkey_account_id = 71337;
+		let hotkey_account_id = U256::from(571337);
+		let coldkey_account_id = U256::from(71337);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -431,8 +432,8 @@ fn test_remove_stake_total_issuance_no_change() {
 	//    this is because the stake should be part of the coldkey account balance (reserved/locked)
 	//    then the removed stake just becomes free balance
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 581337;
-		let coldkey_account_id = 81337;
+		let hotkey_account_id = U256::from(581337);
+		let coldkey_account_id = U256::from(81337);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -479,7 +480,7 @@ fn test_remove_stake_total_issuance_no_change() {
 #[test]
 fn test_get_coldkey_balance_no_balance() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id = 5454; // arbitrary
+		let coldkey_account_id = U256::from(5454); // arbitrary
 		let result = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
 
 		// Arbitrary account should have 0 balance
@@ -491,7 +492,7 @@ fn test_get_coldkey_balance_no_balance() {
 #[test]
 fn test_get_coldkey_balance_with_balance() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id = 5454; // arbitrary
+		let coldkey_account_id = U256::from(5454); // arbitrary
 		let amount = 1337;
 
 		// Put the balance on the account
@@ -511,8 +512,8 @@ fn test_get_coldkey_balance_with_balance() {
 #[test]
 fn test_add_stake_to_hotkey_account_ok() {
 	new_test_ext().execute_with(|| {
-		let hotkey_id = 5445;
-		let coldkey_id = 5443433;
+		let hotkey_id = U256::from(5445);
+		let coldkey_id = U256::from(5443433);
 		let amount: u64 = 10000;
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
@@ -542,8 +543,8 @@ fn test_add_stake_to_hotkey_account_ok() {
 #[test]
 fn test_remove_stake_from_hotkey_account() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 5445;
-		let coldkey_id = 5443433;
+        let hotkey_id = U256::from(5445);
+		let coldkey_id = U256::from(5443433);
 		let amount: u64 = 10000;
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
@@ -575,8 +576,8 @@ fn test_remove_stake_from_hotkey_account() {
 #[test]
 fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
 	new_test_ext().execute_with(|| {
-		let hotkey_id = 5445;
-		let coldkey_id = 5443433;
+		let hotkey_id = U256::from(5445);
+		let coldkey_id = U256::from(5443433);
 		let amount: u64 = 10000;
         let netuid: u16 = 1;
 		let netuid_ex = 2;
@@ -652,7 +653,7 @@ fn test_decrease_total_stake_ok() {
 #[test]
 fn test_add_balance_to_coldkey_account_ok() {
 	new_test_ext().execute_with(|| {
-        let coldkey_id = 4444322;
+        let coldkey_id = U256::from(4444322);
 		let amount = 50000;
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey_id, amount);
 		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_id), amount);
@@ -665,7 +666,7 @@ fn test_add_balance_to_coldkey_account_ok() {
 #[test]
 fn test_remove_balance_from_coldkey_account_ok() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id = 434324; // Random
+		let coldkey_account_id = U256::from(434324); // Random
 		let ammount = 10000; // Arbitrary
 		// Put some $$ on the bank
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, ammount);
@@ -679,7 +680,7 @@ fn test_remove_balance_from_coldkey_account_ok() {
 #[test]
 fn test_remove_balance_from_coldkey_account_failed() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id = 434324; // Random
+		let coldkey_account_id = U256::from(434324); // Random
 		let ammount = 10000; // Arbitrary
 
 		// Try to remove stake from the coldkey account. This should fail,
@@ -695,8 +696,8 @@ fn test_remove_balance_from_coldkey_account_failed() {
 #[test]
 fn test_hotkey_belongs_to_coldkey_ok() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4434334;
-		let coldkey_id = 34333;
+        let hotkey_id = U256::from(4434334);
+		let coldkey_id = U256::from(34333);
         let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -711,7 +712,7 @@ fn test_hotkey_belongs_to_coldkey_ok() {
 #[test]
 fn test_can_remove_balane_from_coldkey_account_ok() {
 	new_test_ext().execute_with(|| {
-        let coldkey_id = 87987984;
+        let coldkey_id = U256::from(87987984);
 		let initial_amount = 10000;
 		let remove_amount = 5000;
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey_id, initial_amount);
@@ -722,7 +723,7 @@ fn test_can_remove_balane_from_coldkey_account_ok() {
 #[test]
 fn test_can_remove_balance_from_coldkey_account_err_insufficient_balance() {
 	new_test_ext().execute_with(|| {
-		let coldkey_id = 87987984;
+		let coldkey_id = U256::from(87987984);
 		let initial_amount = 10000;
 		let remove_amount = 20000;
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey_id, initial_amount);
@@ -735,8 +736,8 @@ fn test_can_remove_balance_from_coldkey_account_err_insufficient_balance() {
 #[test]
 fn test_has_enough_stake_yes() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4334;
-		let coldkey_id = 87989;
+        let hotkey_id = U256::from(4334);
+		let coldkey_id = U256::from(87989);
 		let intial_amount = 10000;
         let netuid = 1;
 		let tempo: u16 = 13;
@@ -753,8 +754,8 @@ fn test_has_enough_stake_yes() {
 #[test]
 fn test_has_enough_stake_no() {
 	new_test_ext().execute_with(|| {
-		let hotkey_id = 4334;
-		let coldkey_id = 87989;
+		let hotkey_id = U256::from(4334);
+		let coldkey_id = U256::from(87989);
 		let intial_amount = 0;
         let netuid = 1;
 		let tempo: u16 = 13;
@@ -770,9 +771,9 @@ fn test_has_enough_stake_no() {
 #[test]
 fn test_non_existent_account() {
 	new_test_ext().execute_with(|| {
-		SubtensorModule::increase_stake_on_coldkey_hotkey_account( &0, &(0 as u64), 10 );
-		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &0, &0 ), 10 );
-		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&(0 as u64)), 10);
+		SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(0), &(U256::from(0)), 10 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &U256::from(0), &U256::from(0) ), 10 );
+		assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&(U256::from(0))), 10);
 	});
 }
 
@@ -785,8 +786,8 @@ fn test_delegate_stake_division_by_zero_check(){
     new_test_ext().execute_with(|| { 
         let netuid: u16 = 0;
         let tempo: u16 = 1;
-		let hotkey = 1;
-		let coldkey = 3;
+		let hotkey = U256::from(1);
+		let coldkey = U256::from(3);
         add_network( netuid, tempo, 0 );
 		register_ok_neuron( netuid, hotkey, coldkey, 2341312 );
         assert_ok!(SubtensorModule::become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey) );
@@ -799,11 +800,11 @@ fn test_full_with_delegating() {
 	new_test_ext().execute_with(|| {
 
 		// Make two accounts.
-        let hotkey0 = 1;
-        let hotkey1 = 2;
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
 
-		let coldkey0 = 3;
-		let coldkey1 = 4;
+		let coldkey0 = U256::from(3);
+		let coldkey1 = U256::from(4);
 		SubtensorModule::set_max_registrations_per_block(1,4);
 
 		// Neither key can add stake because they dont have fundss.
@@ -931,8 +932,8 @@ fn test_full_with_delegating() {
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 600 ); 
 
 		// Lets register and stake a new key.
-		let hotkey2 = 5;
-		let coldkey2 = 6; 
+		let hotkey2 = U256::from(5);
+		let coldkey2 = U256::from(6); 
 		register_ok_neuron( netuid, hotkey2, coldkey2, 248123 );
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 60000);
 		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey2), hotkey2, 1000) );
@@ -964,8 +965,8 @@ fn test_full_with_delegating() {
 		step_block(1);
 
 		// Lets register and stake a new key.
-		let hotkey3 = 7;
-		let coldkey3 = 8; 
+		let hotkey3 = U256::from(7);
+		let coldkey3 = U256::from(8); 
 		register_ok_neuron( netuid, hotkey3, coldkey3, 4124124 );
 		SubtensorModule::add_balance_to_coldkey_account(&coldkey3, 60000);
 		assert_ok!( SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey3), hotkey3, 1000) );
@@ -991,5 +992,3 @@ fn test_full_with_delegating() {
 
 	});
 }
-
-

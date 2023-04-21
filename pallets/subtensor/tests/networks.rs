@@ -5,6 +5,7 @@ use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays}
 use frame_system::Config;
 use frame_support::{sp_std::vec};
 use frame_support::{assert_ok};
+use sp_core::U256;
 
 /*TO DO SAM: write test for LatuUpdate after it is set */
 
@@ -52,7 +53,7 @@ fn test_clear_min_allowed_weight_for_network() {
         let min_allowed_weight = 2;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-	register_ok_neuron( 1, 55, 66, 0);
+	register_ok_neuron( 1, U256::from(55), U256::from(66), 0);
         SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weight);
         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 2);
         assert_ok!(SubtensorModule::do_remove_network(<<Test as Config>::RuntimeOrigin>::root(), netuid));
@@ -66,19 +67,19 @@ fn test_remove_uid_for_network() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-	register_ok_neuron( 1, 55, 66, 0);
+	register_ok_neuron( 1, U256::from(55), U256::from(66), 0);
         let neuron_id ;
-        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &55) {
+        match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)) {
             Ok(k) => neuron_id = k,
             Err(e) => panic!("Error: {:?}", e),
         } 
-        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &55).is_ok());
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_ok());
         assert_eq!(neuron_id, 0);
-        register_ok_neuron( 1, 56, 67, 300000);
-        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &56).unwrap();
+        register_ok_neuron( 1, U256::from(56), U256::from(67), 300000);
+        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(56)).unwrap();
         assert_eq!(neuron_uid, 1);
         assert_ok!(SubtensorModule::do_remove_network(<<Test as Config>::RuntimeOrigin>::root(), netuid));
-        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &55).is_err());
+        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_err());
 });}
 
 #[test]
@@ -88,7 +89,7 @@ fn test_remove_difficulty_for_network() {
         let difficulty: u64 = 10;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-	register_ok_neuron( 1, 55, 66, 0);
+	register_ok_neuron( 1, U256::from(55), U256::from(66), 0);
         assert_ok!(SubtensorModule::sudo_set_difficulty(<<Test as Config>::RuntimeOrigin>::root(), netuid, difficulty));
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), difficulty);
         assert_ok!(SubtensorModule::do_remove_network(<<Test as Config>::RuntimeOrigin>::root(), netuid));
@@ -102,8 +103,8 @@ fn test_remove_network_for_all_hotkeys() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-        register_ok_neuron( 1, 55, 66, 0);
-        register_ok_neuron( 1, 77, 88, 65536);
+        register_ok_neuron( 1, U256::from(55), U256::from(66), 0);
+        register_ok_neuron( 1, U256::from(77), U256::from(88), 65536);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 2);
         assert_ok!(SubtensorModule::do_remove_network(<<Test as Config>::RuntimeOrigin>::root(), netuid));
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
@@ -191,4 +192,3 @@ new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         assert_eq!(SubtensorModule::sudo_set_difficulty(<<Test as Config>::RuntimeOrigin>::root(), netuid, 120000) , Err(Error::<Test>::NetworkDoesNotExist.into()) );
 });}
-
