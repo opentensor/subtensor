@@ -1,4 +1,3 @@
-#![recursion_limit = "4096"]
 
 use frame_support::traits::Currency;
 use ndarray::stack_new_axis;
