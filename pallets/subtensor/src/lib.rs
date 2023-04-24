@@ -67,6 +67,7 @@ mod weights;
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
+mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -79,10 +80,14 @@ pub mod pallet {
 	use frame_support::inherent::Vec;
 	use scale_info::prelude::string::String;
 
+	// Tracks version for migrations. Should be monotonic with respect to the
+	// order of migrations. (i.e. always increasing)
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	// Configure the pallet by specifying the parameters and types on which it depends.
@@ -749,6 +754,11 @@ pub mod pallet {
 			return Weight::from_ref_time(110_634_229_000 as u64)
 						.saturating_add(T::DbWeight::get().reads(8304 as u64))
 						.saturating_add(T::DbWeight::get().writes(110 as u64));
+		}
+
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			// --- Migrate to v2 
+			migration::migrate_to_v2_separate_emission::<T>()
 		}
 	}
 
