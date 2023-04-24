@@ -20,7 +20,7 @@ fn test_benchmark_epoch_with_weights() {
         } else {
             // benchmarking disabled
             // check error
-            assert_eq!(result, Err(Error::<Test>::InvalidEmissionValues.into()));
+            assert_eq!(result, Err(Error::<Test>::BenchmarkingOnly.into()));
         }
 	});
 }
@@ -36,7 +36,7 @@ fn test_benchmark_epoch_without_weights() {
         } else {
             // benchmarking disabled
             // check error
-            assert_eq!(result, Err(Error::<Test>::InvalidEmissionValues.into()));
+            assert_eq!(result, Err(Error::<Test>::BenchmarkingOnly.into()));
         }
 	});
 }
@@ -52,7 +52,7 @@ fn test_benchmark_drain_emission() {
         } else {
             // benchmarking disabled
             // check error
-            assert_eq!(result, Err(Error::<Test>::InvalidEmissionValues.into()));
+            assert_eq!(result, Err(Error::<Test>::BenchmarkingOnly.into()));
         }
 	});
 }
