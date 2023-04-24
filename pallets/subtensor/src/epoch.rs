@@ -201,9 +201,11 @@ impl<T: Config> Pallet<T> {
         if emission_sum == I32F32::from(0) { // no weights set | outdated weights | self_weights
             if is_zero( &active_stake ) { // no active stake
                 normalized_server_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_combined_emission = stake.clone(); 
             }
             else {
                 normalized_server_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_combined_emission = active_stake.clone();
             }
         }
         
@@ -216,6 +218,7 @@ impl<T: Config> Pallet<T> {
         let validator_emission: Vec<I96F32> = normalized_validator_emission.iter().map( |ve: &I32F32| I96F32::from_num( *ve ) * float_rao_emission ).collect();
         let validator_emission: Vec<u64> = validator_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
 
+        // Used only to track combined emission in the storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission.iter().map( |ce: &I32F32| I96F32::from_num( *ce ) * float_rao_emission ).collect();
         let combined_emission: Vec<u64> = combined_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
 
@@ -492,9 +495,11 @@ impl<T: Config> Pallet<T> {
         if emission_sum == I32F32::from(0) { // no weights set | outdated weights | self_weights
             if is_zero( &active_stake ) { // no active stake
                 normalized_server_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_combined_emission = stake.clone();
             }
             else {
                 normalized_server_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_combined_emission = active_stake.clone();
             }
         }
         
@@ -507,6 +512,7 @@ impl<T: Config> Pallet<T> {
         let validator_emission: Vec<I96F32> = normalized_validator_emission.iter().map( |ve: &I32F32| I96F32::from_num( *ve ) * float_rao_emission ).collect();
         let validator_emission: Vec<u64> = validator_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
 
+        // Only used to track emission in storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission.iter().map( |ce: &I32F32| I96F32::from_num( *ce ) * float_rao_emission ).collect();
         let combined_emission: Vec<u64> = combined_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
 
