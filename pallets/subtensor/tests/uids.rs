@@ -66,7 +66,7 @@ fn test_replace_neuron_multiple_subnets() {
         let new_hotkey_account_id = U256::from(2);
 
 		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111, &hotkey_account_id);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5, &new_hotkey_account_id);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5, &hotkey_account_id);
 
 		let coldkey_account_id = U256::from(1234);
 
@@ -114,7 +114,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         let new_hotkey_account_id = U256::from(2);
 
 		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111, &hotkey_account_id);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5, &new_hotkey_account_id);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5, &hotkey_account_id);
 
 		let coldkey_account_id = U256::from(1234);
 		let coldkey_account1_id = U256::from(1235);
