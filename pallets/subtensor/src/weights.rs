@@ -136,7 +136,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_version_key( netuid: u16, version_key: u64) -> bool {
         let network_version_key: u64 = WeightsVersionKey::<T>::get( netuid );
         log::info!("check_version_key( network_version_key:{:?}, version_key:{:?} )", network_version_key, version_key );
-        return network_version_key == 0 || version_key == network_version_key;
+        return network_version_key == 0 || version_key >= network_version_key;
     }
 
     // Checks if the neuron has set weights within the weights_set_rate_limit.

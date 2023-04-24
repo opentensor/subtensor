@@ -113,6 +113,8 @@ pub mod pallet {
 		type InitialMaxDifficulty: Get<u64>;
 		#[pallet::constant] // Initial Min Difficulty.
 		type InitialMinDifficulty: Get<u64>;
+		#[pallet::constant] // Initial RAO Recycled.
+		type InitialRAORecycledForRegistration: Get<u64>;
 		#[pallet::constant] // Initial Burn.
 		type InitialBurn: Get<u64>;
 		#[pallet::constant] // Initial Max Burn.
@@ -227,6 +229,8 @@ pub mod pallet {
 	pub fn DefaultMaxDifficulty<T: Config>() -> u64 { T::InitialMaxDifficulty::get() }
 	#[pallet::type_value] 
 	pub fn DefaultMaxRegistrationsPerBlock<T: Config>() -> u16 { T::InitialMaxRegistrationsPerBlock::get() }
+	#[pallet::type_value]
+	pub fn DefaultRAORecycledForRegistration<T: Config>() -> u64 { T::InitialRAORecycledForRegistration::get() }
 
 	#[pallet::storage] // ---- StorageItem Global Used Work.
     pub type UsedWork<T:Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
@@ -248,6 +252,8 @@ pub mod pallet {
 	pub type RegistrationsThisBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
 	#[pallet::storage] // --- ITEM( global_max_registrations_per_block ) 
 	pub type MaxRegistrationsPerBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T> >;
+	#[pallet::storage] // --- MAP ( netuid, global_RAO_recycled_for_registration )
+	pub type RAORecycledForRegistration<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T> >;
 
 	// ==============================
 	// ==== Subnetworks Storage =====
@@ -564,6 +570,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
 	}
 
 	// Errors inform users that something went wrong.
@@ -588,7 +595,6 @@ pub mod pallet {
 		TooManyRegistrationsThisBlock, // ---- Thrown when registrations this block exceeds allowed number.
 		AlreadyRegistered, // ---- Thrown when the caller requests registering a neuron which already exists in the active set.
 		InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative
-		WorkRepeated, // ---- Thrown when the caller attempts to use a repeated work.
 		InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
 		InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
 		MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids
@@ -610,7 +616,8 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
-		TooManyRegistrationsThisInterval // --- Thrown when registration attempt exceeds allowed in interval
+		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
+		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 	}
 
 	// ==================
@@ -1072,9 +1079,6 @@ pub mod pallet {
 		// 	* 'InvalidWorkBlock':
 		// 		- The work has been performed on a stale, future, or non existent block.
 		//
-		// 	* 'WorkRepeated':
-		// 		- This work for block has already been used.
-		//
 		// 	* 'InvalidDifficulty':
 		// 		- The work does not match the difficutly.
 		//
@@ -1531,12 +1535,20 @@ pub mod pallet {
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
-		
+
+		#[pallet::call_index(50)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
+			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
+		}
+
 		#[pallet::call_index(47)]
 		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
 		.saturating_add(T::DbWeight::get().reads(8303))
 		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+		
 			Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 
@@ -1546,6 +1558,8 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().reads(12299 as u64))
 		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+
 			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
 			Ok(())
 		} 
@@ -1553,6 +1567,8 @@ pub mod pallet {
 		#[pallet::call_index(49)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
+			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
+		
 			Self::drain_emission( 11 );
 			Ok(())
 		} 
@@ -1571,6 +1587,7 @@ pub mod pallet {
 		}
 
 		// Benchmarking functions.
+		#[cfg(feature = "runtime-benchmarks")]
 		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
 			Self::set_max_allowed_uids( netuid, n );
@@ -1584,6 +1601,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[cfg(feature = "runtime-benchmarks")]
 		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
 			Self::set_max_allowed_uids( netuid, n );
