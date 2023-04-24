@@ -3,7 +3,7 @@ use frame_system::{limits};
 use frame_support::traits:: {StorageMapShim, IsType};
 use frame_system as system;
 use frame_system::Config;
-use sp_core::{H256, U256, sr25519};
+use sp_core::{H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},

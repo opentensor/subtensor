@@ -1001,12 +1001,12 @@ fn test_full_with_delegating() {
 #[test]
 fn test_unstake_all_coldkeys_from_hotkey_account() {
 	new_test_ext().execute_with(|| {
-		let hotkey_id = 123570;
-		let coldkey0_id = 123560;
+		let hotkey_id = U256::from(123570);
+		let coldkey0_id = U256::from(123560);
 		
-		let coldkey1_id = 123561;
-		let coldkey2_id = 123562;
-		let coldkey3_id = 123563;
+		let coldkey1_id = U256::from(123561);
+		let coldkey2_id = U256::from(123562);
+		let coldkey3_id = U256::from(123563);
 
 		let amount: u64 = 10000;
 
@@ -1063,8 +1063,8 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
 #[test]
 fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
 	new_test_ext().execute_with(|| {
-		let hotkey_id = 123570;
-		let coldkey0_id = 123560;
+		let hotkey_id = U256::from(123570);
+		let coldkey0_id = U256::from(123560);
 	
 		let amount: u64 = 891011;
 

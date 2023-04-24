@@ -1,5 +1,6 @@
 use frame_support::assert_ok;
 use frame_system::Config;
+use sp_core::U256;
 use crate::{mock::*};
 
 mod mock;
@@ -19,12 +20,12 @@ fn test_replace_neuron() {
         let block_number: u64 = 0;
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111);
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 1234;
+		let hotkey_account_id = U256::from(1);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111, &hotkey_account_id);
+		let coldkey_account_id = U256::from(1234);
 
-        let new_hotkey_account_id = 2;
-        let _new_colkey_account_id = 12345;
+        let new_hotkey_account_id = U256::from(2);
+        let _new_colkey_account_id = U256::from(12345);
 
 		//add network
 		add_network(netuid, tempo, 0);
@@ -61,14 +62,15 @@ fn test_replace_neuron_multiple_subnets() {
 		let netuid: u16 = 1;
         let netuid1: u16 = 2;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5);
+        let hotkey_account_id = U256::from(1);
+        let new_hotkey_account_id = U256::from(2);
 
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 1234;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111, &hotkey_account_id);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5, &new_hotkey_account_id);
 
-        let new_hotkey_account_id = 2;
-        let _new_colkey_account_id = 12345;
+		let coldkey_account_id = U256::from(1234);
+
+        let _new_colkey_account_id = U256::from(12345);
 
 		//add network
 		add_network(netuid, tempo, 0);
@@ -107,16 +109,17 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 		let netuid: u16 = 1;
         let netuid1: u16 = 2;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5);
 
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 1234;
-		let coldkey_account1_id = 1235;
-		let coldkey_account2_id = 1236;
+		let hotkey_account_id = U256::from(1);
+        let new_hotkey_account_id = U256::from(2);
+
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 111111, &hotkey_account_id);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid1, block_number, 111111 * 5, &new_hotkey_account_id);
+
+		let coldkey_account_id = U256::from(1234);
+		let coldkey_account1_id = U256::from(1235);
+		let coldkey_account2_id = U256::from(1236);
         
-
-        let new_hotkey_account_id = 2;
 
         let stake_amount = 1000;
 
