@@ -1,6 +1,6 @@
 use frame_support::{assert_ok, parameter_types, traits::{Everything, Hooks}, weights};
 use frame_system::{limits};
-use frame_support::traits:: {StorageMapShim, IsType};
+use frame_support::traits::{StorageMapShim};
 use frame_system as system;
 use frame_system::Config;
 use sp_core::{H256, U256};
