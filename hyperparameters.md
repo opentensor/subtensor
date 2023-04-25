@@ -39,7 +39,7 @@ ServingRateLimit: u64 = 10;
 Burn: u64 = 1_000_000_000; // 1 tao
 MinBurn: u64 = 1_000_000_000; // 1 tao
 MaxBurn: u64 = 100_000_000_000; // 100 tao
-WeightsSetRateLimit: u64 = 250;
+WeightsSetRateLimit: u64 = 100;
 ```
 
 ### netuid 3 (causallmnext)
