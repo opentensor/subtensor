@@ -1674,6 +1674,7 @@ pub enum CallType {
 	AddDelegate,
     Register,
     Serve,
+	Associate,
 	Other,
 }
 impl Default for CallType {
@@ -1754,6 +1755,12 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
                     ..Default::default()
                 })
             }
+            Some(Call::associate{..}) => {
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
             Some(Call::remove_stake{..}) => {
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
@@ -1789,6 +1796,10 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 				let transaction_fee = 100000;
                 Ok((CallType::AddStake, transaction_fee, who.clone()))
             }
+			Some(Call::associate{..}) => {
+				let transaction_fee = 100000;
+				Ok((CallType::Associate, transaction_fee, who.clone()))
+			}
             Some(Call::remove_stake{..}) => {
 				let transaction_fee = 0;
                 Ok((CallType::RemoveStake, transaction_fee, who.clone()))
