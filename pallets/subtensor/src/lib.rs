@@ -531,8 +531,7 @@ pub mod pallet {
 		WeightsSet( u16, u16 ), // ---- Event created when a caller successfully set's their weights on a subnetwork.
 		NeuronRegistered( u16, u16, T::AccountId ), // --- Event created when a new neuron account has been registered to the chain.
 		HotkeyAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been associated with a coldkey.
-		/// TODO( rusty ): this will take more care, edge cases if the hotkey ends up not having a coldkey but gets referenced somewhere.
-		/// HotkeyDeAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been de-associated with a coldkey.
+		HotkeyDeAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been de-associated with a coldkey.
 		BulkNeuronsRegistered( u16, u16 ), // --- Event created when multiple uids have been concurrently registered.
 		BulkBalancesSet(u16, u16),
 		MaxAllowedUidsSet( u16, u16 ), // --- Event created when max allowed uids has been set for a subnetwor.
@@ -622,6 +621,7 @@ pub mod pallet {
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
+		OtherAssociation, // --- Thrown when a hotkey attempts to de-associate from it's coldkey but is bound by other factors.
 	}
 
 	// ==================
