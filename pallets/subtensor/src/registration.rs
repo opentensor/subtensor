@@ -169,6 +169,24 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // ---- The implementation for the extrinsic do_associate: associate a coldkey and a hotkey without registration
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the calling coldkey. 
+	//
+    // 	* 'hotkey' ( T::AccountId ):
+    // 		- Hotkey to be associated with origin coldkey.
+    //   
+    // # Event:
+    // 	* HotkeyAssociated;
+    // 		- On successfully associating a hotkey with the origin coldkey.
+    //
+    // # Raises:
+	// 	* 'AlreadyRegistered':
+    // 		- The hotkey is already associated with a coldkey.
+    //
+
     pub fn do_associate( 
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId, 
