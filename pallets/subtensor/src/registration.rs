@@ -210,24 +210,34 @@ impl<T: Config> Pallet<T> {
     }
     
 	/// TODO( rusty ): this will take more care, edge cases if the hotkey ends up not having a coldkey but gets referenced somewhere.
-    // pub fn do_deassociate( 
-    //     origin: T::RuntimeOrigin,
-    //     hotkey: T::AccountId, 
-    // ) -> DispatchResult {
-    //     // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
-    //     let coldkey = ensure_signed( origin )?; 
-    //     log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
+    pub fn do_deassociate( 
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId, 
+    ) -> DispatchResult {
+        // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
+        let coldkey = ensure_signed( origin )?;
+        log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
 
-    //     // --- 2. Removes the coldkey - hotkey pairing account.
-    //     Self::remove_association( &coldkey, &hotkey);         
+		// --- 2. Check if hotkey is registered to a subnet
+        ensure!( !Self::is_hotkey_registered_on_any_network( &hotkey ), Error::<T>::OtherAssociation );
 
-    //     // --- 3. Deposit successful event.
-    //     log::info!("HotkeyDeAssociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
-    //     Self::deposit_event( Event::HotkeyDeAssociated( coldkey, hotkey ) );
+		// --- 3. Check if hotkey is an active delegate
+		ensure!( !Self::hotkey_is_delegate( &hotkey ), Error::<T>::OtherAssociation );
 
-    //     // --- 4. Ok and done.
-    //     Ok(())
-    // }
+		// --- 4. Check if the hotkey has an active stake
+		ensure!( !Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey ) > 0, Error::<T>::OtherAssociation );
+
+        // --- 5. Removes the coldkey - hotkey pairing account.
+        Owner::remove( &hotkey );
+		Stake::remove( &coldkey, &hotkey );
+
+        // --- 6. Deposit successful event.
+        log::info!("HotkeyDeAssociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
+        Self::deposit_event( Event::HotkeyDeAssociated( coldkey, hotkey ) );
+
+        // --- 7. Ok and done.
+        Ok(())
+    }
 
 
     // ---- The implementation for the extrinsic do_registration.
