@@ -531,7 +531,7 @@ pub mod pallet {
 		WeightsSet( u16, u16 ), // ---- Event created when a caller successfully set's their weights on a subnetwork.
 		NeuronRegistered( u16, u16, T::AccountId ), // --- Event created when a new neuron account has been registered to the chain.
 		HotkeyAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been associated with a coldkey.
-		HotkeyDeAssociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been de-associated with a coldkey.
+		HotkeyDisassociated( T::AccountId, T::AccountId ), // --- Event created when a hotkey has been de-associated with a coldkey.
 		BulkNeuronsRegistered( u16, u16 ), // --- Event created when multiple uids have been concurrently registered.
 		BulkBalancesSet(u16, u16),
 		MaxAllowedUidsSet( u16, u16 ), // --- Event created when max allowed uids has been set for a subnetwor.
@@ -1126,11 +1126,11 @@ pub mod pallet {
 		#[pallet::weight((Weight::from_ref_time(2_000_000_000)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::Yes))]
-		pub fn deassociate(
+		pub fn disassociate(
 				origin:OriginFor<T>,
 				hotkey: T::AccountId,
 		) -> DispatchResult {
-			Self::do_deassociate(origin, hotkey)
+			Self::do_disassociate(origin, hotkey)
 		}
 
 		#[pallet::call_index(7)]
