@@ -5,7 +5,8 @@ use frame_support::{
 	weights::Weight, storage_alias,
     pallet_prelude::{
         Identity, OptionQuery
-    }
+    },
+    inherent::Vec
 };
 
 // TODO (camfairchild): TEST MIGRATION
