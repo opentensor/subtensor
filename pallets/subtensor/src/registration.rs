@@ -228,8 +228,8 @@ impl<T: Config> Pallet<T> {
 		ensure!( !Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey ) > 0, Error::<T>::OtherAssociation );
 
         // --- 5. Removes the coldkey - hotkey pairing account.
-        Owner::remove( &hotkey );
-		Stake::remove( &coldkey, &hotkey );
+        Owner::<T>::remove( &hotkey );
+		Stake::<T>::remove( &coldkey, &hotkey );
 
         // --- 6. Deposit successful event.
         log::info!("HotkeyDeAssociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
