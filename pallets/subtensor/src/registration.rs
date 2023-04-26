@@ -210,13 +210,13 @@ impl<T: Config> Pallet<T> {
     }
     
 	/// TODO( rusty ): this will take more care, edge cases if the hotkey ends up not having a coldkey but gets referenced somewhere.
-    pub fn do_deassociate( 
+    pub fn do_disassociate( 
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId, 
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed( origin )?;
-        log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
+        log::info!("do_disassociate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
 
 		// --- 2. Check if hotkey is registered to a subnet
         ensure!( !Self::is_hotkey_registered_on_any_network( &hotkey ), Error::<T>::OtherAssociation );
@@ -232,8 +232,8 @@ impl<T: Config> Pallet<T> {
 		Stake::<T>::remove( &coldkey, &hotkey );
 
         // --- 6. Deposit successful event.
-        log::info!("HotkeyDeAssociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
-        Self::deposit_event( Event::HotkeyDeAssociated( coldkey, hotkey ) );
+        log::info!("HotkeyDisassociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
+        Self::deposit_event( Event::HotkeyDisassociated( coldkey, hotkey ) );
 
         // --- 7. Ok and done.
         Ok(())
