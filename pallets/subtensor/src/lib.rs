@@ -67,6 +67,7 @@ mod weights;
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
+
 mod migration;
 
 #[frame_support::pallet]
@@ -75,10 +76,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
-	use serde::{Serialize, Deserialize};
-	use serde_with::{serde_as, DisplayFromStr};
 	use frame_support::inherent::Vec;
-	use scale_info::prelude::string::String;
 
 	// Tracks version for migrations. Should be monotonic with respect to the
 	// order of migrations. (i.e. always increasing)
@@ -758,6 +756,8 @@ pub mod pallet {
 
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
 			// --- Migrate to v2 
+			use crate::migration;
+
 			migration::migrate_to_v2_separate_emission::<T>()
 		}
 	}
