@@ -218,24 +218,27 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?;
         log::info!("do_disassociate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
 
-		// --- 2. Check if hotkey is registered to a subnet
+		// --- 2. Check if the origin coldkey is the owner of the hotkey
+		ensure!( Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey, Error::<T>::NotHotkeyOwner );
+
+		// --- 3. Check if hotkey is registered to a subnet
         ensure!( !Self::is_hotkey_registered_on_any_network( &hotkey ), Error::<T>::OtherAssociation );
 
-		// --- 3. Check if hotkey is an active delegate
+		// --- 4. Check if hotkey is an active delegate
 		ensure!( !Self::hotkey_is_delegate( &hotkey ), Error::<T>::OtherAssociation );
 
-		// --- 4. Check if the hotkey has an active stake
+		// --- 5. Check if the hotkey has an active stake
 		ensure!( !Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey ) > 0, Error::<T>::OtherAssociation );
 
-        // --- 5. Removes the coldkey - hotkey pairing account.
+        // --- 6. Removes the coldkey - hotkey pairing account.
         Owner::<T>::remove( &hotkey );
 		Stake::<T>::remove( &coldkey, &hotkey );
 
-        // --- 6. Deposit successful event.
+        // --- 7. Deposit successful event.
         log::info!("HotkeyDisassociated( coldkey:{:?} hotkey:{:?}  ) ", coldkey, hotkey );
         Self::deposit_event( Event::HotkeyDisassociated( coldkey, hotkey ) );
 
-        // --- 7. Ok and done.
+        // --- 8. Ok and done.
         Ok(())
     }
 
