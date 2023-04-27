@@ -132,6 +132,74 @@ fn test_burned_registration_ok() {
 }
 
 #[test]
+fn test_hotkey_association_ok() {
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id = 1;
+		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
+
+		// Subscribe and check extrinsic output
+		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id));
+		//check if hotkey is added to the Hotkeys
+		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
+	});
+}
+
+#[test]
+fn test_hotkey_disassociation_ok() {
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id = 1;
+		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
+
+		// Subscribe and check extrinsic output
+		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id));
+		//check if hotkey is added to the Hotkeys
+		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
+
+		// Subscribe and check extrinsic output
+		assert_ok!(SubtensorModule::disassociate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id));
+		//check if hotkey is still registered to coldkey
+		assert_ne!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
+	});
+}
+
+#[test]
+fn test_association_already_active_hotkey() {
+	new_test_ext().execute_with(|| {
+
+		let block_number: u64 = 0;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
+		let hotkey_account_id = 1;
+		let coldkey_account_id = 667;
+
+		//add network
+		add_network(netuid, tempo, 0);
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id));
+
+		let result = SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id);
+		assert_eq!( result, Err(Error::<Test>::AlreadyRegistered.into()) );
+	});
+}
+
+#[test]
+fn test_disassociation_from_other_coldkey() {
+	new_test_ext().execute_with(|| {
+		let hotkey_account_id = 1;
+		let coldkey_account_id = 667;
+		let other_coldkey_id = 668;
+
+		// Subscribe and check extrinsic output
+		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id));
+		//check if hotkey is added to the Hotkeys
+		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
+
+		let result = SubtensorModule::disassociate(<<Test as Config>::RuntimeOrigin>::signed(other_coldkey_id), hotkey_account_id);
+		assert_eq!( result, Err(Error::<Test>::NotHotkeyOwner.into()) );
+	});
+}
+
+#[test]
 fn test_burn_adjustment() {
 	new_test_ext().execute_with(|| {
 		let netuid: u16 = 1;
