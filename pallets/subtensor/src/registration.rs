@@ -169,7 +169,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic do_associate: associate a coldkey and a hotkey without registration
+    // ---- The implementation for the extrinsic associate: associate a coldkey and a hotkey without registration
     //
     // # Args:
     // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -189,11 +189,20 @@ impl<T: Config> Pallet<T> {
 
     pub fn do_associate( 
         origin: T::RuntimeOrigin,
-        hotkey: T::AccountId, 
+        hotkey: T::AccountId,
+		_signed_coldkey: Vec<u8>,
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed( origin )?; 
         log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
+
+		/* Payload signed with hotkey to verify ownership */
+		/*
+		let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
+		let binding = hotkey_pubkey.encode();
+		// Skip extra 0th byte.
+		let hotkey_bytes: &[u8] = binding[1..].as_ref();
+		*/
 
         // --- 2. Check the hotkey isn't already associated with a coldkey.
         ensure!( !Self::hotkey_account_exists( &hotkey ), Error::<T>::AlreadyRegistered );
