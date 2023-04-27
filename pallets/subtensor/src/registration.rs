@@ -103,6 +103,9 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
+		// --- 4. Ensure we are not exceeding the max allowed registrations per interval.
+		ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
+
         // --- 4. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
@@ -111,7 +114,8 @@ impl<T: Config> Pallet<T> {
     
         // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost_as_balance = Self::u64_to_balance( Self::get_burn_as_u64( netuid ) ).unwrap();
+        let registration_cost_as_u64 = Self::get_burn_as_u64( netuid );
+        let registration_cost_as_balance = Self::u64_to_balance( registration_cost_as_u64 ).unwrap();
         ensure!( Self::can_remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ), Error::<T>::NotEnoughBalanceToStake );
 
         // --- 7. Ensure the remove operation from the coldkey is a success.
@@ -155,6 +159,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
+        Self::increase_rao_recycled( netuid, Self::get_burn_as_u64( netuid ) );
     
         // --- 14. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
@@ -235,7 +240,10 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
-        // --- 4. Ensure that the key is not already registered.
+		// --- 5. Ensure we are not exceeding the max allowed registrations per interval.
+		ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
+
+        // --- 5. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
         // --- 5. Ensure the passed block number is valid, not in the future or too old.

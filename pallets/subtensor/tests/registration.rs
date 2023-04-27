@@ -1,3 +1,4 @@
+use frame_support::traits::Currency;
 use ndarray::stack_new_axis;
 use pallet_subtensor::{Error, AxonInfoOf};
 use frame_support::{assert_ok};
@@ -168,6 +169,7 @@ fn test_registration_too_many_registrations_per_block() {
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		SubtensorModule::set_max_registrations_per_block( netuid, 10 );
+		SubtensorModule::set_target_registrations_per_interval( netuid, 10 );
 		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 10 );
 
 		let block_number: u64 = 0;
@@ -210,6 +212,60 @@ fn test_registration_too_many_registrations_per_block() {
 		assert_eq!( SubtensorModule::get_registrations_this_block(netuid), 10 );
 		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(10), netuid, block_number, nonce10, work10, 10, 10);
 		assert_eq!( result, Err(Error::<Test>::TooManyRegistrationsThisBlock.into()) );
+	});
+}
+
+#[test]
+fn test_registration_too_many_registrations_per_interval() {
+	new_test_ext().execute_with(|| {
+		
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		SubtensorModule::set_max_registrations_per_block( netuid, 11 );
+		assert_eq!( SubtensorModule::get_max_registrations_per_block(netuid), 11 );
+
+		SubtensorModule::set_target_registrations_per_interval( netuid, 3 );
+		assert_eq!( SubtensorModule::get_target_registrations_per_interval(netuid), 3 );
+		// Then the max is 3 * 3 = 9
+
+		let block_number: u64 = 0;
+		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084);
+		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 11231312312);
+		let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 212312414);
+		let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 21813123);
+		let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 148141209);
+		let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 1245235534);
+		let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 256234);
+		let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 6923424);
+		let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 124242);
+		let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 153453);
+		assert_eq!( SubtensorModule::get_difficulty_as_u64(netuid), 10000 );
+
+		//add network
+		add_network(netuid, tempo, 0);
+		
+		// Subscribe and check extrinsic output
+		// Try 10 registrations, this is less than the max per block, but more than the max per interval
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(0), netuid, block_number, nonce0, work0, 0, 0));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 1 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(1), netuid, block_number, nonce1, work1, 1, 1));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 2 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(2), netuid, block_number, nonce2, work2, 2, 2));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 3 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(3), netuid, block_number, nonce3, work3, 3, 3));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 4 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(4), netuid, block_number, nonce4, work4, 4, 4));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 5 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(5), netuid, block_number, nonce5, work5, 5, 5));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 6 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(6), netuid, block_number, nonce6, work6, 6, 6));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 7 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(7), netuid, block_number, nonce7, work7, 7, 7));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 8 );
+		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(8), netuid, block_number, nonce8, work8, 8, 8));
+		assert_eq!( SubtensorModule::get_registrations_this_interval(netuid), 9 );
+		let result = SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(9), netuid, block_number, nonce9, work9, 9, 9);
+		assert_eq!( result, Err(Error::<Test>::TooManyRegistrationsThisInterval.into()) );
 	});
 }
 
@@ -464,6 +520,40 @@ fn test_registration_add_network_size() {
 	});
 }
 
+#[test]
+fn test_burn_registration_increase_recycled_rao() {
+	new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+		let netuid2: u16 = 2;
+
+		let hotkey_account_id = 1;
+		let coldkey_account_id = 667;
+		
+		// Give funds for burn. 1000 TAO
+		let _ = Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000 as u64));
+
+		add_network(netuid, 13, 0);
+		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+
+		add_network(netuid2, 13, 0);
+		assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+
+		run_to_block(1);
+
+		let burn_amount = SubtensorModule::get_burn_as_u64(netuid);
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, hotkey_account_id));
+		assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+
+		run_to_block(2);
+		
+		let burn_amount2 = SubtensorModule::get_burn_as_u64(netuid2);
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid2, hotkey_account_id));
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(2), netuid2, 2));
+		assert_eq!(SubtensorModule::get_rao_recycled(netuid2), burn_amount2 * 2);
+		// Validate netuid is not affected.
+		assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+	});
+}
 
 #[test]
 fn test_full_pass_through() {

@@ -44,7 +44,7 @@ pub type AccountId = u64;
 
 // Balance of an account.
 #[allow(dead_code)]
-pub type Balance = u128;
+pub type Balance = u64;
 
 // An index to a block.
 #[allow(dead_code)]
@@ -141,6 +141,7 @@ parameter_types! {
 	pub const InitialRegistrationRequirement: u16 = u16::MAX; // Top 100%
 	pub const InitialMinDifficulty: u64 = 1;
 	pub const InitialMaxDifficulty: u64 = u64::MAX;
+	pub const InitialRAORecycledForRegistration: u64 = 0;
 
 }
 impl pallet_subtensor::Config for Test {
@@ -182,6 +183,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialBurn = InitialBurn;
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
+	type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
 }
 
 // Build genesis storage according to the mock runtime.
@@ -203,7 +205,7 @@ pub fn test_ext_with_balances(balances : Vec<(u64, u128)>) -> sp_io::TestExterna
 		.build_storage::<Test>()
 		.unwrap();
 
-	pallet_balances::GenesisConfig::<Test> { balances }
+	pallet_balances::GenesisConfig::<Test> { balances: balances.iter().map(|(a, b)| (*a, *b as u64)).collect::<Vec<(u64, u64)>>()  }
 		.assimilate_storage(&mut t)
 		.unwrap();
 

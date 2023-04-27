@@ -111,7 +111,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 109,
+
+	spec_version: 119,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -274,8 +275,8 @@ where
 
 	fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
 		let coefficient = WeightToFeeCoefficient {
-			coeff_integer: C::get(),
-			coeff_frac: Perbill::from_percent(1),
+			coeff_integer: 0,
+			coeff_frac: Perbill::from_parts(1),
 			negative: false,
 			degree: 1,
 		};
@@ -350,6 +351,7 @@ parameter_types! {
 	pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
 	pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
 	pub const SubtensorInitialTxRateLimit: u64 = 1000;
+	pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -390,6 +392,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMaxBurn = SubtensorInitialMaxBurn;
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+	type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -428,7 +431,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	
+	pallet_subtensor::SubtensorSignedExtension<Runtime>
 );
 
 // Unchecked extrinsic type as expected by this runtime.

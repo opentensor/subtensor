@@ -49,6 +49,7 @@ impl<T: Config> Pallet<T> {
         // ===========
         // == Stake ==
         // ===========
+        
         let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
         for ( uid_i, hotkey ) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId >>::iter_prefix( netuid ) {
             hotkeys.push( (uid_i, hotkey) ); 
@@ -63,14 +64,6 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64( &mut stake_64 );
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32( stake_64 );
         log::trace!( "S:\n{:?}\n", &stake );
-
-        // Remove inactive stake.
-        let mut active_stake: Vec<I32F32> = stake.clone();
-        inplace_mask_vector( &inactive, &mut active_stake );
-
-        // Normalize active stake.
-        inplace_normalize( &mut active_stake );
-        log::trace!( "S:\n{:?}\n", &active_stake );
 
         // =======================
         // == Validator permits ==
@@ -90,6 +83,22 @@ impl<T: Config> Pallet<T> {
         // Get new validator permits.
         let new_validator_permits: Vec<bool> = is_topk( &stake, max_allowed_validators as usize );
         log::trace!( "new_validator_permits: {:?}", new_validator_permits );
+
+        // ==================
+        // == Active Stake ==
+        // ==================
+
+        let mut active_stake: Vec<I32F32> = stake.clone();
+
+        // Remove inactive stake.
+        inplace_mask_vector( &inactive, &mut active_stake );
+        
+        // Remove non-validator stake.
+        inplace_mask_vector( &validator_forbids, &mut active_stake );
+
+        // Normalize active stake.
+        inplace_normalize( &mut active_stake );
+        log::trace!( "S:\n{:?}\n", &active_stake );
 
         // =============
         // == Weights ==
@@ -206,7 +215,7 @@ impl<T: Config> Pallet<T> {
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_pruning_scores: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_pruning_scores: Vec<u16> = vec_max_upscale_to_u16(&pruning_scores);
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
@@ -305,15 +314,6 @@ impl<T: Config> Pallet<T> {
         // range: I32F32(0, 1)
         log::trace!( "S: {:?}", &stake );
 
-        // Remove inactive stake.
-        let mut active_stake: Vec<I32F32> = stake.clone();
-        inplace_mask_vector( &inactive, &mut active_stake );
-        log::trace!( "S (mask): {:?}", &active_stake );
-
-        // Normalize active stake.
-        inplace_normalize( &mut active_stake );
-        log::trace!( "S (mask+norm): {:?}", &active_stake );
-
         // =======================
         // == Validator permits ==
         // =======================
@@ -332,6 +332,22 @@ impl<T: Config> Pallet<T> {
         // Get new validator permits.
         let new_validator_permits: Vec<bool> = is_topk( &stake, max_allowed_validators as usize );
         log::trace!( "new_validator_permits: {:?}", new_validator_permits );
+
+        // ==================
+        // == Active Stake ==
+        // ==================
+
+        let mut active_stake: Vec<I32F32> = stake.clone();
+
+        // Remove inactive stake.
+        inplace_mask_vector( &inactive, &mut active_stake );
+        
+        // Remove non-validator stake.
+        inplace_mask_vector( &validator_forbids, &mut active_stake );
+
+        // Normalize active stake.
+        inplace_normalize( &mut active_stake );
+        log::trace!( "S:\n{:?}\n", &active_stake );
 
         // =============
         // == Weights ==
@@ -469,7 +485,7 @@ impl<T: Config> Pallet<T> {
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_incentive: Vec<u16> = incentive.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_dividends: Vec<u16> = dividends.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
-        let cloned_pruning_scores: Vec<u16> = pruning_scores.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
+        let cloned_pruning_scores: Vec<u16> = vec_max_upscale_to_u16(&pruning_scores);
         let cloned_validator_trust: Vec<u16> = validator_trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         Active::<T>::insert( netuid, active.clone() );
         Emission::<T>::insert( netuid, cloned_emission );
