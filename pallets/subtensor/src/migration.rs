@@ -71,7 +71,7 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
         );
 
         // Update storage version.
-        StorageVersion::new(2).put::<Pallet::<T>>(); // Update to version 2 so we don't run this again.
+        StorageVersion::new(1).put::<Pallet::<T>>(); // Update to version 2 so we don't run this again.
         // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
         

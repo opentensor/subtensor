@@ -80,7 +80,7 @@ pub mod pallet {
 
 	// Tracks version for migrations. Should be monotonic with respect to the
 	// order of migrations. (i.e. always increasing)
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
