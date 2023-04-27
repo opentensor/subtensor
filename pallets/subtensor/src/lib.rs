@@ -620,7 +620,8 @@ pub mod pallet {
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
-		OtherAssociation, // --- Thrown when a hotkey attempts to de-associate from it's coldkey but is bound by other factors.
+		OtherAssociation, // --- Thrown when a hotkey attempts to disassociate from it's coldkey but is bound by other factors.
+		NotHotkeyOwner, // --- Thrown when a coldkey attempts to disassociate a hotkey that it isn't associated with.
 	}
 
 	// ==================
