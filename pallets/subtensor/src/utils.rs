@@ -4,8 +4,8 @@ use frame_support::{inherent::Vec, traits::ChangeMembers};
 use sp_core::U256;
 use frame_support::pallet_prelude::DispatchResult;
 use crate::system::ensure_root;
-pub use pallet_collective::{self as Collective};
-use pallet_collective::Config as CollectiveConfig;
+pub use pallet_collective::{self as Collective, EnsureMembers, Call as CollectiveCall, MemberCount, Members};
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
  
@@ -484,14 +484,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_set_council_members(origin:T::RuntimeOrigin , members: Vec<T::AccountId>) -> DispatchResult{
+    pub fn do_sudo_set_council_members(origin:T::RuntimeOrigin , members: Vec<T::AccountId>) -> DispatchResult{
         ensure_root( origin )?;
         let outgoing = CouncilMembers::<T>::get();
         let slice_incoming = &members;
         T::ChangeMembers::change_members_sorted(&slice_incoming, &outgoing, &members[..]);
+        let council_members = T::GetMembers::get();
+        CouncilMembers::<T>::put(council_members);
         //pallet_collective::Pallet::<T: Config + pallet_collective::Config>::set_members(origin, members, prime, old_count);
+        //pallet_collective::Pallet::<T>::is_member(origin);
+        //pallet_collective::Pallet::<T>::members();
         //Collective::pallet::Pallet::<T>::set_members(origin, members, prime, old_count);
         //ChangeMembers::set_members_sorted(new_members, old_members)
+        //Collective::Pallet::<T>::initialize_members(&members);
         Ok(())
     } 
 

@@ -13,7 +13,7 @@ use pallet_grandpa::{
 
 use frame_support::{pallet_prelude::Get, traits::EitherOfDiverse};
 use frame_support::traits::{EnsureOneOf, ChangeMembers};
-use frame_system::EnsureRoot;
+use frame_system::{EnsureRoot, Config};
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -113,7 +113,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 117,
+	spec_version: 118, 
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -314,18 +314,24 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 }
+/* pub trait Config {
+	type GetMembers: frame_support::traits::Get<Vec<Self::AccoundId>>;
+  }
+
+let council_members = T::GetMembers::get(); */
 
 // Configure collective pallet 
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 3 * MINUTES;
+	pub const CouncilMotionDuration: BlockNumber = 3 * HOURS;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 }
 
 // We call pallet_collective Council
-impl pallet_collective::Config for Runtime {
+impl pallet_collective::Config for Runtime{
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
+	type Proposal = RuntimeCall; //YourPalletProposal<Self>
+	//type Proposal = pallet_subtensor::Call<<sam as test>::testtest>;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
 	type MaxProposals = CouncilMaxProposals;
@@ -334,6 +340,14 @@ impl pallet_collective::Config for Runtime {
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
+
+
+pub struct GetMembers;
+impl Get<Vec<AccountId>> for GetMembers {
+	fn get() -> Vec<AccountId> {
+		Council::members()
+	}
+} 
 
 // set up a custom origin using collective pallet
 // Custom origin that ensures either root or at least half of the collective's approval
@@ -420,6 +434,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
 	type ChangeMembers = Council;
+	type GetMembers = GetMembers;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

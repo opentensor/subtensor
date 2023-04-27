@@ -26,7 +26,7 @@ use frame_support::{
 		}
 };
 
-use pallet_collective::Prime;
+use pallet_collective::{Prime};
 use sp_std::marker::PhantomData;
 use codec::{Decode, Encode};
 use sp_runtime::{
@@ -71,7 +71,7 @@ pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::{*, StorageMap}, traits::ChangeMembers};
+	use frame_support::{pallet_prelude::{*, StorageMap, DispatchResult}, traits::ChangeMembers};
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
@@ -97,6 +97,8 @@ pub mod pallet {
 
 		// --- ChangeMember type that will be used to set admin members
 		type ChangeMembers: ChangeMembers<Self::AccountId>;
+
+		type GetMembers: frame_support::traits::Get<Vec<Self::AccountId>>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -1567,11 +1569,19 @@ pub mod pallet {
 		} 
 
 		#[pallet::call_index(49)]
+		#[pallet::weight((Weight::from_ref_time(13_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_council_members( origin:OriginFor<T>, members: Vec<T::AccountId> ) -> DispatchResult {
+			Self::do_sudo_set_council_members( origin, members )
+		}
+
+		#[pallet::call_index(50)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
 			Self::drain_emission( 11 );
 			Ok(())
-		} 
+		}
 	}	
 
 	// ---- Subtensor helper functions.
@@ -1824,7 +1834,7 @@ impl <T: Config> ChangeMembers<T::AccountId> for SubtensorChangeMembers<T>
 			incoming: &[T::AccountId],
 			outgoing: &[T::AccountId],
 			new: &[T::AccountId],
-		) {
+		) { /* 
 			// new, incoming, outgoing must be sorted.
 			let mut new_sorted = new.to_vec();
 			new_sorted.sort();
@@ -1854,8 +1864,51 @@ impl <T: Config> ChangeMembers<T::AccountId> for SubtensorChangeMembers<T>
 
 			assert_eq!(old_plus_incoming, new_plus_outgoing, "change members call is incorrect!");
 			
-			CouncilMembers::<T>::put(new.to_vec());
-			PrimeMember::<T>::put( T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap());
+			//CouncilMembers::<T>::put(new.to_vec());
+			CouncilMembers::<T>::put(new_sorted);
+			PrimeMember::<T>::put( T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()); */
 			
 	}
 }
+
+
+
+//#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+/*pub struct SubtensorProposal;
+pub type CollectiveProposal<T> = <T as pallet_collective::Config>::Proposal;
+
+
+impl<T: Config> CollectiveProposal<T> for SubtensorProposal {
+    type Proposal = Box<<T as Config<I>>::Proposal>;
+
+    fn from_proposal(proposal: Self::Proposal) -> Result<Self, DispatchError> {
+        let call = proposal.clone().into();
+        match call {
+            Call::YourPallet(call) => Ok(Self),
+            _ => Err(Error::<T>::InvalidCall.into()),
+        }
+    }
+
+    fn into_proposal(self) -> Self::Proposal {
+        Box::new(Call::pallet_subtensor(Call::default()).into())
+    }
+} */
+
+/*pub struct SubtensorProposal<T: Config> {
+    pub call: T::Call,
+}*/
+
+/*impl<T: Config> Proposal<T> for SubtensorProposal<T> {
+    fn new(call: SubtensorCall<T>) -> Self {
+        SubtensorProposal { call }
+    }
+
+    fn proposal(&self) -> Call<T> {
+        self.call.clone().into()
+    }
+
+    fn proposal_status(&self, _approvals: u32, _members: u32) -> ProposalStatus {
+        ProposalStatus::Open
+    }
+} */
+
