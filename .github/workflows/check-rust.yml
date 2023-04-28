@@ -71,7 +71,6 @@ jobs:
 
     ##
     env:
-      RELEASE: false
       RELEASE_NAME: development
       RUSTFLAGS: -A warnings
       RUSTV: ${{ matrix.rust-branch }}
@@ -84,17 +83,6 @@ jobs:
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v2
-
-      - name: Set RELEASE mode
-        if: github.event_name == 'push' && github.ref == $default-branch
-        shell: bash
-        run: |
-          set -eET
-          tee -a "${GITHUB_ENV:?Undefined GitHub env file path}" <<'EOF'
-          RELEASE=true
-          RELEASE_NAME=release
-          RUST_BIN_DIR=target/${{ matrix.rust-target }}/release
-          EOF
 
       - name: Install dependencies
         run: |
@@ -128,13 +116,4 @@ jobs:
         # timeout-minutes: 30
         run: |
           cargo build --release
-
-       # ## TODO: Un-comment after live tests
-       # - name: Upload executable
-       #   if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
-       #   uses: actions/upload-artifact@v3.1.2
-       #   with:
-       #     name: ${{ matrix.rust-target }}
-       #     path: ${{ env.RUST_BIN_DIR }}
-       #     retention-days: 1
 
