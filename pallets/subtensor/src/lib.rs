@@ -612,7 +612,7 @@ pub mod pallet {
 		IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
 		ServingRateLimitExceeded, // --- Thrown when an axon or prometheus serving exceeds the rate limit for a registered neuron.
 		BalanceSetError, // --- Thrown when an error occurs while setting a balance.
-		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registereds exceed MaxAllowedUids for the network.
+		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled.
