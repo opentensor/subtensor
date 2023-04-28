@@ -1126,8 +1126,9 @@ pub mod pallet {
 				origin:OriginFor<T>,
 				hotkey: T::AccountId,
 				signed_coldkey: Vec<u8>,
+				sig: T::Signature,
 		) -> DispatchResult {
-			Self::do_associate(origin, hotkey, signed_coldkey)
+			Self::do_associate(origin, hotkey, signed_coldkey, sig)
 		}
 
 		#[pallet::call_index(52)]
