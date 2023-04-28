@@ -392,6 +392,8 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
 	type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
+	type Signature = sp_core::sr25519::Signature;
+	type PublicKey = sp_core::sr25519::Public;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
