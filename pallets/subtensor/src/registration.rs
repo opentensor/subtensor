@@ -8,6 +8,7 @@ use sp_io::hashing::keccak_256;
 use frame_system::{ensure_signed};
 use sp_std::vec::Vec;
 use substrate_fixed::types::I32F32;
+use sp_runtime::{MultiAddress, traits::Verify};
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
