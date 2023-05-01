@@ -134,8 +134,11 @@ fn test_hotkey_association_ok() {
 		let hotkey_account_id = 1;
 		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
 
+		// we need a real signature here.
+		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+
 		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, vec![]));
+		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, vec![], sp_core::sr25519::Signature::from_slice(sig)));
 		//check if hotkey is added to the Hotkeys
 		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
 	});
@@ -147,8 +150,11 @@ fn test_hotkey_disassociation_ok() {
 		let hotkey_account_id = 1;
 		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
 
+		// we need a real signature here.
+		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+
 		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, vec![]));
+		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, vec![], sig));
 		//check if hotkey is added to the Hotkeys
 		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
 
@@ -170,11 +176,14 @@ fn test_association_already_active_hotkey() {
 		let hotkey_account_id = 1;
 		let coldkey_account_id = 667;
 
+		// we need a real signature here.
+		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+
 		//add network
 		add_network(netuid, tempo, 0);
 		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id));
 
-		let result = SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, vec![]);
+		let result = SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, vec![], sig);
 		assert_eq!( result, Err(Error::<Test>::AlreadyRegistered.into()) );
 	});
 }
@@ -186,8 +195,11 @@ fn test_disassociation_from_other_coldkey() {
 		let coldkey_account_id = 667;
 		let other_coldkey_id = 668;
 
+		// we need a real signature here.
+		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+
 		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, vec![]));
+		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, vec![], sig));
 		//check if hotkey is added to the Hotkeys
 		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
 
