@@ -291,11 +291,11 @@ fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
-	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
-	balances: Vec<(AccountId, u64)>,
-	balances_issuance: u64
+	_stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
+	_balances: Vec<(AccountId, u64)>,
+	_balances_issuance: u64
 ) -> GenesisConfig {
 	GenesisConfig {
 		system: SystemConfig {
