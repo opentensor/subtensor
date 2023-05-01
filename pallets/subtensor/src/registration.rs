@@ -198,14 +198,14 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?; 
         log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
 
-		/* Payload signed with hotkey to verify ownership */
+		/* Hotkey bytes so we can cast to PublicKey */
 		let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
 		let binding = hotkey_pubkey.encode();
 		// Skip extra 0th byte.
-		let hotkey_bytes: &[u8] = binding[1..].as_ref();
+		let hotkey_bytes: &[u8; 32] = binding[1..].as_ref().try_into().unwrap();
+		let hotkey_sr25519 = sp_core::sr25519::Public(*hotkey_bytes);
 
-		let hotkey_struct = T::PublicKey::try_from(<&[u8] as TryInto<T>>::try_into(hotkey_bytes).unwrap());
-		ensure!( sig.verify( &*signed_coldkey, &hotkey_struct.unwrap() ), Error::<T>::AlreadyRegistered );
+		ensure!( sig.verify( &*signed_coldkey, &hotkey_sr25519 ), Error::<T>::AlreadyRegistered );
 		
         // --- 2. Check the hotkey isn't already associated with a coldkey.
         ensure!( !Self::hotkey_account_exists( &hotkey ), Error::<T>::AlreadyRegistered );
