@@ -19,11 +19,11 @@ use frame_support::{
 	traits::{
 		Currency, 
 		ExistenceRequirement,
+		IsSubType,
 		tokens::{
 			WithdrawReasons
 		},
-		IsSubType,
-		}
+	}
 };
 
 use sp_std::marker::PhantomData;
