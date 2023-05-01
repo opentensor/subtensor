@@ -95,14 +95,9 @@ pub mod pallet {
 		// --- Currency type that will be used to place deposits on neurons
 		type Currency: Currency<Self::AccountId> + Send + Sync;
 
-		/// A PublicKey can be converted into an `AccountId`. This is required by the
-		/// `Signature` type.
-		/// The additional traits are boilerplate.
-		type PublicKey: IdentifyAccount<AccountId = Self::PublicKey> + Encode + Decode + Parameter;
-
 		/// A Signature can be verified with a specific `PublicKey`.
 		/// The additional traits are boilerplate.
-		type Signature: Verify<Signer = Self::PublicKey> + Encode + Decode + Parameter;
+		type Signature: Verify<Signer = sp_core::sr25519::Public> + Encode + Decode + Parameter;
 
 		// =================================
 		// ==== Initial Value Constants ====
