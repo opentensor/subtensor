@@ -491,12 +491,6 @@ impl<T: Config> Pallet<T> {
         T::ChangeMembers::change_members_sorted(&slice_incoming, &outgoing, &members[..]);
         let council_members = T::GetMembers::get();
         CouncilMembers::<T>::put(council_members);
-        //pallet_collective::Pallet::<T: Config + pallet_collective::Config>::set_members(origin, members, prime, old_count);
-        //pallet_collective::Pallet::<T>::is_member(origin);
-        //pallet_collective::Pallet::<T>::members();
-        //Collective::pallet::Pallet::<T>::set_members(origin, members, prime, old_count);
-        //ChangeMembers::set_members_sorted(new_members, old_members)
-        //Collective::Pallet::<T>::initialize_members(&members);
         Ok(())
     } 
 
