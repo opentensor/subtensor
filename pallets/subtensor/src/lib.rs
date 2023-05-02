@@ -75,7 +75,8 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
-	use serde::{Serialize, Deserialize};
+	use pallet_collective::RawOrigin;
+use serde::{Serialize, Deserialize};
 	use serde_with::{serde_as, DisplayFromStr};
 	use frame_support::inherent::Vec;
 	use scale_info::prelude::string::String;
@@ -99,6 +100,9 @@ pub mod pallet {
 		type ChangeMembers: ChangeMembers<Self::AccountId>;
 
 		type GetMembers: frame_support::traits::Get<Vec<Self::AccountId>>;
+
+		type CouncilOrigin: frame_support::traits::EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+		//type CouncilOrigin: frame_support::traits::EnsureOrigin<<Self as pallet_collective::Config>::RawOrigin<Self::AccountId, Self::Config>>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -628,7 +632,8 @@ pub mod pallet {
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
-		TooManyRegistrationsThisInterval // --- Thrown when registration attempt exceeds allowed in interval
+		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
+		NotCouncilMember // --- not a council member
 	}
 
 	// ==================
@@ -1581,6 +1586,14 @@ pub mod pallet {
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
 			Self::drain_emission( 11 );
 			Ok(())
+		}
+
+		#[pallet::call_index(51)]
+		#[pallet::weight((Weight::from_ref_time(15_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn council_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
+			Self::do_council_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
 		}
 	}	
 

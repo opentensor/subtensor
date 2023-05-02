@@ -1,11 +1,14 @@
 
 use super::*;
+use Collective::RawOrigin;
 use frame_support::{inherent::Vec, traits::ChangeMembers};
 use sp_core::U256;
 use frame_support::pallet_prelude::DispatchResult;
 use crate::system::ensure_root;
 pub use pallet_collective::{self as Collective, EnsureMembers, Call as CollectiveCall, MemberCount, Members};
 use sp_core::Get;
+use frame_support::traits::EnsureOrigin;
+use sp_runtime::MultiAddress;
 
 impl<T: Config> Pallet<T> {
  
@@ -493,6 +496,24 @@ impl<T: Config> Pallet<T> {
         CouncilMembers::<T>::put(council_members);
         Ok(())
     } 
+
+   
+    pub fn do_council_set_max_registrations_per_block(
+        origin: T::RuntimeOrigin, 
+        netuid: u16, 
+        max_registrations_per_block: u16
+    ) -> DispatchResult {
+        let signing_origin = ensure_signed( origin )?; 
+        //T::CouncilOrigin::ensure_origin(origin)?;
+        let members = CouncilMembers::<T>::get();
+        ensure!(members.contains(&signing_origin), Error::<T>::NotCouncilMember);
+        
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        Self::set_max_registrations_per_block( netuid, max_registrations_per_block );
+        log::info!("MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ", netuid, max_registrations_per_block );
+        Self::deposit_event( Event::MaxRegistrationsPerBlockSet( netuid, max_registrations_per_block) );
+        Ok(())
+    }
 
 }
 

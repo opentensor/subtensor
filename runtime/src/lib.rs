@@ -314,11 +314,6 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 }
-/* pub trait Config {
-	type GetMembers: frame_support::traits::Get<Vec<Self::AccoundId>>;
-  }
-
-let council_members = T::GetMembers::get(); */
 
 // Configure collective pallet 
 parameter_types! {
@@ -327,11 +322,11 @@ parameter_types! {
 	pub const CouncilMaxMembers: u32 = 100;
 }
 
+type ManagerCollective = pallet_collective::Instance1;
 // We call pallet_collective Council
-impl pallet_collective::Config for Runtime{
+impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall; //YourPalletProposal<Self>
-	//type Proposal = pallet_subtensor::Call<<sam as test>::testtest>;
+	type Proposal = RuntimeCall; 
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
 	type MaxProposals = CouncilMaxProposals;
@@ -348,6 +343,8 @@ impl Get<Vec<AccountId>> for GetMembers {
 		Council::members()
 	}
 } 
+
+type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
 
 // set up a custom origin using collective pallet
 // Custom origin that ensures either root or at least half of the collective's approval
@@ -435,6 +432,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
 	type ChangeMembers = Council;
 	type GetMembers = GetMembers;
+	type CouncilOrigin = CouncilOrigin;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -454,7 +452,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		SubtensorModule: pallet_subtensor,
-		Council: pallet_collective,
+		Council: pallet_collective::<Instance1>,
 	}
 );
 
