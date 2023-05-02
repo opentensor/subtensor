@@ -110,7 +110,7 @@ jobs:
         # timeout-minutes: 30
         run: |
           pushd node &&
-          cargo --features=runtime-benchmarks --release
+          cargo build --features=runtime-benchmarks --release
 
       - name: Build executable
         # timeout-minutes: 30
