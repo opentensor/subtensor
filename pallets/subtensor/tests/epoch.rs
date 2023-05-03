@@ -660,6 +660,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][4], 32767);
 		assert_eq!(bonds[2][4], 49151);
 		assert_eq!(bonds[3][4], 65535);
+
 		// === Set self-weight only on val1
 		let uid = 0;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
@@ -706,6 +707,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][4], 32767);
 		assert_eq!(bonds[2][4], 49151);
 		assert_eq!(bonds[3][4], 65535);
+
 		// === Set self-weight only on val2
 		let uid = 1;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
@@ -741,6 +743,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][4], 28321);
 		assert_eq!(bonds[2][4], 49151);
 		assert_eq!(bonds[3][4], 65535);
+
 		// === Set self-weight only on val3
 		let uid = 2;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
@@ -776,6 +779,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][7], 28320);
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
+
 		// === Set val3->srv4: 1
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), netuid, vec![7], vec![u16::MAX], 0));
 		run_to_block(5);
@@ -810,6 +814,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][7], 24609);
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
+		
 		run_to_block(6);
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -830,6 +835,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][7], 21482);
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
+
 		run_to_block(7);
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -850,6 +856,7 @@ fn test_bonds() {
 		assert_eq!(bonds[1][7], 18824);
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
+
 		run_to_block(8);
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
