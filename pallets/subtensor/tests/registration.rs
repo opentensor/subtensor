@@ -135,12 +135,14 @@ use sp_core::sr25519::Pair as Keypair;
 #[test]
 fn test_hotkey_association_ok() {
 	new_test_ext().execute_with(|| {
-		let coldkey_account_id: <Test as Config>::AccountId = 667;
+		let coldkey_account_id: <Test as Config>::AccountId = U256::from(667);
 
 		let hotkey_pair = Keypair::from_string(&format!("{}/Alice", sp_core::crypto::DEV_PHRASE), None).unwrap();
-		let hotkey_account_id = u64::from_ne_bytes(hotkey_pair.public().as_slice().try_into().unwrap());
+		let hotkey_account_id = U256::from_little_endian(hotkey_pair.public().as_slice());
 	
-		let sig = hotkey_pair.sign(coldkey_account_id.to_ne_bytes().as_ref().try_into().unwrap());
+		let message: &mut [u8; 32] = &mut[0u8; 32];
+		coldkey_account_id.to_little_endian(message);
+		let sig = hotkey_pair.sign(message);
 
 		// Subscribe and check extrinsic output
 		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
@@ -152,11 +154,14 @@ fn test_hotkey_association_ok() {
 #[test]
 fn test_hotkey_disassociation_ok() {
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 1;
-		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
+		let coldkey_account_id: <Test as Config>::AccountId = U256::from(667);
 
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+		let hotkey_pair = Keypair::from_string(&format!("{}/Alice", sp_core::crypto::DEV_PHRASE), None).unwrap();
+		let hotkey_account_id = U256::from_little_endian(hotkey_pair.public().as_slice().try_into().unwrap());
+	
+		let message: &mut [u8; 32] = &mut[0u8; 32];
+		coldkey_account_id.to_little_endian(message);
+		let sig = hotkey_pair.sign(message);
 
 		// Subscribe and check extrinsic output
 		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
@@ -173,100 +178,20 @@ fn test_hotkey_disassociation_ok() {
 #[test]
 fn test_association_already_active_hotkey() {
 	new_test_ext().execute_with(|| {
-
 		let block_number: u64 = 0;
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 667;
 
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
-
-		//add network
-		add_network(netuid, tempo, 0);
-		assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, block_number, nonce, work, hotkey_account_id, coldkey_account_id));
-
-		let result = SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, sig);
-		assert_eq!( result, Err(Error::<Test>::AlreadyRegistered.into()) );
-	});
-}
-
-#[test]
-fn test_disassociation_from_other_coldkey() {
-	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 667;
-		let other_coldkey_id = 668;
-
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
-
-		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
-		//check if hotkey is added to the Hotkeys
-		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
-
-		let result = SubtensorModule::disassociate(<<Test as Config>::RuntimeOrigin>::signed(other_coldkey_id), hotkey_account_id);
-		assert_eq!( result, Err(Error::<Test>::NotHotkeyOwner.into()) );
-	});
-}
-
-use sp_core::{Pair, ByteArray};
-use sp_core::sr25519::Pair as Keypair;
-
-#[test]
-fn test_hotkey_association_ok() {
-	new_test_ext().execute_with(|| {
-		let coldkey_account_id: <Test as Config>::AccountId = 667;
+		let coldkey_account_id: <Test as Config>::AccountId = U256::from(667);
 
 		let hotkey_pair = Keypair::from_string(&format!("{}/Alice", sp_core::crypto::DEV_PHRASE), None).unwrap();
-		let hotkey_account_id = u64::from_ne_bytes(hotkey_pair.public().as_slice().try_into().unwrap());
-	
-		let sig = hotkey_pair.sign(coldkey_account_id.to_ne_bytes().as_ref().try_into().unwrap());
+		let hotkey_account_id = U256::from_little_endian(hotkey_pair.public().as_slice().try_into().unwrap());
 
-		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
-		//check if hotkey is added to the Hotkeys
-		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
-	});
-}
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 3942084, &hotkey_account_id);
 
-#[test]
-fn test_hotkey_disassociation_ok() {
-	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 1;
-		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
-
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
-
-		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
-		//check if hotkey is added to the Hotkeys
-		assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
-
-		// Subscribe and check extrinsic output
-		assert_ok!(SubtensorModule::disassociate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id));
-		//check if hotkey is still registered to cold
-		assert_ne!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
-	});
-}
-
-#[test]
-fn test_association_already_active_hotkey() {
-	new_test_ext().execute_with(|| {
-
-		let block_number: u64 = 0;
-		let netuid: u16 = 1;
-		let tempo: u16 = 13;
-		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0);
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 667;
-
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+		let message: &mut[u8; 32] = &mut[0u8; 32];
+		coldkey_account_id.to_little_endian(message);
+		let sig = hotkey_pair.sign(message);
 
 		//add network
 		add_network(netuid, tempo, 0);
@@ -280,12 +205,15 @@ fn test_association_already_active_hotkey() {
 #[test]
 fn test_disassociation_from_other_coldkey() {
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 1;
-		let coldkey_account_id = 667;
-		let other_coldkey_id = 668;
+		let other_coldkey_id = U256::from(668);
+		let coldkey_account_id: <Test as Config>::AccountId = U256::from(667);
 
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+		let hotkey_pair = Keypair::from_string(&format!("{}/Alice", sp_core::crypto::DEV_PHRASE), None).unwrap();
+		let hotkey_account_id = U256::from_little_endian(hotkey_pair.public().as_slice().try_into().unwrap());
+	
+		let message: &mut[u8; 32] = &mut[0u8; 32];
+		coldkey_account_id.to_little_endian(message);
+		let sig = hotkey_pair.sign(message);
 
 		// Subscribe and check extrinsic output
 		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
@@ -294,6 +222,24 @@ fn test_disassociation_from_other_coldkey() {
 
 		let result = SubtensorModule::disassociate(<<Test as Config>::RuntimeOrigin>::signed(other_coldkey_id), hotkey_account_id);
 		assert_eq!( result, Err(Error::<Test>::NotHotkeyOwner.into()) );
+	});
+}
+
+#[test]
+fn test_association_with_invalid_proof() {
+	new_test_ext().execute_with(|| {
+		let other_hotkey_id = U256::from(668);
+		let coldkey_account_id: <Test as Config>::AccountId = U256::from(667);
+
+		let hotkey_pair = Keypair::from_string(&format!("{}/Alice", sp_core::crypto::DEV_PHRASE), None).unwrap();
+
+		let message: &mut[u8; 32] = &mut[0u8; 32];
+		coldkey_account_id.to_little_endian(message);
+		let sig = hotkey_pair.sign(message);
+
+		// Subscribe and check extrinsic output
+		let result: Result<(), DispatchError> = SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), other_hotkey_id, sig);
+		assert_eq!( result, Err(Error::<Test>::InvalidHotkeyProof.into()) );
 	});
 }
 
