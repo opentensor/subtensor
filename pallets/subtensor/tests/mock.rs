@@ -22,6 +22,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
 		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+		Utility: pallet_utility::{Pallet, Call, Storage, Event},
 	}
 );
 
@@ -184,6 +185,13 @@ impl pallet_subtensor::Config for Test {
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
 	type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
+}
+
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
 }
 
 // Build genesis storage according to the mock runtime.
