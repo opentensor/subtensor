@@ -184,6 +184,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
 	type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
+	type Signature = sp_core::sr25519::Signature;
 }
 
 // Build genesis storage according to the mock runtime.
