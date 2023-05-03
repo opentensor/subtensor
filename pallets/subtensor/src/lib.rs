@@ -77,8 +77,7 @@ pub mod pallet {
 	use serde::{Serialize, Deserialize};
 	use serde_with::{serde_as, DisplayFromStr};
 	use frame_support::inherent::Vec;
-	use scale_info::prelude::string::String;
-	use sp_runtime::traits::{Verify, IdentifyAccount};
+	use sp_runtime::traits::{Verify};
 
 
 	#[pallet::pallet]
