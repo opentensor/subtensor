@@ -216,14 +216,18 @@ fn test_disassociation_from_other_coldkey() {
 	});
 }
 
+use sp_core::{Pair, ByteArray};
+use sp_core::sr25519::Pair as Keypair;
+
 #[test]
 fn test_hotkey_association_ok() {
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 1;
-		let coldkey_account_id: u64 = 667; // Neighbour of the beast, har har
+		let coldkey_account_id: <Test as Config>::AccountId = 667;
 
-		// we need a real signature here.
-		let sig: &[u8; 32] = &[0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8].try_into().unwrap();
+		let hotkey_pair = Keypair::from_string(&format!("{}/Alice", sp_core::crypto::DEV_PHRASE), None).unwrap();
+		let hotkey_account_id = u64::from_ne_bytes(hotkey_pair.public().as_slice().try_into().unwrap());
+	
+		let sig = hotkey_pair.sign(coldkey_account_id.to_ne_bytes().as_ref().try_into().unwrap());
 
 		// Subscribe and check extrinsic output
 		assert_ok!(SubtensorModule::associate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),  hotkey_account_id, sig));
