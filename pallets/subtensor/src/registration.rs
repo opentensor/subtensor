@@ -191,7 +191,6 @@ impl<T: Config> Pallet<T> {
     pub fn do_associate( 
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-		signed_coldkey: Vec<u8>,
 		sig: T::Signature
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
@@ -205,7 +204,10 @@ impl<T: Config> Pallet<T> {
 		let hotkey_bytes: &[u8; 32] = binding[1..].as_ref().try_into().unwrap();
 		let hotkey_sr25519 = sp_core::sr25519::Public(*hotkey_bytes);
 
-		ensure!( sig.verify( &*signed_coldkey, &hotkey_sr25519 ), Error::<T>::AlreadyRegistered );
+		let coldkey_str = coldkey.to_string();
+		let signed_data = coldkey_str.as_bytes();
+
+		ensure!( sig.verify( signed_data, &hotkey_sr25519 ), Error::<T>::AlreadyRegistered );
 		
         // --- 2. Check the hotkey isn't already associated with a coldkey.
         ensure!( !Self::hotkey_account_exists( &hotkey ), Error::<T>::AlreadyRegistered );
