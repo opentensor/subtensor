@@ -199,29 +199,37 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?; 
         log::info!("do_associate( coldkey:{:?} hotkey:{:?} )", coldkey, hotkey );
 
+		// --- 2. Check if the coldkey actually has possession of the hotkey.
+
+		// note(rusty): delegate this into a util function so we can pass (accountid, data, sig) -> bool
 		/* Hotkey bytes so we can cast to PublicKey */
 		let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
 		let binding = hotkey_pubkey.encode();
+
 		// Skip extra 0th byte.
 		let hotkey_bytes: &[u8; 32] = binding[1..].as_ref().try_into().unwrap();
 		let hotkey_sr25519 = sp_core::sr25519::Public(*hotkey_bytes);
 
-		let coldkey_str = coldkey.to_string();
-		let signed_data = coldkey_str.as_bytes();
+		/* Coldkey bytes so we can cast to PublicKey */
+		let coldkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( coldkey.clone() );
+		let binding = coldkey_pubkey.encode();
 
-		ensure!( sig.verify( signed_data, &hotkey_sr25519 ), Error::<T>::AlreadyRegistered );
+		// Skip extra 0th byte.
+		let coldkey_bytes: &[u8] = binding[1..].as_ref().try_into().unwrap();
+
+		ensure!( sig.verify( coldkey_bytes, &hotkey_sr25519 ), Error::<T>::InvalidHotkeyProof );
 		
-        // --- 2. Check the hotkey isn't already associated with a coldkey.
+        // --- 3. Check the hotkey isn't already associated with a coldkey.
         ensure!( !Self::hotkey_account_exists( &hotkey ), Error::<T>::AlreadyRegistered );
 
-        // --- 3. Creates the cold - hot pairing account if the hotkey is not already an active account.
+        // --- 4. Creates the cold - hot pairing account if the hotkey is not already an active account.
         Self::create_account_if_non_existent( &coldkey, &hotkey );         
 
-        // --- 4. Deposit successful event.
+        // --- 5. Deposit successful event.
         log::info!("HotkeyAssociated( coldkey:{:?} hotkey:{:?} ) ", coldkey, hotkey );
         Self::deposit_event( Event::HotkeyAssociated( coldkey, hotkey ) );
 
-        // --- 5. Ok and done.
+        // --- 6. Ok and done.
         Ok(())
     }
     
