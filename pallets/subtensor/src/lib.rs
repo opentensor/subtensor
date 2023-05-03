@@ -628,6 +628,7 @@ pub mod pallet {
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 		OtherAssociation, // --- Thrown when a hotkey attempts to disassociate from it's coldkey but is bound by other factors.
 		NotHotkeyOwner, // --- Thrown when a coldkey attempts to disassociate a hotkey that it isn't associated with.
+		InvalidHotkeyProof, // --- Thrown when a coldkey attempts to associate a hotkey but doesn't provide valid proof of hotkey ownership.
 	}
 
 	// ==================
