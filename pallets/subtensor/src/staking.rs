@@ -1,4 +1,5 @@
 use super::*;
+use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> { 
 
@@ -371,6 +372,26 @@ impl<T: Config> Pallet<T> {
                 false
             }
         };
+    }
+
+    pub fn unstake_all_coldkeys_from_hotkey_account( hotkey: &T::AccountId ) {
+        // Iterate through all coldkeys that have a stake on this hotkey account.
+        for ( delegate_coldkey_i, stake_i ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64 >>::iter_prefix( hotkey ) {
+            
+            // Convert to balance and add to the coldkey account.
+            let stake_i_as_balance = Self::u64_to_balance( stake_i );
+            if stake_i_as_balance.is_none() {
+                continue; // Don't unstake if we can't convert to balance.
+            } else {
+                // Stake is successfully converted to balance.
+
+                // Remove the stake from the coldkey - hotkey pairing.
+                Self::decrease_stake_on_coldkey_hotkey_account( &delegate_coldkey_i, hotkey, stake_i );
+
+                // Add the balance to the coldkey account.
+                Self::add_balance_to_coldkey_account( &delegate_coldkey_i, stake_i_as_balance.unwrap() );
+            }
+        }
     }
 
 }

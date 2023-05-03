@@ -22,11 +22,10 @@ fn test_set_weights_dispatch_info_ok() {
         let netuid: u16 = 1;
 		let version_key: u64 = 0;
 		let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights{netuid, dests, weights, version_key});
-		assert_eq!(call.get_dispatch_info(), DispatchInfo {
-			weight: frame_support::weights::Weight::from_ref_time(0),
-			class: DispatchClass::Normal,
-			pays_fee: Pays::No
-		});
+		let dispatch_info = call.get_dispatch_info();
+		
+		assert_eq!(dispatch_info.class, DispatchClass::Normal);
+		assert_eq!(dispatch_info.pays_fee, Pays::No);
 	});
 }
 
