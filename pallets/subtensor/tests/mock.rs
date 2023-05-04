@@ -1,9 +1,9 @@
 use frame_support::{assert_ok, parameter_types, traits::{Everything, Hooks}, weights};
 use frame_system::{limits};
-use frame_support::traits:: {StorageMapShim, IsType};
+use frame_support::traits::{StorageMapShim};
 use frame_system as system;
 use frame_system::Config;
-use sp_core::{H256, U256, sr25519};
+use sp_core::{H256, U256};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
@@ -22,6 +22,7 @@ frame_support::construct_runtime!(
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
 		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+		Utility: pallet_utility::{Pallet, Call, Storage, Event},
 	}
 );
 
@@ -184,6 +185,13 @@ impl pallet_subtensor::Config for Test {
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
 	type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
+}
+
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
 }
 
 // Build genesis storage according to the mock runtime.
