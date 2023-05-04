@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
         ensure!( netuids.len() == emission.len(), Error::<T>::WeightVecNotEqualSize );
 
         // --- 3. Ensure we are setting emission for all networks. 
-        ensure!( netuids.len() as u16 == TotalNetworks::<T>::get(), Error::<T>::NotSettingEnoughWeights );
+        ensure!( netuids.len() == TotalNetworks::<T>::get() as usize, Error::<T>::IncorrectNetuidsLength );
 
         // --- 4. Ensure the passed uids contain no duplicates.
         ensure!( !Self::has_duplicate_netuids( &netuids ), Error::<T>::DuplicateUids );

@@ -621,6 +621,7 @@ pub mod pallet {
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
+		IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
 	}
 
 	// ==================
