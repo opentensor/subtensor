@@ -692,3 +692,49 @@ Config>::RuntimeOrigin>::root(), netuids, emission ),
         );
  });
 }
+
+
+#[test]
+fn test_set_emission_values_too_many_netuids() {
+    new_test_ext().execute_with(|| {
+        let netuids: Vec<u16> = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
+
+        // Sums to 1_000_000_000 and has 10 elements
+        let emission: Vec<u64> = vec![ 1_000_000_000, 0, 0, 0, 0, 0, 0, 0, 0, 0 ];
+        add_network(1, 0, 0);
+        add_network(2, 0, 0);
+        // We only add 2 networks, so this should fail
+        assert_eq!(
+            SubtensorModule::sudo_set_emission_values(<<Test as
+Config>::RuntimeOrigin>::root(), netuids, emission ),
+            Err(Error::<Test>::IncorrectNetuidsLength.into())
+        );
+ });
+}
+
+#[test]
+fn test_set_emission_values_over_u16_max_values() {
+    new_test_ext().execute_with(|| {
+        // Make vec of u16 with length 2^16 + 2
+        let netuids: Vec<u16> = vec![0; 0x10002]; 
+        // This is greater than u16::MAX
+        assert!(netuids.len() > u16::MAX as usize);
+        // On cast to u16, this will be 2
+        assert!(netuids.len() as u16 == 2);
+
+        // Sums to 1_000_000_000 and the length is 65536
+        let mut emission: Vec<u64> = vec![ 0; netuids.len() ];
+        emission[0] = 1_000_000_000;
+        
+        add_network(1, 0, 0);
+        add_network(2, 0, 0);
+        // We only add 2 networks, so this should fail
+        // but if we cast to u16 during length comparison,
+        // the length will be 2 and the check will pass
+        assert_eq!(
+            SubtensorModule::sudo_set_emission_values(<<Test as
+Config>::RuntimeOrigin>::root(), netuids, emission ),
+            Err(Error::<Test>::IncorrectNetuidsLength.into())
+        );
+ });
+}
