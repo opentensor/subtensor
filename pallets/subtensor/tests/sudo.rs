@@ -618,3 +618,77 @@ pub fn test_sudo_test_pending_emission_ok() {
         assert_eq!(SubtensorModule::get_pending_emission(netuid2), 2250000000); // 750000000 + 750000000 + 750000000
     });
 }
+
+#[test]
+// Required by the test otherwise it would panic if compiled in debug mode
+#[allow(arithmetic_overflow)]
+fn test_set_emission_values_errors_on_emission_sum_overflow() {
+    new_test_ext().execute_with(|| {
+        let netuids: Vec<u16> = vec![ 1,2 ];
+        // u64(u64::MAX + 1..000..1) equals to 1_000_000_000 which is the same as
+        // the value of Self::get_block_emission() expected by the extrinsic
+        let emission: Vec<u64> = vec![ u64::MAX, 1_000_000_001 ];
+        add_network(1, 0, 0);
+        add_network(2, 0, 0);
+        assert_eq!(
+            SubtensorModule::sudo_set_emission_values(<<Test as
+Config>::RuntimeOrigin>::root(), netuids, emission ),
+            Err(Error::<Test>::InvalidEmissionValues.into())
+        );
+ });
+}
+
+#[test]
+#[allow(arithmetic_overflow)]
+fn test_set_emission_values_no_errors() {
+    new_test_ext().execute_with(|| {
+        let netuids: Vec<u16> = vec![ 1,2 ];
+        let emission: Vec<u64> = vec![ 600_000_000, 400_000_000 ];
+        
+        add_network(1, 0, 0);
+        add_network(2, 0, 0);
+        assert_eq!(
+            SubtensorModule::sudo_set_emission_values(<<Test as
+Config>::RuntimeOrigin>::root(), netuids, emission ),
+            Ok(())
+        );
+ });
+}
+
+#[test]
+// Required by the test otherwise it would panic if compiled in debug mode
+#[allow(arithmetic_overflow)]
+fn test_set_emission_values_sum_too_large() {
+    new_test_ext().execute_with(|| {
+        let netuids: Vec<u16> = vec![ 1,2 ];
+        // u64(1_000_000_000 + 1) equals to 1_000_000_001 which is more than
+        // the value of Self::get_block_emission() expected by the extrinsic
+        let emission: Vec<u64> = vec![ 1_000_000_000, 1 ];
+        add_network(1, 0, 0);
+        add_network(2, 0, 0);
+        assert_eq!(
+            SubtensorModule::sudo_set_emission_values(<<Test as
+Config>::RuntimeOrigin>::root(), netuids, emission ),
+            Err(Error::<Test>::InvalidEmissionValues.into())
+        );
+ });
+}
+
+#[test]
+// Required by the test otherwise it would panic if compiled in debug mode
+#[allow(arithmetic_overflow)]
+fn test_set_emission_values_sum_too_small() {
+    new_test_ext().execute_with(|| {
+        let netuids: Vec<u16> = vec![ 1,2 ];
+        // u64(1 + 2_000) equals to 2_001 which is LESS than
+        // the value of Self::get_block_emission() expected by the extrinsic
+        let emission: Vec<u64> = vec![ 1, 2_000 ];
+        add_network(1, 0, 0);
+        add_network(2, 0, 0);
+        assert_eq!(
+            SubtensorModule::sudo_set_emission_values(<<Test as
+Config>::RuntimeOrigin>::root(), netuids, emission ),
+            Err(Error::<Test>::InvalidEmissionValues.into())
+        );
+ });
+}
