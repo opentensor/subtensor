@@ -200,11 +200,11 @@ impl<T: Config> Pallet<T> {
         // If emission is zero, replace emission with normalized stake.
         if emission_sum == I32F32::from(0) { // no weights set | outdated weights | self_weights
             if is_zero( &active_stake ) { // no active stake
-                normalized_server_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_validator_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
                 normalized_combined_emission = stake.clone(); 
             }
             else {
-                normalized_server_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_validator_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
                 normalized_combined_emission = active_stake.clone();
             }
         }
@@ -496,11 +496,11 @@ impl<T: Config> Pallet<T> {
         // If emission is zero, replace emission with normalized stake.
         if emission_sum == I32F32::from(0) { // no weights set | outdated weights | self_weights
             if is_zero( &active_stake ) { // no active stake
-                normalized_server_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_validator_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
                 normalized_combined_emission = stake.clone();
             }
             else {
-                normalized_server_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_validator_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
                 normalized_combined_emission = active_stake.clone();
             }
         }
