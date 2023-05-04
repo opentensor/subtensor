@@ -1,5 +1,6 @@
 use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
+use sp_runtime::traits::CheckedAdd;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
 
@@ -85,6 +86,22 @@ pub fn check_vec_max_limited( vec: &Vec<u16>, max_limit: u16 ) -> bool {
 
 #[allow(dead_code)]
 pub fn sum( x: &Vec<I32F32> ) -> I32F32 { x.iter().sum() }
+
+#[allow(dead_code)]
+// Sums a Vector of type that has CheckedAdd trait.
+// Returns None if overflow occurs during sum using T::checked_add.
+pub fn checked_sum<T>( x: &Vec<T> ) -> Option<T>
+    where T: std::ops::Add<Output = T> + Copy + Default + CheckedAdd
+{
+    let mut sum: T = T::default();
+    for i in x {
+        match sum.checked_add( i ) {
+            Some(val) => sum = val,
+            None => return None
+        }
+    }
+    Some(sum)
+}
 
 // Return true when vector sum is zero.
 #[allow(dead_code)]
@@ -2708,6 +2725,18 @@ mod tests {
     fn test_vec_fixed64_to_fixed32_panics() {
         let bad_input = vec![ I64F64::from_num(i64::MAX) ];
         vec_fixed64_to_fixed32(bad_input);
+    }
+
+    #[test]
+    #[allow(arithmetic_overflow)]
+    fn test_checked_sum() {
+        let overflowing_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, u64::MAX ];
+        // Expect None when overflow occurs
+        assert_eq!(checked_sum(&overflowing_input), None);
+
+        let normal_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
+        // Expect Some when no overflow occurs
+        assert_eq!(checked_sum(&normal_input), Some(55));
     }
 }
 
