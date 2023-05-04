@@ -499,14 +499,14 @@ impl<T: Config> Pallet<T> {
 
    
     pub fn do_council_set_max_registrations_per_block(
-        origin: T::RuntimeOrigin, 
+        //origin: T::RuntimeOrigin, 
         netuid: u16, 
         max_registrations_per_block: u16
     ) -> DispatchResult {
-        let signing_origin = ensure_signed( origin )?; 
+        //let signing_origin = ensure_signed( origin )?; 
         //T::CouncilOrigin::ensure_origin(origin)?;
-        let members = CouncilMembers::<T>::get();
-        ensure!(members.contains(&signing_origin), Error::<T>::NotCouncilMember);
+        //let members = CouncilMembers::<T>::get();
+        //ensure!(members.contains(&signing_origin), Error::<T>::NotCouncilMember);
         
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
         Self::set_max_registrations_per_block( netuid, max_registrations_per_block );

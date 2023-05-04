@@ -101,8 +101,7 @@ use serde::{Serialize, Deserialize};
 
 		type GetMembers: frame_support::traits::Get<Vec<Self::AccountId>>;
 
-		type CouncilOrigin: frame_support::traits::EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-		//type CouncilOrigin: frame_support::traits::EnsureOrigin<<Self as pallet_collective::Config>::RawOrigin<Self::AccountId, Self::Config>>;
+		//type CouncilOrigin: frame_support::traits::EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -1592,8 +1591,8 @@ use serde::{Serialize, Deserialize};
 		#[pallet::weight((Weight::from_ref_time(15_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn council_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
-			Self::do_council_set_max_registrations_per_block(origin, netuid, max_registrations_per_block )
+		pub fn council_set_max_registrations_per_block(_origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
+			Self::do_council_set_max_registrations_per_block( netuid, max_registrations_per_block )
 		}
 	}	
 

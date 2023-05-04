@@ -315,9 +315,9 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
-// Configure collective pallet 
+// Configure collective pallet for council
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 3 * HOURS;
+	pub const CouncilMotionDuration: BlockNumber = 3 * MINUTES;
 	pub const CouncilMaxProposals: u32 = 100;
 	pub const CouncilMaxMembers: u32 = 100;
 }
@@ -336,7 +336,6 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
 }
 
-
 pub struct GetMembers;
 impl Get<Vec<AccountId>> for GetMembers {
 	fn get() -> Vec<AccountId> {
@@ -344,13 +343,13 @@ impl Get<Vec<AccountId>> for GetMembers {
 	}
 } 
 
-type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
+//type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
 
 // set up a custom origin using collective pallet
 // Custom origin that ensures either root or at least half of the collective's approval
 type EnsureRootOrHalfCouncil = EnsureOneOf<
 	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionAtLeast< AccountId,  &'static str, 1, 2>
+	pallet_collective::EnsureProportionAtLeast< AccountId,  ManagerCollective, 1, 2>
 >;
 
 // Configure the pallet subtensor.
@@ -432,7 +431,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
 	type ChangeMembers = Council;
 	type GetMembers = GetMembers;
-	type CouncilOrigin = CouncilOrigin;
+	//type CouncilOrigin = CouncilOrigin;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
