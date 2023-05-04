@@ -90,11 +90,14 @@ pub fn sum( x: &Vec<I32F32> ) -> I32F32 { x.iter().sum() }
 #[allow(dead_code)]
 // Sums a Vector of type that has CheckedAdd trait.
 // Returns None if overflow occurs during sum using T::checked_add.
+// Returns Some(T::default()) if input vector is empty.
 pub fn checked_sum<T>( x: &Vec<T> ) -> Option<T>
-    where T: std::ops::Add<Output = T> + Copy + Default + CheckedAdd
-{
-    let mut sum: T = T::default();
-    for i in x {
+    where T: Copy + Default + CheckedAdd
+{   
+    if x.len() == 0 { return Some(T::default()) }
+    
+    let mut sum: T = x[0];
+    for i in x[1..].iter() {
         match sum.checked_add( i ) {
             Some(val) => sum = val,
             None => return None
@@ -2737,6 +2740,14 @@ mod tests {
         let normal_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
         // Expect Some when no overflow occurs
         assert_eq!(checked_sum(&normal_input), Some(55));
+
+        let empty_input: Vec<u16> = vec![ ];
+        // Expect Some(u16::default()) when input is empty
+        assert_eq!(checked_sum(&empty_input), Some(u16::default()));
+
+        let single_input = vec![ 1 ];
+        // Expect Some(...) when input is a single value
+        assert_eq!(checked_sum(&single_input), Some(1));
     }
 }
 
