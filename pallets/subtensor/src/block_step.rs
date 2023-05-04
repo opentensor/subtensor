@@ -124,16 +124,13 @@ impl<T: Config> Pallet<T> {
     // is called after an epoch to distribute the newly minted stake according to delegation.
     //
     pub fn emit_inflation_through_hotkey_account( hotkey: &T::AccountId, server_emission: u64, validator_emission: u64 ) {
-        
         // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the 
         // coldkey - hotkey account as normal.
         if !Self::hotkey_is_delegate( hotkey ) { 
             Self::increase_stake_on_hotkey_account( &hotkey, server_emission + validator_emission ); 
             return; 
-        } else {
-            // Only the server emission is distributed in-full to the delegate.
-            Self::increase_stake_on_hotkey_account( &hotkey, server_emission );
         }
+        // Then this is a delegate, we distribute validator_emission, then server_emission.
 
         // --- 2. The hotkey is a delegate. We first distribute a proportion of the validator_emission to the hotkey
         // directly as a function of its 'take'
@@ -154,7 +151,11 @@ impl<T: Config> Pallet<T> {
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of 
         // the delegate and effect calculation in 4.
         Self::increase_stake_on_hotkey_account( &hotkey, delegate_take );
-        log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey,delegate_take );
+        log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take );
+        // Also emit the server_emission to the hotkey
+        // The server emission is distributed in-full to the delegate owner.
+        // We do this after 4. for the same reason as above.
+        Self::increase_stake_on_hotkey_account( &hotkey, server_emission );
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
