@@ -32,3 +32,6 @@ specs/*.json
 
 # Git merge/rebase artifacts
 *.orig
+
+# VS Code configuration directory
+**/.vscode
