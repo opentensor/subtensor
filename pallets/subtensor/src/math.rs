@@ -310,6 +310,48 @@ pub fn inplace_col_normalize( x: &mut Vec<Vec<I32F32>> ) {
     }
 }
 
+// Max-upscale each column (dim=1) of a sparse matrix in-place.
+#[allow(dead_code)]
+pub fn inplace_col_max_upscale_sparse( sparse_matrix: &mut Vec<Vec<(u16, I32F32)>>, columns: u16 ) {
+    let mut col_max: Vec<I32F32> = vec![ I32F32::from_num( 0.0 ); columns as usize]; // assume square matrix, rows=cols
+    for sparse_row in sparse_matrix.iter() {
+        for (j, value) in sparse_row.iter() {
+            if col_max[*j as usize] < *value {
+                col_max[*j as usize] = *value;
+            }
+        }
+    }
+    for sparse_row in sparse_matrix.iter_mut() {
+        for (j, value) in sparse_row.iter_mut() {
+            if col_max[*j as usize] == I32F32::from_num( 0.0 as f32 ) { continue }
+            *value /= col_max[*j as usize];
+        }
+    }
+}
+
+// Max-upscale each column (dim=1) of a matrix in-place.
+#[allow(dead_code)]
+pub fn inplace_col_max_upscale( x: &mut Vec<Vec<I32F32>> ) {
+    if x.len() == 0 { return }
+    if x[0].len() == 0 { return }
+    let cols = x[0].len();
+    let mut col_max: Vec<I32F32> = vec![ I32F32::from_num( 0.0 ); cols ];
+    for i in 0..x.len() {
+        assert_eq!( x[i].len(), cols );
+        for j in 0..cols {
+            if col_max[j] < x[i][j] {
+                col_max[j] = x[i][j];
+            }
+        }
+    }
+    for j in 0..cols {
+        if col_max[j] == I32F32::from_num( 0.0 as f32 ) { continue }
+        for i in 0..x.len() {
+            x[i][j] /= col_max[j];
+        }
+    }
+}
+
 // Apply mask to vector, mask=true will mask out, i.e. set to 0.
 #[allow(dead_code)]
 pub fn inplace_mask_vector( mask: &Vec<bool>, vector: &mut Vec<I32F32> ) {
@@ -1424,6 +1466,71 @@ mod tests {
         let mut mat: Vec<Vec<(u16, I32F32)>> = vec![];
         let target: Vec<Vec<(u16, I32F32)>> = vec![];
         inplace_col_normalize_sparse(&mut mat, 0);
+        assert_sparse_mat_compare(&mat, &target, epsilon);
+    }
+
+    #[test]
+    fn test_math_inplace_col_max_upscale() {
+        let mut mat: Vec<Vec<I32F32>> = vec![ vec![] ];
+        let target: Vec<Vec<I32F32>> = vec![ vec![] ];
+        inplace_col_max_upscale(&mut mat);
+        assert_eq!(&mat, &target);
+        let mut mat: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0) ] ];
+        let target: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0) ] ];
+        inplace_col_max_upscale(&mut mat);
+        assert_eq!(&mat, &target);
+        let epsilon: I32F32 = I32F32::from_num(0.0001);
+        let vector:Vec<f32> = vec![ 0., 1., 2., 3., 4., 
+                                    0., 10., 100., 1000., 10000., 
+                                    0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1.];
+        let mut mat: Vec<Vec<I32F32>> = vec_to_mat_fixed(&vector, 4, true);
+        inplace_col_max_upscale(&mut mat);
+        let target:Vec<f32> = vec![ 0., 0.25, 0.5, 0.75, 1., 
+                                    0., 0.001, 0.01, 0.1, 1., 
+                                    0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1. ];
+        assert_mat_compare(&mat, &vec_to_mat_fixed(&target, 4, true), epsilon);
+    }
+
+    #[test]
+    fn test_math_inplace_col_max_upscale_sparse() {
+        let mut mat: Vec<Vec<(u16, I32F32)>> = vec![ vec![] ];
+        let target: Vec<Vec<(u16, I32F32)>> = vec![ vec![] ];
+        inplace_col_max_upscale_sparse(&mut mat, 0);
+        assert_eq!(&mat, &target);
+        let mut mat: Vec<Vec<(u16, I32F32)>> = vec![ vec![ (0, I32F32::from_num(0)) ] ];
+        let target: Vec<Vec<(u16, I32F32)>> = vec![ vec![ (0, I32F32::from_num(0)) ] ];
+        inplace_col_max_upscale_sparse(&mut mat, 1);
+        assert_eq!(&mat, &target);
+        let epsilon: I32F32 = I32F32::from_num(0.0001);
+        let vector:Vec<f32> = vec![ 0., 1., 0., 2., 0., 3., 4., 
+                                    0., 1., 0., 2., 0., 3., 0., 
+                                    1., 0., 0., 2., 0., 3., 4., 
+                                    0., 10., 0., 100., 1000., 0., 10000., 
+                                    0., 0., 0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1., 1., 1.];
+        let mut mat = vec_to_sparse_mat_fixed(&vector, 6, true);
+        inplace_col_max_upscale_sparse(&mut mat, 6);
+        let target:Vec<f32> = vec![ 0., 0.25, 0., 0.5, 0., 0.75, 1., 
+                                    0., 0.333333, 0., 0.666666, 0., 1., 0., 
+                                    0.25, 0., 0., 0.5, 0., 0.75, 1., 
+                                    0., 0.001, 0., 0.01, 0.1, 0., 1., 
+                                    0., 0., 0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1., 1., 1.];
+        assert_sparse_mat_compare(&mat, &vec_to_sparse_mat_fixed(&target, 6, true), epsilon);
+        let vector:Vec<f32> = vec![ 0., 0., 0., 0.,
+                                    0., 0., 0., 0., 
+                                    0., 0., 0., 0.];
+        let target:Vec<f32> = vec![ 0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.];
+        let mut mat = vec_to_sparse_mat_fixed(&vector, 3, false);
+        inplace_col_max_upscale_sparse(&mut mat, 6);
+        assert_sparse_mat_compare(&mat, &vec_to_sparse_mat_fixed(&target, 3, false), I32F32::from_num( 0 ));
+        let mut mat: Vec<Vec<(u16, I32F32)>> = vec![];
+        let target: Vec<Vec<(u16, I32F32)>> = vec![];
+        inplace_col_max_upscale_sparse(&mut mat, 0);
         assert_sparse_mat_compare(&mat, &target, epsilon);
     }
 
