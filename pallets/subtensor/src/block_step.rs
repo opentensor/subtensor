@@ -136,21 +136,22 @@ impl<T: Config> Pallet<T> {
         // directly as a function of its 'take'
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
         let delegate_take: u64 = Self::calculate_delegate_proportional_take( hotkey, validator_emission );
-        let remaining_validator_emission: u64 = validator_emission - delegate_take;
+        let validator_emission_minus_take: u64 = validator_emission - delegate_take;
+        let mut remaining_validator_emission: u64 = validator_emission_minus_take;
 
         // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
         for ( owning_coldkey_i, stake_i ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64 >>::iter_prefix( hotkey ) {
             
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, remaining_validator_emission );
+            let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, validator_emission_minus_take );
             Self::increase_stake_on_coldkey_hotkey_account( &owning_coldkey_i, &hotkey, stake_proportion );
             log::debug!("owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ", owning_coldkey_i, hotkey, stake_proportion );
-
+            remaining_validator_emission -= stake_proportion;
         }
 
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of 
         // the delegate and effect calculation in 4.
-        Self::increase_stake_on_hotkey_account( &hotkey, delegate_take );
+        Self::increase_stake_on_hotkey_account( &hotkey, delegate_take + remaining_validator_emission );
         log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take );
         // Also emit the server_emission to the hotkey
         // The server emission is distributed in-full to the delegate owner.
