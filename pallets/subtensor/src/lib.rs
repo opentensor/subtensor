@@ -1536,42 +1536,11 @@ pub mod pallet {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
 
-		#[pallet::call_index(50)]
+		#[pallet::call_index(47)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
-		}
-
-		#[pallet::call_index(47)]
-		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
-		.saturating_add(T::DbWeight::get().reads(8303))
-		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
-			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
-		
-			Self::epoch( 11, 1_000_000_000 );
-			Ok(())
-		} 
-
-		#[pallet::call_index(48)]
-		#[pallet::weight((Weight::from_ref_time(117_586_465_000 as u64)
-		.saturating_add(T::DbWeight::get().reads(12299 as u64))
-		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
-			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
-
-			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
-			Ok(())
-		} 
-
-		#[pallet::call_index(49)]
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
-			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
-		
-			Self::drain_emission( 11 );
-			Ok(())
-		} 
+		}  
 	}	
 
 	// ---- Subtensor helper functions.
