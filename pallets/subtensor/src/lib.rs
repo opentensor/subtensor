@@ -1536,7 +1536,7 @@ pub mod pallet {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
 
-		#[pallet::call_index(47)]
+		#[pallet::call_index(50)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
