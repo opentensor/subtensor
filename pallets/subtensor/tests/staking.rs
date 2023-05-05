@@ -1138,7 +1138,7 @@ fn test_full_with_delegating_some_servers() {
 		// We will emit 123 server emission, which should go in-full to the owner of the hotkey.
 		// We will emit *0* validator emission.
 		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey2, 123, 0 ); 
-		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1_888 ); // + 123 = 1,888
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1_891 ); // 1_768 + 123 = 1_891
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey2 ), 1_166 ); // No change.
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey2 ), 1_166 ); // No change.
 		assert_eq!( SubtensorModule::get_total_stake(), 8_946 ); // 8_823 + 123 = 8_946
