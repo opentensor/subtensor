@@ -83,15 +83,16 @@ benchmarks! {
     let netuid: u16 = 1; //11 is the benchmark network.
     let tempo: u16 = 1;
     let modality: u16 = 0;
+    let mut seed : u32 = 1;
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce );
+    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
     assert_ok!(Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
     
-    let mut seed : u32 = 1;
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let hotkey: T::AccountId = account("Alice", 0, seed);
     let coldkey: T::AccountId = account("Test", 0, seed);
@@ -135,12 +136,11 @@ benchmarks! {
     for id in 0..4096 as u16 {
       let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
       let start_nonce: u64 = (39420842u64 + 100u64*id as u64).into();
-      let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( id, block_number, start_nonce );
-      
-        let hotkey: T::AccountId = account("Alice", 0, seed);
-        let coldkey: T::AccountId = account("Test", 0, seed);
-        seed = seed +1;
-      
+
+      let hotkey: T::AccountId = account("Alice", 0, seed);
+      let coldkey: T::AccountId = account("Test", 0, seed);
+      let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( id, block_number, start_nonce, &hotkey);
+      seed = seed +1;
       
       let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
       
@@ -163,6 +163,7 @@ benchmarks! {
     let version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
+    let mut seed : u32 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
@@ -172,10 +173,9 @@ benchmarks! {
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce );
-    let mut seed : u32 = 1;
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
     assert_ok!( Subtensor::<T>::do_registration(caller_origin.clone(), netuid.try_into().unwrap(), block_number, nonce, work, hotkey.clone(), coldkey.clone() ));
 
@@ -189,6 +189,7 @@ benchmarks! {
     let version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
+    let mut seed : u32 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
@@ -198,10 +199,9 @@ benchmarks! {
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce );
-    let mut seed : u32 = 1;
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
     assert_ok!( Subtensor::<T>::do_registration(caller_origin.clone(), netuid.try_into().unwrap(), block_number, nonce, work, hotkey.clone(), coldkey.clone() ));
 
@@ -219,6 +219,7 @@ benchmarks! {
     let version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
+    let mut seed : u32 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
@@ -228,10 +229,10 @@ benchmarks! {
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce );
-    let mut seed : u32 = 1;
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
+    let mut seed : u32 = 1;
 
     assert_ok!( Subtensor::<T>::do_registration(caller_origin.clone(), netuid.try_into().unwrap(), block_number, nonce, work, hotkey.clone(), coldkey.clone() ));
 
