@@ -246,17 +246,14 @@ impl<T: Config> Pallet<T> {
 		    // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
 		    ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
 
-        // --- 5. Ensure that the key is not already registered.
+        // --- 6. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
-        // --- 6. Ensure the passed block number is valid, not in the future or too old.
+        // --- 7. Ensure the passed block number is valid, not in the future or too old.
         // Work must have been done within 3 blocks (stops long range attacks).
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure! (block_number <= current_block_number, Error::<T>::InvalidWorkBlock);
         ensure! (current_block_number - block_number < 3, Error::<T>::InvalidWorkBlock ); 
-
-        // --- 7. Ensure the passed work has not already been used.
-        ensure!( !UsedWork::<T>::contains_key( &work.clone() ), Error::<T>::WorkRepeated ); 
 
         // --- 8. Ensure the supplied work passes the difficulty.
         let difficulty: U256 = Self::get_difficulty( netuid );
