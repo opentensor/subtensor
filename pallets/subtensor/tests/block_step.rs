@@ -2,6 +2,7 @@ mod mock;
 use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
+use sp_core::U256;
 
 #[test]
 fn test_loaded_emission() {
@@ -14,7 +15,7 @@ fn test_loaded_emission() {
         add_network( netuid, tempo, 0 );
         SubtensorModule::set_max_allowed_uids( netuid, n );
         assert_ok!(SubtensorModule::do_set_emission_values(<<Test as Config>::RuntimeOrigin>::root(), netuids, emission));
-        for i in 0..n as u64 { SubtensorModule::append_neuron( netuid, &i, 0 ); }
+        for i in 0..n {SubtensorModule::append_neuron( netuid, &U256::from(i), 0 );}
         assert!( !SubtensorModule::has_loaded_emission_tuples( netuid ) );
 
         // Try loading at block 0
@@ -210,4 +211,3 @@ fn test_blocks_until_epoch(){
 
 //     });
 // }
-
