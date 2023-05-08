@@ -1304,12 +1304,6 @@ pub mod pallet {
 		pub fn sudo_set_tx_rate_limit( origin:OriginFor<T>, tx_rate_limit: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_tx_rate_limit( origin, tx_rate_limit )
 		}
-
-		// Sudo call for setting registration allowed
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_registration_allowed( origin:OriginFor<T>, netuid: u16, registration_allowed: bool ) -> DispatchResult {  
-			Self::do_sudo_set_network_registration_allowed( origin, netuid, registration_allowed )
-		}
     
 		#[pallet::call_index(17)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
@@ -1583,6 +1577,13 @@ pub mod pallet {
 			Self::drain_emission( 11 );
 			Ok(())
 		} 
+
+		// Sudo call for setting registration allowed
+		#[pallet::call_index(51)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_registration_allowed( origin:OriginFor<T>, netuid: u16, registration_allowed: bool ) -> DispatchResult {  
+			Self::do_sudo_set_network_registration_allowed( origin, netuid, registration_allowed )
+		}
 	}	
 
 	// ---- Subtensor helper functions.
