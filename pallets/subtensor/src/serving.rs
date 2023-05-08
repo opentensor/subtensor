@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Get the previous axon information.
         let mut prev_axon = Self::get_axon_info( netuid, &hotkey_id );
         let current_block:u64 = Self::get_current_block_as_u64();
-        ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded );  
+        ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded ); 
 
         // --- 6. We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
