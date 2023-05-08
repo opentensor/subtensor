@@ -621,6 +621,7 @@ pub mod pallet {
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
+		HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
 		IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
 	}
 
