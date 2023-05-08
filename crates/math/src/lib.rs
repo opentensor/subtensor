@@ -844,7 +844,7 @@ pub fn sparse_threshold( w: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32 ) -> Vec
 
 #[cfg(test)]
 mod tests {
-    use crate::math::*;
+    use crate::*;
     use substrate_fixed::transcendental::exp;
     use substrate_fixed::types::{I32F32, I64F64, I96F32, I110F18};
     use rand::{Rng, thread_rng, seq::SliceRandom};

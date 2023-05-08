@@ -1,5 +1,5 @@
 use super::*;
-use crate::math::*;
+use math::*;
 use frame_support::sp_std::vec;
 use sp_std::vec::Vec;
 
