@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
     }
 
 	pub fn validate_axon_data(axon_info: &AxonInfoOf) -> Result<bool, pallet::Error<T>> {
-		if axon_info.port <= 0 {
+		if axon_info.port.clamp(0, u16::MAX) <= 0 {
 			return Err(Error::<T>::InvalidPort);
 		}
 
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn validate_prometheus_data(prom_info: &PrometheusInfoOf) -> Result<bool, pallet::Error<T>> {
-		if prom_info.port <= 0 {
+		if prom_info.port.clamp(0, u16::MAX) <= 0 {
 			return Err(Error::<T>::InvalidPort);
 		}
 
