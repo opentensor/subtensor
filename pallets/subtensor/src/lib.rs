@@ -33,7 +33,7 @@ use sp_runtime::{
 		Dispatchable,
 		DispatchInfoOf,
 		SignedExtension,
-		PostDispatchInfoOf
+		PostDispatchInfoOf,
 	},
 	transaction_validity::{
 		TransactionValidity,
@@ -75,10 +75,8 @@ pub mod pallet {
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
 	
-	
 	use frame_support::inherent::Vec;
-	use sp_runtime::traits::{Verify};
-
+	use sp_runtime::traits::{Verify, IdentifyAccount, CheckedConversion};
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -96,7 +94,8 @@ pub mod pallet {
 
 		/// A Signature can be verified with a specific `PublicKey`.
 		/// The additional traits are boilerplate.
-		type Signature: Verify<Signer = sp_core::sr25519::Public> + Encode + Decode + Parameter;
+		type Signature: Verify<Signer = Self::PublicKey> + Encode + Decode + Parameter + CheckedConversion; 
+		type PublicKey: IdentifyAccount<AccountId = Self::PublicKey> + Encode + Decode + Parameter + CheckedConversion;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -1668,7 +1667,6 @@ pub mod pallet {
 		}
 	}
 }
-
 
 /************************************************************
 	CallType definition

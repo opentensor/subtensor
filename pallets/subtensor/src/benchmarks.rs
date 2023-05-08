@@ -662,5 +662,39 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 
   }: sudo_set_min_burn(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_burn)
+
+  benchmark_associate {
+	use sp_io::crypto::{sr25519_generate, sr25519_sign};
+	use sp_runtime::{MultiSigner, MultiSignature, traits::IdentifyAccount};
+
+	let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+
+	let hotkey_public = sr25519_generate(0.into(), None);
+	let hotkey_account_id: T::AccountId = T::AccountId::decode(&mut MultiSigner::Sr25519(hotkey_public).into_account().into()).unwrap();
+
+	let binding = caller.encode();
+	// Skip extra 0th byte.
+	let coldkey_bytes: &[u8] = binding[1..].as_ref().try_into().unwrap();
+	let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &hotkey_public, &coldkey_bytes).unwrap());
+  }: associate(RawOrigin::Signed( caller.clone() ), hotkey_account_id.clone(), signature.try_into().unwrap())
+
+  benchmark_disassociate {
+	use sp_io::crypto::{sr25519_generate, sr25519_sign};
+	use sp_runtime::{MultiSigner, MultiSignature, traits::IdentifyAccount};
+
+	let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
+	let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone())); 
+
+	let hotkey_public = sr25519_generate(0.into(), None);
+	let hotkey_account_id: T::AccountId = T::AccountId::decode(&mut MultiSigner::Sr25519(hotkey_public).into_account().into()).unwrap();
+
+	let binding = caller.encode();
+	// Skip extra 0th byte.
+	let coldkey_bytes: &[u8] = binding[1..].as_ref().try_into().unwrap();
+	let signature = MultiSignature::Sr25519(sr25519_sign(0.into(), &hotkey_public, &coldkey_bytes).unwrap());
+
+	// Subscribe and check extrinsic output
+	assert_ok!(Subtensor::<T>::associate(caller_origin.clone(),  hotkey_account_id.clone(), signature));
+  }: disassociate(RawOrigin::Signed( caller.clone() ), hotkey_account_id.clone())
 }
 

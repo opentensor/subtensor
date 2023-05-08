@@ -10,7 +10,7 @@ use sp_io::hashing::{sha2_256, keccak_256};
 use frame_system::{ensure_signed};
 use sp_std::vec::Vec;
 use substrate_fixed::types::I32F32;
-use sp_runtime::{MultiAddress, traits::Verify};
+use sp_runtime::{MultiAddress, MultiSignature, traits::Verify};
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
 
 		// Skip extra 0th byte.
 		let hotkey_bytes: &[u8; 32] = binding[1..].as_ref().try_into().unwrap();
-		let hotkey_sr25519 = sp_core::sr25519::Public(*hotkey_bytes);
+		let hotkey_sr25519: T::Signature = MultiSignature::from(sp_core::sr25519::Public(*hotkey_bytes).into());
 
 		/* Coldkey bytes so we can cast to PublicKey */
 		let coldkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( coldkey.clone() );
@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
 		// Skip extra 0th byte.
 		let coldkey_bytes: &[u8] = binding[1..].as_ref().try_into().unwrap();
 
-		ensure!( sig.verify( coldkey_bytes, &hotkey_sr25519 ), Error::<T>::InvalidHotkeyProof );
+		ensure!( sig.verify( coldkey_bytes, hotkey_sr25519 ), Error::<T>::InvalidHotkeyProof );
 		
         // --- 3. Check the hotkey isn't already associated with a coldkey.
         ensure!( !Self::hotkey_account_exists( &hotkey ), Error::<T>::AlreadyRegistered );
