@@ -3766,6 +3766,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
+name = "math"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-support",
+ "rand 0.8.5",
+ "substrate-fixed",
+]
+
+[[package]]
 name = "matrixmultiply"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4522,6 +4531,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "math",
  "ndarray",
  "pallet-balances",
  "pallet-transaction-payment",

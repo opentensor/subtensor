@@ -4,6 +4,7 @@ members = [
     "node",
     "pallets/subtensor",
     "runtime",
+    "crates/*",
 ]
 
 [profile.release]
