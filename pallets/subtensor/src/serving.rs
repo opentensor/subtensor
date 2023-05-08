@@ -263,5 +263,20 @@ impl<T: Config> Pallet<T> {
         return true;
     }
 
+	pub fn validate_axon_data(axon_info: &AxonInfoOf) -> Result<bool, pallet::Error<T>> {
+		if axon_info.port <= 0 {
+			return Err(Error::<T>::InvalidPort);
+		}
+
+		Ok(true)
+	}
+
+	pub fn validate_prometheus_data(prom_info: &PrometheusInfoOf) -> Result<bool, pallet::Error<T>> {
+		if prom_info.port <= 0 {
+			return Err(Error::<T>::InvalidPort);
+		}
+
+		Ok(true)
+	}
 
 }
