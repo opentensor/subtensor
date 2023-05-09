@@ -234,6 +234,8 @@ impl<T: Config> Pallet<T> {
         let signing_origin = ensure_signed( origin )?;        
         log::info!("do_registration( origin:{:?} netuid:{:?} hotkey:{:?}, coldkey:{:?} )", signing_origin, netuid, hotkey, coldkey );
 
+        ensure!( signing_origin == hotkey, Error::<T>::HotkeyOriginMismatch);
+
         // --- 2. Ensure the passed network is valid.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
