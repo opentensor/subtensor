@@ -587,6 +587,7 @@ pub mod pallet {
 		InvalidModality, // --- Thrown when an invalid modality attempted on serve.
 		InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
 		InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
+		InvalidPort, // --- Thrown when an invalid port is passed to the serve function.
 		NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
 		NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account. 
 		NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake then there exists in the staking account. See: fn remove_stake.
@@ -623,6 +624,7 @@ pub mod pallet {
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
+		HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
 	}
 
 	// ==================
@@ -1546,37 +1548,6 @@ pub mod pallet {
 		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
 		}
-
-		#[pallet::call_index(47)]
-		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
-		.saturating_add(T::DbWeight::get().reads(8303))
-		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
-			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
-		
-			Self::epoch( 11, 1_000_000_000 );
-			Ok(())
-		} 
-
-		#[pallet::call_index(48)]
-		#[pallet::weight((Weight::from_ref_time(117_586_465_000 as u64)
-		.saturating_add(T::DbWeight::get().reads(12299 as u64))
-		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
-			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
-
-			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
-			Ok(())
-		} 
-
-		#[pallet::call_index(49)]
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
-			ensure!( cfg!(feature = "runtime-benchmarks"), Error::<T>::BenchmarkingOnly );
-		
-			Self::drain_emission( 11 );
-			Ok(())
-		} 
 
 		// Sudo call for setting registration allowed
 		#[pallet::call_index(51)]

@@ -17,62 +17,6 @@ use frame_support::assert_ok;
 benchmarks! {
    
   // Add individual benchmarks here
-  benchmark_epoch_without_weights { 
-
-    // This is a whitelisted caller who can make transaction without weights.
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
-    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-
-    // Lets create a single network.
-    let n: u16 = 4096;
-    let netuid: u16 = 11; //11 is the benchmark network.
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    Subtensor::<T>::set_max_allowed_uids( netuid, n ); 
-
-    // Lets fill the network with 100 UIDS and no weights.
-    let mut seed : u32 = 1;
-    for uid in 0..n as u16 {
-        let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-        let hotkey: T::AccountId = account("Alice", 0, seed);
-        Subtensor::<T>::append_neuron( netuid, &hotkey, block_number );
-        seed = seed + 1;
-    }
-
-  }: _( RawOrigin::Signed( caller.clone() ) )
-
-  // Add individual benchmarks here
-  /*benchmark_drain_emission { 
-
-    // This is a whitelisted caller who can make transaction without weights.
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
-    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-
-    // Lets create a single network.
-    let n: u16 = 4096;
-    let netuid: u16 = 11; //11 is the benchmark network.
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    Subtensor::<T>::do_add_network( caller_origin.clone(), netuid.try_into().unwrap(), tempo.into(), modality.into());
-    Subtensor::<T>::set_max_allowed_uids( netuid, n ); 
-    Subtensor::<T>::set_tempo( netuid, tempo );
-
-    // Lets fill the network with 100 UIDS and no weights.
-    let mut seed : u32 = 1;
-    let mut emission: Vec<(T::AccountId, u64)> = vec![];
-    for uid in 0..n as u16 {
-        let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-        let hotkey: T::AccountId = account("Alice", 0, SEED);
-        Subtensor::<T>::append_neuron( netuid, &hotkey, block_number );
-        SEED = SEED + 1;
-        emission.push( ( hotkey, 1 ) );
-    }
-    Subtensor::<T>::sink_emission( netuid, emission );
- 
-  }: _( RawOrigin::Signed( caller.clone() ) )  */
-
-
   benchmark_register { 
 
     // This is a whitelisted caller who can make transaction without weights.
@@ -98,19 +42,6 @@ benchmarks! {
     let coldkey: T::AccountId = account("Test", 0, seed);
         
   }: register( RawOrigin::Signed( caller.clone() ), netuid, block_number, nonce, work, hotkey, coldkey )
-
- benchmark_epoch_with_weights { 
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
-    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-    Subtensor::<T>::create_network_with_weights(
-      caller_origin.clone(), 
-      11u16.into(), // netuid
-      4096u16.into(), // n
-      1000u16.into(), // tempo
-      100u16.into(), // n_vals
-      1000u16.into() // nweights
-    );
-  }: _( RawOrigin::Signed( caller.clone() ) ) 
 
   benchmark_set_weights {
     
