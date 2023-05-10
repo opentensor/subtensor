@@ -12,7 +12,6 @@ use pallet_grandpa::{
 };
 
 use frame_support::{pallet_prelude::Get, traits::EitherOfDiverse};
-use frame_support::traits::{EnsureOneOf, ChangeMembers};
 use frame_system::{EnsureRoot, Config};
 
 use smallvec::smallvec;
@@ -323,7 +322,7 @@ parameter_types! {
 }
 
 type ManagerCollective = pallet_collective::Instance1;
-// We call pallet_collective Council
+// We call pallet_collective ManagerCollective
 impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall; 
@@ -456,7 +455,7 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		SubtensorModule: pallet_subtensor,
 		Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-		RandomCollective: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>}
+		CouncilMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
 	}
 );
 
