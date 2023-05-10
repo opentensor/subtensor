@@ -332,30 +332,29 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type MaxMembers = CouncilMaxMembers;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRootOrHalfCouncil;
+	type SetMembersOrigin = EnsureRootOrMajorityCouncil;
 }
 
-type RandomCommittee = pallet_collective::Instance2;
-// We call pallet_collective Council
-impl pallet_collective::Config<RandomCommittee> for Runtime{
-	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall; 
+impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type MotionDuration = CouncilMotionDuration;
-	type MaxProposals = CouncilMaxProposals;
+	type AddOrigin = EnsureRootOrMajorityCouncil;
+	type RemoveOrigin = EnsureRootOrMajorityCouncil;
+	type SwapOrigin = EnsureRootOrMajorityCouncil;
+	type ResetOrigin = EnsureRootOrMajorityCouncil;
+	type PrimeOrigin = EnsureRootOrMajorityCouncil;
+	type MembershipInitialized = Council;
+	type MembershipChanged = Council;
 	type MaxMembers = CouncilMaxMembers;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRootOrHalfCouncil;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
 //type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
 
 // set up a custom origin using collective pallet
 // Custom origin that ensures either root or at least half of the collective's approval
-type EnsureRootOrHalfCouncil = EitherOfDiverse<
+type EnsureRootOrMajorityCouncil = EitherOfDiverse<
 	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionAtLeast< AccountId,  ManagerCollective, 1, 2>
+	pallet_collective::EnsureProportionMoreThan<AccountId, ManagerCollective, 1, 2>
 >;
 
 // Configure the pallet subtensor.
