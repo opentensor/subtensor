@@ -336,6 +336,20 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type SetMembersOrigin = EnsureRootOrHalfCouncil;
 }
 
+type RandomCommittee = pallet_collective::Instance2;
+// We call pallet_collective Council
+impl pallet_collective::Config<RandomCommittee> for Runtime{
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall; 
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = CouncilMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureRootOrHalfCouncil;
+}
+
 //type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
 
 // set up a custom origin using collective pallet
@@ -441,7 +455,8 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		SubtensorModule: pallet_subtensor,
-		Council: pallet_collective::<Instance1>,
+		Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		RandomCollective: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>}
 	}
 );
 
