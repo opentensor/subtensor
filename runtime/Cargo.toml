@@ -48,6 +48,7 @@ sp-version = { version = "5.0.0", default-features = false, git = "https://githu
 
 # Used for sudo decentralization
 pallet-collective = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
 # Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -95,6 +96,7 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"pallet-collective/std",
+	"pallet-membership/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -107,6 +109,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -122,4 +125,5 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-subtensor/try-runtime",
 	"pallet-collective/try-runtime",
+	"pallet-membership/try-runtime",
 ]
