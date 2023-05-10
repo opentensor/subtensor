@@ -333,21 +333,14 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type MaxMembers = CouncilMaxMembers;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRoot<Self::AccountId>;
+	type SetMembersOrigin = EnsureRootOrHalfCouncil;
 }
-
-pub struct GetMembers;
-impl Get<Vec<AccountId>> for GetMembers {
-	fn get() -> Vec<AccountId> {
-		Council::members()
-	}
-} 
 
 //type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
 
 // set up a custom origin using collective pallet
 // Custom origin that ensures either root or at least half of the collective's approval
-type EnsureRootOrHalfCouncil = EnsureOneOf<
+type EnsureRootOrHalfCouncil = EitherOfDiverse<
 	EnsureRoot<AccountId>,
 	pallet_collective::EnsureProportionAtLeast< AccountId,  ManagerCollective, 1, 2>
 >;
@@ -429,9 +422,6 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMaxBurn = SubtensorInitialMaxBurn;
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
-	type ChangeMembers = Council;
-	type GetMembers = GetMembers;
-	//type CouncilOrigin = CouncilOrigin;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

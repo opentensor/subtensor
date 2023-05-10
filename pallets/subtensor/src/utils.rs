@@ -486,35 +486,6 @@ impl<T: Config> Pallet<T> {
         TotalIssuance::<T>::put( total_issuance );
         Ok(())
     }
-
-    pub fn do_sudo_set_council_members(origin:T::RuntimeOrigin , members: Vec<T::AccountId>) -> DispatchResult{
-        ensure_root( origin )?;
-        let outgoing = CouncilMembers::<T>::get();
-        let slice_incoming = &members;
-        T::ChangeMembers::change_members_sorted(&slice_incoming, &outgoing, &members[..]);
-        let council_members = T::GetMembers::get();
-        CouncilMembers::<T>::put(council_members);
-        Ok(())
-    } 
-
-   
-    pub fn do_council_set_max_registrations_per_block(
-        //origin: T::RuntimeOrigin, 
-        netuid: u16, 
-        max_registrations_per_block: u16
-    ) -> DispatchResult {
-        //let signing_origin = ensure_signed( origin )?; 
-        //T::CouncilOrigin::ensure_origin(origin)?;
-        //let members = CouncilMembers::<T>::get();
-        //ensure!(members.contains(&signing_origin), Error::<T>::NotCouncilMember);
-        
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_max_registrations_per_block( netuid, max_registrations_per_block );
-        log::info!("MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ", netuid, max_registrations_per_block );
-        Self::deposit_event( Event::MaxRegistrationsPerBlockSet( netuid, max_registrations_per_block) );
-        Ok(())
-    }
-
 }
 
 

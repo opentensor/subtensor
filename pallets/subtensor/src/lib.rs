@@ -22,11 +22,10 @@ use frame_support::{
 		tokens::{
 			WithdrawReasons
 		},
-		IsSubType, ChangeMembers,
+		IsSubType,
 		}
 };
 
-use pallet_collective::{Prime};
 use sp_std::marker::PhantomData;
 use codec::{Decode, Encode};
 use sp_runtime::{
@@ -71,15 +70,11 @@ pub mod subnet_info;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::{*, StorageMap, DispatchResult}, traits::ChangeMembers};
+	use frame_support::{pallet_prelude::{*, StorageMap, DispatchResult}};
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
-	use pallet_collective::RawOrigin;
-use serde::{Serialize, Deserialize};
-	use serde_with::{serde_as, DisplayFromStr};
 	use frame_support::inherent::Vec;
-	use scale_info::prelude::string::String;
 
 
 	#[pallet::pallet]
@@ -95,13 +90,6 @@ use serde::{Serialize, Deserialize};
 
 		// --- Currency type that will be used to place deposits on neurons
 		type Currency: Currency<Self::AccountId> + Send + Sync;
-
-		// --- ChangeMember type that will be used to set admin members
-		type ChangeMembers: ChangeMembers<Self::AccountId>;
-
-		type GetMembers: frame_support::traits::Get<Vec<Self::AccountId>>;
-
-		//type CouncilOrigin: frame_support::traits::EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -310,18 +298,6 @@ use serde::{Serialize, Deserialize};
 	pub type BlocksSinceLastStep<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
 	#[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
 	pub type LastMechansimStepBlock<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T> >;
-
-	// ==============================
-	// ==== Council Storage =====
-	// ==============================
-	#[pallet::type_value]
-	pub fn EmptyAccountIdVec<T: Config>() -> Vec<T::AccountId> { vec![] }
-
-	#[pallet::storage]  // --- vector of hotkeys (council member Id)
-	//pub(super) type CouncilMembers<T: Config> = StorageMap<_, Identity, u16, Vec<T::AccountId>, ValueQuery, EmptyAccountIdVec<T>>;
-	pub type CouncilMembers<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery, EmptyAccountIdVec<T>>;
-	#[pallet::storage] // --- Prime member
-	pub type PrimeMember<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 	
 	// =================================
 	// ==== Axon / Promo Endpoints =====
@@ -632,7 +608,6 @@ use serde::{Serialize, Deserialize};
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
-		NotCouncilMember // --- not a council member
 	}
 
 	// ==================
@@ -1572,27 +1547,11 @@ use serde::{Serialize, Deserialize};
 			Ok(())
 		} 
 
-		#[pallet::call_index(49)]
-		#[pallet::weight((Weight::from_ref_time(13_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_council_members( origin:OriginFor<T>, members: Vec<T::AccountId> ) -> DispatchResult {
-			Self::do_sudo_set_council_members( origin, members )
-		}
-
 		#[pallet::call_index(50)]
 		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
 			Self::drain_emission( 11 );
 			Ok(())
-		}
-
-		#[pallet::call_index(51)]
-		#[pallet::weight((Weight::from_ref_time(15_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn council_set_max_registrations_per_block(_origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16 ) -> DispatchResult {
-			Self::do_council_set_max_registrations_per_block( netuid, max_registrations_per_block )
 		}
 	}	
 
