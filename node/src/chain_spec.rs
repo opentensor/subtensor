@@ -1,5 +1,5 @@
 use node_subtensor_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
+	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature,
 	SystemConfig, WASM_BINARY, SubtensorModuleConfig, CouncilConfig, CouncilMembershipConfig
 };
 use sc_service::ChainType;
@@ -314,10 +314,6 @@ fn testnet_genesis(
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
-		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
-		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
 		council: CouncilConfig { // Add initial authorities as collective members
@@ -359,10 +355,6 @@ fn finney_genesis(
 		},
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
-		},
-		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: SubtensorModuleConfig {
