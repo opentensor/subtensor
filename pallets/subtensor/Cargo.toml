@@ -46,8 +46,6 @@ sp-tracing = { git = "https://github.com/paritytech/substrate", default-features
 parity-util-mem = { version = "0.11.0", features = ['primitive-types'] }
 rand = "0.8"
 sp-core = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
-# Used for sudo decentralization
-pallet-collective = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
 [features]
 default = ["std"]
