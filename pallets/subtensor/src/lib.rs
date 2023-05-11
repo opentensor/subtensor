@@ -128,6 +128,8 @@ pub mod pallet {
 		type InitialMaxDifficulty: Get<u64>;
 		#[pallet::constant] // Initial Min Difficulty.
 		type InitialMinDifficulty: Get<u64>;
+		#[pallet::constant] // Initial RAO Recycled.
+		type InitialRAORecycledForRegistration: Get<u64>;
 		#[pallet::constant] // Initial Burn.
 		type InitialBurn: Get<u64>;
 		#[pallet::constant] // Initial Max Burn.
@@ -242,6 +244,8 @@ pub mod pallet {
 	pub fn DefaultMaxDifficulty<T: Config>() -> u64 { T::InitialMaxDifficulty::get() }
 	#[pallet::type_value] 
 	pub fn DefaultMaxRegistrationsPerBlock<T: Config>() -> u16 { T::InitialMaxRegistrationsPerBlock::get() }
+	#[pallet::type_value]
+	pub fn DefaultRAORecycledForRegistration<T: Config>() -> u64 { T::InitialRAORecycledForRegistration::get() }
 
 	#[pallet::storage] // ---- StorageItem Global Used Work.
     pub type UsedWork<T:Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
@@ -263,6 +267,8 @@ pub mod pallet {
 	pub type RegistrationsThisBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
 	#[pallet::storage] // --- ITEM( global_max_registrations_per_block ) 
 	pub type MaxRegistrationsPerBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T> >;
+	#[pallet::storage] // --- MAP ( netuid, global_RAO_recycled_for_registration )
+	pub type RAORecycledForRegistration<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T> >;
 
 	// ==============================
 	// ==== Subnetworks Storage =====
@@ -580,6 +586,7 @@ pub mod pallet {
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
 		Sudid ( DispatchResult ), // --- Event created when a sudo call is done.
+		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
 	}
 
 	// Errors inform users that something went wrong.
@@ -591,6 +598,7 @@ pub mod pallet {
 		InvalidModality, // --- Thrown when an invalid modality attempted on serve.
 		InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
 		InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
+		InvalidPort, // --- Thrown when an invalid port is passed to the serve function.
 		NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
 		NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account. 
 		NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake then there exists in the staking account. See: fn remove_stake.
@@ -604,7 +612,6 @@ pub mod pallet {
 		TooManyRegistrationsThisBlock, // ---- Thrown when registrations this block exceeds allowed number.
 		AlreadyRegistered, // ---- Thrown when the caller requests registering a neuron which already exists in the active set.
 		InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative
-		WorkRepeated, // ---- Thrown when the caller attempts to use a repeated work.
 		InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
 		InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
 		MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids
@@ -627,6 +634,8 @@ pub mod pallet {
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
+		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
+		HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
 	}
 
 	// ==================
@@ -1088,9 +1097,6 @@ pub mod pallet {
 		// 	* 'InvalidWorkBlock':
 		// 		- The work has been performed on a stale, future, or non existent block.
 		//
-		// 	* 'WorkRepeated':
-		// 		- This work for block has already been used.
-		//
 		// 	* 'InvalidDifficulty':
 		// 		- The work does not match the difficutly.
 		//
@@ -1547,33 +1553,14 @@ pub mod pallet {
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
-		
-		#[pallet::call_index(47)]
-		#[pallet::weight((Weight::from_ref_time(49_882_000_000)
-		.saturating_add(T::DbWeight::get().reads(8303))
-		.saturating_add(T::DbWeight::get().writes(110)), DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_epoch_with_weights( _:OriginFor<T> ) -> DispatchResult {
-			Self::epoch( 11, 1_000_000_000 );
-			Ok(())
-		} 
-
-		#[pallet::call_index(48)]
-		#[pallet::weight((Weight::from_ref_time(117_586_465_000 as u64)
-		.saturating_add(T::DbWeight::get().reads(12299 as u64))
-		.saturating_add(T::DbWeight::get().writes(110 as u64)), DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_epoch_without_weights( _:OriginFor<T> ) -> DispatchResult {
-			let _: Vec<(T::AccountId, u64)> = Self::epoch( 11, 1_000_000_000 );
-			Ok(())
-		} 
 
 		#[pallet::call_index(50)]
-		#[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
-			Self::drain_emission( 11 );
-			Ok(())
-		}
-
-		/// Authenticates a council proposal and dispatches a function call with `Root` origin.
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
+			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
+		}  
+    
+    /// Authenticates a council proposal and dispatches a function call with `Root` origin.
 		///
 		/// The dispatch origin for this call must be a council majority.
 		///
@@ -1602,12 +1589,14 @@ pub mod pallet {
 			if Uids::<T>::contains_key( netuid, &hotkey ) {
 				let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
 				let current_block_number: u64 = Self::get_current_block_as_u64();
-				return current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
+				let default_priority: u64 = current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
+				return default_priority + u32::max_value() as u64;
 			}
 			return 0;
 		}
 
 		// Benchmarking functions.
+		#[cfg(feature = "runtime-benchmarks")]
 		pub fn create_network( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
 			Self::set_max_allowed_uids( netuid, n );
@@ -1621,6 +1610,7 @@ pub mod pallet {
 			Ok(())
 		}
 
+		#[cfg(feature = "runtime-benchmarks")]
 		pub fn create_network_with_weights( _: OriginFor<T>, netuid: u16, n: u16, tempo: u16, n_vals: u16, n_weights: u16 ) -> DispatchResult {
 			Self::init_new_network( netuid, tempo, 1 );
 			Self::set_max_allowed_uids( netuid, n );

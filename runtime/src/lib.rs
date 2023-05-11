@@ -49,7 +49,7 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 118, 
+	spec_version: 121,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -246,6 +246,13 @@ impl pallet_timestamp::Config for Runtime {
 	type OnTimestampSet = Aura;
 	type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
 	type WeightInfo = ();
+}
+
+impl pallet_utility::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type PalletsOrigin = OriginCaller;
+    type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
 // Existential deposit.
@@ -387,6 +394,7 @@ parameter_types! {
 	pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
 	pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
 	pub const SubtensorInitialTxRateLimit: u64 = 1000;
+	pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -430,6 +438,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMaxBurn = SubtensorInitialMaxBurn;
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+	type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -451,6 +460,7 @@ construct_runtime!(
 		SubtensorModule: pallet_subtensor,
 		Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		CouncilMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Utility: pallet_utility
 	}
 );
 

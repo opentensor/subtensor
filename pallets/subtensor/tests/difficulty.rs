@@ -1,5 +1,6 @@
 use crate::{mock::*};
 mod mock;
+use sp_core::U256;
 
 #[test]
 fn test_registration_difficulty_adjustment() {
@@ -29,12 +30,12 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!( SubtensorModule::get_max_allowed_uids( netuid ), 3 ); // Check set registrations per block.
 
         // Lets register 3 neurons...
-        let hotkey0: u64 = 0;
-        let hotkey1: u64 = 100;
-        let hotkey2: u64 = 2000;
-        let coldkey0: u64 = 0;
-        let coldkey1: u64 = 1000;
-        let coldkey2: u64 = 20000;
+        let hotkey0 = U256::from(0);
+        let hotkey1 = U256::from(100);
+        let hotkey2 = U256::from(2000);
+        let coldkey0 = U256::from(0);
+        let coldkey1 = U256::from(1000);
+        let coldkey2 = U256::from(20000);
     	register_ok_neuron( netuid, hotkey0, coldkey0, 39420842 );
     	register_ok_neuron( netuid, hotkey1, coldkey1, 12412392 );
 		register_ok_neuron( netuid, hotkey2, coldkey2, 21813123 );

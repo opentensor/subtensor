@@ -85,8 +85,11 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Get the neuron uid of associated hotkey on network netuid.
         let neuron_uid;
-        match Self::get_uid_for_net_and_hotkey( netuid, &hotkey ) { Ok(k) => neuron_uid = k, Err(e) => panic!("Error: {:?}", e) } 
+		let net_neuron_uid = Self::get_uid_for_net_and_hotkey( netuid, &hotkey );
+		ensure!( net_neuron_uid.is_ok(), net_neuron_uid.err().unwrap_or(Error::<T>::NotRegistered.into()) );
 
+		neuron_uid = net_neuron_uid.unwrap();
+		
         // --- 8. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!( Self::check_rate_limit( netuid, neuron_uid, current_block ), Error::<T>::SettingWeightsTooFast );
@@ -136,7 +139,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_version_key( netuid: u16, version_key: u64) -> bool {
         let network_version_key: u64 = WeightsVersionKey::<T>::get( netuid );
         log::info!("check_version_key( network_version_key:{:?}, version_key:{:?} )", network_version_key, version_key );
-        return network_version_key == 0 || version_key == network_version_key;
+        return network_version_key == 0 || version_key >= network_version_key;
     }
 
     // Checks if the neuron has set weights within the weights_set_rate_limit.

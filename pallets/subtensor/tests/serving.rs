@@ -5,6 +5,7 @@ use frame_support::dispatch::{GetDispatchInfo, DispatchInfo};
 use pallet_subtensor::Error;
 use frame_support::weights::{DispatchClass, Pays};
 use frame_system::Config;
+use sp_core::U256;
 
 mod test {
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -46,7 +47,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
 #[test]
 fn test_serving_ok() {
 	new_test_ext().execute_with(|| {
-                let hotkey_account_id = 1;
+                let hotkey_account_id = U256::from(1);
                 let netuid: u16 = 1;
                 let tempo: u16 = 13;
                 let version : u32 = 2;
@@ -58,7 +59,7 @@ fn test_serving_ok() {
                 let placeholder1: u8 = 0;
                 let placeholder2: u8 = 0;
                 add_network(netuid, tempo, modality);
-                register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
                 assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
                 let neuron = SubtensorModule::get_axon_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
@@ -74,7 +75,7 @@ fn test_serving_ok() {
 #[test]
 fn test_serving_set_metadata_update() {
 	new_test_ext().execute_with(|| {
-                let hotkey_account_id = 1;
+                let hotkey_account_id = U256::from(1);
                 let netuid: u16 = 1;
                 let tempo: u16 = 13;
                 let version: u32 = 2;
@@ -86,7 +87,7 @@ fn test_serving_set_metadata_update() {
                 let placeholder1: u8 = 0;
                 let placeholder2: u8 = 0;
                 add_network(netuid, tempo, modality);
-                register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
                 assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
                 let neuron = SubtensorModule::get_axon_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
@@ -119,7 +120,7 @@ fn test_serving_set_metadata_update() {
 #[test]
 fn test_axon_serving_rate_limit_exceeded() {
 	new_test_ext().execute_with(|| {
-                let hotkey_account_id = 1;
+                let hotkey_account_id = U256::from(1);
                 let netuid: u16 = 1;
                 let tempo: u16 = 13;
                 let version: u32 = 2;
@@ -131,7 +132,7 @@ fn test_axon_serving_rate_limit_exceeded() {
                 let placeholder1: u8 = 0;
                 let placeholder2: u8 = 0;
                 add_network(netuid, tempo, modality);
-                register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
                 run_to_block(1); // Go to block 1
                 // No issue on multiple
                 assert_ok!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2));
@@ -142,6 +143,27 @@ fn test_axon_serving_rate_limit_exceeded() {
                 run_to_block(2); // Go to block 2
                 // Needs to be 2 blocks apart, we are only 1 block apart
                 assert_eq!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2), Err(Error::<Test>::ServingRateLimitExceeded.into()) );    
+        });
+}
+
+#[test]
+fn test_axon_invalid_port() {
+	new_test_ext().execute_with(|| {
+                let hotkey_account_id = U256::from(1);
+                let netuid: u16 = 1;
+                let tempo: u16 = 13;
+                let version: u32 = 2;
+                let ip: u128 = 1676056785;
+                let port: u16 = 0;
+                let ip_type: u8 = 4;
+                let modality: u16 = 0;
+                let protocol: u8 = 0;
+                let placeholder1: u8 = 0;
+                let placeholder2: u8 = 0;
+                add_network(netuid, tempo, modality);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
+                run_to_block(1); // Go to block 1
+                assert_eq!(SubtensorModule::serve_axon(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2), Err(Error::<Test>::InvalidPort.into()) );    
         });
 }
 
@@ -165,7 +187,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
 #[test]
 fn test_prometheus_serving_ok() {
 	new_test_ext().execute_with(|| {
-                let hotkey_account_id = 1;
+                let hotkey_account_id = U256::from(1);
                 let netuid: u16 = 1;
                 let tempo: u16 = 13;
                 let version : u32 = 2;
@@ -174,7 +196,7 @@ fn test_prometheus_serving_ok() {
                 let ip_type: u8 = 4;
                 let modality: u16 = 0;
                 add_network(netuid, tempo, modality);
-                register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
                 assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
                 let neuron = SubtensorModule::get_prometheus_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
@@ -187,7 +209,7 @@ fn test_prometheus_serving_ok() {
 #[test]
 fn test_prometheus_serving_set_metadata_update() {
 	new_test_ext().execute_with(|| {
-                let hotkey_account_id = 1;
+                let hotkey_account_id = U256::from(1);
                 let netuid: u16 = 1;
                 let tempo: u16 = 13;
                 let version: u32 = 2;
@@ -196,7 +218,7 @@ fn test_prometheus_serving_set_metadata_update() {
                 let ip_type: u8 = 4;
                 let modality: u16 = 0;
                 add_network(netuid, tempo, modality);
-                register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
                 assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
                 let neuron = SubtensorModule::get_prometheus_info( netuid, &hotkey_account_id );
                 assert_eq!(neuron.ip, ip);
@@ -220,7 +242,7 @@ fn test_prometheus_serving_set_metadata_update() {
 #[test]
 fn test_prometheus_serving_rate_limit_exceeded() {
 	new_test_ext().execute_with(|| {
-                let hotkey_account_id = 1;
+                let hotkey_account_id = U256::from(1);
                 let netuid: u16 = 1;
                 let tempo: u16 = 13;
                 let version: u32 = 2;
@@ -229,7 +251,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
                 let ip_type: u8 = 4;
                 let modality: u16 = 0;
                 add_network(netuid, tempo, modality);
-                register_ok_neuron( netuid, hotkey_account_id, 66, 0);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
                 run_to_block(1); // Go to block 1
                 // No issue on multiple
                 assert_ok!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type));
@@ -242,6 +264,23 @@ fn test_prometheus_serving_rate_limit_exceeded() {
         });
 }
 
+#[test]
+fn test_prometheus_invalid_port() {
+	new_test_ext().execute_with(|| {
+                let hotkey_account_id = U256::from(1);
+                let netuid: u16 = 1;
+                let tempo: u16 = 13;
+                let version: u32 = 2;
+                let ip: u128 = 1676056785;
+                let port: u16 = 0;
+                let ip_type: u8 = 4;
+                let modality: u16 = 0;
+                add_network(netuid, tempo, modality);
+                register_ok_neuron( netuid, hotkey_account_id, U256::from(66), 0);
+                run_to_block(1); // Go to block 1
+                assert_eq!(SubtensorModule::serve_prometheus(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id), netuid, version, ip, port, ip_type), Err(Error::<Test>::InvalidPort.into()) );    
+        });
+}
 
 #[test]
 fn test_serving_is_valid_ip_type_ok_ipv4() {
