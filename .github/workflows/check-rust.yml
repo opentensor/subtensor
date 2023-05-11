@@ -15,6 +15,8 @@ on:
 
     paths:
       - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
 
   ##
   # Run automatically for PRs against default/main branch if Rust files change
@@ -25,6 +27,8 @@ on:
 
     paths:
       - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
@@ -67,7 +71,6 @@ jobs:
 
     ##
     env:
-      RELEASE: false
       RELEASE_NAME: development
       RUSTFLAGS: -A warnings
       RUSTV: ${{ matrix.rust-branch }}
@@ -80,17 +83,6 @@ jobs:
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v2
-
-      - name: Set RELEASE mode
-        if: github.event_name == 'push' && github.ref == $default-branch
-        shell: bash
-        run: |
-          set -eET
-          tee -a "${GITHUB_ENV:?Undefined GitHub env file path}" <<'EOF'
-          RELEASE=true
-          RELEASE_NAME=release
-          RUST_BIN_DIR=target/${{ matrix.rust-target }}/release
-          EOF
 
       - name: Install dependencies
         run: |
@@ -118,19 +110,10 @@ jobs:
         # timeout-minutes: 30
         run: |
           pushd node &&
-          cargo --features=runtime-benchmarks --release
+          cargo build --features=runtime-benchmarks --release
 
       - name: Build executable
         # timeout-minutes: 30
         run: |
           cargo build --release
-
-       # ## TODO: Un-comment after live tests
-       # - name: Upload executable
-       #   if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
-       #   uses: actions/upload-artifact@v3.1.2
-       #   with:
-       #     name: ${{ matrix.rust-target }}
-       #     path: ${{ env.RUST_BIN_DIR }}
-       #     retention-days: 1
 

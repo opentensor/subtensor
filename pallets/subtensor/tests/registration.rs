@@ -43,7 +43,7 @@ fn test_registration_difficulty() {
 
 }
 
-  #[test]
+#[test]
 fn test_registration_invalid_seal_hotkey() {
 	new_test_ext().execute_with(|| {
 		let block_number: u64 = 0;
@@ -807,5 +807,29 @@ fn test_network_connection_requirement() {
 		// Attempt to register key 4 passes because of best prunning score on B.
 		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid_b, 0, 12142084, &U256::from(3));
 		assert_ok!( SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed( hotkeys[3] ), netuid_a, 0, nonce, work, hotkeys[3], coldkeys[3]) );
+	});
+}
+
+#[test]
+fn test_registration_origin_hotkey_mismatch() {
+	new_test_ext().execute_with(|| {
+		let block_number: u64 = 0;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		let hotkey_account_id_1: U256 = U256::from(1);
+		let hotkey_account_id_2: U256 = U256::from(2);
+		let coldkey_account_id: U256 = U256::from(668);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id_1);
+		
+		//add network
+		add_network(netuid, tempo, 0);
+		
+		let result = SubtensorModule::register(
+			<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
+			netuid, block_number, nonce, work.clone(),
+			hotkey_account_id_2, // Not the same as the origin.
+			coldkey_account_id
+		);
+		assert_eq!( result, Err(Error::<Test>::HotkeyOriginMismatch.into()) );
 	});
 }
