@@ -275,7 +275,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
 		Some("bittensor"),
 		None,
 		// Properties
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
