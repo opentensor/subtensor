@@ -339,11 +339,11 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 
 impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AddOrigin = EnsureMajorityCouncil;
-	type RemoveOrigin = EnsureMajorityCouncil;
-	type SwapOrigin = EnsureMajorityCouncil;
-	type ResetOrigin = EnsureMajorityCouncil;
-	type PrimeOrigin = EnsureMajorityCouncil;
+	type AddOrigin = EnsureRoot<AccountId>;
+	type RemoveOrigin = EnsureRoot<AccountId>;
+	type SwapOrigin = EnsureRoot<AccountId>;
+	type ResetOrigin = EnsureRoot<AccountId>;
+	type PrimeOrigin = EnsureRoot<AccountId>;
 	type MembershipInitialized = Council;
 	type MembershipChanged = Council;
 	type MaxMembers = CouncilMaxMembers;
