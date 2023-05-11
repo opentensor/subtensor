@@ -21,8 +21,7 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
-		Council: pallet_collective::{Pallet, Call, Storage, Event<T>},
+		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
 	}
 );
 
