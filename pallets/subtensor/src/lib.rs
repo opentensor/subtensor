@@ -1576,9 +1576,10 @@ pub mod pallet {
 			T::CouncilOrigin::ensure_origin(origin)?;
 
 			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
-			Self::deposit_event(Event::Sudid(res.map(|_| ()).map_err(|e| e.error)));
+			let error = res.map(|_| ()).map_err(|e| e.error);
+			Self::deposit_event(Event::Sudid(error));
 			
-			Ok(().into())
+			res // Return the result of our call
 		}
 	}	
 
