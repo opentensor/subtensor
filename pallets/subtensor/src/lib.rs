@@ -14,7 +14,7 @@ use frame_support::{
 	dispatch,
 	dispatch::{
 		DispatchInfo,
-		PostDispatchInfo
+		PostDispatchInfo,
 	}, ensure, 
 	traits::{
 		Currency, 
@@ -23,7 +23,7 @@ use frame_support::{
 			WithdrawReasons
 		},
 		IsSubType,
-		}
+	}
 };
 
 use sp_std::marker::PhantomData;
@@ -33,7 +33,7 @@ use sp_runtime::{
 		Dispatchable,
 		DispatchInfoOf,
 		SignedExtension,
-		PostDispatchInfoOf
+		PostDispatchInfoOf,
 	},
 	transaction_validity::{
 		TransactionValidity,
@@ -68,14 +68,24 @@ pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
 
+// apparently this is stabilized since rust 1.36
+extern crate alloc;
+
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::{*, StorageMap, DispatchResult}};
+	use frame_support::{
+		dispatch::GetDispatchInfo,
+		pallet_prelude::{*, StorageMap, DispatchResult}
+	};
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::Currency;
+	use frame_support::traits::{Currency, UnfilteredDispatchable};
 	use frame_support::sp_std::vec;
 	use frame_support::inherent::Vec;
 
+	#[cfg(not(feature = "std"))]
+	use alloc::boxed::Box;
+	#[cfg(feature = "std")]
+	use sp_std::prelude::Box;
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
@@ -1560,6 +1570,27 @@ pub mod pallet {
 		pub fn benchmark_drain_emission( _:OriginFor<T> ) -> DispatchResult {
 			Self::drain_emission( 11 );
 			Ok(())
+		}
+
+		/// Authenticates a council proposal and dispatches a function call with `Root` origin.
+		///
+		/// The dispatch origin for this call must be a council majority.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(51)]
+		#[pallet::weight((Weight::from_ref_time(0), DispatchClass::Operational, Pays::No))]
+		pub fn sudo(
+			origin: OriginFor<T>,
+			call: Box<T::SudoRuntimeCall>,
+		) -> DispatchResultWithPostInfo {
+			// This is a public call, so we ensure that the origin is a council majority.
+			T::CouncilOrigin::ensure_origin(origin)?;
+
+			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			Self::deposit_event(Event::Sudid(res.map(|_| ()).map_err(|e| e.error)));
+			
+			Ok(().into())
 		}
 	}	
 
