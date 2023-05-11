@@ -1,5 +1,5 @@
 use node_subtensor_runtime::{
-	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature,
+	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
 	SystemConfig, WASM_BINARY, SubtensorModuleConfig, CouncilConfig, CouncilMembershipConfig
 };
 use sc_service::ChainType;
@@ -397,6 +397,9 @@ fn localnet_genesis(
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
+		sudo: SudoConfig {
+			key: Some(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap()),
+		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
 		council: CouncilConfig { // Add initial authorities as collective members
@@ -435,13 +438,16 @@ fn testnet_genesis(
 			// Configure sudo balance
 			balances: vec![ 
 				(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),1000000000000)
-				]
+			]
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
 		},
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			key: Some(Ss58Codec::from_ss58check("0x0").unwrap()),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
@@ -484,6 +490,9 @@ fn finney_genesis(
 		},
 		grandpa: GrandpaConfig {
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			key: Some(Ss58Codec::from_ss58check("0x0").unwrap()),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: SubtensorModuleConfig {

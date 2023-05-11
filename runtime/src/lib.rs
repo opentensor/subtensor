@@ -352,6 +352,11 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 
 type EnsureMajorityCouncil = pallet_collective::EnsureProportionMoreThan<AccountId, ManagerCollective, 1, 2>;
 
+impl pallet_sudo::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
 	pub const SubtensorInitialRho: u16 = 10;
@@ -454,7 +459,8 @@ construct_runtime!(
 		SubtensorModule: pallet_subtensor,
 		Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		CouncilMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-		Utility: pallet_utility
+		Utility: pallet_utility,
+		Sudo: pallet_sudo,
 	}
 );
 
