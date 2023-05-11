@@ -579,6 +579,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		Sudid ( DispatchResult ), // --- Event created when a sudo call is done.
 	}
 
 	// Errors inform users that something went wrong.
