@@ -324,8 +324,8 @@ impl pallet_sudo::Config for Runtime {
 // Configure collective pallet for council
 parameter_types! {
 	pub const CouncilMotionDuration: BlockNumber = 3 * MINUTES;
-	pub const CouncilMaxProposals: u32 = 100;
-	pub const CouncilMaxMembers: u32 = 100;
+	pub const CouncilMaxProposals: u32 = 10;
+	pub const CouncilMaxMembers: u32 = 3;
 }
 
 type ManagerCollective = pallet_collective::Instance1;
