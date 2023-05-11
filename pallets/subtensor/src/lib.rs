@@ -1560,7 +1560,7 @@ pub mod pallet {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
 		}  
     
-    /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+    	/// Authenticates a council proposal and dispatches a function call with `Root` origin.
 		///
 		/// The dispatch origin for this call must be a council majority.
 		///
