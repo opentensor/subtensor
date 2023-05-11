@@ -316,11 +316,6 @@ impl pallet_transaction_payment::Config for Runtime {
 	//type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
-impl pallet_sudo::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-}
-
 // Configure collective pallet for council
 parameter_types! {
 	pub const CouncilMotionDuration: BlockNumber = 3 * MINUTES;
