@@ -32,6 +32,8 @@ alice_start=(
 	--rpc-port 9934
 	--validator
 	--rpc-cors=all
+	--allow-private-ipv4
+	--discover-local
 )
 
 bob_start=(
@@ -43,7 +45,8 @@ bob_start=(
 	--ws-port 9947
 	--rpc-port 9935
 	--validator
-	--bootnodes "/ip4/127.0.0.1/tcp/30334/p2p/12D3KooWBBUaVWE5SYj3UvnoXojfS8fvPorw5biRDaDQV7XXwCXm"
+	--allow-private-ipv4
+	--discover-local
 )
 
 (trap 'kill 0' SIGINT; ("${alice_start[@]}" 2>&1) & ("${bob_start[@]}" 2>&1))
