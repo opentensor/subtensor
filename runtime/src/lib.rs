@@ -12,7 +12,7 @@ use pallet_grandpa::{
 };
 
 use frame_support::{pallet_prelude::Get, traits::EitherOfDiverse};
-use frame_system::{EnsureRoot, Config};
+use frame_system::{EnsureRoot, Config, EnsureNever};
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -332,30 +332,23 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type MaxMembers = CouncilMaxMembers;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureRootOrMajorityCouncil;
+	type SetMembersOrigin = EnsureNever<AccountId>;
 }
 
 impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type AddOrigin = EnsureRootOrMajorityCouncil;
-	type RemoveOrigin = EnsureRootOrMajorityCouncil;
-	type SwapOrigin = EnsureRootOrMajorityCouncil;
-	type ResetOrigin = EnsureRootOrMajorityCouncil;
-	type PrimeOrigin = EnsureRootOrMajorityCouncil;
+	type AddOrigin = EnsureMajorityCouncil;
+	type RemoveOrigin = EnsureMajorityCouncil;
+	type SwapOrigin = EnsureMajorityCouncil;
+	type ResetOrigin = EnsureMajorityCouncil;
+	type PrimeOrigin = EnsureMajorityCouncil;
 	type MembershipInitialized = Council;
 	type MembershipChanged = Council;
 	type MaxMembers = CouncilMaxMembers;
 	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
-//type CouncilOrigin = pallet_collective::EnsureMember<AccountId, ManagerCollective>;
-
-// set up a custom origin using collective pallet
-// Custom origin that ensures either root or at least half of the collective's approval
-type EnsureRootOrMajorityCouncil = EitherOfDiverse<
-	EnsureRoot<AccountId>,
-	pallet_collective::EnsureProportionMoreThan<AccountId, ManagerCollective, 1, 2>
->;
+type EnsureMajorityCouncil = pallet_collective::EnsureProportionMoreThan<AccountId, ManagerCollective, 1, 2>;
 
 // Configure the pallet subtensor.
 parameter_types! {
