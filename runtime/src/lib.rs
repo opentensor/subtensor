@@ -398,7 +398,10 @@ parameter_types! {
 
 impl pallet_subtensor::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type SudoRuntimeCall = RuntimeCall;
 	type Currency = Balances;
+	type CouncilOrigin = EnsureMajorityCouncil;
+
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;
 	type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;

@@ -88,6 +88,14 @@ pub mod pallet {
 		// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// A sudo-able call.
+		type SudoRuntimeCall: Parameter
+		+ UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+		+ GetDispatchInfo;
+
+		/// Origin checking for council majority
+		type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		// --- Currency type that will be used to place deposits on neurons
 		type Currency: Currency<Self::AccountId> + Send + Sync;
 

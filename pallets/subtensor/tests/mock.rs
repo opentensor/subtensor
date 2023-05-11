@@ -148,6 +148,8 @@ impl pallet_subtensor::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type InitialIssuance = InitialIssuance;
+	type SudoRuntimeCall = TestRuntimeCall;
+	type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
 
 	type InitialMinAllowedWeights = InitialMinAllowedWeights;
 	type InitialEmissionValue  = InitialEmissionValue;
