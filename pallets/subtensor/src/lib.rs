@@ -1575,12 +1575,38 @@ pub mod pallet {
 			// This is a public call, so we ensure that the origin is a council majority.
 			T::CouncilOrigin::ensure_origin(origin)?;
 
-			let res = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
-			let error = res.map(|_| ()).map_err(|e| e.error);
+			let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			let error = result.map(|_| ()).map_err(|e| e.error);
 			Self::deposit_event(Event::Sudid(error));
 			
-			res // Return the result of our call
+			return result
 		}
+
+		/// Authenticates a council proposal and dispatches a function call with `Root` origin.
+		/// This function does not check the weight of the call, and instead allows the
+		/// user to specify the weight of the call.
+		///
+		/// The dispatch origin for this call must be a council majority.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(52)]
+		#[pallet::weight((*_weight, call.get_dispatch_info().class, Pays::No))]
+		pub fn sudo_unchecked_weight(
+			origin: OriginFor<T>,
+			call: Box<T::SudoRuntimeCall>,
+			_weight: Weight,
+		) -> DispatchResultWithPostInfo {
+			// This is a public call, so we ensure that the origin is a council majority.
+			T::CouncilOrigin::ensure_origin(origin)?;
+
+			let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			let error = result.map(|_| ()).map_err(|e| e.error);
+			Self::deposit_event(Event::Sudid(error));
+			
+			return result
+		}
+
 	}	
 
 	// ---- Subtensor helper functions.
