@@ -318,7 +318,7 @@ impl pallet_transaction_payment::Config for Runtime {
 
 // Configure collective pallet for council
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 3 * MINUTES;
+	pub const CouncilMotionDuration: BlockNumber = 1 * DAYS;
 	pub const CouncilMaxProposals: u32 = 10;
 	pub const CouncilMaxMembers: u32 = 3;
 }
