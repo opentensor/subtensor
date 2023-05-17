@@ -36,7 +36,7 @@ pallet-utility = { git = "https://github.com/paritytech/substrate", default-feat
 ndarray = { version = "0.15.0", default-features = false }
 
 # Used for sudo decentralization
-pallet-collective = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39", features = ["std"] }
