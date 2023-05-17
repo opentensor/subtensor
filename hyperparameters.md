@@ -8,7 +8,7 @@ TxRateLimit: u64 = 1; // [1 @ 64,888]
 ```rust
 Rho: u16 = 10;
 Kappa: u16 = 32_767; // 0.5 = 65535/2 
-MaxAllowedUids: u16 = 512;
+MaxAllowedUids: u16 = 1024;
 Issuance: u64 = 0;
 MinAllowedWeights: u16 = 8;
 EmissionValue: u64 = 142_223_000;
@@ -22,7 +22,7 @@ ValidatorPruneLen: u64 = 1;
 ValidatorLogitsDivergence: u16 = 1310; // 2% of u16
 ScalingLawPower: u16 = 50; // 0.5
 SynergyScalingLawPower: u16 = 50; // 0.5
-MaxAllowedValidators: u16 = 64;
+MaxAllowedValidators: u16 = 128;
 Tempo: u16 = 99;
 Difficulty: u64 = 10_000_000;
 AdjustmentInterval: u16 = 225;
