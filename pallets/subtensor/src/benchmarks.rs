@@ -54,6 +54,7 @@ benchmarks! {
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
 
     assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
+	assert_ok!(Subtensor::<T>::do_sudo_set_target_registrations_per_interval(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
     
     let mut seed : u32 = 1; 
     let mut dests: Vec<u16> = vec![];
