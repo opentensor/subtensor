@@ -27,20 +27,18 @@ benchmarks! {
     let netuid: u16 = 1; //11 is the benchmark network.
     let tempo: u16 = 1;
     let modality: u16 = 0;
-    let mut seed : u32 = 1;
+    let seed : u32 = 1;
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
-    let hotkey: T::AccountId = account("Alice", 0, seed);
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &caller);
 
     assert_ok!(Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let hotkey: T::AccountId = account("Alice", 0, seed);
     let coldkey: T::AccountId = account("Test", 0, seed);
         
-  }: register( RawOrigin::Signed( caller.clone() ), netuid, block_number, nonce, work, hotkey, coldkey )
+  }: register( RawOrigin::Signed( caller.clone() ), netuid, block_number, nonce, work, caller.clone(), coldkey )
 
   benchmark_set_weights {
     
@@ -55,7 +53,7 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
 
-   assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
+    assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
     
     let mut seed : u32 = 1; 
     let mut dests: Vec<u16> = vec![];
