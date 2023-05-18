@@ -51,7 +51,7 @@ use frame_support::{
 	codec::{Decode, Encode, MaxEncodedLen},
 	dispatch::{
 		DispatchError, DispatchResultWithPostInfo, Dispatchable, GetDispatchInfo, Pays,
-		PostDispatchInfo
+		PostDispatchInfo,
 	},
 	ensure,
 	traits::{
@@ -218,12 +218,6 @@ pub mod pallet {
 
 		/// Origin allowed to set collective members
 		type SetMembersOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-		/// Origin allowed to vote
-		type VoteOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
-
-		/// Origin allowed to propose
-		type ProposalOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 	}
 
 	#[pallet::genesis_config]
@@ -504,10 +498,10 @@ pub mod pallet {
 			proposal: Box<<T as Config<I>>::Proposal>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin.clone())?;
-			T::ProposalOrigin::ensure_origin(origin)?;
-		
+			let who = ensure_signed(origin)?;
 			let members = Self::members();
+			ensure!(members.contains(&who), Error::<T, I>::NotMember);
+
 			if threshold < 2 {
 				let (proposal_len, result) = Self::do_propose_execute(proposal, length_bound)?;
 
@@ -550,10 +544,10 @@ pub mod pallet {
 			#[pallet::compact] index: ProposalIndex,
 			approve: bool,
 		) -> DispatchResultWithPostInfo {
-			let who = ensure_signed(origin.clone())?;
-			T::VoteOrigin::ensure_origin(origin)?;
-
+			let who = ensure_signed(origin)?;
 			let members = Self::members();
+			ensure!(members.contains(&who), Error::<T, I>::NotMember);
+
 			// Detects first vote of the member in the motion
 			let is_account_voting_first_time = Self::do_vote(who, proposal, index, approve)?;
 
