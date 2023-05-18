@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Get the previous axon information.
         let mut prev_axon = Self::get_axon_info( netuid, &hotkey_id );
         let current_block:u64 = Self::get_current_block_as_u64();
-        ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded );  
+        ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded ); 
 
         // --- 6. We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
@@ -90,13 +90,18 @@ impl<T: Config> Pallet<T> {
         prev_axon.protocol = protocol;
         prev_axon.placeholder1 = placeholder1;
         prev_axon.placeholder2 = placeholder2;
+
+		// --- 7. Validate axon data with delegate func
+		let axon_validated = Self::validate_axon_data(&prev_axon);
+		ensure!( axon_validated.is_ok(), axon_validated.err().unwrap_or(Error::<T>::InvalidPort) );
+
         Axons::<T>::insert( netuid, hotkey_id.clone(), prev_axon );
 
-        // --- 7. We deposit axon served event.
+        // --- 8. We deposit axon served event.
         log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone() );
         Self::deposit_event(Event::AxonServed( netuid, hotkey_id ));
 
-        // --- 8. Return is successful dispatch. 
+        // --- 9. Return is successful dispatch. 
         Ok(())
     }
 
@@ -170,13 +175,19 @@ impl<T: Config> Pallet<T> {
         prev_prometheus.ip = ip;
         prev_prometheus.port = port;
         prev_prometheus.ip_type = ip_type;
+
+		// --- 7. Validate prometheus data with delegate func
+		let prom_validated = Self::validate_prometheus_data(&prev_prometheus);
+		ensure!( prom_validated.is_ok(), prom_validated.err().unwrap_or(Error::<T>::InvalidPort) );
+
+		// --- 8. Insert new prometheus data
         Prometheus::<T>::insert( netuid, hotkey_id.clone(), prev_prometheus );
 
-        // --- 7. We deposit prometheus served event.
+        // --- 9. We deposit prometheus served event.
         log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone() );
         Self::deposit_event(Event::PrometheusServed( netuid, hotkey_id ));
 
-        // --- 8. Return is successful dispatch. 
+        // --- 10. Return is successful dispatch. 
         Ok(())
     }
 
@@ -263,5 +274,20 @@ impl<T: Config> Pallet<T> {
         return true;
     }
 
+	pub fn validate_axon_data(axon_info: &AxonInfoOf) -> Result<bool, pallet::Error<T>> {
+		if axon_info.port.clamp(0, u16::MAX) <= 0 {
+			return Err(Error::<T>::InvalidPort);
+		}
+
+		Ok(true)
+	}
+
+	pub fn validate_prometheus_data(prom_info: &PrometheusInfoOf) -> Result<bool, pallet::Error<T>> {
+		if prom_info.port.clamp(0, u16::MAX) <= 0 {
+			return Err(Error::<T>::InvalidPort);
+		}
+
+		Ok(true)
+	}
 
 }
