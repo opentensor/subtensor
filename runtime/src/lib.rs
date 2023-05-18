@@ -6,12 +6,13 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::Encode;
+use codec::{Encode, Decode};
+use pallet_collective::EnsureMember;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::{pallet_prelude::Get, traits::EitherOfDiverse};
+use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin}, traits::EitherOfDiverse, RuntimeDebug};
 use frame_system::{EnsureRoot, Config, EnsureNever};
 
 use smallvec::smallvec;
@@ -75,6 +76,9 @@ pub type Index = u32;
 
 // A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
+
+// Member type for membership
+type MemberCount = u32;
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -323,9 +327,12 @@ parameter_types! {
 	pub const CouncilMaxMembers: u32 = 3;
 }
 
-type ManagerCollective = pallet_collective::Instance1;
-// We call pallet_collective ManagerCollective
-impl pallet_collective::Config<ManagerCollective> for Runtime{
+type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountId, SenateCollective, 1, 2>;
+type EnsureSenateMember = pallet_collective::EnsureMember<AccountId, SenateCollective>;
+
+// We call pallet_collective TriumvirateCollective
+type TriumvirateCollective = pallet_collective::Instance1;
+impl pallet_collective::Config<TriumvirateCollective> for Runtime{
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall; 
 	type RuntimeEvent = RuntimeEvent;
@@ -335,22 +342,56 @@ impl pallet_collective::Config<ManagerCollective> for Runtime{
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureNever<AccountId>;
+	type ProposalOrigin = EnsureMember<AccountId, TriumvirateMembership>;
+	type VoteOrigin = EnsureSenateMember;
 }
 
-impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
+// We call council members Triumvirate
+type TriumvirateMembership = pallet_membership::Instance1;
+impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AddOrigin = EnsureRoot<AccountId>;
 	type RemoveOrigin = EnsureRoot<AccountId>;
 	type SwapOrigin = EnsureRoot<AccountId>;
 	type ResetOrigin = EnsureRoot<AccountId>;
 	type PrimeOrigin = EnsureRoot<AccountId>;
-	type MembershipInitialized = Council;
-	type MembershipChanged = Council;
+	type MembershipInitialized = Triumvirate;
+	type MembershipChanged = Triumvirate;
 	type MaxMembers = CouncilMaxMembers;
 	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
-type EnsureMajorityCouncil = pallet_collective::EnsureProportionMoreThan<AccountId, ManagerCollective, 1, 2>;
+// This is a dummy collective instance for managing senate members
+// Probably not the best solution, but fastest implementation
+type SenateCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<SenateCollective> for Runtime{
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall; 
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = CouncilMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureNever<AccountId>;
+	type ProposalOrigin = EnsureNever<AccountId>;
+	type VoteOrigin = EnsureNever<AccountId>;
+}
+
+// We call our top K delegates membership Senate
+type SenateMembership = pallet_membership::Instance2;
+impl pallet_membership::Config<SenateMembership> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRoot<AccountId>;
+	type RemoveOrigin = EnsureRoot<AccountId>;
+	type SwapOrigin = EnsureRoot<AccountId>;
+	type ResetOrigin = EnsureRoot<AccountId>;
+	type PrimeOrigin = EnsureRoot<AccountId>;
+	type MembershipInitialized = Senate;
+	type MembershipChanged = Senate;
+	type MaxMembers = CouncilMaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
+}
 
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
@@ -401,7 +442,7 @@ impl pallet_subtensor::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SudoRuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type CouncilOrigin = EnsureMajorityCouncil;
+	type CouncilOrigin = EnsureMajoritySenate;
 
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;
@@ -457,8 +498,10 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		SubtensorModule: pallet_subtensor,
-		Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-		CouncilMembership: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
 	}
