@@ -327,7 +327,12 @@ parameter_types! {
 	pub const CouncilMaxMembers: u32 = 3;
 }
 
-use pallet_collective::{CanPropose, CanVote};
+// Configure collective pallet for Senate
+parameter_types! {
+	pub const SenateMaxMembers: u32 = 10;
+}
+
+use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
 pub struct CanProposeToTriumvirate;
 impl CanPropose<AccountId> for CanProposeToTriumvirate {
 	fn can_propose(account: &AccountId) -> bool {
@@ -403,7 +408,7 @@ impl pallet_membership::Config<SenateMembership> for Runtime {
 	type PrimeOrigin = EnsureRoot<AccountId>;
 	type MembershipInitialized = Senate;
 	type MembershipChanged = Senate;
-	type MaxMembers = CouncilMaxMembers;
+	type MaxMembers = SenateMaxMembers;
 	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
