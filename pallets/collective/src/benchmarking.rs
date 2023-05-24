@@ -71,7 +71,6 @@ benchmarks_instance_pallet! {
 				let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, length) }.into();
 				Collective::<T, I>::propose(
 					SystemOrigin::Signed(old_members.last().unwrap().clone()).into(),
-					threshold,
 					Box::new(proposal.clone()),
 					MAX_BYTES,
 				)?;
@@ -135,37 +134,6 @@ benchmarks_instance_pallet! {
 		);
 	}
 
-	// This tests when execution would happen immediately after proposal
-	propose_execute {
-		let b in 2 .. MAX_BYTES;
-		let m in 1 .. T::MaxMembers::get();
-
-		let bytes_in_storage = b + size_of::<u32>() as u32;
-
-		// Construct `members`.
-		let mut members = vec![];
-		for i in 0 .. m - 1 {
-			let member = account::<T::AccountId>("member", i, SEED);
-			members.push(member);
-		}
-
-		let caller: T::AccountId = whitelisted_caller();
-		members.push(caller.clone());
-
-		Collective::<T, I>::set_members(SystemOrigin::Root.into(), members, None, T::MaxMembers::get())?;
-
-		let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(1, b as usize) }.into();
-		let threshold = 1;
-
-	}: propose(SystemOrigin::Signed(caller), threshold, Box::new(proposal.clone()), bytes_in_storage)
-	verify {
-		let proposal_hash = T::Hashing::hash_of(&proposal);
-		// Note that execution fails due to mis-matched origin
-		assert_last_event::<T, I>(
-			Event::Executed { proposal_hash, result: Err(DispatchError::BadOrigin) }.into()
-		);
-	}
-
 	// This tests when proposal is created and queued as "proposed"
 	propose_proposed {
 		let b in 2 .. MAX_BYTES;
@@ -191,7 +159,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
-				threshold,
 				Box::new(proposal),
 				bytes_in_storage,
 			)?;
@@ -201,7 +168,7 @@ benchmarks_instance_pallet! {
 
 		let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(p, b as usize) }.into();
 
-	}: propose(SystemOrigin::Signed(caller.clone()), threshold, Box::new(proposal.clone()), bytes_in_storage)
+	}: propose(SystemOrigin::Signed(caller.clone()), Box::new(proposal.clone()), bytes_in_storage)
 	verify {
 		// New proposal is recorded
 		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
@@ -239,7 +206,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(proposer.clone()).into(),
-				threshold,
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
@@ -314,7 +280,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, bytes as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(proposer.clone()).into(),
-				threshold,
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
@@ -391,7 +356,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
-				threshold,
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
@@ -477,7 +441,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, bytes as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
-				threshold,
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
@@ -559,7 +522,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
-				threshold,
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
@@ -630,7 +592,6 @@ benchmarks_instance_pallet! {
 			let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, b as usize) }.into();
 			Collective::<T, I>::propose(
 				SystemOrigin::Signed(caller.clone()).into(),
-				threshold,
 				Box::new(proposal.clone()),
 				bytes_in_storage,
 			)?;
