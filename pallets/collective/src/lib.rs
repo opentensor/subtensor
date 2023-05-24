@@ -450,6 +450,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			let members = Self::members();
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
+
 			let proposal_len = proposal.encoded_size();
 			ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
 
@@ -487,53 +488,33 @@ pub mod pallet {
 		///     - `P2` is proposals-count (code-bounded) (`threshold >= 2`)
 		#[pallet::call_index(2)]
 		#[pallet::weight((
-			if *threshold < 2 {
-				T::WeightInfo::propose_execute(
-					*length_bound, // B
-					T::MaxMembers::get(), // M
-				).saturating_add(proposal.get_dispatch_info().weight) // P1
-			} else {
-				T::WeightInfo::propose_proposed(
-					*length_bound, // B
-					T::MaxMembers::get(), // M
-					T::MaxProposals::get(), // P2
-				)
-			},
+			T::WeightInfo::propose_proposed(
+				*length_bound, // B
+				T::MaxMembers::get(), // M
+				T::MaxProposals::get(), // P2
+			),
 			DispatchClass::Operational
 		))]
 		pub fn propose(
 			origin: OriginFor<T>,
-			#[pallet::compact] threshold: MemberCount,
 			proposal: Box<<T as Config<I>>::Proposal>,
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 			ensure!(T::CanPropose::can_propose(&who), Error::<T, I>::NotMember);
+
+			let threshold = (T::GetVotingMembers::get_count() / 2) + 1;
 		
 			let members = Self::members();
-			if threshold < 2 {
-				let (proposal_len, result) = Self::do_propose_execute(proposal, length_bound)?;
+			let (proposal_len, active_proposals) =
+				Self::do_propose_proposed(who, threshold, proposal, length_bound)?;
 
-				Ok(get_result_weight(result)
-					.map(|w| {
-						T::WeightInfo::propose_execute(
-							proposal_len as u32,  // B
-							members.len() as u32, // M
-						)
-						.saturating_add(w) // P1
-					})
-					.into())
-			} else {
-				let (proposal_len, active_proposals) =
-					Self::do_propose_proposed(who, threshold, proposal, length_bound)?;
-
-				Ok(Some(T::WeightInfo::propose_proposed(
-					proposal_len as u32,  // B
-					members.len() as u32, // M
-					active_proposals,     // P2
-				))
-				.into())
-			}
+			Ok(Some(T::WeightInfo::propose_proposed(
+				proposal_len as u32,  // B
+				members.len() as u32, // M
+				active_proposals,     // P2
+			))
+			.into())
 		}
 
 		/// Add an aye or nay vote for the sender to the given proposal.
@@ -834,7 +815,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		let mut no_votes = voting.nays.len() as MemberCount;
 		let mut yes_votes = voting.ayes.len() as MemberCount;
-		let seats = Self::members().len() as MemberCount;
+		let seats = T::GetVotingMembers::get_count() as MemberCount;
 		let approved = yes_votes >= voting.threshold;
 		let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
 		// Allow (dis-)approving the proposal as soon as there are enough votes.
