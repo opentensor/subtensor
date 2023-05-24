@@ -2,7 +2,7 @@
 name = "node-subtensor-runtime"
 version = "4.0.0-dev"
 description = "Subtensor network"
-authors = ["Opentensor foundation <https://github.com/opentensor/>"]
+authors = ["Opentensor Foundation <https://github.com/opentensor/>"]
 homepage = "https://opentensor.ai/"
 edition = "2021"
 license = "Unlicense"
