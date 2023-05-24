@@ -15,6 +15,7 @@ use frame_support::{
 	dispatch::{
 		DispatchInfo,
 		PostDispatchInfo,
+		DispatchResult
 	}, ensure, 
 	traits::{
 		Currency, 
@@ -108,6 +109,8 @@ pub mod pallet {
 
 		// --- Currency type that will be used to place deposits on neurons
 		type Currency: Currency<Self::AccountId> + Send + Sync;
+
+		type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -1851,3 +1854,25 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
 }
 
+/// Trait for managing a membership pallet instance in the runtime
+pub trait MemberManagement<AccountId> {
+	/// Add member
+	fn add_member(account: &AccountId) -> DispatchResult;
+
+	// Remove a member
+	fn remove_member(account: &AccountId) -> DispatchResult;
+
+	// Check if an account is apart of the set
+	fn is_member(account: &AccountId) -> bool;
+}
+
+impl<T> MemberManagement<T> for () {
+	/// Add member
+	fn add_member(_: &T) -> DispatchResult {Ok(())}
+
+	// Remove a member
+	fn remove_member(_: &T) -> DispatchResult {Ok(())}
+
+	// Check if an account is apart of the set
+	fn is_member(_: &T) -> bool {false}
+}

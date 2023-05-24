@@ -12,8 +12,8 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin}, traits::EitherOfDiverse, RuntimeDebug};
-use frame_system::{EnsureRoot, Config, EnsureNever};
+use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin, DispatchResult}, traits::EitherOfDiverse, RuntimeDebug};
+use frame_system::{EnsureRoot, Config, EnsureNever, RawOrigin};
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -347,6 +347,24 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 	}
 }
 
+use pallet_subtensor::MemberManagement;
+pub struct ManageSenateMembers;
+impl MemberManagement<AccountId> for ManageSenateMembers {
+	fn add_member(account: &AccountId) -> DispatchResult {
+		let who = Address::Id( account.clone() );
+		SenateMembers::add_member(RawOrigin::Root.into(), who)
+	}
+
+	fn remove_member(account: &AccountId) -> DispatchResult {
+		let who = Address::Id( account.clone() );
+		SenateMembers::remove_member(RawOrigin::Root.into(), who)
+	}
+
+	fn is_member(account: &AccountId) -> bool {
+		Senate::is_member(account)
+	}
+}
+
 pub struct GetSenateMemberCount;
 impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
 	fn get_count() -> MemberCount {Senate::members().len() as u32}
@@ -359,7 +377,7 @@ type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountI
 
 // We call pallet_collective TriumvirateCollective
 type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Runtime{
+impl pallet_collective::Config<TriumvirateCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall; 
 	type RuntimeEvent = RuntimeEvent;
@@ -392,7 +410,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 // This is a dummy collective instance for managing senate members
 // Probably not the best solution, but fastest implementation
 type SenateCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<SenateCollective> for Runtime{
+impl pallet_collective::Config<SenateCollective> for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type Proposal = RuntimeCall; 
 	type RuntimeEvent = RuntimeEvent;
@@ -472,6 +490,7 @@ impl pallet_subtensor::Config for Runtime {
 	type SudoRuntimeCall = RuntimeCall;
 	type Currency = Balances;
 	type CouncilOrigin = EnsureMajoritySenate;
+	type SenateMembers = ManageSenateMembers;
 
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;
