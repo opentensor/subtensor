@@ -463,7 +463,7 @@ fn testnet_genesis(
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
 		sudo: SudoConfig {
-			key: Some(Ss58Codec::from_ss58check("0x0").unwrap()),
+			key: Some(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap()),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
@@ -516,7 +516,7 @@ fn finney_genesis(
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
 		sudo: SudoConfig {
-			key: Some(Ss58Codec::from_ss58check("0x0").unwrap()),
+			key: Some(Ss58Codec::from_ss58check("5FCM3DBXWiGcwYYQtT8z4ZD93TqYpYxjaAfgv6aMStV1FTCT").unwrap()),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: SubtensorModuleConfig {
