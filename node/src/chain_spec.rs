@@ -389,7 +389,10 @@ fn localnet_genesis(
 			balances: vec![ 
 				(get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
 				(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
-				(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000)
+				(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
 			]
 		},
 		aura: AuraConfig {
@@ -420,7 +423,11 @@ fn localnet_genesis(
 			phantom: Default::default(),
 		},
 		senate_members: SenateMembersConfig {
-			members: Default::default(),
+			members: bounded_vec![
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			],
 			phantom: Default::default()
 		}
 	}
