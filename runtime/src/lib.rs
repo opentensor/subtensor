@@ -347,7 +347,15 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 	}
 }
 
-type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountId, SenateCollective, 1, 2>;
+pub struct GetSenateMemberCount;
+impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
+	fn get_count() -> MemberCount {Senate::members().len() as u32}
+}
+impl Get<MemberCount> for GetSenateMemberCount {
+	fn get() -> MemberCount {SenateMaxMembers::get()}
+}
+
+type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
 
 // We call pallet_collective TriumvirateCollective
 type TriumvirateCollective = pallet_collective::Instance1;
@@ -357,12 +365,13 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime{
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
 	type MaxProposals = CouncilMaxProposals;
-	type MaxMembers = CouncilMaxMembers;
+	type MaxMembers = GetSenateMemberCount;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureNever<AccountId>;
 	type CanPropose = CanProposeToTriumvirate;
 	type CanVote = CanVoteToTriumvirate;
+	type GetVotingMembers = GetSenateMemberCount;
 }
 
 // We call council members Triumvirate
@@ -389,12 +398,13 @@ impl pallet_collective::Config<SenateCollective> for Runtime{
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
 	type MaxProposals = CouncilMaxProposals;
-	type MaxMembers = CouncilMaxMembers;
+	type MaxMembers = SenateMaxMembers;
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureNever<AccountId>;
 	type CanPropose = ();
 	type CanVote = ();
+	type GetVotingMembers = ();
 }
 
 // We call our top K delegates membership Senate
