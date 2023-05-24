@@ -327,8 +327,22 @@ parameter_types! {
 	pub const CouncilMaxMembers: u32 = 3;
 }
 
+use pallet_collective::{CanPropose, CanVote};
+pub struct CanProposeToTriumvirate;
+impl CanPropose<AccountId> for CanProposeToTriumvirate {
+	fn can_propose(account: &AccountId) -> bool {
+		Triumvirate::is_member(account)
+	}
+}
+
+pub struct CanVoteToTriumvirate;
+impl CanVote<AccountId> for CanVoteToTriumvirate {
+	fn can_vote(account: &AccountId) -> bool {
+		Senate::is_member(account)
+	}
+}
+
 type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountId, SenateCollective, 1, 2>;
-type EnsureSenateMember = pallet_collective::EnsureMember<AccountId, SenateCollective>;
 
 // We call pallet_collective TriumvirateCollective
 type TriumvirateCollective = pallet_collective::Instance1;
@@ -342,8 +356,8 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime{
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureNever<AccountId>;
-	type ProposalOrigin = EnsureMember<AccountId, TriumvirateMembership>;
-	type VoteOrigin = EnsureSenateMember;
+	type CanPropose = CanProposeToTriumvirate;
+	type CanVote = CanVoteToTriumvirate;
 }
 
 // We call council members Triumvirate
@@ -374,8 +388,8 @@ impl pallet_collective::Config<SenateCollective> for Runtime{
 	type DefaultVote = pallet_collective::PrimeDefaultVote;
 	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 	type SetMembersOrigin = EnsureNever<AccountId>;
-	type ProposalOrigin = EnsureNever<AccountId>;
-	type VoteOrigin = EnsureNever<AccountId>;
+	type CanPropose = ();
+	type CanVote = ();
 }
 
 // We call our top K delegates membership Senate

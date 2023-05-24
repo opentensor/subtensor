@@ -225,8 +225,8 @@ pub mod pallet {
 		/// Origin allowed to vote
 		type CanVote: CanVote<Self::AccountId>;
 
-		/// Origin allowed to propose
-		type ProposalOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+		/// Members to expect in a vote
+		type GetVotingMembers: GetVotingMembers<MemberCount>;
 	}
 
 	#[pallet::genesis_config]
