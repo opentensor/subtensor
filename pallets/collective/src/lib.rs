@@ -219,8 +219,11 @@ pub mod pallet {
 		/// Origin allowed to set collective members
 		type SetMembersOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
 
+		/// Origin allowed to propose
+		type CanPropose: CanPropose<Self::AccountId>;
+
 		/// Origin allowed to vote
-		type VoteOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
+		type CanVote: CanVote<Self::AccountId>;
 
 		/// Origin allowed to propose
 		type ProposalOrigin: EnsureOrigin<<Self as frame_system::Config>::RuntimeOrigin>;
@@ -505,7 +508,7 @@ pub mod pallet {
 			#[pallet::compact] length_bound: u32,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
-			T::ProposalOrigin::ensure_origin(origin)?;
+			ensure!(T::CanPropose::can_propose(&who), Error::<T, I>::NotMember);
 		
 			let members = Self::members();
 			if threshold < 2 {
@@ -551,7 +554,7 @@ pub mod pallet {
 			approve: bool,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
-			T::VoteOrigin::ensure_origin(origin)?;
+			ensure!(T::CanVote::can_vote(&who), Error::<T, I>::NotMember);
 
 			let members = Self::members();
 			// Detects first vote of the member in the motion
@@ -1152,4 +1155,32 @@ impl<
 	fn try_successful_origin() -> Result<O, ()> {
 		Ok(O::from(RawOrigin::Members(0u32, 0u32)))
 	}
+}
+
+/// CanPropose
+pub trait CanPropose<AccountId> {
+	/// Check whether or not the passed AccountId can propose a new motion
+	fn can_propose(account: &AccountId) -> bool;
+}
+
+impl<T> CanPropose<T> for () {
+	fn can_propose(_: &T) -> bool {false}
+}
+
+/// CanVote
+pub trait CanVote<AccountId> {
+	/// Check whether or not the passed AccountId can vote on a motion
+	fn can_vote(account: &AccountId) -> bool;
+}
+
+impl<T> CanVote<T> for () {
+	fn can_vote(_: &T) -> bool {false}
+}
+
+pub trait GetVotingMembers<MemberCount> {
+	fn get_count() -> MemberCount;
+}
+
+impl GetVotingMembers<MemberCount> for () {
+	fn get_count() -> MemberCount {0}
 }
