@@ -1,14 +1,9 @@
 
 use super::*;
-use Collective::RawOrigin;
-use frame_support::{inherent::Vec, traits::ChangeMembers};
+use frame_support::{inherent::Vec};
 use sp_core::U256;
 use frame_support::pallet_prelude::DispatchResult;
 use crate::system::ensure_root;
-pub use pallet_collective::{self as Collective, EnsureMembers, Call as CollectiveCall, MemberCount, Members};
-use sp_core::Get;
-use frame_support::traits::EnsureOrigin;
-use sp_runtime::MultiAddress;
 
 impl<T: Config> Pallet<T> {
  
