@@ -35,9 +35,6 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
 ndarray = { version = "0.15.0", default-features = false }
 
-# Used for sudo decentralization
-pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
-
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39", features = ["std"] }
 sp-version = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
