@@ -593,5 +593,38 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 
   }: sudo_set_min_burn(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_burn)
+
+  benchmark_join_senate {
+    let netuid: u16 = 1;
+    let seed : u32 = 1;
+    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: T::AccountId = account("Test", 0, seed);
+    let modality: u16 = 0;
+    let tempo: u16 = 1;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000);
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+	
+	Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone())?;
+  }: join_senate(RawOrigin::Signed( hotkey.clone() ))
+
+  benchmark_leave_senate {
+    let netuid: u16 = 1;
+    let seed : u32 = 1;
+    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let coldkey: T::AccountId = account("Test", 0, seed);
+    let modality: u16 = 0;
+    let tempo: u16 = 1;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000);
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+
+	Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone())?;
+	Subtensor::<T>::do_join_senate(RawOrigin::Signed(hotkey.clone()).into())?;
+  }: leave_senate(RawOrigin::Signed( hotkey.clone() ))
 }
 
