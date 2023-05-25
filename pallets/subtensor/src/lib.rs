@@ -64,6 +64,7 @@ mod staking;
 mod utils;
 mod uids;
 mod weights;
+mod senate;
 
 pub mod delegate_info;
 pub mod neuron_info;
@@ -1610,6 +1611,25 @@ pub mod pallet {
 			return result
 		}
 
+		#[pallet::call_index(53)]
+		#[pallet::weight((Weight::from_ref_time(0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		pub fn join_senate( 
+			origin: OriginFor<T>, 
+		) -> DispatchResult { 
+			Self::do_join_senate(origin)
+		}
+
+		#[pallet::call_index(54)]
+		#[pallet::weight((Weight::from_ref_time(0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		pub fn leave_senate( 
+			origin: OriginFor<T>, 
+		) -> DispatchResult { 
+			Self::do_leave_senate(origin)
+		}
 	}	
 
 	// ---- Subtensor helper functions.
