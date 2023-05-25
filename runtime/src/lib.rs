@@ -360,8 +360,19 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
 		SenateMembers::remove_member(RawOrigin::Root.into(), who)
 	}
 
+	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
+		let remove = Address::Id( remove.clone() );
+		let add = Address::Id( add.clone() );
+
+		SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
+	}
+
 	fn is_member(account: &AccountId) -> bool {
 		Senate::is_member(account)
+	}
+
+	fn members() -> Vec<AccountId> {
+		Senate::members()
 	}
 }
 
