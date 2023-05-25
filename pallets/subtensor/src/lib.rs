@@ -1862,6 +1862,12 @@ pub trait MemberManagement<AccountId> {
 	// Remove a member
 	fn remove_member(account: &AccountId) -> DispatchResult;
 
+	// Swap member
+	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult;
+
+	// Get all members
+	fn members() -> Vec<AccountId>;
+
 	// Check if an account is apart of the set
 	fn is_member(account: &AccountId) -> bool;
 }
@@ -1872,6 +1878,12 @@ impl<T> MemberManagement<T> for () {
 
 	// Remove a member
 	fn remove_member(_: &T) -> DispatchResult {Ok(())}
+
+	// Swap member
+	fn swap_member(_: &T, _: &T) -> DispatchResult {Ok(())}
+
+	// Get all members
+	fn members() -> Vec<T> {vec![]}
 
 	// Check if an account is apart of the set
 	fn is_member(_: &T) -> bool {false}
