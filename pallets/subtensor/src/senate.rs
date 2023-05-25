@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
 				let a_stake = Self::get_total_stake_for_hotkey(a);
 				let b_stake = Self::get_total_stake_for_hotkey(b);
 
-				a_stake.cmp(&b_stake)
+				b_stake.cmp(&a_stake)
 			});
 
 			if let Some(last) = sorted_members.last() {
