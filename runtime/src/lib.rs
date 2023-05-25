@@ -374,6 +374,10 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
 	fn members() -> Vec<AccountId> {
 		Senate::members()
 	}
+
+	fn max_members() -> u32 {
+		SenateMaxMembers::get()
+	}
 }
 
 pub struct GetSenateMemberCount;

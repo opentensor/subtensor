@@ -1874,22 +1874,27 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
 }
 
+use frame_support::{inherent::Vec, sp_std::vec};
+
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
 	/// Add member
 	fn add_member(account: &AccountId) -> DispatchResult;
 
-	// Remove a member
+	/// Remove a member
 	fn remove_member(account: &AccountId) -> DispatchResult;
 
-	// Swap member
+	/// Swap member
 	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult;
 
-	// Get all members
+	/// Get all members
 	fn members() -> Vec<AccountId>;
 
-	// Check if an account is apart of the set
+	/// Check if an account is apart of the set
 	fn is_member(account: &AccountId) -> bool;
+
+	/// Get our maximum member count
+	fn max_members() -> u32;
 }
 
 impl<T> MemberManagement<T> for () {
@@ -1907,4 +1912,6 @@ impl<T> MemberManagement<T> for () {
 
 	// Check if an account is apart of the set
 	fn is_member(_: &T) -> bool {false}
+
+	fn max_members() -> u32 {0}
 }
