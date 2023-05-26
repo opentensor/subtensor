@@ -973,9 +973,10 @@ pub mod pallet {
 		//
 		//
 		#[pallet::call_index(3)]
-		#[pallet::weight((Weight::from_ref_time(66_000_000)
-		.saturating_add(T::DbWeight::get().reads(8))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(63_000_000)
+		.saturating_add(Weight::from_proof_size(43991))
+		.saturating_add(T::DbWeight::get().reads(14))
+		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
 		pub fn remove_stake(
 			origin: OriginFor<T>, 
 			hotkey: T::AccountId, 
