@@ -137,6 +137,9 @@ benchmarks! {
     let modality: u16 = 0;
     let seed : u32 = 1;
 
+	// Set our total stake to 1000 TAO
+	Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -145,18 +148,21 @@ benchmarks! {
     let hotkey: T::AccountId = account("Alice", 0, seed);
 	Subtensor::<T>::set_burn(netuid, 1);
 
-    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000);
-    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+    let wallet_bal = Subtensor::<T>::u64_to_balance(1000000);
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal.unwrap());
 
 	assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+	assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
-    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000000);
-    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+	// Stake 10% of our current total staked TAO
+	let u64_staked_amt = 100_000_000_000;
+    let amount_to_be_staked = Subtensor::<T>::u64_to_balance(u64_staked_amt);
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked.unwrap());
 
-    assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), 1000));
+    assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
 
-    let amount_unstaked: u64 = 1;
-
+    let amount_unstaked: u64 = u64_staked_amt - 1;
+	assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(hotkey.clone()).into()));
   }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), amount_unstaked)
 
   benchmark_serve_axon{
