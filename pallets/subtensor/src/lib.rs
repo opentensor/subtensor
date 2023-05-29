@@ -68,21 +68,24 @@ pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
 
+mod migration;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use frame_support::traits::Currency;
 	use frame_support::sp_std::vec;
-	
-	
 	use frame_support::inherent::Vec;
-	
 
+	// Tracks version for migrations. Should be monotonic with respect to the
+	// order of migrations. (i.e. always increasing)
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 	#[pallet::pallet]
 	#[pallet::generate_store(pub(super) trait Store)]
 	#[pallet::without_storage_info]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	// Configure the pallet by specifying the parameters and types on which it depends.
@@ -486,8 +489,8 @@ pub mod pallet {
 	pub(super) type Uids<T:Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> hotkey
 	pub(super) type Keys<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T> >;
-	#[pallet::storage] // --- DMAP ( netuid ) --> emission
-	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64)>, OptionQuery >;
+	#[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
+	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery >;
 
 	#[pallet::storage] // --- DMAP ( netuid ) --> active
 	pub(super) type Active<T:Config> = StorageMap< _, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
@@ -620,6 +623,7 @@ pub mod pallet {
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 		HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
+		IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
 	}
 
 	// ==================
@@ -751,6 +755,13 @@ pub mod pallet {
 			return Weight::from_ref_time(110_634_229_000 as u64)
 						.saturating_add(T::DbWeight::get().reads(8304 as u64))
 						.saturating_add(T::DbWeight::get().writes(110 as u64));
+		}
+
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			// --- Migrate to v2 
+			use crate::migration;
+
+			migration::migrate_to_v2_separate_emission::<T>()
 		}
 	}
 

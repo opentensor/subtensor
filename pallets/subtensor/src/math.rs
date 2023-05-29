@@ -1,5 +1,6 @@
 use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
+use sp_runtime::traits::CheckedAdd;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
 
@@ -86,6 +87,25 @@ pub fn check_vec_max_limited( vec: &Vec<u16>, max_limit: u16 ) -> bool {
 #[allow(dead_code)]
 pub fn sum( x: &Vec<I32F32> ) -> I32F32 { x.iter().sum() }
 
+#[allow(dead_code)]
+// Sums a Vector of type that has CheckedAdd trait.
+// Returns None if overflow occurs during sum using T::checked_add.
+// Returns Some(T::default()) if input vector is empty.
+pub fn checked_sum<T>( x: &Vec<T> ) -> Option<T>
+    where T: Copy + Default + CheckedAdd
+{   
+    if x.len() == 0 { return Some(T::default()) }
+    
+    let mut sum: T = x[0];
+    for i in x[1..].iter() {
+        match sum.checked_add( i ) {
+            Some(val) => sum = val,
+            None => return None
+        }
+    }
+    Some(sum)
+}
+
 // Return true when vector sum is zero.
 #[allow(dead_code)]
 pub fn is_zero( vector: &Vec<I32F32> ) -> bool {
@@ -164,6 +184,15 @@ pub fn normalize( x: &Vec<I32F32> ) -> Vec<I32F32> {
 #[allow(dead_code)]
 pub fn inplace_normalize( x: &mut Vec<I32F32> ) {
     let x_sum: I32F32 = x.iter().sum();
+    if x_sum == I32F32::from_num( 0.0 as f32 ){ return }
+    for i in 0..x.len() {
+        x[i] = x[i]/x_sum;
+    }
+}
+
+// Normalizes (sum to 1 except 0) the input vector directly in-place, using the sum arg.
+#[allow(dead_code)]
+pub fn inplace_normalize_using_sum( x: &mut Vec<I32F32>, x_sum: I32F32 ) {
     if x_sum == I32F32::from_num( 0.0 as f32 ){ return }
     for i in 0..x.len() {
         x[i] = x[i]/x_sum;
@@ -2699,6 +2728,26 @@ mod tests {
     fn test_vec_fixed64_to_fixed32_panics() {
         let bad_input = vec![ I64F64::from_num(i64::MAX) ];
         vec_fixed64_to_fixed32(bad_input);
+    }
+
+    #[test]
+    #[allow(arithmetic_overflow)]
+    fn test_checked_sum() {
+        let overflowing_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, u64::MAX ];
+        // Expect None when overflow occurs
+        assert_eq!(checked_sum(&overflowing_input), None);
+
+        let normal_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
+        // Expect Some when no overflow occurs
+        assert_eq!(checked_sum(&normal_input), Some(55));
+
+        let empty_input: Vec<u16> = vec![ ];
+        // Expect Some(u16::default()) when input is empty
+        assert_eq!(checked_sum(&empty_input), Some(u16::default()));
+
+        let single_input = vec![ 1 ];
+        // Expect Some(...) when input is a single value
+        assert_eq!(checked_sum(&single_input), Some(1));
     }
 }
 
