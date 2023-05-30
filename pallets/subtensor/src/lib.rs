@@ -104,11 +104,11 @@ pub mod pallet {
 		type InitialIssuance: Get<u64>;
 		#[pallet::constant] // Initial min allowed weights setting.
 		type InitialMinAllowedWeights: Get<u16>;
-		#[pallet::constant] // Initial Emission Ratio
+		#[pallet::constant] // Initial Emission Ratio.
 		type InitialEmissionValue: Get<u16>;
 		#[pallet::constant] // Initial max weight limit.
 		type InitialMaxWeightsLimit: Get<u16>;
-		#[pallet::constant] // Tempo for each network
+		#[pallet::constant] // Tempo for each network.
 		type InitialTempo: Get<u16>;
 		#[pallet::constant] // Initial Difficulty.
 		type InitialDifficulty: Get<u64>;
@@ -130,15 +130,15 @@ pub mod pallet {
 		type InitialBondsMovingAverage: Get<u64>;
 		#[pallet::constant] // Initial target registrations per interval.
 		type InitialTargetRegistrationsPerInterval: Get<u16>;
-		#[pallet::constant] // Rho constant
+		#[pallet::constant] // Rho constant.
 		type InitialRho: Get<u16>;
-		#[pallet::constant] // Kappa constant
+		#[pallet::constant] // Kappa constant.
 		type InitialKappa: Get<u16>;		
 		#[pallet::constant] // Max UID constant.
 		type InitialMaxAllowedUids: Get<u16>;
-		#[pallet::constant] // Default Batch size.
+		#[pallet::constant] // Default batch size.
 		type InitialValidatorBatchSize: Get<u16>;
-		#[pallet::constant] // Default Batch size.
+		#[pallet::constant] // Default Sequence length.
 		type InitialValidatorSequenceLen: Get<u16>;
 		#[pallet::constant] // Default Epoch length.
 		type InitialValidatorEpochLen: Get<u16>;
@@ -156,13 +156,13 @@ pub mod pallet {
 		type InitialSynergyScalingLawPower: Get<u16>;
 		#[pallet::constant] // Immunity Period Constant.
 		type InitialImmunityPeriod: Get<u16>;
-		#[pallet::constant] // Activity constant
+		#[pallet::constant] // Activity constant.
 		type InitialActivityCutoff: Get<u16>;
 		#[pallet::constant] // Initial max registrations per block.
 		type InitialMaxRegistrationsPerBlock: Get<u16>;
-		#[pallet::constant] // Initial pruning score for each neuron
+		#[pallet::constant] // Initial pruning score for each neuron.
 		type InitialPruningScore: Get<u16>;	
-		#[pallet::constant] // Initial allowed validators per network.
+		#[pallet::constant] // Initial maximum allowed validators per network.
 		type InitialMaxAllowedValidators: Get<u16>;
 		#[pallet::constant] // Initial default delegation take.
 		type InitialDefaultTake: Get<u16>;
@@ -208,7 +208,7 @@ pub mod pallet {
     pub type Owner<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
 	#[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T:Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
-	#[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a hotkey prefixed by hotkey.
+	#[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T:Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
 
 	// =====================================
@@ -237,7 +237,7 @@ pub mod pallet {
 
 	#[pallet::storage] // ---- StorageItem Global Used Work.
     pub type UsedWork<T:Config> = StorageMap<_, Identity, Vec<u8>, u64, ValueQuery>;
-	#[pallet::storage] // --- MAP ( netuid ) --> Difficulty
+	#[pallet::storage] // --- MAP ( netuid ) --> Burn
 	pub type Burn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBurn<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> Difficulty
 	pub type Difficulty<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultDifficulty<T> >;
@@ -251,7 +251,7 @@ pub mod pallet {
 	pub type MaxDifficulty<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMaxDifficulty<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) -->  Block at last adjustment.
 	pub type LastAdjustmentBlock<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastAdjustmentBlock<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> Registration this Block.
+	#[pallet::storage] // --- MAP ( netuid ) --> Registrations of this Block.
 	pub type RegistrationsThisBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRegistrationsThisBlock<T>>;
 	#[pallet::storage] // --- ITEM( global_max_registrations_per_block ) 
 	pub type MaxRegistrationsPerBlock<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T> >;
@@ -273,7 +273,7 @@ pub mod pallet {
 	pub fn DefaultIsNetworkMember<T: Config>() ->  bool { false }
 
 
-	#[pallet::storage] // --- ITEM( tota_number_of_existing_networks )
+	#[pallet::storage] // --- ITEM( total_number_of_existing_networks )
 	pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
 	#[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
 	pub type SubnetworkN<T:Config> = StorageMap< _, Identity, u16, u16, ValueQuery, DefaultN<T> >;
@@ -504,7 +504,7 @@ pub mod pallet {
 	pub(super) type Incentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
 	#[pallet::storage] // --- DMAP ( netuid ) --> dividends
 	pub(super) type Dividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> dividends
+	#[pallet::storage] // --- DMAP ( netuid ) --> emission
 	pub(super) type Emission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
 	#[pallet::storage] // --- DMAP ( netuid ) --> last_update
 	pub(super) type LastUpdate<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
@@ -531,22 +531,22 @@ pub mod pallet {
 		NetworkRemoved( u16 ), // --- Event created when a network is removed.
 		StakeAdded( T::AccountId, u64 ), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
 		StakeRemoved( T::AccountId, u64 ), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
-		WeightsSet( u16, u16 ), // ---- Event created when a caller successfully set's their weights on a subnetwork.
+		WeightsSet( u16, u16 ), // ---- Event created when a caller successfully sets their weights on a subnetwork.
 		NeuronRegistered( u16, u16, T::AccountId ), // --- Event created when a new neuron account has been registered to the chain.
 		BulkNeuronsRegistered( u16, u16 ), // --- Event created when multiple uids have been concurrently registered.
-		BulkBalancesSet(u16, u16),
-		MaxAllowedUidsSet( u16, u16 ), // --- Event created when max allowed uids has been set for a subnetwor.
-		MaxWeightLimitSet( u16, u16 ), // --- Event created when the max weight limit has been set.
+		BulkBalancesSet(u16, u16), // --- FIXME: Not used yet
+		MaxAllowedUidsSet( u16, u16 ), // --- Event created when max allowed uids has been set for a subnetwork.
+		MaxWeightLimitSet( u16, u16 ), // --- Event created when the max weight limit has been set for a subnetwork.
 		DifficultySet( u16, u64 ), // --- Event created when the difficulty has been set for a subnet.
 		AdjustmentIntervalSet( u16, u16 ), // --- Event created when the adjustment interval is set for a subnet.
 		RegistrationPerIntervalSet( u16, u16 ), // --- Event created when registeration per interval is set for a subnet.
-		MaxRegistrationsPerBlockSet( u16, u16), // --- Event created when we set max registrations per block
+		MaxRegistrationsPerBlockSet( u16, u16), // --- Event created when we set max registrations per block.
 		ActivityCutoffSet( u16, u16 ), // --- Event created when an activity cutoff is set for a subnet.
 		RhoSet( u16, u16 ), // --- Event created when Rho value is set.
-		KappaSet( u16, u16 ), // --- Event created when kappa is set for a subnet.
+		KappaSet( u16, u16 ), // --- Event created when Kappa is set for a subnet.
 		MinAllowedWeightSet( u16, u16 ), // --- Event created when minimun allowed weight is set for a subnet.
 		ValidatorBatchSizeSet( u16, u16 ), // --- Event created when validator batch size is set for a subnet.
-		ValidatorSequenceLengthSet( u16, u16 ), // --- Event created when validator sequence length i set for a subnet.
+		ValidatorSequenceLengthSet( u16, u16 ), // --- Event created when validator sequence length is set for a subnet.
 		ValidatorEpochPerResetSet( u16, u16 ), // --- Event created when validator epoch per reset is set for a subnet.
 		ValidatorExcludeQuantileSet( u16, u16 ), // --- Event created when the validator exclude quantile has been set for a subnet.
 		ValidatorEpochLengthSet( u16, u16 ), // --- Event created when the validator epoch length has been set for a subnet.
@@ -554,16 +554,16 @@ pub mod pallet {
 		ValidatorPruneLenSet( u16, u64 ), // --- Event created when the validator pruning length has been set.
 		ScalingLawPowerSet( u16, u16 ), // --- Event created when the scaling law power has been set for a subnet.
 		SynergyScalingLawPowerSet( u16, u16 ), // --- Event created when the synergy scaling law has been set for a subnet.
-		WeightsSetRateLimitSet( u16, u64 ), // --- Event create when weights set rate limit has been set for a subnet.
+		WeightsSetRateLimitSet( u16, u64 ), // --- Event created when weights set rate limit has been set for a subnet.
 		ImmunityPeriodSet( u16, u16), // --- Event created when immunity period is set for a subnet.
 		BondsMovingAverageSet( u16, u64), // --- Event created when bonds moving average is set for a subnet.
 		MaxAllowedValidatorsSet( u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
 		AxonServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
-		PrometheusServed( u16, T::AccountId ), // --- Event created when the axon server information is added to the network.
-		EmissionValuesSet(), // --- Event created when emission ratios fr all networks is set.
+		PrometheusServed( u16, T::AccountId ), // --- Event created when the prometheus server information is added to the network.
+		EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
 		NetworkConnectionAdded( u16, u16, u16 ), // --- Event created when a network connection requirement is added.
 		NetworkConnectionRemoved( u16, u16 ), // --- Event created when a network connection requirement is removed.
-		DelegateAdded( T::AccountId, T::AccountId, u16 ), // --- Event created to signal a hotkey has become a delegate.
+		DelegateAdded( T::AccountId, T::AccountId, u16 ), // --- Event created to signal that a hotkey has become a delegate.
 		DefaultTakeSet( u16 ), // --- Event created when the default take is set.
 		WeightsVersionKeySet( u16, u64 ), // --- Event created when weights version key is set for a network.
 		MinDifficultySet( u16, u64 ), // --- Event created when setting min difficutly on a network.
@@ -581,16 +581,16 @@ pub mod pallet {
 	pub enum Error<T> {
 		InvalidConnectionRequirement, // --- Thrown if we are attempting to create an invalid connection requirement.
 		NetworkDoesNotExist, // --- Thrown when the network does not exist.
-		NetworkExist, // --- Thrown when the network already exist.
+		NetworkExist, // --- Thrown when the network already exists.
 		InvalidModality, // --- Thrown when an invalid modality attempted on serve.
 		InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
 		InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
 		InvalidPort, // --- Thrown when an invalid port is passed to the serve function.
 		NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
 		NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account. 
-		NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake then there exists in the staking account. See: fn remove_stake.
+		NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
 		NotEnoughBalanceToStake, //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
-		BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account
+		BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
 		NoValidatorPermit, // ---- Thrown when the caller attempts to set non-self weights without being a permitted validator.
 		WeightVecNotEqualSize, // ---- Thrown when the caller attempts to set the weight keys and values but these vectors have different size.
 		DuplicateUids, // ---- Thrown when the caller attempts to set weights with duplicate uids in the weight matrix.
@@ -598,25 +598,25 @@ pub mod pallet {
 		NotSettingEnoughWeights, // ---- Thrown when the dispatch attempts to set weights on chain with fewer elements than are allowed.
 		TooManyRegistrationsThisBlock, // ---- Thrown when registrations this block exceeds allowed number.
 		AlreadyRegistered, // ---- Thrown when the caller requests registering a neuron which already exists in the active set.
-		InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative
+		InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative.
 		InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
 		InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
-		MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids
+		MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids.
 		CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
-		StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added
+		StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
 		MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
 		StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.
-		TempoHasNotSet, // --- Thrown when tempo has not set
-		InvalidTempo, // --- Thrown when tempo is not valid
-		EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks
-		InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9)
-		DidNotPassConnectedNetworkRequirement, // --- Thrown when a hotkey attempts to register into a network without passing the  registration requirment from another network.
-		AlreadyDelegate, // --- Thrown if the hotkey attempt to become delegate when they are already.
-		SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice withing net_tempo/2 blocks.
-		IncorrectNetworkVersionKey, // --- Thrown of a validator attempts to set weights from a validator with incorrect code base key.
+		TempoHasNotSet, // --- Thrown when tempo has not set.
+		InvalidTempo, // --- Thrown when tempo is not valid.
+		EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks.
+		InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
+		DidNotPassConnectedNetworkRequirement, // --- Thrown when a hotkey attempts to register into a network without passing the registration requirment from another network.
+		AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
+		SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
+		IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
 		ServingRateLimitExceeded, // --- Thrown when an axon or prometheus serving exceeds the rate limit for a registered neuron.
-		BalanceSetError, // --- Thrown when an error occurs setting a balance
-		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceed MaxAllowedUids for the network.
+		BalanceSetError, // --- Thrown when an error occurs while setting a balance.
+		MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
 		TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
 		TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
 		RegistrationDisabled, // --- Thrown when registration is disabled
@@ -765,7 +765,7 @@ pub mod pallet {
 		}
 	}
 
-	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
+	// Dispatchable functions allow users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
