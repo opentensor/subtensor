@@ -12,6 +12,7 @@ use sp_core::U256;
 ************************************************************/
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_add_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let hotkey = U256::from(0);
@@ -286,6 +287,7 @@ fn test_add_stake_total_issuance_no_change() {
 // ************************************************************/
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_remove_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
         let hotkey = U256::from(0);
@@ -799,6 +801,7 @@ fn test_delegate_stake_division_by_zero_check(){
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_full_with_delegating() {
 	new_test_ext().execute_with(|| {
 		let netuid = 1;
