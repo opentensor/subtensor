@@ -99,6 +99,11 @@ fn test_registration_ok() {
 	});
 }
 
+
+/********************************************
+	registration::do_burned_registration tests
+*********************************************/
+
 #[test]
 fn test_burned_registration_ok() {
 	new_test_ext().execute_with(|| {
@@ -166,6 +171,7 @@ fn test_burn_adjustment() {
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_registration_too_many_registrations_per_block() {
 	new_test_ext().execute_with(|| {
 		

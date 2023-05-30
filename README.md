@@ -150,7 +150,7 @@ SKIP_WASM_BUILD=1 \
 
 Running code coverage
 ```bash
-SKIP_WASM_BUILD=1 RUST_LOG=runtime=debug cargo tarpaulin --skip-clean
+bash scripts/code-coverage.sh
 ```
 > Note; above requires `cargo-tarpaulin` is installed to the host, eg. `cargo install cargo-tarpaulin`
 
