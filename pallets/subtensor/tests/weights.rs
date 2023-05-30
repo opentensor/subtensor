@@ -14,6 +14,7 @@ use sp_core::U256;
 
 // Test the call passes through the subtensor module.
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_set_weights_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let dests = vec![1, 1];
