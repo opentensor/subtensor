@@ -2,6 +2,7 @@ use super::*;
 use frame_support::{sp_std::vec};
 use sp_std::vec::Vec;
 use frame_system::ensure_root;
+use crate::math::checked_sum;
 
 impl<T: Config> Pallet<T> { 
 
@@ -190,7 +191,7 @@ impl<T: Config> Pallet<T> {
         ensure!( netuids.len() == emission.len(), Error::<T>::WeightVecNotEqualSize );
 
         // --- 3. Ensure we are setting emission for all networks. 
-        ensure!( netuids.len() as u16 == TotalNetworks::<T>::get(), Error::<T>::NotSettingEnoughWeights );
+        ensure!( netuids.len() == TotalNetworks::<T>::get() as usize, Error::<T>::IncorrectNetuidsLength );
 
         // --- 4. Ensure the passed uids contain no duplicates.
         ensure!( !Self::has_duplicate_netuids( &netuids ), Error::<T>::DuplicateUids );
@@ -198,8 +199,11 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure that the passed uids are valid for the network.
         ensure!( !Self::contains_invalid_netuids( &netuids ), Error::<T>::InvalidUid );
 
-        // --- 6. check if sum of emission rates is equal to 1.
-        ensure!( emission.iter().sum::<u64>() as u64 == Self::get_block_emission(), Error::<T>::InvalidEmissionValues);
+        // --- 6. check if sum of emission rates is equal to the block emission.
+        // Be sure to check for overflow during sum.
+        let emission_sum: Option<u64> = checked_sum::<u64>( &emission );
+        ensure!( emission_sum.is_some(), Error::<T>::InvalidEmissionValues );
+        ensure!( emission_sum.unwrap() == Self::get_block_emission(), Error::<T>::InvalidEmissionValues);
 
         // --- 7. Add emission values for each network
         Self::set_emission_values( &netuids, &emission );

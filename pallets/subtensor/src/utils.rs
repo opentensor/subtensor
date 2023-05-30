@@ -487,6 +487,19 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event( Event::MaxRegistrationsPerBlockSet( netuid, max_registrations_per_block) );
         Ok(())
     }
+    pub fn do_sudo_set_tempo (
+        origin: T::RuntimeOrigin, 
+        netuid: u16, 
+        tempo: u16
+    ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        ensure!( Self::if_tempo_is_valid( tempo ), Error::<T>::InvalidTempo );
+        Self::set_tempo(netuid, tempo);
+        log::info!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo );
+        Self::deposit_event( Event::TempoSet(netuid, tempo) );
+        Ok(())
+    }
     pub fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) -> DispatchResult{
         ensure_root( origin )?;
         TotalIssuance::<T>::put( total_issuance );
