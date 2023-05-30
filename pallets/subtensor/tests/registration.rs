@@ -99,6 +99,11 @@ fn test_registration_ok() {
 	});
 }
 
+
+/********************************************
+	registration::do_burned_registration tests
+*********************************************/
+
 #[test]
 fn test_burned_registration_ok() {
 	new_test_ext().execute_with(|| {
