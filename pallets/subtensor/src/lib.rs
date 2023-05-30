@@ -1571,7 +1571,9 @@ pub mod pallet {
 
 		// Sudo call for setting registration allowed
 		#[pallet::call_index(49)]
-		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(4_000_000)
+		.saturating_add(Weight::from_proof_size(0))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_registration_allowed( origin:OriginFor<T>, netuid: u16, registration_allowed: bool ) -> DispatchResult {  
 			Self::do_sudo_set_network_registration_allowed( origin, netuid, registration_allowed )
 		}
