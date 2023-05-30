@@ -573,6 +573,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		TempoSet(u16, u16), // --- Event created when setting tempo on a network
 		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
 	}
 
@@ -1548,12 +1549,20 @@ pub mod pallet {
 		pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64 ) -> DispatchResult {
 			Self::do_set_total_issuance(origin, total_issuance)
 		}
-
-		#[pallet::call_index(50)]
+    
+		#[pallet::call_index(47)]
+		#[pallet::weight((Weight::from_ref_time(15_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_tempo(origin:OriginFor<T>, netuid: u16, tempo: u16) -> DispatchResult {
+			Self::do_sudo_set_tempo(origin, netuid, tempo)
+		}
+    
+		#[pallet::call_index(48)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
-		}  
+		} 
 	}	
 
 	// ---- Subtensor helper functions.

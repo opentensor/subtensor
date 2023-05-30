@@ -593,5 +593,15 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 
   }: sudo_set_min_burn(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_burn)
+
+  benchmark_sudo_set_tempo {
+    let netuid: u16 = 1;
+    let tempo_default: u16 = 1;
+    let tempo: u16 = 15;
+    let modality: u16 = 0;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo_default.into(), modality.into()));
+
+  }: sudo_set_tempo(RawOrigin::<AccountIdOf<T>>::Root, netuid, tempo)
 }
 
