@@ -25,7 +25,7 @@ __hey_listen__() {
 	fi
 }
 
-while read -rd '' _path; do
+while read -r _path; do
 	if rustup run nightly -- rustfmt --check --quiet -- "${_path}" 1>/dev/null 2>&1; then
 		__hey_listen__ "Skipping -> ${_path}"
 		continue 1

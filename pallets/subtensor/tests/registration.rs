@@ -137,6 +137,41 @@ fn test_burned_registration_ok() {
 }
 
 #[test]
+fn test_burn_adjustment() {
+	new_test_ext().execute_with(|| {
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		let burn_cost:u64 = 1000;
+		let adjustment_interval = 1;
+		let target_registrations_per_interval = 1;
+		SubtensorModule::set_burn( netuid, burn_cost);
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
+		add_network(netuid, tempo, 0);
+
+		// Register key 1.
+		let hotkey_account_id_1 = U256::from(1);
+		let coldkey_account_id_1 = U256::from(1);
+		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id_1, 10000 );
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1), netuid,  hotkey_account_id_1));
+
+		// Register key 2.
+		let hotkey_account_id_2 =U256::from(2);
+		let coldkey_account_id_2 = U256::from(2);
+		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id_2, 10000 );
+		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2), netuid,  hotkey_account_id_2));
+
+		// We are over the number of regs allowed this interval.
+		// Step the block and trigger the adjustment.
+		step_block( 1 );
+
+		// Check the adjusted burn.
+		assert_eq!(SubtensorModule::get_burn_as_u64(netuid), 1500);
+	});
+}
+
+#[test]
+#[cfg(not(tarpaulin))]
 fn test_registration_too_many_registrations_per_block() {
 	new_test_ext().execute_with(|| {
 		
