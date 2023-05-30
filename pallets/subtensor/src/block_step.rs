@@ -232,29 +232,44 @@ impl<T: Config> Pallet<T> {
                 let burn_registrations_this_interval: u16 = Self::get_burn_registrations_this_interval( netuid );
                 let target_registrations_this_interval: u16 = Self::get_target_registrations_per_interval( netuid );
                 // --- 5. Adjust burn + pow
-                // There are four cases to consider. A, B, C, D
+                // There are six cases to consider. A, B, C, D, E, F
                 if registrations_this_interval > target_registrations_this_interval {
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // A. There are too many registrations this interval and most of them are pow registrations
                         // this triggers an increase in the pow difficulty.
                         // pow_difficulty ++ 
                         Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
-                    } else {
+                    } else if pow_registrations_this_interval < burn_registrations_this_interval {
                         // B. There are too many registrations this interval and most of them are burn registrations
                         // this triggers an increase in the burn cost.
                         // burn_cost ++
                         Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
+                    } else {
+                        // F. There are too many registrations this interval and the pow and burn registrations are equal
+                        // this triggers an increase in the burn cost and pow difficulty
+                        // burn_cost ++
+                        Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
+                        // pow_difficulty ++
+                        Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
                     }
                 } else {
+                    // Not enough registrations this interval.
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations
                         // this triggers a decrease in the burn cost
                         // burn_cost --
                         Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
-                    } else {
+                    } else if pow_registrations_this_interval < burn_registrations_this_interval{
                         // D. There are not enough registrations this interval and most of them are burn registrations
                         // this triggers a decrease in the pow difficulty
-                        // pow_difficulty ++ 
+                        // pow_difficulty -- 
+                        Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
+                    } else {
+                        // E. There are not enough registrations this interval and the pow and burn registrations are equal
+                        // this triggers a decrease in the burn cost and pow difficulty
+                        // burn_cost --
+                        Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
+                        // pow_difficulty -- 
                         Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
                     }
                 }
