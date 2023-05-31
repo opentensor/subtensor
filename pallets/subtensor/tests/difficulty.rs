@@ -17,7 +17,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!( SubtensorModule::get_registrations_this_block( netuid ), 0 ); // No registrations this block.
         assert_eq!( SubtensorModule::get_target_registrations_per_interval( netuid ), 2 ); // Target is default.
         assert_eq!( SubtensorModule::get_adjustment_interval( netuid ), 100 ); // Default adustment intrerval.
-		assert_eq!( SubtensorModule::get_network_registration_allowed( netuid ), false ); // Default registration allowed.
+		assert_eq!( SubtensorModule::get_network_registration_allowed( netuid ), true ); // Default registration allowed.
         
         // Set values and check.
         SubtensorModule::set_difficulty( netuid, 20000 );
