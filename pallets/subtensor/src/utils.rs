@@ -345,7 +345,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_sudo_set_max_allowed_uids( origin:T::RuntimeOrigin, netuid: u16, max_allowed_uids: u16 ) -> DispatchResult {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        ensure!(Self::get_max_allowed_uids(netuid)< max_allowed_uids, Error::<T>::MaxAllowedUIdsNotAllowed);
+        ensure!( Self::get_subnetwork_n(netuid) > max_allowed_uids, Error::<T>::MaxAllowedUIdsNotAllowed);
         Self::set_max_allowed_uids( netuid, max_allowed_uids );
         log::info!("MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ", netuid, max_allowed_uids);
         Self::deposit_event( Event::MaxAllowedUidsSet( netuid, max_allowed_uids) );
