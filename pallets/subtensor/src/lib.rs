@@ -271,6 +271,8 @@ pub mod pallet {
 	pub fn DefaultNeworksAdded<T: Config>() ->  bool { false }
 	#[pallet::type_value]
 	pub fn DefaultIsNetworkMember<T: Config>() ->  bool { false }
+	#[pallet::type_value]
+	pub fn DefaultRegistrationAllowed<T: Config>() ->  bool { false }
 
 
 	#[pallet::storage] // --- ITEM( total_number_of_existing_networks )
@@ -285,6 +287,8 @@ pub mod pallet {
 	pub type NetworkConnect<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u16, OptionQuery>;
 	#[pallet::storage] // --- DMAP ( hotkey, netuid ) --> bool
 	pub type IsNetworkMember<T:Config> = StorageDoubleMap<_, Blake2_128Concat, T::AccountId, Identity, u16, bool, ValueQuery, DefaultIsNetworkMember<T>>;
+	#[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
+	pub type NetworkRegistrationAllowed<T:Config> = StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
 
 	// ==============================
 	// ==== Subnetwork Features =====
@@ -573,6 +577,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		RegistrationAllowed( u16, bool ), // --- Event created when registration is allowed/disallowed for a subnet.
 		TempoSet(u16, u16), // --- Event created when setting tempo on a network
 		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
 	}
@@ -1313,7 +1318,7 @@ pub mod pallet {
 		pub fn sudo_set_tx_rate_limit( origin:OriginFor<T>, tx_rate_limit: u64 ) -> DispatchResult {  
 			Self::do_sudo_set_tx_rate_limit( origin, tx_rate_limit )
 		}
-
+    
 		#[pallet::call_index(17)]
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_max_burn( origin:OriginFor<T>, netuid: u16, max_burn: u64 ) -> DispatchResult {  
@@ -1562,7 +1567,16 @@ pub mod pallet {
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
-		} 
+		}
+
+		// Sudo call for setting registration allowed
+		#[pallet::call_index(49)]
+		#[pallet::weight((Weight::from_ref_time(4_000_000)
+		.saturating_add(Weight::from_proof_size(0))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_registration_allowed( origin:OriginFor<T>, netuid: u16, registration_allowed: bool ) -> DispatchResult {  
+			Self::do_sudo_set_network_registration_allowed( origin, netuid, registration_allowed )
+		}
 	}	
 
 	// ---- Subtensor helper functions.
