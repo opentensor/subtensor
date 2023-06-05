@@ -392,7 +392,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
         assert_eq!( SubtensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid + 1, to_be_set), Err(Error::<Test>::NetworkDoesNotExist.into()) );
         assert_eq!( SubtensorModule::get_max_allowed_uids(netuid), init_value);
         assert_ok!( SubtensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set) );
-        assert_eq!( SubtensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set-1), Err(Error::<Test>::MaxAllowedUIdsNotAllowed.into()));
+        assert_ok!( SubtensorModule::sudo_set_max_allowed_uids(<<Test as Config>::RuntimeOrigin>::root(), netuid, to_be_set-1));
     });
 }
 
