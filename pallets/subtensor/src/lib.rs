@@ -1763,11 +1763,11 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 
         match call.is_sub_type() {
             Some(Call::add_stake{..}) => {
-				let transaction_fee = 100000;
+				let transaction_fee = 100_000; // 0.001 TAO
                 Ok((CallType::AddStake, transaction_fee, who.clone()))
             }
             Some(Call::remove_stake{..}) => {
-				let transaction_fee = 0;
+				let transaction_fee = 100_000;
                 Ok((CallType::RemoveStake, transaction_fee, who.clone()))
             }
 			Some(Call::set_weights{..}) => {
