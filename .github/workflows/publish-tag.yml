@@ -1,4 +1,4 @@
-name: Rust build, benchmarks, and tests
+name: Build wasm, chainspec and publish release
 
 concurrency:
   group: ci-${{ github.ref }}
