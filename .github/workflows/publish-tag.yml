@@ -42,15 +42,12 @@ jobs:
 
         rust-target:
           - x86_64-unknown-linux-gnu
-          - x86_64-apple-darwin
 
         os:
           - ubuntu-latest
-          - macos-latest
 
         include:
           - os: ubuntu-latest
-          - os: macos-latest
 
     ##
     # Environment variables specific to each target
@@ -61,7 +58,7 @@ jobs:
 
     ##
     steps:
-      - name: Check-out repository under $GITHUB_WORKSPACE
+      - name: Check-out repository under ${{ github.workspace }}
         uses: actions/checkout@v2
 
       - name: Install dependencies
