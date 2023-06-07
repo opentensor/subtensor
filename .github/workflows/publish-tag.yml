@@ -65,6 +65,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
         with:
+          toolchain: rust-toolchain.toml
           profile: minimal
 
       - name: Utilize Rust shared cached
