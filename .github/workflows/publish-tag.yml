@@ -37,9 +37,6 @@ jobs:
         chain:
           - node-subtensor
 
-        rust-branch:
-          - nightly-2023-03-01
-
         rust-target:
           - x86_64-unknown-linux-gnu
 
@@ -52,7 +49,6 @@ jobs:
     ##
     # Environment variables specific to each target
     env:
-      RUSTV: ${{ matrix.rust-branch }}
       RUST_BIN_DIR: target/${{ matrix.rust-target }}/release
       TARGET: ${{ matrix.rust-target }}
 
@@ -66,10 +62,9 @@ jobs:
           sudo apt update &&
           sudo apt install -y git clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-      - name: Install Rust ${{ matrix.rust-branch }}
+      - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
         with:
-          toolchain: ${{ matrix.rust-branch }}
           profile: minimal
 
       - name: Utilize Rust shared cached
