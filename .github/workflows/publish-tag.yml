@@ -35,7 +35,7 @@ jobs:
     strategy:
       matrix:
         chain:
-          - "finney"
+          - node-subtensor
 
         rust-branch:
           - stable
@@ -100,7 +100,7 @@ jobs:
 
       - name: Create chainspec
         run: |
-          target/${{ matrix.rust-target }}/release/node-subtensor build-spec --disable-default-bootnode --raw --chain ${{ matrix.chain }} > release_chainspec.json
+          target/${{ matrix.rust-target }}/release/node-subtensor build-spec --disable-default-bootnode --raw --chain finney > release_chainspec.json
 
       ## TODO: double-check `artifacts` path(s) be correct
       # :warning: values for the following must always match;
