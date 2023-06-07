@@ -2135,7 +2135,7 @@ where
             Some(Call::set_weights { netuid, .. }) => {
                 let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                 Ok(ValidTransaction {
-                    priority: priority,
+                    priority,
                     longevity: 1,
                     ..Default::default()
                 })
