@@ -38,7 +38,7 @@ jobs:
           - node-subtensor
 
         rust-branch:
-          - stable
+          - nightly-2023-03-01
 
         rust-target:
           - x86_64-unknown-linux-gnu
