@@ -34,6 +34,9 @@ jobs:
     # Define multiple targets for builds and tests
     strategy:
       matrix:
+        chain:
+          - "finney"
+
         rust-branch:
           - stable
 
@@ -85,6 +88,28 @@ jobs:
         run: |
           cargo build --release
 
+      - name: Utilize Rust shared cached
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+
+      - name: Srtool build
+        id: srtool_build
+        uses: chevdor/srtool-actions@v0.7.0
+        with:
+          chain: ${{ matrix.chain }}
+          runtime_dir: runtime
+
+      - name: Summary
+        run: |
+          echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
+          cat ${{ matrix.chain }}-srtool-digest.json
+          echo "Runtime location: ${{ steps.srtool_build.outputs.wasm }}"
+
+      - name: Create chainspec
+        run: |
+          target/${{ matrix.rust-target }}/release/node-subtensor build-spec --disable-default-bootnode --raw --chain ${{ matrix.chain }} > release_chainspec.json
+
       ## TODO: double-check `artifacts` path(s) be correct
       # :warning: values for the following must always match;
       #   - RUST_BIN_DIR
@@ -98,5 +123,5 @@ jobs:
           makeLatest: true
           tag: ${{ github.ref }}-${{ matrix.rust-target }}
           name: Release ${{ github.ref }} for ${{ matrix.rust-target }}
-          artifacts: 'raw_spec.json,raw_spec_finney.json,target/${{ matrix.rust-target }}/release/node-subtensor'
+          artifacts: 'release_chainspec.json,target/${{ matrix.rust-target }}/release/node-subtensor,${{ steps.srtool_build.outputs.wasm_compressed }}'
 
