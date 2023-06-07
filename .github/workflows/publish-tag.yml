@@ -27,7 +27,7 @@ env:
 # Test and build and publish
 jobs:
   check:
-    name: Tests and publishes targeting ${{ matrix.rust-target }} for OS ${{ matrix.os }}
+    name: Testing, building and publishing for ${{ matrix.rust-target }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
 
     ##
