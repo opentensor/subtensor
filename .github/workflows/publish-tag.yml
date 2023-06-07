@@ -74,7 +74,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cargo test --tests
+          cargo test --release
 
       - name: Build executable
         run: |
