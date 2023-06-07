@@ -85,11 +85,6 @@ jobs:
         run: |
           cargo build --release
 
-      - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
-
       - name: Srtool build
         id: srtool_build
         uses: chevdor/srtool-actions@v0.7.0
