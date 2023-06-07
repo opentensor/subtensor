@@ -39,6 +39,7 @@ jobs:
 
         rust-target:
           - x86_64-unknown-linux-gnu
+          - wasm32-unknown-unknown
 
         os:
           - ubuntu-latest
@@ -66,6 +67,7 @@ jobs:
         uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: nightly-2023-03-01
+          target: ${{ matrix.rust-target }}
           profile: minimal
 
       - name: Utilize Rust shared cached
