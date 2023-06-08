@@ -68,6 +68,7 @@ jobs:
         with:
           toolchain: nightly-2023-03-01
           target: ${{ matrix.rust-target }}
+          override: true
           profile: minimal
 
       - name: Utilize Rust shared cached
