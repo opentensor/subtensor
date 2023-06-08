@@ -104,16 +104,5 @@ jobs:
       - name: Run tests
         # timeout-minutes: 30
         run: |
-          cargo test --tests
-
-      - name: Run benchmarks
-        # timeout-minutes: 30
-        run: |
-          pushd node &&
-          cargo build --features=runtime-benchmarks --release
-
-      - name: Build executable
-        # timeout-minutes: 30
-        run: |
-          cargo build --release
+          cargo test --tests --features=runtime-benchmarks
 
