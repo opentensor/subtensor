@@ -37,6 +37,9 @@ jobs:
         chain:
           - node-subtensor
 
+        rust-toolchain:
+          - nightly-2023-03-01
+
         rust-target:
           - wasm32-unknown-unknown
 
@@ -65,15 +68,23 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
         with:
-          toolchain: nightly-2023-03-01
+          toolchain: ${{ matrix.rust-toolchain }}
           target: ${{ matrix.rust-target }}
           override: true
           profile: minimal
 
-      - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/            
+          key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ matrix.rust-target }}-cargo-
 
       - name: Run tests
         run: |
@@ -86,6 +97,9 @@ jobs:
       - name: Srtool build
         id: srtool_build
         uses: chevdor/srtool-actions@v0.7.0
+        env:
+          RUSTUP_TOOLCHAIN: ${{ matrix.rust-toolchain }}
+          CARGO_BUILD_TARGET: ${{ matrix.rust-target }}
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: runtime
