@@ -55,6 +55,7 @@ jobs:
       RUST_BIN_DIR: target/${{ matrix.rust-target }}/release
       RUSTUP_TOOLCHAIN: ${{ matrix.rust-toolchain }}
       CARGO_BUILD_TARGET: ${{ matrix.rust-target }}
+      TARGET: ${{ matrix.rust-target }}
 
     ##
     steps:
