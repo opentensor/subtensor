@@ -38,7 +38,6 @@ jobs:
           - node-subtensor
 
         rust-target:
-          - x86_64-unknown-linux-gnu
           - wasm32-unknown-unknown
 
         os:
