@@ -100,7 +100,8 @@ jobs:
         uses: chevdor/srtool-actions@v0.7.0
         env:
           RUSTUP_TOOLCHAIN: ${{ matrix.rust-toolchain }}
-          CARGO_BUILD_TARGET: ${{ matrix.rust-target }}
+          TARGET: ${{ matrix.rust-target }}
+          BUILD_OPTS: "+nightly"
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: runtime
