@@ -55,7 +55,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2023-01-18
+          - nightly-2023-03-01
 
         rust-target:
           - x86_64-unknown-linux-gnu
@@ -95,10 +95,18 @@ jobs:
           toolchain: ${{ matrix.rust-branch }}
           profile: minimal
 
-      - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/            
+          key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ matrix.rust-target }}-cargo-
 
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
       - name: Run tests
