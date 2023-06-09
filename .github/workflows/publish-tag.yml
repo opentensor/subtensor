@@ -53,7 +53,8 @@ jobs:
     # Environment variables specific to each target
     env:
       RUST_BIN_DIR: target/${{ matrix.rust-target }}/release
-      TARGET: ${{ matrix.rust-target }}
+      RUSTUP_TOOLCHAIN: ${{ matrix.rust-toolchain }}
+      CARGO_BUILD_TARGET: ${{ matrix.rust-target }}
 
     ##
     steps:
