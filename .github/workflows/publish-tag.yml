@@ -28,7 +28,7 @@ env:
 jobs:
   check:
     name: Testing, building and publishing for ${{ matrix.rust-target }} on ${{ matrix.os }}
-    runs-on: self-hosted
+    runs-on: ${{ matrix.os }}
 
     ##
     # Define multiple targets for builds and tests
@@ -44,10 +44,7 @@ jobs:
           - wasm32-unknown-unknown
 
         os:
-          - ubuntu-latest
-
-        include:
-          - os: ubuntu-latest
+          - self-hosted
 
     ##
     # Environment variables specific to each target
@@ -64,7 +61,7 @@ jobs:
       - name: Install dependencies
         run: |
           brew upgrade &&
-          yes | brew install git clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          yes | brew install git cmake openssl protobuf
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
