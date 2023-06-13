@@ -28,7 +28,7 @@ env:
 jobs:
   check:
     name: Testing, building and publishing for ${{ matrix.rust-target }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    runs-on: self-hosted
 
     ##
     # Define multiple targets for builds and tests
