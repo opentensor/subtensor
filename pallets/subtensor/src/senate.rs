@@ -21,8 +21,11 @@ impl<T: Config> Pallet<T> {
 		ensure!(!T::SenateMembers::is_member(&hotkey), Error::<T>::AlreadyRegistered);
         ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotRegistered);
 
+		let total_stake = Self::get_total_stake();
 		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
-		ensure!(current_stake * 100 / Self::get_total_stake() >= SenateRequiredStakePercentage::<T>::get(), Error::<T>::NotEnoughStaketoWithdraw);
+		ensure!(total_stake > 0 && current_stake > 0, Error::<T>::NotEnoughStaketoWithdraw);
+
+		ensure!(current_stake * 100 / total_stake >= SenateRequiredStakePercentage::<T>::get(), Error::<T>::NotEnoughStaketoWithdraw);
 
 		// If we're full, we'll swap out the lowest stake member.
 		let members = T::SenateMembers::members();
