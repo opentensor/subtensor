@@ -214,6 +214,7 @@ impl<T: Config> Pallet<T> {
 			Self::get_total_stake_for_hotkey(&hotkey) * 100 / Self::get_total_stake() < SenateRequiredStakePercentage::<T>::get()
 		{
 			// This might cause a panic, but there shouldn't be any reason this will fail with the checks above.
+            T::TriumvirateInterface::remove_votes(&hotkey);
 			T::SenateMembers::remove_member(&hotkey)?;
 		}
 

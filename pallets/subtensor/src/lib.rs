@@ -113,6 +113,8 @@ pub mod pallet {
 
 		type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
+		type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId>;
+
 		// =================================
 		// ==== Initial Value Constants ====
 		// =================================
@@ -1926,4 +1928,14 @@ impl<T> MemberManagement<T> for () {
 	fn is_member(_: &T) -> bool {false}
 
 	fn max_members() -> u32 {0}
+}
+
+/// Trait for interacting with collective pallets
+pub trait CollectiveInterface<AccountId> {
+	/// Remove vote
+	fn remove_votes(hotkey: &AccountId);
+}
+
+impl<T> CollectiveInterface<T> for () {
+	fn remove_votes(_: &T) {}
 }

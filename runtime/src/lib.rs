@@ -347,7 +347,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 	}
 }
 
-use pallet_subtensor::MemberManagement;
+use pallet_subtensor::{MemberManagement, CollectiveInterface};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
 	fn add_member(account: &AccountId) -> DispatchResult {
@@ -386,6 +386,13 @@ impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
 }
 impl Get<MemberCount> for GetSenateMemberCount {
 	fn get() -> MemberCount {SenateMaxMembers::get()}
+}
+
+pub struct TriumvirateVotes;
+impl CollectiveInterface<AccountId> for TriumvirateVotes {
+	fn remove_votes(hotkey: &AccountId) {
+		Triumvirate::remove_votes(hotkey);
+	}
 }
 
 type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
@@ -507,6 +514,7 @@ impl pallet_subtensor::Config for Runtime {
 	type Currency = Balances;
 	type CouncilOrigin = EnsureMajoritySenate;
 	type SenateMembers = ManageSenateMembers;
+	type TriumvirateInterface = TriumvirateVotes;
 
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;

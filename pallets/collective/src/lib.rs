@@ -959,6 +959,28 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		});
 		num_proposals as u32
 	}
+
+	pub fn remove_votes(who: &T::AccountId) -> Result<bool, DispatchError> {
+		for h in Self::proposals().into_iter() {
+			<Voting<T, I>>::mutate(h, |v| {
+				if let Some(mut votes) = v.take() {
+					votes.ayes = votes
+						.ayes
+						.into_iter()
+						.filter(|i| i != who)
+						.collect();
+					votes.nays = votes
+						.nays
+						.into_iter()
+						.filter(|i| i != who)
+						.collect();
+					*v = Some(votes);
+				}
+			});
+		}
+
+		Ok(true)
+	}
 }
 
 impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
