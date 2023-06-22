@@ -4559,6 +4559,8 @@ dependencies = [
  "log",
  "ndarray",
  "pallet-balances",
+ "pallet-collective",
+ "pallet-membership",
  "pallet-transaction-payment",
  "pallet-utility",
  "parity-scale-codec",
