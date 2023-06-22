@@ -1951,13 +1951,13 @@ impl<T> MemberManagement<T> for () {
 /// Trait for interacting with collective pallets
 pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
 	/// Remove vote
-	fn remove_votes(hotkey: &AccountId);
+	fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
 
 	fn add_vote(hotkey: &AccountId, proposal: Hash, index: ProposalIndex, approve: bool) -> Result<bool, DispatchError>;
 }
 
 impl<T, H, P> CollectiveInterface<T, H, P> for () {
-	fn remove_votes(_: &T) {}
+	fn remove_votes(_: &T) -> Result<bool, DispatchError> {Ok(true)}
 
 	fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {Ok(true)}
 }

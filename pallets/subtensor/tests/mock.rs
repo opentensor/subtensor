@@ -179,7 +179,7 @@ impl CanPropose<AccountId> for CanProposeToTriumvirate {
 
 pub struct CanVoteToTriumvirate;
 impl CanVote<AccountId> for CanVoteToTriumvirate {
-	fn can_vote(account: &AccountId) -> bool {
+	fn can_vote(_: &AccountId) -> bool {
 		//Senate::is_member(account)
 		false // Disable voting from pallet_collective::vote
 	}
@@ -223,8 +223,8 @@ impl Get<MemberCount> for GetSenateMemberCount {
 
 pub struct TriumvirateVotes;
 impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
-	fn remove_votes(hotkey: &AccountId) {
-		Triumvirate::remove_votes(hotkey);
+	fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
+		Triumvirate::remove_votes(hotkey)
 	}
 
 	fn add_vote(hotkey: &AccountId, proposal: Hash, index: u32, approve: bool) -> Result<bool, sp_runtime::DispatchError> {
