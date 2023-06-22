@@ -15,7 +15,8 @@ use frame_support::{
 	dispatch::{
 		DispatchInfo,
 		PostDispatchInfo,
-		DispatchResult
+		DispatchResult,
+		DispatchError
 	}, ensure, 
 	traits::{
 		Currency, 
@@ -113,7 +114,7 @@ pub mod pallet {
 
 		type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
-		type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId>;
+		type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -1629,9 +1630,10 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().reads(20))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
 		pub fn join_senate( 
-			origin: OriginFor<T>, 
+			origin: OriginFor<T>,
+			hotkey: T::AccountId
 		) -> DispatchResult { 
-			Self::do_join_senate(origin)
+			Self::do_join_senate(origin, &hotkey)
 		}
 
 		#[pallet::call_index(54)]
@@ -1640,9 +1642,25 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
 		pub fn leave_senate( 
-			origin: OriginFor<T>, 
+			origin: OriginFor<T>,
+			hotkey: T::AccountId
 		) -> DispatchResult { 
-			Self::do_leave_senate(origin)
+			Self::do_leave_senate(origin, &hotkey)
+		}
+
+		#[pallet::call_index(55)]
+		#[pallet::weight((Weight::from_ref_time(0)
+		.saturating_add(Weight::from_proof_size(0))
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
+		pub fn vote(
+			origin: OriginFor<T>,
+			hotkey: T::AccountId,
+			proposal: T::Hash,
+			#[pallet::compact] index: u32,
+			approve: bool,
+		) -> DispatchResultWithPostInfo {
+			Self::do_vote_senate(origin, &hotkey, proposal, index, approve)
 		}
 	}	
 
@@ -1931,11 +1949,15 @@ impl<T> MemberManagement<T> for () {
 }
 
 /// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId> {
+pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
 	/// Remove vote
 	fn remove_votes(hotkey: &AccountId);
+
+	fn add_vote(hotkey: &AccountId, proposal: Hash, index: ProposalIndex, approve: bool) -> Result<bool, DispatchError>;
 }
 
-impl<T> CollectiveInterface<T> for () {
+impl<T, H, P> CollectiveInterface<T, H, P> for () {
 	fn remove_votes(_: &T) {}
+
+	fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {Ok(true)}
 }

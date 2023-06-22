@@ -1,6 +1,7 @@
 use super::*;
-use frame_support::{ pallet_prelude::DispatchResult};
+use frame_support::{dispatch::Pays, pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, Weight}};
 use frame_system::{ensure_signed};
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
 	/// do_join_senate(RuntimeOrigin hotkey)
@@ -10,16 +11,20 @@ impl<T: Config> Pallet<T> {
 	/// 
 	/// 1) Be registered as a delegate
 	/// 2) Control greater than 2% of the total staked volume.
-    pub fn do_join_senate( 
-        origin: T::RuntimeOrigin,
-    ) -> DispatchResult {
-        let hotkey = ensure_signed( origin )?; 
-        log::info!("do_join_senate( hotkey:{:?} )", hotkey );
+	pub fn do_join_senate( 
+		origin: T::RuntimeOrigin,
+		hotkey: &T::AccountId
+	) -> DispatchResult {
+		let coldkey = ensure_signed( origin )?; 
+		log::info!("do_join_senate( coldkey: {:?}, hotkey: {:?} )", coldkey, hotkey );
+
+		// Ensure that the pairing is correct.
+		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
 		// Check all our senate requirements
 		ensure!(Self::is_hotkey_registered_on_any_network(&hotkey), Error::<T>::NotRegistered);
 		ensure!(!T::SenateMembers::is_member(&hotkey), Error::<T>::AlreadyRegistered);
-        ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotRegistered);
+		ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotRegistered);
 
 		let total_stake = Self::get_total_stake();
 		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
@@ -48,19 +53,50 @@ impl<T: Config> Pallet<T> {
 		}
 
 		// Since we're calling another extrinsic, we want to propagate our errors back up the call stack.
-        T::SenateMembers::add_member(&hotkey)
-    }
+		T::SenateMembers::add_member(&hotkey)
+	}
 
 	pub fn do_leave_senate( 
-        origin: T::RuntimeOrigin,
-    ) -> DispatchResult {
-        let hotkey = ensure_signed( origin )?; 
-        log::info!("do_leave_senate( hotkey:{:?} )", hotkey );
+		origin: T::RuntimeOrigin,
+		hotkey: &T::AccountId
+	) -> DispatchResult {
+		let coldkey = ensure_signed( origin )?; 
+		log::info!("do_leave_senate( coldkey: {:?} hotkey:{:?} )", coldkey, hotkey );
+
+		// Ensure that the pairing is correct.
+		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
 		// Check all our leave requirements
 		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotRegistered);
 
 		T::TriumvirateInterface::remove_votes(&hotkey);
-        T::SenateMembers::remove_member(&hotkey)
-    }
+		T::SenateMembers::remove_member(&hotkey)
+	}
+
+	pub fn do_vote_senate(
+		origin: T::RuntimeOrigin,
+		hotkey: &T::AccountId,
+		proposal: T::Hash,
+		index: u32,
+		approve: bool
+	) -> DispatchResultWithPostInfo {
+		let coldkey = ensure_signed(origin.clone())?;
+		// Ensure that the pairing is correct.
+		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
+		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotRegistered);
+
+		let members = T::SenateMembers::members();
+		// Detects first vote of the member in the motion
+		let is_account_voting_first_time = T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
+
+		// Calculate extrinsic weight
+		let member_count = members.len() as u32;
+		let vote_weight = Weight::from_parts(20_528_275, 4980)
+			.saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
+
+		Ok((Some(vote_weight), if is_account_voting_first_time { Pays::No } else { Pays::Yes }).into())
+	}
 }

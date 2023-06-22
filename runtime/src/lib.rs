@@ -12,7 +12,7 @@ use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin, DispatchResult}, traits::EitherOfDiverse, RuntimeDebug};
+use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin, DispatchResult}, traits::{EitherOfDiverse}, RuntimeDebug};
 use frame_system::{EnsureRoot, Config, EnsureNever, RawOrigin};
 
 use smallvec::smallvec;
@@ -343,7 +343,8 @@ impl CanPropose<AccountId> for CanProposeToTriumvirate {
 pub struct CanVoteToTriumvirate;
 impl CanVote<AccountId> for CanVoteToTriumvirate {
 	fn can_vote(account: &AccountId) -> bool {
-		Senate::is_member(account)
+		//Senate::is_member(account)
+		false // Disable voting from pallet_collective::vote
 	}
 }
 
@@ -389,9 +390,13 @@ impl Get<MemberCount> for GetSenateMemberCount {
 }
 
 pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId> for TriumvirateVotes {
+impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
 	fn remove_votes(hotkey: &AccountId) {
 		Triumvirate::remove_votes(hotkey);
+	}
+
+	fn add_vote(hotkey: &AccountId, proposal: Hash, index: u32, approve: bool) -> Result<bool, sp_runtime::DispatchError> {
+		Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
 	}
 }
 

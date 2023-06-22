@@ -137,8 +137,8 @@ benchmarks! {
     let modality: u16 = 0;
     let seed : u32 = 1;
 
-	// Set our total stake to 1000 TAO
-	Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+    // Set our total stake to 1000 TAO
+    Subtensor::<T>::increase_total_stake(1_000_000_000_000);
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
@@ -146,23 +146,23 @@ benchmarks! {
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
-	Subtensor::<T>::set_burn(netuid, 1);
+	  Subtensor::<T>::set_burn(netuid, 1);
 
     let wallet_bal = Subtensor::<T>::u64_to_balance(1000000);
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal.unwrap());
 
-	assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-	assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+    assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
-	// Stake 10% of our current total staked TAO
-	let u64_staked_amt = 100_000_000_000;
+	  // Stake 10% of our current total staked TAO
+	  let u64_staked_amt = 100_000_000_000;
     let amount_to_be_staked = Subtensor::<T>::u64_to_balance(u64_staked_amt);
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked.unwrap());
 
     assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
 
     let amount_unstaked: u64 = u64_staked_amt - 1;
-	assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(hotkey.clone()).into()));
+	  assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
   }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), amount_unstaked)
 
   benchmark_serve_axon{
@@ -645,7 +645,7 @@ benchmarks! {
 		assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
 		Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 1000000000);
-		assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(hotkey.clone()).into()));
+		assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
     }
 
     let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
@@ -655,7 +655,7 @@ benchmarks! {
 	assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
 	Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 10000000000);
-  }: join_senate(RawOrigin::Signed( hotkey.clone() ))
+  }: join_senate(RawOrigin::Signed( coldkey.clone() ), hotkey.clone())
 
   benchmark_leave_senate {
     let netuid: u16 = 1;
@@ -666,37 +666,37 @@ benchmarks! {
     let tempo: u16 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
 
     assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
-	Subtensor::<T>::set_target_registrations_per_interval(netuid.try_into().unwrap(), 4096);
+    Subtensor::<T>::set_target_registrations_per_interval(netuid.try_into().unwrap(), 4096);
 
     for id in 0..10 as u16 {
-		seed = seed + 1;
+      seed = seed + 1;
 
-		let hotkey: T::AccountId = account("Alice", 0, seed);
-		let coldkey: T::AccountId = account("Test", 0, seed);
-		
-		Subtensor::<T>::set_burn(netuid, 1);
-		let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
-		Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+      let hotkey: T::AccountId = account("Alice", 0, seed);
+      let coldkey: T::AccountId = account("Test", 0, seed);
+      
+      Subtensor::<T>::set_burn(netuid, 1);
+      let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
+      Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
 
-		assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-		assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+      assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+      assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
-		Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 1000000000);
-		assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(hotkey.clone()).into()));
+      Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 1000000000);
+      assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
     }
 
     let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
 
-	assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-	assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+    assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
-	Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 10000000000);
+    Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 10000000000);
 
-	assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(hotkey.clone()).into()));
-  }: leave_senate(RawOrigin::Signed( hotkey.clone() ))
+    assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
+  }: leave_senate(RawOrigin::Signed(coldkey.clone()), hotkey.clone())
 }
 
