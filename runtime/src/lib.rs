@@ -320,6 +320,24 @@ impl pallet_sudo::Config for Runtime {
 	type RuntimeCall = RuntimeCall;
 }
 
+parameter_types! {
+	// One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = (1) as Balance * 2_000 * 10_000_000 + (88 as Balance) * 100 * 1_000_000;
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = (0) as Balance * 2_000 * 10_000_000 + (32 as Balance) * 100 * 1_000_000;
+	pub const MaxSignatories: u32 = 100;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
 	pub const SubtensorInitialRho: u16 = 10;
@@ -418,7 +436,8 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
 		SubtensorModule: pallet_subtensor,
-		Utility: pallet_utility
+		Utility: pallet_utility,
+		Multisig: pallet_multisig
 	}
 );
 
