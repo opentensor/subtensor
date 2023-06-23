@@ -16,6 +16,8 @@
 # ```
 ##
 
+export PATH="$HOME/.cargo/bin:$PATH"
+
 set -EeT
 
 __hey_listen__() {
