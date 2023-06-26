@@ -363,3 +363,125 @@ fn finney_genesis(
 		},
 	}
 }
+
+pub fn localnet_config() -> Result<ChainSpec, String> {
+	let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+	// We mmap the file into memory first, as this is *a lot* faster than using
+	// `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
+	let file = File::open(&path)
+		.map_err(|e| format!("Error opening genesis file `{}`: {}", path.display(), e))?;
+
+	// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
+	//         underneath us while it is mapped; in practice it's unlikely to be a problem
+	let bytes = unsafe {
+		memmap2::Mmap::map(&file)
+			.map_err(|e| format!("Error mmaping genesis file `{}`: {}", path.display(), e))?
+	};
+
+	let old_state: ColdkeyHotkeys =
+		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
+
+	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, (u64, u16))>)> = Vec::new();
+	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
+		let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+		let coldkey_account = sp_runtime::AccountId32::from(coldkey);
+
+		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
+
+		for (hotkey_str, amount_uid) in hotkeys.iter() {
+			let (amount, uid) = amount_uid;
+			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
+
+			processed_hotkeys.push((hotkey_account, (*amount, *uid)));
+		}
+
+		processed_stakes.push((coldkey_account, processed_hotkeys));
+	}
+
+	let mut balances_issuance: u64 = 0;
+	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
+	for (key_str, amount) in old_state.balances.iter() {
+		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
+		let key_account = sp_runtime::AccountId32::from(key);
+
+		processed_balances.push((key_account, *amount));
+		balances_issuance += *amount;
+	}
+
+	// Give front-ends necessary data to present to users
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 13116.into());
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Bittensor",
+		// ID
+		"bittensor",
+		ChainType::Development,
+		move || {
+			localnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities (Validators)
+				// aura | grandpa
+				vec![
+					// Keys for debug
+					authority_keys_from_seed("Alice"), 
+					authority_keys_from_seed("Bob"),
+				], 
+				// Pre-funded accounts
+				true,
+			)
+		},
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		Some("bittensor"),
+		None,
+		// Properties
+		Some(properties),
+		// Extensions
+		None,
+	))
+}
+
+fn localnet_genesis(
+	wasm_binary: &[u8],
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	_enable_println: bool,
+) -> GenesisConfig {
+	GenesisConfig {
+		system: SystemConfig {
+			// Add Wasm runtime to storage.
+			code: wasm_binary.to_vec(),
+		},
+		balances: BalancesConfig {
+			// Configure sudo balance
+			balances: vec![ 
+				(get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
+			]
+		},
+		aura: AuraConfig {
+			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+		},
+		grandpa: GrandpaConfig {
+			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+		},
+		transaction_payment: Default::default(),
+		subtensor_module: Default::default(),
+	}
+}
