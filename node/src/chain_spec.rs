@@ -479,7 +479,7 @@ fn localnet_genesis(
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
 		sudo: SudoConfig {
-			key: Some(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap()),
+			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
