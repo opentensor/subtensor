@@ -211,7 +211,9 @@ impl<T: Config> Pallet<T> {
 
 		// If this hotkey is a senator, check to see if they fall below stake threshold in this withdraw
 		if T::SenateMembers::is_member(&hotkey) &&
-			Self::get_total_stake_for_hotkey(&hotkey) * 100 / Self::get_total_stake() < SenateRequiredStakePercentage::<T>::get()
+			Self::get_total_stake_for_hotkey(&hotkey) * 100 / {
+                if Self::get_total_stake() == 0 {1} else {Self::get_total_stake()}
+            } < SenateRequiredStakePercentage::<T>::get()
 		{
 			// This might cause a panic, but there shouldn't be any reason this will fail with the checks above.
             T::TriumvirateInterface::remove_votes(&hotkey);
