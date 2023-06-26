@@ -981,6 +981,16 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		Ok(true)
 	}
+
+	pub fn has_voted(proposal: T::Hash, index: ProposalIndex, who: &T::AccountId) -> Result<bool, DispatchError> {
+		let voting = Self::voting(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+		ensure!(voting.index == index, Error::<T, I>::WrongIndex);
+
+		let position_yes = voting.ayes.iter().position(|a| a == who);
+		let position_no = voting.nays.iter().position(|a| a == who);
+
+		Ok(position_yes.is_some() || position_no.is_some())
+	}
 }
 
 impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
