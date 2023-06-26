@@ -652,6 +652,12 @@ pub mod pallet {
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 		HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
+
+		// Senate errors
+		NotSenateMember, // --- Thrown when a hotkey attempts to do something only senate members can do
+		AlreadySenateMember, // --- Thrown when a hotkey attempts to join the senate while already being a member
+		BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
+		NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
 	}
 
 	// ==================

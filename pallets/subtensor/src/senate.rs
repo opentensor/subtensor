@@ -23,14 +23,14 @@ impl<T: Config> Pallet<T> {
 
 		// Check all our senate requirements
 		ensure!(Self::is_hotkey_registered_on_any_network(&hotkey), Error::<T>::NotRegistered);
-		ensure!(!T::SenateMembers::is_member(&hotkey), Error::<T>::AlreadyRegistered);
-		ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotRegistered);
+		ensure!(!T::SenateMembers::is_member(&hotkey), Error::<T>::AlreadySenateMember);
+		ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotDelegate);
 
 		let total_stake = Self::get_total_stake();
 		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
-		ensure!(total_stake > 0 && current_stake > 0, Error::<T>::NotEnoughStaketoWithdraw);
+		ensure!(total_stake > 0 && current_stake > 0, Error::<T>::BelowStakeThreshold);
 
-		ensure!(current_stake * 100 / total_stake >= SenateRequiredStakePercentage::<T>::get(), Error::<T>::NotEnoughStaketoWithdraw);
+		ensure!(current_stake * 100 / total_stake >= SenateRequiredStakePercentage::<T>::get(), Error::<T>::BelowStakeThreshold);
 
 		// If we're full, we'll swap out the lowest stake member.
 		let members = T::SenateMembers::members();
@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
 			if let Some(last) = sorted_members.last() {
 				let last_stake = Self::get_total_stake_for_hotkey(last);
 
-				ensure!(last_stake < current_stake, Error::<T>::NotEnoughStaketoWithdraw);
+				ensure!(last_stake < current_stake, Error::<T>::BelowStakeThreshold);
 
 				return T::SenateMembers::swap_member(last, &hotkey);
 			}
@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
 		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
 		// Check all our leave requirements
-		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotRegistered);
+		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotSenateMember);
 
 		T::TriumvirateInterface::remove_votes(&hotkey);
 		T::SenateMembers::remove_member(&hotkey)
@@ -83,7 +83,7 @@ impl<T: Config> Pallet<T> {
 		let coldkey = ensure_signed(origin.clone())?;
 		// Ensure that the pairing is correct.
 		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
-		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotRegistered);
+		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotSenateMember);
 
 		let members = T::SenateMembers::members();
 		// Detects first vote of the member in the motion
