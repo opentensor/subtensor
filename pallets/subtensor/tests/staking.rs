@@ -12,6 +12,7 @@ use sp_core::U256;
 ************************************************************/
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_add_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
 		let hotkey = U256::from(0);
@@ -286,6 +287,7 @@ fn test_add_stake_total_issuance_no_change() {
 // ************************************************************/
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_remove_stake_dispatch_info_ok() {
 	new_test_ext().execute_with(|| {
         let hotkey = U256::from(0);
@@ -794,11 +796,12 @@ fn test_delegate_stake_division_by_zero_check(){
         add_network( netuid, tempo, 0 );
 		register_ok_neuron( netuid, hotkey, coldkey, 2341312 );
         assert_ok!(SubtensorModule::become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey) );
-        SubtensorModule::emit_inflation_through_hotkey_account( &hotkey, 1000 );
+        SubtensorModule::emit_inflation_through_hotkey_account( &hotkey, 0, 1000 );
     });
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_full_with_delegating() {
 	new_test_ext().execute_with(|| {
 		let netuid = 1;
@@ -871,8 +874,8 @@ fn test_full_with_delegating() {
 		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey0, 10), Err(Error::<Test>::NonAssociatedColdKey.into()));
 
 		// Emit inflation through non delegates.
-		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 100 );
-		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 100 );
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 0, 100 );
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 0, 100 );
 		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey0 ), 200);
 		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey1 ), 200 );
 
@@ -909,13 +912,13 @@ fn test_full_with_delegating() {
 		assert_eq!( SubtensorModule::get_total_stake(), 900 );
 
 		// Lets emit inflation through the hot and coldkeys.
-		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 1000 ); 
-		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 1000 );
-		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 599 ); // 200 + 1000 x ( 200 / 500 ) = 200 + 400 = 600 ~= 599
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 0, 1000 ); 
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 0, 1000 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 601 ); // 200 + 1000 x ( 200 / 500 ) = 200 + 400 = 600 ~= 601
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 700 ); // 200 + 1000 x ( 200 / 400 ) = 200 + 500 = 700
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 899 ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 700 ); // 200 + 1000 x ( 200 / 400 ) = 300 + 600 = 700
-		assert_eq!( SubtensorModule::get_total_stake(), 2898 ); // 600 + 700 + 900 + 700 = 2900 ~= 2898 
+		assert_eq!( SubtensorModule::get_total_stake(), 2900 ); // 600 + 700 + 900 + 700 = 2900
 
 		// // Try unstaking too much.
 		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 100000), Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
@@ -930,7 +933,7 @@ fn test_full_with_delegating() {
 		assert_ok!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey0, 100) );
 
 		// All the amounts have been decreased.
-		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 499 ); 
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 501 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 600 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 799 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 600 ); 
@@ -960,14 +963,14 @@ fn test_full_with_delegating() {
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey2 ), 1_000 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey2 ), 1_000 ); 
 		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey2 ), 3_000 ); 
-		assert_eq!( SubtensorModule::get_total_stake(), 5_498 );
+		assert_eq!( SubtensorModule::get_total_stake(), 5_500 );
 
 		// Lets emit inflation through this new key with distributed ownership.
-		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey2, 1000 ); 
-		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1_665 ); // 1000 + 500 + 500 * (1000/3000) = 1500 + 166.6666666667 = 1,666.6666666667
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey2, 0, 1000 ); 
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1_668 ); // 1000 + 500 + 500 * (1000/3000) = 1500 + 166.6666666667 = 1,668
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey2 ), 1_166 ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey2 ), 1_166 ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
-		assert_eq!( SubtensorModule::get_total_stake(), 6_495 );
+		assert_eq!( SubtensorModule::get_total_stake(), 6_500 ); // before + 1_000 = 5_500 + 1_000 = 6_500
 
 		step_block(1);
 
@@ -989,14 +992,246 @@ fn test_full_with_delegating() {
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey3 ), 1000 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey3, &hotkey3 ), 1000 ); 
 		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey3 ), 4000 ); 
-		assert_eq!( SubtensorModule::get_total_stake(), 10_495 );
-		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey3, 1000 ); 
+		assert_eq!( SubtensorModule::get_total_stake(), 10_500 );
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey3, 0, 1000 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey3 ), 1000 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey3 ), 1000 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey3 ), 1000 ); 
 		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey3, &hotkey3 ), 2000 ); 
-		assert_eq!( SubtensorModule::get_total_stake(), 11_495 );
+		assert_eq!( SubtensorModule::get_total_stake(), 11_500 ); // before + 1_000 = 10_500 + 1_000 = 11_500
 
+	});
+}
+
+
+// Verify delegates with servers get the full server inflation.
+#[test]
+fn test_full_with_delegating_some_servers() {
+	new_test_ext().execute_with(|| {
+		let netuid = 1;
+		// Make two accounts.
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+
+		let coldkey0 = U256::from(3);
+		let coldkey1 = U256::from(4);
+		SubtensorModule::set_max_registrations_per_block(netuid,4);
+		SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+
+		// Neither key can add stake because they dont have fundss.
+		assert_eq!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 60000), Err(Error::<Test>::NotEnoughBalanceToStake.into()));
+		assert_eq!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 60000), Err(Error::<Test>::NotEnoughBalanceToStake.into()));
+
+		// Add balances.
+		SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 60000);
+		SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60000);
+		
+		// Register the 2 neurons to a new network.
+		let netuid = 1;
+		add_network(netuid, 0, 0);
+		register_ok_neuron( netuid, hotkey0, coldkey0, 124124 );
+		register_ok_neuron( netuid, hotkey1, coldkey1, 987907 );
+		assert_eq!( SubtensorModule::get_owning_coldkey_for_hotkey( &hotkey0 ), coldkey0 );
+		assert_eq!( SubtensorModule::get_owning_coldkey_for_hotkey( &hotkey1 ), coldkey1 );
+		assert!( SubtensorModule::coldkey_owns_hotkey( &coldkey0, &hotkey0 ) );
+		assert!( SubtensorModule::coldkey_owns_hotkey( &coldkey1, &hotkey1 ) );
+
+		// We stake and all is ok.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 100) );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 100) );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 100 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 100 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey0 ), 100 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey1 ), 100 );
+		assert_eq!( SubtensorModule::get_total_stake(), 200 );
+
+		// Emit inflation through non delegates.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 0, 100 );
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 0, 100 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey0 ), 200);
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey1 ), 200 );
+
+		// Become delegates all is ok.
+		assert_ok!( SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 10) ); 
+		assert_ok! (SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 10) );
+		assert!( SubtensorModule::hotkey_is_delegate( &hotkey0 ) );
+		assert!( SubtensorModule::hotkey_is_delegate( &hotkey1 ) );
+
+		// This add stake works for delegates.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 200 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 200 );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey1, 200) );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey0, 300) );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 200 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 200 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 300 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 200 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey0 ), 500 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey1 ), 400 );
+		assert_eq!( SubtensorModule::get_total_stake(), 900 );
+
+		// Lets emit inflation through the hot and coldkeys.
+		// fist emission arg is for a server. This should only go to the owner of the hotkey.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 200, 1_000 ); // 1_200 total emission.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 123, 2_000 ); // 2_123 total emission.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 801 ); // 200 + (200 + 1000 x ( 200 / 500 )) = 200 + (200 + 400) = 800 ~= 801
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 899 ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey0 ), 1_700 ); // initial + server emission + validator emission = 799 + 899 = 1_698
+
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 1_200 ); // 200 + (0 + 2000 x ( 200 / 400 )) = 200 + (1000) = 1_200
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 1_323 ); // 200 + (123 + 2000 x ( 200 / 400 )) = 200 + (1_200) = 1_323
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey1 ), 2_523 ); // 400 + 2_123
+		assert_eq!( SubtensorModule::get_total_stake(), 4_223 ); // 1_700 + 2_523 = 4_223
+
+		// Lets emit MORE inflation through the hot and coldkeys.
+		// This time only server emission. This should go to the owner of the hotkey.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 350, 0 ); 
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 150, 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 1_151 ); // + 350 = 1_151
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 1_200 ); // No change.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 899 ); // No change.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 1_473 ); // 1_323 + 150 = 1_473
+		assert_eq!( SubtensorModule::get_total_stake(), 4_723 ); // 4_223 + 500 = 4_823
+
+		// Lets register and stake a new key.
+		let hotkey2 = U256::from(5);
+		let coldkey2 = U256::from(6); 
+		register_ok_neuron( netuid, hotkey2, coldkey2, 248123 );
+		SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 60_000);
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey2), hotkey2, 1_000) );
+		assert_ok!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey2), hotkey2, 100) );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 900 ); 
+		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey2, 10), Err(Error::<Test>::NonAssociatedColdKey.into()));
+		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey2, 10), Err(Error::<Test>::NonAssociatedColdKey.into()));
+
+		assert_eq!(SubtensorModule::get_total_stake(), 5_623 ); // 4_723 + 900 = 5_623
+
+		// Lets make this new key a delegate with a 50% take.
+		assert_ok!( SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey2), hotkey2, u16::MAX/2) ); 
+
+		// Add nominate some stake.
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey2, 1000) );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey2, 1000) );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey2), hotkey2, 100) );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1000 ); 
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey2 ), 1000 ); 
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey2 ), 1000 ); 
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey2 ), 3_000 ); 
+		assert_eq!( SubtensorModule::get_total_stake(), 7_723 ); // 5_623 + (1_000 + 1_000 + 100) = 7_723
+
+		// Lets emit inflation through this new key with distributed ownership.
+		// We will emit 100 server emission, which should go in-full to the owner of the hotkey.
+		// We will emit 1000 validator emission, which should be distributed in-part to the nominators.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey2, 100, 1000 ); 
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1_768 ); // 1000 + 100 + 500 + 500 * (1000/3000) = 100 + 1500 + 166.6666666667 ~= 1,768.6666666667
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey2 ), 1_166 ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey2 ), 1_166 ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
+		assert_eq!( SubtensorModule::get_total_stake(), 8_823 ); // 7_723 + 1_100 = 8_823
+
+		// Lets emit MORE inflation through this new key with distributed ownership.
+		// This time we do ONLY server emission
+		// We will emit 123 server emission, which should go in-full to the owner of the hotkey.
+		// We will emit *0* validator emission.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey2, 123, 0 ); 
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey2, &hotkey2 ), 1_891 ); // 1_768 + 123 = 1_891
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey2 ), 1_166 ); // No change.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey2 ), 1_166 ); // No change.
+		assert_eq!( SubtensorModule::get_total_stake(), 8_946 ); // 8_823 + 123 = 8_946
+	});
+}
+
+
+#[test]
+fn test_full_block_emission_occurs() {
+	new_test_ext().execute_with(|| {
+		let netuid = 1;
+		// Make two accounts.
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+
+		let coldkey0 = U256::from(3);
+		let coldkey1 = U256::from(4);
+		SubtensorModule::set_max_registrations_per_block(netuid,4);
+		SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+
+		// Neither key can add stake because they dont have fundss.
+		assert_eq!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 60000), Err(Error::<Test>::NotEnoughBalanceToStake.into()));
+		assert_eq!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 60000), Err(Error::<Test>::NotEnoughBalanceToStake.into()));
+
+		// Add balances.
+		SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 60000);
+		SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60000);
+		
+		// Register the 2 neurons to a new network.
+		let netuid = 1;
+		add_network(netuid, 0, 0);
+		register_ok_neuron( netuid, hotkey0, coldkey0, 124124 );
+		register_ok_neuron( netuid, hotkey1, coldkey1, 987907 );
+		assert_eq!( SubtensorModule::get_owning_coldkey_for_hotkey( &hotkey0 ), coldkey0 );
+		assert_eq!( SubtensorModule::get_owning_coldkey_for_hotkey( &hotkey1 ), coldkey1 );
+		assert!( SubtensorModule::coldkey_owns_hotkey( &coldkey0, &hotkey0 ) );
+		assert!( SubtensorModule::coldkey_owns_hotkey( &coldkey1, &hotkey1 ) );
+
+		// We stake and all is ok.
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 0 );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 100) );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 100) );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey0 ), 100 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey0, &hotkey1 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey0 ), 0 );
+		assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &coldkey1, &hotkey1 ), 100 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey0 ), 100 );
+		assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &hotkey1 ), 100 );
+		assert_eq!( SubtensorModule::get_total_stake(), 200 );
+
+		// Emit inflation through non delegates.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 0, 111 );
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 0, 234 );
+		// Verify the full emission occurs.
+		assert_eq!( SubtensorModule::get_total_stake(), 200 + 111 + 234 ); // 200 + 111 + 234 = 545
+
+		// Become delegates all is ok.
+		assert_ok!( SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 10) ); 
+		assert_ok! (SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 10) );
+		assert!( SubtensorModule::hotkey_is_delegate( &hotkey0 ) );
+		assert!( SubtensorModule::hotkey_is_delegate( &hotkey1 ) );
+
+		// Add some delegate stake
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey1, 200) );
+		assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey0, 300) );
+
+		assert_eq!( SubtensorModule::get_total_stake(), 545 + 500 ); // 545 + 500 = 1045
+
+		// Lets emit inflation with delegatees, with both validator and server emission
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 200, 1_000 ); // 1_200 total emission.
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 123, 2_000 ); // 2_123 total emission.
+		
+		assert_eq!( SubtensorModule::get_total_stake(), 1045 + 1_200 + 2_123 ); // before + 1_200 + 2_123 = 4_368
+
+		// Lets emit MORE inflation through the hot and coldkeys.
+		// This time JUSt server emission
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 350, 0 ); 
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 150, 0 );
+
+		assert_eq!( SubtensorModule::get_total_stake(), 4_368 + 350 + 150 ); // before + 350 + 150 = 4_868 
+
+		// Lastly, do only validator emission
+
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey0, 0, 12_948); 
+		SubtensorModule::emit_inflation_through_hotkey_account( &hotkey1, 0, 1_874 );
+
+		assert_eq!( SubtensorModule::get_total_stake(), 4_868 + 12_948 + 1_874 ); // before + 12_948 + 1_874 = 19_690
 	});
 }
 

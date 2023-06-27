@@ -99,6 +99,11 @@ fn test_registration_ok() {
 	});
 }
 
+
+/********************************************
+	registration::do_burned_registration tests
+*********************************************/
+
 #[test]
 fn test_burned_registration_ok() {
 	new_test_ext().execute_with(|| {
@@ -166,6 +171,7 @@ fn test_burn_adjustment() {
 }
 
 #[test]
+#[cfg(not(tarpaulin))]
 fn test_registration_too_many_registrations_per_block() {
 	new_test_ext().execute_with(|| {
 		
@@ -831,5 +837,29 @@ fn test_registration_origin_hotkey_mismatch() {
 			coldkey_account_id
 		);
 		assert_eq!( result, Err(Error::<Test>::HotkeyOriginMismatch.into()) );
+	});
+}
+
+#[test]
+fn test_registration_disabled() {
+	new_test_ext().execute_with(|| {
+		let block_number: u64 = 0;
+		let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		let hotkey_account_id: U256 = U256::from(1);
+		let coldkey_account_id: U256 = U256::from(668);
+		let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, 0, &hotkey_account_id);
+		
+		//add network
+		add_network(netuid, tempo, 0);
+		SubtensorModule::set_network_registration_allowed(netuid, false);
+		
+		let result = SubtensorModule::register(
+			<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+			netuid, block_number, nonce, work.clone(),
+			hotkey_account_id,
+			coldkey_account_id
+		);
+		assert_eq!( result, Err(Error::<Test>::RegistrationDisabled.into()) );
 	});
 }

@@ -411,6 +411,7 @@ pub fn register_ok_neuron( netuid: u16, hotkey_account_id: U256, coldkey_account
 #[allow(dead_code)]
 pub fn add_network(netuid: u16, tempo: u16, modality: u16){
 	let result = SubtensorModule::do_add_network(<<Test as Config>::RuntimeOrigin>::root(), netuid, tempo, modality);
+	SubtensorModule::set_network_registration_allowed( netuid, true );
 	assert_ok!(result);
 }
 

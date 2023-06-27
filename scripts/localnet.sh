@@ -6,6 +6,11 @@
 
 FULL_PATH="$SPEC_PATH$CHAIN.json"
 
+if [ ! -d "$SPEC_PATH" ]; then
+	echo "*** Creating directory ${SPEC_PATH}..."
+	mkdir $SPEC_PATH
+fi
+
 if [[ $BUILD_BINARY == "1" ]]; then
 	echo "*** Building substrate binary..."
 	cargo build --release --features runtime-benchmarks 1>/dev/null

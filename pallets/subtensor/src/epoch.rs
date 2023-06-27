@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
 
     // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     // (Dense version used only for testing purposes.)
-    pub fn epoch_dense( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
+    pub fn epoch_dense( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64, u64)> {
   
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
@@ -183,33 +183,61 @@ impl<T: Config> Pallet<T> {
         // =================================
 
         // Compute emission scores.
-        let mut normalized_emission: Vec<I32F32> = incentive.iter().zip( dividends.clone() ).map( |(ii, di)| ii + di ).collect();
-        inplace_normalize( &mut normalized_emission );
-        
+
+        // Compute normalized emission scores. range: I32F32(0, 1)
+        // Compute normalized emission scores. range: I32F32(0, 1)
+        let combined_emission: Vec<I32F32> = incentive.iter().zip( dividends.clone() ).map( |(ii, di)| ii + di ).collect();
+        let emission_sum: I32F32 = combined_emission.iter().sum();
+
+        let mut normalized_server_emission: Vec<I32F32> = incentive.clone(); // Servers get incentive.
+        let mut normalized_validator_emission: Vec<I32F32> = dividends.clone(); // Validators get dividends.
+        let mut normalized_combined_emission: Vec<I32F32> = combined_emission.clone();
+        // Normalize on the sum of incentive + dividends.
+        inplace_normalize_using_sum( &mut normalized_server_emission, emission_sum ); 
+        inplace_normalize_using_sum( &mut normalized_validator_emission, emission_sum );
+        inplace_normalize( &mut normalized_combined_emission );
+
         // If emission is zero, replace emission with normalized stake.
-        if is_zero( &normalized_emission ) { // no weights set | outdated weights | self_weights
+        if emission_sum == I32F32::from(0) { // no weights set | outdated weights | self_weights
             if is_zero( &active_stake ) { // no active stake
-                normalized_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_validator_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_combined_emission = stake.clone(); 
             }
             else {
-                normalized_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_validator_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_combined_emission = active_stake.clone();
             }
         }
-
+        
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
         let float_rao_emission: I96F32 = I96F32::from_num( rao_emission );
-        let emission: Vec<I96F32> = normalized_emission.iter().map( |e: &I32F32| I96F32::from_num( *e ) * float_rao_emission ).collect();
-        let emission: Vec<u64> = emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
-        log::trace!( "E: {:?}", &emission );
 
-        // Set pruning scores.
-        let pruning_scores: Vec<I32F32> = normalized_emission.clone();
+        let server_emission: Vec<I96F32> = normalized_server_emission.iter().map( |se: &I32F32| I96F32::from_num( *se ) * float_rao_emission ).collect();
+        let server_emission: Vec<u64> = server_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        let validator_emission: Vec<I96F32> = normalized_validator_emission.iter().map( |ve: &I32F32| I96F32::from_num( *ve ) * float_rao_emission ).collect();
+        let validator_emission: Vec<u64> = validator_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        // Used only to track combined emission in the storage.
+        let combined_emission: Vec<I96F32> = normalized_combined_emission.iter().map( |ce: &I32F32| I96F32::from_num( *ce ) * float_rao_emission ).collect();
+        let combined_emission: Vec<u64> = combined_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        log::trace!( "nSE: {:?}", &normalized_server_emission );
+        log::trace!( "SE: {:?}", &server_emission );
+        log::trace!( "nVE: {:?}", &normalized_validator_emission );
+        log::trace!( "VE: {:?}", &validator_emission );
+        log::trace!( "nCE: {:?}", &normalized_combined_emission );
+        log::trace!( "CE: {:?}", &combined_emission );
+        
+
+        // Set pruning scores using combined emission scores.
+        let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
         log::trace!( "P: {:?}", &pruning_scores );
 
         // ===================
         // == Value storage ==
         // ===================
-        let cloned_emission: Vec<u64> = emission.clone();
+        let cloned_emission: Vec<u64> = combined_emission.clone();
         let cloned_ranks: Vec<u16> = ranks.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_trust: Vec<u16> = trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
@@ -243,9 +271,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let mut result: Vec<(T::AccountId, u64)> = vec![]; 
+        let mut result: Vec<(T::AccountId, u64, u64)> = vec![]; 
         for ( uid_i, hotkey ) in hotkeys.iter() {
-            result.push( ( hotkey.clone(), emission[ *uid_i as usize ] ) );
+            result.push( ( hotkey.clone(), server_emission[ *uid_i as usize ], validator_emission[ *uid_i as usize ] ) );
         }
         result
 
@@ -264,7 +292,7 @@ impl<T: Config> Pallet<T> {
     // 	* 'debug' ( bool ):
     // 		- Print debugging outputs.
     //    
-    pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64)> {
+    pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
         log::trace!( "n: {:?}", n );
@@ -454,34 +482,58 @@ impl<T: Config> Pallet<T> {
         // =================================
 
         // Compute normalized emission scores. range: I32F32(0, 1)
-        let mut normalized_emission: Vec<I32F32> = incentive.iter().zip( dividends.clone() ).map( |(ii, di)| ii + di ).collect();
-        inplace_normalize( &mut normalized_emission );
+        let combined_emission: Vec<I32F32> = incentive.iter().zip( dividends.clone() ).map( |(ii, di)| ii + di ).collect();
+        let emission_sum: I32F32 = combined_emission.iter().sum();
+
+        let mut normalized_server_emission: Vec<I32F32> = incentive.clone(); // Servers get incentive.
+        let mut normalized_validator_emission: Vec<I32F32> = dividends.clone(); // Validators get dividends.
+        let mut normalized_combined_emission: Vec<I32F32> = combined_emission.clone();
+        // Normalize on the sum of incentive + dividends.
+        inplace_normalize_using_sum( &mut normalized_server_emission, emission_sum ); 
+        inplace_normalize_using_sum( &mut normalized_validator_emission, emission_sum );
+        inplace_normalize( &mut normalized_combined_emission );
 
         // If emission is zero, replace emission with normalized stake.
-        if is_zero( &normalized_emission ) { // no weights set | outdated weights | self_weights
+        if emission_sum == I32F32::from(0) { // no weights set | outdated weights | self_weights
             if is_zero( &active_stake ) { // no active stake
-                normalized_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_validator_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
+                normalized_combined_emission = stake.clone();
             }
             else {
-                normalized_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_validator_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
+                normalized_combined_emission = active_stake.clone();
             }
         }
         
         // Compute rao based emission scores. range: I96F32(0, rao_emission)
         let float_rao_emission: I96F32 = I96F32::from_num( rao_emission );
-        let emission: Vec<I96F32> = normalized_emission.iter().map( |e: &I32F32| I96F32::from_num( *e ) * float_rao_emission ).collect();
-        let emission: Vec<u64> = emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
-        log::trace!( "nE: {:?}", &normalized_emission );
-        log::trace!( "E: {:?}", &emission );
 
-        // Set pruning scores.
-        let pruning_scores: Vec<I32F32> = normalized_emission.clone();
+        let server_emission: Vec<I96F32> = normalized_server_emission.iter().map( |se: &I32F32| I96F32::from_num( *se ) * float_rao_emission ).collect();
+        let server_emission: Vec<u64> = server_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        let validator_emission: Vec<I96F32> = normalized_validator_emission.iter().map( |ve: &I32F32| I96F32::from_num( *ve ) * float_rao_emission ).collect();
+        let validator_emission: Vec<u64> = validator_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        // Only used to track emission in storage.
+        let combined_emission: Vec<I96F32> = normalized_combined_emission.iter().map( |ce: &I32F32| I96F32::from_num( *ce ) * float_rao_emission ).collect();
+        let combined_emission: Vec<u64> = combined_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        log::trace!( "nSE: {:?}", &normalized_server_emission );
+        log::trace!( "SE: {:?}", &server_emission );
+        log::trace!( "nVE: {:?}", &normalized_validator_emission );
+        log::trace!( "VE: {:?}", &validator_emission );
+        log::trace!( "nCE: {:?}", &normalized_combined_emission );
+        log::trace!( "CE: {:?}", &combined_emission );
+        
+
+        // Set pruning scores using combined emission scores.
+        let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
         log::trace!( "P: {:?}", &pruning_scores );
 
         // ===================
         // == Value storage ==
         // ===================
-        let cloned_emission: Vec<u64> = emission.clone();
+        let cloned_emission: Vec<u64> = combined_emission.clone();
         let cloned_ranks: Vec<u16> = ranks.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_trust: Vec<u16> = trust.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
         let cloned_consensus: Vec<u16> = consensus.iter().map(|xi| fixed_proportion_to_u16(*xi)).collect::<Vec<u16>>();
@@ -515,10 +567,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Emission tuples ( hotkeys, u64 emission)
-        let mut result: Vec<(T::AccountId, u64)> = vec![]; 
+        // Emission tuples ( hotkeys, server_emission, validator_emission )
+        let mut result: Vec<(T::AccountId, u64, u64)> = vec![]; 
         for ( uid_i, hotkey ) in hotkeys.iter() {
-            result.push( ( hotkey.clone(), emission[ *uid_i as usize ] ) );
+            result.push( ( hotkey.clone(), server_emission[ *uid_i as usize ], validator_emission[ *uid_i as usize ] ) );
         }
         result
     }
