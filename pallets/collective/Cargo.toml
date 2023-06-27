@@ -1,11 +1,11 @@
 [package]
 name = "pallet-collective"
 version = "4.0.0-dev"
-authors = ["Parity Technologies <admin@parity.io>"]
+authors = ["Parity Technologies <admin@parity.io>, Opentensor Technologies"]
 edition = "2021"
 license = "Apache-2.0"
-homepage = "https://substrate.io"
-repository = "https://github.com/paritytech/substrate/"
+homepage = "https://bittensor.com"
+repository = "https://github.com/opentensor/subtensor"
 description = "Collective system: Members of a set of account IDs can make their collective feelings known through dispatched calls from one of two specialized origins."
 readme = "README.md"
 
