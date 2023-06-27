@@ -27,14 +27,15 @@ benchmarks! {
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &caller);
+    let hotkey: T::AccountId = account("Alice", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
     assert_ok!(Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
     
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let coldkey: T::AccountId = account("Test", 0, seed);
-  }: register( RawOrigin::Signed( caller.clone() ), netuid, block_number, nonce, work, caller.clone(), coldkey )
+  }: register( RawOrigin::Signed( hotkey.clone() ), netuid, block_number, nonce, work, hotkey.clone(), coldkey.clone() )
 
   benchmark_set_weights {
     
