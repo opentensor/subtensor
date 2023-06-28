@@ -27,5 +27,5 @@ services:
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
-          --bootnodes /ip4/13.58.175.193/tcp/30333/p2p/12D3KooWDe7g2JbNETiKypcKT1KsCEZJbTzEHCn8hpd4PHZ6pdz5 \
+          --bootnodes /dns/bootnode.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
           --sync warp
