@@ -14,7 +14,9 @@ use frame_support::{
 	dispatch,
 	dispatch::{
 		DispatchInfo,
-		PostDispatchInfo
+		PostDispatchInfo,
+		DispatchResult,
+		DispatchError
 	}, ensure, 
 	traits::{
 		Currency, 
@@ -23,7 +25,7 @@ use frame_support::{
 			WithdrawReasons
 		},
 		IsSubType,
-		}
+	}
 };
 
 use sp_std::marker::PhantomData;
@@ -33,7 +35,7 @@ use sp_runtime::{
 		Dispatchable,
 		DispatchInfoOf,
 		SignedExtension,
-		PostDispatchInfoOf
+		PostDispatchInfoOf,
 	},
 	transaction_validity::{
 		TransactionValidity,
@@ -63,20 +65,31 @@ mod staking;
 mod utils;
 mod uids;
 mod weights;
+mod senate;
 
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
 
+// apparently this is stabilized since rust 1.36
+extern crate alloc;
 mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::pallet_prelude::*;
+	use frame_support::{
+		dispatch::GetDispatchInfo,
+		pallet_prelude::{*, StorageMap, DispatchResult}
+	};
 	use frame_system::pallet_prelude::*;
-	use frame_support::traits::Currency;
+	use frame_support::traits::{Currency, UnfilteredDispatchable};
 	use frame_support::sp_std::vec;
 	use frame_support::inherent::Vec;
+
+	#[cfg(not(feature = "std"))]
+	use alloc::boxed::Box;
+	#[cfg(feature = "std")]
+	use sp_std::prelude::Box;
 
 	// Tracks version for migrations. Should be monotonic with respect to the
 	// order of migrations. (i.e. always increasing)
@@ -94,8 +107,20 @@ pub mod pallet {
 		// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+		/// A sudo-able call.
+		type SudoRuntimeCall: Parameter
+		+ UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+		+ GetDispatchInfo;
+
+		/// Origin checking for council majority
+		type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
 		// --- Currency type that will be used to place deposits on neurons
 		type Currency: Currency<Self::AccountId> + Send + Sync;
+
+		type SenateMembers: crate::MemberManagement<Self::AccountId>;
+
+		type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
 		// =================================
 		// ==== Initial Value Constants ====
@@ -172,9 +197,18 @@ pub mod pallet {
 		type InitialServingRateLimit: Get<u64>;
 		#[pallet::constant] // Initial transaction rate limit.
 		type InitialTxRateLimit: Get<u64>;
+		#[pallet::constant] // Initial percentage of total stake required to join senate.
+		type InitialSenateRequiredStakePercentage: Get<u64>;
 	}
 
 	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+	// Senate requirements
+	#[pallet::type_value]
+	pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 { T::InitialSenateRequiredStakePercentage::get() }
+
+	#[pallet::storage] // --- ITEM ( tx_rate_limit )
+	pub(super) type SenateRequiredStakePercentage<T> = StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
 	// ============================
 	// ==== Staking + Accounts ====
@@ -314,7 +348,7 @@ pub mod pallet {
 	pub type BlocksSinceLastStep<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
 	#[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
 	pub type LastMechansimStepBlock<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T> >;
-
+	
 	// =================================
 	// ==== Axon / Promo Endpoints =====
 	// =================================
@@ -577,6 +611,7 @@ pub mod pallet {
 		MaxBurnSet( u16, u64 ), // --- Event created when setting max burn on a network.
 		MinBurnSet( u16, u64 ), // --- Event created when setting min burn on a network.
 		TxRateLimitSet( u64 ), // --- Event created when setting the transaction rate limit.
+		Sudid ( DispatchResult ), // --- Event created when a sudo call is done.
 		RegistrationAllowed( u16, bool ), // --- Event created when registration is allowed/disallowed for a subnet.
 		TempoSet(u16, u16), // --- Event created when setting tempo on a network
 		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
@@ -629,6 +664,11 @@ pub mod pallet {
 		TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
 		BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
 		HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
+		// Senate errors
+		NotSenateMember, // --- Thrown when a hotkey attempts to do something only senate members can do
+		AlreadySenateMember, // --- Thrown when a hotkey attempts to join the senate while already being a member
+		BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
+		NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
 		IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
 	}
 
@@ -961,9 +1001,10 @@ pub mod pallet {
 		//
 		//
 		#[pallet::call_index(3)]
-		#[pallet::weight((Weight::from_ref_time(66_000_000)
-		.saturating_add(T::DbWeight::get().reads(8))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+		#[pallet::weight((Weight::from_ref_time(63_000_000)
+		.saturating_add(Weight::from_proof_size(43991))
+		.saturating_add(T::DbWeight::get().reads(14))
+		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
 		pub fn remove_stake(
 			origin: OriginFor<T>, 
 			hotkey: T::AccountId, 
@@ -1567,6 +1608,92 @@ pub mod pallet {
 		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64 ) -> DispatchResult {
 			Self::do_set_rao_recycled(origin, netuid, rao_recycled)
+		}  
+    
+    	/// Authenticates a council proposal and dispatches a function call with `Root` origin.
+		///
+		/// The dispatch origin for this call must be a council majority.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(51)]
+		#[pallet::weight((Weight::from_ref_time(0), DispatchClass::Operational, Pays::No))]
+		pub fn sudo(
+			origin: OriginFor<T>,
+			call: Box<T::SudoRuntimeCall>,
+		) -> DispatchResultWithPostInfo {
+			// This is a public call, so we ensure that the origin is a council majority.
+			T::CouncilOrigin::ensure_origin(origin)?;
+
+			let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			let error = result.map(|_| ()).map_err(|e| e.error);
+			Self::deposit_event(Event::Sudid(error));
+			
+			return result
+		}
+
+		/// Authenticates a council proposal and dispatches a function call with `Root` origin.
+		/// This function does not check the weight of the call, and instead allows the
+		/// user to specify the weight of the call.
+		///
+		/// The dispatch origin for this call must be a council majority.
+		///
+		/// ## Complexity
+		/// - O(1).
+		#[pallet::call_index(52)]
+		#[pallet::weight((*_weight, call.get_dispatch_info().class, Pays::No))]
+		pub fn sudo_unchecked_weight(
+			origin: OriginFor<T>,
+			call: Box<T::SudoRuntimeCall>,
+			_weight: Weight,
+		) -> DispatchResultWithPostInfo {
+			// This is a public call, so we ensure that the origin is a council majority.
+			T::CouncilOrigin::ensure_origin(origin)?;
+
+			let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+			let error = result.map(|_| ()).map_err(|e| e.error);
+			Self::deposit_event(Event::Sudid(error));
+			
+			return result
+		}
+
+		#[pallet::call_index(53)]
+		#[pallet::weight((Weight::from_ref_time(67_000_000)
+		.saturating_add(Weight::from_proof_size(61173))
+		.saturating_add(T::DbWeight::get().reads(20))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+		pub fn join_senate( 
+			origin: OriginFor<T>,
+			hotkey: T::AccountId
+		) -> DispatchResult { 
+			Self::do_join_senate(origin, &hotkey)
+		}
+
+		#[pallet::call_index(54)]
+		#[pallet::weight((Weight::from_ref_time(20_000_000)
+		.saturating_add(Weight::from_proof_size(4748))
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+		pub fn leave_senate( 
+			origin: OriginFor<T>,
+			hotkey: T::AccountId
+		) -> DispatchResult { 
+			Self::do_leave_senate(origin, &hotkey)
+		}
+
+		#[pallet::call_index(55)]
+		#[pallet::weight((Weight::from_ref_time(0)
+		.saturating_add(Weight::from_proof_size(0))
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
+		pub fn vote(
+			origin: OriginFor<T>,
+			hotkey: T::AccountId,
+			proposal: T::Hash,
+			#[pallet::compact] index: u32,
+			approve: bool,
+		) -> DispatchResultWithPostInfo {
+			Self::do_vote_senate(origin, &hotkey, proposal, index, approve)
 		}
 
 		// Sudo call for setting registration allowed
@@ -1819,4 +1946,60 @@ impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExte
 		Ok(())
     }
 
+}
+
+use frame_support::{inherent::Vec, sp_std::vec};
+
+/// Trait for managing a membership pallet instance in the runtime
+pub trait MemberManagement<AccountId> {
+	/// Add member
+	fn add_member(account: &AccountId) -> DispatchResult;
+
+	/// Remove a member
+	fn remove_member(account: &AccountId) -> DispatchResult;
+
+	/// Swap member
+	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult;
+
+	/// Get all members
+	fn members() -> Vec<AccountId>;
+
+	/// Check if an account is apart of the set
+	fn is_member(account: &AccountId) -> bool;
+
+	/// Get our maximum member count
+	fn max_members() -> u32;
+}
+
+impl<T> MemberManagement<T> for () {
+	/// Add member
+	fn add_member(_: &T) -> DispatchResult {Ok(())}
+
+	// Remove a member
+	fn remove_member(_: &T) -> DispatchResult {Ok(())}
+
+	// Swap member
+	fn swap_member(_: &T, _: &T) -> DispatchResult {Ok(())}
+
+	// Get all members
+	fn members() -> Vec<T> {vec![]}
+
+	// Check if an account is apart of the set
+	fn is_member(_: &T) -> bool {false}
+
+	fn max_members() -> u32 {0}
+}
+
+/// Trait for interacting with collective pallets
+pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
+	/// Remove vote
+	fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
+
+	fn add_vote(hotkey: &AccountId, proposal: Hash, index: ProposalIndex, approve: bool) -> Result<bool, DispatchError>;
+}
+
+impl<T, H, P> CollectiveInterface<T, H, P> for () {
+	fn remove_votes(_: &T) -> Result<bool, DispatchError> {Ok(true)}
+
+	fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {Ok(true)}
 }

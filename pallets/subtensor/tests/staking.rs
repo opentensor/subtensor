@@ -294,7 +294,7 @@ fn test_remove_stake_dispatch_info_ok() {
 		let amount_unstaked = 5000;
 		let call = RuntimeCall::SubtensorModule(SubtensorCall::remove_stake{hotkey, amount_unstaked});
 		assert_eq!(call.get_dispatch_info(), DispatchInfo {
-			weight: frame_support::weights::Weight::from_ref_time(66000000),
+			weight: frame_support::weights::Weight::from_ref_time(63000000).add_proof_size(43991),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No
 		});

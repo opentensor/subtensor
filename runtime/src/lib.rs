@@ -6,12 +6,14 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::Encode;
+use codec::{Encode, Decode};
+use pallet_collective::EnsureMember;
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::pallet_prelude::Get;
+use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin, DispatchResult}, traits::{EitherOfDiverse}, RuntimeDebug};
+use frame_system::{EnsureRoot, Config, EnsureNever, RawOrigin};
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
@@ -75,6 +77,9 @@ pub type Index = u32;
 // A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 
+// Member type for membership
+type MemberCount = u32;
+
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
 // of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -111,7 +116,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 121,
+	spec_version: 122,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -315,6 +320,153 @@ impl pallet_transaction_payment::Config for Runtime {
 	//type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
+// Configure collective pallet for council
+parameter_types! {
+	pub const CouncilMotionDuration: BlockNumber = 100;
+	pub const CouncilMaxProposals: u32 = 10;
+	pub const CouncilMaxMembers: u32 = 3;
+}
+
+// Configure collective pallet for Senate
+parameter_types! {
+	pub const SenateMaxMembers: u32 = 10;
+}
+
+use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
+pub struct CanProposeToTriumvirate;
+impl CanPropose<AccountId> for CanProposeToTriumvirate {
+	fn can_propose(account: &AccountId) -> bool {
+		Triumvirate::is_member(account)
+	}
+}
+
+pub struct CanVoteToTriumvirate;
+impl CanVote<AccountId> for CanVoteToTriumvirate {
+	fn can_vote(account: &AccountId) -> bool {
+		//Senate::is_member(account)
+		false // Disable voting from pallet_collective::vote
+	}
+}
+
+use pallet_subtensor::{MemberManagement, CollectiveInterface};
+pub struct ManageSenateMembers;
+impl MemberManagement<AccountId> for ManageSenateMembers {
+	fn add_member(account: &AccountId) -> DispatchResult {
+		let who = Address::Id( account.clone() );
+		SenateMembers::add_member(RawOrigin::Root.into(), who)
+	}
+
+	fn remove_member(account: &AccountId) -> DispatchResult {
+		let who = Address::Id( account.clone() );
+		SenateMembers::remove_member(RawOrigin::Root.into(), who)
+	}
+
+	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
+		let remove = Address::Id( remove.clone() );
+		let add = Address::Id( add.clone() );
+
+		SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
+	}
+
+	fn is_member(account: &AccountId) -> bool {
+		Senate::is_member(account)
+	}
+
+	fn members() -> Vec<AccountId> {
+		Senate::members()
+	}
+
+	fn max_members() -> u32 {
+		SenateMaxMembers::get()
+	}
+}
+
+pub struct GetSenateMemberCount;
+impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
+	fn get_count() -> MemberCount {Senate::members().len() as u32}
+}
+impl Get<MemberCount> for GetSenateMemberCount {
+	fn get() -> MemberCount {SenateMaxMembers::get()}
+}
+
+pub struct TriumvirateVotes;
+impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
+	fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
+		Triumvirate::remove_votes(hotkey)
+	}
+
+	fn add_vote(hotkey: &AccountId, proposal: Hash, index: u32, approve: bool) -> Result<bool, sp_runtime::DispatchError> {
+		Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
+	}
+}
+
+type EnsureMajoritySenate = pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
+
+// We call pallet_collective TriumvirateCollective
+type TriumvirateCollective = pallet_collective::Instance1;
+impl pallet_collective::Config<TriumvirateCollective> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall; 
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = GetSenateMemberCount;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureNever<AccountId>;
+	type CanPropose = CanProposeToTriumvirate;
+	type CanVote = CanVoteToTriumvirate;
+	type GetVotingMembers = GetSenateMemberCount;
+}
+
+// We call council members Triumvirate
+type TriumvirateMembership = pallet_membership::Instance1;
+impl pallet_membership::Config<TriumvirateMembership> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRoot<AccountId>;
+	type RemoveOrigin = EnsureRoot<AccountId>;
+	type SwapOrigin = EnsureRoot<AccountId>;
+	type ResetOrigin = EnsureRoot<AccountId>;
+	type PrimeOrigin = EnsureRoot<AccountId>;
+	type MembershipInitialized = Triumvirate;
+	type MembershipChanged = Triumvirate;
+	type MaxMembers = CouncilMaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
+}
+
+// This is a dummy collective instance for managing senate members
+// Probably not the best solution, but fastest implementation
+type SenateCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<SenateCollective> for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall; 
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = SenateMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
+	type SetMembersOrigin = EnsureNever<AccountId>;
+	type CanPropose = ();
+	type CanVote = ();
+	type GetVotingMembers = ();
+}
+
+// We call our top K delegates membership Senate
+type SenateMembership = pallet_membership::Instance2;
+impl pallet_membership::Config<SenateMembership> for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRoot<AccountId>;
+	type RemoveOrigin = EnsureRoot<AccountId>;
+	type SwapOrigin = EnsureRoot<AccountId>;
+	type ResetOrigin = EnsureRoot<AccountId>;
+	type PrimeOrigin = EnsureRoot<AccountId>;
+	type MembershipInitialized = Senate;
+	type MembershipChanged = Senate;
+	type MaxMembers = SenateMaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -376,11 +528,17 @@ parameter_types! {
 	pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
 	pub const SubtensorInitialTxRateLimit: u64 = 1000;
 	pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+	pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
 }
 
 impl pallet_subtensor::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
+	type SudoRuntimeCall = RuntimeCall;
 	type Currency = Balances;
+	type CouncilOrigin = EnsureMajoritySenate;
+	type SenateMembers = ManageSenateMembers;
+	type TriumvirateInterface = TriumvirateVotes;
+
 	type InitialRho = SubtensorInitialRho;
 	type InitialKappa = SubtensorInitialKappa;
 	type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
@@ -417,6 +575,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMinBurn = SubtensorInitialMinBurn;
 	type InitialTxRateLimit = SubtensorInitialTxRateLimit;
 	type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
+	type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -434,9 +593,13 @@ construct_runtime!(
 		Grandpa: pallet_grandpa,
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
-		Sudo: pallet_sudo,
 		SubtensorModule: pallet_subtensor,
+		Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Utility: pallet_utility,
+		Sudo: pallet_sudo,
 		Multisig: pallet_multisig
 	}
 );

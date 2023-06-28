@@ -1,12 +1,12 @@
 
 use super::*;
-use frame_support::inherent::Vec;
+use frame_support::{inherent::Vec};
 use sp_core::U256;
 use frame_support::pallet_prelude::DispatchResult;
 use crate::system::ensure_root;
 
 impl<T: Config> Pallet<T> {
-
+ 
     // ========================
 	// ==== Global Setters ====
 	// ========================
@@ -524,7 +524,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event( Event::RAORecycledForRegistrationSet( netuid, rao_recycled ) );
         Ok(())
     }
-
 }
+
 
 
