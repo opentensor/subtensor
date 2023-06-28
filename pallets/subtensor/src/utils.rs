@@ -524,6 +524,18 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event( Event::RAORecycledForRegistrationSet( netuid, rao_recycled ) );
         Ok(())
     }
+
+    pub fn set_senate_required_stake_perc( required_percent: u64 ) {
+        SenateRequiredStakePercentage::<T>::put( required_percent );
+    }
+
+    pub fn do_set_senate_required_stake_perc(origin: T::RuntimeOrigin, required_percent: u64) -> DispatchResult {
+        ensure_root( origin )?;
+
+        Self::set_senate_required_stake_perc( required_percent );
+        Self::deposit_event( Event::SenateRequiredStakePercentSet( required_percent ) );
+        Ok(())
+    }
 }
 
 

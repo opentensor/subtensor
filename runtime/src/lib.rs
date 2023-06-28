@@ -329,7 +329,7 @@ parameter_types! {
 
 // Configure collective pallet for Senate
 parameter_types! {
-	pub const SenateMaxMembers: u32 = 10;
+	pub const SenateMaxMembers: u32 = 12;
 }
 
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
@@ -528,7 +528,7 @@ parameter_types! {
 	pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
 	pub const SubtensorInitialTxRateLimit: u64 = 1000;
 	pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
-	pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
+	pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
 }
 
 impl pallet_subtensor::Config for Runtime {

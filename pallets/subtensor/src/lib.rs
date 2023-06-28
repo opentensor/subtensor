@@ -615,6 +615,7 @@ pub mod pallet {
 		RegistrationAllowed( u16, bool ), // --- Event created when registration is allowed/disallowed for a subnet.
 		TempoSet(u16, u16), // --- Event created when setting tempo on a network
 		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
+		SenateRequiredStakePercentSet( u64 ), // Event created when setting the minimum required stake amount for senate registration.
 	}
 
 	// Errors inform users that something went wrong.
@@ -1704,6 +1705,13 @@ pub mod pallet {
 		pub fn sudo_set_registration_allowed( origin:OriginFor<T>, netuid: u16, registration_allowed: bool ) -> DispatchResult {  
 			Self::do_sudo_set_network_registration_allowed( origin, netuid, registration_allowed )
 		}
+
+		#[pallet::call_index(56)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_senate_required_stake_perc(origin: OriginFor<T>, required_percent: u64 ) -> DispatchResult {
+			Self::do_set_senate_required_stake_perc(origin, required_percent)
+		}  
+    
 	}	
 
 	// ---- Subtensor helper functions.
