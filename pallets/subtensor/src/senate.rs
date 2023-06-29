@@ -1,6 +1,6 @@
 use super::*;
 use frame_support::{dispatch::Pays, pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, Weight}};
-use frame_system::{ensure_signed};
+use frame_system::{ensure_signed, ensure_root};
 use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
@@ -98,5 +98,17 @@ impl<T: Config> Pallet<T> {
 			.saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
 
 		Ok((Some(vote_weight), if is_account_voting_first_time { Pays::No } else { Pays::Yes }).into())
+	}
+
+	pub fn do_remove_votes(
+		origin: T::RuntimeOrigin,
+		who: &T::AccountId
+	) -> DispatchResult {
+		ensure_root(origin)?;
+
+		ensure!(!T::SenateMembers::is_member(who), Error::<T>::SenateMember);
+		T::TriumvirateInterface::remove_votes(who);
+
+		Ok(())
 	}
 }
