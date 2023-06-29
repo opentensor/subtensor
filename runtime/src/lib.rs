@@ -361,10 +361,11 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
 		SenateMembers::remove_member(RawOrigin::Root.into(), who)
 	}
 
-	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
-		let remove = Address::Id( remove.clone() );
+	fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResult {
+		let remove = Address::Id( rm.clone() );
 		let add = Address::Id( add.clone() );
 
+		Triumvirate::remove_votes(rm)?;
 		SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
 	}
 
