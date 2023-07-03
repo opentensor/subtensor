@@ -24,8 +24,8 @@ pub struct NeuronInfo<T: Config> {
     dividends: Compact<u16>,
     last_update: Compact<u64>,
     validator_permit: bool,
-    weights: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, weight)
-    bonds: Vec<(Compact<u16>, Compact<u16>)>, // Vec of (uid, bond)
+    weights: Vec<(u16, u16)>, // Vec of (uid, weight)
+    bonds: Vec<(u16, u16)>, // Vec of (uid, bond)
     pruning_score: Compact<u16>,
 }
 
@@ -107,17 +107,12 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
         let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
         
-        let mut weights = Vec::new();
-        let mut bonds = Vec::new();
+        let mut weights: Vec<(u16, u16)> = Vec::new();
+        let mut bonds: Vec<(u16, u16)> = Vec::new();
         if validator_permit {
             // Only populate for peers with a validator permit
-            weights = <Weights<T>>::get(netuid, uid).iter()
-                .filter_map(|(i, w)| if *w > 0 { Some((i.into(), w.into())) } else { None })
-                .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
-            
-            bonds = <Bonds<T>>::get(netuid, uid).iter()
-                .filter_map(|(i, b)| if *b > 0 { Some((i.into(), b.into())) } else { None })
-                .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
+            weights = <Weights<T>>::get(netuid, uid).iter().map(|x| *x).collect();
+            bonds = <Bonds<T>>::get(netuid, uid).iter().map(|x| *x).collect();
         }
         
         let stake: Vec<(T::AccountId, Compact<u64>)> = < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() )
