@@ -106,14 +106,19 @@ impl<T: Config> Pallet<T> {
         let pruning_score = Self::get_pruning_score_for_uid( netuid, uid as u16 );
         let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
         let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
-
-        let weights = <Weights<T>>::get(netuid, uid).iter()
-            .filter_map(|(i, w)| if *w > 0 { Some((i.into(), w.into())) } else { None })
-            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
-        let bonds = <Bonds<T>>::get(netuid, uid).iter()
-            .filter_map(|(i, b)| if *b > 0 { Some((i.into(), b.into())) } else { None })
-            .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
+        let mut weights = Vec::new();
+        let mut bonds = Vec::new();
+        if validator_permit {
+            // Only populate for peers with a validator permit
+            weights = <Weights<T>>::get(netuid, uid).iter()
+                .filter_map(|(i, w)| if *w > 0 { Some((i.into(), w.into())) } else { None })
+                .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
+            
+            bonds = <Bonds<T>>::get(netuid, uid).iter()
+                .filter_map(|(i, b)| if *b > 0 { Some((i.into(), b.into())) } else { None })
+                .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
+        }
         
         let stake: Vec<(T::AccountId, Compact<u64>)> = < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() )
             .map(|(coldkey, stake)| (coldkey, stake.into()))
