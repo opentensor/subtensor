@@ -492,6 +492,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
             let current_block: u64 = Self::get_current_block_as_u64();
             let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
+            let validator_permits: Vec<bool> = Self::get_validator_permit(netuid);
             if min_score == pruning_score {
                 if (current_block - block_at_registration < immunity_period)
                     || validator_permits[neuron_uid_i as usize]
