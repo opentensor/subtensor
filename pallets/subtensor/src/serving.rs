@@ -8,16 +8,16 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the caller.
     //
     // 	* 'netuid' (u16):
     // 		- The u16 network identifier.
     //
-    // 	* 'version' (u64):
+    // 	* 'version' (u32):
     // 		- The bittensor version identifier.
     //
-    // 	* 'ip' (u64):
+    // 	* 'ip' (u128):
     // 		- The endpoint ip information as a u128 encoded integer.
     //
     // 	* 'port' (u16):
@@ -82,14 +82,16 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded ); 
 
         // --- 6. We insert the axon meta.
-        prev_axon.block = Self::get_current_block_as_u64();
-        prev_axon.version = version;
-        prev_axon.ip = ip;
-        prev_axon.port = port;
-        prev_axon.ip_type = ip_type;
-        prev_axon.protocol = protocol;
-        prev_axon.placeholder1 = placeholder1;
-        prev_axon.placeholder2 = placeholder2;
+        prev_axon = AxonInfo {
+            block: current_block,
+            version,
+            ip,
+            port,
+            ip_type,
+            protocol,
+            placeholder1,
+            placeholder2
+        };
 
 		// --- 7. Validate axon data with delegate func
 		let axon_validated = Self::validate_axon_data(&prev_axon);
@@ -108,16 +110,16 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic serve_prometheus.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the caller.
     //
     // 	* 'netuid' (u16):
     // 		- The u16 network identifier.
     //
-    // 	* 'version' (u64):
+    // 	* 'version' (u32):
     // 		- The bittensor version identifier.
     //
-    // 	* 'ip' (u64):
+    // 	* 'ip' (u128):
     // 		- The prometheus ip information as a u128 encoded integer.
     //
     // 	* 'port' (u16):
@@ -164,30 +166,32 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType );
         ensure!( Self::is_valid_ip_address(ip_type, ip), Error::<T>::InvalidIpAddress );
   
-        // --- 5. We get the previous axon info assoicated with this ( netuid, uid )
+        // --- 4. We get the previous prometheus info assoicated with this ( netuid, hotkey )
         let mut prev_prometheus = Self::get_prometheus_info( netuid, &hotkey_id );
         let current_block:u64 = Self::get_current_block_as_u64();
         ensure!( Self::prometheus_passes_rate_limit( netuid, &prev_prometheus, current_block ), Error::<T>::ServingRateLimitExceeded );  
 
-        // --- 6. We insert the prometheus meta.
-        prev_prometheus.block = Self::get_current_block_as_u64();
-        prev_prometheus.version = version;
-        prev_prometheus.ip = ip;
-        prev_prometheus.port = port;
-        prev_prometheus.ip_type = ip_type;
+        // --- 5. We insert the prometheus meta.
+        prev_prometheus = PrometheusInfo {
+            block: current_block,
+            version,
+            ip,
+            port,
+            ip_type
+        };
 
-		// --- 7. Validate prometheus data with delegate func
+		// --- 6. Validate prometheus data with delegate func
 		let prom_validated = Self::validate_prometheus_data(&prev_prometheus);
 		ensure!( prom_validated.is_ok(), prom_validated.err().unwrap_or(Error::<T>::InvalidPort) );
 
-		// --- 8. Insert new prometheus data
+		// --- 7. Insert new prometheus data
         Prometheus::<T>::insert( netuid, hotkey_id.clone(), prev_prometheus );
 
-        // --- 9. We deposit prometheus served event.
+        // --- 8. We deposit prometheus served event.
         log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone() );
         Self::deposit_event(Event::PrometheusServed( netuid, hotkey_id ));
 
-        // --- 10. Return is successful dispatch. 
+        // --- 9. Return is successful dispatch. 
         Ok(())
     }
 

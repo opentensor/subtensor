@@ -10,7 +10,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic add_network.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- Must be sudo.
     //
     // 	* 'netuid' (u16):
@@ -69,7 +69,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic remove_network.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- Must be sudo.
     //
     // 	* 'netuid' (u16):
@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
 
     // ---- The implementation for the extrinsic sudo_add_network_connect_requirement.
     // Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The caller, must be sudo.
     //
     // 	* `netuid_a` (u16):
@@ -134,7 +134,7 @@ impl<T: Config> Pallet<T> {
 
     // ---- The implementation for the extrinsic sudo_remove_network_connect_requirement.
     // Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The caller, must be sudo.
     //
     // 	* `netuid_a` (u16):
@@ -161,7 +161,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic set_emission_values.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- Must be sudo.
     //
    	// 	* `netuids` (Vec<u16>):

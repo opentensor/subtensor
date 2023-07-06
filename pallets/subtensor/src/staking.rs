@@ -6,7 +6,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the caller's coldkey.
     //
     // 	* 'hotkey' (T::AccountId):
@@ -24,7 +24,7 @@ impl<T: Config> Pallet<T> {
     // 		- The hotkey we are delegating is not registered on the network.
     //
     // 	* 'NonAssociatedColdKey':
-    // 		- The hotkey we are delegating is not owned by the calling coldket.
+    // 		- The hotkey we are delegating is not owned by the calling coldkey.
     //
 	// 	* 'TxRateLimitExceeded':
     // 		- Thrown if key has hit transaction rate limit
@@ -38,7 +38,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?;
         log::info!("do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )", coldkey, hotkey, take );
 
-        // --- 2. Ensure we are delegating an known key.
+        // --- 2. Ensure we are delegating a known key.
         ensure!( Self::hotkey_account_exists( &hotkey ), Error::<T>::NotRegistered );    
   
         // --- 3. Ensure that the coldkey is the owner.
@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the caller's coldkey.
     //
     // 	* 'hotkey' (T::AccountId):
@@ -143,14 +143,14 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the caller's coldkey.
     //
     // 	* 'hotkey' (T::AccountId):
     // 		- The associated hotkey account.
     //
-    // 	* 'stake_to_be_added' (u64):
-    // 		- The amount of stake to be added to the hotkey staking account.
+    // 	* 'stake_to_be_removed' (u64):
+    // 		- The amount of stake to be removed from the hotkey staking account.
     //
     // # Event:
     // 	* StakeRemoved;
@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
     // 	* 'NonAssociatedColdKey':
     // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
     //
-    // 	* 'NotEnoughStaketoWithdraw':
+    // 	* 'NotEnoughStakeToWithdraw':
     // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount. 
     //
     // 	* 'CouldNotConvertToBalance':
@@ -190,11 +190,11 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
         // --- 4. Ensure that the hotkey has enough stake to withdraw.
-        ensure!( Self::has_enough_stake( &coldkey, &hotkey, stake_to_be_removed ), Error::<T>::NotEnoughStaketoWithdraw );
+        ensure!( Self::has_enough_stake( &coldkey, &hotkey, stake_to_be_removed ), Error::<T>::NotEnoughStakeToWithdraw );
 
-        // --- 5. Ensure that we can conver this u64 to a balance.
-        let stake_to_be_added_as_currency = Self::u64_to_balance( stake_to_be_removed );
-        ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
+        // --- 5. Ensure that we can convert this u64 to a balance.
+        let stake_to_be_removed_as_currency = Self::u64_to_balance( stake_to_be_removed );
+        ensure!( stake_to_be_removed_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
 		// --- 6. Ensure we don't exceed tx rate limit
 		let block: u64 = Self::get_current_block_as_u64();
@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
 
         // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account( &coldkey, stake_to_be_added_as_currency.unwrap() );
+        Self::add_balance_to_coldkey_account( &coldkey, stake_to_be_removed_as_currency.unwrap() );
 
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);

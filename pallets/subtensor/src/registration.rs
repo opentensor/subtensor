@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the calling coldkey. 
     //             Burned registers can only be created by the coldkey.
     //
@@ -175,7 +175,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic do_registration.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the calling hotkey.
     //
     // 	* 'netuid' (u16):
@@ -239,14 +239,14 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
-		    // --- 3. Ensure the passed network allows registrations.
+		// --- 3. Ensure the passed network allows registrations.
         ensure!( Self::if_subnet_allows_registration( netuid ), Error::<T>::RegistrationDisabled ); 
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
-		    // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
-		    ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
+        // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
+        ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
 
         // --- 6. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
@@ -262,21 +262,21 @@ impl<T: Config> Pallet<T> {
         let work_hash: H256 = Self::vec_to_hash( work.clone() );
         ensure! ( Self::hash_meets_difficulty( &work_hash, difficulty ), Error::<T>::InvalidDifficulty ); // Check that the work meets difficulty.
         
-        // --- 7. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
+        // --- 9. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
         let seal: H256 = Self::create_seal_hash( block_number, nonce, &hotkey );
         ensure! ( seal == work_hash, Error::<T>::InvalidSeal );
         UsedWork::<T>::insert( &work.clone(), current_block_number );
 
-        // --- 8. Ensure that the key passes the registration requirement
+        // --- 10. Ensure that the key passes the registration requirement
         ensure!( Self::passes_network_connection_requirement( netuid, &hotkey ), Error::<T>::DidNotPassConnectedNetworkRequirement );
 
-        // --- 9. If the network account does not exist we will create it here.
+        // --- 11. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent( &coldkey, &hotkey);         
 
-        // --- 10. Ensure that the pairing is correct.
+        // --- 12. Ensure that the pairing is correct.
         ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 11. Append neuron or prune it.
+        // --- 13. Append neuron or prune it.
         let subnetwork_uid: u16;
         let current_subnetwork_n: u16 = Self::get_subnetwork_n( netuid );
 
@@ -284,33 +284,33 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::get_max_allowed_uids( netuid ) != 0, Error::<T>::NetworkDoesNotExist );
         
         if current_subnetwork_n < Self::get_max_allowed_uids( netuid ) {
-            // --- 11.1.1 No replacement required, the uid appends the subnetwork.
+            // --- 13.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
 
-            // --- 11.1.2 Expand subnetwork with new account.
+            // --- 13.1.2 Expand subnetwork with new account.
             Self::append_neuron( netuid, &hotkey, current_block_number );
             log::info!("add new neuron account");
         } else {
-            // --- 11.1.1 Replacement required.
+            // --- 13.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
             subnetwork_uid = Self::get_neuron_to_prune( netuid );
 
-            // --- 11.1.1 Replace the neuron account with the new info.
+            // --- 13.1.2 Replace the neuron account with the new info.
             Self::replace_neuron( netuid, subnetwork_uid, &hotkey, current_block_number );
             log::info!("prune neuron");
         }
 
-        // --- 12. Record the registration and increment block and interval counters.
+        // --- 14. Record the registration and increment block and interval counters.
         POWRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
     
-        // --- 13. Deposit successful event.
+        // --- 15. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
         Self::deposit_event( Event::NeuronRegistered( netuid, subnetwork_uid, hotkey ) );
 
-        // --- 14. Ok and done.
+        // --- 16. Ok and done.
         Ok(())
     }
 

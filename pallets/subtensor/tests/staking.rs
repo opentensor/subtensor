@@ -384,7 +384,7 @@ fn test_remove_stake_no_enough_stake() {
 		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
 
 		let result = SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey_id), hotkey_id, amount);
-		assert_eq!(result, Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
+		assert_eq!(result, Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
 	});
 }
 
@@ -921,10 +921,10 @@ fn test_full_with_delegating() {
 		assert_eq!( SubtensorModule::get_total_stake(), 2900 ); // 600 + 700 + 900 + 700 = 2900
 
 		// // Try unstaking too much.
-		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 100000), Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
-		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 100000), Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
-		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey1, 100000), Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
-		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey0, 100000), Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
+		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 100000), Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
+		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey1, 100000), Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
+		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey1, 100000), Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
+		assert_eq!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey1), hotkey0, 100000), Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
 
 		// unstaking is ok.
 		assert_ok!(SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey0), hotkey0, 100) );

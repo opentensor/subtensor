@@ -530,27 +530,27 @@ pub mod pallet {
 	#[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
 	pub(super) type LoadedEmission<T:Config> = StorageMap< _, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery >;
 
-	#[pallet::storage] // --- DMAP ( netuid ) --> active
+	#[pallet::storage] // --- MAP ( netuid ) --> active
 	pub(super) type Active<T:Config> = StorageMap< _, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
-	#[pallet::storage] // --- DMAP ( netuid ) --> rank
+	#[pallet::storage] // --- MAP ( netuid ) --> rank
 	pub(super) type Rank<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> trust
+	#[pallet::storage] // --- MAP ( netuid ) --> trust
 	pub(super) type Trust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> consensus
+	#[pallet::storage] // --- MAP ( netuid ) --> consensus
 	pub(super) type Consensus<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> incentive
+	#[pallet::storage] // --- MAP ( netuid ) --> incentive
 	pub(super) type Incentive<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> dividends
+	#[pallet::storage] // --- MAP ( netuid ) --> dividends
 	pub(super) type Dividends<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> emission
+	#[pallet::storage] // --- MAP ( netuid ) --> emission
 	pub(super) type Emission<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> last_update
+	#[pallet::storage] // --- MAP ( netuid ) --> last_update
 	pub(super) type LastUpdate<T:Config> = StorageMap< _, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> validator_trust
+	#[pallet::storage] // --- MAP ( netuid ) --> validator_trust
 	pub(super) type ValidatorTrust<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-	#[pallet::storage] // --- DMAP ( netuid ) --> pruning_scores
+	#[pallet::storage] // --- MAP ( netuid ) --> pruning_scores
 	pub(super) type PruningScores<T:Config> = StorageMap< _, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T> >;
-	#[pallet::storage] // --- DMAP ( netuid ) --> validator_permit
+	#[pallet::storage] // --- MAP ( netuid ) --> validator_permit
     pub(super) type ValidatorPermit<T:Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T> >;
 
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> weights
@@ -630,7 +630,7 @@ pub mod pallet {
 		InvalidPort, // --- Thrown when an invalid port is passed to the serve function.
 		NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
 		NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account. 
-		NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
+		NotEnoughStakeToWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
 		NotEnoughBalanceToStake, //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
 		BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
 		NoValidatorPermit, // ---- Thrown when the caller attempts to set non-self weights without being a permitted validator.
@@ -833,7 +833,7 @@ pub mod pallet {
 		// will be corrected for this deviation. 
 		// 
 		// # Args:
-		// 	* `origin`: (<T as frame_system::Config>Origin):
+		// 	* `origin`: (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The caller, a hotkey who wishes to set their weights.
 		//
 		// 	* `netuid` (u16):
@@ -894,7 +894,7 @@ pub mod pallet {
 		// --- Sets the key as a delegate.
 		//
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The signature of the caller's coldkey.
 		//
 		// 	* 'hotkey' (T::AccountId):
@@ -912,7 +912,9 @@ pub mod pallet {
 		// 		- The hotkey we are delegating is not registered on the network.
 		//
 		// 	* 'NonAssociatedColdKey':
-		// 		- The hotkey we are delegating is not owned by the calling coldket.
+		// 		- The hotkey we are delegating is not owned by the calling coldkey.
+		// 	* 'TxRateLimitExceeded':
+		// 		- Thrown if key has hit transaction rate limit
 		//
 		//
 		#[pallet::call_index(1)]
@@ -931,7 +933,7 @@ pub mod pallet {
 		// attacks on its hotkey running in production code.
 		//
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The signature of the caller's coldkey.
 		//
 		// 	* 'hotkey' (T::AccountId):
@@ -970,19 +972,19 @@ pub mod pallet {
 			Self::do_add_stake(origin, hotkey, amount_staked)
 		}
 
-		// ---- Remove stake from the staking account. The call must be made
+		// ---- Remove stake from the staking account.; The call must be made
 		// from the coldkey account attached to the neuron metadata. Only this key
 		// has permission to make staking and unstaking requests.
 		//
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The signature of the caller's coldkey.
 		//
 		// 	* 'hotkey' (T::AccountId):
 		// 		- The associated hotkey account.
 		//
 		// 	* 'amount_unstaked' (u64):
-		// 		- The amount of stake to be added to the hotkey staking account.
+		// 		- The amount of stake to be removed from the hotkey staking account.
 		//
 		// # Event:
 		// 	* StakeRemoved;
@@ -995,7 +997,7 @@ pub mod pallet {
 		// 	* 'NonAssociatedColdKey':
 		// 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
 		//
-		// 	* 'NotEnoughStaketoWithdraw':
+		// 	* 'NotEnoughStakeToWithdraw':
 		// 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount. 
 		//
 		// 	* 'CouldNotConvertToBalance':
@@ -1015,20 +1017,20 @@ pub mod pallet {
 			Self::do_remove_stake(origin, hotkey, amount_unstaked)
 		}
 
-		// ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+		// ---- Serves or updates axon / prometheus information for the neuron associated with the caller. If the caller is
 		// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
 		//
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The signature of the caller.
 		//
 		// 	* 'netuid' (u16):
 		// 		- The u16 network identifier.
 		//
-		// 	* 'version' (u64):
+		// 	* 'version' (u32):
 		// 		- The bittensor version identifier.
 		//
-		// 	* 'ip' (u64):
+		// 	* 'ip' (u128):
 		// 		- The endpoint ip information as a u128 encoded integer.
 		//
 		// 	* 'port' (u16):
@@ -1103,7 +1105,7 @@ pub mod pallet {
 		// ---- Registers a new neuron to the subnetwork. 
 		//
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The signature of the calling hotkey.
 		//
 		// 	* 'netuid' (u16):
@@ -1126,7 +1128,7 @@ pub mod pallet {
 		//
 		// # Event:
 		// 	* NeuronRegistered;
-		// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
+		// 		- On successfully registering a uid to a neuron slot on a subnetwork.
 		//
 		// # Raises:
 		// 	* 'NetworkDoesNotExist':
@@ -1194,7 +1196,7 @@ pub mod pallet {
 
 		// ---- Sudo add a network to the network set.
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- Must be sudo.
 		//
 		// 	* 'netuid' (u16):
@@ -1235,7 +1237,7 @@ pub mod pallet {
 
 		// ---- Sudo remove a network from the network set.
 		// # Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- Must be sudo.
 		//
 		// 	* 'netuid' (u16):
@@ -1262,7 +1264,7 @@ pub mod pallet {
 
 		// ---- Sudo set emission values for all networks.
 		// Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The caller, must be sudo.
 		//
 		// 	* `netuids` (Vec<u16>):
@@ -1289,7 +1291,7 @@ pub mod pallet {
 
 		// ---- Sudo add a network connect requirement.
 		// Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The caller, must be sudo.
 		//
 		// 	* `netuid_a` (u16):
@@ -1311,7 +1313,7 @@ pub mod pallet {
 
 		// ---- Sudo remove a network connection requirement.
 		// Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The caller, must be sudo.
 		//
 		// 	* `netuid_a` (u16):
@@ -1332,7 +1334,7 @@ pub mod pallet {
 		// ==================================
 		// Each function sets the corresponding hyper paramter on the specified network
 		// Args:
-		// 	* 'origin': (<T as frame_system::Config>Origin):
+		// 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
 		// 		- The caller, must be sudo.
 		//
 		// 	* `netuid` (u16):

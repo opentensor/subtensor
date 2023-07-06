@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic set_weights.
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the calling hotkey.
     //
     // 	* 'netuid' (u16):
