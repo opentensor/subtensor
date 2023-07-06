@@ -376,7 +376,7 @@ impl<T: Config> Pallet<T> {
             let current_block :u64 = Self::get_current_block_as_u64();
             let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
             if min_score == pruning_score {
-                if current_block - block_at_registration <  immunity_period { //neuron is in immunity period
+                if (current_block - block_at_registration <  immunity_period) || validator_permits[neuron_uid_i as usize] { //neuron is in immunity period
                     if min_score_in_immunity_period > pruning_score {
                         min_score_in_immunity_period = pruning_score; 
                         uid_with_min_score_in_immunity_period = neuron_uid_i;
@@ -389,7 +389,7 @@ impl<T: Config> Pallet<T> {
             }
             // Find min pruning score.
             else if min_score > pruning_score { 
-                if current_block - block_at_registration <  immunity_period { //neuron is in immunity period
+                if (current_block - block_at_registration <  immunity_period) || validator_permits[neuron_uid_i as usize] { //neuron is in immunity period
                     if min_score_in_immunity_period > pruning_score {
                          min_score_in_immunity_period = pruning_score; 
                         uid_with_min_score_in_immunity_period = neuron_uid_i;
