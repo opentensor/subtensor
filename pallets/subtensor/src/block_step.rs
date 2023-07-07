@@ -297,7 +297,7 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         let updated_difficulty: I110F18 = I110F18::from_num( current_difficulty ) * I110F18::from_num( registrations_this_interval + target_registrations_per_interval ) / I110F18::from_num( target_registrations_per_interval + target_registrations_per_interval );
         let alpha: I110F18 = I110F18::from_num( Self::get_adjustment_alpha( netuid) ) / I110F18::from_num( u64::MAX );
-        let next_value:I110F18 = alpha * current_difficulty + ( 1 - alpha ) * updated_difficulty
+        let next_value:I110F18 = alpha *  I110F18::from_num(current_difficulty) + ( I110F18::from_num(1.0) - alpha ) * updated_difficulty;
         if next_value >= I110F18::from_num( Self::get_max_difficulty( netuid ) ){
             return Self::get_max_difficulty( netuid );
         } else if next_value <= I110F18::from_num( Self::get_min_difficulty( netuid ) ) {
@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
     ) -> u64 {
         let updated_burn: I110F18 = I110F18::from_num( current_burn ) * I110F18::from_num( registrations_this_interval + target_registrations_per_interval ) / I110F18::from_num( target_registrations_per_interval + target_registrations_per_interval );
         let alpha: I110F18 = I110F18::from_num( Self::get_adjustment_alpha( netuid ) ) / I110F18::from_num( u64::MAX );
-        let next_value: I110F18 = alpha * current_burn + ( 1 - alpha ) * updated_burn
+        let next_value: I110F18 = alpha *  I110F18::from_num(current_burn) + (  I110F18::from_num(1.0) - alpha ) * updated_burn;
         if next_value >= I110F18::from_num( Self::get_max_burn_as_u64( netuid ) ){
             return Self::get_max_burn_as_u64( netuid );
         } else if next_value <= I110F18::from_num( Self::get_min_burn_as_u64( netuid ) ) {

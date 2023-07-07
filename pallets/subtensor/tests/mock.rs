@@ -146,7 +146,7 @@ parameter_types! {
 	pub const InitialDifficulty: u64 = 10000;
 	pub const InitialActivityCutoff: u16 = 5000;
 	pub const InitialAdjustmentInterval: u16 = 100;
-	pub const InitialAdjustmentAlpha: u16 = u64::MAX;
+	pub const InitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
 	pub const InitialMaxRegistrationsPerBlock: u16 = 3;
 	pub const InitialTargetRegistrationsPerInterval: u16 = 2;
 	pub const InitialPruningScore : u16 = u16::MAX;

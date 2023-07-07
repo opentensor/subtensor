@@ -453,7 +453,7 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 { T::InitialTargetRegistrationsPerInterval::get() }
 	#[pallet::type_value] 
-	pub fn DefaultAdjustmentAlpha<T: Config>() -> u16 { T::InitialAdjustmentAlpha::get() }
+	pub fn DefaultAdjustmentAlpha<T: Config>() -> u64 { T::InitialAdjustmentAlpha::get() }
 
 
 	#[pallet::storage] // --- MAP ( netuid ) --> Rho
@@ -511,7 +511,7 @@ pub mod pallet {
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> block_at_registration
 	pub type BlockAtRegistration<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u64, ValueQuery, DefaultBlockAtRegistration<T> >;
 	#[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
-	pub type AdjustmentAlpha<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T> >;
+	pub type AdjustmentAlpha<T:Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T> >;
 
 	// =======================================
 	// ==== Subnetwork Consensus Storage  ====
@@ -1725,6 +1725,15 @@ pub mod pallet {
 		pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId ) -> DispatchResult {
 			Self::do_remove_votes(origin, &who)
 		}  
+
+		#[pallet::call_index(58)]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_adjustment_alpha( origin:OriginFor<T>, netuid: u16, adjustment_alpha: u64 ) -> DispatchResult { 
+			Self::do_sudo_set_adjustment_alpha( origin, netuid, adjustment_alpha )
+		}
+
 	}	
 
 	// ---- Subtensor helper functions.

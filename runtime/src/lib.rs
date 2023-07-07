@@ -513,7 +513,7 @@ parameter_types! {
     pub const SubtensorInitialTempo: u16 = 99;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
-	pub const SubtensorInitialAdjustmentAlpha: u64 = u64::MAX;
+	pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
     pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
     pub const SubtensorInitialImmunityPeriod: u16 = 4096;
     pub const SubtensorInitialActivityCutoff: u16 = 5000;
