@@ -453,7 +453,7 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 { T::InitialTargetRegistrationsPerInterval::get() }
 	#[pallet::type_value] 
-	pub fn DefaultAdjustmentAlpha<T: Config>() -> u16 { T::InitialAdjustmentAlpha::get() }
+	pub fn DefaultAdjustmentAlpha<T: Config>() -> u64 { T::InitialAdjustmentAlpha::get() }
 
 
 	#[pallet::storage] // --- MAP ( netuid ) --> Rho
