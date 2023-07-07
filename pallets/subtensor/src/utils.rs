@@ -118,6 +118,17 @@ impl<T: Config> Pallet<T> {
     // ========================
 	// ==== Sudo calls ========
 	// ========================
+    pub fn get_adjustment_alpha( netuid: u16 ) -> u64 { AdjustmentAlpha::<T>::get(netuid) }
+    pub fn set_adjustment_alpha( netuid: u16, adjustment_alpha: u64 ) { AdjustmentAlpha::<T>::insert( netuid, adjustment_alpha ) }
+    pub fn do_sudo_set_adjustment_alpha( origin: T::RuntimeOrigin, netuid: u16, adjustment_alpha: u64 ) -> DispatchResult { 
+        ensure_root( origin )?;
+        Self::set_adjustment_alpha( netuid, adjustment_alpha );
+        log::info!("AdjustmentAlphaSet( adjustment_alpha: {:?} ) ", adjustment_alpha );
+        Self::deposit_event( Event::AdjustmentAlphaSet( netuid, adjustment_alpha ) );
+        Ok(()) 
+    }
+
+
     pub fn get_default_take() -> u16 { DefaultTake::<T>::get() }
     pub fn set_default_take( default_take: u16 ) { DefaultTake::<T>::put( default_take ) }
     pub fn do_sudo_set_default_take( origin: T::RuntimeOrigin, default_take: u16 ) -> DispatchResult { 
