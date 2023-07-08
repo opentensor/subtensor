@@ -1,13 +1,16 @@
 use frame_support::{assert_ok, parameter_types, traits::{Everything, Hooks}, weights};
-use frame_system::{limits};
-use frame_support::traits::{StorageMapShim};
+use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use frame_support::traits::{StorageMapShim, Hash};
 use frame_system as system;
 use frame_system::Config;
-use sp_core::{H256, U256};
+use sp_core::{H256, U256, Get};
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
+	DispatchResult
 };
+
+use pallet_collective::MemberCount;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -21,6 +24,10 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
 		Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
+		Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+		Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+		SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
 		Utility: pallet_utility::{Pallet, Call, Storage, Event},
 	}
@@ -42,6 +49,9 @@ parameter_types! {
 
 #[allow(dead_code)]
 pub type AccountId = U256; 
+
+// The address format for describing accounts.
+pub type Address = AccountId;
 
 // Balance of an account.
 #[allow(dead_code)]
@@ -144,11 +154,157 @@ parameter_types! {
 	pub const InitialMaxDifficulty: u64 = u64::MAX;
 	pub const InitialRAORecycledForRegistration: u64 = 0;
 
+	pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
 }
+
+// Configure collective pallet for council
+parameter_types! {
+	pub const CouncilMotionDuration: BlockNumber = 100;
+	pub const CouncilMaxProposals: u32 = 10;
+	pub const CouncilMaxMembers: u32 = 3;
+}
+
+// Configure collective pallet for Senate
+parameter_types! {
+	pub const SenateMaxMembers: u32 = 10;
+}
+
+use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
+pub struct CanProposeToTriumvirate;
+impl CanPropose<AccountId> for CanProposeToTriumvirate {
+	fn can_propose(account: &AccountId) -> bool {
+		Triumvirate::is_member(account)
+	}
+}
+
+pub struct CanVoteToTriumvirate;
+impl CanVote<AccountId> for CanVoteToTriumvirate {
+	fn can_vote(_: &AccountId) -> bool {
+		//Senate::is_member(account)
+		false // Disable voting from pallet_collective::vote
+	}
+}
+
+use pallet_subtensor::{MemberManagement, CollectiveInterface};
+pub struct ManageSenateMembers;
+impl MemberManagement<AccountId> for ManageSenateMembers {
+	fn add_member(account: &AccountId) -> DispatchResult {
+		SenateMembers::add_member(RawOrigin::Root.into(), *account)
+	}
+
+	fn remove_member(account: &AccountId) -> DispatchResult {
+		SenateMembers::remove_member(RawOrigin::Root.into(), *account)
+	}
+
+	fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
+		SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
+	}
+
+	fn is_member(account: &AccountId) -> bool {
+		Senate::is_member(account)
+	}
+
+	fn members() -> Vec<AccountId> {
+		Senate::members()
+	}
+
+	fn max_members() -> u32 {
+		SenateMaxMembers::get()
+	}
+}
+
+pub struct GetSenateMemberCount;
+impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
+	fn get_count() -> MemberCount {Senate::members().len() as u32}
+}
+impl Get<MemberCount> for GetSenateMemberCount {
+	fn get() -> MemberCount {SenateMaxMembers::get()}
+}
+
+pub struct TriumvirateVotes;
+impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
+	fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
+		Triumvirate::remove_votes(hotkey)
+	}
+
+	fn add_vote(hotkey: &AccountId, proposal: Hash, index: u32, approve: bool) -> Result<bool, sp_runtime::DispatchError> {
+		Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
+	}
+}
+
+// We call pallet_collective TriumvirateCollective
+type TriumvirateCollective = pallet_collective::Instance1;
+impl pallet_collective::Config<TriumvirateCollective> for Test {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall; 
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = GetSenateMemberCount;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
+	type SetMembersOrigin = EnsureNever<AccountId>;
+	type CanPropose = CanProposeToTriumvirate;
+	type CanVote = CanVoteToTriumvirate;
+	type GetVotingMembers = GetSenateMemberCount;
+}
+
+// We call council members Triumvirate
+type TriumvirateMembership = pallet_membership::Instance1;
+impl pallet_membership::Config<TriumvirateMembership> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRoot<AccountId>;
+	type RemoveOrigin = EnsureRoot<AccountId>;
+	type SwapOrigin = EnsureRoot<AccountId>;
+	type ResetOrigin = EnsureRoot<AccountId>;
+	type PrimeOrigin = EnsureRoot<AccountId>;
+	type MembershipInitialized = Triumvirate;
+	type MembershipChanged = Triumvirate;
+	type MaxMembers = CouncilMaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
+}
+
+// This is a dummy collective instance for managing senate members
+// Probably not the best solution, but fastest implementation
+type SenateCollective = pallet_collective::Instance2;
+impl pallet_collective::Config<SenateCollective> for Test {
+	type RuntimeOrigin = RuntimeOrigin;
+	type Proposal = RuntimeCall; 
+	type RuntimeEvent = RuntimeEvent;
+	type MotionDuration = CouncilMotionDuration;
+	type MaxProposals = CouncilMaxProposals;
+	type MaxMembers = SenateMaxMembers;
+	type DefaultVote = pallet_collective::PrimeDefaultVote;
+	type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
+	type SetMembersOrigin = EnsureNever<AccountId>;
+	type CanPropose = ();
+	type CanVote = ();
+	type GetVotingMembers = ();
+}
+
+// We call our top K delegates membership Senate
+type SenateMembership = pallet_membership::Instance2;
+impl pallet_membership::Config<SenateMembership> for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type AddOrigin = EnsureRoot<AccountId>;
+	type RemoveOrigin = EnsureRoot<AccountId>;
+	type SwapOrigin = EnsureRoot<AccountId>;
+	type ResetOrigin = EnsureRoot<AccountId>;
+	type PrimeOrigin = EnsureRoot<AccountId>;
+	type MembershipInitialized = Senate;
+	type MembershipChanged = Senate;
+	type MaxMembers = SenateMaxMembers;
+	type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
+}
+
 impl pallet_subtensor::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
 	type InitialIssuance = InitialIssuance;
+	type SudoRuntimeCall = TestRuntimeCall;
+	type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
+	type SenateMembers = ManageSenateMembers;
+	type TriumvirateInterface = TriumvirateVotes;
 
 	type InitialMinAllowedWeights = InitialMinAllowedWeights;
 	type InitialEmissionValue  = InitialEmissionValue;
@@ -185,6 +341,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialMaxBurn = InitialMaxBurn;
 	type InitialMinBurn = InitialMinBurn;
 	type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
+	type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
 }
 
 impl pallet_utility::Config for Test {
