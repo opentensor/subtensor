@@ -167,7 +167,8 @@ fn test_senate_vote_works() {
 		assert_ok!(Triumvirate::propose(
 			RuntimeOrigin::signed(senate_hotkey),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64).ok().expect("convert u64 to block number.")
 		));
 
 		assert_ok!(SubtensorModule::do_vote_senate(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), &hotkey_account_id, hash, 0, true));
@@ -223,7 +224,8 @@ fn test_senate_vote_not_member() {
 		assert_ok!(Triumvirate::propose(
 			RuntimeOrigin::signed(senate_hotkey),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64).ok().expect("convert u64 to block number.")
 		));
 
 		assert_noop!(SubtensorModule::do_vote_senate(
@@ -354,7 +356,8 @@ fn test_senate_leave_vote_removal() {
 		assert_ok!(Triumvirate::propose(
 			RuntimeOrigin::signed(senate_hotkey),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64).ok().expect("convert u64 to block number.")
 		));
 
 		assert_ok!(SubtensorModule::do_vote_senate(coldkey_origin.clone(), &hotkey_account_id, hash, 0, true));

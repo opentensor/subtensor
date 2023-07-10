@@ -153,7 +153,7 @@ benchmarks_instance_pallet! {
 		members.push(caller.clone());
 		Collective::<T, I>::set_members(SystemOrigin::Root.into(), members, None, T::MaxMembers::get())?;
 
-		let threshold = m;
+		let threshold = (m / 2) + 1;
 		// Add previous proposals.
 		for i in 0 .. p - 1 {
 			// Proposals should be different so that different proposal hashes are generated
@@ -273,9 +273,6 @@ benchmarks_instance_pallet! {
 		members.push(voter.clone());
 		Collective::<T, I>::set_members(SystemOrigin::Root.into(), members.clone(), None, T::MaxMembers::get())?;
 
-		// Threshold is total members so that one nay will disapprove the vote
-		let threshold = m;
-
 		// Add previous proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0 .. p {
@@ -291,10 +288,10 @@ benchmarks_instance_pallet! {
 		}
 
 		let index = p - 1;
-		// Have most everyone vote aye on last proposal, while keeping it from passing.
+		// Have most everyone vote nay on last proposal, while keeping it from passing.
 		for j in 0 .. m - 2 {
 			let voter = &members[j as usize];
-			let approve = true;
+			let approve = false;
 			Collective::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
 				last_hash,
@@ -302,6 +299,7 @@ benchmarks_instance_pallet! {
 				approve,
 			)?;
 		}
+
 		// Voter votes aye without resolving the vote.
 		let approve = true;
 		Collective::<T, I>::vote(
@@ -312,15 +310,6 @@ benchmarks_instance_pallet! {
 		)?;
 
 		assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
-
-		// Voter switches vote to nay, which kills the vote
-		let approve = false;
-		Collective::<T, I>::vote(
-			SystemOrigin::Signed(voter.clone()).into(),
-			last_hash,
-			index,
-			approve,
-		)?;
 
 		// Whitelist voter account from further DB operations.
 		let voter_key = frame_system::Account::<T>::hashed_key_for(&voter);
@@ -350,9 +339,6 @@ benchmarks_instance_pallet! {
 		members.push(caller.clone());
 		Collective::<T, I>::set_members(SystemOrigin::Root.into(), members.clone(), None, T::MaxMembers::get())?;
 
-		// Threshold is 2 so any two ayes will approve the vote
-		let threshold = 2;
-
 		// Add previous proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0 .. p {
@@ -375,10 +361,10 @@ benchmarks_instance_pallet! {
 			false,
 		)?;
 
-		// Have almost everyone vote nay on last proposal, while keeping it from failing.
+		// Have almost everyone vote aye on last proposal, while keeping it from failing.
 		for j in 2 .. m - 1 {
 			let voter = &members[j as usize];
-			let approve = false;
+			let approve = true;
 			Collective::<T, I>::vote(
 				SystemOrigin::Signed(voter.clone()).into(),
 				last_hash,
@@ -436,9 +422,6 @@ benchmarks_instance_pallet! {
 			T::MaxMembers::get(),
 		)?;
 
-		// Threshold is one less than total members so that two nays will disapprove the vote
-		let threshold = m - 1;
-
 		// Add proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0 .. p {
@@ -457,7 +440,7 @@ benchmarks_instance_pallet! {
 		// Have almost everyone vote aye on last proposal, while keeping it from passing.
 		// A few abstainers will be the nay votes needed to fail the vote.
 		let mut yes_votes: MemberCount = 0;
-		for j in 2 .. m - 1 {
+		for j in 2 .. m / 2 {
 			let voter = &members[j as usize];
 			let approve = true;
 			yes_votes += 1;
@@ -518,9 +501,6 @@ benchmarks_instance_pallet! {
 			T::MaxMembers::get(),
 		)?;
 
-		// Threshold is two, so any two ayes will pass the vote
-		let threshold = 2;
-
 		// Add proposals
 		let mut last_hash = T::Hash::default();
 		for i in 0 .. p {
@@ -545,7 +525,7 @@ benchmarks_instance_pallet! {
 
 		// Have almost everyone vote nay on last proposal, while keeping it from failing.
 		// A few abstainers will be the aye votes needed to pass the vote.
-		for j in 2 .. m - 1 {
+		for j in 2 .. m / 2 {
 			let voter = &members[j as usize];
 			let approve = false;
 			Collective::<T, I>::vote(
