@@ -199,6 +199,8 @@ pub mod pallet {
 		type InitialTxRateLimit: Get<u64>;
 		#[pallet::constant] // Initial percentage of total stake required to join senate.
 		type InitialSenateRequiredStakePercentage: Get<u64>;
+		#[pallet::constant] // Initial adjustment alpha on burn and pow.
+		type InitialAdjustmentAlpha: Get<u64>;
 	}
 
 	pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -450,6 +452,8 @@ pub mod pallet {
 	pub fn DefaultSynergyScalingLawPower<T: Config>() -> u16 { T::InitialSynergyScalingLawPower::get() }
 	#[pallet::type_value] 
 	pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 { T::InitialTargetRegistrationsPerInterval::get() }
+	#[pallet::type_value] 
+	pub fn DefaultAdjustmentAlpha<T: Config>() -> u64 { T::InitialAdjustmentAlpha::get() }
 
 
 	#[pallet::storage] // --- MAP ( netuid ) --> Rho
@@ -506,6 +510,8 @@ pub mod pallet {
 	pub type TargetRegistrationsPerInterval<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T> >;
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> block_at_registration
 	pub type BlockAtRegistration<T:Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u64, ValueQuery, DefaultBlockAtRegistration<T> >;
+	#[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
+	pub type AdjustmentAlpha<T:Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T> >;
 
 	// =======================================
 	// ==== Subnetwork Consensus Storage  ====
@@ -616,6 +622,7 @@ pub mod pallet {
 		TempoSet(u16, u16), // --- Event created when setting tempo on a network
 		RAORecycledForRegistrationSet( u16, u64 ), // Event created when setting the RAO recycled for registration.
 		SenateRequiredStakePercentSet( u64 ), // Event created when setting the minimum required stake amount for senate registration.
+		AdjustmentAlphaSet( u16, u64 ), // Event created when setting the adjustment alpha on a subnet.
 	}
 
 	// Errors inform users that something went wrong.
@@ -1718,6 +1725,15 @@ pub mod pallet {
 		pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId ) -> DispatchResult {
 			Self::do_remove_votes(origin, &who)
 		}  
+
+		#[pallet::call_index(58)]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_adjustment_alpha( origin:OriginFor<T>, netuid: u16, adjustment_alpha: u64 ) -> DispatchResult { 
+			Self::do_sudo_set_adjustment_alpha( origin, netuid, adjustment_alpha )
+		}
+
 	}	
 
 	// ---- Subtensor helper functions.

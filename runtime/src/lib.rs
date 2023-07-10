@@ -116,7 +116,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 125,
+	spec_version: 126,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -513,6 +513,7 @@ parameter_types! {
     pub const SubtensorInitialTempo: u16 = 99;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
+	pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
     pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
     pub const SubtensorInitialImmunityPeriod: u16 = 4096;
     pub const SubtensorInitialActivityCutoff: u16 = 5000;
@@ -560,6 +561,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialTempo = SubtensorInitialTempo;
 	type InitialDifficulty = SubtensorInitialDifficulty;
 	type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;
+	type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
 	type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
 	type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
 	type InitialActivityCutoff = SubtensorInitialActivityCutoff;
