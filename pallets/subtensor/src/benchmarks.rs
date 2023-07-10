@@ -455,6 +455,16 @@ benchmarks! {
 
   }: sudo_set_min_allowed_weights(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_allowed_weights)
 
+  benchmark_sudo_set_validator_timeout{
+    let netuid: u16 = 1;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+    let validator_timeout: u16 = 10;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_validator_timeout(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_timeout)
+
   benchmark_sudo_set_validator_batch_size{
     let netuid: u16 = 1;
     let tempo: u16 = 1;

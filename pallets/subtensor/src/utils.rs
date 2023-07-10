@@ -318,6 +318,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_validator_timeout( netuid: u16 ) -> u16 { ValidatorTimeout::<T>::get( netuid ) }
+    pub fn set_validator_timeout( netuid: u16, validator_timeout: u16 ) { ValidatorTimeout::<T>::insert( netuid, validator_timeout ); }
+    pub fn do_sudo_set_validator_timeout( origin:T::RuntimeOrigin, netuid: u16, validator_timeout: u16 ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        Self::set_validator_timeout( netuid, validator_timeout );
+        log::info!("ValidatorTimeoutSet( netuid: {:?} validator_timeout: {:?} ) ", netuid, validator_timeout);
+        Self::deposit_event(Event::ValidatorTimeoutSet(netuid, validator_timeout));
+        Ok(())
+    }
+
     pub fn get_validator_batch_size( netuid: u16 ) -> u16 { ValidatorBatchSize::<T>::get( netuid ) }
     pub fn set_validator_batch_size( netuid: u16, validator_batch_size: u16 ) { ValidatorBatchSize::<T>::insert( netuid, validator_batch_size ); }
     pub fn do_sudo_set_validator_batch_size( origin:T::RuntimeOrigin, netuid: u16, validator_batch_size: u16 ) -> DispatchResult {

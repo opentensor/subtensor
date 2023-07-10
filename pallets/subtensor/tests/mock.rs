@@ -131,6 +131,7 @@ parameter_types! {
 	pub const InitialMinBurn: u64 = 0; 
 	pub const InitialMaxBurn: u64 = 1_000_000_000;
 
+	pub const InitialValidatorTimeout: u16 = 10;
 	pub const InitialValidatorBatchSize: u16 = 10;
 	pub const InitialValidatorSequenceLen: u16 = 10;
 	pub const InitialValidatorPruneLen: u64 = 0;
@@ -316,6 +317,7 @@ impl pallet_subtensor::Config for Test {
 	type InitialRho = InitialRho;
 	type InitialKappa = InitialKappa;
 	type InitialMaxAllowedUids = InitialMaxAllowedUids;
+	type InitialValidatorTimeout = InitialValidatorTimeout;
 	type InitialValidatorBatchSize = InitialValidatorBatchSize;
 	type InitialValidatorSequenceLen = InitialValidatorSequenceLen;
 	type InitialValidatorPruneLen = InitialValidatorPruneLen;

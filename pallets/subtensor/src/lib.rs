@@ -161,6 +161,8 @@ pub mod pallet {
 		type InitialKappa: Get<u16>;		
 		#[pallet::constant] // Max UID constant.
 		type InitialMaxAllowedUids: Get<u16>;
+		#[pallet::constant] // Default validator timeout.
+		type InitialValidatorTimeout: Get<u16>;
 		#[pallet::constant] // Default batch size.
 		type InitialValidatorBatchSize: Get<u16>;
 		#[pallet::constant] // Default Sequence length.
@@ -435,6 +437,8 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultValidatorPruneLen<T: Config>() -> u64 { T::InitialValidatorPruneLen::get() }
 	#[pallet::type_value] 
+	pub fn DefaultValidatorTimeout<T: Config>() -> u16 { T::InitialValidatorTimeout::get() }
+	#[pallet::type_value] 
 	pub fn DefaultValidatorBatchSize<T: Config>() -> u16 { T::InitialValidatorBatchSize::get() }
 	#[pallet::type_value] 
 	pub fn DefaultValidatorSequenceLen<T: Config>() -> u16 { T::InitialValidatorSequenceLen::get() }
@@ -484,6 +488,8 @@ pub mod pallet {
 	pub type AdjustmentInterval<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAdjustmentInterval<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> bonds_moving_average
 	pub type BondsMovingAverage<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T> >;
+	#[pallet::storage] // --- MAP ( netuid ) --> validator_timeout
+	pub type ValidatorTimeout<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorTimeout<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> validator_batch_size
 	pub type ValidatorBatchSize<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorBatchSize<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> weights_set_rate_limit
@@ -583,6 +589,7 @@ pub mod pallet {
 		RhoSet( u16, u16 ), // --- Event created when Rho value is set.
 		KappaSet( u16, u16 ), // --- Event created when Kappa is set for a subnet.
 		MinAllowedWeightSet( u16, u16 ), // --- Event created when minimun allowed weight is set for a subnet.
+		ValidatorTimeoutSet( u16, u16 ), // --- Event created when validator timeout is set for a subnet.
 		ValidatorBatchSizeSet( u16, u16 ), // --- Event created when validator batch size is set for a subnet.
 		ValidatorSequenceLengthSet( u16, u16 ), // --- Event created when validator sequence length is set for a subnet.
 		ValidatorEpochPerResetSet( u16, u16 ), // --- Event created when validator epoch per reset is set for a subnet.
@@ -1718,6 +1725,14 @@ pub mod pallet {
 		pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId ) -> DispatchResult {
 			Self::do_remove_votes(origin, &who)
 		}  
+
+		#[pallet::call_index(58)]
+		#[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_validator_timeout( origin:OriginFor<T>, netuid: u16, validator_timeout: u16 ) -> DispatchResult {
+			Self::do_sudo_set_validator_timeout( origin, netuid, validator_timeout )
+		}
 	}	
 
 	// ---- Subtensor helper functions.

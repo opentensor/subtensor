@@ -13,6 +13,7 @@ pub struct SubnetInfo {
     kappa: Compact<u16>,
     difficulty: Compact<u64>,
     immunity_period: Compact<u16>,
+    validator_timeout: Compact<u16>,
     validator_batch_size: Compact<u16>,
     validator_sequence_length: Compact<u16>,
     validator_epochs_per_reset: Compact<u16>,
@@ -42,6 +43,7 @@ impl<T: Config> Pallet<T> {
         let kappa = Self::get_kappa(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
+        let validator_timeout = Self::get_validator_timeout(netuid);
         let validator_batch_size = Self::get_validator_batch_size(netuid);
         let validator_sequence_length = Self::get_validator_sequence_length(netuid);
         let validator_epochs_per_reset = Self::get_validator_epochs_per_reset(netuid);
@@ -72,6 +74,7 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
             immunity_period: immunity_period.into(),
             netuid: netuid.into(),
+            validator_timeout: validator_timeout.into(),
             validator_batch_size: validator_batch_size.into(),
             validator_sequence_length: validator_sequence_length.into(),
             validator_epochs_per_reset: validator_epochs_per_reset.into(),

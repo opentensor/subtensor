@@ -500,6 +500,7 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
     pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorInitialValidatorTimeout: u16 = 10;
     pub const SubtensorInitialValidatorBatchSize: u16 = 32; // 32
     pub const SubtensorInitialValidatorSequenceLen: u16 = 256; // 256
     pub const SubtensorInitialValidatorEpochLen: u16 = 100;
@@ -548,6 +549,7 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
 	type InitialEmissionValue = SubtensorInitialEmissionValue;
 	type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
+	type InitialValidatorTimeout = SubtensorInitialValidatorTimeout;
 	type InitialValidatorBatchSize = SubtensorInitialValidatorBatchSize;
 	type InitialValidatorSequenceLen = SubtensorInitialValidatorSequenceLen;
 	type InitialValidatorEpochLen = SubtensorInitialValidatorEpochLen;
