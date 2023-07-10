@@ -116,7 +116,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	//   `spec_version`, and `authoring_version` are the same between Wasm and native.
 	// This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
 	//   the compatible custom types.
-	spec_version: 126,
+	spec_version: 127,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -322,7 +322,7 @@ impl pallet_transaction_payment::Config for Runtime {
 
 // Configure collective pallet for council
 parameter_types! {
-	pub const CouncilMotionDuration: BlockNumber = 6 * DAYS;
+	pub const CouncilMotionDuration: BlockNumber = 12 * HOURS;
 	pub const CouncilMaxProposals: u32 = 10;
 	pub const CouncilMaxMembers: u32 = 3;
 }

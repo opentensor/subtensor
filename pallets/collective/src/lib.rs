@@ -348,6 +348,8 @@ pub mod pallet {
 		WrongProposalWeight,
 		/// The given length bound for the proposal was too low.
 		WrongProposalLength,
+		/// The given motion duration for the proposal was too low.
+		WrongDuration,
 	}
 
 	// Note that councillor operations are assigned to the operational class.
@@ -498,15 +500,18 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			proposal: Box<<T as Config<I>>::Proposal>,
 			#[pallet::compact] length_bound: u32,
+			duration: T::BlockNumber,
 		) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin.clone())?;
 			ensure!(T::CanPropose::can_propose(&who), Error::<T, I>::NotMember);
+			
+			ensure!(duration >= T::MotionDuration::get(), Error::<T, I>::WrongDuration);
 
 			let threshold = (T::GetVotingMembers::get_count() / 2) + 1;
 		
 			let members = Self::members();
 			let (proposal_len, active_proposals) =
-				Self::do_propose_proposed(who, threshold, proposal, length_bound)?;
+				Self::do_propose_proposed(who, threshold, proposal, length_bound, duration)?;
 
 			Ok(Some(T::WeightInfo::propose_proposed(
 				proposal_len as u32,  // B
@@ -719,6 +724,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		threshold: MemberCount,
 		proposal: Box<<T as Config<I>>::Proposal>,
 		length_bound: MemberCount,
+		duration: T::BlockNumber,
 	) -> Result<(u32, u32), DispatchError> {
 		let proposal_len = proposal.encoded_size();
 		ensure!(proposal_len <= length_bound as usize, Error::<T, I>::WrongProposalLength);
@@ -736,7 +742,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		<ProposalCount<T, I>>::mutate(|i| *i += 1);
 		<ProposalOf<T, I>>::insert(proposal_hash, proposal);
 		let votes = {
-			let end = frame_system::Pallet::<T>::block_number() + T::MotionDuration::get();
+			let end = frame_system::Pallet::<T>::block_number() + duration;
 			Votes { index, threshold, ayes: vec![], nays: vec![], end }
 		};
 		<Voting<T, I>>::insert(proposal_hash, votes);

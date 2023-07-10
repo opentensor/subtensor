@@ -282,7 +282,8 @@ fn close_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 
@@ -346,7 +347,8 @@ fn proposal_weight_limit_works_on_approve() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		// With 1's prime vote, this should pass
@@ -386,7 +388,8 @@ fn proposal_weight_limit_ignored_on_disapprove() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		// No votes, this proposal wont pass
 		System::set_block_number(4);
@@ -417,7 +420,8 @@ fn close_with_prime_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 
@@ -476,7 +480,8 @@ fn close_with_voting_prime_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 
@@ -537,7 +542,8 @@ fn close_with_no_prime_but_majority_works() {
 		assert_ok!(CollectiveMajority::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(CollectiveMajority::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -609,7 +615,8 @@ fn removal_of_old_voters_votes_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -629,7 +636,8 @@ fn removal_of_old_voters_votes_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(2),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 1, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, false));
@@ -655,7 +663,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -680,7 +689,8 @@ fn removal_of_old_voters_votes_works_with_set_members() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(2),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 1, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, false));
@@ -711,7 +721,8 @@ fn propose_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_eq!(*Collective::proposals(), vec![hash]);
 		assert_eq!(Collective::proposal_of(&hash), Some(proposal));
@@ -741,7 +752,8 @@ fn limit_active_proposals() {
 			assert_ok!(Collective::propose(
 				RuntimeOrigin::signed(1),
 				Box::new(proposal.clone()),
-				proposal_len
+				proposal_len,
+				TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 			));
 		}
 		let proposal = make_proposal(MaxProposals::get() as u64 + 1);
@@ -750,7 +762,8 @@ fn limit_active_proposals() {
 			Collective::propose(
 				RuntimeOrigin::signed(1),
 				Box::new(proposal.clone()),
-				proposal_len
+				proposal_len,
+				TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 			),
 			Error::<Test, Instance1>::TooManyProposals
 		);
@@ -769,7 +782,8 @@ fn correct_validate_and_get_proposal() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			length
+			length,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 
 		let hash = BlakeTwo256::hash_of(&proposal);
@@ -811,7 +825,8 @@ fn motions_ignoring_non_collective_proposals_works() {
 			Collective::propose(
 				RuntimeOrigin::signed(42),
 				Box::new(proposal.clone()),
-				proposal_len
+				proposal_len,
+				TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 			),
 			Error::<Test, Instance1>::NotMember
 		);
@@ -827,7 +842,8 @@ fn motions_ignoring_non_collective_votes_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_noop!(
 			Collective::vote(RuntimeOrigin::signed(42), hash, 0, true),
@@ -846,7 +862,8 @@ fn motions_ignoring_bad_index_collective_vote_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_noop!(
 			Collective::vote(RuntimeOrigin::signed(2), hash, 1, true),
@@ -865,7 +882,8 @@ fn motions_vote_after_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		// Initially there a no votes when the motion is proposed.
 		assert_eq!(
@@ -934,6 +952,7 @@ fn motions_all_first_vote_free_works() {
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
 			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_eq!(
 			Collective::voting(&hash),
@@ -990,7 +1009,8 @@ fn motions_reproposing_disapproved_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));
@@ -1007,7 +1027,8 @@ fn motions_reproposing_disapproved_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_eq!(*Collective::proposals(), vec![hash]);
 	});
@@ -1028,7 +1049,8 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -1081,7 +1103,8 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 1, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 1, true));
@@ -1151,7 +1174,8 @@ fn motions_disapproval_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, false));
@@ -1209,7 +1233,8 @@ fn motions_approval_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
@@ -1269,7 +1294,8 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		assert_eq!(
 			System::events()[0],
@@ -1328,7 +1354,8 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		// First we make the proposal succeed
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
@@ -1359,7 +1386,8 @@ fn disapprove_proposal_works() {
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
 			Box::new(proposal.clone()),
-			proposal_len
+			proposal_len,
+			TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
 		));
 		// Proposal would normally succeed
 		assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
