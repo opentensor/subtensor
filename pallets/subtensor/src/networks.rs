@@ -126,9 +126,9 @@ impl<T: Config> Pallet<T> {
         ensure!( netuid_a != netuid_b, Error::<T>::InvalidConnectionRequirement );
         ensure!( Self::if_subnet_exist( netuid_a ), Error::<T>::NetworkDoesNotExist );
         ensure!( Self::if_subnet_exist( netuid_b ), Error::<T>::NetworkDoesNotExist );
+
         Self::add_connection_requirement( netuid_a, netuid_b, requirement );
-        log::info!("NetworkConnectionAdded( netuid_a:{:?}, netuid_b:{:?} requirement: {:?} )", netuid_a, netuid_b, requirement);
-        Self::deposit_event( Event::NetworkConnectionAdded( netuid_a, netuid_b, requirement ) );
+
         Ok(())
     }
 
@@ -151,9 +151,9 @@ impl<T: Config> Pallet<T> {
         ensure_root( origin )?;
         ensure!( Self::if_subnet_exist( netuid_a ), Error::<T>::NetworkDoesNotExist );
         ensure!( Self::if_subnet_exist( netuid_b ), Error::<T>::NetworkDoesNotExist );
-        Self::remove_connection_requirment( netuid_a, netuid_b );
-        log::info!("NetworkConnectionRemoved( netuid_a:{:?}, netuid_b:{:?} )", netuid_a, netuid_b );
-        Self::deposit_event( Event::NetworkConnectionRemoved( netuid_a, netuid_b ) );
+
+        Self::remove_connection_requirement( netuid_a, netuid_b );
+
         Ok(())
     }
 
@@ -346,12 +346,20 @@ impl<T: Config> Pallet<T> {
     //
     pub fn add_connection_requirement( netuid_a: u16, netuid_b: u16, requirement: u16 ) {
         NetworkConnect::<T>::insert( netuid_a, netuid_b, requirement );
+
+        log::info!("NetworkConnectionAdded( netuid_a:{:?}, netuid_b:{:?} requirement: {:?} )", netuid_a, netuid_b, requirement);
+        Self::deposit_event( Event::NetworkConnectionAdded( netuid_a, netuid_b, requirement ) );
     }
 
     // --- Removes the network b connection requirement from network a. 
     //
-    pub fn remove_connection_requirment( netuid_a: u16, netuid_b: u16) {
-        if Self::network_connection_requirement_exists(netuid_a, netuid_b) { NetworkConnect::<T>::remove( netuid_a, netuid_b ); }
+    pub fn remove_connection_requirement( netuid_a: u16, netuid_b: u16 ) {
+        if Self::network_connection_requirement_exists( netuid_a, netuid_b ) { 
+            NetworkConnect::<T>::remove( netuid_a, netuid_b );
+
+            log::info!("NetworkConnectionRemoved( netuid_a:{:?}, netuid_b:{:?} )", netuid_a, netuid_b );
+            Self::deposit_event( Event::NetworkConnectionRemoved( netuid_a, netuid_b ) );
+        }
     }
 
     // Returns true if the items contain duplicates.
