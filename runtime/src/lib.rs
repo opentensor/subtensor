@@ -29,6 +29,7 @@ use sp_runtime::{
 };
 
 use sp_std::prelude::*;
+use sp_std::cmp::Ordering;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -37,7 +38,7 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
 	construct_runtime, parameter_types,
 	traits::{
-		ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, Randomness, StorageInfo,
+		ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, Randomness, StorageInfo, PrivilegeCmp
 	},
 	weights::{
 		constants::{
@@ -473,6 +474,64 @@ impl pallet_multisig::Config for Runtime {
 	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
+		BlockWeights::get().max_block;
+	pub const MaxScheduledPerBlock: u32 = 50;
+	pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+/// Used the compare the privilege of an origin inside the scheduler.
+pub struct OriginPrivilegeCmp;
+
+impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
+	fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
+		if left == right {
+			return Some(Ordering::Equal)
+		}
+
+		match (left, right) {
+			// Root is greater than anything.
+			(OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
+			// Check which one has more yes votes.
+			(
+				OriginCaller::Senate(pallet_collective::RawOrigin::Members(l_yes_votes, l_count)),
+				OriginCaller::Senate(pallet_collective::RawOrigin::Members(r_yes_votes, r_count)), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
+			) => Some((l_yes_votes * r_count).cmp(&(r_yes_votes * l_count))),
+			// For every other origin we don't care, as they are not used for `ScheduleOrigin`.
+			_ => None,
+		}
+	}
+}
+
+impl pallet_scheduler::Config for Runtime {
+	type RuntimeOrigin = RuntimeOrigin;
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = MaxScheduledPerBlock;
+	type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+	type OriginPrivilegeCmp = OriginPrivilegeCmp;
+	type Preimages = Preimage;
+}
+
+parameter_types! {
+	pub const PreimageMaxSize: u32 = 4096 * 1024;
+	pub const PreimageBaseDeposit: Balance = (2) as Balance * 2_000 * 10_000_000 + (64 as Balance) * 100 * 1_000_000;
+	pub const PreimageByteDeposit: Balance = (0) as Balance * 2_000 * 10_000_000 + (1 as Balance) * 100 * 1_000_000;
+}
+
+impl pallet_preimage::Config for Runtime {
+	type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type BaseDeposit = PreimageBaseDeposit;
+	type ByteDeposit = PreimageByteDeposit;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
 	pub const SubtensorInitialRho: u16 = 10;
@@ -584,7 +643,9 @@ construct_runtime!(
 		SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,
-		Multisig: pallet_multisig
+		Multisig: pallet_multisig,
+		Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler
 	}
 );
 
