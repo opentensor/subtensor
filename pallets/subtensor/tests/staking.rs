@@ -1,4 +1,4 @@
-use frame_support::{assert_ok, traits::Currency};
+use frame_support::{assert_ok, assert_noop, traits::Currency};
 use frame_system::{Config};
 mod mock;
 use mock::*;
@@ -331,6 +331,38 @@ fn test_remove_stake_ok_no_emission() {
 		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), amount);
 		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id), 0);
 		assert_eq!(SubtensorModule::get_total_stake(), 0);
+	});
+}
+
+#[test]
+fn test_remove_stake_amount_zero() {
+	new_test_ext().execute_with(|| {
+		let coldkey_account_id = U256::from(4343);
+		let hotkey_account_id = U256::from(4968585);
+		let amount = 10000;
+        let netuid: u16 = 1;
+		let tempo: u16 = 13;
+		let start_nonce: u64 = 0;
+
+		//add network
+		add_network(netuid, tempo, 0);
+		
+		// Let's spin up a neuron
+		register_ok_neuron( netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+
+		// Some basic assertions
+		assert_eq!(SubtensorModule::get_total_stake(), 0);
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id), 0);
+		assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
+
+		// Give the neuron some stake to remove
+		SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+
+		// Do the magic
+		assert_noop!(
+            SubtensorModule::remove_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, 0),
+            Error::<Test>::NotEnoughStaketoWithdraw
+        );
 	});
 }
 

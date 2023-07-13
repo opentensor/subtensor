@@ -189,6 +189,9 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
+        // --- Ensure that the stake amount to be removed is above zero.
+        ensure!( stake_to_be_removed > 0, Error::<T>::NotEnoughStaketoWithdraw );
+
         // --- 4. Ensure that the hotkey has enough stake to withdraw.
         ensure!( Self::has_enough_stake( &coldkey, &hotkey, stake_to_be_removed ), Error::<T>::NotEnoughStaketoWithdraw );
 
