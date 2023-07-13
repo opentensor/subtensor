@@ -541,15 +541,8 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
     pub const SubtensorInitialEmissionValue: u16 = 0;
     pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
-    pub const SubtensorInitialValidatorBatchSize: u16 = 32; // 32
-    pub const SubtensorInitialValidatorSequenceLen: u16 = 256; // 256
-    pub const SubtensorInitialValidatorEpochLen: u16 = 100;
-    pub const SubtensorInitialValidatorEpochsPerReset: u16 = 60;
-    pub const SubtensorInitialValidatorExcludeQuantile: u16 = 6554; // 10% of u16
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
-    pub const SubtensorInitialValidatorLogitsDivergence: u16 = 1310; // 2% of u16
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
-    pub const SubtensorInitialSynergyScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
     pub const SubtensorInitialTempo: u16 = 99;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
@@ -590,15 +583,8 @@ impl pallet_subtensor::Config for Runtime {
 	type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
 	type InitialEmissionValue = SubtensorInitialEmissionValue;
 	type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
-	type InitialValidatorBatchSize = SubtensorInitialValidatorBatchSize;
-	type InitialValidatorSequenceLen = SubtensorInitialValidatorSequenceLen;
-	type InitialValidatorEpochLen = SubtensorInitialValidatorEpochLen;
-	type InitialValidatorEpochsPerReset = SubtensorInitialValidatorEpochsPerReset;
-	type InitialValidatorExcludeQuantile = SubtensorInitialValidatorExcludeQuantile;
 	type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
-	type InitialValidatorLogitsDivergence = SubtensorInitialValidatorLogitsDivergence;
 	type InitialScalingLawPower = SubtensorInitialScalingLawPower;
-	type InitialSynergyScalingLawPower = SubtensorInitialSynergyScalingLawPower;
 	type InitialTempo = SubtensorInitialTempo;
 	type InitialDifficulty = SubtensorInitialDifficulty;
 	type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;

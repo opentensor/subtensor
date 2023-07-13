@@ -161,24 +161,10 @@ pub mod pallet {
 		type InitialKappa: Get<u16>;		
 		#[pallet::constant] // Max UID constant.
 		type InitialMaxAllowedUids: Get<u16>;
-		#[pallet::constant] // Default batch size.
-		type InitialValidatorBatchSize: Get<u16>;
-		#[pallet::constant] // Default Sequence length.
-		type InitialValidatorSequenceLen: Get<u16>;
-		#[pallet::constant] // Default Epoch length.
-		type InitialValidatorEpochLen: Get<u16>;
-		#[pallet::constant] // Default Reset length.
-		type InitialValidatorEpochsPerReset: Get<u16>;
-		#[pallet::constant] // Initial validator exclude quantile.
-		type InitialValidatorExcludeQuantile: Get<u16>;
-		#[pallet::constant] // Initial validator logits divergence penalty/threshold.
-		type InitialValidatorLogitsDivergence: Get<u16>;
 		#[pallet::constant] // Initial validator context pruning length.
 		type InitialValidatorPruneLen: Get<u64>; 
 		#[pallet::constant] // Initial scaling law power.
 		type InitialScalingLawPower: Get<u16>;
-		#[pallet::constant] // Initial synergy scaling law power.
-		type InitialSynergyScalingLawPower: Get<u16>;
 		#[pallet::constant] // Immunity Period Constant.
 		type InitialImmunityPeriod: Get<u16>;
 		#[pallet::constant] // Activity constant.
@@ -427,8 +413,6 @@ pub mod pallet {
 	#[pallet::type_value] 
 	pub fn DefaultMinAllowedWeights<T: Config>() -> u16 { T::InitialMinAllowedWeights::get() }
 	#[pallet::type_value] 
-	pub fn DefaultValidatorEpochLen<T: Config>() -> u16 { T::InitialValidatorEpochLen::get() }
-	#[pallet::type_value] 
 	pub fn DefaultMaxAllowedValidators<T: Config>() -> u16 { T::InitialMaxAllowedValidators::get() }
 	#[pallet::type_value]
 	pub fn DefaultAdjustmentInterval<T: Config>() -> u16 { T::InitialAdjustmentInterval::get() }
@@ -436,20 +420,8 @@ pub mod pallet {
 	pub fn DefaultBondsMovingAverage<T: Config>() -> u64 { T::InitialBondsMovingAverage::get() }
 	#[pallet::type_value] 
 	pub fn DefaultValidatorPruneLen<T: Config>() -> u64 { T::InitialValidatorPruneLen::get() }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorBatchSize<T: Config>() -> u16 { T::InitialValidatorBatchSize::get() }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorSequenceLen<T: Config>() -> u16 { T::InitialValidatorSequenceLen::get() }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorEpochsPerReset<T: Config>() -> u16 { T::InitialValidatorEpochsPerReset::get() }
-	#[pallet::type_value]
-	pub fn DefaultValidatorExcludeQuantile<T: Config>() -> u16 { T::InitialValidatorExcludeQuantile::get() }
-	#[pallet::type_value] 
-	pub fn DefaultValidatorLogitsDivergence<T: Config>() -> u16 { T::InitialValidatorLogitsDivergence::get() }
 	#[pallet::type_value]
 	pub fn DefaultScalingLawPower<T: Config>() -> u16 { T::InitialScalingLawPower::get() }
-	#[pallet::type_value]
-	pub fn DefaultSynergyScalingLawPower<T: Config>() -> u16 { T::InitialSynergyScalingLawPower::get() }
 	#[pallet::type_value] 
 	pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 { T::InitialTargetRegistrationsPerInterval::get() }
 	#[pallet::type_value] 
@@ -478,8 +450,6 @@ pub mod pallet {
 	pub type MaxWeightsLimit<T> = StorageMap< _, Identity, u16, u16, ValueQuery, DefaultMaxWeightsLimit<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> weights_version_key
 	pub type WeightsVersionKey<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsVersionKey<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> validator_epoch_len
-	pub type ValidatorEpochLen<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorEpochLen<T> >; 
 	#[pallet::storage] // --- MAP ( netuid ) --> min_allowed_weights
 	pub type MinAllowedWeights<T> = StorageMap< _, Identity, u16, u16, ValueQuery, DefaultMinAllowedWeights<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> max_allowed_validators
@@ -488,24 +458,12 @@ pub mod pallet {
 	pub type AdjustmentInterval<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAdjustmentInterval<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> bonds_moving_average
 	pub type BondsMovingAverage<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> validator_batch_size
-	pub type ValidatorBatchSize<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorBatchSize<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> weights_set_rate_limit
 	pub type WeightsSetRateLimit<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> validator_prune_len
 	pub type ValidatorPruneLen<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultValidatorPruneLen<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> validator_sequence_length
-	pub type ValidatorSequenceLength<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorSequenceLen<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> validator_epochs_per_reset
-	pub type ValidatorEpochsPerReset<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorEpochsPerReset<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> validator_exclude_quantile
-	pub type ValidatorExcludeQuantile<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorExcludeQuantile<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> validator_logits_divergence
-	pub type ValidatorLogitsDivergence<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultValidatorLogitsDivergence<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> scaling_law_power
 	pub type ScalingLawPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T> >;
-	#[pallet::storage] // --- MAP ( netuid ) --> synergy_scaling_law_power
-	pub type SynergyScalingLawPower<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultSynergyScalingLawPower<T> >;
 	#[pallet::storage] // --- MAP ( netuid ) --> target_registrations_this_interval
 	pub type TargetRegistrationsPerInterval<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T> >;
 	#[pallet::storage] // --- DMAP ( netuid, uid ) --> block_at_registration
@@ -589,15 +547,8 @@ pub mod pallet {
 		RhoSet( u16, u16 ), // --- Event created when Rho value is set.
 		KappaSet( u16, u16 ), // --- Event created when Kappa is set for a subnet.
 		MinAllowedWeightSet( u16, u16 ), // --- Event created when minimun allowed weight is set for a subnet.
-		ValidatorBatchSizeSet( u16, u16 ), // --- Event created when validator batch size is set for a subnet.
-		ValidatorSequenceLengthSet( u16, u16 ), // --- Event created when validator sequence length is set for a subnet.
-		ValidatorEpochPerResetSet( u16, u16 ), // --- Event created when validator epoch per reset is set for a subnet.
-		ValidatorExcludeQuantileSet( u16, u16 ), // --- Event created when the validator exclude quantile has been set for a subnet.
-		ValidatorEpochLengthSet( u16, u16 ), // --- Event created when the validator epoch length has been set for a subnet.
-		ValidatorLogitsDivergenceSet( u16, u16 ), // --- Event created when the validator logits divergence value has been set.
 		ValidatorPruneLenSet( u16, u64 ), // --- Event created when the validator pruning length has been set.
 		ScalingLawPowerSet( u16, u16 ), // --- Event created when the scaling law power has been set for a subnet.
-		SynergyScalingLawPowerSet( u16, u16 ), // --- Event created when the synergy scaling law has been set for a subnet.
 		WeightsSetRateLimitSet( u16, u64 ), // --- Event created when weights set rate limit has been set for a subnet.
 		ImmunityPeriodSet( u16, u16), // --- Event created when immunity period is set for a subnet.
 		BondsMovingAverageSet( u16, u64), // --- Event created when bonds moving average is set for a subnet.
@@ -733,11 +684,7 @@ pub mod pallet {
 			if !ActivityCutoff::<T>::contains_key( netuid ) { ActivityCutoff::<T>::insert( netuid, ActivityCutoff::<T>::get( netuid ));}
 			if !EmissionValues::<T>::contains_key( netuid ) { EmissionValues::<T>::insert( netuid, EmissionValues::<T>::get( netuid ));}   
 			if !MaxWeightsLimit::<T>::contains_key( netuid ) { MaxWeightsLimit::<T>::insert( netuid, MaxWeightsLimit::<T>::get( netuid ));}
-			if !ValidatorEpochLen::<T>::contains_key( netuid ) { ValidatorEpochLen::<T>::insert( netuid, ValidatorEpochLen::<T>::get( netuid ));}
 			if !MinAllowedWeights::<T>::contains_key( netuid ) { MinAllowedWeights::<T>::insert( netuid, MinAllowedWeights::<T>::get( netuid )); }
-			if !ValidatorBatchSize::<T>::contains_key( netuid ) { ValidatorBatchSize::<T>::insert( netuid, ValidatorBatchSize::<T>::get( netuid ));}
-			if !ValidatorEpochsPerReset::<T>::contains_key( netuid ) { ValidatorEpochsPerReset::<T>::insert( netuid, ValidatorEpochsPerReset::<T>::get( netuid ));}
-			if !ValidatorSequenceLength::<T>::contains_key( netuid ) { ValidatorSequenceLength::<T>::insert( netuid, ValidatorSequenceLength::<T>::get( netuid ));}
 			if !RegistrationsThisInterval::<T>::contains_key( netuid ) { RegistrationsThisInterval::<T>::insert( netuid, RegistrationsThisInterval::<T>::get( netuid ));}
 			if !POWRegistrationsThisInterval::<T>::contains_key( netuid ) { POWRegistrationsThisInterval::<T>::insert( netuid, POWRegistrationsThisInterval::<T>::get( netuid ));}
 			if !BurnRegistrationsThisInterval::<T>::contains_key( netuid ) { BurnRegistrationsThisInterval::<T>::insert( netuid, BurnRegistrationsThisInterval::<T>::get( netuid ));}
@@ -1503,38 +1450,6 @@ pub mod pallet {
 			Self::do_sudo_set_min_allowed_weights( origin, netuid, min_allowed_weights )
 		}
 
-		#[pallet::call_index(34)]
-		#[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_batch_size( origin:OriginFor<T>, netuid: u16, validator_batch_size: u16 ) -> DispatchResult {
-			Self::do_sudo_set_validator_batch_size( origin, netuid, validator_batch_size )
-		}
-
-		#[pallet::call_index(35)]
-		#[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_sequence_length( origin:OriginFor<T>, netuid: u16, validator_sequence_length: u16 ) -> DispatchResult {
-			Self::do_sudo_set_validator_sequence_length(origin, netuid, validator_sequence_length )
-		}
-
-		#[pallet::call_index(36)]
-		#[pallet::weight((Weight::from_ref_time(13_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_epochs_per_reset( origin:OriginFor<T>, netuid: u16, validator_epochs_per_reset: u16 ) -> DispatchResult {
-			Self::do_sudo_set_validator_epochs_per_reset( origin, netuid, validator_epochs_per_reset )
-		}
-
-		#[pallet::call_index(37)]
-		#[pallet::weight((Weight::from_ref_time(13_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_exclude_quantile( origin:OriginFor<T>, netuid: u16, validator_exclude_quantile: u16 ) -> DispatchResult {
-			Self::do_sudo_set_validator_exclude_quantile( origin, netuid, validator_exclude_quantile )
-		}
-
 		#[pallet::call_index(38)]
 		#[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -1543,36 +1458,12 @@ pub mod pallet {
 			Self::do_sudo_set_validator_prune_len( origin, netuid, validator_prune_len )
 		}
 
-		#[pallet::call_index(39)]
-		#[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_logits_divergence( origin:OriginFor<T>, netuid: u16,validator_logits_divergence: u16 ) -> DispatchResult {
-			Self::do_sudo_set_validator_logits_divergence( origin, netuid, validator_logits_divergence )
-		}
-
-		#[pallet::call_index(40)]
-		#[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_validator_epoch_len( origin:OriginFor<T>, netuid: u16,validator_epoch_length: u16 ) -> DispatchResult {
-			Self::do_sudo_set_validator_epoch_length( origin, netuid, validator_epoch_length )
-		}
-
 		#[pallet::call_index(41)]
 		#[pallet::weight((Weight::from_ref_time(13_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
 		pub fn sudo_set_scaling_law_power( origin:OriginFor<T>, netuid: u16, scaling_law_power: u16 ) -> DispatchResult {
 			Self::do_sudo_set_scaling_law_power( origin, netuid, scaling_law_power )
-		}
-
-		#[pallet::call_index(42)]
-		#[pallet::weight((Weight::from_ref_time(13_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-		pub fn sudo_set_synergy_scaling_law_power( origin:OriginFor<T>, netuid: u16, synergy_scaling_law_power: u16 ) -> DispatchResult {
-			Self::do_sudo_set_synergy_scaling_law_power( origin, netuid, synergy_scaling_law_power )
 		}
 
 		#[pallet::call_index(43)]

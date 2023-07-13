@@ -28,18 +28,12 @@ fn test_defaults() {
         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 0);
         assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 100);
         assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), 900_000);
-        assert_eq!(SubtensorModule::get_validator_batch_size(netuid), 10);
         assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 0);
         assert_eq!(SubtensorModule::get_last_mechanism_step_block(netuid), 0);
         assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid), 0);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
-        assert_eq!(SubtensorModule::get_validator_epochs_per_reset(netuid), 10);
-        assert_eq!(SubtensorModule::get_validator_sequence_length(netuid), 10);
-        assert_eq!(SubtensorModule::get_validator_exclude_quantile(netuid), 10);
-        assert_eq!(SubtensorModule::get_validator_logits_divergence(netuid), 0);
         assert_eq!(SubtensorModule::get_validator_prune_len(netuid), 0);
         assert_eq!(SubtensorModule::get_scaling_law_power(netuid), 50);
-        assert_eq!(SubtensorModule::get_synergy_scaling_law_power(netuid), 50);
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0);
         assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 3);
         assert_eq!(
@@ -437,45 +431,6 @@ fn test_sudo_set_adjustment_alpha() {
 }
 
 #[test]
-fn test_sudo_set_validator_exclude_quantile() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_validator_exclude_quantile(netuid);
-        add_network(netuid, 10, 0);
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_exclude_quantile(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin.into())
-        );
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_exclude_quantile(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid + 1,
-                to_be_set
-            ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_validator_exclude_quantile(netuid),
-            init_value
-        );
-        assert_ok!(SubtensorModule::sudo_set_validator_exclude_quantile(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_validator_exclude_quantile(netuid),
-            to_be_set
-        );
-    });
-}
-
-#[test]
 fn test_sudo_validator_prune_len() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -510,46 +465,6 @@ fn test_sudo_validator_prune_len() {
 }
 
 #[test]
-fn test_sudo_validator_logits_divergence() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_validator_logits_divergence(netuid);
-        add_network(netuid, 10, 0);
-
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_logits_divergence(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin.into())
-        );
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_logits_divergence(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid + 1,
-                to_be_set
-            ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_validator_logits_divergence(netuid),
-            init_value
-        );
-        assert_ok!(SubtensorModule::sudo_set_validator_logits_divergence(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_validator_logits_divergence(netuid),
-            to_be_set
-        );
-    });
-}
-
-#[test]
 fn test_sudo_set_scaling_law_power() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -579,45 +494,6 @@ fn test_sudo_set_scaling_law_power() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_scaling_law_power(netuid), to_be_set);
-    });
-}
-
-#[test]
-fn test_sudo_set_synergy_scaling_law_power() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 50;
-        let init_value: u16 = SubtensorModule::get_synergy_scaling_law_power(netuid);
-        add_network(netuid, 10, 0);
-        assert_eq!(
-            SubtensorModule::sudo_set_synergy_scaling_law_power(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin.into())
-        );
-        assert_eq!(
-            SubtensorModule::sudo_set_synergy_scaling_law_power(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid + 1,
-                to_be_set
-            ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_synergy_scaling_law_power(netuid),
-            init_value
-        );
-        assert_ok!(SubtensorModule::sudo_set_synergy_scaling_law_power(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_synergy_scaling_law_power(netuid),
-            to_be_set
-        );
     });
 }
 
@@ -703,120 +579,6 @@ fn test_sudo_set_immunity_period() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_immunity_period(netuid), to_be_set);
-    });
-}
-
-#[test]
-fn test_sudo_set_validator_epochs_per_reset() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_validator_epochs_per_reset(netuid);
-        add_network(netuid, 10, 0);
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_epochs_per_reset(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin.into())
-        );
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_epochs_per_reset(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid + 1,
-                to_be_set
-            ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_validator_epochs_per_reset(netuid),
-            init_value
-        );
-        assert_ok!(SubtensorModule::sudo_set_validator_epochs_per_reset(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_validator_epochs_per_reset(netuid),
-            to_be_set
-        );
-    });
-}
-
-#[test]
-fn test_sudo_set_validator_sequence_length() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_validator_sequence_length(netuid);
-        add_network(netuid, 10, 0);
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_sequence_length(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin.into())
-        );
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_sequence_length(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid + 1,
-                to_be_set
-            ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_validator_sequence_length(netuid),
-            init_value
-        );
-        assert_ok!(SubtensorModule::sudo_set_validator_sequence_length(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(
-            SubtensorModule::get_validator_sequence_length(netuid),
-            to_be_set
-        );
-    });
-}
-
-#[test]
-fn test_sudo_set_validator_batch_size() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_validator_batch_size(netuid);
-        add_network(netuid, 10, 0);
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_batch_size(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                netuid,
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin.into())
-        );
-        assert_eq!(
-            SubtensorModule::sudo_set_validator_batch_size(
-                <<Test as Config>::RuntimeOrigin>::root(),
-                netuid + 1,
-                to_be_set
-            ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
-        );
-        assert_eq!(
-            SubtensorModule::get_validator_batch_size(netuid),
-            init_value
-        );
-        assert_ok!(SubtensorModule::sudo_set_validator_batch_size(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            to_be_set
-        ));
-        assert_eq!(SubtensorModule::get_validator_batch_size(netuid), to_be_set);
     });
 }
 

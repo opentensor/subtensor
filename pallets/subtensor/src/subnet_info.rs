@@ -13,15 +13,10 @@ pub struct SubnetInfo {
     kappa: Compact<u16>,
     difficulty: Compact<u64>,
     immunity_period: Compact<u16>,
-    validator_batch_size: Compact<u16>,
-    validator_sequence_length: Compact<u16>,
-    validator_epochs_per_reset: Compact<u16>,
-    validator_epoch_length: Compact<u16>,
     max_allowed_validators: Compact<u16>,
     min_allowed_weights: Compact<u16>,
     max_weights_limit: Compact<u16>,
     scaling_law_power: Compact<u16>,
-    synergy_scaling_law_power: Compact<u16>,
     subnetwork_n: Compact<u16>,
     max_allowed_uids: Compact<u16>,
     blocks_since_last_step: Compact<u64>,
@@ -42,15 +37,10 @@ impl<T: Config> Pallet<T> {
         let kappa = Self::get_kappa(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
-        let validator_batch_size = Self::get_validator_batch_size(netuid);
-        let validator_sequence_length = Self::get_validator_sequence_length(netuid);
-        let validator_epochs_per_reset = Self::get_validator_epochs_per_reset(netuid);
-        let validator_epoch_length = Self::get_validator_epoch_length(netuid);
         let max_allowed_validators = Self::get_max_allowed_validators(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
         let max_weights_limit = Self::get_max_weight_limit(netuid);
         let scaling_law_power = Self::get_scaling_law_power(netuid);
-        let synergy_scaling_law_power = Self::get_synergy_scaling_law_power(netuid);
         let subnetwork_n = Self::get_subnetwork_n(netuid);
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
@@ -72,15 +62,10 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
             immunity_period: immunity_period.into(),
             netuid: netuid.into(),
-            validator_batch_size: validator_batch_size.into(),
-            validator_sequence_length: validator_sequence_length.into(),
-            validator_epochs_per_reset: validator_epochs_per_reset.into(),
-            validator_epoch_length: validator_epoch_length.into(),
             max_allowed_validators: max_allowed_validators.into(),
             min_allowed_weights: min_allowed_weights.into(),
             max_weights_limit: max_weights_limit.into(),
             scaling_law_power: scaling_law_power.into(),
-            synergy_scaling_law_power: synergy_scaling_law_power.into(),
             subnetwork_n: subnetwork_n.into(),
             max_allowed_uids: max_allowed_uids.into(),
             blocks_since_last_step: blocks_since_last_step.into(),

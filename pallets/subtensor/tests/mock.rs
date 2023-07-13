@@ -131,15 +131,8 @@ parameter_types! {
 	pub const InitialMinBurn: u64 = 0; 
 	pub const InitialMaxBurn: u64 = 1_000_000_000;
 
-	pub const InitialValidatorBatchSize: u16 = 10;
-	pub const InitialValidatorSequenceLen: u16 = 10;
 	pub const InitialValidatorPruneLen: u64 = 0;
-	pub const InitialValidatorEpochLen: u16 = 10;
-	pub const InitialValidatorEpochsPerReset: u16 = 10;
-	pub const InitialValidatorExcludeQuantile: u16 = 10;
-	pub const InitialValidatorLogitsDivergence: u16 = 0;
 	pub const InitialScalingLawPower: u16 = 50;
-	pub const InitialSynergyScalingLawPower: u16 = 50;
 	pub const InitialMaxAllowedValidators: u16 = 100;
 
 	pub const InitialIssuance: u64 = 548833985028256;
@@ -318,15 +311,8 @@ impl pallet_subtensor::Config for Test {
 	type InitialRho = InitialRho;
 	type InitialKappa = InitialKappa;
 	type InitialMaxAllowedUids = InitialMaxAllowedUids;
-	type InitialValidatorBatchSize = InitialValidatorBatchSize;
-	type InitialValidatorSequenceLen = InitialValidatorSequenceLen;
 	type InitialValidatorPruneLen = InitialValidatorPruneLen;
-	type InitialValidatorEpochLen = InitialValidatorEpochLen;
-	type InitialValidatorEpochsPerReset = InitialValidatorEpochsPerReset;
-	type InitialValidatorExcludeQuantile = InitialValidatorExcludeQuantile;
-	type InitialValidatorLogitsDivergence = InitialValidatorLogitsDivergence;
 	type InitialScalingLawPower = InitialScalingLawPower;
-	type InitialSynergyScalingLawPower = InitialSynergyScalingLawPower;
 	type InitialImmunityPeriod = InitialImmunityPeriod;
 	type InitialActivityCutoff = InitialActivityCutoff;
 	type InitialMaxRegistrationsPerBlock = InitialMaxRegistrationsPerBlock;
