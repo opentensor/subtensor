@@ -215,18 +215,6 @@ impl<T: Config> Pallet<T> {
         Ok(()) 
     }
 
-    pub fn get_validator_exclude_quantile( netuid: u16 ) -> u16 { ValidatorExcludeQuantile::<T>::get( netuid ) }
-    pub fn set_validator_exclude_quantile( netuid: u16, validator_exclude_quantile: u16 ) { ValidatorExcludeQuantile::<T>::insert( netuid, validator_exclude_quantile ); }
-    pub fn do_sudo_set_validator_exclude_quantile( origin:T::RuntimeOrigin, netuid: u16, validator_exclude_quantile: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        ensure!( validator_exclude_quantile <= u16::MAX, Error::<T>::StorageValueOutOfRange ); // The quantile must be between 0 and u16::MAX => 0% and 100%
-        Self::set_validator_exclude_quantile( netuid, validator_exclude_quantile );
-        log::info!("ValidatorExcludeQuantileSet( netuid: {:?} validator_exclude_quantile: {:?} ) ", netuid, validator_exclude_quantile);
-        Self::deposit_event( Event::ValidatorExcludeQuantileSet( netuid, validator_exclude_quantile ));
-        Ok(())
-    }
-
     pub fn get_validator_prune_len( netuid: u16 ) -> u64 { ValidatorPruneLen::<T>::get( netuid ) }
     pub fn set_validator_prune_len( netuid: u16, validator_prune_len: u64 ) { ValidatorPruneLen::<T>::insert( netuid, validator_prune_len ); }
     pub fn do_sudo_set_validator_prune_len( origin:T::RuntimeOrigin, netuid: u16, validator_prune_len: u64 ) -> DispatchResult {
@@ -238,17 +226,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
     }
 
-    pub fn get_validator_logits_divergence( netuid: u16 ) -> u16 { ValidatorLogitsDivergence::<T>::get( netuid ) }
-    pub fn set_validator_logits_divergence( netuid: u16, validator_logits_divergence: u16 ) { ValidatorLogitsDivergence::<T>::insert( netuid, validator_logits_divergence ); }
-    pub fn do_sudo_set_validator_logits_divergence( origin:T::RuntimeOrigin, netuid: u16, validator_logits_divergence: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        Self::set_validator_logits_divergence(netuid, validator_logits_divergence);
-        log::info!("ValidatorLogitsDivergenceSet( netuid: {:?} validator_logits_divergence: {:?} ) ", netuid, validator_logits_divergence);
-        Self::deposit_event( Event::ValidatorLogitsDivergenceSet( netuid, validator_logits_divergence ));
-        Ok(())
-    }
-
     pub fn get_scaling_law_power( netuid: u16 ) -> u16 { ScalingLawPower::<T>::get( netuid ) }
     pub fn set_scaling_law_power( netuid: u16, scaling_law_power: u16 ) { ScalingLawPower::<T>::insert( netuid, scaling_law_power ); }
     pub fn do_sudo_set_scaling_law_power( origin:T::RuntimeOrigin, netuid: u16, scaling_law_power: u16 ) -> DispatchResult {
@@ -258,18 +235,6 @@ impl<T: Config> Pallet<T> {
         Self::set_scaling_law_power( netuid, scaling_law_power );
         log::info!("ScalingLawPowerSet( netuid: {:?} scaling_law_power: {:?} ) ", netuid, scaling_law_power);
         Self::deposit_event( Event::ScalingLawPowerSet( netuid, scaling_law_power ));
-        Ok(())
-    }
-
-    pub fn get_synergy_scaling_law_power( netuid: u16 ) -> u16 { SynergyScalingLawPower::<T>::get( netuid ) }
-    pub fn set_synergy_scaling_law_power( netuid: u16, synergy_scaling_law_power: u16 ) { SynergyScalingLawPower::<T>::insert( netuid, synergy_scaling_law_power ); }
-    pub fn do_sudo_set_synergy_scaling_law_power( origin:T::RuntimeOrigin, netuid: u16, synergy_scaling_law_power: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!( Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist );
-        ensure!( synergy_scaling_law_power <= 100, Error::<T>::StorageValueOutOfRange ); // The synergy scaling law power must be between 0 and 100 => 0% and 100%
-        Self::set_synergy_scaling_law_power( netuid, synergy_scaling_law_power );
-        log::info!("SynergyScalingLawPowerSet( netuid: {:?} synergy_scaling_law_power: {:?} ) ", netuid, synergy_scaling_law_power);
-        Self::deposit_event( Event::SynergyScalingLawPowerSet( netuid, synergy_scaling_law_power ));
         Ok(())
     }
 
@@ -294,52 +259,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
         Ok(())
     }
-
-    pub fn get_validator_epochs_per_reset( netuid: u16 )-> u16 { ValidatorEpochsPerReset::<T>::get( netuid ) }
-    pub fn set_validator_epochs_per_reset( netuid: u16, validator_epochs_per_reset: u16 ) { ValidatorEpochsPerReset::<T>::insert( netuid, validator_epochs_per_reset ); }
-    pub fn do_sudo_set_validator_epochs_per_reset( origin:T::RuntimeOrigin, netuid: u16, validator_epochs_per_reset: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_validator_epochs_per_reset( netuid, validator_epochs_per_reset );
-        log::info!("ValidatorEpochPerResetSet( netuid: {:?} validator_epochs_per_reset: {:?} ) ", netuid, validator_epochs_per_reset );
-        Self::deposit_event(Event::ValidatorEpochPerResetSet(netuid, validator_epochs_per_reset));
-        Ok(())
-    }
-
-    pub fn get_validator_sequence_length( netuid: u16 )-> u16 {ValidatorSequenceLength::<T>::get( netuid ) }
-    pub fn set_validator_sequence_length( netuid: u16, validator_sequence_length: u16 ) { ValidatorSequenceLength::<T>::insert( netuid, validator_sequence_length ); }
-    pub fn do_sudo_set_validator_sequence_length( origin:T::RuntimeOrigin, netuid: u16, validator_sequence_length: u16 ) -> DispatchResult {
-        ensure_root( origin )?; 
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        ValidatorSequenceLength::<T>::insert( netuid, validator_sequence_length );
-        log::info!("ValidatorSequenceLengthSet( netuid: {:?} validator_sequence_length: {:?} ) ", netuid, validator_sequence_length );
-        Self::deposit_event(Event::ValidatorSequenceLengthSet(netuid, validator_sequence_length));
-        Ok(())
-    }
-
-
-    pub fn get_validator_epoch_length( netuid: u16 )-> u16 {ValidatorEpochLen::<T>::get( netuid ) }
-    pub fn set_validator_epoch_length( netuid: u16, validator_epoch_length: u16 ) { ValidatorEpochLen::<T>::insert( netuid, validator_epoch_length ); }
-    pub fn do_sudo_set_validator_epoch_length( origin:T::RuntimeOrigin, netuid: u16, validator_epoch_length: u16 ) -> DispatchResult {
-        ensure_root( origin )?; 
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        ValidatorEpochLen::<T>::insert( netuid, validator_epoch_length );
-        log::info!("ValidatorEpochLengthSet( netuid: {:?} validator_epoch_length: {:?} ) ", netuid, validator_epoch_length );
-        Self::deposit_event(Event::ValidatorEpochLengthSet(netuid, validator_epoch_length));
-        Ok(())
-    }
-
-    pub fn get_validator_batch_size( netuid: u16 ) -> u16 { ValidatorBatchSize::<T>::get( netuid ) }
-    pub fn set_validator_batch_size( netuid: u16, validator_batch_size: u16 ) { ValidatorBatchSize::<T>::insert( netuid, validator_batch_size ); }
-    pub fn do_sudo_set_validator_batch_size( origin:T::RuntimeOrigin, netuid: u16, validator_batch_size: u16 ) -> DispatchResult {
-        ensure_root( origin )?;
-        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
-        Self::set_validator_batch_size( netuid, validator_batch_size );
-        log::info!("ValidatorBatchSizeSet( netuid: {:?} validator_batch_size: {:?} ) ", netuid, validator_batch_size);
-        Self::deposit_event(Event::ValidatorBatchSizeSet(netuid, validator_batch_size));
-        Ok(())
-    }
-            
+     
     pub fn get_min_allowed_weights( netuid:u16 ) -> u16 { MinAllowedWeights::<T>::get( netuid ) }
     pub fn set_min_allowed_weights( netuid: u16, min_allowed_weights: u16 ) { MinAllowedWeights::<T>::insert( netuid, min_allowed_weights ); }
     pub fn do_sudo_set_min_allowed_weights( origin:T::RuntimeOrigin, netuid: u16, min_allowed_weights: u16 ) -> DispatchResult {
