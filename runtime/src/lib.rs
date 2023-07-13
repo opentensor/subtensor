@@ -342,7 +342,7 @@ impl CanPropose<AccountId> for CanProposeToTriumvirate {
 
 pub struct CanVoteToTriumvirate;
 impl CanVote<AccountId> for CanVoteToTriumvirate {
-	fn can_vote(account: &AccountId) -> bool {
+	fn can_vote(_: &AccountId) -> bool {
 		//Senate::is_member(account)
 		false // Disable voting from pallet_collective::vote
 	}
@@ -370,11 +370,11 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
 	}
 
 	fn is_member(account: &AccountId) -> bool {
-		Senate::is_member(account)
+		SenateMembers::members().contains(account)
 	}
 
 	fn members() -> Vec<AccountId> {
-		Senate::members()
+		SenateMembers::members().into()
 	}
 
 	fn max_members() -> u32 {
@@ -384,7 +384,7 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
 
 pub struct GetSenateMemberCount;
 impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-	fn get_count() -> MemberCount {Senate::members().len() as u32}
+	fn get_count() -> MemberCount {SenateMembers::members().len() as u32}
 }
 impl Get<MemberCount> for GetSenateMemberCount {
 	fn get() -> MemberCount {SenateMaxMembers::get()}
@@ -435,24 +435,6 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
 	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
 
-// This is a dummy collective instance for managing senate members
-// Probably not the best solution, but fastest implementation
-type SenateCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<SenateCollective> for Runtime {
-	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall; 
-	type RuntimeEvent = RuntimeEvent;
-	type MotionDuration = CouncilMotionDuration;
-	type MaxProposals = CouncilMaxProposals;
-	type MaxMembers = SenateMaxMembers;
-	type DefaultVote = pallet_collective::PrimeDefaultVote;
-	type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-	type SetMembersOrigin = EnsureNever<AccountId>;
-	type CanPropose = ();
-	type CanVote = ();
-	type GetVotingMembers = ();
-}
-
 // We call our top K delegates membership Senate
 type SenateMembership = pallet_membership::Instance2;
 impl pallet_membership::Config<SenateMembership> for Runtime {
@@ -462,8 +444,8 @@ impl pallet_membership::Config<SenateMembership> for Runtime {
 	type SwapOrigin = EnsureRoot<AccountId>;
 	type ResetOrigin = EnsureRoot<AccountId>;
 	type PrimeOrigin = EnsureRoot<AccountId>;
-	type MembershipInitialized = Senate;
-	type MembershipChanged = Senate;
+	type MembershipInitialized = ();
+	type MembershipChanged = ();
 	type MaxMembers = SenateMaxMembers;
 	type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
@@ -599,7 +581,6 @@ construct_runtime!(
 		SubtensorModule: pallet_subtensor,
 		Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-		Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
 		SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
 		Utility: pallet_utility,
 		Sudo: pallet_sudo,

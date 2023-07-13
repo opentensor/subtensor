@@ -1,7 +1,6 @@
 use node_subtensor_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY, SubtensorModuleConfig, TriumvirateConfig, TriumvirateMembersConfig,
-	SenateConfig, SenateMembersConfig
+	SystemConfig, WASM_BINARY, SubtensorModuleConfig, TriumvirateConfig, TriumvirateMembersConfig, SenateMembersConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -418,10 +417,6 @@ fn localnet_genesis(
 			],
 			phantom: Default::default()
 		},
-		senate: SenateConfig {
-			members: Default::default(),
-			phantom: Default::default(),
-		},
 		senate_members: SenateMembersConfig {
 			members: bounded_vec![
 				get_account_id_from_seed::<sr25519::Public>("Dave"),
@@ -475,10 +470,6 @@ fn testnet_genesis(
 			members: Default::default(),
 			phantom: Default::default()
 		},
-		senate: SenateConfig {
-			members: Default::default(),
-			phantom: Default::default(),
-		},
 		senate_members: SenateMembersConfig {
 			members: Default::default(),
 			phantom: Default::default()
@@ -530,10 +521,6 @@ fn finney_genesis(
 		triumvirate_members: TriumvirateMembersConfig {
 			members: Default::default(),
 			phantom: Default::default()
-		},
-		senate: SenateConfig {
-			members: Default::default(),
-			phantom: Default::default(),
 		},
 		senate_members: SenateMembersConfig {
 			members: Default::default(),
