@@ -1,10 +1,6 @@
 mod mock;
 use mock::*;
 
-
-
-
-
 use sp_core::U256;
 
 #[test]
@@ -31,8 +27,8 @@ fn test_get_neuron_some() {
         let hotkey0 = U256::from(0);
         let coldkey0 = U256::from(0);
 
-        add_network( netuid, tempo, modality );
-        register_ok_neuron( netuid, hotkey0, coldkey0, 39420842 );
+        add_network(netuid, tempo, modality);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
 
         let neuron = SubtensorModule::get_neuron(netuid, uid);
         assert_ne!(neuron, None);
@@ -48,7 +44,7 @@ fn test_get_neurons_list() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network( netuid, tempo, modality );
+        add_network(netuid, tempo, modality);
 
         let _uid: u16 = 42;
 
@@ -57,7 +53,7 @@ fn test_get_neurons_list() {
             let hotkey = U256::from(0 + index);
             let coldkey = U256::from(0 + index);
             let nonce: u64 = 39420842 + index;
-            register_ok_neuron( netuid, hotkey, coldkey, nonce );
+            register_ok_neuron(netuid, hotkey, coldkey, nonce);
         }
 
         let neurons = SubtensorModule::get_neurons(netuid);
