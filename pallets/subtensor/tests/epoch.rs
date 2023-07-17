@@ -599,6 +599,7 @@ fn test_bonds() {
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		SubtensorModule::set_max_registrations_per_block( netuid, n );
 		SubtensorModule::set_target_registrations_per_interval(netuid, n);
+		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
 
 		// === Register [validator1, validator2, validator3, validator4, server1, server2, server3, server4]
 		for key in 0..n as u64 {
@@ -1034,6 +1035,7 @@ fn test_outdated_weights() {
 		let stake: u64 = 1;
 		add_network(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
+		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
 		SubtensorModule::set_max_registrations_per_block( netuid, n+1 ); // should be n, but RegistrationsThisBlock is not reset (TODO: Saeideh)
 
 		// === Register [validator1, validator2, server1, server2]
@@ -1150,6 +1152,7 @@ fn test_zero_weights() {
 		let stake: u64 = 1;
 		add_network(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
+		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
 		SubtensorModule::set_max_registrations_per_block( netuid, n+1 ); // should be n, but RegistrationsThisBlock is not reset (TODO: Saeideh)
 
 		// === Register [validator, server]
