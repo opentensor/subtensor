@@ -1,14 +1,13 @@
 
 use frame_support::traits::Currency;
-use ndarray::stack_new_axis;
+
 use pallet_subtensor::{Error, AxonInfoOf};
-use frame_support::{assert_ok};
+use frame_support::assert_ok;
 use frame_system::Config;
 use sp_core::U256;
-use crate::{mock::*};
+use crate::mock::*;
 use frame_support::sp_runtime::DispatchError;
-use frame_support::dispatch::{GetDispatchInfo, DispatchInfo};
-use frame_support::weights::{DispatchClass, Pays};
+use frame_support::dispatch::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
 
 mod mock;
 

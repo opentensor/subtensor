@@ -1,9 +1,9 @@
 use frame_support::{assert_ok, assert_noop, traits::Currency};
-use frame_system::{Config};
+use frame_system::Config;
 mod mock;
 use mock::*;
 use frame_support::sp_runtime::DispatchError;
-use pallet_subtensor::{Error};
+use pallet_subtensor::Error;
 use frame_support::dispatch::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
 use sp_core::U256;
 
@@ -1293,9 +1293,8 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
 		// Register delegate
 		register_ok_neuron( netuid, hotkey_id, coldkey0_id, start_nonce);
 		
-		let neuron_uid ;
         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(k) => neuron_uid = k,
+            Ok(_k) => (),
             Err(e) => panic!("Error: {:?}", e),
         } 
 		
@@ -1351,9 +1350,8 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
 		// Register delegate
 		register_ok_neuron( netuid, hotkey_id, coldkey0_id, start_nonce);
 		
-		let neuron_uid ;
         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_id) {
-            Ok(k) => neuron_uid = k,
+            Ok(_) => (),
             Err(e) => panic!("Error: {:?}", e),
         } 
 		

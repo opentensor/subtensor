@@ -6,14 +6,14 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::{Encode, Decode};
-use pallet_collective::EnsureMember;
+use codec::Encode;
+
 use pallet_grandpa::{
 	fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::{pallet_prelude::{Get, TypeInfo, MaxEncodedLen, PhantomData, EnsureOrigin, DispatchResult}, traits::{EitherOfDiverse}, RuntimeDebug};
-use frame_system::{EnsureRoot, Config, EnsureNever, RawOrigin};
+use frame_support::pallet_prelude::{Get, DispatchResult};
+use frame_system::{EnsureRoot, EnsureNever, RawOrigin};
 
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;

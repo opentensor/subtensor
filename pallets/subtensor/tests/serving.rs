@@ -1,9 +1,15 @@
-use crate::{mock::*};
+use crate::mock::*;
 mod mock;
-use frame_support::assert_ok;
-use frame_support::dispatch::{GetDispatchInfo, DispatchInfo};
+use frame_support::{
+    assert_ok,
+    dispatch::{
+        GetDispatchInfo, 
+        DispatchInfo, 
+        DispatchClass, 
+        Pays
+    }
+};
 use pallet_subtensor::Error;
-use frame_support::weights::{DispatchClass, Pays};
 use frame_system::Config;
 use sp_core::U256;
 
