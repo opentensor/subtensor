@@ -391,7 +391,7 @@ pub mod pallet {
 	// ==== Subnetwork Hyperparam storage ====
 	// =======================================	
 	#[pallet::type_value] 
-	pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 { 0 }
+	pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 { 100 }
 	#[pallet::type_value] 
 	pub fn DefaultBlockAtRegistration<T: Config>() -> u64 { 0 }
 	#[pallet::type_value]
