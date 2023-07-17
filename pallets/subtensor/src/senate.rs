@@ -69,7 +69,7 @@ impl<T: Config> Pallet<T> {
 		// Check all our leave requirements
 		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotSenateMember);
 
-		T::TriumvirateInterface::remove_votes(&hotkey);
+		T::TriumvirateInterface::remove_votes(&hotkey)?;
 		T::SenateMembers::remove_member(&hotkey)
 	}
 
@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T> {
 		ensure_root(origin)?;
 
 		ensure!(!T::SenateMembers::is_member(who), Error::<T>::SenateMember);
-		T::TriumvirateInterface::remove_votes(who);
+		T::TriumvirateInterface::remove_votes(who)?;
 
 		Ok(())
 	}

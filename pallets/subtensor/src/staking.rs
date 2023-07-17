@@ -219,7 +219,7 @@ impl<T: Config> Pallet<T> {
             } < SenateRequiredStakePercentage::<T>::get()
 		{
 			// This might cause a panic, but there shouldn't be any reason this will fail with the checks above.
-            T::TriumvirateInterface::remove_votes(&hotkey);
+            T::TriumvirateInterface::remove_votes(&hotkey)?;
 			T::SenateMembers::remove_member(&hotkey)?;
 		}
 

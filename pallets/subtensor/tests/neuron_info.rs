@@ -1,10 +1,10 @@
 mod mock;
 use mock::*;
-use pallet_subtensor::Error;
-use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
-use frame_system::Config;
-use frame_support::sp_std::vec;
-use frame_support::assert_ok;
+
+
+
+
+
 use sp_core::U256;
 
 #[test]
@@ -50,7 +50,7 @@ fn test_get_neurons_list() {
 
         add_network( netuid, tempo, modality );
 
-        let uid: u16 = 42;
+        let _uid: u16 = 42;
 
         let neuron_count = 1;
         for index in 0..neuron_count {

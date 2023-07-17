@@ -1,5 +1,5 @@
 use super::*;
-use frame_support::{sp_std::vec};
+use frame_support::sp_std::vec;
 use sp_std::vec::Vec;
 use frame_system::ensure_root;
 use crate::math::checked_sum;

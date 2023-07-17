@@ -287,51 +287,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
 }
 
 pub fn localnet_config() -> Result<ChainSpec, String> {
-	let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
 	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-
-	// We mmap the file into memory first, as this is *a lot* faster than using
-	// `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
-	let file = File::open(&path)
-		.map_err(|e| format!("Error opening genesis file `{}`: {}", path.display(), e))?;
-
-	// SAFETY: `mmap` is fundamentally unsafe since technically the file can change
-	//         underneath us while it is mapped; in practice it's unlikely to be a problem
-	let bytes = unsafe {
-		memmap2::Mmap::map(&file)
-			.map_err(|e| format!("Error mmaping genesis file `{}`: {}", path.display(), e))?
-	};
-
-	let old_state: ColdkeyHotkeys =
-		json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
-
-	let mut processed_stakes: Vec<(sp_runtime::AccountId32, Vec<(sp_runtime::AccountId32, (u64, u16))>)> = Vec::new();
-	for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-		let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
-		let coldkey_account = sp_runtime::AccountId32::from(coldkey);
-
-		let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
-
-		for (hotkey_str, amount_uid) in hotkeys.iter() {
-			let (amount, uid) = amount_uid;
-			let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
-			let hotkey_account = sp_runtime::AccountId32::from(hotkey);
-
-			processed_hotkeys.push((hotkey_account, (*amount, *uid)));
-		}
-
-		processed_stakes.push((coldkey_account, processed_hotkeys));
-	}
-
-	let mut balances_issuance: u64 = 0;
-	let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
-	for (key_str, amount) in old_state.balances.iter() {
-		let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
-		let key_account = sp_runtime::AccountId32::from(key);
-
-		processed_balances.push((key_account, *amount));
-		balances_issuance += *amount;
-	}
 
 	// Give front-ends necessary data to present to users
 	let mut properties = sc_service::Properties::new();
@@ -433,7 +389,7 @@ fn localnet_genesis(
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	root_key: AccountId,
+	_root_key: AccountId,
 	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 	_stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
@@ -482,7 +438,7 @@ fn testnet_genesis(
 fn finney_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	root_key: AccountId,
+	_root_key: AccountId,
 	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,

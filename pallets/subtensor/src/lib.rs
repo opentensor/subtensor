@@ -21,9 +21,7 @@ use frame_support::{
 	traits::{
 		Currency, 
 		ExistenceRequirement,
-		tokens::{
-			WithdrawReasons
-		},
+		tokens::WithdrawReasons,
 		IsSubType,
 	}
 };

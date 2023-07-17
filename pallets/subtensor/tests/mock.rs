@@ -51,6 +51,7 @@ parameter_types! {
 pub type AccountId = U256; 
 
 // The address format for describing accounts.
+#[allow(dead_code)]
 pub type Address = AccountId;
 
 // Balance of an account.
