@@ -396,6 +396,7 @@ impl<T: Config> Pallet<T> {
     //
     pub fn set_emission_for_network( netuid: u16, emission: u64 ){
         EmissionValues::<T>::insert( netuid, emission );
+        Self::deposit_event( Event::EmissionSet( netuid, emission ) );
     }
 
     // Returns true if the subnetwork exists.
