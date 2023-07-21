@@ -55,13 +55,15 @@ mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::inherent::Vec;
-    use frame_support::sp_std::vec;
-    use frame_support::traits::{Currency, UnfilteredDispatchable};
+
     use frame_support::{
+        traits::{Currency, UnfilteredDispatchable},
+        sp_std::vec,
+        inherent::Vec,
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, *},
     };
+    use sp_runtime::traits::TrailingZeroInput;
     use frame_system::pallet_prelude::*;
 
     #[cfg(not(feature = "std"))]
@@ -204,7 +206,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
 
     #[pallet::storage] // --- ITEM ( total_stake )
@@ -387,6 +389,10 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
+        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+    }
+    #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
     }
@@ -405,6 +411,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T>>;
+    #[pallet::storage]
+    pub type SubnetOwner<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
 
     // =================================
     // ==== Axon / Promo Endpoints =====
