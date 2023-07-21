@@ -6,7 +6,6 @@ use crate::math::checked_sum;
 
 impl<T: Config> Pallet<T> { 
 
-
     // ---- The implementation for the extrinsic add_network.
     //
     // # Args:
@@ -214,6 +213,70 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Ok and return.
         Ok(())
+    }
+
+    // Initializes a new subnetwork under netuid with all hyperparameters.
+    //
+    pub fn init_new_network_ex( 
+        netuid: u16,
+        tempo: u16,
+        modality: u16,
+        serving_limit: u64,
+        weights_limit: u64,
+        weights_version: u64,
+        weights_min: u16,
+        weights_max: u16,
+        min_burn: u64,
+        max_burn: u64,
+        bonds_moving_avg: u64,
+        max_allowed_validators: u16,
+        max_allowed_uids: u16,
+        adjustment_interval: u16,
+        adjustment_alpha: u64,
+        target_reg_per_interval: u16,
+        max_reg_per_block: u16,
+        activity_cutoff: u16,
+        rho: u16,
+        kappa: u16,
+        validator_prune_len: u64,
+        scaling_law_power: u16,
+        immunity_period: u16,
+        reg_allowed: bool
+    ) {
+        Self::init_new_network( netuid, tempo, modality );
+
+        Self::set_serving_rate_limit(netuid, serving_limit);
+        Self::set_weights_set_rate_limit(netuid, weights_limit);
+        Self::set_weights_version_key(netuid, weights_version);
+        Self::set_min_allowed_weights(netuid, weights_min);
+        Self::set_max_weight_limit(netuid, weights_max);
+        
+        Self::set_min_burn(netuid, min_burn);
+        Self::set_max_burn(netuid, max_burn);
+
+        Self::set_bonds_moving_average(netuid, bonds_moving_avg);
+
+        Self::set_max_allowed_validators(netuid, max_allowed_validators);
+        Self::set_max_allowed_uids(netuid, max_allowed_uids);
+
+        Self::set_adjustment_interval(netuid, adjustment_interval);
+        Self::set_adjustment_alpha(netuid, adjustment_alpha);
+
+        Self::set_target_registrations_per_interval(netuid, target_reg_per_interval);
+        Self::set_max_registrations_per_block(netuid, max_reg_per_block);
+
+        Self::set_activity_cutoff(netuid, activity_cutoff);
+
+        Self::set_rho(netuid, rho);
+        Self::set_kappa(netuid, kappa);
+
+        Self::set_validator_prune_len(netuid, validator_prune_len);
+
+        Self::set_scaling_law_power(netuid, scaling_law_power);
+
+        Self::set_immunity_period(netuid, immunity_period);
+
+        Self::set_network_registration_allowed(netuid, reg_allowed);
     }
 
     // Initializes a new subnetwork under netuid with parameters.
