@@ -1,6 +1,7 @@
-use frame_support::{assert_ok, traits::{Currency, ReservableCurrency, Imbalance}};
-use frame_system::{Config};
 mod mock;
+
+use frame_support::{assert_ok, assert_noop, traits::{Currency, ReservableCurrency, Imbalance}};
+use frame_system::Config;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
@@ -338,8 +339,8 @@ fn test_add_stake_total_issuance_no_change() {
 fn test_add_stake_reserved_balance_matches() {
 	// When we add stake, the reserved balance on the coldkey account should match the stake
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 561337;
-		let coldkey_account_id = 61337;
+		let hotkey_account_id =  U256::from(561337);
+		let coldkey_account_id =  U256::from(61337);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -679,8 +680,8 @@ fn test_remove_stake_total_issuance_no_change() {
 fn test_remove_stake_reserved_matches() {
 	// When we remove stake, the reserved balance on the coldkey account should match the stake
 	new_test_ext().execute_with(|| {
-		let hotkey_account_id = 581337;
-		let coldkey_account_id = 81337;
+		let hotkey_account_id =  U256::from(581337);
+		let coldkey_account_id =  U256::from(81337);
         let netuid : u16 = 1;
 		let tempo: u16 = 13;
 		let start_nonce: u64 = 0;
@@ -1066,9 +1067,9 @@ fn test_has_enough_stake_no() {
  #[test]
  fn test_increase_reserved_on_coldkey_account() {
 	 new_test_ext().execute_with(|| {
-		 let hotkey_id = 4334;
+		 let hotkey_id =  U256::from(4334);
  
-		 let coldkey_id = 87989;
+		 let coldkey_id =  U256::from(87989);
 		 let amount = 10_000;
  
 		 let inital_free_balance = amount + 23_000;
@@ -1111,9 +1112,9 @@ fn test_has_enough_stake_no() {
 #[test]
 fn test_increased_reserved_by_hotkey() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4334;
+        let hotkey_id =  U256::from(4334);
 
-		let coldkey_id = 87989;
+		let coldkey_id =  U256::from(87989);
 		let amount = 10_000;
 		
         let netuid = 1;
@@ -1137,7 +1138,7 @@ fn test_increased_reserved_by_hotkey() {
 #[test]
 fn test_increase_reserved_on_coldkey_account_issuing() {
 	new_test_ext().execute_with(|| {
-		let coldkey_id = 87989;
+		let coldkey_id =  U256::from(87989);
 		let amount = 10_000;
 		
 		// Increase reserved balance using the helper
@@ -1156,7 +1157,7 @@ fn test_increase_reserved_on_coldkey_account_issuing() {
 #[test]
 fn test_decrease_reserved_on_coldkey_account() {
 	new_test_ext().execute_with(|| {
-		let coldkey_id = 87989;
+		let coldkey_id =  U256::from(87989);
 		let amount = 10_000;
 		let initial_reserved = amount + 1000;
 
@@ -1180,9 +1181,9 @@ fn test_decrease_reserved_on_coldkey_account() {
 #[test]
 fn test_issue_stake_to_coldkey_hotkey_account() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4334;
+        let hotkey_id =  U256::from(4334);
 
-		let coldkey_id = 87989;
+		let coldkey_id = U256::from(87989);
 		let amount = 10_000;
 		
         let netuid = 1;
@@ -1215,9 +1216,9 @@ fn test_issue_stake_to_coldkey_hotkey_account() {
 #[test]
 fn test_issue_stake_to_hotkey_owner_account() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4334;
+        let hotkey_id =  U256::from(4334);
 
-		let coldkey_id = 87989;
+		let coldkey_id =  U256::from(87989);
 		let amount = 10_000;
 		
         let netuid = 1;
@@ -1254,9 +1255,9 @@ fn test_issue_stake_to_hotkey_owner_account() {
 #[test]
 fn test_reserve_stake_to_coldkey_hotkey_account() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4334;
+        let hotkey_id =  U256::from(4334);
 
-		let coldkey_id = 87989;
+		let coldkey_id =  U256::from(87989);
 		let amount = 10_000;
 
 		let inital_free_balance = amount + 23_000;
@@ -1301,9 +1302,9 @@ fn test_reserve_stake_to_coldkey_hotkey_account() {
 
 fn test_unreserve_stake_from_coldkey_hotkey_account() {
 	new_test_ext().execute_with(|| {
-        let hotkey_id = 4334;
+        let hotkey_id =  U256::from(4334);
 
-		let coldkey_id = 87989;
+		let coldkey_id =  U256::from(87989);
 		let amount = 10_000;
 
 		let initial_staked = amount + 23_000;
