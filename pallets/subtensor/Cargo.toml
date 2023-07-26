@@ -32,7 +32,12 @@ sp-std = { git = "https://github.com/paritytech/substrate", default-features = f
 log = { version = "0.4.14", default-features = false }
 substrate-fixed = { git = 'https://github.com/encointer/substrate-fixed.git', tag = "v0.5.9" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
+pallet-utility = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
 ndarray = { version = "0.15.0", default-features = false }
+
+# Used for sudo decentralization
+pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
+pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
 [dev-dependencies]
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39", features = ["std"] }
@@ -51,6 +56,8 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"scale-info/std",
+	"pallet-collective/std",
+	"pallet-membership/std",
 ]
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

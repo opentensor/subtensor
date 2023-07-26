@@ -1,4 +1,5 @@
 use super::*;
+use crate::math::*;
 use frame_support::sp_std::vec;
 use sp_std::vec::Vec;
 
@@ -84,8 +85,11 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Get the neuron uid of associated hotkey on network netuid.
         let neuron_uid;
-        match Self::get_uid_for_net_and_hotkey( netuid, &hotkey ) { Ok(k) => neuron_uid = k, Err(e) => panic!("Error: {:?}", e) } 
+		let net_neuron_uid = Self::get_uid_for_net_and_hotkey( netuid, &hotkey );
+		ensure!( net_neuron_uid.is_ok(), net_neuron_uid.err().unwrap_or(Error::<T>::NotRegistered.into()) );
 
+		neuron_uid = net_neuron_uid.unwrap();
+		
         // --- 8. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!( Self::check_rate_limit( netuid, neuron_uid, current_block ), Error::<T>::SettingWeightsTooFast );
@@ -102,15 +106,15 @@ impl<T: Config> Pallet<T> {
         // --- 12. Ensure that the weights have the required length.
         ensure!( Self::check_length( netuid, neuron_uid, &uids, &values ), Error::<T>::NotSettingEnoughWeights );
 
-        // --- 13. Normalize the weights.
-        let normalized_values = Self::normalize_weights( values );
+        // --- 13. Max-upscale the weights.
+        let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16( &values );
 
         // --- 14. Ensure the weights are max weight limited 
-        ensure!( Self::max_weight_limited( netuid, neuron_uid, &uids, &normalized_values ), Error::<T>::MaxWeightExceeded );
+        ensure!( Self::max_weight_limited( netuid, neuron_uid, &uids, &max_upscaled_weights ), Error::<T>::MaxWeightExceeded );
 
         // --- 15. Zip weights for sinking to storage map.
         let mut zipped_weights: Vec<( u16, u16 )> = vec![];
-        for ( uid, val ) in uids.iter().zip(normalized_values.iter()) { zipped_weights.push((*uid, *val)) }
+        for ( uid, val ) in uids.iter().zip(max_upscaled_weights.iter()) { zipped_weights.push((*uid, *val)) }
 
         // --- 16. Set weights under netuid, uid double map entry.
         Weights::<T>::insert( netuid, neuron_uid, zipped_weights );
@@ -135,7 +139,7 @@ impl<T: Config> Pallet<T> {
     pub fn check_version_key( netuid: u16, version_key: u64) -> bool {
         let network_version_key: u64 = WeightsVersionKey::<T>::get( netuid );
         log::info!("check_version_key( network_version_key:{:?}, version_key:{:?} )", network_version_key, version_key );
-        return network_version_key == 0 || version_key == network_version_key;
+        return network_version_key == 0 || version_key >= network_version_key;
     }
 
     // Checks if the neuron has set weights within the weights_set_rate_limit.
@@ -221,11 +225,7 @@ impl<T: Config> Pallet<T> {
         if max_weight_limit == u16::MAX { return true; }
     
         // Check if the weights max value is less than or equal to the limit.
-        let max: u16 = *weights.iter().max().unwrap();
-        if max <= max_weight_limit { return true; }
-        
-        // The check has failed.
-        return false;
+        check_vec_max_limited( weights, max_weight_limit)
     }
 
     // Returns true if the uids and weights correspond to a self weight on the uid.

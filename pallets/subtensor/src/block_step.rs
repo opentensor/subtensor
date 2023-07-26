@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn has_loaded_emission_tuples( netuid: u16 ) -> bool { LoadedEmission::<T>::contains_key( netuid ) }
-    pub fn get_loaded_emission_tuples( netuid: u16 ) -> Vec<(T::AccountId, u64)> { LoadedEmission::<T>::get( netuid ).unwrap() }
+    pub fn get_loaded_emission_tuples( netuid: u16 ) -> Vec<(T::AccountId, u64, u64)> { LoadedEmission::<T>::get( netuid ).unwrap() }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
     // and distributes small chunks of them at a time.
@@ -63,11 +63,11 @@ impl<T: Config> Pallet<T> {
         // --- 1. We iterate across each network.
         for ( netuid, _ ) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
             if !Self::has_loaded_emission_tuples( netuid ) { continue } // There are no tuples to emit.
-            let tuples_to_drain: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+            let tuples_to_drain: Vec<(T::AccountId, u64, u64)> = Self::get_loaded_emission_tuples( netuid );
             let mut total_emitted: u64 = 0;
-            for (hotkey, amount) in tuples_to_drain.iter() {                 
-                Self::emit_inflation_through_hotkey_account( &hotkey, *amount );
-                total_emitted += *amount;
+            for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {                 
+                Self::emit_inflation_through_hotkey_account( &hotkey, *server_amount, *validator_amount );
+                total_emitted += *server_amount + *validator_amount;
             }            
             LoadedEmission::<T>::remove( netuid );
             TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( total_emitted ) );
@@ -95,22 +95,22 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 4 This network is at tempo and we are running its epoch.
-            // First frain the queued emission.
+            // First drain the queued emission.
             let emission_to_drain:u64 = PendingEmission::<T>::get( netuid ); 
             PendingEmission::<T>::insert( netuid, 0 );
 
             // --- 5. Run the epoch mechanism and return emission tuples for hotkeys in the network.
-            let emission_tuples_this_block: Vec<(T::AccountId, u64)> = Self::epoch( netuid, emission_to_drain );
+            let emission_tuples_this_block: Vec<(T::AccountId, u64, u64)> = Self::epoch( netuid, emission_to_drain );
                 
             // --- 6. Check that the emission does not exceed the allowed total.
-            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(_account_id, e)| *e as u128 ).sum();
+            let emission_sum: u128 = emission_tuples_this_block.iter().map( |(_account_id, ve, se)| *ve as u128 + *se as u128  ).sum();
             if emission_sum > emission_to_drain as u128 { continue } // Saftey check.
 
             // --- 7. Sink the emission tuples onto the already loaded.
-            let mut concat_emission_tuples: Vec<(T::AccountId, u64)> = emission_tuples_this_block.clone();
+            let mut concat_emission_tuples: Vec<(T::AccountId, u64, u64)> = emission_tuples_this_block.clone();
             if Self::has_loaded_emission_tuples( netuid ) {
                 // 7.a We already have loaded emission tuples, so we concat the new ones.
-                let mut current_emission_tuples: Vec<(T::AccountId, u64)> = Self::get_loaded_emission_tuples( netuid );
+                let mut current_emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::get_loaded_emission_tuples( netuid );
                 concat_emission_tuples.append( &mut current_emission_tuples );
             } 
             LoadedEmission::<T>::insert( netuid, concat_emission_tuples );
@@ -124,38 +124,42 @@ impl<T: Config> Pallet<T> {
     // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
     // is called after an epoch to distribute the newly minted stake according to delegation.
     //
-    pub fn emit_inflation_through_hotkey_account( hotkey: &T::AccountId, emission: u64) {
-        
+    pub fn emit_inflation_through_hotkey_account( hotkey: &T::AccountId, server_emission: u64, validator_emission: u64 ) {
         // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the 
         // coldkey - hotkey account as normal.
         if !Self::hotkey_is_delegate( hotkey ) { 
             // If this fails, the amount goes to the free balance. This will be fixed on the next (un)stake.
             //     due to fix_reserved_balance_on_coldkey_account.
-            Self::issue_stake_to_hotkey_owner_account( &hotkey, emission );
+            Self::issue_stake_to_hotkey_owner_account( &hotkey, server_emission + validator_emission ); 
             return; 
         }
+        // Then this is a delegate, we distribute validator_emission, then server_emission.
 
-        // --- 2. The hotkey is a delegate. We first distribute a proportion of the emission to the hotkey
+        // --- 2. The hotkey is a delegate. We first distribute a proportion of the validator_emission to the hotkey
         // directly as a function of its 'take'
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
-        let delegate_take: u64 = Self::calculate_delegate_proportional_take( hotkey, emission );
-        let remaining_emission: u64 = emission - delegate_take;
+        let delegate_take: u64 = Self::calculate_delegate_proportional_take( hotkey, validator_emission );
+        let validator_emission_minus_take: u64 = validator_emission - delegate_take;
+        let mut remaining_validator_emission: u64 = validator_emission_minus_take;
 
         // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
         for ( owning_coldkey_i, stake_i ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64 >>::iter_prefix( hotkey ) {
             
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, remaining_emission );
-            // Issue to the coldkey - hotkey account. Increasing the reserved balance.
+            let stake_proportion: u64 = Self::calculate_stake_proportional_emission( stake_i, total_hotkey_stake, validator_emission_minus_take );
             Self::issue_stake_to_coldkey_hotkey_account( &owning_coldkey_i, &hotkey, stake_proportion );
-
             log::debug!("owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ", owning_coldkey_i, hotkey, stake_proportion );
+            remaining_validator_emission -= stake_proportion;
         }
 
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of 
         // the delegate and effect calculation in 4.
-        Self::issue_stake_to_hotkey_owner_account( &hotkey, delegate_take );
-        log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey,delegate_take );
+        Self::issue_stake_to_hotkey_owner_account( &hotkey, delegate_take + remaining_validator_emission );
+        log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take );
+        // Also emit the server_emission to the hotkey
+        // The server emission is distributed in-full to the delegate owner.
+        // We do this after 4. for the same reason as above.
+        Self::issue_stake_to_hotkey_owner_account( &hotkey, server_emission );
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
@@ -231,29 +235,44 @@ impl<T: Config> Pallet<T> {
                 let burn_registrations_this_interval: u16 = Self::get_burn_registrations_this_interval( netuid );
                 let target_registrations_this_interval: u16 = Self::get_target_registrations_per_interval( netuid );
                 // --- 5. Adjust burn + pow
-                // There are four cases to consider. A, B, C, D
+                // There are six cases to consider. A, B, C, D, E, F
                 if registrations_this_interval > target_registrations_this_interval {
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // A. There are too many registrations this interval and most of them are pow registrations
                         // this triggers an increase in the pow difficulty.
                         // pow_difficulty ++ 
                         Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
-                    } else {
+                    } else if pow_registrations_this_interval < burn_registrations_this_interval {
                         // B. There are too many registrations this interval and most of them are burn registrations
                         // this triggers an increase in the burn cost.
                         // burn_cost ++
                         Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
+                    } else {
+                        // F. There are too many registrations this interval and the pow and burn registrations are equal
+                        // this triggers an increase in the burn cost and pow difficulty
+                        // burn_cost ++
+                        Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
+                        // pow_difficulty ++
+                        Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
                     }
                 } else {
+                    // Not enough registrations this interval.
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations
                         // this triggers a decrease in the burn cost
                         // burn_cost --
                         Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
-                    } else {
+                    } else if pow_registrations_this_interval < burn_registrations_this_interval{
                         // D. There are not enough registrations this interval and most of them are burn registrations
                         // this triggers a decrease in the pow difficulty
-                        // pow_difficulty ++ 
+                        // pow_difficulty -- 
+                        Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
+                    } else {
+                        // E. There are not enough registrations this interval and the pow and burn registrations are equal
+                        // this triggers a decrease in the burn cost and pow difficulty
+                        // burn_cost --
+                        Self::set_burn( netuid, Self::adjust_burn( netuid, current_burn, registrations_this_interval, target_registrations_this_interval ) );
+                        // pow_difficulty -- 
                         Self::set_difficulty( netuid, Self::adjust_difficulty( netuid, current_difficulty, registrations_this_interval, target_registrations_this_interval ) );
                     }
                 }
@@ -279,7 +298,9 @@ impl<T: Config> Pallet<T> {
         registrations_this_interval: u16, 
         target_registrations_per_interval: u16 
     ) -> u64 {
-        let next_value: I110F18 = I110F18::from_num( current_difficulty ) * I110F18::from_num( registrations_this_interval + target_registrations_per_interval ) / I110F18::from_num( target_registrations_per_interval + target_registrations_per_interval );
+        let updated_difficulty: I110F18 = I110F18::from_num( current_difficulty ) * I110F18::from_num( registrations_this_interval + target_registrations_per_interval ) / I110F18::from_num( target_registrations_per_interval + target_registrations_per_interval );
+        let alpha: I110F18 = I110F18::from_num( Self::get_adjustment_alpha( netuid) ) / I110F18::from_num( u64::MAX );
+        let next_value:I110F18 = alpha *  I110F18::from_num(current_difficulty) + ( I110F18::from_num(1.0) - alpha ) * updated_difficulty;
         if next_value >= I110F18::from_num( Self::get_max_difficulty( netuid ) ){
             return Self::get_max_difficulty( netuid );
         } else if next_value <= I110F18::from_num( Self::get_min_difficulty( netuid ) ) {
@@ -298,7 +319,9 @@ impl<T: Config> Pallet<T> {
         registrations_this_interval: u16, 
         target_registrations_per_interval: u16 
     ) -> u64 {
-        let next_value: I110F18 = I110F18::from_num( current_burn ) * I110F18::from_num( registrations_this_interval + target_registrations_per_interval ) / I110F18::from_num( target_registrations_per_interval + target_registrations_per_interval );
+        let updated_burn: I110F18 = I110F18::from_num( current_burn ) * I110F18::from_num( registrations_this_interval + target_registrations_per_interval ) / I110F18::from_num( target_registrations_per_interval + target_registrations_per_interval );
+        let alpha: I110F18 = I110F18::from_num( Self::get_adjustment_alpha( netuid ) ) / I110F18::from_num( u64::MAX );
+        let next_value: I110F18 = alpha *  I110F18::from_num(current_burn) + (  I110F18::from_num(1.0) - alpha ) * updated_burn;
         if next_value >= I110F18::from_num( Self::get_max_burn_as_u64( netuid ) ){
             return Self::get_max_burn_as_u64( netuid );
         } else if next_value <= I110F18::from_num( Self::get_min_burn_as_u64( netuid ) ) {

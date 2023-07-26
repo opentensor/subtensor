@@ -1,18 +1,25 @@
 use crate::{
-	benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder},
 	chain_spec,
 	cli::{Cli, Subcommand},
 	service,
 };
-use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
-use node_subtensor_runtime::{Block, EXISTENTIAL_DEPOSIT};
+
+#[cfg(feature = "runtime-benchmarks")]
+pub use crate::benchmarking::{inherent_benchmark_data, RemarkBuilder, TransferKeepAliveBuilder};
+#[cfg(feature = "runtime-benchmarks")]
+pub use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFERENCE_HARDWARE};
+#[cfg(feature = "runtime-benchmarks")]
+pub use sp_keyring::Sr25519Keyring;
+#[cfg(feature = "runtime-benchmarks")]
+pub use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
+
+use node_subtensor_runtime::Block;
 use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
-use sp_keyring::Sr25519Keyring;
 
 impl SubstrateCli for Cli {
 	fn impl_name() -> String {
-		"Substrate Node".into()
+		"Subtensor Node".into()
 	}
 
 	fn impl_version() -> String {
@@ -37,6 +44,7 @@ impl SubstrateCli for Cli {
 
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
+			"local" => Box::new(chain_spec::localnet_config()?),
 			"finney" => Box::new(chain_spec::finney_mainnet_config()?),
 			"" |"test_finney" => Box::new(chain_spec::finney_testnet_config()?),
 			path =>
@@ -105,6 +113,7 @@ pub fn run() -> sc_cli::Result<()> {
 				Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
 			})
 		},
+		#[cfg(feature = "runtime-benchmarks")]
 		Some(Subcommand::Benchmark(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 

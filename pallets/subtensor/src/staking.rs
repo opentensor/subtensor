@@ -1,6 +1,7 @@
 use pallet_balances::NegativeImbalance;
 
 use super::*;
+use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> { 
 
@@ -183,32 +184,43 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed( origin )?;
         log::info!("do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )", coldkey, hotkey, stake_to_be_removed );
 
-        // --- 2. Ensure we don't exceed tx rate limit
-		let block: u64 = Self::get_current_block_as_u64();
-		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
+        // --- 2. Ensure that the hotkey account exists this is only possible through registration.
+        ensure!( Self::hotkey_account_exists( &hotkey ), Error::<T>::NotRegistered );    
 
-        // --- 3. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!( Self::hotkey_account_exists( &hotkey ), Error::<T>::NotRegistered );
-
-        // --- 4. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 3. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 5. Ensure that the hotkey has enough stake to withdraw.
+        // --- Ensure that the stake amount to be removed is above zero.
+        ensure!( stake_to_be_removed > 0, Error::<T>::NotEnoughStaketoWithdraw );
+
+        // --- 4. Ensure that the hotkey has enough stake to withdraw.
         ensure!( Self::has_enough_stake( &coldkey, &hotkey, stake_to_be_removed ), Error::<T>::NotEnoughStaketoWithdraw );
-        
-        // --- 6. Ensure that we can convert this u64 to a balance.
+
+        // --- 5. Ensure that we can conver this u64 to a balance.
         let stake_to_be_added_as_currency = Self::u64_to_balance( stake_to_be_removed );
         ensure!( stake_to_be_added_as_currency.is_some(), Error::<T>::CouldNotConvertToBalance );
 
-        // Ensure we can unreserve the stake on the coldkey account.
+		// --- 6. Ensure we don't exceed tx rate limit
+		let block: u64 = Self::get_current_block_as_u64();
+		ensure!( !Self::exceeds_tx_rate_limit( Self::get_last_tx_block(&coldkey), block ), Error::<T>::TxRateLimitExceeded );
+
+        // --- 7. Ensure we can unreserve the stake on the coldkey account.
         ensure!( T::Currency::reserved_balance( &coldkey ) >= stake_to_be_added_as_currency.unwrap(), Error::<T>::BalanceWithdrawalError );
        
         // --- 8. We remove the balance reserved on the coldkey, moving it to the coldkey's free balance.
         Self::unreserve_stake_from_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
 
-        // Set last block for rate limiting
-        Self::set_last_tx_block(&coldkey, block);
-        
+		// If this hotkey is a senator, check to see if they fall below stake threshold in this withdraw
+		if T::SenateMembers::is_member(&hotkey) &&
+			Self::get_total_stake_for_hotkey(&hotkey) * 100 / {
+                if Self::get_total_stake() == 0 {1} else {Self::get_total_stake()}
+            } < SenateRequiredStakePercentage::<T>::get()
+		{
+			// This might cause a panic, but there shouldn't be any reason this will fail with the checks above.
+            T::TriumvirateInterface::remove_votes(&hotkey)?;
+			T::SenateMembers::remove_member(&hotkey)?;
+		}
+
         // --- 9. Emit the unstaking event.
         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
         Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );
@@ -459,6 +471,26 @@ impl<T: Config> Pallet<T> {
                 false
             }
         };
+    }
+
+    pub fn unstake_all_coldkeys_from_hotkey_account( hotkey: &T::AccountId ) {
+        // Iterate through all coldkeys that have a stake on this hotkey account.
+        for ( delegate_coldkey_i, stake_i ) in < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64 >>::iter_prefix( hotkey ) {
+            
+            // Convert to balance and add to the coldkey account.
+            let stake_i_as_balance = Self::u64_to_balance( stake_i );
+            if stake_i_as_balance.is_none() {
+                continue; // Don't unstake if we can't convert to balance.
+            } else {
+                // Stake is successfully converted to balance.
+
+                // Remove the stake from the coldkey - hotkey pairing.
+                Self::decrease_stake_on_coldkey_hotkey_account( &delegate_coldkey_i, hotkey, stake_i );
+
+                // Add the balance to the coldkey account.
+                Self::add_balance_to_coldkey_account( &delegate_coldkey_i, stake_i_as_balance.unwrap() );
+            }
+        }
     }
 
 }

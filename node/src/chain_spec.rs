@@ -1,10 +1,10 @@
 use node_subtensor_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY, SubtensorModuleConfig
+	SystemConfig, WASM_BINARY, SubtensorModuleConfig, TriumvirateConfig, TriumvirateMembersConfig, SenateMembersConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public, bounded_vec};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_core::crypto::Ss58Codec;
@@ -15,15 +15,19 @@ use sp_core::crypto::Ss58Codec;
 // Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
-// Generate a crypto pair from seed.
+// These functions are unused in production compiles, util functions for unit testing
+#[allow(dead_code)]
+/// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
 	TPublic::Pair::from_string(&format!("//{}", seed), None)
 		.expect("static values are valid; qed")
 		.public()
 }
 
+#[allow(dead_code)]
 type AccountPublic = <Signature as Verify>::Signer;
 
+#[allow(dead_code)]
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
@@ -32,6 +36,7 @@ where
 	AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
+#[allow(dead_code)]
 /// Generate an Aura authority key.
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
@@ -173,7 +178,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
 		Some("bittensor"),
 		None,
 		// Properties
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
@@ -275,22 +280,121 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
 		Some("bittensor"),
 		None,
 		// Properties
-		None,
+		Some(properties),
 		// Extensions
 		None,
 	))
 }
 
+pub fn localnet_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+	// Give front-ends necessary data to present to users
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 13116.into());
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Bittensor",
+		// ID
+		"bittensor",
+		ChainType::Development,
+		move || {
+			localnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities (Validators)
+				// aura | grandpa
+				vec![
+					// Keys for debug
+					authority_keys_from_seed("Alice"), 
+					authority_keys_from_seed("Bob"),
+				], 
+				// Pre-funded accounts
+				true,
+			)
+		},
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		Some("bittensor"),
+		None,
+		// Properties
+		Some(properties),
+		// Extensions
+		None,
+	))
+}
+
+fn localnet_genesis(
+	wasm_binary: &[u8],
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	_enable_println: bool,
+) -> GenesisConfig {
+	GenesisConfig {
+		system: SystemConfig {
+			// Add Wasm runtime to storage.
+			code: wasm_binary.to_vec(),
+		},
+		balances: BalancesConfig {
+			// Configure sudo balance
+			balances: vec![ 
+				(get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
+				(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
+			]
+		},
+		aura: AuraConfig {
+			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+		},
+		grandpa: GrandpaConfig {
+			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+		},
+		sudo: SudoConfig {
+			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+		},
+		transaction_payment: Default::default(),
+		subtensor_module: Default::default(),
+		triumvirate: TriumvirateConfig {
+			members: Default::default(),
+			phantom: Default::default(),
+		},
+		triumvirate_members: TriumvirateMembersConfig {
+			members: bounded_vec![
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				get_account_id_from_seed::<sr25519::Public>("Bob"),
+				get_account_id_from_seed::<sr25519::Public>("Charlie"),
+			],
+			phantom: Default::default()
+		},
+		senate_members: SenateMembersConfig {
+			members: bounded_vec![
+				get_account_id_from_seed::<sr25519::Public>("Dave"),
+				get_account_id_from_seed::<sr25519::Public>("Eve"),
+				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+			],
+			phantom: Default::default()
+		}
+	}
+}
+
+
 // Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
+	_root_key: AccountId,
+	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
-	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
-	balances: Vec<(AccountId, u64)>,
-	balances_issuance: u64
+	_stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
+	_balances: Vec<(AccountId, u64)>,
+	_balances_issuance: u64
 ) -> GenesisConfig {
 	GenesisConfig {
 		system: SystemConfig {
@@ -301,7 +405,7 @@ fn testnet_genesis(
 			// Configure sudo balance
 			balances: vec![ 
 				(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap(),1000000000000)
-				]
+			]
 		},
 		aura: AuraConfig {
 			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -310,11 +414,22 @@ fn testnet_genesis(
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
 		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
+			key: Some(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap()),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: Default::default(),
+		triumvirate: TriumvirateConfig { // Add initial authorities as collective members
+			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			phantom: Default::default(),
+		},
+		triumvirate_members: TriumvirateMembersConfig {
+			members: Default::default(),
+			phantom: Default::default()
+		},
+		senate_members: SenateMembersConfig {
+			members: Default::default(),
+			phantom: Default::default()
+		}
 	}
 }
 
@@ -323,7 +438,7 @@ fn testnet_genesis(
 fn finney_genesis(
 	wasm_binary: &[u8],
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	root_key: AccountId,
+	_root_key: AccountId,
 	_endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
 	stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
@@ -348,13 +463,24 @@ fn finney_genesis(
 			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
 		},
 		sudo: SudoConfig {
-			// Assign network admin rights.
-			key: Some(root_key),
+			key: Some(Ss58Codec::from_ss58check("5FCM3DBXWiGcwYYQtT8z4ZD93TqYpYxjaAfgv6aMStV1FTCT").unwrap()),
 		},
 		transaction_payment: Default::default(),
 		subtensor_module: SubtensorModuleConfig {
 			stakes: stakes,
 			balances_issuance: balances_issuance
 		},
+		triumvirate: TriumvirateConfig { // Add initial authorities as collective members
+			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+			phantom: Default::default(),
+		},
+		triumvirate_members: TriumvirateMembersConfig {
+			members: Default::default(),
+			phantom: Default::default()
+		},
+		senate_members: SenateMembersConfig {
+			members: Default::default(),
+			phantom: Default::default()
+		}
 	}
 }

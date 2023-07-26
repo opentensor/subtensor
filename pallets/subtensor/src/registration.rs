@@ -1,10 +1,10 @@
 use super::*;
 use frame_support::{ pallet_prelude::DispatchResult};
+use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_core::{H256, U256};
 use crate::system::ensure_root;
-use sp_io::hashing::sha2_256;
-use sp_io::hashing::keccak_256;
+use sp_io::hashing::{sha2_256, keccak_256};
 use frame_system::{ensure_signed};
 use sp_std::vec::Vec;
 use substrate_fixed::types::I32F32;
@@ -100,7 +100,10 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
-        // --- 3. Ensure we are not exceeding the max allowed registrations per block.
+		// --- 3. Ensure the passed network allows registrations.
+		ensure!( Self::if_subnet_allows_registration( netuid ), Error::<T>::RegistrationDisabled ); 
+
+        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
 		// --- 4. Ensure we are not exceeding the max allowed registrations per interval.
@@ -109,27 +112,28 @@ impl<T: Config> Pallet<T> {
         // --- 4. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
-        // --- 5. Ensure that the key passes the registration requirement
+        // --- 6. Ensure that the key passes the registration requirement
         ensure!( Self::passes_network_connection_requirement( netuid, &hotkey ), Error::<T>::DidNotPassConnectedNetworkRequirement );
     
-        // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
+        // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost_as_balance = Self::u64_to_balance( Self::get_burn_as_u64( netuid ) ).unwrap();
+        let registration_cost_as_u64 = Self::get_burn_as_u64( netuid );
+        let registration_cost_as_balance = Self::u64_to_balance( registration_cost_as_u64 ).unwrap();
         ensure!( Self::can_remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ), Error::<T>::NotEnoughBalanceToStake );
 
-        // --- 7. Ensure the remove operation from the coldkey is a success.
+        // --- 8. Ensure the remove operation from the coldkey is a success.
         ensure!( Self::remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ) == true, Error::<T>::BalanceWithdrawalError );
         
         // The burn occurs here.
         TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( Self::get_burn_as_u64( netuid ) ) );
 
-        // --- 8. If the network account does not exist we will create it here.
+        // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent( &coldkey, &hotkey);         
 
-        // --- 9. Ensure that the pairing is correct.
+        // --- 10. Ensure that the pairing is correct.
         ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 10. Append neuron or prune it.
+        // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
         let current_subnetwork_n: u16 = Self::get_subnetwork_n( netuid );
 
@@ -137,33 +141,34 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::get_max_allowed_uids( netuid ) != 0, Error::<T>::NetworkDoesNotExist );
         
         if current_subnetwork_n < Self::get_max_allowed_uids( netuid ) {
-            // --- 11.1.1 No replacement required, the uid appends the subnetwork.
+            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
 
-            // --- 11.1.2 Expand subnetwork with new account.
+            // --- 12.1.2 Expand subnetwork with new account.
             Self::append_neuron( netuid, &hotkey, current_block_number );
             log::info!("add new neuron account");
         } else {
-            // --- 12.1.1 Replacement required.
+            // --- 13.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
             subnetwork_uid = Self::get_neuron_to_prune( netuid );
 
-            // --- 12.1.1 Replace the neuron account with the new info.
+            // --- 13.1.1 Replace the neuron account with the new info.
             Self::replace_neuron( netuid, subnetwork_uid, &hotkey, current_block_number );
             log::info!("prune neuron");
         }
 
-        // --- 13. Record the registration and increment block and interval counters.
+        // --- 14. Record the registration and increment block and interval counters.
         BurnRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
+        Self::increase_rao_recycled( netuid, Self::get_burn_as_u64( netuid ) );
     
-        // --- 14. Deposit successful event.
+        // --- 15. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
         Self::deposit_event( Event::NeuronRegistered( netuid, subnetwork_uid, hotkey ) );
 
-        // --- 15. Ok and done.
+        // --- 16. Ok and done.
         Ok(())
     }
 
@@ -208,9 +213,6 @@ impl<T: Config> Pallet<T> {
     // 	* 'InvalidWorkBlock':
     // 		- The work has been performed on a stale, future, or non existent block.
     //
-    // 	* 'WorkRepeated':
-    // 		- This work for block has already been used.
-    //
     // 	* 'InvalidDifficulty':
     // 		- The work does not match the difficutly.
     //
@@ -232,47 +234,49 @@ impl<T: Config> Pallet<T> {
         let signing_origin = ensure_signed( origin )?;        
         log::info!("do_registration( origin:{:?} netuid:{:?} hotkey:{:?}, coldkey:{:?} )", signing_origin, netuid, hotkey, coldkey );
 
+        ensure!( signing_origin == hotkey, Error::<T>::HotkeyOriginMismatch);
+
         // --- 2. Ensure the passed network is valid.
         ensure!( Self::if_subnet_exist( netuid ), Error::<T>::NetworkDoesNotExist ); 
 
-        // --- 3. Ensure we are not exceeding the max allowed registrations per block.
+		    // --- 3. Ensure the passed network allows registrations.
+        ensure!( Self::if_subnet_allows_registration( netuid ), Error::<T>::RegistrationDisabled ); 
+
+        // --- 4. Ensure we are not exceeding the max allowed registrations per block.
         ensure!( Self::get_registrations_this_block( netuid ) < Self::get_max_registrations_per_block( netuid ), Error::<T>::TooManyRegistrationsThisBlock );
 
-		// --- 5. Ensure we are not exceeding the max allowed registrations per interval.
-		ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
+		    // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
+		    ensure!( Self::get_registrations_this_interval( netuid ) < Self::get_target_registrations_per_interval( netuid ) * 3 , Error::<T>::TooManyRegistrationsThisInterval );
 
-        // --- 5. Ensure that the key is not already registered.
+        // --- 6. Ensure that the key is not already registered.
         ensure!( !Uids::<T>::contains_key( netuid, &hotkey ), Error::<T>::AlreadyRegistered );
 
-        // --- 5. Ensure the passed block number is valid, not in the future or too old.
+        // --- 7. Ensure the passed block number is valid, not in the future or too old.
         // Work must have been done within 3 blocks (stops long range attacks).
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure! (block_number <= current_block_number, Error::<T>::InvalidWorkBlock);
         ensure! (current_block_number - block_number < 3, Error::<T>::InvalidWorkBlock ); 
 
-        // --- 6. Ensure the passed work has not already been used.
-        ensure!( !UsedWork::<T>::contains_key( &work.clone() ), Error::<T>::WorkRepeated ); 
-
-        // --- 7. Ensure the supplied work passes the difficulty.
+        // --- 8. Ensure the supplied work passes the difficulty.
         let difficulty: U256 = Self::get_difficulty( netuid );
         let work_hash: H256 = Self::vec_to_hash( work.clone() );
         ensure! ( Self::hash_meets_difficulty( &work_hash, difficulty ), Error::<T>::InvalidDifficulty ); // Check that the work meets difficulty.
         
-        // --- 8. Check Work is the product of the nonce and the block number. Add this as used work.
-        let seal: H256 = Self::create_seal_hash( block_number, nonce );
+        // --- 7. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
+        let seal: H256 = Self::create_seal_hash( block_number, nonce, &hotkey );
         ensure! ( seal == work_hash, Error::<T>::InvalidSeal );
         UsedWork::<T>::insert( &work.clone(), current_block_number );
 
-        // --- 9. Ensure that the key passes the registration requirement
+        // --- 8. Ensure that the key passes the registration requirement
         ensure!( Self::passes_network_connection_requirement( netuid, &hotkey ), Error::<T>::DidNotPassConnectedNetworkRequirement );
 
-        // --- 10. If the network account does not exist we will create it here.
+        // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent( &coldkey, &hotkey);         
 
-        // --- 11. Ensure that the pairing is correct.
+        // --- 10. Ensure that the pairing is correct.
         ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
-        // --- 12. Append neuron or prune it.
+        // --- 11. Append neuron or prune it.
         let subnetwork_uid: u16;
         let current_subnetwork_n: u16 = Self::get_subnetwork_n( netuid );
 
@@ -280,34 +284,33 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::get_max_allowed_uids( netuid ) != 0, Error::<T>::NetworkDoesNotExist );
         
         if current_subnetwork_n < Self::get_max_allowed_uids( netuid ) {
-
-            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
+            // --- 11.1.1 No replacement required, the uid appends the subnetwork.
             // We increment the subnetwork count here but not below.
             subnetwork_uid = current_subnetwork_n;
 
-            // --- 12.1.2 Expand subnetwork with new account.
+            // --- 11.1.2 Expand subnetwork with new account.
             Self::append_neuron( netuid, &hotkey, current_block_number );
             log::info!("add new neuron account");
         } else {
-            // --- 12.1.1 Replacement required.
+            // --- 11.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
             subnetwork_uid = Self::get_neuron_to_prune( netuid );
 
-            // --- 12.1.1 Replace the neuron account with the new info.
+            // --- 11.1.1 Replace the neuron account with the new info.
             Self::replace_neuron( netuid, subnetwork_uid, &hotkey, current_block_number );
             log::info!("prune neuron");
         }
 
-        // --- 14. Record the registration and increment block and interval counters.
+        // --- 12. Record the registration and increment block and interval counters.
         POWRegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisInterval::<T>::mutate( netuid, |val| *val += 1 );
         RegistrationsThisBlock::<T>::mutate( netuid, |val| *val += 1 );
     
-        // --- 15. Deposit successful event.
+        // --- 13. Deposit successful event.
         log::info!("NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ", netuid, subnetwork_uid, hotkey );
         Self::deposit_event( Event::NeuronRegistered( netuid, subnetwork_uid, hotkey ) );
 
-        // --- 16. Ok and done.
+        // --- 14. Ok and done.
         Ok(())
     }
 
@@ -457,14 +460,13 @@ impl<T: Config> Pallet<T> {
         return hash_as_vec
     }
 
-    pub fn create_seal_hash( block_number_u64: u64, nonce_u64: u64 ) -> H256 {
-        let nonce = U256::from( nonce_u64 );
-        let block_hash_at_number: H256 = Self::get_block_hash_from_u64( block_number_u64 );
-        let block_hash_bytes: &[u8] = block_hash_at_number.as_bytes();
-        let full_bytes: &[u8; 40] = &[
-            nonce.byte(0),  nonce.byte(1),  nonce.byte(2),  nonce.byte(3),
-            nonce.byte(4),  nonce.byte(5),  nonce.byte(6),  nonce.byte(7),
-
+    pub fn hash_block_and_hotkey( block_hash_bytes: &[u8], hotkey: &T::AccountId ) -> H256 {
+        // Get the public key from the account id.
+        let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id( hotkey.clone() );
+        let binding = hotkey_pubkey.encode();
+        // Skip extra 0th byte.
+        let hotkey_bytes: &[u8] = binding[1..].as_ref();
+        let full_bytes: &[u8; 64] = &[
             block_hash_bytes[0], block_hash_bytes[1], block_hash_bytes[2], block_hash_bytes[3],
             block_hash_bytes[4], block_hash_bytes[5], block_hash_bytes[6], block_hash_bytes[7],
             block_hash_bytes[8], block_hash_bytes[9], block_hash_bytes[10], block_hash_bytes[11],
@@ -474,14 +476,53 @@ impl<T: Config> Pallet<T> {
             block_hash_bytes[20], block_hash_bytes[21], block_hash_bytes[22], block_hash_bytes[23],
             block_hash_bytes[24], block_hash_bytes[25], block_hash_bytes[26], block_hash_bytes[27],
             block_hash_bytes[28], block_hash_bytes[29], block_hash_bytes[30], block_hash_bytes[31],
+
+            hotkey_bytes[0], hotkey_bytes[1], hotkey_bytes[2], hotkey_bytes[3],
+            hotkey_bytes[4], hotkey_bytes[5], hotkey_bytes[6], hotkey_bytes[7],
+            hotkey_bytes[8], hotkey_bytes[9], hotkey_bytes[10], hotkey_bytes[11],
+            hotkey_bytes[12], hotkey_bytes[13], hotkey_bytes[14], hotkey_bytes[15],
+
+            hotkey_bytes[16], hotkey_bytes[17], hotkey_bytes[18], hotkey_bytes[19],
+            hotkey_bytes[20], hotkey_bytes[21], hotkey_bytes[22], hotkey_bytes[23],
+            hotkey_bytes[24], hotkey_bytes[25], hotkey_bytes[26], hotkey_bytes[27],
+            hotkey_bytes[28], hotkey_bytes[29], hotkey_bytes[30], hotkey_bytes[31],
+        ];
+        let keccak_256_seal_hash_vec: [u8; 32] = keccak_256 ( full_bytes );
+        let seal_hash: H256 = H256::from_slice( &keccak_256_seal_hash_vec );
+
+        return seal_hash;
+    }
+
+    pub fn create_seal_hash( block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId ) -> H256 {
+        let nonce = U256::from( nonce_u64 );
+        let block_hash_at_number: H256 = Self::get_block_hash_from_u64( block_number_u64 );
+        let block_hash_bytes: &[u8] = block_hash_at_number.as_bytes();
+        let binding = Self::hash_block_and_hotkey( block_hash_bytes, hotkey );
+        let block_and_hotkey_hash_bytes: &[u8] = binding.as_bytes();
+
+
+        let full_bytes: &[u8; 40] = &[
+            nonce.byte(0),  nonce.byte(1),  nonce.byte(2),  nonce.byte(3),
+            nonce.byte(4),  nonce.byte(5),  nonce.byte(6),  nonce.byte(7),
+
+            block_and_hotkey_hash_bytes[0], block_and_hotkey_hash_bytes[1], block_and_hotkey_hash_bytes[2], block_and_hotkey_hash_bytes[3],
+            block_and_hotkey_hash_bytes[4], block_and_hotkey_hash_bytes[5], block_and_hotkey_hash_bytes[6], block_and_hotkey_hash_bytes[7],
+            block_and_hotkey_hash_bytes[8], block_and_hotkey_hash_bytes[9], block_and_hotkey_hash_bytes[10], block_and_hotkey_hash_bytes[11],
+            block_and_hotkey_hash_bytes[12], block_and_hotkey_hash_bytes[13], block_and_hotkey_hash_bytes[14], block_and_hotkey_hash_bytes[15],
+
+            block_and_hotkey_hash_bytes[16], block_and_hotkey_hash_bytes[17], block_and_hotkey_hash_bytes[18], block_and_hotkey_hash_bytes[19],
+            block_and_hotkey_hash_bytes[20], block_and_hotkey_hash_bytes[21], block_and_hotkey_hash_bytes[22], block_and_hotkey_hash_bytes[23],
+            block_and_hotkey_hash_bytes[24], block_and_hotkey_hash_bytes[25], block_and_hotkey_hash_bytes[26], block_and_hotkey_hash_bytes[27],
+            block_and_hotkey_hash_bytes[28], block_and_hotkey_hash_bytes[29], block_and_hotkey_hash_bytes[30], block_and_hotkey_hash_bytes[31],
         ];
         let sha256_seal_hash_vec: [u8; 32] = sha2_256( full_bytes );
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256( &sha256_seal_hash_vec );
         let seal_hash: H256 = H256::from_slice( &keccak_256_seal_hash_vec );
 
 		log::trace!(
-			"\nblock_number: {:?}, \nnonce_u64: {:?}, \nblock_hash: {:?}, \nfull_bytes: {:?}, \nsha256_seal_hash_vec: {:?},  \nkeccak_256_seal_hash_vec: {:?}, \nseal_hash: {:?}",
-			block_number_u64,
+			"\n hotkey:{:?} \nblock_number: {:?}, \nnonce_u64: {:?}, \nblock_hash: {:?}, \nfull_bytes: {:?}, \nsha256_seal_hash_vec: {:?},  \nkeccak_256_seal_hash_vec: {:?}, \nseal_hash: {:?}",
+			hotkey,
+            block_number_u64,
 			nonce_u64,
 			block_hash_at_number,
 			full_bytes,
@@ -494,13 +535,13 @@ impl<T: Config> Pallet<T> {
     }
 
     // Helper function for creating nonce and work.
-    pub fn create_work_for_block_number( netuid:u16, block_number: u64, start_nonce: u64 ) -> (u64, Vec<u8>) {
+    pub fn create_work_for_block_number( netuid:u16, block_number: u64, start_nonce: u64 , hotkey: &T::AccountId) -> (u64, Vec<u8>) {
         let difficulty: U256 = Self::get_difficulty(netuid);
         let mut nonce: u64 = start_nonce;
-        let mut work: H256 = Self::create_seal_hash( block_number, nonce );
+        let mut work: H256 = Self::create_seal_hash( block_number, nonce, &hotkey);
         while !Self::hash_meets_difficulty(&work, difficulty) {
             nonce = nonce + 1;
-            work = Self::create_seal_hash( block_number, nonce );
+            work = Self::create_seal_hash( block_number, nonce, &hotkey);
         }
         let vec_work: Vec<u8> = Self::hash_to_vec( work );
         return (nonce, vec_work)

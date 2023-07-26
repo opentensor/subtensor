@@ -1,7 +1,8 @@
 use super::*;
-use frame_support::{sp_std::vec};
+use frame_support::sp_std::vec;
 use sp_std::vec::Vec;
 use frame_system::ensure_root;
+use crate::math::checked_sum;
 
 impl<T: Config> Pallet<T> { 
 
@@ -190,7 +191,7 @@ impl<T: Config> Pallet<T> {
         ensure!( netuids.len() == emission.len(), Error::<T>::WeightVecNotEqualSize );
 
         // --- 3. Ensure we are setting emission for all networks. 
-        ensure!( netuids.len() as u16 == TotalNetworks::<T>::get(), Error::<T>::NotSettingEnoughWeights );
+        ensure!( netuids.len() == TotalNetworks::<T>::get() as usize, Error::<T>::IncorrectNetuidsLength );
 
         // --- 4. Ensure the passed uids contain no duplicates.
         ensure!( !Self::has_duplicate_netuids( &netuids ), Error::<T>::DuplicateUids );
@@ -198,8 +199,11 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure that the passed uids are valid for the network.
         ensure!( !Self::contains_invalid_netuids( &netuids ), Error::<T>::InvalidUid );
 
-        // --- 6. check if sum of emission rates is equal to 1.
-        ensure!( emission.iter().sum::<u64>() as u64 == Self::get_block_emission(), Error::<T>::InvalidEmissionValues);
+        // --- 6. check if sum of emission rates is equal to the block emission.
+        // Be sure to check for overflow during sum.
+        let emission_sum: Option<u64> = checked_sum::<u64>( &emission );
+        ensure!( emission_sum.is_some(), Error::<T>::InvalidEmissionValues );
+        ensure!( emission_sum.unwrap() == Self::get_block_emission(), Error::<T>::InvalidEmissionValues);
 
         // --- 7. Add emission values for each network
         Self::set_emission_values( &netuids, &emission );
@@ -269,11 +273,7 @@ impl<T: Config> Pallet<T> {
         if !ActivityCutoff::<T>::contains_key( netuid ) { ActivityCutoff::<T>::insert( netuid, ActivityCutoff::<T>::get( netuid ));}
         if !EmissionValues::<T>::contains_key( netuid ) { EmissionValues::<T>::insert( netuid, EmissionValues::<T>::get( netuid ));}   
         if !MaxWeightsLimit::<T>::contains_key( netuid ) { MaxWeightsLimit::<T>::insert( netuid, MaxWeightsLimit::<T>::get( netuid ));}
-        if !ValidatorEpochLen::<T>::contains_key( netuid ) { ValidatorEpochLen::<T>::insert( netuid, ValidatorEpochLen::<T>::get( netuid ));}
         if !MinAllowedWeights::<T>::contains_key( netuid ) { MinAllowedWeights::<T>::insert( netuid, MinAllowedWeights::<T>::get( netuid )); }
-        if !ValidatorBatchSize::<T>::contains_key( netuid ) { ValidatorBatchSize::<T>::insert( netuid, ValidatorBatchSize::<T>::get( netuid ));}
-        if !ValidatorEpochsPerReset::<T>::contains_key( netuid ) { ValidatorEpochsPerReset::<T>::insert( netuid, ValidatorEpochsPerReset::<T>::get( netuid ));}
-        if !ValidatorSequenceLength::<T>::contains_key( netuid ) { ValidatorSequenceLength::<T>::insert( netuid, ValidatorSequenceLength::<T>::get( netuid ));}
         if !RegistrationsThisInterval::<T>::contains_key( netuid ) { RegistrationsThisInterval::<T>::insert( netuid, RegistrationsThisInterval::<T>::get( netuid ));}
         if !POWRegistrationsThisInterval::<T>::contains_key( netuid ) { POWRegistrationsThisInterval::<T>::insert( netuid, POWRegistrationsThisInterval::<T>::get( netuid ));}
         if !BurnRegistrationsThisInterval::<T>::contains_key( netuid ) { BurnRegistrationsThisInterval::<T>::insert( netuid, BurnRegistrationsThisInterval::<T>::get( netuid ));}
@@ -310,11 +310,7 @@ impl<T: Config> Pallet<T> {
         ActivityCutoff::<T>::remove( netuid );
         EmissionValues::<T>::remove( netuid );
         MaxWeightsLimit::<T>::remove( netuid );
-        ValidatorEpochLen::<T>::remove( netuid );
         MinAllowedWeights::<T>::remove( netuid );
-        ValidatorBatchSize::<T>::remove( netuid );
-        ValidatorEpochsPerReset::<T>::remove( netuid );
-        ValidatorSequenceLength::<T>::remove( netuid );
         RegistrationsThisInterval::<T>::remove( netuid );
         POWRegistrationsThisInterval::<T>::remove( netuid );
         BurnRegistrationsThisInterval::<T>::remove( netuid );
@@ -390,6 +386,12 @@ impl<T: Config> Pallet<T> {
     //
     pub fn if_subnet_exist( netuid: u16 ) -> bool{
         return NetworksAdded::<T>::get( netuid );
+    }
+
+	// Returns true if the subnetwork allows registration.
+    //
+    pub fn if_subnet_allows_registration( netuid: u16 ) -> bool{
+        return NetworkRegistrationAllowed::<T>::get( netuid );
     }
 
     // Returns true if the passed modality is allowed.

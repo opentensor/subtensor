@@ -1,5 +1,6 @@
 use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
+use sp_runtime::traits::CheckedAdd;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
 
@@ -60,7 +61,50 @@ pub fn vec_max_upscale_to_u16( vec: &Vec<I32F32> ) -> Vec<u16> {
 }
 
 #[allow(dead_code)]
+// Max-upscale u16 vector and convert to u16 so max_value = u16::MAX. Assumes u16 vector input.
+pub fn vec_u16_max_upscale_to_u16( vec: &Vec<u16> ) -> Vec<u16> {
+    let vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num( *e ) ).collect();
+    vec_max_upscale_to_u16( &vec_fixed )
+}
+
+#[allow(dead_code)]
+// Checks if u16 vector, when normalized, has a max value not greater than a u16 ratio max_limit.
+pub fn check_vec_max_limited( vec: &Vec<u16>, max_limit: u16 ) -> bool {
+    let max_limit_fixed: I32F32 = I32F32::from_num( max_limit ) / I32F32::from_num( u16::MAX );
+    let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num( *e ) ).collect();
+    inplace_normalize( &mut vec_fixed );
+    let max_value: Option<&I32F32> = vec_fixed.iter().max();
+    match max_value {
+        Some(val) => {
+            return *val <= max_limit_fixed;
+        },
+        None => {
+            return true;
+        }
+    }
+}
+
+#[allow(dead_code)]
 pub fn sum( x: &Vec<I32F32> ) -> I32F32 { x.iter().sum() }
+
+#[allow(dead_code)]
+// Sums a Vector of type that has CheckedAdd trait.
+// Returns None if overflow occurs during sum using T::checked_add.
+// Returns Some(T::default()) if input vector is empty.
+pub fn checked_sum<T>( x: &Vec<T> ) -> Option<T>
+    where T: Copy + Default + CheckedAdd
+{   
+    if x.len() == 0 { return Some(T::default()) }
+    
+    let mut sum: T = x[0];
+    for i in x[1..].iter() {
+        match sum.checked_add( i ) {
+            Some(val) => sum = val,
+            None => return None
+        }
+    }
+    Some(sum)
+}
 
 // Return true when vector sum is zero.
 #[allow(dead_code)]
@@ -140,6 +184,15 @@ pub fn normalize( x: &Vec<I32F32> ) -> Vec<I32F32> {
 #[allow(dead_code)]
 pub fn inplace_normalize( x: &mut Vec<I32F32> ) {
     let x_sum: I32F32 = x.iter().sum();
+    if x_sum == I32F32::from_num( 0.0 as f32 ){ return }
+    for i in 0..x.len() {
+        x[i] = x[i]/x_sum;
+    }
+}
+
+// Normalizes (sum to 1 except 0) the input vector directly in-place, using the sum arg.
+#[allow(dead_code)]
+pub fn inplace_normalize_using_sum( x: &mut Vec<I32F32>, x_sum: I32F32 ) {
     if x_sum == I32F32::from_num( 0.0 as f32 ){ return }
     for i in 0..x.len() {
         x[i] = x[i]/x_sum;
@@ -282,6 +335,48 @@ pub fn inplace_col_normalize( x: &mut Vec<Vec<I32F32>> ) {
         if col_sum[j] == I32F32::from_num( 0.0 as f32 ) { continue }
         for i in 0..x.len() {
             x[i][j] /= col_sum[j];
+        }
+    }
+}
+
+// Max-upscale each column (dim=1) of a sparse matrix in-place.
+#[allow(dead_code)]
+pub fn inplace_col_max_upscale_sparse( sparse_matrix: &mut Vec<Vec<(u16, I32F32)>>, columns: u16 ) {
+    let mut col_max: Vec<I32F32> = vec![ I32F32::from_num( 0.0 ); columns as usize]; // assume square matrix, rows=cols
+    for sparse_row in sparse_matrix.iter() {
+        for (j, value) in sparse_row.iter() {
+            if col_max[*j as usize] < *value {
+                col_max[*j as usize] = *value;
+            }
+        }
+    }
+    for sparse_row in sparse_matrix.iter_mut() {
+        for (j, value) in sparse_row.iter_mut() {
+            if col_max[*j as usize] == I32F32::from_num( 0.0 as f32 ) { continue }
+            *value /= col_max[*j as usize];
+        }
+    }
+}
+
+// Max-upscale each column (dim=1) of a matrix in-place.
+#[allow(dead_code)]
+pub fn inplace_col_max_upscale( x: &mut Vec<Vec<I32F32>> ) {
+    if x.len() == 0 { return }
+    if x[0].len() == 0 { return }
+    let cols = x[0].len();
+    let mut col_max: Vec<I32F32> = vec![ I32F32::from_num( 0.0 ); cols ];
+    for i in 0..x.len() {
+        assert_eq!( x[i].len(), cols );
+        for j in 0..cols {
+            if col_max[j] < x[i][j] {
+                col_max[j] = x[i][j];
+            }
+        }
+    }
+    for j in 0..cols {
+        if col_max[j] == I32F32::from_num( 0.0 as f32 ) { continue }
+        for i in 0..x.len() {
+            x[i][j] /= col_max[j];
         }
     }
 }
@@ -804,7 +899,7 @@ mod tests {
             assert_float_compare_64(va[i], vb[i], epsilon);
         }  
     }
-    
+
     fn assert_vec_compare_u16(va: &Vec<u16>, vb: &Vec<u16>) {
         assert!(va.len() == vb.len());
         for i in 0..va.len(){
@@ -907,6 +1002,83 @@ mod tests {
         let target: Vec<u16> = vec![ 0, 0, 1, 1, 65535 ];
         let result: Vec<u16> = vec_max_upscale_to_u16( &vector );
         assert_vec_compare_u16(&result, &target);
+    }
+
+    #[test]
+    fn test_vec_u16_max_upscale_to_u16() {
+        let vector: Vec<u16> = vec![];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+        let vector: Vec<u16> = vec![ 0 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+        let vector: Vec<u16> = vec![ 0, 0 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+        let vector: Vec<u16> = vec![ 1 ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 0, 1 ];
+        let target: Vec<u16> = vec![ 0, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 65534 ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 65535 ];
+        let target: Vec<u16> = vec![ 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 65535, 65535 ];
+        let target: Vec<u16> = vec![ 65535, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 0, 1, 65534 ];
+        let target: Vec<u16> = vec![ 0, 1, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &target);
+        let vector: Vec<u16> = vec![ 0, 1, 2, 3, 4, 65533, 65535 ];
+        let result: Vec<u16> = vec_u16_max_upscale_to_u16( &vector );
+        assert_vec_compare_u16(&result, &vector);
+    }
+
+    #[test]
+    fn test_check_vec_max_limited() {
+        let vector: Vec<u16> = vec![];
+        let max_limit: u16 = 0;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ u16::MAX ];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ u16::MAX ];
+        let max_limit: u16 = u16::MAX - 1;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ u16::MAX ];
+        let max_limit: u16 = 0;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0 ];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX ];
+        let max_limit: u16 = u16::MAX;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 2;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 2 + 1;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 3 - 1;
+        assert!( !check_vec_max_limited( &vector, max_limit ) );
+        let vector: Vec<u16> = vec![ 0, u16::MAX, u16::MAX, u16::MAX ];
+        let max_limit: u16 = u16::MAX / 3;
+        assert!( check_vec_max_limited( &vector, max_limit ) );
     }
 
     #[test]
@@ -1323,6 +1495,71 @@ mod tests {
         let mut mat: Vec<Vec<(u16, I32F32)>> = vec![];
         let target: Vec<Vec<(u16, I32F32)>> = vec![];
         inplace_col_normalize_sparse(&mut mat, 0);
+        assert_sparse_mat_compare(&mat, &target, epsilon);
+    }
+
+    #[test]
+    fn test_math_inplace_col_max_upscale() {
+        let mut mat: Vec<Vec<I32F32>> = vec![ vec![] ];
+        let target: Vec<Vec<I32F32>> = vec![ vec![] ];
+        inplace_col_max_upscale(&mut mat);
+        assert_eq!(&mat, &target);
+        let mut mat: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0) ] ];
+        let target: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0) ] ];
+        inplace_col_max_upscale(&mut mat);
+        assert_eq!(&mat, &target);
+        let epsilon: I32F32 = I32F32::from_num(0.0001);
+        let vector:Vec<f32> = vec![ 0., 1., 2., 3., 4., 
+                                    0., 10., 100., 1000., 10000., 
+                                    0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1.];
+        let mut mat: Vec<Vec<I32F32>> = vec_to_mat_fixed(&vector, 4, true);
+        inplace_col_max_upscale(&mut mat);
+        let target:Vec<f32> = vec![ 0., 0.25, 0.5, 0.75, 1., 
+                                    0., 0.001, 0.01, 0.1, 1., 
+                                    0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1. ];
+        assert_mat_compare(&mat, &vec_to_mat_fixed(&target, 4, true), epsilon);
+    }
+
+    #[test]
+    fn test_math_inplace_col_max_upscale_sparse() {
+        let mut mat: Vec<Vec<(u16, I32F32)>> = vec![ vec![] ];
+        let target: Vec<Vec<(u16, I32F32)>> = vec![ vec![] ];
+        inplace_col_max_upscale_sparse(&mut mat, 0);
+        assert_eq!(&mat, &target);
+        let mut mat: Vec<Vec<(u16, I32F32)>> = vec![ vec![ (0, I32F32::from_num(0)) ] ];
+        let target: Vec<Vec<(u16, I32F32)>> = vec![ vec![ (0, I32F32::from_num(0)) ] ];
+        inplace_col_max_upscale_sparse(&mut mat, 1);
+        assert_eq!(&mat, &target);
+        let epsilon: I32F32 = I32F32::from_num(0.0001);
+        let vector:Vec<f32> = vec![ 0., 1., 0., 2., 0., 3., 4., 
+                                    0., 1., 0., 2., 0., 3., 0., 
+                                    1., 0., 0., 2., 0., 3., 4., 
+                                    0., 10., 0., 100., 1000., 0., 10000., 
+                                    0., 0., 0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1., 1., 1.];
+        let mut mat = vec_to_sparse_mat_fixed(&vector, 6, true);
+        inplace_col_max_upscale_sparse(&mut mat, 6);
+        let target:Vec<f32> = vec![ 0., 0.25, 0., 0.5, 0., 0.75, 1., 
+                                    0., 0.333333, 0., 0.666666, 0., 1., 0., 
+                                    0.25, 0., 0., 0.5, 0., 0.75, 1., 
+                                    0., 0.001, 0., 0.01, 0.1, 0., 1., 
+                                    0., 0., 0., 0., 0., 0., 0., 
+                                    1., 1., 1., 1., 1., 1., 1.];
+        assert_sparse_mat_compare(&mat, &vec_to_sparse_mat_fixed(&target, 6, true), epsilon);
+        let vector:Vec<f32> = vec![ 0., 0., 0., 0.,
+                                    0., 0., 0., 0., 
+                                    0., 0., 0., 0.];
+        let target:Vec<f32> = vec![ 0., 0., 0., 0.,
+                                    0., 0., 0., 0.,
+                                    0., 0., 0., 0.];
+        let mut mat = vec_to_sparse_mat_fixed(&vector, 3, false);
+        inplace_col_max_upscale_sparse(&mut mat, 6);
+        assert_sparse_mat_compare(&mat, &vec_to_sparse_mat_fixed(&target, 3, false), I32F32::from_num( 0 ));
+        let mut mat: Vec<Vec<(u16, I32F32)>> = vec![];
+        let target: Vec<Vec<(u16, I32F32)>> = vec![];
+        inplace_col_max_upscale_sparse(&mut mat, 0);
         assert_sparse_mat_compare(&mat, &target, epsilon);
     }
 
@@ -2356,4 +2593,161 @@ mod tests {
         assert_vec_compare( &matmul( &w, &vec![ I32F32::from_num(2.0); 3] ), &vec![ I32F32::from_num(6),  I32F32::from_num(12),  I32F32::from_num(18)], epsilon );
     }
 
+    #[test]
+    fn test_math_fixed_to_u16() {
+        let expected = u16::MIN;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+
+        let expected = u16::MAX / 2;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+
+        let expected = u16::MAX;
+        assert_eq!(fixed_to_u16(I32F32::from_num(expected)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_math_fixed_to_u16_panics() {
+        let bad_input = I32F32::from_num(u32::MAX);
+        fixed_to_u16(bad_input);
+
+        let bad_input = I32F32::from_num(-1);
+        fixed_to_u16(bad_input);
+    }
+
+    // TODO: Investigate why `I32F32` and not `I64F64`
+    #[test]
+    fn test_math_fixed_to_u64() {
+        let expected = u64::MIN;
+        assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+
+        // let expected = u64::MAX / 2;
+        // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+
+        // let expected = u64::MAX;
+        // assert_eq!(fixed_to_u64(I32F32::from_num(expected)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "-1 overflows")]
+    fn test_math_fixed_to_u64_panics() {
+        let bad_input = I32F32::from_num(-1);
+        fixed_to_u64(bad_input);
+    }
+
+    #[test]
+    fn test_math_fixed64_to_u64() {
+        let expected = u64::MIN;
+        assert_eq!(fixed64_to_u64(I64F64::from_num(expected)), expected);
+
+        let input = i64::MAX / 2;
+        let expected = u64::try_from(input).unwrap();
+        assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
+
+        let input = i64::MAX;
+        let expected = u64::try_from(input).unwrap();
+        assert_eq!(fixed64_to_u64(I64F64::from_num(input)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "-1 overflows")]
+    fn test_math_fixed64_to_u64_panics() {
+        let bad_input = I64F64::from_num(-1);
+        fixed64_to_u64(bad_input);
+    }
+
+    /* @TODO: find the _true_ max, and half, input values */
+    #[test]
+    fn test_math_fixed64_to_fixed32() {
+        let input = u64::MIN;
+        let expected = u32::try_from(input).unwrap();
+        assert_eq!(fixed64_to_fixed32(I64F64::from_num(expected)), expected);
+
+        let expected = u32::MAX / 2;
+        let input = u64::try_from(expected).unwrap();
+        assert_eq!(fixed64_to_fixed32(I64F64::from_num(input)), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_math_fixed64_to_fixed32_panics() {
+        let bad_input = I64F64::from_num(u32::MAX);
+        fixed64_to_fixed32(bad_input);
+    }
+
+    #[test]
+    fn test_math_u16_to_fixed() {
+        let input = u16::MIN;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+
+        let input = u16::MAX / 2;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+
+        let input = u16::MAX;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_to_fixed(input), expected);
+    }
+
+    #[test]
+    fn test_math_u16_proportion_to_fixed() {
+        let input = u16::MIN;
+        let expected = I32F32::from_num(input);
+        assert_eq!(u16_proportion_to_fixed(input), expected);
+    }
+
+    #[test]
+    fn test_fixed_proportion_to_u16() {
+        let expected = u16::MIN;
+        let input = I32F32::from_num(expected);
+        assert_eq!(fixed_proportion_to_u16(input), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_fixed_proportion_to_u16_panics() {
+        let expected = u16::MAX;
+        let input = I32F32::from_num(expected);
+        fixed_proportion_to_u16(input);
+    }
+
+    #[test]
+    fn test_vec_fixed64_to_fixed32() {
+        let input = vec![ I64F64::from_num(i32::MIN) ];
+        let expected = vec![ I32F32::from_num(i32::MIN) ];
+        assert_eq!(vec_fixed64_to_fixed32(input), expected);
+
+        let input = vec![ I64F64::from_num(i32::MAX) ];
+        let expected = vec![ I32F32::from_num(i32::MAX) ];
+        assert_eq!(vec_fixed64_to_fixed32(input), expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "overflow")]
+    fn test_vec_fixed64_to_fixed32_panics() {
+        let bad_input = vec![ I64F64::from_num(i64::MAX) ];
+        vec_fixed64_to_fixed32(bad_input);
+    }
+
+    #[test]
+    #[allow(arithmetic_overflow)]
+    fn test_checked_sum() {
+        let overflowing_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, u64::MAX ];
+        // Expect None when overflow occurs
+        assert_eq!(checked_sum(&overflowing_input), None);
+
+        let normal_input = vec![ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ];
+        // Expect Some when no overflow occurs
+        assert_eq!(checked_sum(&normal_input), Some(55));
+
+        let empty_input: Vec<u16> = vec![ ];
+        // Expect Some(u16::default()) when input is empty
+        assert_eq!(checked_sum(&empty_input), Some(u16::default()));
+
+        let single_input = vec![ 1 ];
+        // Expect Some(...) when input is a single value
+        assert_eq!(checked_sum(&single_input), Some(1));
+    }
 }
+
