@@ -32,6 +32,13 @@ impl<T: Config> Pallet<T> {
         // Clear network data
         Self::remove_network(netuid);
 
+        // Set some configurable hyperparams for the network, we do this before creation because all default values will be set
+        // when setting defaults, it checks if the key already exists and skips the write if so
+        Self::set_immunity_period(netuid, immunity_period);
+        Self::set_network_registration_allowed(netuid, reg_allowed);
+        Self::set_max_allowed_uids(netuid, 256);
+        Self::set_max_allowed_validators(netuid, 128);
+
         // Create the subnet
         Self::init_new_network(netuid, 1000, modality);
         NetworkRegisteredAt::<T>::insert(netuid, Self::get_current_block_as_u64());
@@ -39,12 +46,6 @@ impl<T: Config> Pallet<T> {
         // Emit the new network event.
         log::info!("NetworkAdded( netuid:{:?}, modality:{:?} )", netuid, modality);
         Self::deposit_event( Event::NetworkAdded( netuid, modality ) );
-
-        // Set some configurable hyperparams for the network
-        Self::set_immunity_period(netuid, immunity_period);
-        Self::set_network_registration_allowed(netuid, reg_allowed);
-        Self::set_max_allowed_uids(netuid, 128);
-        Self::set_max_allowed_validators(netuid, 32);
 
         Ok(())
     }
