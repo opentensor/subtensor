@@ -432,8 +432,8 @@ fn test_remove_stake_ok_no_emission() {
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
-        // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        // ISSUE the neuron some stake to remove
+        SubtensorModule::issue_stake_to_hotkey_owner_account(&hotkey_account_id, amount);
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
