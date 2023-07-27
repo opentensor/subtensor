@@ -1300,6 +1300,7 @@ fn test_reserve_stake_to_coldkey_hotkey_account() {
 	});
 }
 
+#[test]
 fn test_unreserve_stake_from_coldkey_hotkey_account() {
 	new_test_ext().execute_with(|| {
         let hotkey_id =  U256::from(4334);
@@ -1424,8 +1425,8 @@ fn test_full_with_delegating() {
         );
 
         // Add balances.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 60000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 60_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60_000);
 
         // We have enough, but the keys are not registered.
         assert_eq!(
@@ -1732,7 +1733,7 @@ fn test_full_with_delegating() {
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0,
-                100000
+                10_0000
             ),
             Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
         );
@@ -1740,7 +1741,7 @@ fn test_full_with_delegating() {
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey1,
-                100000
+                10_0000
             ),
             Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
         );
@@ -1748,7 +1749,7 @@ fn test_full_with_delegating() {
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey1,
-                100000
+                10_0000
             ),
             Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
         );
@@ -1756,7 +1757,7 @@ fn test_full_with_delegating() {
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey0,
-                100000
+                10_0000
             ),
             Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
         );
