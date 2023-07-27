@@ -61,7 +61,7 @@ pub mod pallet {
         sp_std::vec,
         inherent::Vec,
         dispatch::GetDispatchInfo,
-        pallet_prelude::{DispatchResult, StorageMap, *},
+        pallet_prelude::{DispatchResult, StorageMap, *, ValueQuery},
     };
     use sp_runtime::traits::TrailingZeroInput;
     use frame_system::pallet_prelude::*;
@@ -167,6 +167,10 @@ pub mod pallet {
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
+        #[pallet::constant] // Initial subnet limit
+        type InitialSubnetLimit: Get<u16>;
+        #[pallet::constant] // Initial network immunity period
+        type InitialNetworkImmunityPeriod: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -318,6 +322,10 @@ pub mod pallet {
     // ==== Subnetworks Storage =====
     // ==============================
     #[pallet::type_value]
+    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
+        T::InitialSubnetLimit::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultN<T: Config>() -> u16 {
         0
     }
@@ -341,7 +349,17 @@ pub mod pallet {
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
         false
     }
+    #[pallet::type_value]
+    pub fn DefaultNetworkRegisteredAt<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkImmunityPeriod<T: Config>() -> u64 {
+        T::InitialNetworkImmunityPeriod::get()
+    }
 
+    #[pallet::storage] // --- ITEM( total_allowed_networks )
+    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
@@ -368,6 +386,11 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> block_created
+    pub type NetworkRegisteredAt<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
+    #[pallet::storage] // ITEM( network_immunity_period )
+    pub type NetworkImmunityPeriod<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -1968,6 +1991,19 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_sudo_set_adjustment_alpha(origin, netuid, adjustment_alpha)
         }
+
+        #[pallet::call_index(59)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn register_network(
+            origin: OriginFor<T>,
+            modality: u16,
+            immunity_period: u16,
+            reg_allowed: bool
+        ) -> DispatchResult {
+            Self::user_add_network(origin, modality, immunity_period, reg_allowed)
+        }
     }
 
     // ---- Subtensor helper functions.
@@ -2055,6 +2091,7 @@ pub enum CallType {
     AddDelegate,
     Register,
     Serve,
+    RegisterNetwork,
     Other,
 }
 impl Default for CallType {
@@ -2146,6 +2183,10 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
+            Some(Call::register_network{ .. }) =>Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
@@ -2181,6 +2222,10 @@ where
             Some(Call::serve_axon { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::register_network{ .. }) => {
+                let transaction_fee = 100_000_000_000;
+                Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
             }
             _ => {
                 let transaction_fee = 0;

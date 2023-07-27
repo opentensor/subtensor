@@ -586,6 +586,8 @@ parameter_types! {
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialSubnetLimit: u16 = 128; // Total subnet limit
+    pub const SubtensorInitialNetworkImmunity: u64 = 4096;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -627,6 +629,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
+    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
+    type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

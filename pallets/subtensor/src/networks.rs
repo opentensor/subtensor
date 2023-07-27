@@ -6,6 +6,49 @@ use crate::math::checked_sum;
 
 impl<T: Config> Pallet<T> { 
 
+    // Register a new subnetwork as a user.
+    pub fn user_add_network(
+        origin: T::RuntimeOrigin,
+        modality: u16,
+        immunity_period: u16,
+        reg_allowed: bool
+    ) -> dispatch::DispatchResult {
+        ensure_signed( origin )?;
+
+        // Ensure the modality is valid.
+        ensure!( Self::if_modality_is_valid( modality ), Error::<T>::InvalidModality );
+
+        // Find next uid
+        let netuid: u16 = {
+            let total_networks = TotalNetworks::<T>::get();
+
+            if total_networks < SubnetLimit::<T>::get() {
+                total_networks + 1
+            } else {
+                Self::get_subnet_to_prune()
+            }
+        };
+
+        // Clear network data
+        Self::remove_network(netuid);
+
+        // Create the subnet
+        Self::init_new_network(netuid, 1000, modality);
+        NetworkRegisteredAt::<T>::insert(netuid, Self::get_current_block_as_u64());
+
+        // Emit the new network event.
+        log::info!("NetworkAdded( netuid:{:?}, modality:{:?} )", netuid, modality);
+        Self::deposit_event( Event::NetworkAdded( netuid, modality ) );
+
+        // Set some configurable hyperparams for the network
+        Self::set_immunity_period(netuid, immunity_period);
+        Self::set_network_registration_allowed(netuid, reg_allowed);
+        Self::set_max_allowed_uids(netuid, 128);
+        Self::set_max_allowed_validators(netuid, 32);
+
+        Ok(())
+    }
+
     // ---- The implementation for the extrinsic add_network.
     //
     // # Args:
@@ -468,5 +511,58 @@ impl<T: Config> Pallet<T> {
     //
     pub fn if_tempo_is_valid(tempo: u16) -> bool {
         tempo < u16::MAX
+    }
+    
+    pub fn get_network_registered_block( netuid: u16 ) -> u64 {
+        NetworkRegisteredAt::<T>::get( netuid )
+    }
+    
+    pub fn get_network_immunity_period() -> u64 {
+        NetworkImmunityPeriod::<T>::get()
+    }
+
+    pub fn get_subnet_to_prune() -> u16 {
+        let mut min_score = u64::MAX;
+        let mut min_score_in_immunity_period = u64::MAX;
+        let mut uid_with_min_score = 0;
+        let mut uid_with_min_score_in_immunity_period: u16 =  0;
+
+        for netuid in 0..TotalNetworks::<T>::get() {
+            let pruning_score: u64 = Self::get_emission_value( netuid );
+            let block_at_registration: u64 = Self::get_network_registered_block( netuid );
+            let current_block :u64 = Self::get_current_block_as_u64();
+            let immunity_period: u64 = Self::get_network_immunity_period();
+            if min_score == pruning_score {
+                if current_block - block_at_registration <  immunity_period { //neuron is in immunity period
+                    if min_score_in_immunity_period > pruning_score {
+                        min_score_in_immunity_period = pruning_score; 
+                        uid_with_min_score_in_immunity_period = netuid;
+                    }
+                }
+                else {
+                    min_score = pruning_score; 
+                    uid_with_min_score = netuid;
+                }
+            }
+            // Find min pruning score.
+            else if min_score > pruning_score { 
+                if current_block - block_at_registration <  immunity_period { // network is in immunity period
+                    if min_score_in_immunity_period > pruning_score {
+                         min_score_in_immunity_period = pruning_score; 
+                        uid_with_min_score_in_immunity_period = netuid;
+                    }
+                }
+                else {
+                    min_score = pruning_score; 
+                    uid_with_min_score = netuid;
+                }
+            }
+        }
+        if min_score == u64::MAX { // all networks are in immunity period
+            return uid_with_min_score_in_immunity_period;
+        }
+        else {
+            return uid_with_min_score;
+        }
     }
 }
