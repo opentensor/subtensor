@@ -348,7 +348,7 @@ impl<T: Config> Pallet<T> {
     // Decreases UP-TO the reserved stake on the coldkey account by the decrement.
     // Moves the actual amount from the coldkey reserved balance to the coldkey free balance.
     // "Can not fail" per the docs
-    // Returns the amount actually unreserved.
+    // Returns the remaning amount to be unreserved.
     pub fn decrease_reserved_on_coldkey_account( coldkey: &T::AccountId, decrement_as_balance: <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance) -> <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance {
         // Unreserves UP TO the amount. Ensure that the decrement is not greater than the reserved balance before calling.
         T::Currency::unreserve( coldkey, decrement_as_balance )
@@ -426,10 +426,10 @@ impl<T: Config> Pallet<T> {
         let decrement_balance = decrement.saturated_into::<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>();
         // Modify reserved balance
         // This will never fail, but it will unreserve UP TO the amount.
-        let unreserved_balance = Self::decrease_reserved_on_coldkey_account(coldkey, decrement_balance);
+        let remaining_unreserved_balance = Self::decrease_reserved_on_coldkey_account(coldkey, decrement_balance);
         
         // Modify stake map using the actual amount unreserved.
-        let unreserved: u64 = unreserved_balance.saturated_into::<u64>();
+        let unreserved: u64 = (decrement_balance - remaining_unreserved_balance).saturated_into::<u64>();
 
         Self::decrease_stake_on_coldkey_hotkey_account(coldkey, hotkey, unreserved );
     }
