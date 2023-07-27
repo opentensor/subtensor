@@ -57,7 +57,7 @@ mod migration;
 pub mod pallet {
     use frame_support::inherent::Vec;
     use frame_support::sp_std::vec;
-    use frame_support::traits::{Currency, ReservableCurrency, UnfilteredDispatchable};
+    use frame_support::traits::{ReservableCurrency, UnfilteredDispatchable};
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, *},
