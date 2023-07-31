@@ -1998,11 +1998,10 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(
             origin: OriginFor<T>,
-            modality: u16,
             immunity_period: u16,
             reg_allowed: bool
         ) -> DispatchResult {
-            Self::user_add_network(origin, modality, immunity_period, reg_allowed)
+            Self::user_add_network(origin, 0, immunity_period, reg_allowed)
         }
     }
 
@@ -2224,7 +2223,7 @@ where
                 Ok((CallType::Serve, transaction_fee, who.clone()))
             }
             Some(Call::register_network{ .. }) => {
-                let transaction_fee = 100_000_000_000;
+                let transaction_fee = 0;
                 Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
             }
             _ => {
