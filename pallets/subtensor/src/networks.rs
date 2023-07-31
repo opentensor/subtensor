@@ -13,7 +13,7 @@ impl<T: Config> Pallet<T> {
         immunity_period: u16,
         reg_allowed: bool
     ) -> dispatch::DispatchResult {
-        ensure_signed( origin )?;
+        let coldkey = ensure_signed( origin )?;
 
         // Ensure the modality is valid.
         ensure!( Self::if_modality_is_valid( modality ), Error::<T>::InvalidModality );
@@ -42,6 +42,7 @@ impl<T: Config> Pallet<T> {
         // Create the subnet
         Self::init_new_network(netuid, 1000, modality);
         NetworkRegisteredAt::<T>::insert(netuid, Self::get_current_block_as_u64());
+        SubnetOwner::<T>::insert(netuid, coldkey);
 
         // Emit the new network event.
         log::info!("NetworkAdded( netuid:{:?}, modality:{:?} )", netuid, modality);
