@@ -9,9 +9,7 @@ use frame_support::{
     inherent::Vec
 };
 
-// TODO (camfairchild): TEST MIGRATION
-
-const LOG_TARGET: &str = "loadedemissionmigration";
+const LOG_TARGET_V2: &str = "loadedemissionmigration";
 
 pub mod deprecated_loaded_emission_format {
     use super::*;
@@ -32,7 +30,7 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
 
     // Only runs if we haven't already updated version to 2.
     if onchain_version < 2 { 
-        info!(target: LOG_TARGET, ">>> Updating the LoadedEmission to a new format {:?}", onchain_version);
+        info!(target: LOG_TARGET_V2, ">>> Updating the LoadedEmission to a new format {:?}", onchain_version);
 
         // We transform the storage values from the old into the new format.
 
@@ -51,7 +49,7 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
         // Translate the old storage values into the new format.
         LoadedEmission::<T>::translate::<Vec<(AccountIdOf<T>, u64)>, _>(
             |netuid: u16, netuid_emissions: Vec<(AccountIdOf<T>, u64)>| -> Option<Vec<(AccountIdOf<T>, u64, u64)>> {
-                info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid); 
+                info!(target: LOG_TARGET_V2, "     Do migration of netuid: {:?}...", netuid); 
                 
                 // We will assume all loaded emission is validator emissions, 
                 //      so this will get distributed over delegatees (nominators), if there are any
@@ -71,7 +69,16 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
         );
 
         // Update storage version.
-        StorageVersion::new(1).put::<Pallet::<T>>(); // Update to version 2 so we don't run this again.
+        StorageVersion::new(2).put::<Pallet::<T>>(); // Update to version 2 so we don't run this again.
+        // One write to storage version
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        
+        weight
+    } else {
+        info!(target: LOG_TARGET_V2, "Migration to v2 already done!");
+        Weight::zero()
+    }
+}
         // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
         
