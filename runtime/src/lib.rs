@@ -13,6 +13,7 @@ use pallet_grandpa::{
 };
 
 use frame_support::pallet_prelude::{DispatchResult, Get};
+use frame_support::traits::EitherOfDiverse;
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
 use smallvec::smallvec;
@@ -151,6 +152,11 @@ pub fn native_version() -> NativeVersion {
         can_author_with: Default::default(),
     }
 }
+
+type MoreThanHalfCouncil = EitherOfDiverse<
+	EnsureRoot<AccountId>,
+	pallet_collective::EnsureProportionMoreThan<AccountId, pallet_collective::Instance1, 1, 2>,
+>;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
@@ -553,6 +559,30 @@ impl pallet_preimage::Config for Runtime {
     type ByteDeposit = PreimageByteDeposit;
 }
 
+parameter_types! {
+	pub const BasicDeposit: Balance = (1) as Balance * 2_000 * 10_000_000 + (258 as Balance) * 100 * 1_000_000;
+	pub const FieldDeposit: Balance = (0) as Balance * 2_000 * 10_000_000 + (66 as Balance) * 100 * 1_000_000;
+	pub const SubAccountDeposit: Balance = (1) as Balance * 2_000 * 10_000_000 + (53 as Balance) * 100 * 1_000_000;
+	pub const MaxSubAccounts: u32 = 100;
+	pub const MaxAdditionalFields: u32 = 100;
+	pub const MaxRegistrars: u32 = 20;
+}
+
+impl pallet_identity::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+	type BasicDeposit = BasicDeposit;
+	type FieldDeposit = FieldDeposit;
+	type SubAccountDeposit = SubAccountDeposit;
+	type MaxSubAccounts = MaxSubAccounts;
+	type MaxAdditionalFields = MaxAdditionalFields;
+	type MaxRegistrars = MaxRegistrars;
+	type Slashed = ();
+	type ForceOrigin = MoreThanHalfCouncil;
+	type RegistrarOrigin = MoreThanHalfCouncil;
+	type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -652,7 +682,8 @@ construct_runtime!(
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler
+        Scheduler: pallet_scheduler,
+        Identity: pallet_identity
     }
 );
 
