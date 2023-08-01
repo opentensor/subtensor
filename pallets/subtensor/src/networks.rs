@@ -6,13 +6,40 @@ use crate::math::checked_sum;
 
 impl<T: Config> Pallet<T> { 
 
-    // Register a new subnetwork as a user.
+    // ---- The implementation for the extrinsic user_add_network.
+    //
+    // This function allows a user to register a new subnetwork. If the total number of networks
+    // has reached the limit, it prunes the network with the lowest score. The function also sets
+    // some configurable hyperparameters for the network.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The caller, must be a signed user.
+    //
+    // 	* 'modality' (u16):
+    // 		- Network modality specifier.
+    //
+    // 	* 'immunity_period' (u16):
+    // 		- The immunity period for the network.
+    //
+    // 	* 'reg_allowed' (bool):
+    // 		- Flag indicating if registration is allowed on the network.
+    //
+    // # Event:
+    // 	* NetworkAdded;
+    // 		- On successfully creation of a network.
+    //
+    // # Raises:
+    // 	* 'InvalidModality':
+    // 		- Attempting to register a network with an invalid modality.
+    //
     pub fn user_add_network(
         origin: T::RuntimeOrigin,
         modality: u16,
         immunity_period: u16,
         reg_allowed: bool
     ) -> dispatch::DispatchResult {
+        // Ensure the function caller is a signed user.
         let coldkey = ensure_signed( origin )?;
 
         // Ensure the modality is valid.
@@ -22,32 +49,46 @@ impl<T: Config> Pallet<T> {
         let netuid: u16 = {
             let total_networks = TotalNetworks::<T>::get();
 
+            // If total networks is less than the limit, return the total_networks count plus one for the new UID.
+            // Otherwise, prune the network with the lowest score.
             if total_networks < SubnetLimit::<T>::get() {
-                total_networks + 1
+                let mut netuid = 0;
+
+                loop {
+                    netuid += 1;
+            
+                    if !Self::if_subnet_exist(netuid) {
+                        break netuid;
+                    }
+                }
             } else {
-                Self::get_subnet_to_prune()
+                let to_prune = Self::get_subnet_to_prune();
+                Self::remove_network(to_prune);
+
+                to_prune
             }
         };
 
-        // Clear network data
-        Self::remove_network(netuid);
-
-        // Set some configurable hyperparams for the network, we do this before creation because all default values will be set
+        // Set some configurable hyperparameters for the network, we do this before creation because all default values will be set
         // when setting defaults, it checks if the key already exists and skips the write if so
         Self::set_immunity_period(netuid, immunity_period);
         Self::set_network_registration_allowed(netuid, reg_allowed);
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 128);
 
+        let current_block = Self::get_current_block_as_u64();
+
         // Create the subnet
         Self::init_new_network(netuid, 1000, modality);
-        NetworkRegisteredAt::<T>::insert(netuid, Self::get_current_block_as_u64());
+        NetworkLastRegistered::<T>::set(current_block);
+        NetworkRegisteredAt::<T>::insert(netuid, current_block);
         SubnetOwner::<T>::insert(netuid, coldkey);
 
         // Emit the new network event.
         log::info!("NetworkAdded( netuid:{:?}, modality:{:?} )", netuid, modality);
         Self::deposit_event( Event::NetworkAdded( netuid, modality ) );
 
+        // Return success.
         Ok(())
     }
 
@@ -341,7 +382,7 @@ impl<T: Config> Pallet<T> {
         NetworkModality::<T>::insert( netuid, modality );
 
         // --- 5. Increase total network count.
-        TotalNetworks::<T>::mutate( |n| *n += 1 );
+        TotalNetworks::<T>::mutate(|n| *n += 1);
 
         // --- 6. Set all default values **explicitly**.
         Self::set_default_values_for_all_parameters( netuid );
@@ -364,7 +405,8 @@ impl<T: Config> Pallet<T> {
         Self::erase_all_network_data( netuid );
 
         // --- 5. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|val| *val -= 1);
+        TotalNetworks::<T>::mutate(|n| *n -= 1);
+
     }
 
 
@@ -523,48 +565,61 @@ impl<T: Config> Pallet<T> {
         NetworkImmunityPeriod::<T>::get()
     }
 
+    // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
+    // It iterates over all the networks and finds the one with the minimum emission value that is not in the immunity period.
+    // If all networks are in the immunity period, it returns the one with the minimum emission value.
+    //
+    // # Returns:
+    // 	* 'u16':
+    // 		- The uid of the network to be pruned.
+    //
     pub fn get_subnet_to_prune() -> u16 {
-        let mut min_score = u64::MAX;
+        let mut min_score = 1;
         let mut min_score_in_immunity_period = u64::MAX;
-        let mut uid_with_min_score = 0;
-        let mut uid_with_min_score_in_immunity_period: u16 =  0;
+        let mut uid_with_min_score = 1;
+        let mut uid_with_min_score_in_immunity_period: u16 =  1;
 
+        // Iterate over all networks
         for netuid in 0..TotalNetworks::<T>::get() {
-            let pruning_score: u64 = Self::get_emission_value( netuid );
+            let emission_value: u64 = Self::get_emission_value( netuid );
             let block_at_registration: u64 = Self::get_network_registered_block( netuid );
             let current_block :u64 = Self::get_current_block_as_u64();
             let immunity_period: u64 = Self::get_network_immunity_period();
-            if min_score == pruning_score {
+            
+            // Check if the network is in the immunity period
+            if min_score == emission_value {
                 if current_block - block_at_registration <  immunity_period { //neuron is in immunity period
-                    if min_score_in_immunity_period > pruning_score {
-                        min_score_in_immunity_period = pruning_score; 
+                    if min_score_in_immunity_period > emission_value {
+                        min_score_in_immunity_period = emission_value; 
                         uid_with_min_score_in_immunity_period = netuid;
                     }
                 }
                 else {
-                    min_score = pruning_score; 
+                    min_score = emission_value; 
                     uid_with_min_score = netuid;
                 }
             }
-            // Find min pruning score.
-            else if min_score > pruning_score { 
-                if current_block - block_at_registration <  immunity_period { // network is in immunity period
-                    if min_score_in_immunity_period > pruning_score {
-                         min_score_in_immunity_period = pruning_score; 
+            // Find min emission value.
+            else if min_score > emission_value { 
+                if current_block - block_at_registration < immunity_period { // network is in immunity period
+                    if min_score_in_immunity_period > emission_value {
+                         min_score_in_immunity_period = emission_value; 
                         uid_with_min_score_in_immunity_period = netuid;
                     }
                 }
                 else {
-                    min_score = pruning_score; 
+                    min_score = emission_value; 
                     uid_with_min_score = netuid;
                 }
             }
         }
-        if min_score == u64::MAX { // all networks are in immunity period
+        // If all networks are in the immunity period, return the one with the minimum emission value.
+        if min_score == 1 { // all networks are in immunity period
             return uid_with_min_score_in_immunity_period;
         }
         else {
             return uid_with_min_score;
         }
     }
+
 }

@@ -357,6 +357,10 @@ pub mod pallet {
     pub fn DefaultNetworkImmunityPeriod<T: Config>() -> u64 {
         T::InitialNetworkImmunityPeriod::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
+        0
+    }
 
     #[pallet::storage] // --- ITEM( total_allowed_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
@@ -391,6 +395,8 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
     #[pallet::storage] // ITEM( network_immunity_period )
     pub type NetworkImmunityPeriod<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
+    #[pallet::storage] // ITEM( network_last_registered_block )
+    pub type NetworkLastRegistered<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
