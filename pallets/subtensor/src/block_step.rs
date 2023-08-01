@@ -81,6 +81,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Iterate through network ids.
         for ( netuid, tempo )  in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
+            if Self::get_subnetwork_n(netuid) == 0 {
+                continue;
+            }
 
             // --- 2. Queue the emission due to this network.
             let new_queued_emission = EmissionValues::<T>::get( netuid );
