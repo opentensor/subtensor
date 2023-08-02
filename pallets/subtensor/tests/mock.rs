@@ -41,6 +41,9 @@ frame_support::construct_runtime!(
 pub type SubtensorCall = pallet_subtensor::Call<Test>;
 
 #[allow(dead_code)]
+pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+
+#[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
 
 #[allow(dead_code)]
@@ -154,6 +157,9 @@ parameter_types! {
     pub const InitialRAORecycledForRegistration: u64 = 0;
 
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
+
+    pub const InitialSubnetLimit: u16 = 32;
+    pub const InitialNetworkImmunityPeriod: u64 = 4096;
 }
 
 // Configure collective pallet for council
@@ -344,6 +350,8 @@ impl pallet_subtensor::Config for Test {
     type InitialMinBurn = InitialMinBurn;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
+    type InitialSubnetLimit = InitialSubnetLimit;
+    type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
 }
 
 impl pallet_utility::Config for Test {

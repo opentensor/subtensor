@@ -331,4 +331,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn calculate_subnet_emissions() -> Vec<u64> {
+        vec![]
+    }
+
 }

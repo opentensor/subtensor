@@ -799,6 +799,7 @@ pub mod pallet {
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
+        SubnetTransferred(u16, T::AccountId, T::AccountId), // Event created when a subnet's ownership is transferred to another user
     }
 
     // Errors inform users that something went wrong.

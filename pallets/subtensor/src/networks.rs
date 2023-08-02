@@ -92,6 +92,46 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // ---- The implementation for the extrinsic network_transfer_ownership.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The caller, must be the current owner of the network.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'dest' (T::AccountId):
+    // 		- The new owner of the network.
+    //
+    // # Event:
+    // 	* SubnetTransferred;
+    // 		- On the successful transfer of network ownership.
+    //
+    // # Raises:
+    // 	* 'BadOrigin':
+    // 		- The caller is not the current owner of the network.
+    //
+    pub fn network_transfer_ownership(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        dest: T::AccountId
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed( origin )?;
+
+        // Ensure that the caller is the current owner of the network.
+        ensure!(SubnetOwner::<T>::get(netuid) == coldkey, DispatchError::BadOrigin);
+
+        // Set the new owner of the network.
+        SubnetOwner::<T>::set(netuid, dest.clone());
+
+        // Emit the SubnetTransferred event.
+        Self::deposit_event(Event::SubnetTransferred(netuid, coldkey, dest));
+
+        // Return success.
+        Ok(())
+    }
+
     // ---- The implementation for the extrinsic add_network.
     //
     // # Args:
