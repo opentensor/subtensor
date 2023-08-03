@@ -336,7 +336,7 @@ impl<T: Config> Pallet<T> {
     // Calculates the emissions for each subnet based on the stake of validators in the subnet.
     pub fn calculate_subnet_emissions( block_number: u64 ) {
         // Todo: make the tempo for subnet emission calc configurable hyperparam (SubnetEmissionEpoch?)        
-        if Self::blocks_until_next_epoch(0, 1000, block_number) > 0 {return}
+        if Self::blocks_until_next_epoch(0, 100, block_number) > 0 {return}
         
         let mut total_emissions: Vec<(u16, u64)> = vec![];
         let mut total_emission_value = 0;
