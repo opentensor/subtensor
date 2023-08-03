@@ -342,6 +342,8 @@ impl<T: Config> Pallet<T> {
         let mut total_emission_value = 0;
         
         let total_stake = Self::get_total_stake();
+        if total_stake == 0 {return}
+
         let emission = Self::get_block_emission();
 
         // --- 1. Iterate through each subnet.
@@ -363,6 +365,8 @@ impl<T: Config> Pallet<T> {
 
                 log::debug!("found subnet stake: {:?}", subnet_stake);
             }
+
+            if subnet_stake == 0 {continue}
 
             // --- 3. Check if the subnet stake meets the minimum required stake for emissions.
             if subnet_stake * 1000 / total_stake < 99 { // Todo: make this a configurable hyperparam (MinimumStakeRequiredForEmissions)
