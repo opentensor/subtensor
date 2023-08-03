@@ -793,6 +793,30 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 }
 
 #[test]
+fn test_emission_calculation_full() {
+    new_test_ext().execute_with(|| {
+        // Create network 1
+        let netuid1: u16 = 1;
+        let tempo1: u16 = 13;
+        add_network(netuid1, tempo1, 0);
+        for i in 0u16..5u16 {
+            let key = U256::from(i);
+            let stake = 100000;
+
+            SubtensorModule::create_account_if_non_existent( &key, &key );
+            SubtensorModule::append_neuron(netuid1, &key, 0);
+
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake );
+            SubtensorModule::set_validator_permit_for_uid(netuid1, i, true);
+        }
+
+        step_block(1001);
+
+        assert_eq!(SubtensorModule::get_emission_value(netuid1), 1_000_000_000);
+    });
+}
+
+#[test]
 fn test_emission_calculation_half() {
     new_test_ext().execute_with(|| {
         // Create network 1
