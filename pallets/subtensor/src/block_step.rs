@@ -340,13 +340,10 @@ impl<T: Config> Pallet<T> {
         
         let mut total_emissions: Vec<(u16, u64)> = vec![];
         let mut total_emission_value = 0;
-        
-        let total_stake = Self::get_total_stake();
-        if total_stake == 0 {return}
-
+        let mut total_stake = 0;
         let emission = Self::get_block_emission();
 
-        // --- 1. Iterate through each subnet.
+        // --- 1. Iterate through each subnet to collect total stake value.
         for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             if Self::get_subnetwork_n(netuid) == 0 {
                 log::debug!("no uids found for netuid: {:?}", netuid);
@@ -367,8 +364,35 @@ impl<T: Config> Pallet<T> {
             }
 
             if subnet_stake == 0 {continue}
+            total_stake += subnet_stake;
+        }
 
-            // --- 3. Check if the subnet stake meets the minimum required stake for emissions.
+        if total_stake == 0 {return}
+
+        // --- 2. Iterate through each subnet to calculate proportional emissions
+        for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
+            if Self::get_subnetwork_n(netuid) == 0 {
+                log::debug!("no uids found for netuid: {:?}", netuid);
+                continue;
+            }
+
+            let mut subnet_stake = 0;
+
+            // --- 3. Calculate the total stake of validators in the subnet.
+            for (uid, has_vpermit) in Self::get_validator_permit(netuid).iter().enumerate() {
+                if !has_vpermit {
+                    continue;
+                }
+
+                subnet_stake += Self::get_stake_for_uid_and_subnetwork(netuid, uid as u16);
+
+                log::debug!("found subnet stake: {:?}", subnet_stake);
+            }
+
+            if subnet_stake == 0 {continue}
+
+
+            // --- 4. Check if the subnet stake meets the minimum required stake for emissions.
             if subnet_stake * 1000 / total_stake < 99 { // Todo: make this a configurable hyperparam (MinimumStakeRequiredForEmissions)
                 log::debug!("setting subnet stake to zero as it doesnt meet the percentage threshold: {:?}", subnet_stake * 1000 / total_stake);
                 continue;

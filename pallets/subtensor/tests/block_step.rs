@@ -838,7 +838,7 @@ fn test_emission_calculation_half() {
         let netuid2: u16 = 2;
         let tempo2: u16 = 13;
         add_network(netuid2, tempo2, 0);
-        for i in 5u16..10u16 {
+        for i in 6u16..11u16 {
             let key = U256::from(i);
             let stake = 100000;
 
@@ -878,7 +878,7 @@ fn test_emission_calculation_one_tenth() {
         let netuid2: u16 = 2;
         let tempo2: u16 = 13;
         add_network(netuid2, tempo2, 0);
-        for i in 5u16..10u16 {
+        for i in 6u16..11u16 {
             let key = U256::from(i);
             let stake = 111_111_111;
 
@@ -918,7 +918,7 @@ fn test_emission_calculation_with_empty_network() {
         let netuid2: u16 = 2;
         let tempo2: u16 = 13;
         add_network(netuid2, tempo2, 0);
-        for i in 5u16..10u16 {
+        for i in 6u16..11u16 {
             let key = U256::from(i);
             let stake = 111_111_111;
 
@@ -933,7 +933,7 @@ fn test_emission_calculation_with_empty_network() {
         let netuid3: u16 = 3;
         let tempo3: u16 = 13;
         add_network(netuid3, tempo3, 0);
-        for i in 10u16..15u16 {
+        for i in 12u16..17u16 {
             let key = U256::from(i);
             let stake = 0;
 
@@ -949,6 +949,44 @@ fn test_emission_calculation_with_empty_network() {
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 900000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid2), 100000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid3), 0);
+    });
+}
+
+#[test]
+fn test_emission_calculation_with_copied_stake() {
+    new_test_ext().execute_with(|| {
+        // Create network 1
+        let netuid1: u16 = 1;
+        let tempo1: u16 = 13;
+        add_network(netuid1, tempo1, 0);
+        for i in 0u16..5u16 {
+            let key = U256::from(i);
+            let stake = 1_000_000_000;
+
+            SubtensorModule::create_account_if_non_existent( &key, &key );
+            SubtensorModule::append_neuron(netuid1, &key, 0);
+
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account( &key, &key, stake );
+            SubtensorModule::set_validator_permit_for_uid(netuid1, i, true);
+        }
+
+        // Create network 2
+        let netuid2: u16 = 2;
+        let tempo2: u16 = 13;
+        add_network(netuid2, tempo2, 0);
+        for i in 0u16..5u16 {
+            let key = U256::from(i);
+
+            SubtensorModule::create_account_if_non_existent( &key, &key );
+            SubtensorModule::append_neuron(netuid2, &key, 0);
+
+            SubtensorModule::set_validator_permit_for_uid(netuid2, i, true);
+        }
+
+        step_block(1001);
+
+        assert_eq!(SubtensorModule::get_emission_value(netuid1), 500_000_000);
+        assert_eq!(SubtensorModule::get_emission_value(netuid2), 500_000_000);
     });
 }
 
