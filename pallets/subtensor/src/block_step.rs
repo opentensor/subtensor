@@ -367,6 +367,7 @@ impl<T: Config> Pallet<T> {
             total_stake += subnet_stake;
         }
 
+        // Don't remove protections for divide-by-zero
         if total_stake == 0 {return}
 
         // --- 2. Iterate through each subnet to calculate proportional emissions
@@ -390,7 +391,6 @@ impl<T: Config> Pallet<T> {
             }
 
             if subnet_stake == 0 {continue}
-
 
             // --- 4. Check if the subnet stake meets the minimum required stake for emissions.
             if subnet_stake * 1000 / total_stake < 99 { // Todo: make this a configurable hyperparam (MinimumStakeRequiredForEmissions)
