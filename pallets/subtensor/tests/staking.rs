@@ -4,7 +4,7 @@ mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
-use pallet_subtensor::{Error};
+use pallet_subtensor::Error;
 use sp_core::{H256, U256};
 
 /***********************************************************
@@ -337,7 +337,6 @@ fn test_add_stake_total_issuance_no_change() {
 #[ignore]
 fn test_faucet_works() {
     new_test_ext().execute_with(|| {
-        
         // Set faucet
         SubtensorModule::set_faucet_allow();
 
@@ -351,42 +350,50 @@ fn test_faucet_works() {
         // Create facuet work.
         let difficulty: U256 = U256::from(10_000_000);
         let mut nonce: u64 = start_nonce;
-        let mut work: H256 = SubtensorModule::create_seal_hash( 0, nonce, &coldkey_account_id);
+        let mut work: H256 = SubtensorModule::create_seal_hash(0, nonce, &coldkey_account_id);
         while !SubtensorModule::hash_meets_difficulty(&work, difficulty) {
             nonce = nonce + 1;
-            work = SubtensorModule::create_seal_hash( 0, nonce, &coldkey_account_id);
+            work = SubtensorModule::create_seal_hash(0, nonce, &coldkey_account_id);
         }
-        let vec_work: Vec<u8> = SubtensorModule::hash_to_vec( work );
+        let vec_work: Vec<u8> = SubtensorModule::hash_to_vec(work);
 
         // Check total balance is equal to initial balance
         let initial_total_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
         assert_eq!(initial_total_balance, initial_balance);
-        
+
         // Check total issuance is equal to initial balance
         let initial_total_issuance = Balances::total_issuance();
-        assert_eq!(initial_total_issuance, initial_balance );
-        
+        assert_eq!(initial_total_issuance, initial_balance);
+
         // Run the faucet function.
-        assert_ok!(SubtensorModule::do_faucet(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), 0, nonce, vec_work.clone()));
+        assert_ok!(SubtensorModule::do_faucet(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            0,
+            nonce,
+            vec_work.clone()
+        ));
 
         // Check if free balance has decreased
         let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
-        assert_eq!( new_free_balance, initial_balance + 100_000_000_000 );
+        assert_eq!(new_free_balance, initial_balance + 100_000_000_000);
 
         // Check total issuance is equal to initial balance
         let new_total_issuance = Balances::total_issuance();
-        assert_eq!( new_total_issuance, initial_balance + 100_000_000_000);
+        assert_eq!(new_total_issuance, initial_balance + 100_000_000_000);
 
         // Set faucet off
         SubtensorModule::set_faucet_dont_allow();
 
         // Run the faucet function.
-        let result = SubtensorModule::do_faucet(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), 0, nonce, vec_work);
-        assert_eq!(result, Err(Error::<Test>::FaucetDisabled.into()) );
-
+        let result = SubtensorModule::do_faucet(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            0,
+            nonce,
+            vec_work,
+        );
+        assert_eq!(result, Err(Error::<Test>::FaucetDisabled.into()));
     });
 }
-
 
 // /***********************************************************
 // 	staking::remove_stake() tests

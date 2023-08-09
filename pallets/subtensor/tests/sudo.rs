@@ -467,11 +467,17 @@ fn test_sudo_validator_prune_len() {
 #[test]
 fn test_sudo_allow_faucet() {
     new_test_ext().execute_with(|| {
-        assert_eq!( SubtensorModule::get_faucet_allow(), false);
-        assert_ok!( SubtensorModule::sudo_allow_faucet(<<Test as Config>::RuntimeOrigin>::root(), true ));
-        assert_eq!( SubtensorModule::get_faucet_allow(), true);
-        assert_ok!( SubtensorModule::sudo_allow_faucet(<<Test as Config>::RuntimeOrigin>::root(), false ));
-        assert_eq!( SubtensorModule::get_faucet_allow(), false);
+        assert_eq!(SubtensorModule::get_faucet_allow(), false);
+        assert_ok!(SubtensorModule::sudo_allow_faucet(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            true
+        ));
+        assert_eq!(SubtensorModule::get_faucet_allow(), true);
+        assert_ok!(SubtensorModule::sudo_allow_faucet(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            false
+        ));
+        assert_eq!(SubtensorModule::get_faucet_allow(), false);
     });
 }
 

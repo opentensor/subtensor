@@ -57,14 +57,14 @@ mod migration;
 pub mod pallet {
 
     use frame_support::{
-        traits::{Currency, UnfilteredDispatchable},
-        sp_std::vec,
-        inherent::Vec,
         dispatch::GetDispatchInfo,
-        pallet_prelude::{DispatchResult, StorageMap, *, ValueQuery},
+        inherent::Vec,
+        pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
+        sp_std::vec,
+        traits::{Currency, UnfilteredDispatchable},
     };
-    use sp_runtime::traits::TrailingZeroInput;
     use frame_system::pallet_prelude::*;
+    use sp_runtime::traits::TrailingZeroInput;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -395,9 +395,11 @@ pub mod pallet {
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
     #[pallet::storage] // ITEM( network_immunity_period )
-    pub type NetworkImmunityPeriod<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
+    pub type NetworkImmunityPeriod<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
     #[pallet::storage] // ITEM( network_last_registered_block )
-    pub type NetworkLastRegistered<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
+    pub type NetworkLastRegistered<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -802,7 +804,6 @@ pub mod pallet {
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         SubnetTransferred(u16, T::AccountId, T::AccountId), // Event created when a subnet's ownership is transferred to another user
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
-
     }
 
     // Errors inform users that something went wrong.
@@ -859,7 +860,7 @@ pub mod pallet {
         BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
         NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
-        FaucetDisabled, // --- Thrown when the faucet is disabled
+        FaucetDisabled,         // --- Thrown when the faucet is disabled
     }
 
     // ==================
@@ -2010,7 +2011,7 @@ pub mod pallet {
         pub fn register_network(
             origin: OriginFor<T>,
             immunity_period: u16,
-            reg_allowed: bool
+            reg_allowed: bool,
         ) -> DispatchResult {
             Self::user_add_network(origin, 0, immunity_period, reg_allowed)
         }
@@ -2025,20 +2026,17 @@ pub mod pallet {
             nonce: u64,
             work: Vec<u8>,
         ) -> DispatchResult {
-            Self::do_faucet( origin, block_number, nonce, work )
+            Self::do_faucet(origin, block_number, nonce, work)
         }
 
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_allow_faucet(
-            origin: OriginFor<T>,
-            allow_facuet: bool
-        ) -> DispatchResult {
-            ensure_root( origin )?;
-            AllowFaucet::<T>::put( allow_facuet );
-            Ok(()) 
+        pub fn sudo_allow_faucet(origin: OriginFor<T>, allow_facuet: bool) -> DispatchResult {
+            ensure_root(origin)?;
+            AllowFaucet::<T>::put(allow_facuet);
+            Ok(())
         }
     }
 
@@ -2219,7 +2217,7 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-            Some(Call::register_network{ .. }) =>Ok(ValidTransaction {
+            Some(Call::register_network { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
@@ -2259,7 +2257,7 @@ where
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
             }
-            Some(Call::register_network{ .. }) => {
+            Some(Call::register_network { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
             }
