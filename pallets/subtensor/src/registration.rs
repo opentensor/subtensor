@@ -125,10 +125,10 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::remove_balance_from_coldkey_account( &coldkey, registration_cost_as_balance ) == true, Error::<T>::BalanceWithdrawalError );
         
         // The burn occurs here.
-        TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_sub( Self::get_burn_as_u64( netuid ) ) );
+        Self::burn_tokens( Self::get_burn_as_u64( netuid ) );
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent( &coldkey, &hotkey);         
+        Self::create_account_if_non_existent( &coldkey, &hotkey);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );

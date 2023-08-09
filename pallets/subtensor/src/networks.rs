@@ -4,35 +4,42 @@ use sp_std::vec::Vec;
 use frame_system::ensure_root;
 use crate::math::checked_sum;
 
+const DAYS: u64 = 7200;
+
 impl<T: Config> Pallet<T> { 
 
-    // ---- The implementation for the extrinsic user_add_network.
-    //
-    // This function allows a user to register a new subnetwork. If the total number of networks
-    // has reached the limit, it prunes the network with the lowest score. The function also sets
-    // some configurable hyperparameters for the network.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The caller, must be a signed user.
-    //
-    // 	* 'modality' (u16):
-    // 		- Network modality specifier.
-    //
-    // 	* 'immunity_period' (u16):
-    // 		- The immunity period for the network.
-    //
-    // 	* 'reg_allowed' (bool):
-    // 		- Flag indicating if registration is allowed on the network.
-    //
-    // # Event:
-    // 	* NetworkAdded;
-    // 		- On successfully creation of a network.
-    //
-    // # Raises:
-    // 	* 'InvalidModality':
-    // 		- Attempting to register a network with an invalid modality.
-    //
+    /// Add a new subnetwork which is owned by a coldkey, for a dynamic fee.
+    ///
+    /// # Args:
+    /// 	* `origin`: (`T::RuntimeOrigin`):
+    /// 		- The caller, must be a signed user.
+    ///
+    /// 	* `modality` (u16):
+    /// 		- Network modality specifier.
+    ///
+    /// 	* `immunity_period` (u16):
+    /// 		- Number of blocks for the immunity period.
+    ///
+    /// 	* `reg_allowed` (bool):
+    /// 		- Flag indicating if network registration is allowed.
+    ///
+    /// # Event:
+    /// 	* NetworkAdded;
+    /// 		- On successful creation of a network.
+    ///
+    /// # Raises:
+    /// 	* `InvalidModality`:
+    /// 		- Attempting to register a network with an invalid modality.
+    ///
+    /// 	* `TxRateLimitExceeded`:
+    /// 		- Rate limit exceeded for network registration.
+    ///
+    /// 	* `NotEnoughBalanceToStake`:
+    /// 		- Not enough balance to stake for network registration.
+    ///
+    /// 	* `BalanceWithdrawalError`:
+    /// 		- Error occurred while withdrawing balance for network registration.
+    ///
     pub fn user_add_network(
         origin: T::RuntimeOrigin,
         modality: u16,
@@ -45,7 +52,19 @@ impl<T: Config> Pallet<T> {
         // Ensure the modality is valid.
         ensure!( Self::if_modality_is_valid( modality ), Error::<T>::InvalidModality );
 
-        // Find next uid
+        // Rate limit registrations to once every 4 days.
+        ensure!( Self::get_current_block_as_u64() - Self::get_network_last_burn_block() >= 4 * DAYS, Error::<T>::TxRateLimitExceeded );
+
+        // Get burn cost and take fee.
+        let burn_amount = Self::get_network_burn_cost();
+        let cost_as_balance = Self::u64_to_balance( burn_amount ).unwrap();
+        ensure!( Self::can_remove_balance_from_coldkey_account( &coldkey, cost_as_balance ), Error::<T>::NotEnoughBalanceToStake );
+        ensure!( Self::remove_balance_from_coldkey_account( &coldkey, cost_as_balance ) == true, Error::<T>::BalanceWithdrawalError );
+        
+        // The burn occurs here.
+        Self::burn_tokens( burn_amount );
+
+        // Find next uid.
         let netuid: u16 = {
             let total_networks = TotalNetworks::<T>::get();
 
@@ -70,7 +89,7 @@ impl<T: Config> Pallet<T> {
         };
 
         // Set some configurable hyperparameters for the network, we do this before creation because all default values will be set
-        // when setting defaults, it checks if the key already exists and skips the write if so
+        // when setting defaults, it checks if the key already exists and skips the write if so.
         Self::set_immunity_period(netuid, immunity_period);
         Self::set_network_registration_allowed(netuid, reg_allowed);
         Self::set_max_allowed_uids(netuid, 256);
@@ -78,11 +97,13 @@ impl<T: Config> Pallet<T> {
 
         let current_block = Self::get_current_block_as_u64();
 
-        // Create the subnet
+        // Create the subnet.
         Self::init_new_network(netuid, 1000, modality);
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid, current_block);
         SubnetOwner::<T>::insert(netuid, coldkey);
+
+        Self::set_network_last_burn(burn_amount);
 
         // Emit the new network event.
         log::info!("NetworkAdded( netuid:{:?}, modality:{:?} )", netuid, modality);
@@ -604,6 +625,55 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }
+
+    pub fn get_network_min_burn() -> u64 {
+        NetworkMinBurnCost::<T>::get()
+    }
+
+    pub fn set_network_last_burn( amount: u64 ) {
+        NetworkLastBurnCost::<T>::set(amount);
+    }
+    pub fn get_network_last_burn() -> u64 {
+        NetworkLastBurnCost::<T>::get()
+    }
+
+    pub fn get_network_last_burn_block() -> u64 {
+        NetworkLastRegistered::<T>::get()
+    }
+
+    // This function calculates the burn cost for a network based on the last burn amount, minimum burn cost, last burn block, and current block.
+    // The burn cost is calculated using the formula:
+    // burn_cost = (last_burn * mult) - (last_burn / (8 * DAYS)) * (current_block - last_burn_block)
+    // where:
+    // - last_burn is the last burn amount for the network
+    // - mult is the multiplier which increases burn cost each time a registration occurs
+    // - last_burn_block is the block number at which the last burn occurred
+    // - current_block is the current block number
+    // - DAYS is the number of blocks in a day
+    // - min_burn is the minimum burn cost for the network
+    //
+    // If the calculated burn cost is less than the minimum burn cost, the minimum burn cost is returned.
+    //
+    // # Returns:
+    // 	* 'u64':
+    // 		- The burn cost for the network.
+    //
+    pub fn get_network_burn_cost() -> u64 {
+        let last_burn = Self::get_network_last_burn();
+        let min_burn = Self::get_network_min_burn();
+        let last_burn_block = Self::get_network_last_burn_block();
+        let current_block = Self::get_current_block_as_u64();
+
+        let mult = if last_burn_block == 0 {1} else {2};
+
+        let burn_cost = (last_burn * mult) - (last_burn / (8 * DAYS)) * (current_block - last_burn_block);
+        if burn_cost < min_burn {
+            return min_burn;
+        }
+
+        burn_cost
+    }
+
 
     // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
     // It iterates over all the networks and finds the one with the minimum emission value that is not in the immunity period.
