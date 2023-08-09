@@ -12,10 +12,8 @@ use std::sync::Arc;
 use sp_api::ProvideRuntimeApi;
 
 pub use subtensor_custom_rpc_runtime_api::{
-    DelegateInfoRuntimeApi, 
-    NeuronInfoRuntimeApi, 
-    SubnetInfoRuntimeApi, 
-    SubnetRegistrationRuntimeApi
+    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
+    SubnetRegistrationRuntimeApi,
 };
 
 #[rpc(client, server)]
@@ -90,7 +88,7 @@ where
     C::Api: DelegateInfoRuntimeApi<Block>,
     C::Api: NeuronInfoRuntimeApi<Block>,
     C::Api: SubnetInfoRuntimeApi<Block>,
-    C::Api: SubnetRegistrationRuntimeApi<Block>
+    C::Api: SubnetRegistrationRuntimeApi<Block>,
 {
     fn get_delegates(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();

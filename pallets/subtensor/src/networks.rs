@@ -58,7 +58,10 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_burn_block = Self::get_network_last_burn_block();
         if last_burn_block > 0 {
-            ensure!( current_block - last_burn_block >= 1, Error::<T>::TxRateLimitExceeded ); // Todo: make this time limit configurable (DEFAULT 4 DAYS)
+            ensure!(
+                current_block - last_burn_block >= 1,
+                Error::<T>::TxRateLimitExceeded
+            ); // Todo: make this time limit configurable (DEFAULT 4 DAYS)
         }
 
         // Get burn cost and take fee.
