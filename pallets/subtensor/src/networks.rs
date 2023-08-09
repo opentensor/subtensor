@@ -53,7 +53,10 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::if_modality_is_valid( modality ), Error::<T>::InvalidModality );
 
         // Rate limit registrations to once every 4 days.
-        ensure!( Self::get_current_block_as_u64() - Self::get_network_last_burn_block() >= 4 * DAYS, Error::<T>::TxRateLimitExceeded );
+        let last_burn_block = Self::get_network_last_burn_block();
+        if last_burn_block > 0 {
+            ensure!( Self::get_current_block_as_u64() - Self::get_network_last_burn_block() >= 1, Error::<T>::TxRateLimitExceeded ); // Todo: make this time limit configurable (DEFAULT 4 DAYS)
+        }
 
         // Get burn cost and take fee.
         let burn_amount = Self::get_network_burn_cost();
