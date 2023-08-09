@@ -413,13 +413,16 @@ pub mod pallet {
     #[pallet::storage] // ITEM( network_last_registered_block )
     pub type NetworkLastRegistered<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
-    pub type NetworkLastRegistered<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
+    pub type NetworkLastRegistered<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
     #[pallet::storage] // ITEM( network_min_allowed_uids )
-    pub type NetworkMinAllowedUids<T> = StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
+    pub type NetworkMinAllowedUids<T> =
+        StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
     #[pallet::storage] // ITEM( min_network_burn_cost )
     pub type NetworkMinBurnCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
     #[pallet::storage] // ITEM( last_network_burn_cost )
-    pub type NetworkLastBurnCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
+    pub type NetworkLastBurnCost<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====

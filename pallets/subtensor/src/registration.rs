@@ -171,10 +171,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // The burn occurs here.
-        Self::burn_tokens( Self::get_burn_as_u64( netuid ) );
+        Self::burn_tokens(Self::get_burn_as_u64(netuid));
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent( &coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(
