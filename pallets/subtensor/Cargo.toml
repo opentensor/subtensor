@@ -59,5 +59,6 @@ std = [
 	"pallet-collective/std",
 	"pallet-membership/std",
 ]
+pow-faucet = []
 runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = ["frame-support/try-runtime"]

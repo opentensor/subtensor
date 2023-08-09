@@ -361,7 +361,8 @@ pub mod pallet {
     pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
         0
     }
-
+    #[pallet::storage] // --- ITEM( allow_facuet )
+    pub type AllowFaucet<T> = StorageValue<_, bool, ValueQuery>;
     #[pallet::storage] // --- ITEM( total_allowed_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
@@ -800,6 +801,8 @@ pub mod pallet {
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         SubnetTransferred(u16, T::AccountId, T::AccountId), // Event created when a subnet's ownership is transferred to another user
+        Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
+
     }
 
     // Errors inform users that something went wrong.
@@ -856,6 +859,7 @@ pub mod pallet {
         BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
         NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
+        FaucetDisabled, // --- Thrown when the faucet is disabled
     }
 
     // ==================
@@ -2009,6 +2013,32 @@ pub mod pallet {
             reg_allowed: bool
         ) -> DispatchResult {
             Self::user_add_network(origin, 0, immunity_period, reg_allowed)
+        }
+
+        #[pallet::call_index(60)]
+        #[pallet::weight((Weight::from_ref_time(91_000_000)
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        pub fn faucet(
+            origin: OriginFor<T>,
+            block_number: u64,
+            nonce: u64,
+            work: Vec<u8>,
+        ) -> DispatchResult {
+            Self::do_faucet( origin, block_number, nonce, work )
+        }
+
+        #[pallet::call_index(61)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_allow_faucet(
+            origin: OriginFor<T>,
+            allow_facuet: bool
+        ) -> DispatchResult {
+            ensure_root( origin )?;
+            AllowFaucet::<T>::put( allow_facuet );
+            Ok(()) 
         }
     }
 

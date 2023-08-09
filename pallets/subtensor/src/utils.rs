@@ -26,6 +26,13 @@ impl<T: Config> Pallet<T> {
     pub fn get_block_emission() -> u64 { BlockEmission::<T>::get() }
     pub fn get_current_block_as_u64( ) -> u64 { TryInto::try_into( <frame_system::Pallet<T>>::block_number() ).ok().expect("blockchain will not exceed 2^64 blocks; QED.") }
 
+    // ================
+	// ==== Faucet ====
+	// ================
+    pub fn set_faucet_allow() { AllowFaucet::<T>::put( true ); }
+    pub fn set_faucet_dont_allow() { AllowFaucet::<T>::put( false ); }
+    pub fn get_faucet_allow() -> bool { AllowFaucet::<T>::get() }
+
     // ==============================
 	// ==== YumaConsensus params ====
 	// ==============================
