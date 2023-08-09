@@ -160,6 +160,9 @@ parameter_types! {
 
     pub const InitialSubnetLimit: u16 = 32;
     pub const InitialNetworkImmunityPeriod: u64 = 4096;
+
+    pub const InitialNetworkMinAllowedUids: u16 = 128;
+    pub const InitialNetworkMinBurnCost: u64 = 100_000_000_000; 
 }
 
 // Configure collective pallet for council
@@ -352,6 +355,8 @@ impl pallet_subtensor::Config for Test {
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
+    type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
+    type InitialNetworkMinBurnCost = InitialNetworkMinBurnCost;
 }
 
 impl pallet_utility::Config for Test {
