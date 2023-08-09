@@ -1,10 +1,6 @@
 mod mock;
 use mock::*;
-use pallet_subtensor::Error;
-use frame_support::weights::{GetDispatchInfo, DispatchInfo, DispatchClass, Pays};
-use frame_system::Config;
-use frame_support::sp_std::vec;
-use frame_support::assert_ok;
+
 use sp_core::U256;
 
 #[test]
@@ -31,8 +27,8 @@ fn test_get_neuron_some() {
         let hotkey0 = U256::from(0);
         let coldkey0 = U256::from(0);
 
-        add_network( netuid, tempo, modality );
-        register_ok_neuron( netuid, hotkey0, coldkey0, 39420842 );
+        add_network(netuid, tempo, modality);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
 
         let neuron = SubtensorModule::get_neuron(netuid, uid);
         assert_ne!(neuron, None);
@@ -48,16 +44,16 @@ fn test_get_neurons_list() {
         let tempo: u16 = 2;
         let modality: u16 = 2;
 
-        add_network( netuid, tempo, modality );
+        add_network(netuid, tempo, modality);
 
-        let uid: u16 = 42;
+        let _uid: u16 = 42;
 
         let neuron_count = 1;
         for index in 0..neuron_count {
             let hotkey = U256::from(0 + index);
             let coldkey = U256::from(0 + index);
             let nonce: u64 = 39420842 + index;
-            register_ok_neuron( netuid, hotkey, coldkey, nonce );
+            register_ok_neuron(netuid, hotkey, coldkey, nonce);
         }
 
         let neurons = SubtensorModule::get_neurons(netuid);
