@@ -126,17 +126,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Increase the stake map and the reserved balance on the coldkey account.
         // ---       This will also update the reserved balance on the coldkey account, by adding the stake amount.
-        // ---          and move the stake amount from the coldkey free balance.
-        ensure!( Self::reserve_stake_to_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added ).is_ok(), Error::<T>::InsufficientBalanceToReserve );
+        // ---          and move the stake amount from the coldkey free balance
+        // This will also emit the StakeAdded event.
+        ensure!( Self::add_stake_to_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added ).is_ok(), Error::<T>::InsufficientBalanceToReserve );
+        
 
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);
- 
-        // --- 8. Emit the staking event.
-        log::info!("StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )", hotkey, stake_to_be_added );
-        Self::deposit_event( Event::StakeAdded( hotkey, stake_to_be_added ) );
 
-        // --- 9. Ok and return.
+        // --- 8. Ok and return.
         Ok(())
     }
 
@@ -207,6 +205,38 @@ impl<T: Config> Pallet<T> {
         ensure!( T::Currency::reserved_balance( &coldkey ) >= stake_to_be_added_as_currency.unwrap(), Error::<T>::BalanceWithdrawalError );
        
         // --- 8. We remove the balance reserved on the coldkey, moving it to the coldkey's free balance.
+        // This will do the necessary checks for senate members.
+        // This emits the StakeRemoved event.
+        Self::remove_stake_from_coldkey_hotkey_account( coldkey, hotkey, stake_to_be_removed );
+
+        // --- 10. Done and ok.
+        Ok(())
+    }
+
+
+    // Must complete all checks before calling this function.
+    // - Ensure the balance staked can be reserved from the coldkey account.
+    // - Ensure the hotkey account is valid for the coldkey account.
+    pub fn add_stake_to_coldkey_hotkey_account(coldkey: T::AccountId, hotkey: T::AccountId, stake_to_be_added: u64) -> dispatch::DispatchResult {
+        let result = Self::reserve_stake_to_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_added );
+        if result.is_err() {
+            log::error!("add_stake_to_coldkey_hotkey_account failed with error: {:?}", result);
+            return result;
+        }
+        // Everything is ok, emit the event.
+
+        // --- Emit the staking event.
+        log::info!("StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )", hotkey, stake_to_be_added );
+        Self::deposit_event( Event::StakeAdded( hotkey, stake_to_be_added ) );
+
+        return result;
+    }
+
+    // Must complete all checks before calling this function.
+    // - Ensure the stake can be unreserved from the coldkey account.
+    // - Ensure the stake can be removed from the coldkey/hotkey account Stake map.
+    // - Ensure the hotkey account is valid for the coldkey account.
+    pub fn remove_stake_from_coldkey_hotkey_account(coldkey: T::AccountId, hotkey: T::AccountId, stake_to_be_removed: u64) {
         Self::unreserve_stake_from_coldkey_hotkey_account( &coldkey, &hotkey, stake_to_be_removed );
 
 		// If this hotkey is a senator, check to see if they fall below stake threshold in this withdraw
@@ -220,12 +250,9 @@ impl<T: Config> Pallet<T> {
 			T::SenateMembers::remove_member(&hotkey)?;
 		}
 
-        // --- 9. Emit the unstaking event.
-        log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
-        Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );
-
-        // --- 10. Done and ok.
-        Ok(())
+         // --- 9. Emit the unstaking event.
+         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
+         Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );
     }
 
     // Returns true if the passed hotkey allow delegative staking. 
