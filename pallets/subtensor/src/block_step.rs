@@ -7,6 +7,7 @@ use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> { 
 
+    /// Executes the necessary operations for each block.
     pub fn block_step() {
         let block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("block_step for block: {:?} ", block_number );
@@ -24,7 +25,6 @@ impl<T: Config> Pallet<T> {
     // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
     //
     pub fn blocks_until_next_epoch( netuid: u16, tempo: u16, block_number: u64 ) -> u64 { 
-        if tempo == 0 { return 1000 } // Special case: tempo = 0, the network never runs.
         // tempo | netuid | # first epoch block
         //   1        0               0
         //   1        1               1
@@ -32,6 +32,8 @@ impl<T: Config> Pallet<T> {
         //   2        1               0
         //   100      0              99
         //   100      1              98
+        // Special case: tempo = 0, the network never runs.
+        if tempo == 0 { return 1000 } 
         return tempo as u64 - ( block_number + netuid as u64 + 1 ) % ( tempo as u64 + 1 )
     }
 

@@ -423,7 +423,7 @@ impl<T: Config> Pallet<T> {
         work: Vec<u8>,
     ) -> DispatchResult {
         // --- 0. Ensure the faucet is enabled.
-        ensure!(AllowFaucet::<T>::get(), Error::<T>::FaucetDisabled);
+        // ensure!(AllowFaucet::<T>::get(), Error::<T>::FaucetDisabled);
 
         // --- 1. Check that the caller has signed the transaction.
         let coldkey = ensure_signed(origin)?;
@@ -442,7 +442,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = U256::from(10_000_000); // Base faucet difficulty.
+        let difficulty: U256 = U256::from(1_000_000); // Base faucet difficulty.
         let work_hash: H256 = Self::vec_to_hash(work.clone());
         ensure!(
             Self::hash_meets_difficulty(&work_hash, difficulty),
