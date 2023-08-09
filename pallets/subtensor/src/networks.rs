@@ -55,12 +55,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // Rate limit registrations to once every 4 days.
+        let current_block = Self::get_current_block_as_u64();
         let last_burn_block = Self::get_network_last_burn_block();
         if last_burn_block > 0 {
-            ensure!(
-                Self::get_current_block_as_u64() - Self::get_network_last_burn_block() >= 1,
-                Error::<T>::TxRateLimitExceeded
-            ); // Todo: make this time limit configurable (DEFAULT 4 DAYS)
+            ensure!( current_block - last_burn_block >= 1, Error::<T>::TxRateLimitExceeded ); // Todo: make this time limit configurable (DEFAULT 4 DAYS)
         }
 
         // Get burn cost and take fee.
@@ -108,8 +106,6 @@ impl<T: Config> Pallet<T> {
         Self::set_network_registration_allowed(netuid, reg_allowed);
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 128);
-
-        let current_block = Self::get_current_block_as_u64();
 
         // Create the subnet.
         Self::init_new_network(netuid, 1000, modality);

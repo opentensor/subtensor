@@ -1005,6 +1005,12 @@ impl_runtime_apis! {
             result.encode()
         }
     }
+
+    impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
+        fn get_network_registration_cost() -> u64 {
+            SubtensorModule::get_network_burn_cost()
+        }
+    }
 }
 
 #[cfg(test)]

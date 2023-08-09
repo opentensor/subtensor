@@ -283,9 +283,9 @@ impl<T: Config> Pallet<T> {
         return current_block - prev_tx_block <= rate_limit;
     }
 
-    // =============================
-    // ==== Token Managment ========
-    // =============================
+    // ========================
+    // === Token Management ===
+    // ========================
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }

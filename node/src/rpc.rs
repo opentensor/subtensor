@@ -40,6 +40,7 @@ where
 	C::Api: subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block>,
 	C::Api: subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block>,
 	C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>,
+	C::Api: subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block>,
 	P: TransactionPool + 'static
 {
 	use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
