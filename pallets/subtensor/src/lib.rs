@@ -893,6 +893,7 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config> {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         pub balances_issuance: u64,
+        pub faucet_allowed: bool
     }
 
     #[cfg(feature = "std")]
@@ -901,6 +902,7 @@ pub mod pallet {
             Self {
                 stakes: Default::default(),
                 balances_issuance: 0,
+                faucet_allowed: false
             }
         }
     }
@@ -910,6 +912,9 @@ pub mod pallet {
         fn build(&self) {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
+
+            // Set whether the faucet is allowed
+            AllowFaucet::<T>::set(self.faucet_allowed);
 
             // Subnet config values
             let netuid: u16 = 3;

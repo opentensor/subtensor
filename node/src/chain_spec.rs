@@ -360,7 +360,10 @@ fn localnet_genesis(
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 		},
 		transaction_payment: Default::default(),
-		subtensor_module: Default::default(),
+		subtensor_module: SubtensorModuleConfig {
+			faucet_allowed: true,
+			..Default::default()
+		},
 		triumvirate: TriumvirateConfig {
 			members: Default::default(),
 			phantom: Default::default(),
@@ -417,7 +420,10 @@ fn testnet_genesis(
 			key: Some(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap()),
 		},
 		transaction_payment: Default::default(),
-		subtensor_module: Default::default(),
+		subtensor_module: SubtensorModuleConfig {
+			faucet_allowed: true,
+			..Default::default()
+		},
 		triumvirate: TriumvirateConfig { // Add initial authorities as collective members
 			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
 			phantom: Default::default(),
@@ -468,7 +474,8 @@ fn finney_genesis(
 		transaction_payment: Default::default(),
 		subtensor_module: SubtensorModuleConfig {
 			stakes: stakes,
-			balances_issuance: balances_issuance
+			balances_issuance: balances_issuance,
+			faucet_allowed: false
 		},
 		triumvirate: TriumvirateConfig { // Add initial authorities as collective members
 			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
