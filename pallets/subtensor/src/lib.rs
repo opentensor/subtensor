@@ -413,8 +413,6 @@ pub mod pallet {
     #[pallet::storage] // ITEM( network_last_registered_block )
     pub type NetworkLastRegistered<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
-    pub type NetworkLastRegistered<T> =
-        StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
     #[pallet::storage] // ITEM( network_min_allowed_uids )
     pub type NetworkMinAllowedUids<T> =
         StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
