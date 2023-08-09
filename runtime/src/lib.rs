@@ -587,7 +587,7 @@ parameter_types! {
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialSubnetLimit: u16 = 12; // Total subnet limit
-    pub const SubtensorInitialNetworkImmunity: u64 = 4096;
+    pub const SubtensorInitialNetworkImmunity: u64 = 12 * DAYS;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinBurnCost: u64 = 100_000_000_000; // 100 TAO
 }
