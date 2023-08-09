@@ -284,18 +284,6 @@ impl<T: Config> Pallet<T> {
     }
 
     // ========================
-    // ==== Sudo calls ========
-    // ========================
-    pub fn get_default_take() -> u16 {
-        DefaultTake::<T>::get()
-    }
-    pub fn set_default_take(default_take: u16) {
-        DefaultTake::<T>::put(default_take)
-    }
-    pub fn do_sudo_set_default_take(origin: T::RuntimeOrigin, default_take: u16) -> DispatchResult {
-        ensure_root(origin)?;
-        Self::set_default_take(default_take);
-    }
     // === Token Management ===
     // ========================
 
