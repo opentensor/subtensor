@@ -119,7 +119,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 132,
+    spec_version: 133,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -586,8 +586,10 @@ parameter_types! {
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialSubnetLimit: u16 = 32; // Total subnet limit
+    pub const SubtensorInitialSubnetLimit: u16 = 12; // Total subnet limit
     pub const SubtensorInitialNetworkImmunity: u64 = 4096;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinBurnCost: u64 = 100_000_000_000; // 100 TAO
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -631,6 +633,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
+    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
+    type InitialNetworkMinBurnCost = SubtensorInitialMinBurnCost;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

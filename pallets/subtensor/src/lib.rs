@@ -171,6 +171,10 @@ pub mod pallet {
         type InitialSubnetLimit: Get<u16>;
         #[pallet::constant] // Initial network immunity period
         type InitialNetworkImmunityPeriod: Get<u64>;
+        #[pallet::constant] // Initial minimum allowed network UIDs
+        type InitialNetworkMinAllowedUids: Get<u16>;
+        #[pallet::constant] // Initial network minimum burn cost
+        type InitialNetworkMinBurnCost: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -363,6 +367,15 @@ pub mod pallet {
     }
     #[pallet::storage] // --- ITEM( allow_facuet )
     pub type AllowFaucet<T> = StorageValue<_, bool, ValueQuery>;
+    #[pallet::type_value]
+    pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
+        T::InitialNetworkMinAllowedUids::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkMinBurnCost<T: Config>() -> u64 {
+        T::InitialNetworkMinBurnCost::get()
+    }
+
     #[pallet::storage] // --- ITEM( total_allowed_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
@@ -400,6 +413,13 @@ pub mod pallet {
     #[pallet::storage] // ITEM( network_last_registered_block )
     pub type NetworkLastRegistered<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
+    pub type NetworkLastRegistered<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
+    #[pallet::storage] // ITEM( network_min_allowed_uids )
+    pub type NetworkMinAllowedUids<T> = StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
+    #[pallet::storage] // ITEM( min_network_burn_cost )
+    pub type NetworkMinBurnCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
+    #[pallet::storage] // ITEM( last_network_burn_cost )
+    pub type NetworkLastBurnCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
