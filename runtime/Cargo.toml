@@ -72,6 +72,7 @@ substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/pari
 
 [features]
 default = ["std"]
+pow-faucet = []
 std = [
 	"frame-try-runtime?/std",
 	"frame-system-benchmarking?/std",

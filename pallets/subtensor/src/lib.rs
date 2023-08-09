@@ -217,6 +217,11 @@ pub mod pallet {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
 
+    #[pallet::type_value]
+    pub fn DefaultAllowFaucet<T: Config>() -> bool {
+        return cfg!(feature = "pow-faucet");
+    }
+
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -248,6 +253,9 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+
+    #[pallet::storage] // --- ITEM( allow_faucet )
+    pub type AllowFaucet<T> = StorageValue<_, bool, ValueQuery, DefaultAllowFaucet<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -365,8 +373,6 @@ pub mod pallet {
     pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
         0
     }
-    #[pallet::storage] // --- ITEM( allow_facuet )
-    pub type AllowFaucet<T> = StorageValue<_, bool, ValueQuery>;
     #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
@@ -893,7 +899,6 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config> {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         pub balances_issuance: u64,
-        pub faucet_allowed: bool
     }
 
     #[cfg(feature = "std")]
@@ -902,7 +907,6 @@ pub mod pallet {
             Self {
                 stakes: Default::default(),
                 balances_issuance: 0,
-                faucet_allowed: false
             }
         }
     }
@@ -912,9 +916,6 @@ pub mod pallet {
         fn build(&self) {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
-
-            // Set whether the faucet is allowed
-            AllowFaucet::<T>::set(self.faucet_allowed);
 
             // Subnet config values
             let netuid: u16 = 3;

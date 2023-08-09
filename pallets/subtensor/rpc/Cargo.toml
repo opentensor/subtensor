@@ -31,3 +31,4 @@ std = [
   "sp-runtime/std",
   "subtensor-custom-rpc-runtime-api/std"
 ]
+pow-faucet = []
