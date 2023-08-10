@@ -1323,11 +1323,12 @@ fn test_sudo_set_rao_recycled() {
         );
     });
 }
-
+   
 // -------- tests for PendingEmissionValues --------
 #[test]
 fn test_sudo_test_tempo_pending_emissions_ok() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(1);
         let netuid0: u16 = 1;
         let netuid1: u16 = 2;
         let netuid2: u16 = 3;
@@ -1348,13 +1349,26 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 0);
         assert_eq!(SubtensorModule::get_emission_value(netuid2), 0);
         assert_eq!(SubtensorModule::get_emission_value(netuid3), 0);
+
         let netuids: Vec<u16> = vec![1, 2, 3, 5];
         let emission: Vec<u64> = vec![100000000, 400000000, 200000000, 300000000];
-        assert_ok!(SubtensorModule::sudo_set_emission_values(
+
+        // Verify OK and emitted events are as expected
+        assert_events_emitted!(SubtensorModule::sudo_set_emission_values(
             <<Test as Config>::RuntimeOrigin>::root(),
-            netuids,
-            emission
-        ));
+            netuids.clone(),
+            emission.clone()
+        ), [
+                netuids.into_iter().enumerate().map(|(i, netuid)| {
+                    RuntimeEvent::SubtensorModule(Event::EmissionSet(
+                        netuid,
+                        emission[i]
+                    )) // 1 event per netuid
+                }).collect::<Vec<RuntimeEvent>>().as_slice(),
+                [RuntimeEvent::SubtensorModule(Event::EmissionValuesSet())].as_slice()
+            ].concat() // 1 event for sudo_set_emission_values
+        ); // 1 event for sudo_set_emission_values
+        
         assert_eq!(SubtensorModule::get_emission_value(netuid0), 100000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 400000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid2), 200000000);
