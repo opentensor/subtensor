@@ -423,7 +423,7 @@ impl<T: Config> Pallet<T> {
         work: Vec<u8>,
     ) -> DispatchResult {
         // --- 0. Ensure the faucet is enabled.
-        ensure!(AllowFaucet::<T>::get(), Error::<T>::FaucetDisabled);
+        ensure!(cfg!(feature = "pow-faucet"), Error::<T>::FaucetDisabled);
 
         // --- 1. Check that the caller has signed the transaction.
         let coldkey = ensure_signed(origin)?;

@@ -217,11 +217,6 @@ pub mod pallet {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
 
-    #[pallet::type_value]
-    pub fn DefaultAllowFaucet<T: Config>() -> bool {
-        return cfg!(feature = "pow-faucet");
-    }
-
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -253,9 +248,6 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
-
-    #[pallet::storage] // --- ITEM( allow_faucet )
-    pub type AllowFaucet<T> = StorageValue<_, bool, ValueQuery, DefaultAllowFaucet<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -2054,16 +2046,6 @@ pub mod pallet {
             work: Vec<u8>,
         ) -> DispatchResult {
             Self::do_faucet(origin, block_number, nonce, work)
-        }
-
-        #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_allow_faucet(origin: OriginFor<T>, allow_facuet: bool) -> DispatchResult {
-            ensure_root(origin)?;
-            AllowFaucet::<T>::put(allow_facuet);
-            Ok(())
         }
     }
 
