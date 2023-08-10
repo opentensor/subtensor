@@ -417,3 +417,33 @@ pub fn add_network(netuid: u16, tempo: u16, modality: u16){
 	assert_ok!(result);
 }
 
+parameter_types! {
+    static EventsSeen: u32 = 0;
+}
+
+#[allow(dead_code)]
+pub fn events_since_last_call() -> Vec<RuntimeEvent> {
+    // Gets all events since the last call to this function
+    let events = System::events();
+    let already_seen = EventsSeen::get();
+    EventsSeen::set(events.len() as u32);
+    events.into_iter()
+        .map(|r| r.event)
+        .skip(already_seen as usize)
+        .collect::<Vec<RuntimeEvent>>()
+}
+
+// Asserts that the given function call emits the given events Vec
+// Note: moves EventsSeen past events emitted before the call
+#[macro_export]
+macro_rules! assert_events_emitted {
+    ($f:expr, $events_vec:expr ) => {
+        {
+            $crate::events_since_last_call();
+            assert_ok!($f);
+            assert_eq!(events_since_last_call(), $events_vec);
+        }
+    }
+}
+
+
