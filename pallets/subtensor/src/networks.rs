@@ -105,6 +105,8 @@ impl<T: Config> Pallet<T> {
 
         // Set some configurable hyperparameters for the network, we do this before creation because all default values will be set
         // when setting defaults, it checks if the key already exists and skips the write if so.
+        let new_network_tempo: u16 = 100;
+        Self::init_new_network(netuid, new_network_tempo, modality);
         Self::set_immunity_period(netuid, immunity_period);
         Self::set_network_registration_allowed(netuid, reg_allowed);
         Self::set_max_allowed_uids(netuid, 256);
@@ -116,9 +118,7 @@ impl<T: Config> Pallet<T> {
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 100_000_000);
-        let new_network_tempo: u16 = 100;
-        Self::init_new_network(netuid, new_network_tempo, modality);
-
+        
         // Create the subnet.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid, current_block);
