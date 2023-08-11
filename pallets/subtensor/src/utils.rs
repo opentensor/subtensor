@@ -51,19 +51,6 @@ impl<T: Config> Pallet<T> {
             .expect("blockchain will not exceed 2^64 blocks; QED.")
     }
 
-    // ================
-    // ==== Faucet ====
-    // ================
-    pub fn set_faucet_allow() {
-        AllowFaucet::<T>::put(true);
-    }
-    pub fn set_faucet_dont_allow() {
-        AllowFaucet::<T>::put(false);
-    }
-    pub fn get_faucet_allow() -> bool {
-        AllowFaucet::<T>::get()
-    }
-
     // ==============================
     // ==== YumaConsensus params ====
     // ==============================
