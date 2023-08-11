@@ -118,7 +118,7 @@ impl<T: Config> Pallet<T> {
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 100_000_000);
-        
+
         // Create the subnet.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid, current_block);
