@@ -2054,6 +2054,17 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_faucet(origin, block_number, nonce, work)
         }
+
+        #[pallet::call_index(61)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn remove_network(
+            origin: OriginFor<T>,
+            netuid: u16
+        ) -> DispatchResult {
+            Self::user_remove_network(origin, netuid)
+        }
     }
 
     // ---- Subtensor helper functions.
