@@ -192,14 +192,16 @@ impl<T: Config> Pallet<T> {
 
     // Returns True if the uids and weights are have a valid length for uid on network.
     pub fn check_length( netuid: u16, uid: u16, uids: &Vec<u16>, weights: &Vec<u16> ) -> bool {
+        let subnet_n: usize = Self::get_subnetwork_n( netuid ) as usize;
         let min_allowed_length: usize = Self::get_min_allowed_weights(netuid) as usize;
+        let min_allowed: usize = { if subnet_n < min_allowed_length { subnet_n } else { min_allowed_length } };
 
         // Check self weight. Allowed to set single value for self weight.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
         }
         // Check if number of weights exceeds min.
-        if weights.len() >= min_allowed_length {
+        if weights.len() >= min_allowed {
             return true;
         }
         // To few weights.

@@ -447,7 +447,7 @@ fn test_set_weight_not_enough_values() {
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
 
         register_ok_neuron(1, U256::from(3), U256::from(4), 300000);
-        SubtensorModule::set_min_allowed_weights(1, 2);
+        SubtensorModule::set_min_allowed_weights(netuid, 2);
 
         // Should fail because we are only setting a single value and its not the self weight.
         let weight_keys: Vec<u16> = vec![1]; // not weight.
@@ -475,7 +475,7 @@ fn test_set_weight_not_enough_values() {
         // Should pass because we are setting enough values.
         let weight_keys: Vec<u16> = vec![0, 1]; // self weight.
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
-        SubtensorModule::set_min_allowed_weights(1, 1);
+        SubtensorModule::set_min_allowed_weights(netuid, 1);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(account_id),
             1,
