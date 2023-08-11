@@ -131,6 +131,32 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn user_remove_network(
+        origin: T::RuntimeOrigin,
+        netuid: u16
+    ) -> dispatch::DispatchResult {
+        // Ensure the function caller is a signed user.
+        let coldkey = ensure_signed(origin)?;
+        
+        // Ensure this subnet exists
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // Ensure we own this subnet
+        ensure!(SubnetOwner::<T>::get(netuid) == coldkey, Error::<T>::NotSubnetOwner);
+
+        // --- 3. Explicitly erase the network and all its parameters.
+        Self::remove_network(netuid);
+
+        // --- 4. Emit the event.
+        log::info!("NetworkRemoved( netuid:{:?} )", netuid);
+        Self::deposit_event(Event::NetworkRemoved(netuid));
+
+        Ok(())
+    }
+
     // ---- The implementation for the extrinsic network_transfer_ownership.
     //
     // # Args:
@@ -158,10 +184,15 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
 
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
         // Ensure that the caller is the current owner of the network.
         ensure!(
             SubnetOwner::<T>::get(netuid) == coldkey,
-            DispatchError::BadOrigin
+            Error::<T>::NotSubnetOwner
         );
 
         // Set the new owner of the network.
@@ -544,6 +575,7 @@ impl<T: Config> Pallet<T> {
         // --- 5. Decrement the network counter.
         TotalNetworks::<T>::mutate(|n| *n -= 1);
 
+        NetworkRegisteredAt::<T>::remove(netuid);
         SubnetOwner::<T>::remove(netuid);
         Self::set_subnet_locked_balance(netuid, 0);
 

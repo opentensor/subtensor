@@ -887,6 +887,7 @@ pub mod pallet {
         NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
         FaucetDisabled,         // --- Thrown when the faucet is disabled
+        NotSubnetOwner,
     }
 
     // ==================
