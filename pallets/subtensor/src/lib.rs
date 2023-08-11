@@ -2059,7 +2059,7 @@ pub mod pallet {
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn remove_network(
+        pub fn dissolve_network(
             origin: OriginFor<T>,
             netuid: u16
         ) -> DispatchResult {
