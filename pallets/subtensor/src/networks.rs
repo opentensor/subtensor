@@ -110,14 +110,14 @@ impl<T: Config> Pallet<T> {
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 128);
         Self::set_min_allowed_weights(netuid, 64); // half of miners
-        Self::set_max_weights_limit(netuid, 511); // 65535/128 of miners.
+        Self::set_max_weight_limit(netuid, 511); // 65535/128 of miners.
         Self::set_adjustment_interval(netuid, 500);
         Self::set_target_registrations_per_interval(netuid, 1);
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 100_000_000);
-        let new_new_tempo: u16 = 100;
-        Self::init_new_network(netuid, new_new_tempo, modality);
+        let new_network_tempo: u16 = 100;
+        Self::init_new_network(netuid, new_network_tempo, modality);
 
         // Create the subnet.
         NetworkLastRegistered::<T>::set(current_block);
