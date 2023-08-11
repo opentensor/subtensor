@@ -64,21 +64,6 @@ impl<T: Config> Pallet<T> {
             ); // Todo: make this time limit configurable (DEFAULT 4 DAYS)
         }
 
-        // Get burn cost and take fee.
-        let burn_amount = Self::get_network_burn_cost();
-        let cost_as_balance = Self::u64_to_balance(burn_amount).unwrap();
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, cost_as_balance),
-            Error::<T>::NotEnoughBalanceToStake
-        );
-        ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, cost_as_balance) == true,
-            Error::<T>::BalanceWithdrawalError
-        );
-
-        // The burn occurs here.
-        Self::burn_tokens(burn_amount);
-
         // Find next uid.
         let netuid: u16 = {
             let total_networks = TotalNetworks::<T>::get();
@@ -103,6 +88,14 @@ impl<T: Config> Pallet<T> {
             }
         };
 
+        // Get network cost and lock tokens
+        let reserve_amount = Self::get_network_burn_cost();
+        let reserve_as_balance = Self::u64_to_balance( reserve_amount );
+        ensure!( reserve_as_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
+        ensure!( Self::remove_balance_from_coldkey_account( &coldkey, reserve_as_balance.unwrap() ) == true, Error::<T>::BalanceWithdrawalError );
+
+        Self::set_subnet_locked_balance(netuid, reserve_amount);
+
         // Set some configurable hyperparameters for the network, we do this before creation because all default values will be set
         // when setting defaults, it checks if the key already exists and skips the write if so.
         let new_network_tempo: u16 = 100;
@@ -124,7 +117,7 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::insert(netuid, current_block);
         SubnetOwner::<T>::insert(netuid, coldkey);
 
-        Self::set_network_last_burn(burn_amount);
+        Self::set_network_last_burn(reserve_amount);
 
         // Emit the new network event.
         log::info!(
@@ -528,6 +521,14 @@ impl<T: Config> Pallet<T> {
     // Removes the network (netuid) and all of its parameters.
     //
     pub fn remove_network(netuid: u16) {
+        // Return balance to subnet owner
+        let owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let reserved_amount = Self::get_subnet_locked_balance(netuid);
+
+        // Ensure that we can convert this u64 to a balance.
+        let reserved_amount_as_bal = Self::u64_to_balance( reserved_amount );
+        if !reserved_amount_as_bal.is_some() { return }
+
         // --- 1. Remove network count.
         SubnetworkN::<T>::remove(netuid);
 
@@ -542,6 +543,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Decrement the network counter.
         TotalNetworks::<T>::mutate(|n| *n -= 1);
+
+        SubnetOwner::<T>::remove(netuid);
+        Self::set_subnet_locked_balance(netuid, 0);
+
+        // Add the balance back to the owner
+        Self::add_balance_to_coldkey_account( &owner_coldkey, reserved_amount_as_bal.unwrap() );
     }
 
     // Explicitly sets all network parameters to their default values.

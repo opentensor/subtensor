@@ -290,6 +290,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
+        SubnetLocked::<T>::insert(netuid, amount);
+    }
+
+    pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
+        SubnetLocked::<T>::get(netuid)
+    }
+
+
+    // ========================
+    // ========= Sudo =========
+    // ========================
+
     // Configure tx rate limiting
     pub fn get_tx_rate_limit() -> u64 {
         TxRateLimit::<T>::get()

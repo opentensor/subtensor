@@ -100,7 +100,7 @@ pub mod pallet {
 
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>; 
 
         // =================================
         // ==== Initial Value Constants ====
@@ -444,6 +444,10 @@ pub mod pallet {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
     }
     #[pallet::type_value]
+    pub fn DefaultSubnetLocked<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
     }
@@ -465,6 +469,9 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
+    pub type SubnetLocked<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
     // =================================
     // ==== Axon / Promo Endpoints =====
