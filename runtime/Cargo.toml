@@ -55,6 +55,10 @@ pallet-membership = {version = "4.0.0-dev", default-features = false, git = "htt
 # Multisig
 pallet-multisig = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
+# Scheduler pallet
+pallet-scheduler = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+pallet-preimage = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+
 # Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -90,6 +94,8 @@ std = [
 	"pallet-utility/std",
 	"pallet-sudo/std",
 	"pallet-multisig/std",
+	"pallet-scheduler/std",
+	"pallet-preimage/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -136,4 +142,6 @@ try-runtime = [
 	"pallet-collective/try-runtime",
 	"pallet-membership/try-runtime",
 	"pallet-multisig/try-runtime",
+	"pallet-scheduler/try-runtime",
+	"pallet-preimage/try-runtime",
 ]

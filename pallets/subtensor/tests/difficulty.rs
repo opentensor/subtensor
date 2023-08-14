@@ -11,7 +11,7 @@ fn test_registration_difficulty_adjustment() {
 		step_block(1); // Events don't emit on block 0.
 
         // Create Net 1
-		let netuid: u16 = 1;
+        let netuid: u16 = 1;
         let tempo: u16 = 1;
         let modality: u16 = 1;
         add_network( netuid, tempo, modality );
@@ -23,18 +23,24 @@ fn test_registration_difficulty_adjustment() {
 		assert_eq!( SubtensorModule::get_network_registration_allowed( netuid ), true ); // Default registration allowed.
 
         // Set values and check.
-        SubtensorModule::set_difficulty( netuid, 20000 );
-        SubtensorModule::set_adjustment_interval( netuid, 1 );
-        SubtensorModule::set_target_registrations_per_interval( netuid, 1 );
-        SubtensorModule::set_max_registrations_per_block( netuid, 3 );
-        SubtensorModule::set_max_allowed_uids( netuid, 3 );
-		SubtensorModule::set_network_registration_allowed( netuid, true );
-        assert_eq!( SubtensorModule::get_difficulty_as_u64( netuid ), 20000 ); // Check set difficutly.
-        assert_eq!( SubtensorModule::get_adjustment_interval( netuid ), 1 ); // Check set adjustment interval.
-        assert_eq!( SubtensorModule::get_target_registrations_per_interval( netuid ), 1 ); // Check set adjustment interval.
-        assert_eq!( SubtensorModule::get_max_registrations_per_block( netuid ), 3 ); // Check set registrations per block.
-        assert_eq!( SubtensorModule::get_max_allowed_uids( netuid ), 3 ); // Check set registrations per block.
-		assert_eq!( SubtensorModule::get_network_registration_allowed( netuid ), true ); // Check set registration allowed
+        SubtensorModule::set_difficulty(netuid, 20000);
+        SubtensorModule::set_adjustment_interval(netuid, 1);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 1);
+        SubtensorModule::set_max_registrations_per_block(netuid, 3);
+        SubtensorModule::set_max_allowed_uids(netuid, 3);
+        SubtensorModule::set_network_registration_allowed(netuid, true);
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Check set difficutly.
+        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 1); // Check set adjustment interval.
+        assert_eq!(
+            SubtensorModule::get_target_registrations_per_interval(netuid),
+            1
+        ); // Check set adjustment interval.
+        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 3); // Check set registrations per block.
+        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), 3); // Check set registrations per block.
+        assert_eq!(
+            SubtensorModule::get_network_registration_allowed(netuid),
+            true
+        ); // Check set registration allowed
 
         // Lets register 3 neurons...
         let hotkey0 = U256::from(0);
@@ -43,16 +49,25 @@ fn test_registration_difficulty_adjustment() {
         let coldkey0 = U256::from(0);
         let coldkey1 = U256::from(1000);
         let coldkey2 = U256::from(20000);
-    	register_ok_neuron( netuid, hotkey0, coldkey0, 39420842 );
-    	register_ok_neuron( netuid, hotkey1, coldkey1, 12412392 );
-		register_ok_neuron( netuid, hotkey2, coldkey2, 21813123 );
-        assert_eq!( SubtensorModule::get_hotkey_for_net_and_uid( netuid, 0 ).unwrap(), hotkey0 );
-		assert_eq!( SubtensorModule::get_hotkey_for_net_and_uid( netuid, 1 ).unwrap(), hotkey1 );
-		assert_eq!( SubtensorModule::get_hotkey_for_net_and_uid( netuid, 2 ).unwrap(), hotkey2 );
+        register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 12412392);
+        register_ok_neuron(netuid, hotkey2, coldkey2, 21813123);
+        assert_eq!(
+            SubtensorModule::get_hotkey_for_net_and_uid(netuid, 0).unwrap(),
+            hotkey0
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_for_net_and_uid(netuid, 1).unwrap(),
+            hotkey1
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_for_net_and_uid(netuid, 2).unwrap(),
+            hotkey2
+        );
 
-		assert_eq!( SubtensorModule::get_subnetwork_n(netuid), 3); // All 3 are registered.
-        assert_eq!( SubtensorModule::get_registrations_this_block( netuid ), 3 ); // 3 Registrations.
-        assert_eq!( SubtensorModule::get_registrations_this_interval( netuid ), 3 ); // 3 Registrations this interval.
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3); // All 3 are registered.
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // 3 Registrations.
+        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // 3 Registrations this interval.
 
         // Fast forward 1 block.
         assert_eq!( SubtensorModule::get_difficulty_as_u64( netuid ), 20000 ); // Difficulty is unchanged.
@@ -68,11 +83,14 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!( SubtensorModule::get_registrations_this_interval( netuid ), 0 ); // Registrations this interval has been wiped.
 
         // Lets change the adjustment interval
-        SubtensorModule::set_adjustment_interval( netuid, 3 );
-        assert_eq!( SubtensorModule::get_adjustment_interval( netuid ), 3 ); // Check set adjustment interval.
+        SubtensorModule::set_adjustment_interval(netuid, 3);
+        assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 3); // Check set adjustment interval.
 
-        SubtensorModule::set_target_registrations_per_interval( netuid, 3 );
-        assert_eq!( SubtensorModule::get_target_registrations_per_interval( netuid ), 3 ); // Target is default.
+        SubtensorModule::set_target_registrations_per_interval(netuid, 3);
+        assert_eq!(
+            SubtensorModule::get_target_registrations_per_interval(netuid),
+            3
+        ); // Target is default.
 
         // Register 3 more
         register_ok_neuron( netuid, hotkey0 + 1, coldkey0 + 1, 3942084 );
@@ -90,18 +108,18 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!( SubtensorModule::get_registrations_this_interval( netuid ), 3 ); // Registrations this interval = 3
 
         // Register 3 more.
-    	register_ok_neuron( netuid, hotkey0 + 2, coldkey0 + 2, 394208420 );
-    	register_ok_neuron( netuid, hotkey1 + 2, coldkey1 + 2, 124123920 );
-		register_ok_neuron( netuid, hotkey2 + 2, coldkey2 + 2, 218131230 );
-        assert_eq!( SubtensorModule::get_registrations_this_block( netuid ), 3 ); // Registrations have been erased.
+        register_ok_neuron(netuid, hotkey0 + 2, coldkey0 + 2, 394208420);
+        register_ok_neuron(netuid, hotkey1 + 2, coldkey1 + 2, 124123920);
+        register_ok_neuron(netuid, hotkey2 + 2, coldkey2 + 2, 218131230);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3); // Registrations have been erased.
 
         // We have 6 registrations this adjustment interval.
-        step_block( 1 ); // Step
-        assert_eq!( SubtensorModule::get_registrations_this_interval( netuid ), 6 ); // Registrations this interval = 6
-        assert_eq!( SubtensorModule::get_difficulty_as_u64( netuid ), 40000 ); // Difficulty unchanged.
-        step_block( 1 ); // Step
-        assert_eq!( SubtensorModule::get_difficulty_as_u64( netuid ), 60_000 ); // Difficulty changed ( 40000 ) * ( 6 + 3 / 3 + 3 ) = 40000 * 1.5 = 60_000
-        assert_eq!( SubtensorModule::get_registrations_this_interval( netuid ), 0 ); // Registrations this interval drops to 0.
+        step_block(1); // Step
+        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 6); // Registrations this interval = 6
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 40000); // Difficulty unchanged.
+        step_block(1); // Step
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 60_000); // Difficulty changed ( 40000 ) * ( 6 + 3 / 3 + 3 ) = 40000 * 1.5 = 60_000
+        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval drops to 0.
 
         // Test min value.
         SubtensorModule::set_min_difficulty( netuid, 1 );
@@ -131,11 +149,10 @@ fn test_registration_difficulty_adjustment() {
         step_block( 1 ); // Step
         assert_eq!( SubtensorModule::get_difficulty_as_u64( netuid ), 5833 ); // Difficulty increased 5000 * ( 4 + 3 ) / (3 + 3) = 1.16 * 5000 = 5833
 
-        register_ok_neuron( netuid, hotkey0 + 4, coldkey0 + 4, 124208420 );
-    	register_ok_neuron( netuid, hotkey1 + 4, coldkey1 + 4, 314123920 );
-        register_ok_neuron( netuid, hotkey2 + 4, coldkey2 + 4, 834123920 );
-        step_block( 1 ); // Step
-        assert_eq!( SubtensorModule::get_difficulty_as_u64( netuid ), 5833 ); // Difficulty unchanged
-
-	});
+        register_ok_neuron(netuid, hotkey0 + 4, coldkey0 + 4, 124208420);
+        register_ok_neuron(netuid, hotkey1 + 4, coldkey1 + 4, 314123920);
+        register_ok_neuron(netuid, hotkey2 + 4, coldkey2 + 4, 834123920);
+        step_block(1); // Step
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 5833); // Difficulty unchanged
+    });
 }

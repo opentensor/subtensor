@@ -52,4 +52,3 @@ fn test_authority_keys_from_seed_panics() {
     let bad_seed = "";
     authority_keys_from_seed(bad_seed);
 }
-
