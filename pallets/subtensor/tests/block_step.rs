@@ -3,10 +3,11 @@ use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
 use sp_core::U256;
+use pallet_subtensor::Event;
 
 #[test]
 fn test_loaded_emission() {
-    new_test_ext().execute_with(|| { 
+    new_test_ext().execute_with(|| {
         let n: u16 = 100;
         let netuid: u16 = 0;
         let tempo: u16 = 10;
@@ -40,7 +41,7 @@ fn test_loaded_emission() {
         // Generate more emission.
         SubtensorModule::generate_emission( 9 );
         assert_eq!( SubtensorModule::get_loaded_emission_tuples( netuid ).len(), n as usize );
-        
+
         for block in 10..20 {
             let mut n_remaining: usize = 0;
             let mut n_to_drain: usize = 0;
@@ -48,7 +49,7 @@ fn test_loaded_emission() {
                 n_remaining = SubtensorModule::get_loaded_emission_tuples( netuid ).len();
                 n_to_drain = SubtensorModule::tuples_to_drain_this_block( netuid, tempo, block, SubtensorModule::get_loaded_emission_tuples( netuid ).len() );
             }
-            SubtensorModule::drain_emission( block ); // drain it with 9 more blocks to go 
+            SubtensorModule::drain_emission( block ); // drain it with 9 more blocks to go
             if SubtensorModule::has_loaded_emission_tuples( netuid ) {
                 assert_eq!( SubtensorModule::get_loaded_emission_tuples( netuid ).len(), n_remaining - n_to_drain );
             }
@@ -61,13 +62,13 @@ fn test_loaded_emission() {
 
 #[test]
 fn test_tuples_to_drain_this_block(){
-    new_test_ext().execute_with(|| { 
+    new_test_ext().execute_with(|| {
         // pub fn tuples_to_drain_this_block( netuid: u16, tempo: u16, block_number: u64, n_remaining: usize ) -> usize {
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 1, 0, 10 ), 10 ); // drain all epoch block.
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 0, 0, 10 ), 10 ); // drain all no tempo.
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 10, 0, 10 ), 2 ); // drain 10 / ( 10 / 2 ) = 2
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 20, 0, 10 ), 1 ); // drain 10 / ( 20 / 2 ) = 1
-        assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 10, 0, 20 ), 5 ); // drain 20 / ( 9 / 2 ) = 5 
+        assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 10, 0, 20 ), 5 ); // drain 20 / ( 9 / 2 ) = 5
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 20, 0, 0 ), 0 );  // nothing to drain.
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 10, 1, 20 ), 5 ); // drain 19 / ( 10 / 2 ) = 4
         assert_eq!( SubtensorModule::tuples_to_drain_this_block( 0, 10, 10, 20 ), 4 ); // drain 19 / ( 10 / 2 ) = 4
@@ -78,7 +79,7 @@ fn test_tuples_to_drain_this_block(){
             for j in 0..10 {
                 for k in 0..10 {
                     for l in 0 .. 10 {
-                        assert!( SubtensorModule::tuples_to_drain_this_block( i, j, k, l ) <= 10 ); 
+                        assert!( SubtensorModule::tuples_to_drain_this_block( i, j, k, l ) <= 10 );
                     }
                 }
             }
@@ -89,36 +90,36 @@ fn test_tuples_to_drain_this_block(){
 
 #[test]
 fn test_blocks_until_epoch(){
-    new_test_ext().execute_with(|| { 
+    new_test_ext().execute_with(|| {
 
         // Check tempo = 0 block = * netuid = *
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 0, 0 ), 1000 ); 
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 0, 0 ), 1000 );
 
         // Check tempo = 1 block = * netuid = *
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, 0 ),  0 ); 
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, 0 ),  1 ); 
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, 1 ),  1 ); 
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, 1 ),  0 ); 
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, 2 ),  0 ); 
-        assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, 2 ),  1 ); 
-        for i in 0..100 { 
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, 0 ),  0 );
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, 0 ),  1 );
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, 1 ),  1 );
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, 1 ),  0 );
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, 2 ),  0 );
+        assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, 2 ),  1 );
+        for i in 0..100 {
             if i % 2 == 0 {
-                assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, i ),  0 ); 
-                assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, i ),  1 ); 
+                assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, i ),  0 );
+                assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, i ),  1 );
             } else {
-                assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, i ),  1 ); 
-                assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, i ),  0 ); 
+                assert_eq!( SubtensorModule::blocks_until_next_epoch( 0, 1, i ),  1 );
+                assert_eq!( SubtensorModule::blocks_until_next_epoch( 1, 1, i ),  0 );
             }
-        } 
+        }
 
         // Check general case.
-        for netuid in 0..30 as u16 { 
+        for netuid in 0..30 as u16 {
             for block in 0..30 as u64 {
                 for tempo in 1..30 as u16 {
-                    assert_eq!( SubtensorModule::blocks_until_next_epoch( netuid, tempo, block ), tempo as u64 - ( block + netuid as u64 + 1 ) % ( tempo as u64  + 1 ) ); 
+                    assert_eq!( SubtensorModule::blocks_until_next_epoch( netuid, tempo, block ), tempo as u64 - ( block + netuid as u64 + 1 ) % ( tempo as u64  + 1 ) );
                 }
             }
-        } 
+        }
 
 
     });
@@ -132,13 +133,15 @@ fn test_blocks_until_epoch(){
 #[test]
 fn test_burn_adjustment() {
 	new_test_ext().execute_with(|| {
+		step_block(1); // Events are not triggered until the next block.
+
 		let netuid: u16 = 1;
 		let tempo: u16 = 13;
 		let burn_cost:u64 = 1000;
 		let adjustment_interval = 1;
 		let target_registrations_per_interval = 1;
 		SubtensorModule::set_burn( netuid, burn_cost);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -154,12 +157,21 @@ fn test_burn_adjustment() {
 		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id_2, 10000 );
 		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2), netuid,  hotkey_account_id_2));
 
+		let expected_new_burn = 1_500;
+
 		// We are over the number of regs allowed this interval.
 		// Step the block and trigger the adjustment.
-		step_block( 1 );
+		assert_events_emitted!(
+			step_block( 1 ),
+			vec![
+				RuntimeEvent::SubtensorModule(
+					Event::BurnSet(netuid, expected_new_burn)
+				)
+			]
+		);
 
 		// Check the adjusted burn.
-		assert_eq!(SubtensorModule::get_burn_as_u64(netuid), 1500);
+		assert_eq!(SubtensorModule::get_burn_as_u64(netuid), expected_new_burn);
 	});
 }
 
@@ -172,11 +184,11 @@ fn test_burn_adjustment_with_moving_average() {
 		let adjustment_interval = 1;
 		let target_registrations_per_interval = 1;
 		SubtensorModule::set_burn( netuid, burn_cost);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		// Set alpha here.
 		add_network(netuid, tempo, 0);
-		SubtensorModule::set_adjustment_alpha( netuid, u64::MAX/2 ); 
+		SubtensorModule::set_adjustment_alpha( netuid, u64::MAX/2 );
 
 		// Register key 1.
 		let hotkey_account_id_1 = U256::from(1);
@@ -217,7 +229,7 @@ fn test_burn_adjustment_case_a() {
 		let mut curr_block_num = 0;
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -236,7 +248,7 @@ fn test_burn_adjustment_case_a() {
 			netuid,
 			curr_block_num,
 			nonce0, work0,
-			hotkey_account_id_2, 
+			hotkey_account_id_2,
 			coldkey_account_id_2
 		);
 		assert_ok!(result0);
@@ -250,7 +262,7 @@ fn test_burn_adjustment_case_a() {
 			netuid,
 			curr_block_num,
 			nonce1, work1,
-			hotkey_account_id_3, 
+			hotkey_account_id_3,
 			coldkey_account_id_3
 		);
 		assert_ok!(result1);
@@ -289,7 +301,7 @@ fn test_burn_adjustment_case_b() {
 		let mut curr_block_num = 0;
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -346,7 +358,7 @@ fn test_burn_adjustment_case_c() {
 		let mut curr_block_num = 0;
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -365,7 +377,7 @@ fn test_burn_adjustment_case_c() {
 			netuid,
 			curr_block_num,
 			nonce0, work0,
-			hotkey_account_id_2, 
+			hotkey_account_id_2,
 			coldkey_account_id_2
 		);
 		assert_ok!(result0);
@@ -379,7 +391,7 @@ fn test_burn_adjustment_case_c() {
 			netuid,
 			curr_block_num,
 			nonce1, work1,
-			hotkey_account_id_3, 
+			hotkey_account_id_3,
 			coldkey_account_id_3
 		);
 		assert_ok!(result1);
@@ -418,7 +430,7 @@ fn test_burn_adjustment_case_d() {
 		let mut curr_block_num = 0;
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -427,7 +439,7 @@ fn test_burn_adjustment_case_d() {
 		let coldkey_account_id_1 = U256::from(1);
 		SubtensorModule::add_balance_to_coldkey_account( &coldkey_account_id_1, 10000 );
 		assert_ok!(SubtensorModule::burned_register(<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1), netuid,  hotkey_account_id_1));
-		
+
 		// Register key 2. This is a BURN registration
 		let hotkey_account_id_2 = U256::from(2);
 		let coldkey_account_id_2 = U256::from(2);
@@ -443,7 +455,7 @@ fn test_burn_adjustment_case_d() {
 			netuid,
 			curr_block_num,
 			nonce1, work1,
-			hotkey_account_id_3, 
+			hotkey_account_id_3,
 			coldkey_account_id_3
 		);
 		assert_ok!(result1);
@@ -483,7 +495,7 @@ fn test_burn_adjustment_case_e() {
 		SubtensorModule::set_max_registrations_per_block( netuid, 10 );
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -496,7 +508,7 @@ fn test_burn_adjustment_case_e() {
 			netuid,
 			curr_block_num,
 			nonce1, work1,
-			hotkey_account_id_1, 
+			hotkey_account_id_1,
 			coldkey_account_id_1
 		);
 		assert_ok!(result1);
@@ -544,7 +556,7 @@ fn test_burn_adjustment_case_f() {
 		SubtensorModule::set_max_registrations_per_block( netuid, 10 );
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -557,7 +569,7 @@ fn test_burn_adjustment_case_f() {
 			netuid,
 			curr_block_num,
 			nonce1, work1,
-			hotkey_account_id_1, 
+			hotkey_account_id_1,
 			coldkey_account_id_1
 		);
 		assert_ok!(result1);
@@ -605,7 +617,7 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 		SubtensorModule::set_max_registrations_per_block( netuid, 10 );
 		SubtensorModule::set_burn( netuid, burn_cost);
 		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval ); 
+		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
 		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
 		add_network(netuid, tempo, 0);
 
@@ -684,7 +696,7 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 
 // #[test]
 // fn test_nakamoto(){
-//     new_test_ext().execute_with(|| { 
+//     new_test_ext().execute_with(|| {
 
 //         // Create nakamoto.
 //         let n: u16 = 10;

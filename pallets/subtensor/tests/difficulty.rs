@@ -2,7 +2,7 @@ use crate::mock::*;
 use frame_support::assert_ok;
 mod mock;
 use sp_core::U256;
-use pallet_subtensor::{Error, Event};
+use pallet_subtensor::Event;
 
 #[test]
 #[cfg(not(tarpaulin))]
