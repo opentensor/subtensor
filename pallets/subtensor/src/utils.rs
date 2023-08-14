@@ -407,7 +407,7 @@ impl<T: Config> Pallet<T> {
         ensure_root( origin )?;
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
 
-        ValidatorSequenceLength::<T>::insert( netuid, validator_sequence_length );
+		Self::set_validator_sequence_length( netuid, validator_sequence_length );
 
         Ok(())
     }
@@ -424,7 +424,7 @@ impl<T: Config> Pallet<T> {
         ensure_root( origin )?;
         ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
 
-        ValidatorEpochLen::<T>::insert( netuid, validator_epoch_length );
+		Self::set_validator_epoch_length( netuid, validator_epoch_length );
 
         Ok(())
     }
