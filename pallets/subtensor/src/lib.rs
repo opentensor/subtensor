@@ -743,6 +743,7 @@ pub mod pallet {
         AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
         PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
         EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
+        EmissionSet(u16, u64), // --- Event created when emission value is set for a network.
         NetworkConnectionAdded(u16, u16, u16), // --- Event created when a network connection requirement is added.
         NetworkConnectionRemoved(u16, u16), // --- Event created when a network connection requirement is removed.
         DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
