@@ -1,6 +1,5 @@
 use super::*;
-use frame_support::inherent::Vec;
-use frame_support::sp_std::vec;
+use frame_support::{inherent::Vec, sp_std::vec, BoundedVec};
 
 
 impl<T: Config> Pallet<T> {
@@ -22,12 +21,12 @@ impl<T: Config> Pallet<T> {
     //
     // 	* 'port' (u16):
     // 		- The endpoint port information as a u16 encoded integer.
-    // 
+    //
     // 	* 'ip_type' (u8):
     // 		- The endpoint ip version as a u8, 4 or 6.
     //
     // 	* 'protocol' (u8):
-    // 		- UDP:1 or TCP:0 
+    // 		- UDP:1 or TCP:0
     //
     // 	* 'placeholder1' (u8):
     // 		- Placeholder for further extra params.
@@ -55,31 +54,31 @@ impl<T: Config> Pallet<T> {
     // 	* 'ServingRateLimitExceeded':
     // 		- Attempting to set prometheus information withing the rate limit min.
     //
-    pub fn do_serve_axon( 
-        origin: T::RuntimeOrigin, 
+    pub fn do_serve_axon(
+        origin: T::RuntimeOrigin,
 		netuid: u16,
-        version: u32, 
-        ip: u128, 
-        port: u16, 
+        version: u32,
+        ip: u128,
+        port: u16,
         ip_type: u8,
-        protocol: u8, 
-		placeholder1: u8, 
+        protocol: u8,
+		placeholder1: u8,
 		placeholder2: u8,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
         // --- 2. Ensure the hotkey is registered somewhere.
-        ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );  
-        
+        ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );
+
         // --- 3. Check the ip signature validity.
         ensure!( Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType );
         ensure!( Self::is_valid_ip_address(ip_type, ip), Error::<T>::InvalidIpAddress );
-  
+
         // --- 4. Get the previous axon information.
         let mut prev_axon = Self::get_axon_info( netuid, &hotkey_id );
         let current_block:u64 = Self::get_current_block_as_u64();
-        ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded ); 
+        ensure!( Self::axon_passes_rate_limit( netuid, &prev_axon, current_block ), Error::<T>::ServingRateLimitExceeded );
 
         // --- 6. We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
@@ -101,7 +100,95 @@ impl<T: Config> Pallet<T> {
         log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone() );
         Self::deposit_event(Event::AxonServed( netuid, hotkey_id ));
 
-        // --- 9. Return is successful dispatch. 
+        // --- 9. Return is successful dispatch.
+        Ok(())
+    }
+
+	// ---- The implementation for the extrinsic associate_ips which sets the outgoing IP information of a uid on a network.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'version' (u64):
+    // 		- The bittensor version identifier.
+    //
+    // 	* 'ip' (u64):
+    // 		- The endpoint ip information as a u128 encoded integer.
+    //
+    // 	* 'port' (u16):
+    // 		- The endpoint port information as a u16 encoded integer.
+    //
+    // 	* 'ip_type' (u8):
+    // 		- The endpoint ip version as a u8, 4 or 6.
+    //
+    // 	* 'protocol' (u8):
+    // 		- UDP:1 or TCP:0
+    //
+    // 	* 'placeholder1' (u8):
+    // 		- Placeholder for further extra params.
+    //
+    // 	* 'placeholder2' (u8):
+    // 		- Placeholder for further extra params.
+    //
+    // # Event:
+    // 	* IPInfoSet;
+    // 		- On successfully setting the ip info.
+    //
+    // # Raises:
+    // 	* 'NetworkDoesNotExist':
+    // 		- Attempting to set weights on a non-existent network.
+    //
+    // 	* 'NotAValidator':
+    // 		- Attempting to add associated IPs without a vpermit.
+	//
+    // 	* 'InvalidIpType':
+    // 		- The ip type is not 4 or 6.
+    //
+    // 	* 'InvalidIpAddress':
+    // 		- The numerically encoded ip address does not resolve to a proper ip.
+    //
+    // 	* 'ServingRateLimitExceeded':
+    // 		- Attempting to set prometheus information withing the rate limit min.
+    //
+    pub fn do_associate_ips(
+        origin: T::RuntimeOrigin,
+		netuid: u16,
+        associated_ips: Vec<IPInfoOf>,
+    ) -> dispatch::DispatchResult {
+        // --- 1. We check the callers (hotkey) signature.
+        let hotkey_id = ensure_signed(origin)?;
+
+		// --- 2. Ensure the hotkey is a validator, i.e. has a vpermit
+		ensure!( Self::has_vpermit_on_any_network( &hotkey_id ), Error::<T>::NoValidatorPermit);
+
+        // --- 3. Check the ip validity.
+		for ip_info in &associated_ips {
+			ensure!( Self::is_valid_ip_type(ip_info.ip_type), Error::<T>::InvalidIpType );
+			ensure!( Self::is_valid_ip_address(ip_info.ip_type, ip_info.ip), Error::<T>::InvalidIpAddress );
+		}
+
+        // --- 4. Get the previous associated IP information.
+		let prev_associated_ip_info = Self::get_associated_ip_info( netuid, &hotkey_id );
+		let last_update_block = prev_associated_ip_info.0;
+        let current_block:u64 = Self::get_current_block_as_u64();
+        ensure!( Self::associate_ip_info_passes_rate_limit( netuid, last_update_block, current_block ), Error::<T>::ServingRateLimitExceeded );
+
+		// --- 5. Check conversion to bounded vec.
+		let bounded_associated_ips = BoundedVec::<IPInfoOf, T::AssociatedIPsMaxSize>::try_from(associated_ips.clone());
+		ensure!( bounded_associated_ips.is_ok(), Error::<T>::AssociatedIPsMaxSizeExceeded);
+
+		// --- 5. We insert the associated IP Info and update the block.
+        AssociatedIPInfo::<T>::insert( netuid, hotkey_id.clone(), (current_block, bounded_associated_ips.unwrap() ) );
+
+        // --- 6. We deposit Associated IPs set event.
+        log::info!("IPInfoSet( hotkey:{:?} ) ", hotkey_id.clone() );
+        Self::deposit_event(Event::IPInfoSet( netuid, hotkey_id, associated_ips));
+
+        // --- 7. Return is successful dispatch.
         Ok(())
     }
 
@@ -122,7 +209,7 @@ impl<T: Config> Pallet<T> {
     //
     // 	* 'port' (u16):
     // 		- The prometheus port information as a u16 encoded integer.
-    // 
+    //
     // 	* 'ip_type' (u8):
     // 		- The prometheus ip version as a u8, 4 or 6.
     //
@@ -146,28 +233,28 @@ impl<T: Config> Pallet<T> {
     // 	* 'ServingRateLimitExceeded':
     // 		- Attempting to set prometheus information withing the rate limit min.
     //
-    pub fn do_serve_prometheus( 
-        origin: T::RuntimeOrigin, 
+    pub fn do_serve_prometheus(
+        origin: T::RuntimeOrigin,
 		netuid: u16,
-        version: u32, 
-        ip: u128, 
-        port: u16, 
+        version: u32,
+        ip: u128,
+        port: u16,
         ip_type: u8,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
         // --- 2. Ensure the hotkey is registered somewhere.
-        ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );  
+        ensure!( Self::is_hotkey_registered_on_any_network( &hotkey_id ), Error::<T>::NotRegistered );
 
         // --- 3. Check the ip signature validity.
         ensure!( Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType );
         ensure!( Self::is_valid_ip_address(ip_type, ip), Error::<T>::InvalidIpAddress );
-  
+
         // --- 5. We get the previous axon info assoicated with this ( netuid, uid )
         let mut prev_prometheus = Self::get_prometheus_info( netuid, &hotkey_id );
         let current_block:u64 = Self::get_current_block_as_u64();
-        ensure!( Self::prometheus_passes_rate_limit( netuid, &prev_prometheus, current_block ), Error::<T>::ServingRateLimitExceeded );  
+        ensure!( Self::prometheus_passes_rate_limit( netuid, &prev_prometheus, current_block ), Error::<T>::ServingRateLimitExceeded );
 
         // --- 6. We insert the prometheus meta.
         prev_prometheus.block = Self::get_current_block_as_u64();
@@ -187,13 +274,19 @@ impl<T: Config> Pallet<T> {
         log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone() );
         Self::deposit_event(Event::PrometheusServed( netuid, hotkey_id ));
 
-        // --- 10. Return is successful dispatch. 
+        // --- 10. Return is successful dispatch.
         Ok(())
     }
 
     /********************************
      --==[[  Helper functions   ]]==--
     *********************************/
+
+	pub fn associate_ip_info_passes_rate_limit( netuid: u16, last_updated_block: u64, current_block: u64 ) -> bool {
+        let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
+        let last_serve = last_updated_block;
+        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
+    }
 
     pub fn axon_passes_rate_limit( netuid: u16, prev_axon_info: &AxonInfoOf, current_block: u64 ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
@@ -211,6 +304,10 @@ impl<T: Config> Pallet<T> {
         return Axons::<T>::contains_key( netuid, hotkey );
     }
 
+	pub fn has_associated_ip_info( netuid: u16, hotkey: &T::AccountId ) -> bool {
+        return AssociatedIPInfo::<T>::contains_key( netuid, hotkey );
+    }
+
     pub fn has_prometheus_info( netuid: u16, hotkey: &T::AccountId ) -> bool {
         return Prometheus::<T>::contains_key( netuid, hotkey );
     }
@@ -219,7 +316,7 @@ impl<T: Config> Pallet<T> {
         if Self::has_axon_info( netuid, hotkey ) {
             return Axons::<T>::get( netuid, hotkey ).unwrap();
         } else{
-            return AxonInfo { 
+            return AxonInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
@@ -233,11 +330,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+	pub fn get_associated_ip_info( netuid: u16, hotkey: &T::AccountId ) -> (u64, Vec<IPInfoOf>){
+        if Self::has_associated_ip_info( netuid, hotkey ) {
+            let result = AssociatedIPInfo::<T>::get( netuid, hotkey ).unwrap();
+			return (result.0, result.1.into_inner());
+        } else{
+            return (0, vec![])
+        }
+    }
+
     pub fn get_prometheus_info( netuid: u16, hotkey: &T::AccountId ) -> PrometheusInfoOf {
         if Self::has_prometheus_info( netuid, hotkey ) {
             return Prometheus::<T>::get( netuid, hotkey ).unwrap();
         } else {
-            return PrometheusInfo { 
+            return PrometheusInfo {
                 block: 0,
                 version: 0,
                 ip: 0,

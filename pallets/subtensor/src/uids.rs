@@ -5,12 +5,12 @@ use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::DispatchError;
 use frame_support::storage::IterableStorageDoubleMap;
 
-impl<T: Config> Pallet<T> { 
+impl<T: Config> Pallet<T> {
 
     // Returns the number of filled slots on a network.
     ///
-    pub fn get_subnetwork_n( netuid:u16 ) -> u16 { 
-        return SubnetworkN::<T>::get( netuid ) 
+    pub fn get_subnetwork_n( netuid:u16 ) -> u16 {
+        return SubnetworkN::<T>::get( netuid )
     }
 
     // Replace the neuron under this uid.
@@ -22,9 +22,9 @@ impl<T: Config> Pallet<T> {
         let old_hotkey: T::AccountId = Keys::<T>::get( netuid, uid_to_replace );
 
         // 2. Remove previous set memberships.
-        Uids::<T>::remove( netuid, old_hotkey.clone() ); 
+        Uids::<T>::remove( netuid, old_hotkey.clone() );
         IsNetworkMember::<T>::remove( old_hotkey.clone(), netuid );
-        Keys::<T>::remove( netuid, uid_to_replace ); 
+        Keys::<T>::remove( netuid, uid_to_replace );
 
         // 2a. Check if the uid is registered in any other subnetworks.
         let hotkey_is_registered_on_any_network: bool = Self::is_hotkey_registered_on_any_network( &old_hotkey.clone() );
@@ -63,7 +63,7 @@ impl<T: Config> Pallet<T> {
         PruningScores::<T>::mutate(netuid, |v| v.push(0) );
         ValidatorTrust::<T>::mutate(netuid, |v| v.push(0) );
         ValidatorPermit::<T>::mutate(netuid, |v| v.push(false) );
- 
+
         // 4. Insert new account information.
         Keys::<T>::insert( netuid, next_uid, new_hotkey.clone() ); // Make hotkey - uid association.
         Uids::<T>::insert( netuid, new_hotkey.clone(), next_uid ); // Make uid - hotkey association.
@@ -79,27 +79,27 @@ impl<T: Config> Pallet<T> {
 
     // Returns true if the hotkey holds a slot on the network.
     //
-    pub fn is_hotkey_registered_on_network( netuid:u16, hotkey: &T::AccountId ) -> bool { 
-        return Uids::<T>::contains_key( netuid, hotkey ) 
+    pub fn is_hotkey_registered_on_network( netuid:u16, hotkey: &T::AccountId ) -> bool {
+        return Uids::<T>::contains_key( netuid, hotkey )
     }
 
     // Returs the hotkey under the network uid as a Result. Ok if the uid is taken.
     //
     pub fn get_hotkey_for_net_and_uid( netuid: u16, neuron_uid: u16) ->  Result<T::AccountId, DispatchError> {
-        Keys::<T>::try_get(netuid, neuron_uid).map_err(|_err| Error::<T>::NotRegistered.into()) 
+        Keys::<T>::try_get(netuid, neuron_uid).map_err(|_err| Error::<T>::NotRegistered.into())
     }
 
     // Returns the uid of the hotkey in the network as a Result. Ok if the hotkey has a slot.
     //
-    pub fn get_uid_for_net_and_hotkey( netuid: u16, hotkey: &T::AccountId) -> Result<u16, DispatchError> { 
-        return Uids::<T>::try_get(netuid, &hotkey).map_err(|_err| Error::<T>::NotRegistered.into()) 
+    pub fn get_uid_for_net_and_hotkey( netuid: u16, hotkey: &T::AccountId) -> Result<u16, DispatchError> {
+        return Uids::<T>::try_get(netuid, &hotkey).map_err(|_err| Error::<T>::NotRegistered.into())
     }
 
     // Returns the stake of the uid on network or 0 if it doesnt exist.
     //
-    pub fn get_stake_for_uid_and_subnetwork( netuid: u16, neuron_uid: u16) -> u64 { 
+    pub fn get_stake_for_uid_and_subnetwork( netuid: u16, neuron_uid: u16) -> u64 {
         if Self::is_uid_exist_on_network( netuid, neuron_uid) {
-            return Self::get_total_stake_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap() ) 
+            return Self::get_total_stake_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap() )
         } else {
             return 0;
         }
@@ -134,4 +134,15 @@ impl<T: Config> Pallet<T> {
         }
         false
     }
+
+	pub fn get_registrations_for_hotkey( hotkey: &T::AccountId ) -> Vec<(u16, u16)> {
+		let mut all_uids: Vec<(u16, u16)> = vec![];
+        for ( network, is_registered)  in <IsNetworkMember<T> as IterableStorageDoubleMap< T::AccountId, u16, bool >>::iter_prefix( hotkey ){
+            if is_registered {
+				let uid = Self::get_uid_for_net_and_hotkey( network, hotkey ).unwrap();
+				all_uids.push( (network, uid) );
+			}
+        }
+        all_uids
+	}
 }

@@ -165,6 +165,12 @@ pub mod pallet {
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
+
+		// =================================
+		// ===== Bounded Vec Max Sizes =====
+		// =================================
+		#[pallet::constant] // Maximum number of associated IPs per validator hotkey.
+		type AssociatedIPsMaxSize: Get<u32>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -425,6 +431,15 @@ pub mod pallet {
         pub placeholder2: u8, // --- Axon proto placeholder 1.
     }
 
+	// --- Struct for IP Info.
+	pub type IPInfoOf = IPInfo;
+	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+    pub struct IPInfo {
+        pub ip: u128,         // --- u128 encoded IP address of type v6 or v4.
+        pub ip_type: u8,      // --- IP type, 4 for ipv4 and 6 for ipv6.
+        pub protocol: u8,     // --- Axon protocol. TCP, UDP, other.
+    }
+
     // --- Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
@@ -463,6 +478,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
     pub(super) type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+	#[pallet::storage] // --- MAP ( netuid, hotkey ) --> (block_last_updated, Vec<ip_info>)
+	pub(super) type AssociatedIPInfo<T: Config> =
+		StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, (u64, BoundedVec<IPInfoOf, T::AssociatedIPsMaxSize>), OptionQuery>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
     pub(super) type Prometheus<T: Config> = StorageDoubleMap<
         _,
@@ -761,6 +779,7 @@ pub mod pallet {
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
+		IPInfoSet(u16, T::AccountId, Vec<IPInfoOf>), // Event created when setting the IP info for a neuron.
     }
 
     // Errors inform users that something went wrong.
@@ -817,6 +836,7 @@ pub mod pallet {
         BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
         NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
+		AssociatedIPsMaxSizeExceeded, // --- Thrown when the number of associated IPs exceeds the maximum allowed
     }
 
     // ==================
