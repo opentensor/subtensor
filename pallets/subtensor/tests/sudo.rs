@@ -184,7 +184,7 @@ fn test_sudo_registration() {
 #[test]
 fn test_sudo_set_default_take() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let to_be_set: u16 = 10;
         let init_value: u16 = SubtensorModule::get_default_take();
@@ -196,17 +196,15 @@ fn test_sudo_set_default_take() {
             Err(DispatchError::BadOrigin.into())
         );
         assert_eq!(SubtensorModule::get_default_take(), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_default_take(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::DefaultTakeSet(to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_default_take(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::DefaultTakeSet(
+                to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_default_take(), to_be_set);
     });
 }
@@ -214,7 +212,7 @@ fn test_sudo_set_default_take() {
 #[test]
 fn test_sudo_set_serving_rate_limit() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 3;
         let to_be_set: u64 = 10;
@@ -229,17 +227,15 @@ fn test_sudo_set_serving_rate_limit() {
         );
         assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
         assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_serving_rate_limit(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-        	)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::ServingRateLimitSet(netuid, to_be_set)
-				)
-			]
-		);
+            assert_ok!(SubtensorModule::sudo_set_serving_rate_limit(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::ServingRateLimitSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), to_be_set);
     });
 }
@@ -247,7 +243,7 @@ fn test_sudo_set_serving_rate_limit() {
 #[test]
 fn test_sudo_set_min_difficulty() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -270,18 +266,16 @@ fn test_sudo_set_min_difficulty() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_min_difficulty(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_min_difficulty(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::MinDifficultySet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_min_difficulty(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::MinDifficultySet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_min_difficulty(netuid), to_be_set);
     });
 }
@@ -289,7 +283,7 @@ fn test_sudo_set_min_difficulty() {
 #[test]
 fn test_sudo_set_max_difficulty() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -312,18 +306,16 @@ fn test_sudo_set_max_difficulty() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_difficulty(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_max_difficulty(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::MaxDifficultySet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_max_difficulty(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::MaxDifficultySet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_max_difficulty(netuid), to_be_set);
     });
 }
@@ -331,7 +323,7 @@ fn test_sudo_set_max_difficulty() {
 #[test]
 fn test_sudo_set_weights_version_key() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -354,18 +346,16 @@ fn test_sudo_set_weights_version_key() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_weights_version_key(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_weights_version_key(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::WeightsVersionKeySet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_weights_version_key(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::WeightsVersionKeySet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_weights_version_key(netuid), to_be_set);
     });
 }
@@ -373,7 +363,7 @@ fn test_sudo_set_weights_version_key() {
 #[test]
 fn test_sudo_set_weights_set_rate_limit() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -399,18 +389,16 @@ fn test_sudo_set_weights_set_rate_limit() {
             SubtensorModule::get_weights_set_rate_limit(netuid),
             init_value
         );
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_weights_set_rate_limit(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::WeightsSetRateLimitSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_weights_set_rate_limit(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(
+                Event::WeightsSetRateLimitSet(netuid, to_be_set)
+            )]
+        );
         assert_eq!(
             SubtensorModule::get_weights_set_rate_limit(netuid),
             to_be_set
@@ -421,7 +409,7 @@ fn test_sudo_set_weights_set_rate_limit() {
 #[test]
 fn test_sudo_set_adjustment_interval() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -444,18 +432,16 @@ fn test_sudo_set_adjustment_interval() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_adjustment_interval(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_adjustment_interval(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::AdjustmentIntervalSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_adjustment_interval(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::AdjustmentIntervalSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_adjustment_interval(netuid), to_be_set);
     });
 }
@@ -463,7 +449,7 @@ fn test_sudo_set_adjustment_interval() {
 #[test]
 fn test_sudo_set_adjustment_alpha() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -486,18 +472,16 @@ fn test_sudo_set_adjustment_alpha() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_adjustment_alpha(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::AdjustmentAlphaSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_adjustment_alpha(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::AdjustmentAlphaSet(
+                netuid, to_be_set
+            ))]
+        );
 
         assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), to_be_set);
     });
@@ -506,7 +490,7 @@ fn test_sudo_set_adjustment_alpha() {
 #[test]
 fn test_sudo_validator_prune_len() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -530,18 +514,16 @@ fn test_sudo_validator_prune_len() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_validator_prune_len(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_validator_prune_len(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::ValidatorPruneLenSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_validator_prune_len(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::ValidatorPruneLenSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_validator_prune_len(netuid), to_be_set);
     });
 }
@@ -549,7 +531,7 @@ fn test_sudo_validator_prune_len() {
 #[test]
 fn test_sudo_set_scaling_law_power() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 50;
@@ -572,18 +554,16 @@ fn test_sudo_set_scaling_law_power() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_scaling_law_power(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_scaling_law_power(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::ScalingLawPowerSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_scaling_law_power(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::ScalingLawPowerSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_scaling_law_power(netuid), to_be_set);
     });
 }
@@ -591,7 +571,7 @@ fn test_sudo_set_scaling_law_power() {
 #[test]
 fn test_sudo_set_max_weight_limit() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -614,18 +594,16 @@ fn test_sudo_set_max_weight_limit() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_weight_limit(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_max_weight_limit(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::MaxWeightLimitSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_max_weight_limit(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::MaxWeightLimitSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_max_weight_limit(netuid), to_be_set);
     });
 }
@@ -633,7 +611,7 @@ fn test_sudo_set_max_weight_limit() {
 #[test]
 fn test_sudo_set_issuance() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let to_be_set: u64 = 10;
         assert_eq!(
@@ -643,13 +621,13 @@ fn test_sudo_set_issuance() {
             ),
             Err(DispatchError::BadOrigin.into())
         );
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_total_issuance(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				to_be_set
-			)),
-			vec![] // No events emitted.
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_total_issuance(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                to_be_set
+            )),
+            vec![] // No events emitted.
+        );
         assert_eq!(SubtensorModule::get_total_issuance(), to_be_set);
     });
 }
@@ -657,7 +635,7 @@ fn test_sudo_set_issuance() {
 #[test]
 fn test_sudo_set_immunity_period() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -680,18 +658,16 @@ fn test_sudo_set_immunity_period() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_immunity_period(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_immunity_period(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::ImmunityPeriodSet(netuid, to_be_set)
-				)
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_immunity_period(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::ImmunityPeriodSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_immunity_period(netuid), to_be_set);
     });
 }
@@ -699,7 +675,7 @@ fn test_sudo_set_immunity_period() {
 #[test]
 fn test_sudo_set_min_allowed_weights() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -722,19 +698,16 @@ fn test_sudo_set_min_allowed_weights() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_min_allowed_weights(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(Event::MinAllowedWeightSet(
-					netuid,
-					to_be_set
-				))
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_min_allowed_weights(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::MinAllowedWeightSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), to_be_set);
     });
 }
@@ -742,7 +715,7 @@ fn test_sudo_set_min_allowed_weights() {
 #[test]
 fn test_sudo_set_max_allowed_uids() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -765,19 +738,16 @@ fn test_sudo_set_max_allowed_uids() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_max_allowed_uids(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(Event::MaxAllowedUidsSet(
-					netuid,
-					to_be_set
-				))
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::MaxAllowedUidsSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), to_be_set);
     });
 }
@@ -785,7 +755,7 @@ fn test_sudo_set_max_allowed_uids() {
 #[test]
 fn test_sudo_set_and_decrease_max_allowed_uids() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -808,19 +778,16 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_max_allowed_uids(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(Event::MaxAllowedUidsSet(
-					netuid,
-					to_be_set
-				))
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_max_allowed_uids(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::MaxAllowedUidsSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_ok!(SubtensorModule::sudo_set_max_allowed_uids(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -832,7 +799,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
 #[test]
 fn test_sudo_set_kappa() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -855,16 +822,16 @@ fn test_sudo_set_kappa() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_kappa(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(Event::KappaSet(netuid, to_be_set))
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_kappa(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::KappaSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_kappa(netuid), to_be_set);
     });
 }
@@ -872,7 +839,7 @@ fn test_sudo_set_kappa() {
 #[test]
 fn test_sudo_set_rho() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -895,16 +862,16 @@ fn test_sudo_set_rho() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_rho(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_rho(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(Event::RhoSet(netuid, to_be_set))
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_rho(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::RhoSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_rho(netuid), to_be_set);
     });
 }
@@ -912,7 +879,7 @@ fn test_sudo_set_rho() {
 #[test]
 fn test_sudo_set_activity_cutoff() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -935,19 +902,16 @@ fn test_sudo_set_activity_cutoff() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_activity_cutoff(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_activity_cutoff(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![
-				RuntimeEvent::SubtensorModule(Event::ActivityCutoffSet(
-					netuid,
-					to_be_set
-				))
-			]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_activity_cutoff(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::ActivityCutoffSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_activity_cutoff(netuid), to_be_set);
     });
 }
@@ -955,7 +919,7 @@ fn test_sudo_set_activity_cutoff() {
 #[test]
 fn test_sudo_set_target_registrations_per_interval() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -981,16 +945,16 @@ fn test_sudo_set_target_registrations_per_interval() {
             SubtensorModule::get_target_registrations_per_interval(netuid),
             init_value
         );
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_target_registrations_per_interval(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::RegistrationPerIntervalSet(netuid, to_be_set)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_target_registrations_per_interval(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(
+                Event::RegistrationPerIntervalSet(netuid, to_be_set)
+            )]
+        );
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),
             to_be_set
@@ -1001,7 +965,7 @@ fn test_sudo_set_target_registrations_per_interval() {
 #[test]
 fn test_sudo_set_difficulty() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -1024,16 +988,16 @@ fn test_sudo_set_difficulty() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), init_value);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_difficulty(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::DifficultySet(netuid, to_be_set)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_difficulty(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::DifficultySet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), to_be_set);
     });
 }
@@ -1041,7 +1005,7 @@ fn test_sudo_set_difficulty() {
 #[test]
 fn test_sudo_set_max_allowed_validators() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
@@ -1067,16 +1031,16 @@ fn test_sudo_set_max_allowed_validators() {
             SubtensorModule::get_max_allowed_validators(netuid),
             init_value
         );
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_max_allowed_validators(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::MaxAllowedValidatorsSet(netuid, to_be_set)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_max_allowed_validators(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(
+                Event::MaxAllowedValidatorsSet(netuid, to_be_set)
+            )]
+        );
         assert_eq!(
             SubtensorModule::get_max_allowed_validators(netuid),
             to_be_set
@@ -1087,7 +1051,7 @@ fn test_sudo_set_max_allowed_validators() {
 #[test]
 fn test_sudo_set_bonds_moving_average() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
         let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
@@ -1112,16 +1076,16 @@ fn test_sudo_set_bonds_moving_average() {
             SubtensorModule::get_bonds_moving_average(netuid),
             init_value
         );
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_bonds_moving_average(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::BondsMovingAverageSet(netuid, to_be_set)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_bonds_moving_average(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(Event::BondsMovingAverageSet(
+                netuid, to_be_set
+            ))]
+        );
         assert_eq!(SubtensorModule::get_bonds_moving_average(netuid), to_be_set);
     });
 }
@@ -1129,7 +1093,7 @@ fn test_sudo_set_bonds_moving_average() {
 #[test]
 fn test_sudo_set_network_connection_requirement() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid_a: u16 = 1;
         let netuid_b: u16 = 2;
@@ -1172,17 +1136,17 @@ fn test_sudo_set_network_connection_requirement() {
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
         add_network(netuid_b, 10, 0);
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_add_network_connection_requirement(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid_a,
-				netuid_b,
-				requirement
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::NetworkConnectionAdded(netuid_a, netuid_b, requirement)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_add_network_connection_requirement(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid_a,
+                netuid_b,
+                requirement
+            )),
+            vec![RuntimeEvent::SubtensorModule(
+                Event::NetworkConnectionAdded(netuid_a, netuid_b, requirement)
+            )]
+        );
         assert_eq!(
             SubtensorModule::get_network_connection_requirement(netuid_a, netuid_b),
             requirement
@@ -1211,16 +1175,16 @@ fn test_sudo_set_network_connection_requirement() {
             ),
             Err(Error::<Test>::NetworkDoesNotExist.into())
         );
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_remove_network_connection_requirement(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid_a,
-				netuid_b
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::NetworkConnectionRemoved(netuid_a, netuid_b)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_remove_network_connection_requirement(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid_a,
+                netuid_b
+            )),
+            vec![RuntimeEvent::SubtensorModule(
+                Event::NetworkConnectionRemoved(netuid_a, netuid_b)
+            )]
+        );
         assert_eq!(
             SubtensorModule::network_connection_requirement_exists(netuid_a, netuid_b),
             false
@@ -1231,7 +1195,7 @@ fn test_sudo_set_network_connection_requirement() {
 #[test]
 fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
@@ -1268,16 +1232,16 @@ fn test_sudo_set_rao_recycled() {
             0
         );
 
-		assert_events_emitted!(
-			assert_ok!(SubtensorModule::sudo_set_rao_recycled(
-				<<Test as Config>::RuntimeOrigin>::root(),
-				netuid,
-				to_be_set
-			)),
-			vec![RuntimeEvent::SubtensorModule(
-				Event::RAORecycledForRegistrationSet(netuid, to_be_set)
-			)]
-		);
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_rao_recycled(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            )),
+            vec![RuntimeEvent::SubtensorModule(
+                Event::RAORecycledForRegistrationSet(netuid, to_be_set)
+            )]
+        );
         assert_eq!(SubtensorModule::get_rao_recycled(netuid), to_be_set);
     });
 }
@@ -1286,7 +1250,7 @@ fn test_sudo_set_rao_recycled() {
 #[test]
 fn test_sudo_test_tempo_pending_emissions_ok() {
     new_test_ext().execute_with(|| {
-		step_block(1); // Events are not emitted on block 0.
+        step_block(1); // Events are not emitted on block 0.
 
         let netuid0: u16 = 1;
         let netuid1: u16 = 2;
@@ -1313,19 +1277,25 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
         let emission: Vec<u64> = vec![100000000, 400000000, 200000000, 300000000];
 
         // Verify OK and emitted events are as expected
-        assert_events_emitted!(assert_ok!(SubtensorModule::sudo_set_emission_values(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuids.clone(),
-            emission.clone()
-        )), [
-                netuids.into_iter().enumerate().map(|(i, netuid)| {
-                    RuntimeEvent::SubtensorModule(Event::EmissionSet(
-                        netuid,
-                        emission[i]
-                    )) // 1 event per netuid
-                }).collect::<Vec<RuntimeEvent>>().as_slice(),
+        assert_events_emitted!(
+            assert_ok!(SubtensorModule::sudo_set_emission_values(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuids.clone(),
+                emission.clone()
+            )),
+            [
+                netuids
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, netuid)| {
+                        RuntimeEvent::SubtensorModule(Event::EmissionSet(netuid, emission[i]))
+                        // 1 event per netuid
+                    })
+                    .collect::<Vec<RuntimeEvent>>()
+                    .as_slice(),
                 [RuntimeEvent::SubtensorModule(Event::EmissionValuesSet())].as_slice()
-            ].concat() // 1 event for sudo_set_emission_values
+            ]
+            .concat() // 1 event for sudo_set_emission_values
         ); // 1 event for sudo_set_emission_values
 
         assert_eq!(SubtensorModule::get_emission_value(netuid0), 100000000);

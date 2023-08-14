@@ -2,8 +2,8 @@ mod mock;
 use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
-use sp_core::U256;
 use pallet_subtensor::Event;
+use sp_core::U256;
 
 #[test]
 fn test_loaded_emission() {
@@ -204,38 +204,40 @@ fn test_burn_adjustment() {
             hotkey_account_id_2
         ));
 
-		let expected_new_burn = 1_500;
+        let expected_new_burn = 1_500;
 
-		// We are over the number of regs allowed this interval.
-		// Step the block and trigger the adjustment.
-		assert_events_emitted!(
-			step_block( 1 ),
-			vec![
-				RuntimeEvent::SubtensorModule(
-					Event::BurnSet(netuid, expected_new_burn)
-				)
-			]
-		);
+        // We are over the number of regs allowed this interval.
+        // Step the block and trigger the adjustment.
+        assert_events_emitted!(
+            step_block(1),
+            vec![RuntimeEvent::SubtensorModule(Event::BurnSet(
+                netuid,
+                expected_new_burn
+            ))]
+        );
 
-		// Check the adjusted burn.
-		assert_eq!(SubtensorModule::get_burn_as_u64(netuid), expected_new_burn);
-	});
+        // Check the adjusted burn.
+        assert_eq!(SubtensorModule::get_burn_as_u64(netuid), expected_new_burn);
+    });
 }
 
 #[test]
 fn test_burn_adjustment_with_moving_average() {
-	new_test_ext().execute_with(|| {
-		let netuid: u16 = 1;
-		let tempo: u16 = 13;
-		let burn_cost:u64 = 1000;
-		let adjustment_interval = 1;
-		let target_registrations_per_interval = 1;
-		SubtensorModule::set_burn( netuid, burn_cost);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
-		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
-		// Set alpha here.
-		add_network(netuid, tempo, 0);
-		SubtensorModule::set_adjustment_alpha( netuid, u64::MAX/2 );
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let burn_cost: u64 = 1000;
+        let adjustment_interval = 1;
+        let target_registrations_per_interval = 1;
+        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_target_registrations_per_interval(
+            netuid,
+            target_registrations_per_interval,
+        );
+        // Set alpha here.
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_adjustment_alpha(netuid, u64::MAX / 2);
 
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
@@ -274,19 +276,22 @@ fn test_burn_adjustment_case_a() {
     // ====================
     // There are too many registrations this interval and most of them are pow registrations
     // this triggers an increase in the pow difficulty.
-	new_test_ext().execute_with(|| {
-		let netuid: u16 = 1;
-		let tempo: u16 = 13;
-		let burn_cost:u64 = 1000;
-		let adjustment_interval = 1;
-		let target_registrations_per_interval = 1;
-		let start_diff: u64 = 10_000;
-		let mut curr_block_num = 0;
-		SubtensorModule::set_burn( netuid, burn_cost);
-		SubtensorModule::set_difficulty(netuid, start_diff);
-		SubtensorModule::set_adjustment_interval( netuid, adjustment_interval );
-		SubtensorModule::set_target_registrations_per_interval( netuid, target_registrations_per_interval);
-		add_network(netuid, tempo, 0);
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let burn_cost: u64 = 1000;
+        let adjustment_interval = 1;
+        let target_registrations_per_interval = 1;
+        let start_diff: u64 = 10_000;
+        let mut curr_block_num = 0;
+        SubtensorModule::set_burn(netuid, burn_cost);
+        SubtensorModule::set_difficulty(netuid, start_diff);
+        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_target_registrations_per_interval(
+            netuid,
+            target_registrations_per_interval,
+        );
+        add_network(netuid, tempo, 0);
 
         // Register key 1. This is a burn registration.
         let hotkey_account_id_1 = U256::from(1);
@@ -298,33 +303,45 @@ fn test_burn_adjustment_case_a() {
             hotkey_account_id_1
         ));
 
-		// Register key 2. This is a POW registration
-		let hotkey_account_id_2 =U256::from(2);
-		let coldkey_account_id_2 = U256::from(2);
-		let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, curr_block_num, 0, &hotkey_account_id_2);
-		let result0 = SubtensorModule::register(
-			<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
-			netuid,
-			curr_block_num,
-			nonce0, work0,
-			hotkey_account_id_2,
-			coldkey_account_id_2
-		);
-		assert_ok!(result0);
+        // Register key 2. This is a POW registration
+        let hotkey_account_id_2 = U256::from(2);
+        let coldkey_account_id_2 = U256::from(2);
+        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            curr_block_num,
+            0,
+            &hotkey_account_id_2,
+        );
+        let result0 = SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
+            netuid,
+            curr_block_num,
+            nonce0,
+            work0,
+            hotkey_account_id_2,
+            coldkey_account_id_2,
+        );
+        assert_ok!(result0);
 
-		// Register key 3. This is a POW registration
-		let hotkey_account_id_3 =U256::from(3);
-		let coldkey_account_id_3 = U256::from(3);
-		let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, curr_block_num, 11231312312, &hotkey_account_id_3);
-		let result1 = SubtensorModule::register(
-			<<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_3),
-			netuid,
-			curr_block_num,
-			nonce1, work1,
-			hotkey_account_id_3,
-			coldkey_account_id_3
-		);
-		assert_ok!(result1);
+        // Register key 3. This is a POW registration
+        let hotkey_account_id_3 = U256::from(3);
+        let coldkey_account_id_3 = U256::from(3);
+        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            curr_block_num,
+            11231312312,
+            &hotkey_account_id_3,
+        );
+        let result1 = SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_3),
+            netuid,
+            curr_block_num,
+            nonce1,
+            work1,
+            hotkey_account_id_3,
+            coldkey_account_id_3,
+        );
+        assert_ok!(result1);
 
         // We are over the number of regs allowed this interval.
         // Most of them are POW registrations (2 out of 3)

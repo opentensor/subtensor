@@ -463,7 +463,8 @@ pub fn events_since_last_call() -> Vec<RuntimeEvent> {
     let events = System::events();
     let already_seen = EventsSeen::get();
     EventsSeen::set(events.len() as u32);
-    events.into_iter()
+    events
+        .into_iter()
         .map(|r| r.event)
         .skip(already_seen as usize)
         .collect::<Vec<RuntimeEvent>>()
@@ -473,13 +474,9 @@ pub fn events_since_last_call() -> Vec<RuntimeEvent> {
 // Note: moves EventsSeen past events emitted before the call
 #[macro_export]
 macro_rules! assert_events_emitted {
-	($f:expr, $events_vec:expr ) => {
-        {
-            $crate::events_since_last_call();
-            $f;
-            assert_eq!(events_since_last_call(), $events_vec);
-        }
-    }
+    ($f:expr, $events_vec:expr ) => {{
+        $crate::events_since_last_call();
+        $f;
+        assert_eq!(events_since_last_call(), $events_vec);
+    }};
 }
-
-
