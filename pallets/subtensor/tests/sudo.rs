@@ -1323,7 +1323,7 @@ fn test_sudo_set_rao_recycled() {
         );
     });
 }
-   
+
 // -------- tests for PendingEmissionValues --------
 #[test]
 fn test_sudo_test_tempo_pending_emissions_ok() {
@@ -1354,11 +1354,11 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
         let emission: Vec<u64> = vec![100000000, 400000000, 200000000, 300000000];
 
         // Verify OK and emitted events are as expected
-        assert_events_emitted!(SubtensorModule::sudo_set_emission_values(
+        assert_events_emitted!(assert_ok!(SubtensorModule::sudo_set_emission_values(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuids.clone(),
             emission.clone()
-        ), [
+        )), [
                 netuids.into_iter().enumerate().map(|(i, netuid)| {
                     RuntimeEvent::SubtensorModule(Event::EmissionSet(
                         netuid,
@@ -1368,7 +1368,7 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
                 [RuntimeEvent::SubtensorModule(Event::EmissionValuesSet())].as_slice()
             ].concat() // 1 event for sudo_set_emission_values
         ); // 1 event for sudo_set_emission_values
-        
+
         assert_eq!(SubtensorModule::get_emission_value(netuid0), 100000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 400000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid2), 200000000);

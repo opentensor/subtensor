@@ -48,7 +48,7 @@ parameter_types! {
 }
 
 #[allow(dead_code)]
-pub type AccountId = U256; 
+pub type AccountId = U256;
 
 // The address format for describing accounts.
 pub type Address = AccountId;
@@ -123,12 +123,12 @@ parameter_types! {
 	pub const InitialStakePruningMin: u16 = 0;
 	pub const InitialFoundationDistribution: u64 = 0;
 	pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
-	pub const InitialWeightsVersionKey: u16 = 0; 
+	pub const InitialWeightsVersionKey: u16 = 0;
 	pub const InitialServingRateLimit: u64 = 0; // No limit.
 	pub const InitialTxRateLimit: u64 = 2; // 2 blocks per stake/unstake/delegate
 
-	pub const InitialBurn: u64 = 0; 
-	pub const InitialMinBurn: u64 = 0; 
+	pub const InitialBurn: u64 = 0;
+	pub const InitialMinBurn: u64 = 0;
 	pub const InitialMaxBurn: u64 = 1_000_000_000;
 
 	pub const InitialValidatorBatchSize: u16 = 10;
@@ -237,7 +237,7 @@ impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
 type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall; 
+	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
 	type MaxProposals = CouncilMaxProposals;
@@ -270,7 +270,7 @@ impl pallet_membership::Config<TriumvirateMembership> for Test {
 type SenateCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<SenateCollective> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall; 
+	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = CouncilMotionDuration;
 	type MaxProposals = CouncilMaxProposals;
@@ -437,10 +437,10 @@ pub fn events_since_last_call() -> Vec<RuntimeEvent> {
 // Note: moves EventsSeen past events emitted before the call
 #[macro_export]
 macro_rules! assert_events_emitted {
-    ($f:expr, $events_vec:expr ) => {
+	($f:expr, $events_vec:expr ) => {
         {
             $crate::events_since_last_call();
-            assert_ok!($f);
+            $f;
             assert_eq!(events_since_last_call(), $events_vec);
         }
     }
