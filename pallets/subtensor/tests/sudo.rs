@@ -1197,11 +1197,22 @@ pub fn test_sudo_test_pending_emission_ok_empty_network() {
 
 		step_block(2);
 
-		assert_eq!(SubtensorModule::get_pending_emission(netuid1), 1_000_000_000 * 2); // All the emission for 2 blocks
+		assert_eq!(SubtensorModule::get_pending_emission(netuid1), 250_000_000 * 2 ); // ONLY it's portion of the emission for 2 blocks
+		assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
 
         step_block(1); // Block == 3
 
         assert_eq!(SubtensorModule::get_pending_emission(netuid1), 0); // emission drained at block 3 for tempo 5
         assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
-    });
+
+		// Step to avoid tempo for netuid 2
+		step_block(1); // Block == 4
+
+		// Register to netuid2 -- No longer empty
+		register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
+
+		step_block(1); // Block == 5
+
+		assert_eq!(SubtensorModule::get_pending_emission(netuid2), 750_000_000 * 1); // Gets 1 block of emissions
+	});
 }
