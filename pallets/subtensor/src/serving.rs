@@ -340,6 +340,32 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+	// Return a vector of IPInfoOf structs for all current Validators associated with the netuid.
+	pub fn get_associated_validator_ip_info_for_subnet( netuid: u16 ) -> Option<Vec<IPInfoOf>> {
+		if !Self::if_subnet_exist( netuid ) {
+			return None;
+		}
+
+		let validator_permits_for_subnet = Self::get_validator_permit( netuid );
+		let mut validator_ips: Vec<IPInfoOf> = vec![];
+		for _uid in 0..validator_permits_for_subnet.len() {
+			let uid = _uid as u16;
+			let has_validator_permit = validator_permits_for_subnet[_uid];
+			let _hotkey_for_uid_in_subnet = Self::get_hotkey_for_net_and_uid( netuid, uid );
+			if !_hotkey_for_uid_in_subnet.is_ok() {
+				continue; // Skip when the UID has no hotkey. (e.g. does not exist)
+			}
+
+			let hotkey_for_uid_in_subnet = _hotkey_for_uid_in_subnet.unwrap(); // Safe to unwrap here.
+			if has_validator_permit && Self::has_associated_ip_info( netuid, &hotkey_for_uid_in_subnet ) {
+				let associated_ip_info = Self::get_associated_ip_info( netuid, &hotkey_for_uid_in_subnet );
+				validator_ips.extend(associated_ip_info.1);
+			}
+		}
+
+		return Some(validator_ips);
+	}
+
 	fn get_ip_type_from_ip_and_protocol(ip_and_protocol: Compact<u8>) -> u8 {
 		// IP version is the first 4 bits
 		return ip_and_protocol.0 >> 4;
