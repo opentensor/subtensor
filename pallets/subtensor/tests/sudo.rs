@@ -1131,7 +1131,7 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
 #[test]
 pub fn test_sudo_test_pending_emission_ok() {
     new_test_ext().execute_with(|| {
-        let netuid1: u16 = 1;
+		let netuid1: u16 = 1;
         let tempo1: u16 = 5;
 
         let netuid2: u16 = 2;
@@ -1139,6 +1139,9 @@ pub fn test_sudo_test_pending_emission_ok() {
 
         let netuids: Vec<u16> = vec![1, 2];
         let emission: Vec<u64> = vec![250000000, 750000000];
+
+		let hotkey_account_id: U256 = U256::from(1); // Can share hotkey account ID between networks
+		let coldkey_account_id: U256 = U256::from(2); // Can share coldkey account ID between networks
 
         add_network(netuid1, tempo1, 0);
         add_network(netuid2, tempo2, 0);
@@ -1149,6 +1152,10 @@ pub fn test_sudo_test_pending_emission_ok() {
             emission
         ));
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 250000000);
+
+		// Need to register at least one UID per network or no emission will be produced
+		register_ok_neuron(netuid1, hotkey_account_id, coldkey_account_id, 0);
+		register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
 
         step_block(3);
 
