@@ -999,6 +999,18 @@ impl_runtime_apis! {
             result.encode()
         }
     }
+
+	impl subtensor_custom_rpc_runtime_api::ValidatorIPRuntimeApi<Block> for Runtime {
+		fn get_associated_validator_ip_info_for_subnet(netuid: u16) -> Vec<u8> {
+			let _result = SubtensorModule::get_associated_validator_ip_info_for_subnet(netuid);
+			if _result.is_some() {
+				let result = _result.expect("Could not get associated Validator IPs for Subnet");
+				result.encode()
+			} else {
+				vec![]
+			}
+		}
+	}
 }
 
 #[cfg(test)]

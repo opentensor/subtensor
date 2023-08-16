@@ -22,4 +22,8 @@ sp_api::decl_runtime_apis! {
         fn get_subnet_info(netuid: u16) -> Vec<u8>;
         fn get_subnets_info() -> Vec<u8>;
     }
+
+	pub trait ValidatorIPRuntimeApi {
+		fn get_associated_validator_ip_info_for_subnet(netuid: u16) -> Vec<u8>;
+	}
 }

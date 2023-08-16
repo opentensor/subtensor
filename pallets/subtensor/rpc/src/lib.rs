@@ -14,6 +14,8 @@ use sp_api::ProvideRuntimeApi;
 pub use subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi;
 pub use subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi;
 pub use subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi;
+pub use subtensor_custom_rpc_runtime_api::ValidatorIPRuntimeApi;
+
 
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
@@ -45,6 +47,9 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_subnet_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetsInfo")]
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+
+	#[method(name = "validatorIP_getAssociatedValidatorIPInfoForSubnet")]
+	fn get_associated_validator_ip_info_for_subnet(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -84,6 +89,7 @@ where
     C::Api: DelegateInfoRuntimeApi<Block>,
     C::Api: NeuronInfoRuntimeApi<Block>,
     C::Api: SubnetInfoRuntimeApi<Block>,
+	C::Api: ValidatorIPRuntimeApi<Block>,
 {
     fn get_delegates(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -231,6 +237,20 @@ where
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get subnets info.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+	fn get_associated_validator_ip_info_for_subnet(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_associated_validator_ip_info_for_subnet(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get associated validator ip info for subnet.",
                 Some(e.to_string()),
             ))
             .into()
