@@ -14,7 +14,7 @@ use frame_support::{
     traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
 };
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, Compact};
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
@@ -63,6 +63,7 @@ pub mod pallet {
         pallet_prelude::{DispatchResult, StorageMap, *},
     };
     use frame_system::pallet_prelude::*;
+	use codec::Compact;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -433,11 +434,12 @@ pub mod pallet {
 
 	// --- Struct for IP Info.
 	pub type IPInfoOf = IPInfo;
-	#[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
+	#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct IPInfo {
-        pub ip: u128,         // --- u128 encoded IP address of type v6 or v4.
-        pub ip_type: u8,      // --- IP type, 4 for ipv4 and 6 for ipv6.
-        pub protocol: u8,     // --- Axon protocol. TCP, UDP, other.
+        pub ip: Compact<u128>,         // --- u128 encoded IP address of type v6 or v4.
+        pub ip_type_and_protocol: Compact<u8>, // Combined IP Type and Protocol. High bits are IP type, low bits are protocol.
+		// --- IP type, 4 for ipv4 and 6 for ipv6. (4-bits)
+        // --- Axon protocol. TCP, UDP, other. (4-bits)
     }
 
     // --- Struct for Prometheus.

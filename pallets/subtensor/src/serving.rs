@@ -167,8 +167,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Check the ip validity.
 		for ip_info in &associated_ips {
-			ensure!( Self::is_valid_ip_type(ip_info.ip_type), Error::<T>::InvalidIpType );
-			ensure!( Self::is_valid_ip_address(ip_info.ip_type, ip_info.ip), Error::<T>::InvalidIpAddress );
+			let ip_type: u8 = Self::get_ip_type_from_ip_and_protocol(ip_info.ip_type_and_protocol);
+			ensure!( Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType );
+			ensure!( Self::is_valid_ip_address(ip_type, ip_info.ip.0), Error::<T>::InvalidIpAddress );
 		}
 
         // --- 4. Get the previous associated IP information.
@@ -338,6 +339,17 @@ impl<T: Config> Pallet<T> {
             return (0, vec![])
         }
     }
+
+	fn get_ip_type_from_ip_and_protocol(ip_and_protocol: Compact<u8>) -> u8 {
+		// IP version is the first 4 bits
+		return ip_and_protocol.0 >> 4;
+	}
+
+	#[allow(dead_code)]
+	fn get_ip_protocol_from_ip_and_protocol(ip_and_protocol: Compact<u8>) -> u8 {
+		// IP protocol is the last 4 bits
+		return ip_and_protocol.0 & 0b00001111;
+	}
 
     pub fn get_prometheus_info( netuid: u16, hotkey: &T::AccountId ) -> PrometheusInfoOf {
         if Self::has_prometheus_info( netuid, hotkey ) {
