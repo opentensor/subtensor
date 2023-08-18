@@ -13,11 +13,11 @@ impl<T: Config> Pallet<T> {
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Calculate per-subnet emissions
-        Self::calculate_subnet_emissions(block_number);
+        Self::root_epoch( block_number );
         // --- 3. Drains emission tuples ( hotkey, amount ).
-        Self::drain_emission(block_number);
+        Self::drain_emission( block_number );
         // --- 4. Generates emission tuples from epoch functions.
-        Self::generate_emission(block_number);
+        Self::generate_emission( block_number );
     }
 
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
@@ -500,103 +500,4 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Calculates the emissions for each subnet based on the stake of validators in the subnet.
-    pub fn calculate_subnet_emissions(block_number: u64) {
-        // Todo: make the tempo for subnet emission calc configurable hyperparam (SubnetEmissionEpoch?)
-        if Self::blocks_until_next_epoch(0, 100, block_number) > 0 {
-            return;
-        }
-
-        let mut total_emissions: Vec<(u16, u64)> = vec![];
-        let mut total_emission_value = 0;
-        let mut total_stake = 0;
-        let emission = Self::get_block_emission();
-
-        // --- 1. Iterate through each subnet to collect total stake value.
-        for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
-            if Self::get_subnetwork_n(netuid) == 0 {
-                log::debug!("no uids found for netuid: {:?}", netuid);
-                continue;
-            }
-
-            let mut subnet_stake = 0;
-
-            // --- 2. Calculate the total stake of validators in the subnet.
-            for (uid, has_vpermit) in Self::get_validator_permit(netuid).iter().enumerate() {
-                if !has_vpermit {
-                    continue;
-                }
-
-                subnet_stake += Self::get_stake_for_uid_and_subnetwork(netuid, uid as u16);
-
-                log::debug!("found subnet stake: {:?}", subnet_stake);
-            }
-
-            if subnet_stake == 0 {
-                continue;
-            }
-            total_stake += subnet_stake;
-        }
-
-        // Don't remove protections for divide-by-zero
-        if total_stake == 0 {
-            return;
-        }
-
-        // --- 2. Iterate through each subnet to calculate proportional emissions
-        for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
-            if Self::get_subnetwork_n(netuid) == 0 {
-                log::debug!("no uids found for netuid: {:?}", netuid);
-                continue;
-            }
-
-            let mut subnet_stake = 0;
-
-            // --- 3. Calculate the total stake of validators in the subnet.
-            for (uid, has_vpermit) in Self::get_validator_permit(netuid).iter().enumerate() {
-                if !has_vpermit {
-                    continue;
-                }
-
-                subnet_stake += Self::get_stake_for_uid_and_subnetwork(netuid, uid as u16);
-
-                log::debug!("found subnet stake: {:?}", subnet_stake);
-            }
-
-            if subnet_stake == 0 {
-                continue;
-            }
-
-            // --- 4. Check if the subnet stake meets the minimum required stake for emissions.
-            if subnet_stake * 1000 / total_stake < 99 {
-                // Todo: make this a configurable hyperparam (MinimumStakeRequiredForEmissions)
-                log::debug!(
-                    "setting subnet stake to zero as it doesnt meet the percentage threshold: {:?}",
-                    subnet_stake * 1000 / total_stake
-                );
-                continue;
-            }
-
-            let proportional_emission =
-                Self::calculate_stake_proportional_emission(subnet_stake, total_stake, emission);
-            total_emission_value += proportional_emission;
-
-            total_emissions.push((netuid, proportional_emission));
-        }
-
-        // If we're missing some amount, push the remainder onto the last subnet
-        if total_emission_value < emission {
-            let delta = emission - total_emission_value;
-
-            let (netuid, emission) = total_emissions.swap_remove(total_emissions.len() - 1);
-            total_emissions.push((netuid, emission + delta));
-        }
-
-        // --- 5. Set the calculated emissions for each subnet.
-        for (netuid, emission) in total_emissions.iter() {
-            log::debug!("netuid: {:?} emission: {:?}", *netuid, *emission);
-
-            Self::set_emission_for_network(*netuid, *emission);
-        }
-    }
 }

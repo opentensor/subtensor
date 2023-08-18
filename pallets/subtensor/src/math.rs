@@ -20,6 +20,9 @@ pub fn fixed64_to_u64( x: I64F64 ) -> u64 { x.to_num::<u64>() }
 pub fn fixed64_to_fixed32( x: I64F64 ) -> I32F32 { I32F32::from_num( x ) }
 
 #[allow(dead_code)]
+pub fn fixed32_to_fixed64( x: I32F32 ) -> I64F64 { I64F64::from_num( x ) }
+
+#[allow(dead_code)]
 pub fn u16_to_fixed( x: u16 ) -> I32F32 { I32F32::from_num( x ) }
 
 #[allow(dead_code)]
@@ -29,7 +32,16 @@ pub fn u16_proportion_to_fixed( x: u16 ) -> I32F32 { I32F32::from_num( x ) / I32
 pub fn fixed_proportion_to_u16( x: I32F32 ) -> u16 { fixed_to_u16( x * I32F32::from_num( u16::MAX )) }
 
 #[allow(dead_code)]
+pub fn vec_fixed32_to_u64( vec: Vec<I32F32> ) -> Vec<u64> { vec.into_iter().map(|e| fixed_to_u64(e) ).collect() }
+
+#[allow(dead_code)]
 pub fn vec_fixed64_to_fixed32( vec: Vec<I64F64> ) -> Vec<I32F32> { vec.into_iter().map(|e| fixed64_to_fixed32(e) ).collect() }
+
+#[allow(dead_code)]
+pub fn vec_fixed32_to_fixed64( vec: Vec<I32F32> ) -> Vec<I64F64> { vec.into_iter().map(|e| fixed32_to_fixed64(e) ).collect() }
+
+#[allow(dead_code)]
+pub fn vec_fixed64_to_u64( vec: Vec<I64F64> ) -> Vec<u64> { vec.into_iter().map(|e| fixed64_to_u64(e) ).collect() }
 
 #[allow(dead_code)]
 pub fn vec_u16_proportions_to_fixed( vec: Vec<u16> ) -> Vec<I32F32> { vec.into_iter().map(|e| u16_proportion_to_fixed(e) ).collect() }
