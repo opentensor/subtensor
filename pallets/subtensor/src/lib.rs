@@ -1304,6 +1304,14 @@ pub mod pallet {
             Self::do_serve_prometheus(origin, netuid, version, ip, port, ip_type)
         }
 
+		#[pallet::call_index(59)]
+		#[pallet::weight((Weight::from_ref_time(15_000_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+		pub fn associate_ips(origin: OriginFor<T>, netuid: u16, ip_info_list: Vec<IPInfoOf>) -> DispatchResult {
+			Self::do_associate_ips(origin, netuid, ip_info_list)
+		}
+
         // ---- Registers a new neuron to the subnetwork.
         //
         // # Args:
