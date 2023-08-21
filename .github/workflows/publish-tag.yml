@@ -75,7 +75,7 @@ jobs:
           override: true
           profile: minimal
 
-      - name: Set up cargo cache
+      - name: ⚡ Cache
         uses: actions/cache@v3
         continue-on-error: false
         with:
@@ -86,9 +86,12 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run tests
+      - name: 🔨 Build
+        run: |
+          cargo build
+
+      - name: 🔎 Test
         run: |
           cargo test --tests
 
