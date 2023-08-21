@@ -13,7 +13,6 @@ on:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   ##
   # Alternatives triggers
-  push:
     branches:
       - "BIT-353-create-deterministic-wasm-builds-on-github-tag"
   workflow_dispatch:
