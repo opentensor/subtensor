@@ -86,7 +86,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ matrix.rust-target }}-cargo-
+          restore-keys: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run tests
         run: |
