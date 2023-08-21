@@ -65,8 +65,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt upgrade -y &&
-          apt install -y git cmake openssl protobuf
+          sudo apt upgrade -y &&
+          sudo apt install -y git cmake openssl protobuf
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
