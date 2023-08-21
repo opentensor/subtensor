@@ -49,7 +49,7 @@ jobs:
           - wasm32-unknown-unknown
 
         os:
-          - self-hosted
+          - ubuntu-latest
 
     ##
     # Environment variables specific to each target
