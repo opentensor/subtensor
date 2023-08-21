@@ -280,30 +280,6 @@ benchmarks! {
 
   }: sudo_set_emission_values(RawOrigin::<AccountIdOf<T>>::Root, netuids, emission)
 
-  benchmark_sudo_add_network_connection_requirement {
-    let netuid_a: u16 = 1; 
-    let netuid_b: u16 = 2; 
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let requirement: u16 = 1;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid_a.try_into().unwrap(), tempo.into(), modality.into()));
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid_b.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_add_network_connection_requirement(RawOrigin::<AccountIdOf<T>>::Root, netuid_a, netuid_b, requirement)
-
-  benchmark_sudo_remove_network_connection_requirement {
-    let netuid_a: u16 = 1; 
-    let netuid_b: u16 = 2; 
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let requirement: u16 = 1;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid_a.try_into().unwrap(), tempo.into(), modality.into()));
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid_b.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_remove_network_connection_requirement(RawOrigin::<AccountIdOf<T>>::Root, netuid_a, netuid_b)
-
   benchmark_sudo_set_default_take {
     let default_take: u16 = 100; 
 

@@ -590,6 +590,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkImmunity: u64 = 12 * 7200;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinBurnCost: u64 = 100_000_000_000; // 100 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -635,6 +636,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
     type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinBurnCost = SubtensorInitialMinBurnCost;
+    type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

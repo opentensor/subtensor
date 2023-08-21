@@ -637,6 +637,7 @@ fn test_senate_replace_lowest_member() {
         SubtensorModule::set_max_allowed_uids(netuid, 4096);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
 
         for i in 1..11u64 {
             let coldkey_account_id = U256::from(100 + i);

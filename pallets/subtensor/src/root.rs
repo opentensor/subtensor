@@ -21,6 +21,7 @@ use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use substrate_fixed::types::{I32F32, I64F64};
+const DAYS: u64 = 7200;
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the unique identifier (UID) for the root network.
@@ -67,6 +68,65 @@ impl<T: Config> Pallet<T> {
         SubnetLimit::<T>::get()
     }
 
+    /// Sets the emission values for each netuid 
+    /// 
+    ///
+    pub fn set_emission_values( netuids: &Vec<u16>, emission: Vec<u64> ) -> Result<(), &'static str> {
+        log::debug!("set_emission_values: netuids: {:?} emission:{:?}", netuids, emission );
+
+        /// Be careful this function can fail.
+        if Self::contains_invalid_root_uids( netuids ) { 
+            return Err( "Invalid netuids" );
+        }
+        for (i, netuid_i) in netuids.iter().enumerate() {
+            if Self::if_subnet_exist( *netuid_i ) {
+                if i < emission.len() {
+                    EmissionValues::<T>::insert( *netuid_i, emission[ i ] );
+                } else {
+                    return Err( "Emission vector is too short" );
+                }
+            } else {
+                return Err( "Subnet does not exist" );
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns the emission value for the given subnet.
+    ///
+    /// This function retrieves the emission value for the given subnet.
+    ///
+    /// # Returns:
+    /// * `u64`: The emission value for the given subnet.
+    ///
+    pub fn get_subnet_emission_value( netuid: u16 ) -> u64 {
+        EmissionValues::<T>::get( netuid )
+    }
+
+    /// Returns true if the subnetwork exists.
+    ///
+    /// This function checks if a subnetwork with the given UID exists.
+    ///
+    /// # Returns:
+    /// * `bool`: Whether the subnet exists.
+    ///
+    pub fn if_subnet_exist(netuid: u16) -> bool {
+        return NetworksAdded::<T>::get(netuid);
+    }
+
+
+    /// Returns true if the subnetwork allows registration.
+    ///
+    ///
+    /// This function checks if a subnetwork allows registrations.
+    ///
+    /// # Returns:
+    /// * `bool`: Whether the subnet allows registrations.
+    ///
+    pub fn if_subnet_allows_registration(netuid: u16) -> bool {
+        return NetworkRegistrationAllowed::<T>::get(netuid);
+    }
+
     /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
     ///
     /// It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
@@ -77,11 +137,10 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * `bool`: `true` if any of the UIDs are invalid, `false` otherwise.
     ///
-    pub fn contains_invalid_root_uids(uids: &Vec<u16>) -> bool {
+    pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         let total_subnets: u16 = Self::get_num_subnets();
-        for uid in uids {
-            // Check if the UID exceeds the total number of subnets or matches the root netuid.
-            if *uid > total_subnets || *uid == Self::get_root_netuid() {
+        for netuid in netuids {
+            if !Self::if_subnet_exist( *netuid ) || *netuid == Self::get_root_netuid() {
                 return true;
             }
         }
@@ -137,7 +196,8 @@ impl<T: Config> Pallet<T> {
             block_number,
         ) > 0
         {
-            return;
+            // Not the block to update emission values.
+            return
         }
 
         // --- 0. The unique ID associated with the root network.
@@ -146,11 +206,19 @@ impl<T: Config> Pallet<T> {
         // --- 1. Retrieves the number of registered peers on the the root network.
         let n: u16 = Self::get_subnetwork_n(root_netuid);
         log::trace!("n:\n{:?}\n", n);
+        if n == 0 {
+            // No validators.
+            return
+        }
 
         // --- 2. Obtains the maximum number of registered subnetworks. This function
         // will return a vector of size k.
         let k: u16 = Self::get_num_subnets();
         log::trace!("k:\n{:?}\n", k);
+        if k == 0 {
+            // No networks to validate.
+            return
+        }
 
         // --- 3. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
@@ -199,9 +267,8 @@ impl<T: Config> Pallet<T> {
         log::trace!("Eu64:\n{:?}\n", &emission_u64);
 
         // --- 11. Set the emission values for each subnet directly.
-        for (netuid_i, emission_i) in emission_u64.iter().enumerate() {
-            Self::set_emission_for_network(netuid_i as u16, *emission_i);
-        }
+        let netuids: Vec<u16> = (1..k).collect();
+        Self::set_emission_values( &netuids, emission_u64 );        
     }
 
     // ---- The implementation for the extrinsic set_root_weights.
@@ -509,7 +576,7 @@ impl<T: Config> Pallet<T> {
         Self::set_subnet_locked_balance(netuid_to_register, lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
-        Self::init_new_network_with_params(netuid_to_register);
+        Self::init_new_network(netuid_to_register, 1000);
 
         // --- 7. Set netuid storage.
         NetworkLastRegistered::<T>::set(current_block);
@@ -529,10 +596,115 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Facilitates the removal of a user's subnetwork.
+    ///
+    /// # Args:
+    /// 	* `origin`: (`T::RuntimeOrigin`): The calling origin. Must be signed.
+    ///     * `netuid`: (`u16`): The unique identifier of the network to be removed.
+    ///
+    /// # Event:
+    /// 	* `NetworkRemoved`: Emitted when a network is successfully removed.
+    ///
+    /// # Raises:
+    /// 	* `NetworkDoesNotExist`: If the specified network does not exist.
+    /// 	* `NotSubnetOwner`: If the caller does not own the specified subnet.
+    ///
+    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
+        // --- 1. Ensure the function caller is a signed user.
+        let coldkey = ensure_signed(origin)?;
+
+        // --- 2. Ensure this subnet exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // --- 3. Ensure the caller owns this subnet.
+        ensure!(
+            SubnetOwner::<T>::get(netuid) == coldkey,
+            Error::<T>::NotSubnetOwner
+        );
+
+        // --- 4. Explicitly erase the network and all its parameters.
+        Self::remove_network(netuid);
+
+        // --- 5. Emit the NetworkRemoved event.
+        log::info!("NetworkRemoved( netuid:{:?} )", netuid);
+        Self::deposit_event(Event::NetworkRemoved(netuid));
+
+        // --- 6. Return success.
+        Ok(())
+    }
+
+
+    // ---- The implementation for the extrinsic network_transfer_ownership.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The caller, must be the current owner of the network.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'dest' (T::AccountId):
+    // 		- The new owner of the network.
+    //
+    // # Event:
+    // 	* SubnetTransferred;
+    // 		- On the successful transfer of network ownership.
+    //
+    // # Raises:
+    // 	* 'BadOrigin':
+    // 		- The caller is not the current owner of the network.
+    //
+    pub fn network_transfer_ownership(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        dest: T::AccountId,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // Ensure that the caller is the current owner of the network.
+        ensure!(
+            SubnetOwner::<T>::get(netuid) == coldkey,
+            Error::<T>::NotSubnetOwner
+        );
+
+        // Set the new owner of the network.
+        SubnetOwner::<T>::set(netuid, dest.clone());
+
+        // Emit the SubnetTransferred event.
+        Self::deposit_event(Event::SubnetTransferred(netuid, coldkey, dest));
+
+        // Return success.
+        Ok(())
+    }
+
     /// Sets initial and custom parameters for a new network.
-    fn init_new_network_with_params(netuid: u16) {
-        Self::init_new_network(netuid, 100, 0);
-        Self::set_network_registration_allowed(netuid, true);
+    pub fn init_new_network( netuid: u16, tempo: u16 )  {
+
+        // --- 1. Set network to 0 size.
+        SubnetworkN::<T>::insert(netuid, 0);
+
+        // --- 2. Set this network uid to alive.
+        NetworksAdded::<T>::insert( netuid, true );
+
+        // --- 3. Fill tempo memory item.
+        Tempo::<T>::insert( netuid, tempo );
+
+        // --- 4 Fill modality item.
+        NetworkModality::<T>::insert( netuid, 0 );
+
+        // --- 5. Increase total network count.
+        TotalNetworks::<T>::mutate(|n| *n += 1);
+
+        // --- 6. Set all default values **explicitly**.
+        Self::set_network_registration_allowed( netuid, true );
         Self::set_immunity_period(netuid, 1000);
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 128);
@@ -542,6 +714,245 @@ impl<T: Config> Pallet<T> {
         Self::set_target_registrations_per_interval(netuid, 1);
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
-        Self::set_min_burn(netuid, 100_000_000);
+        Self::set_min_burn( netuid, 1 );
+
+        // Make network parameters explicit.
+        if !Tempo::<T>::contains_key(netuid) {
+            Tempo::<T>::insert(netuid, Tempo::<T>::get(netuid));
+        }
+        if !Kappa::<T>::contains_key(netuid) {
+            Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
+        }
+        if !Difficulty::<T>::contains_key(netuid) {
+            Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
+        }
+        if !MaxAllowedUids::<T>::contains_key(netuid) {
+            MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
+        }
+        if !ImmunityPeriod::<T>::contains_key(netuid) {
+            ImmunityPeriod::<T>::insert(netuid, ImmunityPeriod::<T>::get(netuid));
+        }
+        if !ActivityCutoff::<T>::contains_key(netuid) {
+            ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
+        }
+        if !EmissionValues::<T>::contains_key(netuid) {
+            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
+        }
+        if !MaxWeightsLimit::<T>::contains_key(netuid) {
+            MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
+        }
+        if !MinAllowedWeights::<T>::contains_key(netuid) {
+            MinAllowedWeights::<T>::insert(netuid, MinAllowedWeights::<T>::get(netuid));
+        }
+        if !RegistrationsThisInterval::<T>::contains_key(netuid) {
+            RegistrationsThisInterval::<T>::insert(
+                netuid,
+                RegistrationsThisInterval::<T>::get(netuid),
+            );
+        }
+        if !POWRegistrationsThisInterval::<T>::contains_key(netuid) {
+            POWRegistrationsThisInterval::<T>::insert(
+                netuid,
+                POWRegistrationsThisInterval::<T>::get(netuid),
+            );
+        }
+        if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) {
+            BurnRegistrationsThisInterval::<T>::insert(
+                netuid,
+                BurnRegistrationsThisInterval::<T>::get(netuid),
+            );
+        }
+    }
+
+    /// Removes a network (identified by netuid) and all associated parameters.
+    ///
+    /// This function is responsible for cleaning up all the data associated with a network. 
+    /// It ensures that all the storage values related to the network are removed, and any 
+    /// reserved balance is returned to the network owner.
+    ///
+    /// # Args:
+    /// 	* `netuid`: (`u16`): The unique identifier of the network to be removed.
+    ///
+    /// # Note:
+    /// This function does not emit any events, nor does it raise any errors. It silently 
+    /// returns if any internal checks fail.
+    ///
+    pub fn remove_network(netuid: u16) {
+        // --- 1. Return balance to subnet owner.
+        let owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let reserved_amount = Self::get_subnet_locked_balance(netuid);
+
+        // Ensure that we can convert this u64 to a balance.
+        let reserved_amount_as_bal = Self::u64_to_balance(reserved_amount);
+        if !reserved_amount_as_bal.is_some() {
+            return;
+        }
+
+        // --- 2. Remove network count.
+        SubnetworkN::<T>::remove(netuid);
+
+        // --- 3. Remove network modality storage.
+        NetworkModality::<T>::remove(netuid);
+
+        // --- 4. Remove netuid from added networks.
+        NetworksAdded::<T>::remove(netuid);
+
+        // --- 6. Decrement the network counter.
+        TotalNetworks::<T>::mutate(|n| *n -= 1);
+
+        // --- 7. Remove various network-related storages.
+        NetworkRegisteredAt::<T>::remove(netuid);
+
+        // --- 8. Remove incentive mechanism memory.
+        let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
+        let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
+        let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
+        let _ = Weights::<T>::clear_prefix(netuid, u32::max_value(), None);
+
+        // --- 9. Remove various network-related parameters.
+        Rank::<T>::remove(netuid);
+        Trust::<T>::remove(netuid);
+        Active::<T>::remove(netuid);
+        Emission::<T>::remove(netuid);
+        Incentive::<T>::remove(netuid);
+        Consensus::<T>::remove(netuid);
+        Dividends::<T>::remove(netuid);
+        PruningScores::<T>::remove(netuid);
+        LastUpdate::<T>::remove(netuid);
+        ValidatorPermit::<T>::remove(netuid);
+        ValidatorTrust::<T>::remove(netuid);
+
+        // --- 10. Erase network parameters.
+        Tempo::<T>::remove(netuid);
+        Kappa::<T>::remove(netuid);
+        Difficulty::<T>::remove(netuid);
+        MaxAllowedUids::<T>::remove(netuid);
+        ImmunityPeriod::<T>::remove(netuid);
+        ActivityCutoff::<T>::remove(netuid);
+        EmissionValues::<T>::remove(netuid);
+        MaxWeightsLimit::<T>::remove(netuid);
+        MinAllowedWeights::<T>::remove(netuid);
+        RegistrationsThisInterval::<T>::remove(netuid);
+        POWRegistrationsThisInterval::<T>::remove(netuid);
+        BurnRegistrationsThisInterval::<T>::remove(netuid);
+
+        // --- 11. Add the balance back to the owner.
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
+        Self::set_subnet_locked_balance(netuid, 0);
+        SubnetOwner::<T>::remove(netuid);
+    }
+
+    // This function calculates the burn cost for a network based on the last burn amount, minimum burn cost, last burn block, and current block.
+    // The burn cost is calculated using the formula:
+    // burn_cost = (last_burn * mult) - (last_burn / (8 * DAYS)) * (current_block - last_burn_block)
+    // where:
+    // - last_burn is the last burn amount for the network
+    // - mult is the multiplier which increases burn cost each time a registration occurs
+    // - last_burn_block is the block number at which the last burn occurred
+    // - current_block is the current block number
+    // - DAYS is the number of blocks in a day
+    // - min_burn is the minimum burn cost for the network
+    //
+    // If the calculated burn cost is less than the minimum burn cost, the minimum burn cost is returned.
+    //
+    // # Returns:
+    // 	* 'u64':
+    // 		- The burn cost for the network.
+    //
+    pub fn get_network_burn_cost() -> u64 {
+        let last_burn = Self::get_network_last_burn();
+        let min_burn = Self::get_network_min_burn();
+        let last_burn_block = Self::get_network_last_burn_block();
+        let current_block = Self::get_current_block_as_u64();
+
+        let mult = if last_burn_block == 0 { 1 } else { 2 };
+
+        let burn_cost =
+            (last_burn * mult) - (last_burn / (8 * DAYS)) * (current_block - last_burn_block);
+        if burn_cost < min_burn {
+            return min_burn;
+        }
+
+        burn_cost
+    }
+
+    // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
+    // It iterates over all the networks and finds the one with the minimum emission value that is not in the immunity period.
+    // If all networks are in the immunity period, it returns the one with the minimum emission value.
+    //
+    // # Returns:
+    // 	* 'u16':
+    // 		- The uid of the network to be pruned.
+    //
+    pub fn get_subnet_to_prune() -> u16 {
+        let mut min_score = 1;
+        let mut min_score_in_immunity_period = u64::MAX;
+        let mut uid_with_min_score = 1;
+        let mut uid_with_min_score_in_immunity_period: u16 = 1;
+
+        // Iterate over all networks
+        for netuid in 0..TotalNetworks::<T>::get() {
+            let emission_value: u64 = Self::get_emission_value(netuid);
+            let block_at_registration: u64 = Self::get_network_registered_block(netuid);
+            let current_block: u64 = Self::get_current_block_as_u64();
+            let immunity_period: u64 = Self::get_network_immunity_period();
+
+            // Check if the network is in the immunity period
+            if min_score == emission_value {
+                if current_block - block_at_registration < immunity_period {
+                    //neuron is in immunity period
+                    if min_score_in_immunity_period > emission_value {
+                        min_score_in_immunity_period = emission_value;
+                        uid_with_min_score_in_immunity_period = netuid;
+                    }
+                } else {
+                    min_score = emission_value;
+                    uid_with_min_score = netuid;
+                }
+            }
+            // Find min emission value.
+            else if min_score > emission_value {
+                if current_block - block_at_registration < immunity_period {
+                    // network is in immunity period
+                    if min_score_in_immunity_period > emission_value {
+                        min_score_in_immunity_period = emission_value;
+                        uid_with_min_score_in_immunity_period = netuid;
+                    }
+                } else {
+                    min_score = emission_value;
+                    uid_with_min_score = netuid;
+                }
+            }
+        }
+        // If all networks are in the immunity period, return the one with the minimum emission value.
+        if min_score == 1 {
+            // all networks are in immunity period
+            return uid_with_min_score_in_immunity_period;
+        } else {
+            return uid_with_min_score;
+        }
+    }
+
+    pub fn get_network_registered_block(netuid: u16) -> u64 {
+        NetworkRegisteredAt::<T>::get(netuid)
+    }
+
+    pub fn get_network_immunity_period() -> u64 {
+        NetworkImmunityPeriod::<T>::get()
+    }
+
+    pub fn get_network_min_burn() -> u64 {
+        NetworkMinBurnCost::<T>::get()
+    }
+
+    pub fn set_network_last_burn(amount: u64) {
+        NetworkLastBurnCost::<T>::set(amount);
+    }
+    pub fn get_network_last_burn() -> u64 {
+        NetworkLastBurnCost::<T>::get()
+    }
+
+    pub fn get_network_last_burn_block() -> u64 {
+        NetworkLastRegistered::<T>::get()
     }
 }

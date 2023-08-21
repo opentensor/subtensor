@@ -36,7 +36,6 @@ mod block_step;
 
 mod epoch;
 mod math;
-mod networks;
 mod registration;
 mod root;
 mod senate;
@@ -176,6 +175,8 @@ pub mod pallet {
         type InitialNetworkMinAllowedUids: Get<u16>;
         #[pallet::constant] // Initial network minimum burn cost
         type InitialNetworkMinBurnCost: Get<u64>;
+        #[pallet::constant] // Initial network subnet cut.
+        type InitialSubnetOwnerCut: Get<u16>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -374,6 +375,10 @@ pub mod pallet {
     pub fn DefaultNetworkMinBurnCost<T: Config>() -> u64 {
         T::InitialNetworkMinBurnCost::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
+        T::InitialSubnetOwnerCut::get()
+    }
 
     #[pallet::storage] // --- ITEM( total_allowed_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
@@ -386,9 +391,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultNeworksAdded<T>>;
-    #[pallet::storage] // --- DMAP ( netuid, netuid ) -> registration_requirement
-    pub type NetworkConnect<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Identity, u16, u16, OptionQuery>;
     #[pallet::storage] // --- DMAP ( hotkey, netuid ) --> bool
     pub type IsNetworkMember<T: Config> = StorageDoubleMap<
         _,
@@ -420,7 +422,10 @@ pub mod pallet {
     #[pallet::storage] // ITEM( last_network_burn_cost )
     pub type NetworkLastBurnCost<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
-
+    #[pallet::storage] // ITEM( subnet_owner_cut )
+    pub type SubnetOwnerCut<T> =
+            StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+    
     // ==============================
     // ==== Subnetwork Features =====
     // ==============================
@@ -811,8 +816,6 @@ pub mod pallet {
         AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
         PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
         EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
-        NetworkConnectionAdded(u16, u16, u16), // --- Event created when a network connection requirement is added.
-        NetworkConnectionRemoved(u16, u16), // --- Event created when a network connection requirement is removed.
         DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
         DefaultTakeSet(u16), // --- Event created when the default take is set.
         WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
@@ -831,12 +834,12 @@ pub mod pallet {
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         SubnetTransferred(u16, T::AccountId, T::AccountId), // Event created when a subnet's ownership is transferred to another user
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
+        SubnetOwnerCutSet( u16 ), // Event created when the subnet owner cut is set.
     }
 
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
-        InvalidConnectionRequirement, // --- Thrown if we are attempting to create an invalid connection requirement.
         NetworkDoesNotExist,          // --- Thrown when the network does not exist.
         NetworkExist,                 // --- Thrown when the network already exists.
         InvalidModality,              // --- Thrown when an invalid modality attempted on serve.
@@ -867,7 +870,6 @@ pub mod pallet {
         InvalidTempo,           // --- Thrown when tempo is not valid.
         EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks.
         InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
-        DidNotPassConnectedNetworkRequirement, // --- Thrown when a hotkey attempts to register into a network without passing the registration requirment from another network.
         AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
         SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
         IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
@@ -1049,10 +1051,24 @@ pub mod pallet {
         // 	* 'n': (T::BlockNumber):
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
-            Self::block_step();
-            return Weight::from_ref_time(110_634_229_000 as u64)
-                .saturating_add(T::DbWeight::get().reads(8304 as u64))
-                .saturating_add(T::DbWeight::get().writes(110 as u64));
+            let block_step_result = Self::block_step();
+            match block_step_result {
+                Ok(_) => {
+                    // --- If the block step was successful, return the weight.
+                    log::info!( "Successfully ran block step." );
+                    return Weight::from_ref_time(110_634_229_000 as u64)
+                        .saturating_add(T::DbWeight::get().reads(8304 as u64))
+                        .saturating_add(T::DbWeight::get().writes(110 as u64));
+                }
+                Err(e) => {
+                    // --- If the block step was unsuccessful, return the weight anyway.
+                    log::error!( "Error while stepping block: {:?}", e );
+                    return Weight::from_ref_time(110_634_229_000 as u64)
+                        .saturating_add(T::DbWeight::get().reads(8304 as u64))
+                        .saturating_add(T::DbWeight::get().writes(110 as u64));
+                }
+            }
+           
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -1455,7 +1471,7 @@ pub mod pallet {
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
 
-        // ---- Sudo add a network to the network set.
+        // DEPRECATED ---- Sudo add a network to the network set.
         // # Args:
         // 	* 'origin': (<T as frame_system::Config>Origin):
         // 		- Must be sudo.
@@ -1483,20 +1499,21 @@ pub mod pallet {
         // 	* 'InvalidTempo':
         // 		- Attempting to register a network with an invalid tempo.
         //
-        #[pallet::call_index(9)]
-        #[pallet::weight((Weight::from_ref_time(50_000_000)
-		.saturating_add(T::DbWeight::get().reads(17))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_add_network(
-            origin: OriginFor<T>,
-            netuid: u16,
-            tempo: u16,
-            modality: u16,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_add_network(origin, netuid, tempo, modality)
-        }
+        // #[pallet::call_index(9)]
+        // #[pallet::weight((Weight::from_ref_time(50_000_000)
+		// .saturating_add(T::DbWeight::get().reads(17))
+		// .saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_add_network(
+        //     origin: OriginFor<T>,
+        //     netuid: u16,
+        //     tempo: u16,
+        //     modality: u16,
+        // ) -> DispatchResultWithPostInfo {
+        //     // Deprecated
+        //     Ok(())
+        // }
 
-        // ---- Sudo remove a network from the network set.
+        // DEPRECATED ---- Sudo remove a network from the network set.
         // # Args:
         // 	* 'origin': (<T as frame_system::Config>Origin):
         // 		- Must be sudo.
@@ -1512,13 +1529,14 @@ pub mod pallet {
         // 	* 'NetworkDoesNotExist':
         // 		- Attempting to remove a non existent network.
         //
-        #[pallet::call_index(10)]
-        #[pallet::weight((Weight::from_ref_time(42_000_000)
-		.saturating_add(T::DbWeight::get().reads(2))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_remove_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::do_remove_network(origin, netuid)
-        }
+        // #[pallet::call_index(10)]
+        // #[pallet::weight((Weight::from_ref_time(42_000_000)
+		// .saturating_add(T::DbWeight::get().reads(2))
+		// .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_remove_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+        //     // Deprecated
+        //     Ok(())
+        // }
 
         // ---- Sudo set emission values for all networks.
         // Args:
@@ -1531,19 +1549,20 @@ pub mod pallet {
         // 	* `emission` (Vec<u64>):
         // 		- The emission values associated with passed netuids in order.
         //
-        #[pallet::call_index(11)]
-        #[pallet::weight((Weight::from_ref_time(28_000_000)
-		.saturating_add(T::DbWeight::get().reads(12))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_emission_values(
-            origin: OriginFor<T>,
-            netuids: Vec<u16>,
-            emission: Vec<u64>,
-        ) -> DispatchResult {
-            Self::do_set_emission_values(origin, netuids, emission)
-        }
+        // #[pallet::call_index(11)]
+        // #[pallet::weight((Weight::from_ref_time(28_000_000)
+		// .saturating_add(T::DbWeight::get().reads(12))
+		// .saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_emission_values(
+        //     origin: OriginFor<T>,
+        //     netuids: Vec<u16>,
+        //     emission: Vec<u64>,
+        // ) -> DispatchResult {
+        //     // Deprecated
+        //     Ok(())
+        // }
 
-        // ---- Sudo add a network connect requirement.
+        // DEPRECATED ---- Sudo add a network connect requirement.
         // Args:
         // 	* 'origin': (<T as frame_system::Config>Origin):
         // 		- The caller, must be sudo.
@@ -1557,45 +1576,37 @@ pub mod pallet {
         // 	* `requirement` (u16):
         // 		- The topk percentile prunning score requirement (u16:MAX normalized.)
         //
-        #[pallet::call_index(12)]
-        #[pallet::weight((Weight::from_ref_time(17_000_000)
-		.saturating_add(T::DbWeight::get().reads(2))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_add_network_connection_requirement(
-            origin: OriginFor<T>,
-            netuid_a: u16,
-            netuid_b: u16,
-            requirement: u16,
-        ) -> DispatchResult {
-            Self::do_sudo_add_network_connection_requirement(
-                origin,
-                netuid_a,
-                netuid_b,
-                requirement,
-            )
-        }
+        // #[pallet::call_index(12)]
+        // #[pallet::weight((Weight::from_ref_time(17_000_000)
+		// .saturating_add(T::DbWeight::get().reads(2))
+		// .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_add_network_connection_requirement(
+        //     origin: OriginFor<T>,
+        //     netuid_a: u16,
+        //     netuid_b: u16,
+        //     requirement: u16,
+        // ) -> DispatchResult {
+        //     Ok(())
+        // }
 
-        // ---- Sudo remove a network connection requirement.
+        // DEPRECATED ---- Sudo remove a network connection requirement.
         // Args:
         // 	* 'origin': (<T as frame_system::Config>Origin):
         // 		- The caller, must be sudo.
-        //
         // 	* `netuid_a` (u16):
         // 		- The network we are removing the requirment from.
-        //
         // 	* `netuid_b` (u16):
         // 		- The required network connection to remove.
-        //
-        #[pallet::call_index(13)]
-        #[pallet::weight((Weight::from_ref_time(15_000_000)
-		.saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_remove_network_connection_requirement(
-            origin: OriginFor<T>,
-            netuid_a: u16,
-            netuid_b: u16,
-        ) -> DispatchResult {
-            Self::do_sudo_remove_network_connection_requirement(origin, netuid_a, netuid_b)
-        }
+        // #[pallet::call_index(13)]
+        // #[pallet::weight((Weight::from_ref_time(15_000_000)
+		// .saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_remove_network_connection_requirement(
+        //     origin: OriginFor<T>,
+        //     netuid_a: u16,
+        //     netuid_b: u16,
+        // ) -> DispatchResult {
+        //     Ok(())
+        // }
 
         // ==================================
         // ==== Parameter Sudo calls ========
@@ -2068,6 +2079,12 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
+        }
+
+        #[pallet::call_index(63)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_owner_cut(origin: OriginFor<T>, cut: u16) -> DispatchResult {
+            Self::do_sudo_set_subnet_owner_cut(origin, cut)
         }
     }
 

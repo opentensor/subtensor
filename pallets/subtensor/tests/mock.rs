@@ -163,6 +163,8 @@ parameter_types! {
 
     pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinBurnCost: u64 = 100_000_000_000;
+
+    pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
 }
 
 // Configure collective pallet for council
@@ -357,6 +359,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
     type InitialNetworkMinBurnCost = InitialNetworkMinBurnCost;
+    type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
 }
 
 impl pallet_utility::Config for Test {
@@ -456,12 +459,9 @@ pub fn register_ok_neuron(
 
 #[allow(dead_code)]
 pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
-    let result = SubtensorModule::do_add_network(
-        <<Test as Config>::RuntimeOrigin>::root(),
+    SubtensorModule::init_new_network(
         netuid,
         tempo,
-        modality,
     );
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    assert_ok!(result);
 }

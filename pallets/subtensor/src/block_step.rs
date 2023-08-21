@@ -4,20 +4,23 @@ use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
+use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
-    pub fn block_step() {
+    pub fn block_step() -> Result<(), &'static str>{
         let block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Calculate per-subnet emissions
-        Self::root_epoch(block_number);
+        Self::root_epoch(block_number);      
         // --- 3. Drains emission tuples ( hotkey, amount ).
         Self::drain_emission(block_number);
         // --- 4. Generates emission tuples from epoch functions.
         Self::generate_emission(block_number);
+        // Return ok.
+        Ok(())
     }
 
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
@@ -111,14 +114,25 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 2. Queue the emission due to this network.
-            let new_queued_emission = EmissionValues::<T>::get(netuid);
-            PendingEmission::<T>::mutate(netuid, |queued| *queued += new_queued_emission);
+            let new_queued_emission = Self::get_subnet_emission_value( netuid) ;
+
+            // --- 3. Compute 18% cut for owners.
+            let cut: I96F32 = I96F32::from_num( new_queued_emission) * I96F32::from_num( Self::get_subnet_owner_cut( ) ) / I96F32::from_num( u16::MAX ) ;
+            let remaining: I96F32 = I96F32::from_num(new_queued_emission) - cut;
+
+            // --- 4. Add amount to owner coldkey and increment total issuance accordingly.
+            Self::add_balance_to_coldkey_account( &Self::get_subnet_owner( netuid ), Self::u64_to_balance( cut.to_num::<u64>()).unwrap() );
+            TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( cut.to_num::<u64>() ) );
+
+            // --- 5. Add remaining amount to the network's pending emission.
+            PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
             log::debug!(
                 "netuid_i: {:?} queued_emission: +{:?} ",
                 netuid,
                 new_queued_emission
             );
-            // --- 3. Check to see if this network has reached tempo.
+
+            // --- 6. Check to see if this network has reached tempo.
             if Self::blocks_until_next_epoch(netuid, tempo, block_number) != 0 {
                 // --- 3.1 No epoch, increase blocks since last step and continue,
                 Self::set_blocks_since_last_step(
@@ -128,16 +142,16 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
-            // --- 4 This network is at tempo and we are running its epoch.
+            // --- 7 This network is at tempo and we are running its epoch.
             // First drain the queued emission.
             let emission_to_drain: u64 = PendingEmission::<T>::get(netuid);
             PendingEmission::<T>::insert(netuid, 0);
 
-            // --- 5. Run the epoch mechanism and return emission tuples for hotkeys in the network.
+            // --- 8. Run the epoch mechanism and return emission tuples for hotkeys in the network.
             let emission_tuples_this_block: Vec<(T::AccountId, u64, u64)> =
                 Self::epoch(netuid, emission_to_drain);
 
-            // --- 6. Check that the emission does not exceed the allowed total.
+            // --- 9. Check that the emission does not exceed the allowed total.
             let emission_sum: u128 = emission_tuples_this_block
                 .iter()
                 .map(|(_account_id, ve, se)| *ve as u128 + *se as u128)
@@ -146,18 +160,18 @@ impl<T: Config> Pallet<T> {
                 continue;
             } // Saftey check.
 
-            // --- 7. Sink the emission tuples onto the already loaded.
+            // --- 10. Sink the emission tuples onto the already loaded.
             let mut concat_emission_tuples: Vec<(T::AccountId, u64, u64)> =
                 emission_tuples_this_block.clone();
             if Self::has_loaded_emission_tuples(netuid) {
-                // 7.a We already have loaded emission tuples, so we concat the new ones.
+                // 10.a We already have loaded emission tuples, so we concat the new ones.
                 let mut current_emission_tuples: Vec<(T::AccountId, u64, u64)> =
                     Self::get_loaded_emission_tuples(netuid);
                 concat_emission_tuples.append(&mut current_emission_tuples);
             }
             LoadedEmission::<T>::insert(netuid, concat_emission_tuples);
 
-            // --- 8 Set counters.
+            // --- 11 Set counters.
             Self::set_blocks_since_last_step(netuid, 0);
             Self::set_last_mechanism_step_block(netuid, block_number);
         }
@@ -300,6 +314,8 @@ impl<T: Config> Pallet<T> {
     // Adjusts the network difficulties/burns of every active network. Resetting state parameters.
     //
     pub fn adjust_registration_terms_for_networks() {
+        log::debug!("adjust_registration_terms_for_networks");
+
         // --- 1. Iterate through each network.
         for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             // --- 2. Pull counters for network difficulty.
@@ -316,6 +332,8 @@ impl<T: Config> Pallet<T> {
             // --- 3. Check if we are at the adjustment interval for this network.
             // If so, we need to adjust the registration difficulty based on target and actual registrations.
             if (current_block - last_adjustment_block) >= adjustment_interval as u64 {
+                log::debug!("interval reached.");
+
                 // --- 4. Get the current counters for this network w.r.t burn and difficulty values.
                 let current_burn: u64 = Self::get_burn_as_u64(netuid);
                 let current_difficulty: u64 = Self::get_difficulty_as_u64(netuid);
@@ -381,6 +399,7 @@ impl<T: Config> Pallet<T> {
                         );
                     }
                 } else {
+                    
                     // Not enough registrations this interval.
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations
@@ -439,6 +458,8 @@ impl<T: Config> Pallet<T> {
                 Self::set_registrations_this_interval(netuid, 0);
                 Self::set_pow_registrations_this_interval(netuid, 0);
                 Self::set_burn_registrations_this_interval(netuid, 0);
+            } else {
+                log::debug!("interval not reached.");
             }
 
             // --- 7. Drain block registrations for each network. Needed for registration rate limits.
