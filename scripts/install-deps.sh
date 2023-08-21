@@ -9,16 +9,16 @@ function install_deps()
         brew upgrade &&
         yes | brew install git cmake openssl protobuf
     elif [[ "$OSTYPE" == "darwin22" ]]; then
-        echo "NOT IMPLEMENTED"
+        echo "NOT IMPLEMENTED: $OSTYPE"
         exit 1
     elif [[ "$OSTYPE" == "darwin" ]]; then
-        echo "NOT IMPLEMENTED"
+        echo "NOT IMPLEMENTED: $OSTYPE"
         exit 1
     elif [[ "$OSTYPE" == "darwin20" ]]; then
-        echo "NOT IMPLEMENTED"
+        echo "NOT IMPLEMENTED: $OSTYPE"
         exit 1
     else
-        echo "NOT IMPLEMENTED"
+        echo "NOT IMPLEMENTED: $OSTYPE"
         exit 1
     fi
 }
