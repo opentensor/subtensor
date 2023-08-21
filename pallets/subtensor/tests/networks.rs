@@ -5,14 +5,18 @@ use frame_support::{
     sp_std::vec,
 };
 use frame_system::Config;
+use frame_system::{EventRecord, Phase};
 use mock::*;
 use pallet_subtensor::Error;
-use sp_core::{U256, H256};
-use frame_system::{EventRecord, Phase};
+use sp_core::{H256, U256};
 
 #[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
-	EventRecord { phase: Phase::Initialization, event, topics: vec![] }
+    EventRecord {
+        phase: Phase::Initialization,
+        event,
+        topics: vec![],
+    }
 }
 
 /*TO DO SAM: write test for LatuUpdate after it is set */

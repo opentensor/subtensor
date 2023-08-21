@@ -38,13 +38,13 @@ mod epoch;
 mod math;
 mod networks;
 mod registration;
+mod root;
 mod senate;
 mod serving;
 mod staking;
 mod uids;
 mod utils;
 mod weights;
-mod root;
 
 pub mod delegate_info;
 pub mod neuron_info;
@@ -101,7 +101,7 @@ pub mod pallet {
 
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>; 
+        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         // =================================
         // ==== Initial Value Constants ====
@@ -889,7 +889,7 @@ pub mod pallet {
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
         FaucetDisabled,         // --- Thrown when the faucet is disabled
         NotSubnetOwner,
-        OperationNotPermittedonRootSubnet, 
+        OperationNotPermittedonRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
     }
 
@@ -1422,11 +1422,8 @@ pub mod pallet {
         #[pallet::weight((Weight::from_ref_time(91_000_000)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
-        pub fn root_register(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-        ) -> DispatchResult {
-            Self::do_root_register( origin, hotkey )
+        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_root_register(origin, hotkey)
         }
 
         #[pallet::call_index(7)]
@@ -2048,10 +2045,8 @@ pub mod pallet {
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(
-            origin: OriginFor<T>,
-        ) -> DispatchResult {
-            Self::user_add_network( origin )
+        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
+            Self::user_add_network(origin)
         }
 
         #[pallet::call_index(60)]
@@ -2071,10 +2066,7 @@ pub mod pallet {
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn dissolve_network(
-            origin: OriginFor<T>,
-            netuid: u16
-        ) -> DispatchResult {
+        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
         }
     }
