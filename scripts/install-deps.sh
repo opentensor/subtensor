@@ -1,17 +1,20 @@
 #!/bin/bash
 
+function install_macosx_darwin_22_deps()
+{
+    brew upgrade &&
+    yes | brew install git cmake openssl protobuf
+}
+
 function install_deps()
 {
     if [[ "$OSTYPE" == "linux-gnu" ]]; then
         sudo apt upgrade -y && \
         sudo apt install -y git build-essential make clang libssl-dev llvm libudev-dev protobuf-compiler
     elif [[ "$OSTYPE" == 'darwin22.0' ]]; then
-        brew upgrade &&
-        yes | brew install git cmake openssl protobuf
+        install_macosx_darwin_22_deps
     elif [[ "$OSTYPE" == 'darwin22' ]]; then
-        brew upgrade &&
-        yes | brew install git cmake openssl protobuf
-        exit 1
+        install_macosx_darwin_22_deps
     elif [[ "$OSTYPE" == "darwin" ]]; then
         echo "NOT IMPLEMENTED: $OSTYPE"
         exit 1
