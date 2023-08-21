@@ -65,8 +65,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew upgrade &&
-          yes | brew install git cmake openssl protobuf
+          apt upgrade -y &&
+          apt install -y git cmake openssl protobuf
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
@@ -132,4 +132,3 @@ jobs:
           tag: ${{ github.ref }}-${{ matrix.rust-target }}
           name: Release ${{ github.ref }} for ${{ matrix.rust-target }}
           artifacts: 'release_chainspec.json,target/${{ matrix.rust-target }}/release/node-subtensor,${{ steps.srtool_build.outputs.wasm_compressed }}'
-
