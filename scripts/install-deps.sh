@@ -5,11 +5,12 @@ function install_deps()
     if [[ "$OSTYPE" == "linux-gnu" ]]; then
         sudo apt upgrade -y && \
         sudo apt install -y git build-essential make clang libssl-dev llvm libudev-dev protobuf-compiler
-    elif [[ "$OSTYPE" == "darwin22.0" ]]; then
+    elif [[ "$OSTYPE" == 'darwin22.0' ]]; then
         brew upgrade &&
         yes | brew install git cmake openssl protobuf
-    elif [[ "$OSTYPE" == "darwin22" ]]; then
-        echo "NOT IMPLEMENTED: $OSTYPE"
+    elif [[ "$OSTYPE" == 'darwin22' ]]; then
+        brew upgrade &&
+        yes | brew install git cmake openssl protobuf
         exit 1
     elif [[ "$OSTYPE" == "darwin" ]]; then
         echo "NOT IMPLEMENTED: $OSTYPE"
