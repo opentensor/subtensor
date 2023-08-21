@@ -6,12 +6,17 @@ concurrency:
 
 ##
 on:
-  workflow_dispatch:
   ##
   # Run when a semantic version is tagged
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  ##
+  # Alternatives triggers
+  push:
+    branches:
+      - "BIT-353-create-deterministic-wasm-builds-on-github-tag"
+  workflow_dispatch:
 
 ##
 # Environment variables shared for all targets
