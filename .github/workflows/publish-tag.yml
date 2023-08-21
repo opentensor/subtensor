@@ -63,11 +63,11 @@ jobs:
       - name: Check-out repository under ${{ github.workspace }}
         uses: actions/checkout@v2
 
-      - name: Install dependencies
+      - name: 🔧 Install dependencies
         run: |
           ./scripts/install-deps.sh
 
-      - name: Install Rust
+      - name: 🔧 Install Rust
         uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: ${{ matrix.rust-toolchain }}
@@ -87,15 +87,15 @@ jobs:
       #      target/
       #    key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cache dependencies
+      - name: ⚡ Cache dependencies
         uses: Swatinem/rust-cache@v2.6.2
       
-      - name: Configure sccache
-        run: | 
-            echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-            echo “SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+      #- name: ⚙️ Configure sccache
+      #  run: | 
+      #      echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+      #      echo “SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
 
-      - name: Run sccache-cache
+      - name: ⚡ Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: 🔨 Build
