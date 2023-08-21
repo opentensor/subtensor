@@ -44,6 +44,7 @@ mod staking;
 mod uids;
 mod utils;
 mod weights;
+mod root;
 
 pub mod delegate_info;
 pub mod neuron_info;
@@ -888,6 +889,8 @@ pub mod pallet {
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
         FaucetDisabled,         // --- Thrown when the faucet is disabled
         NotSubnetOwner,
+        OperationNotPermittedonRootSubnet, 
+        StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
     }
 
     // ==================
@@ -1413,6 +1416,17 @@ pub mod pallet {
             coldkey: T::AccountId,
         ) -> DispatchResult {
             Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+        }
+
+        #[pallet::call_index(62)]
+        #[pallet::weight((Weight::from_ref_time(91_000_000)
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        pub fn root_register(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_root_register( origin, hotkey )
         }
 
         #[pallet::call_index(7)]
@@ -2036,10 +2050,8 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(
             origin: OriginFor<T>,
-            immunity_period: u16,
-            reg_allowed: bool,
         ) -> DispatchResult {
-            Self::user_add_network(origin, 0, immunity_period, reg_allowed)
+            Self::user_add_network( origin )
         }
 
         #[pallet::call_index(60)]

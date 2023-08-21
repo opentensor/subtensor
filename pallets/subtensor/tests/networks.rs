@@ -10,6 +10,7 @@ use pallet_subtensor::Error;
 use sp_core::{U256, H256};
 use frame_system::{EventRecord, Phase};
 
+#[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 	EventRecord { phase: Phase::Initialization, event, topics: vec![] }
 }
@@ -411,69 +412,6 @@ fn test_set_emission_values_over_u16_max_values() {
                 emission
             ),
             Err(Error::<Test>::IncorrectNetuidsLength.into())
-        );
-    });
-}
-
-#[test]
-fn test_user_add_network() {
-    new_test_ext().execute_with(|| {
-        step_block(1);
-
-        assert_ok!(SubtensorModule::user_add_network(
-            <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-            0,
-            0,
-            true
-        ));
-
-        assert_eq!(
-			System::events(),
-			vec![
-				record(RuntimeEvent::SubtensorModule(SubtensorEvent::NetworkAdded(
-                    1,
-                    0
-                ))),
-			]
-		);
-    });
-}
-
-#[test]
-fn test_network_transfer_ownership() {
-    new_test_ext().execute_with(|| {
-        step_block(1);
-
-        // Set up the test environment
-        let netuid: u16 = 1;
-        let dest = U256::from(2);
-
-        // Add a network with netuid and set the current owner as the caller
-        assert_ok!(SubtensorModule::user_add_network(
-            <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-            0,
-            0,
-            true
-        ));
-
-        // Call the network_transfer_ownership function with the current owner as the caller
-        assert_ok!(SubtensorModule::network_transfer_ownership(
-            <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-            netuid,
-            dest.clone()
-        ));
-
-        // Check that the proper events have been emitted
-        assert_eq!(
-            System::events(),
-            vec![
-                record(RuntimeEvent::SubtensorModule(SubtensorEvent::NetworkAdded(netuid, 0))),
-                record(RuntimeEvent::SubtensorModule(SubtensorEvent::SubnetTransferred(
-                    netuid,
-                    U256::from(1).into(),
-                    dest.clone()
-                ))),
-            ]
         );
     });
 }

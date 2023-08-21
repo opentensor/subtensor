@@ -22,6 +22,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         ensure_root(origin)?;
         ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::OperationNotPermittedonRootSubnet
+        );
+        ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
@@ -117,6 +121,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 2. Ensure the passed network is valid.
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::OperationNotPermittedonRootSubnet
+        );
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
@@ -299,6 +307,10 @@ impl<T: Config> Pallet<T> {
         ensure!(signing_origin == hotkey, Error::<T>::HotkeyOriginMismatch);
 
         // --- 2. Ensure the passed network is valid.
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::OperationNotPermittedonRootSubnet
+        );
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist

@@ -19,7 +19,7 @@ use super::*;
 use crate::math::*;
 use frame_support::sp_std::vec;
 use frame_support::inherent::Vec;
-use substrate_fixed::types::{I32F32, I64F64, I96F32};
+use substrate_fixed::types::{I32F32, I64F64};
 use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> {
@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
         let mut weights: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0.0); k ]; n ]; 
 
         // --- 3. Iterate over stored weights and fill the matrix.
-        for ( uid_i, weights_i ) in < Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)> >>::iter_prefix( netuid ) {
+        for ( uid_i, weights_i ) in < Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)> >>::iter_prefix( Self::get_root_netuid() ) {
             
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the 
             // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the 
@@ -128,7 +128,7 @@ impl<T: Config> Pallet<T> {
     /// This function is responsible for calculating emission based on network weights, stake values, 
     /// and registered hotkeys.
     ///
-    pub fn root_epoch( block_number ) {
+    pub fn root_epoch( block_number: u64 ) {
 
         // --- -1. Check if we should update the emission values based on blocks since emission was last set.
         if Self::blocks_until_next_epoch( Self::get_root_netuid(), Self::get_root_tempo(), block_number ) > 0 {
@@ -174,26 +174,26 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
-        let mut weights_i32: Vec<Vec<I32F32>> = Self::get_weights( netuid );
+        let weights_i32: Vec<Vec<I32F32>> = Self::get_weights( root_netuid );
         log::trace!( "W:\n{:?}\n", &weights_i32 );
 
         // --- 8. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
-        let mut ranks_i32: Vec<I32F32> = matmul( &weights_i32, &stake_i32 );
-        log::trace!( "R:\n{:?}\n", &ranks );
+        let ranks_i32: Vec<I32F32> = matmul( &weights_i32, &stake_i32 );
+        log::trace!( "R:\n{:?}\n", &ranks_i32 );
 
         // --- 9. Converts the rank values to 64-bit fixed point representation for normalization.
-        let emission_i62: Vec<I64F64> = vec_fixed32_to_fixed64( ranks_i32 );
+        let mut emission_i62: Vec<I64F64> = vec_fixed32_to_fixed64( ranks_i32 );
         inplace_normalize_64( &mut emission_i62 );
         log::trace!( "Ei64:\n{:?}\n", &emission_i62 );
 
         // --- 10. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64( emission_i62 )
+        let emission_u64: Vec<u64> = vec_fixed64_to_u64( emission_i62 );
         log::trace!( "Eu64:\n{:?}\n", &emission_u64 );
 
         // --- 11. Set the emission values for each subnet directly.
         for ( netuid_i, emission_i ) in emission_u64.iter().enumerate() {
-            Self::set_emission_for_network( netuid_i, emission_i );
+            Self::set_emission_for_network( netuid_i as u16, *emission_i );
         }
     }
 
@@ -251,7 +251,7 @@ impl<T: Config> Pallet<T> {
         ensure!( Self::uids_match_values(&uids, &values), Error::<T>::WeightVecNotEqualSize );
 
         // --- 3. Check to see if the number of uids is within the max allowed uids for this network.
-        ensure!( uids.len() <= TotalNetworks::<T>::get(), Error::<T>::TooManyUids );
+        ensure!( uids.len() <= TotalNetworks::<T>::get() as usize, Error::<T>::TooManyUids );
 
         // --- 4. Ensure the hotkey is registered on the root network.
         ensure!(
@@ -325,17 +325,22 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * `DispatchResult`: A result type indicating success or failure of the registration.
     ///
-    pub fn do_register_root( 
+    pub fn do_root_register( 
         origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId
+        hotkey: T::AccountId
     ) -> DispatchResult {
 
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
+        let current_block_number: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            Self::if_subnet_exist(root_netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?; 
-        log::info!("do_register_root( coldkey: {:?}, hotkey: {:?} )", coldkey, hotkey );
+        log::info!("do_root_register( coldkey: {:?}, hotkey: {:?} )", coldkey, hotkey );
 
         // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
         ensure!(
@@ -353,7 +358,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Check if the hotkey is already registered. If so, error out.
         ensure!(
-            !Uids::<T>::contains_key( root_netuid, &hotkey),
+            !Uids::<T>::contains_key( root_netuid, &hotkey ),
             Error::<T>::AlreadyRegistered
         );
     
@@ -368,7 +373,7 @@ impl<T: Config> Pallet<T> {
         );
         
         // Declare a variable to hold the root UID.
-        let mut subnetwork_uid: u16;
+        let subnetwork_uid: u16;
 
         // --- 8. Check if the root net is below its allowed size.
         if current_subnetwork_n < Self::get_max_allowed_uids( root_netuid ) {
@@ -384,21 +389,27 @@ impl<T: Config> Pallet<T> {
             // Find the neuron with the lowest stake value to replace.
             let mut lowest_stake: u64 = u64::MAX;
             let mut lowest_uid: u16 = 0;
-            let mut lowest_hotkey: T::AccountId = T::AccountId::default();
 
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
-            for (uid_i, hotkey_i) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId> >>::iter_prefix( root_netuid ) {
+            for (uid_i, hotkey_i) in < Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId >>::iter_prefix( root_netuid ) {
                 let stake_i: u64 = Self::get_total_stake_for_hotkey( &hotkey_i );
                 if stake_i < lowest_stake {
-                    lowest_hotkey = hotkey_i;
                     lowest_stake = stake_i;
                     lowest_uid = uid_i;
                 }
             }
+            subnetwork_uid = lowest_uid;
 
+            // --- 13.1.2 The new account has a higher stake than the one being replaced.
+            ensure!(
+                lowest_stake < Self::get_total_stake_for_hotkey( &hotkey ),
+                Error::<T>::StakeTooLowForRoot
+            );
+
+            // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
             Self::replace_neuron( root_netuid, lowest_uid, &hotkey, current_block_number );
-            log::info!("prune neuron");
+            log::info!("replace neuron");
         }
 
         // --- 14. Update the registration counters for both the block and interval.
@@ -428,7 +439,6 @@ impl<T: Config> Pallet<T> {
     /// 	* `BalanceWithdrawalError`: If an error occurs during balance withdrawal for network registration.
     ///
     pub fn user_add_network( origin: T::RuntimeOrigin, ) -> dispatch::DispatchResult {
-
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
@@ -469,16 +479,16 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Perform the lock operation.
         ensure!( Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()) == true, Error::<T>::BalanceWithdrawalError );
-        Self::set_subnet_locked_balance(netuid_to_register, reserve_amount);
+        Self::set_subnet_locked_balance( netuid_to_register, lock_amount );
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network_with_params( netuid_to_register );
 
         // --- 7. Set netuid storage.
-        NetworkLastRegistered::<T>::set(current_block);
-        NetworkRegisteredAt::<T>::insert(netuid, current_block);
-        SubnetOwner::<T>::insert(netuid, coldkey);
-        Self::set_network_last_burn(reserve_amount);
+        NetworkLastRegistered::<T>::set( current_block );
+        NetworkRegisteredAt::<T>::insert( netuid_to_register, current_block );
+        SubnetOwner::<T>::insert( netuid_to_register, coldkey );
+        Self::set_network_last_burn( lock_amount );
 
         // --- 8. Emit the NetworkAdded event.
         log::info!("NetworkAdded( netuid:{:?}, modality:{:?} )", netuid_to_register, 0 );

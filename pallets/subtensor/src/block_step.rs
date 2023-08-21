@@ -13,11 +13,11 @@ impl<T: Config> Pallet<T> {
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Calculate per-subnet emissions
-        Self::root_epoch( block_number );
+        Self::root_epoch(block_number);
         // --- 3. Drains emission tuples ( hotkey, amount ).
-        Self::drain_emission( block_number );
+        Self::drain_emission(block_number);
         // --- 4. Generates emission tuples from epoch functions.
-        Self::generate_emission( block_number );
+        Self::generate_emission(block_number);
     }
 
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
@@ -499,5 +499,4 @@ impl<T: Config> Pallet<T> {
             return next_value.to_num::<u64>();
         }
     }
-
 }

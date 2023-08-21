@@ -222,12 +222,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns true if the passed uids have the same length of the passed values.
-    fn uids_match_values(uids: &Vec<u16>, values: &Vec<u16>) -> bool {
+    pub fn uids_match_values(uids: &Vec<u16>, values: &Vec<u16>) -> bool {
         return uids.len() == values.len();
     }
 
     // Returns true if the items contain duplicates.
-    fn has_duplicate_uids(items: &Vec<u16>) -> bool {
+    pub fn has_duplicate_uids(items: &Vec<u16>) -> bool {
         let mut parsed: Vec<u16> = Vec::new();
         for item in items {
             if parsed.contains(&item) {

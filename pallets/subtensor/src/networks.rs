@@ -7,14 +7,10 @@ use sp_std::vec::Vec;
 const DAYS: u64 = 7200;
 
 impl<T: Config> Pallet<T> {
-
-    pub fn user_remove_network(
-        origin: T::RuntimeOrigin,
-        netuid: u16
-    ) -> dispatch::DispatchResult {
+    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
         // Ensure the function caller is a signed user.
         let coldkey = ensure_signed(origin)?;
-        
+
         // Ensure this subnet exists
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -22,7 +18,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure we own this subnet
-        ensure!(SubnetOwner::<T>::get(netuid) == coldkey, Error::<T>::NotSubnetOwner);
+        ensure!(
+            SubnetOwner::<T>::get(netuid) == coldkey,
+            Error::<T>::NotSubnetOwner
+        );
 
         // --- 3. Explicitly erase the network and all its parameters.
         Self::remove_network(netuid);
@@ -434,8 +433,10 @@ impl<T: Config> Pallet<T> {
         let reserved_amount = Self::get_subnet_locked_balance(netuid);
 
         // Ensure that we can convert this u64 to a balance.
-        let reserved_amount_as_bal = Self::u64_to_balance( reserved_amount );
-        if !reserved_amount_as_bal.is_some() { return }
+        let reserved_amount_as_bal = Self::u64_to_balance(reserved_amount);
+        if !reserved_amount_as_bal.is_some() {
+            return;
+        }
 
         // --- 1. Remove network count.
         SubnetworkN::<T>::remove(netuid);
@@ -457,7 +458,7 @@ impl<T: Config> Pallet<T> {
         Self::set_subnet_locked_balance(netuid, 0);
 
         // Add the balance back to the owner
-        Self::add_balance_to_coldkey_account( &owner_coldkey, reserved_amount_as_bal.unwrap() );
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
     }
 
     // Explicitly sets all network parameters to their default values.
