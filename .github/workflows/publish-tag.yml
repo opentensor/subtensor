@@ -75,17 +75,28 @@ jobs:
           override: true
           profile: minimal
 
-      - name: ⚡ Cache
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      #- name: ⚡ Cache
+      #  uses: actions/cache@v3
+      #  continue-on-error: false
+      #  with:
+      #    path: |
+      #      ~/.cargo/bin/
+      #      ~/.cargo/registry/index/
+      #      ~/.cargo/registry/cache/
+      #      ~/.cargo/git/db/
+      #      target/
+      #    key: ${{ matrix.rust-target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache dependencies
+        uses: Swatinem/rust-cache@v2.6.2
+      
+      - name: Configure sccache
+        run: | 
+            echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
+            echo “SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.3
 
       - name: 🔨 Build
         run: |
