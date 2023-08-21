@@ -455,46 +455,6 @@ benchmarks! {
 
   }: sudo_set_min_allowed_weights(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_allowed_weights)
 
-  benchmark_sudo_set_validator_batch_size{
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let validator_batch_size: u16 = 10;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_validator_batch_size(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_batch_size)
-
-  benchmark_sudo_set_validator_sequence_length{
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let validator_sequence_length: u16 = 10;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_validator_sequence_length(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_sequence_length)
-
-  benchmark_sudo_set_validator_epochs_per_reset {
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let validator_epochs_per_reset: u16 = 10;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_validator_epochs_per_reset(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_epochs_per_reset)
-
-  benchmark_sudo_set_validator_exclude_quantile {
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let validator_exclude_quantile: u16 = 10;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_validator_exclude_quantile(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_exclude_quantile)
-
   benchmark_sudo_set_validator_prune_len {
     let netuid: u16 = 1;
     let tempo: u16 = 1;
@@ -505,16 +465,6 @@ benchmarks! {
 
   }: sudo_set_validator_prune_len(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_prune_len)
 
-  benchmark_sudo_set_validator_logits_divergence {
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let validator_logits_divergence: u16 = 100;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_validator_logits_divergence(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_logits_divergence)
-
   benchmark_sudo_set_scaling_law_power {
     let netuid: u16 = 1;
     let tempo: u16 = 1;
@@ -524,16 +474,6 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 
   }: sudo_set_scaling_law_power(RawOrigin::<AccountIdOf<T>>::Root, netuid, scaling_law_power)
-
-  benchmark_sudo_set_synergy_scaling_law_power {
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let synergy_scaling_law_power: u16 = 100;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_synergy_scaling_law_power(RawOrigin::<AccountIdOf<T>>::Root, netuid, synergy_scaling_law_power)
 
   benchmark_sudo_set_immunity_period {
     let netuid: u16 = 1;
@@ -580,16 +520,6 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
 
   }: burned_register(RawOrigin::Signed( coldkey.clone() ), netuid, hotkey)
-
-  benchmark_sudo_set_validator_epoch_length {
-    let netuid: u16 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let validator_epoch_len: u16 = 10;
-
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-
-  }: sudo_set_validator_epoch_len(RawOrigin::<AccountIdOf<T>>::Root, netuid, validator_epoch_len)
 
   benchmark_sudo_set_burn {
     let netuid: u16 = 1;

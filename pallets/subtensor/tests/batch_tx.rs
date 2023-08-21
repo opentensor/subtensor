@@ -16,20 +16,16 @@ fn test_batch_txs() {
     ];
     test_ext_with_balances(initial_balances).execute_with(|| {
         assert_ok!(Utility::batch(
-            <<Test as Config>::RuntimeOrigin>::signed(alice), 
+            <<Test as Config>::RuntimeOrigin>::signed(alice),
             vec![
-                RuntimeCall::Balances(
-                    BalanceCall::transfer{
-                        dest: bob,
-                        value: 1_000_000_000
-                    }
-                ),
-                RuntimeCall::Balances(
-                    BalanceCall::transfer{
-                        dest: charlie,
-                        value: 1_000_000_000
-                    }
-                )
+                RuntimeCall::Balances(BalanceCall::transfer {
+                    dest: bob,
+                    value: 1_000_000_000
+                }),
+                RuntimeCall::Balances(BalanceCall::transfer {
+                    dest: charlie,
+                    value: 1_000_000_000
+                })
             ]
         ));
         assert_eq!(Balances::total_balance(&alice), 6_000_000_000);
