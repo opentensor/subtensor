@@ -77,6 +77,7 @@ impl<T: Config> Pallet<T> {
             return Err("netuids and emission must have the same length");
         }
         for (i, netuid_i) in netuids.iter().enumerate() {
+            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission[i]);
             EmissionValues::<T>::insert(*netuid_i, emission[i]);
         }
         Ok(())
@@ -129,7 +130,7 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         let total_subnets: u16 = Self::get_num_subnets();
         for netuid in netuids {
-            if !Self::if_subnet_exist(*netuid) || *netuid == Self::get_root_netuid() {
+            if !Self::if_subnet_exist(*netuid) {
                 return true;
             }
         }
@@ -260,7 +261,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("Eu64:\n{:?}\n", &emission_u64);
 
         // --- 11. Set the emission values for each subnet directly.
-        let netuids: Vec<u16> = (1..k).collect();
+        let netuids: Vec<u16> = (0..k).collect();
         return Self::set_emission_values(&netuids, emission_u64);
     }
 

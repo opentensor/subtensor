@@ -194,8 +194,6 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_root_set_weights() {
     new_test_ext().execute_with(|| {
-        log::debug!("Running test_root_set_weights");
-
         let n: usize = 10;
         let root_netuid: u16 = 0;
         add_network(root_netuid, 0, 0);
@@ -235,9 +233,30 @@ fn test_root_set_weights() {
         // This will fail because their are not enough netuids.
         assert!(SubtensorModule::root_epoch(1_000_000_000).is_err());
         // Lets create n networks
-        for i in 1..(n + 1) {
-            add_network(i as u16, 0, 0);
+        for netuid in 1..n  {
+            log::debug!("Adding network with netuid: {}", netuid);
+            add_network(netuid as u16, 13, 0);
         }
+        // The root network is on tempo.
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
+        // Check that the emission values have been set.
+        for netuid in 1..n {
+            log::debug!("check emission for netuid: {}", netuid);
+            assert_eq!( SubtensorModule::get_subnet_emission_value( netuid as u16 ), 111111111 );
+        }
+        step_block(1);
+        // Check that the pending emission values have been set.
+        for netuid in 1..n {
+            log::debug!("check pending emission for netuid {} has pending {}", netuid, SubtensorModule::get_pending_emission( netuid as u16 ));
+            assert_eq!( SubtensorModule::get_pending_emission( netuid as u16 ), 111111111 );
+        }
+        step_block(1);
+        for netuid in 1..n {
+            log::debug!("check pending emission for netuid {} has pending {}", netuid, SubtensorModule::get_pending_emission( netuid as u16 ));
+            assert_eq!( SubtensorModule::get_pending_emission( netuid as u16 ), 222222222 );
+        }
+        // Step block clears the emission on subnet 9.
+        step_block(1);
+        assert_eq!( SubtensorModule::get_pending_emission( 9 ), 0 );
     });
 }

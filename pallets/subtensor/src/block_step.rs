@@ -107,16 +107,24 @@ impl<T: Config> Pallet<T> {
     // more token emission tuples for later draining onto accounts.
     //
     pub fn generate_emission(block_number: u64) {
-        // --- 1. Iterate through network ids.
+
+        // --- 1. Iterate across each network and add pending emission into stash.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            // We skip the root network
-            if Self::get_subnetwork_n(netuid) == Self::get_root_netuid() {
+
+            // Skip the root network.
+            if netuid == Self::get_root_netuid() {
                 // Root emission is burned.
                 continue;
             }
 
             // --- 2. Queue the emission due to this network.
             let new_queued_emission = Self::get_subnet_emission_value(netuid);
+            log::debug!(
+                "generate_emission for netuid: {:?} with tempo: {:?} and emission: {:?}",
+                netuid,
+                tempo,
+                new_queued_emission,
+            );
 
             // --- 3. Compute 18% cut for owners.
             let cut: I96F32 = I96F32::from_num(new_queued_emission)
