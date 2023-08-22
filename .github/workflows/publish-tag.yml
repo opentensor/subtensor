@@ -89,11 +89,6 @@ jobs:
 
       - name: ⚡ Cache dependencies
         uses: Swatinem/rust-cache@v2.6.2
-      
-      #- name: ⚙️ Configure sccache
-      #  run: | 
-      #      echo "RUSTC_WRAPPER=sccache" >> $GITHUB_ENV
-      #      echo “SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
 
       - name: ⚡ Run sccache-cache
         uses: mozilla-actions/sccache-action@v0.0.3

@@ -8,6 +8,14 @@ members = [
 
 [profile.release]
 panic = "unwind"
+opt-level = 3
+codegen-units = 16
+
 
 [profile.test]
-opt-level = 3
+opt-level = 2
+codegen-units = 8
+
+[profile.ephemeral-build]
+opt-level = 2
+codegen-units = 8
