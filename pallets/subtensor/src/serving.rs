@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
 		}
 
         // --- 4. Get the previous associated IP information.
-		let prev_associated_ip_info = Self::get_associated_ip_info( netuid, &hotkey_id );
+		let prev_associated_ip_info = Self::get_associated_ip_info( netuid, &hotkey_id ).unwrap_or_else(|| (0, vec![]));
 		let last_update_block = prev_associated_ip_info.0;
         let current_block:u64 = Self::get_current_block_as_u64();
         ensure!( Self::associate_ip_info_passes_rate_limit( netuid, last_update_block, current_block ), Error::<T>::ServingRateLimitExceeded );
@@ -331,12 +331,12 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-	pub fn get_associated_ip_info( netuid: u16, hotkey: &T::AccountId ) -> (u64, Vec<IPInfoOf>){
+	pub fn get_associated_ip_info( netuid: u16, hotkey: &T::AccountId ) -> Option<(u64, Vec<IPInfoOf>)>{
         if Self::has_associated_ip_info( netuid, hotkey ) {
             let result = AssociatedIPInfo::<T>::get( netuid, hotkey ).unwrap();
-			return (result.0, result.1.into_inner());
+			return Some((result.0, result.1.into_inner()));
         } else{
-            return (0, vec![])
+            return None;
         }
     }
 
