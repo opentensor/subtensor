@@ -154,6 +154,8 @@ parameter_types! {
     pub const InitialRAORecycledForRegistration: u64 = 0;
 
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
+
+	pub const SubtensorAssociatedIPsMaxSize: u32 = 100 * (16 + 1 + 1);
 }
 
 // Configure collective pallet for council
@@ -344,6 +346,8 @@ impl pallet_subtensor::Config for Test {
     type InitialMinBurn = InitialMinBurn;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
+
+	type AssociatedIPsMaxSize = SubtensorAssociatedIPsMaxSize;
 }
 
 impl pallet_utility::Config for Test {
