@@ -16,5 +16,6 @@ codegen-units = 16
 opt-level = 2
 
 [profile.ephemeral-build]
+inherits = "release"
 opt-level = 2
 codegen-units = 8
