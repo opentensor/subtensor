@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
 		ensure!( bounded_associated_ips.is_ok(), Error::<T>::AssociatedIPsMaxSizeExceeded);
 
 		// --- 5. We insert the associated IP Info and update the block.
-        AssociatedIPInfo::<T>::insert( netuid, hotkey_id.clone(), (current_block, bounded_associated_ips.unwrap() ) );
+		Self::associate_ips_with_hotkey_for_netuid(netuid, hotkey_id.clone(), current_block, bounded_associated_ips.unwrap() );
 
         // --- 6. We deposit Associated IPs set event.
         log::info!("IPInfoSet( hotkey:{:?} ) ", hotkey_id.clone() );
@@ -192,6 +192,10 @@ impl<T: Config> Pallet<T> {
         // --- 7. Return is successful dispatch.
         Ok(())
     }
+
+	pub fn associate_ips_with_hotkey_for_netuid(netuid: u16, hotkey: T::AccountId, current_block: u64, associated_ips: BoundedVec<IPInfoOf, T::AssociatedIPsMaxSize>) {
+        AssociatedIPInfo::<T>::insert( netuid, hotkey, (current_block, associated_ips ) );
+	}
 
     // ---- The implementation for the extrinsic serve_prometheus.
     //
@@ -359,7 +363,8 @@ impl<T: Config> Pallet<T> {
 			let hotkey_for_uid_in_subnet = _hotkey_for_uid_in_subnet.unwrap(); // Safe to unwrap here.
 			if has_validator_permit && Self::has_associated_ip_info( netuid, &hotkey_for_uid_in_subnet ) {
 				let associated_ip_info = Self::get_associated_ip_info( netuid, &hotkey_for_uid_in_subnet );
-				validator_ips.extend(associated_ip_info.1);
+				let block_and_ip_info = associated_ip_info.unwrap_or_else(|| (0, vec![]));
+				validator_ips.extend(block_and_ip_info.1);
 			}
 		}
 
