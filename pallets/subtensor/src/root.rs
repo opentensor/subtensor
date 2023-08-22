@@ -57,23 +57,27 @@ impl<T: Config> Pallet<T> {
         SubnetLimit::<T>::get()
     }
 
-    /// Sets the emission values for each netuid 
-    /// 
+    /// Sets the emission values for each netuid
     ///
-    pub fn set_emission_values( netuids: &Vec<u16>, emission: Vec<u64> ) -> Result<(), &'static str> {
-        log::debug!("set_emission_values: netuids: {:?} emission:{:?}", netuids, emission );
+    ///
+    pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
+        log::debug!(
+            "set_emission_values: netuids: {:?} emission:{:?}",
+            netuids,
+            emission
+        );
 
         /// Be careful this function can fail.
-        if Self::contains_invalid_root_uids( netuids ) { 
+        if Self::contains_invalid_root_uids(netuids) {
             log::error!("set_emission_values: contains_invalid_root_uids");
-            return Err( "Invalid netuids" );
+            return Err("Invalid netuids");
         }
         if netuids.len() != emission.len() {
             log::error!("set_emission_values: netuids.len() != emission.len()");
-            return Err( "netuids and emission must have the same length" );
+            return Err("netuids and emission must have the same length");
         }
         for (i, netuid_i) in netuids.iter().enumerate() {
-            EmissionValues::<T>::insert( *netuid_i, emission[ i ] );
+            EmissionValues::<T>::insert(*netuid_i, emission[i]);
         }
         Ok(())
     }
@@ -85,8 +89,8 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * `u64`: The emission value for the given subnet.
     ///
-    pub fn get_subnet_emission_value( netuid: u16 ) -> u64 {
-        EmissionValues::<T>::get( netuid )
+    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
+        EmissionValues::<T>::get(netuid)
     }
 
     /// Returns true if the subnetwork exists.
@@ -99,7 +103,6 @@ impl<T: Config> Pallet<T> {
     pub fn if_subnet_exist(netuid: u16) -> bool {
         return NetworksAdded::<T>::get(netuid);
     }
-
 
     /// Returns true if the subnetwork allows registration.
     ///
@@ -126,7 +129,7 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         let total_subnets: u16 = Self::get_num_subnets();
         for netuid in netuids {
-            if !Self::if_subnet_exist( *netuid ) || *netuid == Self::get_root_netuid() {
+            if !Self::if_subnet_exist(*netuid) || *netuid == Self::get_root_netuid() {
                 return true;
             }
         }
@@ -175,16 +178,12 @@ impl<T: Config> Pallet<T> {
     /// and registered hotkeys.
     ///
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
-
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
         // --- -1. Check if we should update the emission values based on blocks since emission was last set.
-        let blocks_until_next_epoch: u64 = Self::blocks_until_next_epoch(
-            root_netuid,
-            Self::get_tempo( root_netuid ),
-            block_number,
-        );
+        let blocks_until_next_epoch: u64 =
+            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
@@ -210,7 +209,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num( Self::get_block_emission() );
+        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
         log::trace!("block_emission:\n{:?}\n", block_emission);
 
         // --- 4. A collection of all registered hotkeys on the root network. Hotkeys
@@ -251,15 +250,18 @@ impl<T: Config> Pallet<T> {
         log::trace!("Ei64:\n{:?}\n", &emission_i62);
 
         // -- 10. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_as_tao: Vec<I64F64> = emission_i62.iter().map( |v: &I64F64| *v * block_emission ).collect();
+        let emission_as_tao: Vec<I64F64> = emission_i62
+            .iter()
+            .map(|v: &I64F64| *v * block_emission)
+            .collect();
 
         // --- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64( emission_as_tao );
+        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
         log::trace!("Eu64:\n{:?}\n", &emission_u64);
 
         // --- 11. Set the emission values for each subnet directly.
         let netuids: Vec<u16> = (1..k).collect();
-        return Self::set_emission_values( &netuids, emission_u64 )
+        return Self::set_emission_values(&netuids, emission_u64);
     }
 
     // ---- The implementation for the extrinsic set_root_weights.
@@ -627,7 +629,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-
     // ---- The implementation for the extrinsic network_transfer_ownership.
     //
     // # Args:
@@ -677,25 +678,24 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Sets initial and custom parameters for a new network.
-    pub fn init_new_network( netuid: u16, tempo: u16 )  {
-
+    pub fn init_new_network(netuid: u16, tempo: u16) {
         // --- 1. Set network to 0 size.
         SubnetworkN::<T>::insert(netuid, 0);
 
         // --- 2. Set this network uid to alive.
-        NetworksAdded::<T>::insert( netuid, true );
+        NetworksAdded::<T>::insert(netuid, true);
 
         // --- 3. Fill tempo memory item.
-        Tempo::<T>::insert( netuid, tempo );
+        Tempo::<T>::insert(netuid, tempo);
 
         // --- 4 Fill modality item.
-        NetworkModality::<T>::insert( netuid, 0 );
+        NetworkModality::<T>::insert(netuid, 0);
 
         // --- 5. Increase total network count.
         TotalNetworks::<T>::mutate(|n| *n += 1);
 
         // --- 6. Set all default values **explicitly**.
-        Self::set_network_registration_allowed( netuid, true );
+        Self::set_network_registration_allowed(netuid, true);
         Self::set_immunity_period(netuid, 1000);
         Self::set_max_allowed_uids(netuid, 256);
         Self::set_max_allowed_validators(netuid, 128);
@@ -705,7 +705,7 @@ impl<T: Config> Pallet<T> {
         Self::set_target_registrations_per_interval(netuid, 1);
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
-        Self::set_min_burn( netuid, 1 );
+        Self::set_min_burn(netuid, 1);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
@@ -757,15 +757,15 @@ impl<T: Config> Pallet<T> {
 
     /// Removes a network (identified by netuid) and all associated parameters.
     ///
-    /// This function is responsible for cleaning up all the data associated with a network. 
-    /// It ensures that all the storage values related to the network are removed, and any 
+    /// This function is responsible for cleaning up all the data associated with a network.
+    /// It ensures that all the storage values related to the network are removed, and any
     /// reserved balance is returned to the network owner.
     ///
     /// # Args:
     /// 	* `netuid`: (`u16`): The unique identifier of the network to be removed.
     ///
     /// # Note:
-    /// This function does not emit any events, nor does it raise any errors. It silently 
+    /// This function does not emit any events, nor does it raise any errors. It silently
     /// returns if any internal checks fail.
     ///
     pub fn remove_network(netuid: u16) {

@@ -109,7 +109,6 @@ impl<T: Config> Pallet<T> {
     pub fn generate_emission(block_number: u64) {
         // --- 1. Iterate through network ids.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-
             // We skip the root network
             if Self::get_subnetwork_n(netuid) == Self::get_root_netuid() {
                 // Root emission is burned.

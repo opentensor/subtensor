@@ -206,22 +206,22 @@ fn test_root_set_weights() {
             let hotkey_account_id: U256 = U256::from(i);
             let coldkey_account_id: U256 = U256::from(i);
             SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1000);
-            assert_ok!( SubtensorModule::root_register(
+            assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
             ));
-            assert_ok!( SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
                 1000
-            ));      
+            ));
         }
 
         // Set weights into diagonal matrix.
         for i in 0..n {
             let uids: Vec<u16> = vec![i as u16];
             let values: Vec<u16> = vec![i as u16];
-            assert_ok!( SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::set_weights(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
                 root_netuid,
                 uids,
@@ -231,14 +231,13 @@ fn test_root_set_weights() {
         }
         // Run the root epoch
         log::debug!("Running Root epoch");
-        SubtensorModule::set_tempo( root_netuid, 1 );
+        SubtensorModule::set_tempo(root_netuid, 1);
         // This will fail because their are not enough netuids.
-        assert!( SubtensorModule::root_epoch( 1_000_000_000 ).is_err() );
+        assert!(SubtensorModule::root_epoch(1_000_000_000).is_err());
         // Lets create n networks
-        for i in 1..(n+1) {
-            add_network( i as u16, 0, 0 );
+        for i in 1..(n + 1) {
+            add_network(i as u16, 0, 0);
         }
-        assert_ok!( SubtensorModule::root_epoch( 1_000_000_000 ) );
-
+        assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
     });
 }
