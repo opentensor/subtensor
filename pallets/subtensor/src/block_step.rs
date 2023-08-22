@@ -8,13 +8,13 @@ use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
-    pub fn block_step() -> Result<(), &'static str>{
+    pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Calculate per-subnet emissions
-        Self::root_epoch(block_number);      
+        Self::root_epoch(block_number);
         // --- 3. Drains emission tuples ( hotkey, amount ).
         Self::drain_emission(block_number);
         // --- 4. Generates emission tuples from epoch functions.
@@ -109,20 +109,28 @@ impl<T: Config> Pallet<T> {
     pub fn generate_emission(block_number: u64) {
         // --- 1. Iterate through network ids.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            if Self::get_subnetwork_n(netuid) == 0 {
+
+            // We skip the root network
+            if Self::get_subnetwork_n(netuid) == Self::get_root_netuid() {
+                // Root emission is burned.
                 continue;
             }
 
             // --- 2. Queue the emission due to this network.
-            let new_queued_emission = Self::get_subnet_emission_value( netuid) ;
+            let new_queued_emission = Self::get_subnet_emission_value(netuid);
 
             // --- 3. Compute 18% cut for owners.
-            let cut: I96F32 = I96F32::from_num( new_queued_emission) * I96F32::from_num( Self::get_subnet_owner_cut( ) ) / I96F32::from_num( u16::MAX ) ;
+            let cut: I96F32 = I96F32::from_num(new_queued_emission)
+                * I96F32::from_num(Self::get_subnet_owner_cut())
+                / I96F32::from_num(u16::MAX);
             let remaining: I96F32 = I96F32::from_num(new_queued_emission) - cut;
 
             // --- 4. Add amount to owner coldkey and increment total issuance accordingly.
-            Self::add_balance_to_coldkey_account( &Self::get_subnet_owner( netuid ), Self::u64_to_balance( cut.to_num::<u64>()).unwrap() );
-            TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( cut.to_num::<u64>() ) );
+            Self::add_balance_to_coldkey_account(
+                &Self::get_subnet_owner(netuid),
+                Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
+            );
+            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()));
 
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
@@ -399,7 +407,6 @@ impl<T: Config> Pallet<T> {
                         );
                     }
                 } else {
-                    
                     // Not enough registrations this interval.
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations

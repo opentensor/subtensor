@@ -423,9 +423,8 @@ pub mod pallet {
     pub type NetworkLastBurnCost<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
     #[pallet::storage] // ITEM( subnet_owner_cut )
-    pub type SubnetOwnerCut<T> =
-            StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
-    
+    pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+
     // ==============================
     // ==== Subnetwork Features =====
     // ==============================
@@ -834,15 +833,15 @@ pub mod pallet {
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         SubnetTransferred(u16, T::AccountId, T::AccountId), // Event created when a subnet's ownership is transferred to another user
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
-        SubnetOwnerCutSet( u16 ), // Event created when the subnet owner cut is set.
+        SubnetOwnerCutSet(u16),    // Event created when the subnet owner cut is set.
     }
 
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
-        NetworkDoesNotExist,          // --- Thrown when the network does not exist.
-        NetworkExist,                 // --- Thrown when the network already exists.
-        InvalidModality,              // --- Thrown when an invalid modality attempted on serve.
+        NetworkDoesNotExist,                // --- Thrown when the network does not exist.
+        NetworkExist,                       // --- Thrown when the network already exists.
+        InvalidModality,  // --- Thrown when an invalid modality attempted on serve.
         InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
         InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
         InvalidPort,   // --- Thrown when an invalid port is passed to the serve function.
@@ -1055,20 +1054,19 @@ pub mod pallet {
             match block_step_result {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
-                    log::info!( "Successfully ran block step." );
+                    log::info!("Successfully ran block step.");
                     return Weight::from_ref_time(110_634_229_000 as u64)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
-                    log::error!( "Error while stepping block: {:?}", e );
+                    log::error!("Error while stepping block: {:?}", e);
                     return Weight::from_ref_time(110_634_229_000 as u64)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
             }
-           
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -1501,8 +1499,8 @@ pub mod pallet {
         //
         // #[pallet::call_index(9)]
         // #[pallet::weight((Weight::from_ref_time(50_000_000)
-		// .saturating_add(T::DbWeight::get().reads(17))
-		// .saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
+        // .saturating_add(T::DbWeight::get().reads(17))
+        // .saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
         // pub fn sudo_add_network(
         //     origin: OriginFor<T>,
         //     netuid: u16,
@@ -1531,8 +1529,8 @@ pub mod pallet {
         //
         // #[pallet::call_index(10)]
         // #[pallet::weight((Weight::from_ref_time(42_000_000)
-		// .saturating_add(T::DbWeight::get().reads(2))
-		// .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        // .saturating_add(T::DbWeight::get().reads(2))
+        // .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         // pub fn sudo_remove_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
         //     // Deprecated
         //     Ok(())
@@ -1551,8 +1549,8 @@ pub mod pallet {
         //
         // #[pallet::call_index(11)]
         // #[pallet::weight((Weight::from_ref_time(28_000_000)
-		// .saturating_add(T::DbWeight::get().reads(12))
-		// .saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
+        // .saturating_add(T::DbWeight::get().reads(12))
+        // .saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
         // pub fn sudo_set_emission_values(
         //     origin: OriginFor<T>,
         //     netuids: Vec<u16>,
@@ -1578,8 +1576,8 @@ pub mod pallet {
         //
         // #[pallet::call_index(12)]
         // #[pallet::weight((Weight::from_ref_time(17_000_000)
-		// .saturating_add(T::DbWeight::get().reads(2))
-		// .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        // .saturating_add(T::DbWeight::get().reads(2))
+        // .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         // pub fn sudo_add_network_connection_requirement(
         //     origin: OriginFor<T>,
         //     netuid_a: u16,
@@ -1599,7 +1597,7 @@ pub mod pallet {
         // 		- The required network connection to remove.
         // #[pallet::call_index(13)]
         // #[pallet::weight((Weight::from_ref_time(15_000_000)
-		// .saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
+        // .saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
         // pub fn sudo_remove_network_connection_requirement(
         //     origin: OriginFor<T>,
         //     netuid_a: u16,

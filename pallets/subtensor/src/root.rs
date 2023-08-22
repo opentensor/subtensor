@@ -35,17 +35,6 @@ impl<T: Config> Pallet<T> {
         0
     }
 
-    /// Retrieves the emission setting tempo for the root network.
-    ///
-    /// The tempo determines how many blocks progress before subnet emissions are recalculated.
-    ///
-    /// # Returns:
-    /// * `u16`: The tempo for the root network.
-    ///
-    pub fn get_root_tempo() -> u16 {
-        100
-    }
-
     /// Fetches the total count of subnets.
     ///
     /// This function retrieves the total number of subnets present on the chain.
@@ -76,18 +65,15 @@ impl<T: Config> Pallet<T> {
 
         /// Be careful this function can fail.
         if Self::contains_invalid_root_uids( netuids ) { 
+            log::error!("set_emission_values: contains_invalid_root_uids");
             return Err( "Invalid netuids" );
         }
+        if netuids.len() != emission.len() {
+            log::error!("set_emission_values: netuids.len() != emission.len()");
+            return Err( "netuids and emission must have the same length" );
+        }
         for (i, netuid_i) in netuids.iter().enumerate() {
-            if Self::if_subnet_exist( *netuid_i ) {
-                if i < emission.len() {
-                    EmissionValues::<T>::insert( *netuid_i, emission[ i ] );
-                } else {
-                    return Err( "Emission vector is too short" );
-                }
-            } else {
-                return Err( "Subnet does not exist" );
-            }
+            EmissionValues::<T>::insert( *netuid_i, emission[ i ] );
         }
         Ok(())
     }
@@ -188,27 +174,29 @@ impl<T: Config> Pallet<T> {
     /// This function is responsible for calculating emission based on network weights, stake values,
     /// and registered hotkeys.
     ///
-    pub fn root_epoch(block_number: u64) {
-        // --- -1. Check if we should update the emission values based on blocks since emission was last set.
-        if Self::blocks_until_next_epoch(
-            Self::get_root_netuid(),
-            Self::get_root_tempo(),
-            block_number,
-        ) > 0
-        {
-            // Not the block to update emission values.
-            return
-        }
+    pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
 
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
+
+        // --- -1. Check if we should update the emission values based on blocks since emission was last set.
+        let blocks_until_next_epoch: u64 = Self::blocks_until_next_epoch(
+            root_netuid,
+            Self::get_tempo( root_netuid ),
+            block_number,
+        );
+        if blocks_until_next_epoch != 0 {
+            // Not the block to update emission values.
+            log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
+            return Err("Not the block to update emission values.");
+        }
 
         // --- 1. Retrieves the number of registered peers on the the root network.
         let n: u16 = Self::get_subnetwork_n(root_netuid);
         log::trace!("n:\n{:?}\n", n);
         if n == 0 {
             // No validators.
-            return
+            return Err("No validators to validate emission values.");
         }
 
         // --- 2. Obtains the maximum number of registered subnetworks. This function
@@ -217,13 +205,13 @@ impl<T: Config> Pallet<T> {
         log::trace!("k:\n{:?}\n", k);
         if k == 0 {
             // No networks to validate.
-            return
+            return Err("No networks to validate emission values.");
         }
 
         // --- 3. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
-        let emission: u64 = Self::get_block_emission();
-        log::trace!("emission:\n{:?}\n", emission);
+        let block_emission: I64F64 = I64F64::from_num( Self::get_block_emission() );
+        log::trace!("block_emission:\n{:?}\n", block_emission);
 
         // --- 4. A collection of all registered hotkeys on the root network. Hotkeys
         // pairs with network UIDs and stake values.
@@ -262,13 +250,16 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut emission_i62);
         log::trace!("Ei64:\n{:?}\n", &emission_i62);
 
-        // --- 10. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_i62);
+        // -- 10. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        let emission_as_tao: Vec<I64F64> = emission_i62.iter().map( |v: &I64F64| *v * block_emission ).collect();
+
+        // --- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        let emission_u64: Vec<u64> = vec_fixed64_to_u64( emission_as_tao );
         log::trace!("Eu64:\n{:?}\n", &emission_u64);
 
         // --- 11. Set the emission values for each subnet directly.
         let netuids: Vec<u16> = (1..k).collect();
-        Self::set_emission_values( &netuids, emission_u64 );        
+        return Self::set_emission_values( &netuids, emission_u64 )
     }
 
     // ---- The implementation for the extrinsic set_root_weights.

@@ -190,3 +190,55 @@ fn test_root_register_stake_based_pruning_works() {
         );
     });
 }
+
+#[test]
+fn test_root_set_weights() {
+    new_test_ext().execute_with(|| {
+        log::debug!("Running test_root_set_weights");
+
+        let n: usize = 10;
+        let root_netuid: u16 = 0;
+        add_network(root_netuid, 0, 0);
+        SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
+        SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
+        SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
+        for i in 0..n {
+            let hotkey_account_id: U256 = U256::from(i);
+            let coldkey_account_id: U256 = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1000);
+            assert_ok!( SubtensorModule::root_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+            ));
+            assert_ok!( SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                1000
+            ));      
+        }
+
+        // Set weights into diagonal matrix.
+        for i in 0..n {
+            let uids: Vec<u16> = vec![i as u16];
+            let values: Vec<u16> = vec![i as u16];
+            assert_ok!( SubtensorModule::set_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+                root_netuid,
+                uids,
+                values,
+                0,
+            ));
+        }
+        // Run the root epoch
+        log::debug!("Running Root epoch");
+        SubtensorModule::set_tempo( root_netuid, 1 );
+        // This will fail because their are not enough netuids.
+        assert!( SubtensorModule::root_epoch( 1_000_000_000 ).is_err() );
+        // Lets create n networks
+        for i in 1..(n+1) {
+            add_network( i as u16, 0, 0 );
+        }
+        assert_ok!( SubtensorModule::root_epoch( 1_000_000_000 ) );
+
+    });
+}

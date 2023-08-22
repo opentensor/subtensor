@@ -3,21 +3,20 @@
 #![cfg(feature = "runtime-benchmarks")]
 //mod benchmarking;
 
-
-use crate::*;
 use crate::Pallet as Subtensor;
-use frame_benchmarking::{benchmarks, whitelisted_caller, account};
-use frame_system::RawOrigin;
-use frame_support::sp_std::vec;
-use frame_support::inherent::Vec;
-pub use pallet::*;
+use crate::*;
+use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
+use frame_support::inherent::Vec;
+use frame_support::sp_std::vec;
+use frame_system::RawOrigin;
+pub use pallet::*;
 //use mock::{Test, new_test_ext};
 
 benchmarks! {
-   
+
   // Add individual benchmarks here
-  benchmark_register { 
+  benchmark_register {
     // Lets create a single network.
     let n: u16 = 10;
     let netuid: u16 = 1; //11 is the benchmark network.
@@ -31,28 +30,28 @@ benchmarks! {
     let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
     assert_ok!(Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
-    
+      assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let coldkey: T::AccountId = account("Test", 0, seed);
   }: register( RawOrigin::Signed( hotkey.clone() ), netuid, block_number, nonce, work, hotkey.clone(), coldkey.clone() )
 
   benchmark_set_weights {
-    
+
     // This is a whitelisted caller who can make transaction without weights.
     let netuid: u16 = 1;
     let version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
-   
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
 
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
-   	assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
-	  assert_ok!(Subtensor::<T>::do_sudo_set_target_registrations_per_interval(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
-    
-    let mut seed : u32 = 1; 
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
+
+      assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+       assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
+      assert_ok!(Subtensor::<T>::do_sudo_set_target_registrations_per_interval(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
+
+    let mut seed : u32 = 1;
     let mut dests: Vec<u16> = vec![];
     let mut weights: Vec<u16> = vec![];
     let signer : T::AccountId = account("Alice", 0, seed);
@@ -61,9 +60,9 @@ benchmarks! {
       let hotkey: T::AccountId = account("Alice", 0, seed);
       let coldkey: T::AccountId = account("Test", 0, seed);
       seed = seed +1;
-      
-	    Subtensor::<T>::set_burn(netuid, 1);
-	    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
+
+        Subtensor::<T>::set_burn(netuid, 1);
+        let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
       Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
 
       Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone())?;
@@ -79,7 +78,7 @@ benchmarks! {
 
   benchmark_become_delegate {
     // This is a whitelisted caller who can make transaction without weights.
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let version_key: u64 = 1;
@@ -88,10 +87,10 @@ benchmarks! {
     let seed : u32 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-	  Subtensor::<T>::set_burn(netuid, 1);
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+      Subtensor::<T>::set_burn(netuid, 1);
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+      assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
@@ -104,7 +103,7 @@ benchmarks! {
   }: become_delegate(RawOrigin::Signed( coldkey.clone() ), hotkey.clone())
 
   benchmark_add_stake {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let version_key: u64 = 1;
@@ -115,9 +114,9 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
 
     Subtensor::<T>::set_burn(netuid, 1);
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+      assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
 
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
@@ -131,7 +130,7 @@ benchmarks! {
   }: add_stake(RawOrigin::Signed( coldkey.clone() ), hotkey, amount)
 
   benchmark_remove_stake{
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let version_key: u64 = 1;
@@ -143,14 +142,14 @@ benchmarks! {
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
-	
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+      assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
     let hotkey: T::AccountId = account("Alice", 0, seed);
-	  Subtensor::<T>::set_burn(netuid, 1);
+      Subtensor::<T>::set_burn(netuid, 1);
 
     let wallet_bal = Subtensor::<T>::u64_to_balance(1000000);
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal.unwrap());
@@ -158,19 +157,19 @@ benchmarks! {
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
     assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
-	  // Stake 10% of our current total staked TAO
-	  let u64_staked_amt = 100_000_000_000;
+      // Stake 10% of our current total staked TAO
+      let u64_staked_amt = 100_000_000_000;
     let amount_to_be_staked = Subtensor::<T>::u64_to_balance(u64_staked_amt);
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked.unwrap());
 
     assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
 
     let amount_unstaked: u64 = u64_staked_amt - 1;
-	  assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
+      assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
   }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), amount_unstaked)
 
   benchmark_serve_axon{
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let tempo: u16 = 1;
@@ -184,25 +183,25 @@ benchmarks! {
     let placeholder1: u8 = 0;
     let placeholder2: u8 = 0;
 
-	assert_ok!(Subtensor::<T>::do_add_network(RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    assert_ok!(Subtensor::<T>::do_add_network(RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-	Subtensor::<T>::set_burn(netuid, 1);
-	let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
-	Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), amoun_to_be_staked.unwrap());
+    Subtensor::<T>::set_burn(netuid, 1);
+    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
+    Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), amoun_to_be_staked.unwrap());
 
-	assert_ok!(Subtensor::<T>::do_burned_registration(caller_origin.clone(), netuid, caller.clone()));
+    assert_ok!(Subtensor::<T>::do_burned_registration(caller_origin.clone(), netuid, caller.clone()));
 
     Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
   }: serve_axon(RawOrigin::Signed( caller.clone() ), netuid, version, ip, port, ip_type, protocol, placeholder1, placeholder2)
 
   benchmark_serve_prometheus {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
-	let tempo: u16 = 1;
+    let tempo: u16 = 1;
     let modality: u16 = 0;
 
     let version: u32 = 2;
@@ -210,21 +209,21 @@ benchmarks! {
     let port: u16 = 128;
     let ip_type: u8 = 4;
 
-	assert_ok!(Subtensor::<T>::do_add_network(RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    assert_ok!(Subtensor::<T>::do_add_network(RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
-	Subtensor::<T>::set_burn(netuid, 1);
-	let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
-	Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), amoun_to_be_staked.unwrap());
+    Subtensor::<T>::set_burn(netuid, 1);
+    let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
+    Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), amoun_to_be_staked.unwrap());
 
-	assert_ok!(Subtensor::<T>::do_burned_registration(caller_origin.clone(), netuid, caller.clone()));
+    assert_ok!(Subtensor::<T>::do_burned_registration(caller_origin.clone(), netuid, caller.clone()));
     Subtensor::<T>::set_serving_rate_limit(netuid, 0);
 
   }: serve_prometheus(RawOrigin::Signed( caller.clone() ), netuid, version, ip, port, ip_type)
 
   benchmark_sudo_register {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>(); 
+    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
     let netuid: u16 = 1;
     let tempo: u16 = 0;
@@ -233,7 +232,7 @@ benchmarks! {
     let balance: u64 = 1000000000;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
     let seed : u32 = 1;
@@ -276,12 +275,12 @@ benchmarks! {
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 6, tempo.into(), modality.into()));
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 7, tempo.into(), modality.into()));
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 8, tempo.into(), modality.into()));
-    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 9, tempo.into(), modality.into())); 
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), 9, tempo.into(), modality.into()));
 
   }: sudo_set_emission_values(RawOrigin::<AccountIdOf<T>>::Root, netuids, emission)
 
   benchmark_sudo_set_default_take {
-    let default_take: u16 = 100; 
+    let default_take: u16 = 100;
 
   }: sudo_set_default_take(RawOrigin::<AccountIdOf<T>>::Root, default_take)
 
@@ -312,7 +311,7 @@ benchmarks! {
   }: sudo_set_min_difficulty(RawOrigin::<AccountIdOf<T>>::Root, netuid, min_difficulty)
 
   benchmark_sudo_set_weights_set_rate_limit {
-    let netuid: u16 = 1; 
+    let netuid: u16 = 1;
     let weights_set_rate_limit: u64 = 3;
     let tempo: u16 = 1;
     let modality: u16 = 0;
@@ -322,7 +321,7 @@ benchmarks! {
   }: sudo_set_weights_set_rate_limit(RawOrigin::<AccountIdOf<T>>::Root, netuid, weights_set_rate_limit)
 
   benchmark_sudo_set_weights_version_key {
-    let netuid: u16 = 1; 
+    let netuid: u16 = 1;
     let weights_version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
@@ -490,7 +489,7 @@ benchmarks! {
     let tempo: u16 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-	Subtensor::<T>::set_burn(netuid, 1);
+    Subtensor::<T>::set_burn(netuid, 1);
 
     let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000);
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
@@ -536,35 +535,35 @@ benchmarks! {
     let tempo: u16 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
     assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
-	Subtensor::<T>::set_target_registrations_per_interval(netuid.try_into().unwrap(), 4096);
+    Subtensor::<T>::set_target_registrations_per_interval(netuid.try_into().unwrap(), 4096);
 
     for id in 0..10 as u16 {
-		seed = seed + 1;
+        seed = seed + 1;
 
-		let hotkey: T::AccountId = account("Alice", 0, seed);
-		let coldkey: T::AccountId = account("Test", 0, seed);
-		
-		Subtensor::<T>::set_burn(netuid, 1);
-		let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
-		Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        let coldkey: T::AccountId = account("Test", 0, seed);
 
-		assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-		assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+        Subtensor::<T>::set_burn(netuid, 1);
+        let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
 
-		Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 1000000000);
-		assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
+        assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+        assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+
+        Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 1000000000);
+        assert_ok!(Subtensor::<T>::do_join_senate(RawOrigin::Signed(coldkey.clone()).into(), &hotkey));
     }
 
     let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
 
-	assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-	assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+    assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed( coldkey.clone() ).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
-	Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 10000000000);
+    Subtensor::<T>::increase_stake_on_hotkey_account(&hotkey.clone(), 10000000000);
   }: join_senate(RawOrigin::Signed( coldkey.clone() ), hotkey.clone())
 
   benchmark_leave_senate {
@@ -576,7 +575,7 @@ benchmarks! {
     let tempo: u16 = 1;
 
     assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 ); 
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
     assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
     Subtensor::<T>::set_target_registrations_per_interval(netuid.try_into().unwrap(), 4096);
@@ -586,7 +585,7 @@ benchmarks! {
 
       let hotkey: T::AccountId = account("Alice", 0, seed);
       let coldkey: T::AccountId = account("Test", 0, seed);
-      
+
       Subtensor::<T>::set_burn(netuid, 1);
       let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
       Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amoun_to_be_staked.unwrap());
