@@ -233,7 +233,7 @@ fn test_root_set_weights() {
         // This will fail because their are not enough netuids.
         assert!(SubtensorModule::root_epoch(1_000_000_000).is_err());
         // Lets create n networks
-        for netuid in 1..n  {
+        for netuid in 1..n {
             log::debug!("Adding network with netuid: {}", netuid);
             add_network(netuid as u16, 13, 0);
         }
@@ -242,21 +242,38 @@ fn test_root_set_weights() {
         // Check that the emission values have been set.
         for netuid in 1..n {
             log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!( SubtensorModule::get_subnet_emission_value( netuid as u16 ), 111111111 );
+            assert_eq!(
+                SubtensorModule::get_subnet_emission_value(netuid as u16),
+                111111111
+            );
         }
         step_block(1);
         // Check that the pending emission values have been set.
         for netuid in 1..n {
-            log::debug!("check pending emission for netuid {} has pending {}", netuid, SubtensorModule::get_pending_emission( netuid as u16 ));
-            assert_eq!( SubtensorModule::get_pending_emission( netuid as u16 ), 111111111 );
+            log::debug!(
+                "check pending emission for netuid {} has pending {}",
+                netuid,
+                SubtensorModule::get_pending_emission(netuid as u16)
+            );
+            assert_eq!(
+                SubtensorModule::get_pending_emission(netuid as u16),
+                111111111
+            );
         }
         step_block(1);
         for netuid in 1..n {
-            log::debug!("check pending emission for netuid {} has pending {}", netuid, SubtensorModule::get_pending_emission( netuid as u16 ));
-            assert_eq!( SubtensorModule::get_pending_emission( netuid as u16 ), 222222222 );
+            log::debug!(
+                "check pending emission for netuid {} has pending {}",
+                netuid,
+                SubtensorModule::get_pending_emission(netuid as u16)
+            );
+            assert_eq!(
+                SubtensorModule::get_pending_emission(netuid as u16),
+                222222222
+            );
         }
         // Step block clears the emission on subnet 9.
         step_block(1);
-        assert_eq!( SubtensorModule::get_pending_emission( 9 ), 0 );
+        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
     });
 }
