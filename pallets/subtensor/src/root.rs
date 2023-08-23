@@ -371,7 +371,7 @@ impl<T: Config> Pallet<T> {
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
             T::SenateMembers::swap_member(&replaced_hotkey, &hotkey);
-            T::TriumvirateInterface::remove_votes( &replaced_hotkey )?;
+            T::TriumvirateInterface::remove_votes(&replaced_hotkey)?;
             log::info!("replace neuron");
         }
 

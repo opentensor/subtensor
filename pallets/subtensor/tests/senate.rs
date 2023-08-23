@@ -11,9 +11,8 @@ use sp_runtime::{
 
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
-use pallet_subtensor::Error;
 use pallet_subtensor::migration;
-
+use pallet_subtensor::Error;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -453,15 +452,15 @@ fn test_senate_leave_vote_removal() {
         add_network(other_netuid, 0, 0);
         SubtensorModule::set_burn(other_netuid, 0);
         SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
-        SubtensorModule::set_target_registrations_per_interval( other_netuid, 1000 );
-        SubtensorModule::set_max_registrations_per_block( root_netuid, 1000 );
-        SubtensorModule::set_target_registrations_per_interval( root_netuid, 1000 );
+        SubtensorModule::set_target_registrations_per_interval(other_netuid, 1000);
+        SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
+        SubtensorModule::set_target_registrations_per_interval(root_netuid, 1000);
         for i in 0..200 {
-            let hot: U256 = U256::from(i+100);
-            let cold: U256 = U256::from(i+100);
+            let hot: U256 = U256::from(i + 100);
+            let cold: U256 = U256::from(i + 100);
             // Add balance
-            SubtensorModule::add_balance_to_coldkey_account(&cold, 100_000_000 + (i as u64) ); // lots ot stake
-            // Register
+            SubtensorModule::add_balance_to_coldkey_account(&cold, 100_000_000 + (i as u64)); // lots ot stake
+                                                                                              // Register
             assert_ok!(SubtensorModule::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 other_netuid,
@@ -479,14 +478,10 @@ fn test_senate_leave_vote_removal() {
                 hot,
             ));
             // Check succesfull registration.
-            assert!(
-                SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok()
-            );
-            assert!(
-                SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok()
-            );
+            assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
+            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates
-            assert!( SubtensorModule::hotkey_is_delegate(&hot) );
+            assert!(SubtensorModule::hotkey_is_delegate(&hot));
         }
         // No longer a root member
         assert!(
