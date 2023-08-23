@@ -134,15 +134,12 @@ parameter_types! {
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 2; // 2 blocks per stake/unstake/delegate
-
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
-
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
-
     pub const InitialIssuance: u64 = 548833985028256;
     pub const InitialDifficulty: u64 = 10000;
     pub const InitialActivityCutoff: u16 = 5000;
@@ -155,16 +152,12 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
-
-    pub const InitialSubnetLimit: u16 = 32;
     pub const InitialNetworkImmunityPeriod: u64 = 4096;
-
     pub const InitialNetworkMinAllowedUids: u16 = 128;
-    pub const InitialNetworkMinBurnCost: u64 = 100_000_000_000;
-
+    pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
+    pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
 }
 
 // Configure collective pallet for council
@@ -355,11 +348,11 @@ impl pallet_subtensor::Config for Test {
     type InitialMinBurn = InitialMinBurn;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
-    type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
     type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
-    type InitialNetworkMinBurnCost = InitialNetworkMinBurnCost;
+    type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
+    type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
 }
 
 impl pallet_utility::Config for Test {

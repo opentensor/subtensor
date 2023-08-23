@@ -49,17 +49,6 @@ impl<T: Config> Pallet<T> {
         TotalNetworks::<T>::get()
     }
 
-    /// Gets the maximum permissible number of subnets.
-    ///
-    /// This function retrieves the hard cap on the number of subnets that can exist.
-    ///
-    /// # Returns:
-    /// * `u16`: The maximum number of allowed subnets.
-    ///
-    pub fn get_max_allowed_subnets() -> u16 {
-        SubnetLimit::<T>::get()
-    }
-
     /// Sets the emission values for each netuid
     ///
     ///
@@ -462,15 +451,19 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
-        let last_burn_block = Self::get_network_last_burn_block();
-        ensure!(
-            current_block - last_burn_block >= 1, // Replace 1 with a configurable time limit if desired.
-            Error::<T>::TxRateLimitExceeded
-        );
+        let last_lock_block = Self::get_network_last_lock_block();
+        // ensure!(
+        //     current_block - last_burn_block >= 1, // Replace 1 with a configurable time limit if desired.
+        //     Error::<T>::TxRateLimitExceeded
+        // );
 
         // --- 2. Calculate and lock the required tokens.
-        let lock_amount: u64 = Self::get_network_burn_cost();
+        let lock_amount: u64 = Self::get_network_lock_cost();
         let lock_as_balance = Self::u64_to_balance(lock_amount);
+        log::info!(
+            "network lock_amount: {:?}",
+            lock_amount,
+        );
         ensure!(
             lock_as_balance.is_some(),
             Error::<T>::CouldNotConvertToBalance
@@ -482,7 +475,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Fetch current and maximum subnets.
         let current_num_subnets: u16 = Self::get_num_subnets();
-        let max_allowed_subnets: u16 = Self::get_max_allowed_subnets();
+        let max_allowed_subnets: u16 = Self::get_max_allowed_uids( Self::get_root_netuid() );
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
@@ -497,6 +490,10 @@ impl<T: Config> Pallet<T> {
             } else {
                 let netuid_to_prune = Self::get_subnet_to_prune();
                 Self::remove_network(netuid_to_prune);
+                log::info!(
+                    "remove_network: {:?}",
+                    netuid_to_prune,
+                );
                 netuid_to_prune
             }
         };
@@ -510,12 +507,16 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 1000);
+        log::info!(
+            "init_new_network: {:?}",
+            netuid_to_register,
+        );
 
         // --- 7. Set netuid storage.
         NetworkLastRegistered::<T>::set(current_block);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey);
-        Self::set_network_last_burn(lock_amount);
+        Self::set_network_last_lock(lock_amount);
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(
@@ -773,38 +774,40 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::remove(netuid);
     }
 
-    // This function calculates the burn cost for a network based on the last burn amount, minimum burn cost, last burn block, and current block.
-    // The burn cost is calculated using the formula:
-    // burn_cost = (last_burn * mult) - (last_burn / (8 * DAYS)) * (current_block - last_burn_block)
+    // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
+    // The lock cost is calculated using the formula:
+    // lock_cost = (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block)
     // where:
-    // - last_burn is the last burn amount for the network
-    // - mult is the multiplier which increases burn cost each time a registration occurs
-    // - last_burn_block is the block number at which the last burn occurred
+    // - last_lock is the last lock amount for the network
+    // - mult is the multiplier which increases lock cost each time a registration occurs
+    // - last_lock_block is the block number at which the last lock occurred
+    // - lock_reduction_interval the number of blocks before the lock returns to previous value.
     // - current_block is the current block number
     // - DAYS is the number of blocks in a day
-    // - min_burn is the minimum burn cost for the network
+    // - min_lock is the minimum lock cost for the network
     //
-    // If the calculated burn cost is less than the minimum burn cost, the minimum burn cost is returned.
+    // If the calculated lock cost is less than the minimum lock cost, the minimum lock cost is returned.
     //
     // # Returns:
     // 	* 'u64':
-    // 		- The burn cost for the network.
+    // 		- The lock cost for the network.
     //
-    pub fn get_network_burn_cost() -> u64 {
-        let last_burn = Self::get_network_last_burn();
-        let min_burn = Self::get_network_min_burn();
-        let last_burn_block = Self::get_network_last_burn_block();
+    pub fn get_network_lock_cost() -> u64 {
+        let last_lock = Self::get_network_last_lock();
+        let min_lock = Self::get_network_min_lock();
+        let last_lock_block = Self::get_network_last_lock_block();
         let current_block = Self::get_current_block_as_u64();
-
-        let mult = if last_burn_block == 0 { 1 } else { 2 };
-
-        let burn_cost =
-            (last_burn * mult) - (last_burn / (8 * DAYS)) * (current_block - last_burn_block);
-        if burn_cost < min_burn {
-            return min_burn;
+        let lock_reduction_interval = Self::get_lock_reduction_interval();
+        let mult = if last_lock_block == 0 { 1 } else { 2 };
+        let mut lock_cost =
+            (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block);
+        if lock_cost < min_lock {
+            lock_cost = min_lock;
         }
+        log::debug!( "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
+        last_lock, min_lock, last_lock_block, lock_reduction_interval, current_block, mult, lock_cost);
 
-        burn_cost
+        lock_cost
     }
 
     // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
@@ -822,7 +825,7 @@ impl<T: Config> Pallet<T> {
         let mut uid_with_min_score_in_immunity_period: u16 = 1;
 
         // Iterate over all networks
-        for netuid in 0..TotalNetworks::<T>::get() {
+        for netuid in 1..TotalNetworks::<T>::get() {
             let emission_value: u64 = Self::get_emission_value(netuid);
             let block_at_registration: u64 = Self::get_network_registered_block(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
@@ -867,23 +870,31 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_registered_block(netuid: u16) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
     }
-
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }
-
-    pub fn get_network_min_burn() -> u64 {
-        NetworkMinBurnCost::<T>::get()
+    pub fn set_network_immunity_period( net_immunity_period: u64 ) {
+        NetworkImmunityPeriod::<T>::set( net_immunity_period );
     }
-
-    pub fn set_network_last_burn(amount: u64) {
-        NetworkLastBurnCost::<T>::set(amount);
+    pub fn set_network_min_lock( net_min_lock: u64 ) {
+        NetworkMinLockCost::<T>::set( net_min_lock );
     }
-    pub fn get_network_last_burn() -> u64 {
-        NetworkLastBurnCost::<T>::get()
+    pub fn get_network_min_lock() -> u64 {
+        NetworkMinLockCost::<T>::get()
     }
-
-    pub fn get_network_last_burn_block() -> u64 {
+    pub fn set_network_last_lock( net_last_lock: u64 ) {
+        NetworkLastLockCost::<T>::set( net_last_lock );
+    }
+    pub fn get_network_last_lock() -> u64 {
+        NetworkLastLockCost::<T>::get()
+    }
+    pub fn get_network_last_lock_block() -> u64 {
         NetworkLastRegistered::<T>::get()
+    }
+    pub fn set_lock_reduction_interval( interval: u64 ) {
+        NetworkLockReductionInterval::<T>::set( interval );
+    }
+    pub fn get_lock_reduction_interval() -> u64 {
+        NetworkLockReductionInterval::<T>::get()
     }
 }

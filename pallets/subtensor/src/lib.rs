@@ -166,16 +166,16 @@ pub mod pallet {
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
-        #[pallet::constant] // Initial subnet limit
-        type InitialSubnetLimit: Get<u16>;
         #[pallet::constant] // Initial network immunity period
         type InitialNetworkImmunityPeriod: Get<u64>;
         #[pallet::constant] // Initial minimum allowed network UIDs
         type InitialNetworkMinAllowedUids: Get<u16>;
         #[pallet::constant] // Initial network minimum burn cost
-        type InitialNetworkMinBurnCost: Get<u64>;
+        type InitialNetworkMinLockCost: Get<u64>;
         #[pallet::constant] // Initial network subnet cut.
         type InitialSubnetOwnerCut: Get<u16>;
+        #[pallet::constant] // Initial lock reduction interval.
+        type InitialNetworkLockReductionInterval: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -327,10 +327,6 @@ pub mod pallet {
     // ==== Subnetworks Storage =====
     // ==============================
     #[pallet::type_value]
-    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
-        T::InitialSubnetLimit::get()
-    }
-    #[pallet::type_value]
     pub fn DefaultN<T: Config>() -> u16 {
         0
     }
@@ -371,16 +367,18 @@ pub mod pallet {
         T::InitialNetworkMinAllowedUids::get()
     }
     #[pallet::type_value]
-    pub fn DefaultNetworkMinBurnCost<T: Config>() -> u64 {
-        T::InitialNetworkMinBurnCost::get()
+    pub fn DefaultNetworkMinLockCost<T: Config>() -> u64 {
+        T::InitialNetworkMinLockCost::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkLockReductionInterval<T: Config>() -> u64 {
+        T::InitialNetworkLockReductionInterval::get()
     }
     #[pallet::type_value]
     pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
         T::InitialSubnetOwnerCut::get()
     }
 
-    #[pallet::storage] // --- ITEM( total_allowed_networks )
-    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
@@ -417,10 +415,11 @@ pub mod pallet {
     pub type NetworkMinAllowedUids<T> =
         StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
     #[pallet::storage] // ITEM( min_network_burn_cost )
-    pub type NetworkMinBurnCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
+    pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
     #[pallet::storage] // ITEM( last_network_burn_cost )
-    pub type NetworkLastBurnCost<T> =
-        StorageValue<_, u64, ValueQuery, DefaultNetworkMinBurnCost<T>>;
+    pub type NetworkLastLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
+    #[pallet::storage] // ITEM( network_lock_reduction_interval )
+    pub type NetworkLockReductionInterval<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
     #[pallet::storage] // ITEM( subnet_owner_cut )
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
 

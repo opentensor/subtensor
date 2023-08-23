@@ -136,10 +136,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 9. Check that the neuron uid is an allowed validator permitted to set non-self weights.
-        ensure!(
-            Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NoValidatorPermit
-        );
+        if netuid != Self::get_root_netuid() {
+            ensure!(
+                Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
+                Error::<T>::NoValidatorPermit
+            );
+        }
 
         // --- 10. Ensure the passed uids contain no duplicates.
         ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
