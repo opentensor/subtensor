@@ -1000,8 +1000,7 @@ impl_runtime_apis! {
 
 	impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let _result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
-			let result = _result.expect("Could not get StakeInfo");
+            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
 			result.encode()
         }
 
