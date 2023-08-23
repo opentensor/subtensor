@@ -17,15 +17,14 @@
 
 use super::*;
 use crate::math::*;
+use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::traits::Get;
-use frame_support::weights::{Weight, constants::RocksDbWeight};
-use frame_support::dispatch::{ DispatchResultWithPostInfo, Pays };
+use frame_support::weights::{constants::RocksDbWeight, Weight};
 use substrate_fixed::types::{I32F32, I64F64};
 const DAYS: u64 = 7200;
-
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the unique identifier (UID) for the root network.
@@ -280,10 +279,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * `DispatchResult`: A result type indicating success or failure of the registration.
     ///
-    pub fn do_root_register(
-        origin: T::RuntimeOrigin, 
-        hotkey: T::AccountId
-    ) -> DispatchResult {
+    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
         let current_block_number: u64 = Self::get_current_block_as_u64();
@@ -343,7 +339,6 @@ impl<T: Config> Pallet<T> {
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
             T::SenateMembers::add_member(&hotkey);
             log::info!("add new neuron account");
-            
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -363,7 +358,8 @@ impl<T: Config> Pallet<T> {
                 }
             }
             subnetwork_uid = lowest_uid;
-            let replaced_hotkey: T::AccountId = Self::get_hotkey_for_net_and_uid( root_netuid, subnetwork_uid ).unwrap();
+            let replaced_hotkey: T::AccountId =
+                Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid).unwrap();
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
@@ -374,14 +370,15 @@ impl<T: Config> Pallet<T> {
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
-            T::SenateMembers::swap_member( &replaced_hotkey, &hotkey );
+            T::SenateMembers::swap_member(&replaced_hotkey, &hotkey);
+            T::TriumvirateInterface::remove_votes( &replaced_hotkey )?;
             log::info!("replace neuron");
         }
 
         // --- 13. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate( &hotkey ) {
-            Self::delegate_hotkey( &hotkey, 11_796 ); // 18% cut defaulted.
-        }        
+        if !Self::hotkey_is_delegate(&hotkey) {
+            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
+        }
 
         // --- 14. Update the registration counters for both the block and interval.
         RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
@@ -401,36 +398,50 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_vote_root(
-		origin: T::RuntimeOrigin,
-		hotkey: &T::AccountId,
-		proposal: T::Hash,
-		index: u32,
-		approve: bool
-	) -> DispatchResultWithPostInfo {
-
+        origin: T::RuntimeOrigin,
+        hotkey: &T::AccountId,
+        proposal: T::Hash,
+        index: u32,
+        approve: bool,
+    ) -> DispatchResultWithPostInfo {
         // --- 1. Ensure that the caller has signed with their coldkey.
-		let coldkey = ensure_signed(origin.clone())?;
+        let coldkey = ensure_signed(origin.clone())?;
 
-		// --- 2. Ensure that the calling coldkey owns the associated hotkey.
-		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
+        // --- 2. Ensure that the calling coldkey owns the associated hotkey.
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
 
         // --- 3. Ensure that the calling hotkey is a member of the senate.
-		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotSenateMember);
+        ensure!(
+            T::SenateMembers::is_member(&hotkey),
+            Error::<T>::NotSenateMember
+        );
 
-		// --- 4. Detects first vote of the member in the motion
-		let is_account_voting_first_time = T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
+        // --- 4. Detects first vote of the member in the motion
+        let is_account_voting_first_time =
+            T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
 
-		// --- 5. Calculate extrinsic weight
+        // --- 5. Calculate extrinsic weight
         let members = T::SenateMembers::members();
-		let member_count = members.len() as u32;
-		let vote_weight = Weight::from_parts(20_528_275, 4980)
-			.saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-			.saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
+        let member_count = members.len() as u32;
+        let vote_weight = Weight::from_parts(20_528_275, 4980)
+            .saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
+            .saturating_add(T::DbWeight::get().reads(2_u64))
+            .saturating_add(T::DbWeight::get().writes(1_u64))
+            .saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
 
-		Ok((Some(vote_weight), if is_account_voting_first_time { Pays::No } else { Pays::Yes }).into())
-	}
+        Ok((
+            Some(vote_weight),
+            if is_account_voting_first_time {
+                Pays::No
+            } else {
+                Pays::Yes
+            },
+        )
+            .into())
+    }
 
     /// Facilitates user registration of a new subnetwork.
     ///

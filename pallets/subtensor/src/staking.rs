@@ -212,17 +212,6 @@ impl<T: Config> Pallet<T> {
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);
 
-		// If this hotkey is a senator, check to see if they fall below stake threshold in this withdraw
-		if T::SenateMembers::is_member(&hotkey) &&
-			Self::get_total_stake_for_hotkey(&hotkey) * 100 / {
-                if Self::get_total_stake() == 0 {1} else {Self::get_total_stake()}
-            } < SenateRequiredStakePercentage::<T>::get()
-		{
-			// This might cause a panic, but there shouldn't be any reason this will fail with the checks above.
-            T::TriumvirateInterface::remove_votes(&hotkey)?;
-			T::SenateMembers::remove_member(&hotkey)?;
-		}
-
         // --- 9. Emit the unstaking event.
         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
         Self::deposit_event( Event::StakeRemoved( hotkey, stake_to_be_removed ) );

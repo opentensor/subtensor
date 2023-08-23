@@ -1978,18 +1978,18 @@ pub mod pallet {
 
         // --- DEPRECATED #[pallet::call_index(53)]
         // #[pallet::weight((Weight::from_ref_time(67_000_000)
-		// .saturating_add(Weight::from_proof_size(61173))
-		// .saturating_add(T::DbWeight::get().reads(20))
-		// .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        // .saturating_add(Weight::from_proof_size(61173))
+        // .saturating_add(T::DbWeight::get().reads(20))
+        // .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         // pub fn join_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
         //     Self::do_join_senate(origin, &hotkey)
         // }
 
         // --- DEPRECATED #[pallet::call_index(54)]
         // #[pallet::weight((Weight::from_ref_time(20_000_000)
-		// .saturating_add(Weight::from_proof_size(4748))
-		// .saturating_add(T::DbWeight::get().reads(4))
-		// .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        // .saturating_add(Weight::from_proof_size(4748))
+        // .saturating_add(T::DbWeight::get().reads(4))
+        // .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         // pub fn leave_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
         //     Self::do_leave_senate(origin, &hotkey)
         // }

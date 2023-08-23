@@ -12,6 +12,8 @@ use sp_runtime::{
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
 use pallet_subtensor::Error;
+use pallet_subtensor::migration;
+
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
@@ -52,6 +54,8 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 #[test]
 fn test_senate_join_works() {
     new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
@@ -107,71 +111,19 @@ fn test_senate_join_works() {
             100_000
         );
 
-        assert_ok!(SubtensorModule::do_join_senate(
+        assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            &hotkey_account_id
+            hotkey_account_id
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });
 }
 
 #[test]
-fn test_senate_join_fails_stake_req() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(6);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
-            hotkey_account_id
-        ));
-        // Check if balance has  decreased to pay for the burn.
-        assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
-        ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
-        // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
-
-        // Lets make this new key a delegate with a 50% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 2
-        ));
-
-        SubtensorModule::increase_total_stake(100_000);
-        assert_eq!(SubtensorModule::get_total_stake(), 100_000);
-
-        assert_noop!(
-            SubtensorModule::do_join_senate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                &hotkey_account_id
-            ),
-            Error::<Test>::BelowStakeThreshold
-        );
-    });
-}
-
-#[test]
 fn test_senate_vote_works() {
     new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let senate_hotkey = U256::from(1);
@@ -228,9 +180,9 @@ fn test_senate_vote_works() {
             100_000
         );
 
-        assert_ok!(SubtensorModule::do_join_senate(
+        assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            &hotkey_account_id
+            hotkey_account_id
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
 
@@ -248,7 +200,7 @@ fn test_senate_vote_works() {
                 .expect("convert u64 to block number.")
         ));
 
-        assert_ok!(SubtensorModule::do_vote_senate(
+        assert_ok!(SubtensorModule::do_vote_root(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             &hotkey_account_id,
             hash,
@@ -262,7 +214,7 @@ fn test_senate_vote_works() {
                     account: senate_hotkey,
                     proposal_index: 0,
                     proposal_hash: hash,
-                    threshold: 4
+                    threshold: 1
                 })),
                 record(RuntimeEvent::Triumvirate(CollectiveEvent::Voted {
                     account: hotkey_account_id,
@@ -279,6 +231,8 @@ fn test_senate_vote_works() {
 #[test]
 fn test_senate_vote_not_member() {
     new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let senate_hotkey = U256::from(1);
@@ -324,7 +278,7 @@ fn test_senate_vote_not_member() {
         ));
 
         assert_noop!(
-            SubtensorModule::do_vote_senate(
+            SubtensorModule::do_vote_root(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 &hotkey_account_id,
                 hash,
@@ -339,6 +293,8 @@ fn test_senate_vote_not_member() {
 #[test]
 fn test_senate_leave_works() {
     new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
@@ -394,67 +350,19 @@ fn test_senate_leave_works() {
             100_000
         );
 
-        assert_ok!(SubtensorModule::do_join_senate(
+        assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            &hotkey_account_id
-        ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
-
-        assert_ok!(SubtensorModule::do_leave_senate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            &hotkey_account_id
-        ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), false);
-    });
-}
-
-#[test]
-fn test_senate_leave_not_member() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey_account_id = U256::from(6);
-        let burn_cost = 1000;
-        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-
-        //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
-        add_network(netuid, tempo, 0);
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            netuid,
             hotkey_account_id
         ));
-        // Check if balance has  decreased to pay for the burn.
-        assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
-        ); // funds drained on reg.
-           // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
-        // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
-
-        assert_noop!(
-            SubtensorModule::do_leave_senate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                &hotkey_account_id
-            ),
-            Error::<Test>::NotSenateMember
-        );
+        assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });
 }
 
 #[test]
 fn test_senate_leave_vote_removal() {
     new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let senate_hotkey = U256::from(1);
@@ -512,9 +420,9 @@ fn test_senate_leave_vote_removal() {
             100_000
         );
 
-        assert_ok!(SubtensorModule::do_join_senate(
+        assert_ok!(SubtensorModule::root_register(
             coldkey_origin.clone(),
-            &hotkey_account_id
+            hotkey_account_id
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
 
@@ -530,18 +438,60 @@ fn test_senate_leave_vote_removal() {
                 .expect("convert u64 to block number.")
         ));
 
-        assert_ok!(SubtensorModule::do_vote_senate(
+        assert_ok!(SubtensorModule::do_vote_root(
             coldkey_origin.clone(),
             &hotkey_account_id,
             hash,
             0,
             true
         ));
-        assert_ok!(SubtensorModule::do_leave_senate(
-            coldkey_origin,
-            &hotkey_account_id
-        ));
-
+        // Fill the root network with many large stake keys.
+        // This removes all other keys.
+        // Add two networks.
+        let root_netuid: u16 = 0;
+        let other_netuid: u16 = 5;
+        add_network(other_netuid, 0, 0);
+        SubtensorModule::set_burn(other_netuid, 0);
+        SubtensorModule::set_max_registrations_per_block(other_netuid, 1000);
+        SubtensorModule::set_target_registrations_per_interval( other_netuid, 1000 );
+        SubtensorModule::set_max_registrations_per_block( root_netuid, 1000 );
+        SubtensorModule::set_target_registrations_per_interval( root_netuid, 1000 );
+        for i in 0..200 {
+            let hot: U256 = U256::from(i+100);
+            let cold: U256 = U256::from(i+100);
+            // Add balance
+            SubtensorModule::add_balance_to_coldkey_account(&cold, 100_000_000 + (i as u64) ); // lots ot stake
+            // Register
+            assert_ok!(SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
+                other_netuid,
+                hot
+            ));
+            // Add stake on other network
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
+                hot,
+                100_000_000 + (i as u64)
+            ));
+            // Register them on the root network.
+            assert_ok!(SubtensorModule::root_register(
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
+                hot,
+            ));
+            // Check succesfull registration.
+            assert!(
+                SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok()
+            );
+            assert!(
+                SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok()
+            );
+            // Check that they are all delegates
+            assert!( SubtensorModule::hotkey_is_delegate(&hot) );
+        }
+        // No longer a root member
+        assert!(
+            !SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hotkey_account_id).is_ok()
+        );
         assert_eq!(
             Triumvirate::has_voted(hash, 0, &hotkey_account_id),
             Ok(false)
@@ -550,8 +500,10 @@ fn test_senate_leave_vote_removal() {
 }
 
 #[test]
-fn test_senate_leave_when_stake_removed() {
+fn test_senate_not_leave_when_stake_removed() {
     new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(6);
@@ -608,9 +560,9 @@ fn test_senate_leave_when_stake_removed() {
             stake_amount
         );
 
-        assert_ok!(SubtensorModule::do_join_senate(
+        assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            &hotkey_account_id
+            hotkey_account_id
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
 
@@ -621,146 +573,6 @@ fn test_senate_leave_when_stake_removed() {
             hotkey_account_id,
             stake_amount
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), false);
-    });
-}
-
-#[test]
-fn test_senate_replace_lowest_member() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let burn_cost = 1000;
-
-        //add network
-        add_network(netuid, tempo, 0);
-        SubtensorModule::set_max_allowed_uids(netuid, 4096);
-        SubtensorModule::set_burn(netuid, burn_cost);
-        SubtensorModule::set_max_registrations_per_block(netuid, 100);
-        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
-
-        for i in 1..11u64 {
-            let coldkey_account_id = U256::from(100 + i);
-            let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id);
-
-            let hotkey_account_id = U256::from(5 + i);
-
-            // Give it some $$$ in his coldkey balance
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-            // Subscribe and check extrinsic output
-            assert_ok!(SubtensorModule::burned_register(
-                coldkey_origin.clone(),
-                netuid,
-                hotkey_account_id
-            ));
-            // Check if balance has  decreased to pay for the burn.
-            assert_eq!(
-                SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-                10000 - burn_cost
-            ); // funds drained on reg.
-               // Check if neuron has added to the specified network(netuid)
-            assert_eq!(u64::from(SubtensorModule::get_subnetwork_n(netuid)), i);
-            // Check if hotkey is added to the Hotkeys
-            assert_eq!(
-                SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-                coldkey_account_id
-            );
-
-            // Lets make this new key a delegate with a 50% take.
-            assert_ok!(SubtensorModule::do_become_delegate(
-                coldkey_origin.clone(),
-                hotkey_account_id,
-                u16::MAX / 2
-            ));
-
-            let staker_coldkey = U256::from(200 + i);
-            let staked_amount = 100_000 * i;
-            SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, staked_amount);
-
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
-                hotkey_account_id,
-                staked_amount
-            ));
-            assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                    &staker_coldkey,
-                    &hotkey_account_id
-                ),
-                staked_amount
-            );
-            assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-                staked_amount
-            );
-
-            assert_ok!(SubtensorModule::do_join_senate(
-                coldkey_origin,
-                &hotkey_account_id
-            ));
-            assert_eq!(Senate::is_member(&hotkey_account_id), true);
-
-            SubtensorModule::set_burn(netuid, burn_cost);
-            step_block(100);
-        }
-
-        let hotkey_account_id = U256::from(16);
-        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        let coldkey_origin = <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id);
-
-        // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
-
-        // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
-            coldkey_origin.clone(),
-            netuid,
-            hotkey_account_id
-        ));
-        // Check if balance has  decreased to pay for the burn.
-        assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
-        ); // funds drained on reg.
-           // Check if hotkey is added to the Hotkeys
-        assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
-            coldkey_account_id
-        );
-
-        // Lets make this new key a delegate with a 50% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            coldkey_origin.clone(),
-            hotkey_account_id,
-            u16::MAX / 2
-        ));
-
-        let staker_coldkey = U256::from(1000);
-        let stake_amount = 1_000_001;
-        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, stake_amount);
-
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
-            hotkey_account_id,
-            stake_amount
-        ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            stake_amount
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_amount
-        );
-
-        assert_ok!(SubtensorModule::do_join_senate(
-            coldkey_origin.clone(),
-            &hotkey_account_id
-        ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
-
-        // Lowest stake amount should get kicked out
-        assert_eq!(Senate::is_member(&U256::from(6)), false);
     });
 }
