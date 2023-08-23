@@ -575,6 +575,7 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialBondsPenalty: u16 = 0;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
@@ -600,6 +601,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialKappa = SubtensorInitialKappa;
     type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
+    type InitialBondsPenalty = SubtensorInitialBondsPenalty;
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
     type InitialEmissionValue = SubtensorInitialEmissionValue;

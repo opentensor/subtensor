@@ -365,6 +365,16 @@ benchmarks! {
 
   }: sudo_set_bonds_moving_average(RawOrigin::<AccountIdOf<T>>::Root, netuid, bonds_moving_average)
 
+  benchmark_sudo_set_bonds_penalty {
+    let netuid: u16 = 1;
+    let bonds_penalty: u16 = 100;
+    let tempo: u16 = 1;
+    let modality: u16 = 0;
+
+    assert_ok!( Subtensor::<T>::do_add_network( RawOrigin::Root.into(), netuid.try_into().unwrap(), tempo.into(), modality.into()));
+
+  }: sudo_set_bonds_penalty(RawOrigin::<AccountIdOf<T>>::Root, netuid, bonds_penalty)
+
   benchmark_sudo_set_max_allowed_validators {
     let netuid: u16 = 1;
     let tempo: u16 = 1;

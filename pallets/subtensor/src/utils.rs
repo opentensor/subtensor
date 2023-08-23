@@ -404,6 +404,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_bonds_penalty( netuid: u16 ) -> u16 { BondsPenalty::<T>::get( netuid ) }
+    pub fn set_bonds_penalty( netuid: u16, bonds_penalty: u16 ) { BondsPenalty::<T>::insert( netuid, bonds_penalty ); }
+    pub fn do_sudo_set_bonds_penalty( origin:T::RuntimeOrigin, netuid: u16, bonds_penalty: u16 ) -> DispatchResult {
+        ensure_root( origin )?;
+        ensure!(Self::if_subnet_exist(netuid), Error::<T>::NetworkDoesNotExist);
+        Self::set_bonds_penalty( netuid, bonds_penalty );
+        log::info!("BondsPenaltySet( netuid: {:?} bonds_penalty: {:?} ) ", netuid, bonds_penalty );
+        Self::deposit_event( Event::BondsPenaltySet( netuid, bonds_penalty ) );
+        Ok(())
+    }
+
     pub fn get_max_registrations_per_block( netuid: u16 ) -> u16 { MaxRegistrationsPerBlock::<T>::get( netuid ) }
     pub fn set_max_registrations_per_block( netuid: u16, max_registrations_per_block: u16 ) { MaxRegistrationsPerBlock::<T>::insert( netuid, max_registrations_per_block ); }
     pub fn do_sudo_set_max_registrations_per_block(

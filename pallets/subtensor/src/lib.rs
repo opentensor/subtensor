@@ -131,6 +131,8 @@ pub mod pallet {
         type InitialAdjustmentInterval: Get<u16>;
         #[pallet::constant] // Initial bonds moving average.
         type InitialBondsMovingAverage: Get<u64>;
+        #[pallet::constant] // Initial bonds penalty.
+        type InitialBondsPenalty: Get<u16>;
         #[pallet::constant] // Initial target registrations per interval.
         type InitialTargetRegistrationsPerInterval: Get<u16>;
         #[pallet::constant] // Rho constant.
@@ -530,6 +532,10 @@ pub mod pallet {
         T::InitialBondsMovingAverage::get()
     }
     #[pallet::type_value]
+    pub fn DefaultBondsPenalty<T: Config>() -> u16 {
+        T::InitialBondsPenalty::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultValidatorPruneLen<T: Config>() -> u64 {
         T::InitialValidatorPruneLen::get()
     }
@@ -587,6 +593,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> bonds_moving_average
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> bonds_penalty
+    pub type BondsPenalty<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultBondsPenalty<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> weights_set_rate_limit
     pub type WeightsSetRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsSetRateLimit<T>>;
@@ -739,6 +748,7 @@ pub mod pallet {
         WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet.
         ImmunityPeriodSet(u16, u16), // --- Event created when immunity period is set for a subnet.
         BondsMovingAverageSet(u16, u64), // --- Event created when bonds moving average is set for a subnet.
+        BondsPenaltySet(u16, u16), // --- Event created when bonds penalty is set for a subnet.
         MaxAllowedValidatorsSet(u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
         AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
         PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
@@ -1958,6 +1968,18 @@ pub mod pallet {
             adjustment_alpha: u64,
         ) -> DispatchResult {
             Self::do_sudo_set_adjustment_alpha(origin, netuid, adjustment_alpha)
+        }
+
+        #[pallet::call_index(59)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_bonds_penalty(
+            origin: OriginFor<T>,
+            netuid: u16,
+            bonds_penalty: u16,
+        ) -> DispatchResult {
+            Self::do_sudo_set_bonds_penalty(origin, netuid, bonds_penalty)
         }
     }
 
