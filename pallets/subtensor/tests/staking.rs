@@ -2208,3 +2208,67 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
         assert_eq!(Balances::free_balance(coldkey0_id), amount);
     });
 }
+
+
+/************************************************************
+    Tests for SubtensorModule::get_total_issuance()
+************************************************************/
+
+#[test]
+fn test_total_issuance_tx_fees() {
+	new_test_ext().execute_with(|| {
+        let hotkey_id = U256::from(123570);
+        let coldkey0_id = U256::from(123560);
+
+		let coldkey1_id = U256::from(123561); // Receiever of transfer
+
+		let amount_transferred: u64 = 123456;
+		let amount_free_balance = amount_transferred + 100_000_000_000; // Extra for fees
+		let amount_emitted = amount_free_balance + 123_456_000_000; // Extra for testing remainder
+
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let start_nonce: u64 = 0;
+
+        // Make subnet
+        add_network(netuid, tempo, 0);
+
+        // Register delegate
+        register_ok_neuron(netuid, hotkey_id, coldkey0_id, start_nonce);
+
+		// Emit inflation to the hotkey account
+		SubtensorModule::emit_inflation_through_hotkey_account(&hotkey_id, 0, amount_emitted);
+		// Verify total issuance is correct
+		assert_eq!(SubtensorModule::get_total_issuance(), amount_emitted);
+
+		// Unstake the coldkey so we can transfer
+		assert_ok!(SubtensorModule::do_remove_stake(
+			<<Test as Config>::RuntimeOrigin>::signed(coldkey0_id),
+			hotkey_id,
+			amount_free_balance
+		));
+		// Verify total issuance did not change
+		assert_eq!(SubtensorModule::get_total_issuance(), amount_emitted);
+
+		// Check balances total issuance, should *at least* the amount free balance
+		assert_eq!(Balances::total_issuance() >= amount_free_balance, true);
+		// The total balance in Balances should also be *at least* the amount free balance
+		assert_eq!(Balances::total_balance(&coldkey0_id) >= amount_free_balance, true);
+
+		// IF there is a difference between the total issuance and Balances::total_issuance, it should be the same after the transfer
+		//   otherwise, the total issuance does track the tx fees when they are de-issued (i.e. burned)
+		let diff_before_transfer = Balances::total_balance(&coldkey0_id) - Balances::total_issuance();
+
+		// Make a transfer
+		// Total issuance *should* decrease by the tx fee
+		assert_ok!(Balances::transfer(
+			<<Test as Config>::RuntimeOrigin>::signed(coldkey0_id),
+			coldkey1_id,
+			amount_transferred.try_into().unwrap(),
+		));
+
+		// Verify the difference is consistent after the transfer
+		let diff_after_transfer = Balances::total_balance(&coldkey0_id) - Balances::total_issuance();
+		assert_eq!(diff_before_transfer, diff_after_transfer);
+    });
+}
