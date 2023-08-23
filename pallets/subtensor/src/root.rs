@@ -460,10 +460,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
         let lock_as_balance = Self::u64_to_balance(lock_amount);
-        log::info!(
-            "network lock_amount: {:?}",
-            lock_amount,
-        );
+        log::info!("network lock_amount: {:?}", lock_amount,);
         ensure!(
             lock_as_balance.is_some(),
             Error::<T>::CouldNotConvertToBalance
@@ -475,7 +472,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Fetch current and maximum subnets.
         let current_num_subnets: u16 = Self::get_num_subnets();
-        let max_allowed_subnets: u16 = Self::get_max_allowed_uids( Self::get_root_netuid() );
+        let max_allowed_subnets: u16 = Self::get_max_allowed_uids(Self::get_root_netuid());
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
@@ -490,10 +487,7 @@ impl<T: Config> Pallet<T> {
             } else {
                 let netuid_to_prune = Self::get_subnet_to_prune();
                 Self::remove_network(netuid_to_prune);
-                log::info!(
-                    "remove_network: {:?}",
-                    netuid_to_prune,
-                );
+                log::info!("remove_network: {:?}", netuid_to_prune,);
                 netuid_to_prune
             }
         };
@@ -507,10 +501,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 1000);
-        log::info!(
-            "init_new_network: {:?}",
-            netuid_to_register,
-        );
+        log::info!("init_new_network: {:?}", netuid_to_register,);
 
         // --- 7. Set netuid storage.
         NetworkLastRegistered::<T>::set(current_block);
@@ -799,8 +790,8 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
         let mult = if last_lock_block == 0 { 1 } else { 2 };
-        let mut lock_cost =
-            (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block);
+        let mut lock_cost = (last_lock * mult)
+            - (last_lock / lock_reduction_interval) * (current_block - last_lock_block);
         if lock_cost < min_lock {
             lock_cost = min_lock;
         }
@@ -873,17 +864,17 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_immunity_period() -> u64 {
         NetworkImmunityPeriod::<T>::get()
     }
-    pub fn set_network_immunity_period( net_immunity_period: u64 ) {
-        NetworkImmunityPeriod::<T>::set( net_immunity_period );
+    pub fn set_network_immunity_period(net_immunity_period: u64) {
+        NetworkImmunityPeriod::<T>::set(net_immunity_period);
     }
-    pub fn set_network_min_lock( net_min_lock: u64 ) {
-        NetworkMinLockCost::<T>::set( net_min_lock );
+    pub fn set_network_min_lock(net_min_lock: u64) {
+        NetworkMinLockCost::<T>::set(net_min_lock);
     }
     pub fn get_network_min_lock() -> u64 {
         NetworkMinLockCost::<T>::get()
     }
-    pub fn set_network_last_lock( net_last_lock: u64 ) {
-        NetworkLastLockCost::<T>::set( net_last_lock );
+    pub fn set_network_last_lock(net_last_lock: u64) {
+        NetworkLastLockCost::<T>::set(net_last_lock);
     }
     pub fn get_network_last_lock() -> u64 {
         NetworkLastLockCost::<T>::get()
@@ -891,8 +882,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_last_lock_block() -> u64 {
         NetworkLastRegistered::<T>::get()
     }
-    pub fn set_lock_reduction_interval( interval: u64 ) {
-        NetworkLockReductionInterval::<T>::set( interval );
+    pub fn set_lock_reduction_interval(interval: u64) {
+        NetworkLockReductionInterval::<T>::set(interval);
     }
     pub fn get_lock_reduction_interval() -> u64 {
         NetworkLockReductionInterval::<T>::get()

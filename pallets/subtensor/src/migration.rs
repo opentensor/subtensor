@@ -6,10 +6,10 @@ use frame_support::{
     traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
-use sp_runtime::AccountId32;
-use sp_core::sr25519;
-use sp_core::crypto::Ss58Codec;
 use log::info;
+use sp_core::crypto::Ss58Codec;
+use sp_core::sr25519;
+use sp_runtime::AccountId32;
 
 // TODO (camfairchild): TEST MIGRATION
 
@@ -46,7 +46,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     MinAllowedWeights::<T>::insert(root_netuid, 0);
     MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
     TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
-    
+
     // Empty senate.
     for hotkey_i in T::SenateMembers::members().iter() {
         T::TriumvirateInterface::remove_votes(&hotkey_i);

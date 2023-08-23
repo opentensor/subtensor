@@ -417,9 +417,11 @@ pub mod pallet {
     #[pallet::storage] // ITEM( min_network_burn_cost )
     pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
     #[pallet::storage] // ITEM( last_network_burn_cost )
-    pub type NetworkLastLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
+    pub type NetworkLastLockCost<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
     #[pallet::storage] // ITEM( network_lock_reduction_interval )
-    pub type NetworkLockReductionInterval<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
+    pub type NetworkLockReductionInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
     #[pallet::storage] // ITEM( subnet_owner_cut )
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
 
