@@ -90,10 +90,19 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
-        ensure!(
-            Self::check_len_uids_within_allowed(netuid, &uids),
-            Error::<T>::TooManyUids
-        );
+        // For the root network this number is the number of subnets.
+        if netuid == Self::get_root_netuid() {
+            // --- 4.a. Ensure that the passed uids are valid for the network.
+            ensure!(
+                !Self::contains_invalid_root_uids(&uids),
+                Error::<T>::InvalidUid
+            );
+        } else {
+            ensure!(
+                Self::check_len_uids_within_allowed(netuid, &uids),
+                Error::<T>::TooManyUids
+            );
+        }
 
         // --- 5. Check to see if the hotkey is registered to the passed network.
         ensure!(
@@ -266,7 +275,8 @@ impl<T: Config> Pallet<T> {
         };
 
         // Check self weight. Allowed to set single value for self weight.
-        if Self::is_self_weight(uid, uids, weights) {
+        // Or check that this is the root netuid.
+        if netuid != Self::get_root_netuid() && Self::is_self_weight(uid, uids, weights) {
             return true;
         }
         // Check if number of weights exceeds min.

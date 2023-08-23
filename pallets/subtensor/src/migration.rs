@@ -22,6 +22,37 @@ pub mod deprecated_loaded_emission_format {
     pub(super) type LoadedEmission<T:Config> = StorageMap< Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery >;
 }
 
+pub fn migrate_create_root_network<T: Config>() -> Weight {
+    let root_netuid: u16 = 0;
+
+    // Check if root network already exists.
+    if NetworksAdded::<T>::get( root_netuid ) {
+        return Weight::zero();
+    }
+    // Build the root network if not exists.
+    SubnetworkN::<T>::insert(root_netuid, 0);
+    NetworksAdded::<T>::insert(root_netuid, true);
+    Tempo::<T>::insert(root_netuid, 100);
+    NetworkModality::<T>::insert(root_netuid, 0);
+    TotalNetworks::<T>::mutate(|n| *n += 1);
+
+    // Fill the root network params.
+    MaxAllowedUids::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16 );
+    NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+    MaxAllowedValidators::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16 );
+    MinAllowedWeights::<T>::insert(root_netuid, 0);
+    MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+    TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
+
+    // Empty senate.
+    for hotkey_i in T::SenateMembers::members().iter() {
+        T::TriumvirateInterface::remove_votes(&hotkey_i);
+		T::SenateMembers::remove_member(&hotkey_i);
+    }
+    // Return zero weight.
+    Weight::zero()
+}
+
 pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
     use deprecated_loaded_emission_format as old;
      // Check storage version

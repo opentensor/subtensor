@@ -38,7 +38,6 @@ mod epoch;
 mod math;
 mod registration;
 mod root;
-mod senate;
 mod serving;
 mod staking;
 mod uids;
@@ -51,7 +50,7 @@ pub mod subnet_info;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
-mod migration;
+pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -1072,7 +1071,7 @@ pub mod pallet {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate to v2
             use crate::migration;
-
+            migration::migrate_create_root_network::<T>();
             migration::migrate_to_v2_separate_emission::<T>()
         }
     }
@@ -1977,23 +1976,23 @@ pub mod pallet {
             return result;
         }
 
-        #[pallet::call_index(53)]
-        #[pallet::weight((Weight::from_ref_time(67_000_000)
-		.saturating_add(Weight::from_proof_size(61173))
-		.saturating_add(T::DbWeight::get().reads(20))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn join_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_join_senate(origin, &hotkey)
-        }
+        // --- DEPRECATED #[pallet::call_index(53)]
+        // #[pallet::weight((Weight::from_ref_time(67_000_000)
+		// .saturating_add(Weight::from_proof_size(61173))
+		// .saturating_add(T::DbWeight::get().reads(20))
+		// .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        // pub fn join_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        //     Self::do_join_senate(origin, &hotkey)
+        // }
 
-        #[pallet::call_index(54)]
-        #[pallet::weight((Weight::from_ref_time(20_000_000)
-		.saturating_add(Weight::from_proof_size(4748))
-		.saturating_add(T::DbWeight::get().reads(4))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn leave_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_leave_senate(origin, &hotkey)
-        }
+        // --- DEPRECATED #[pallet::call_index(54)]
+        // #[pallet::weight((Weight::from_ref_time(20_000_000)
+		// .saturating_add(Weight::from_proof_size(4748))
+		// .saturating_add(T::DbWeight::get().reads(4))
+		// .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        // pub fn leave_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+        //     Self::do_leave_senate(origin, &hotkey)
+        // }
 
         #[pallet::call_index(55)]
         #[pallet::weight((Weight::from_ref_time(0)
@@ -2007,7 +2006,7 @@ pub mod pallet {
             #[pallet::compact] index: u32,
             approve: bool,
         ) -> DispatchResultWithPostInfo {
-            Self::do_vote_senate(origin, &hotkey, proposal, index, approve)
+            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
         }
 
         // Sudo call for setting registration allowed
@@ -2023,20 +2022,20 @@ pub mod pallet {
             Self::do_sudo_set_network_registration_allowed(origin, netuid, registration_allowed)
         }
 
-        #[pallet::call_index(56)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_senate_required_stake_perc(
-            origin: OriginFor<T>,
-            required_percent: u64,
-        ) -> DispatchResult {
-            Self::do_set_senate_required_stake_perc(origin, required_percent)
-        }
+        // --- DEPRECATED#[pallet::call_index(56)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_set_senate_required_stake_perc(
+        //     origin: OriginFor<T>,
+        //     required_percent: u64,
+        // ) -> DispatchResult {
+        //     Self::do_set_senate_required_stake_perc(origin, required_percent)
+        // }
 
-        #[pallet::call_index(57)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId) -> DispatchResult {
-            Self::do_remove_votes(origin, &who)
-        }
+        // --- DEPRECATED  #[pallet::call_index(57)]
+        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        // pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId) -> DispatchResult {
+        //     Self::do_remove_votes(origin, &who)
+        // }
 
         #[pallet::call_index(58)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)

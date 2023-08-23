@@ -176,7 +176,7 @@ parameter_types! {
 
 // Configure collective pallet for Senate
 parameter_types! {
-    pub const SenateMaxMembers: u32 = 10;
+    pub const SenateMaxMembers: u32 = 12;
 }
 
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};

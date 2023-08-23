@@ -8,9 +8,9 @@ use sp_core::U256;
 fn test_loaded_emission() {
     new_test_ext().execute_with(|| {
         let n: u16 = 100;
-        let netuid: u16 = 0;
+        let netuid: u16 = 1;
         let tempo: u16 = 10;
-        let netuids: Vec<u16> = vec![0];
+        let netuids: Vec<u16> = vec![1];
         let emission: Vec<u64> = vec![1000000000];
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
@@ -24,13 +24,13 @@ fn test_loaded_emission() {
         let block: u64 = 0;
         assert_eq!(
             SubtensorModule::blocks_until_next_epoch(netuid, tempo, block),
-            9
+            8
         );
         SubtensorModule::generate_emission(block);
         assert!(!SubtensorModule::has_loaded_emission_tuples(netuid));
 
         // Try loading at block = 9;
-        let block: u64 = 9;
+        let block: u64 = 8;
         assert_eq!(
             SubtensorModule::blocks_until_next_epoch(netuid, tempo, block),
             0
@@ -44,18 +44,18 @@ fn test_loaded_emission() {
 
         // Try draining the emission tuples
         // None remaining because we are at epoch.
-        let block: u64 = 9;
+        let block: u64 = 8;
         SubtensorModule::drain_emission(block);
         assert!(!SubtensorModule::has_loaded_emission_tuples(netuid));
 
         // Generate more emission.
-        SubtensorModule::generate_emission(9);
+        SubtensorModule::generate_emission(8);
         assert_eq!(
             SubtensorModule::get_loaded_emission_tuples(netuid).len(),
             n as usize
         );
 
-        for block in 10..20 {
+        for block in 9..19 {
             let mut n_remaining: usize = 0;
             let mut n_to_drain: usize = 0;
             if SubtensorModule::has_loaded_emission_tuples(netuid) {

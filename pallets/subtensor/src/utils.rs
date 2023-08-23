@@ -1029,6 +1029,10 @@ impl<T: Config> Pallet<T> {
         SenateRequiredStakePercentage::<T>::put(required_percent);
     }
 
+    pub fn is_senate_member( hotkey: &T::AccountId ) -> bool {
+        T::SenateMembers::is_member( hotkey )
+    }
+
     pub fn do_set_senate_required_stake_perc(
         origin: T::RuntimeOrigin,
         required_percent: u64,

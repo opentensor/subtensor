@@ -20,8 +20,12 @@ use crate::math::*;
 use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::traits::Get;
+use frame_support::weights::{Weight, constants::RocksDbWeight};
+use frame_support::dispatch::{ DispatchResultWithPostInfo, Pays };
 use substrate_fixed::types::{I32F32, I64F64};
 const DAYS: u64 = 7200;
+
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the unique identifier (UID) for the root network.
@@ -128,7 +132,6 @@ impl<T: Config> Pallet<T> {
     /// * `bool`: `true` if any of the UIDs are invalid, `false` otherwise.
     ///
     pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
-        let total_subnets: u16 = Self::get_num_subnets();
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
                 return true;
@@ -265,126 +268,6 @@ impl<T: Config> Pallet<T> {
         return Self::set_emission_values(&netuids, emission_u64);
     }
 
-    // ---- The implementation for the extrinsic set_root_weights.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the calling hotkey.
-    //
-    // 	* 'uids' ( Vec<u16> ):
-    // 		- The uids of the weights to be set on the chain.
-    //
-    // 	* 'values' ( Vec<u16> ):
-    // 		- The values of the weights to set on the chain.
-    //
-    // # Event:
-    // 	* WeightsSet;
-    // 		- On successfully setting the weights on chain.
-    //
-    // # Raises:
-    // 	* 'NotRegistered':
-    // 		- Attempting to set weights from a non registered account.
-    //
-    // 	* 'SettingWeightsTooFast':
-    // 		- Attempting to set weights faster than the weights_set_rate_limit.
-    //
-    // 	* 'WeightVecNotEqualSize':
-    // 		- Attempting to set weights with uids not of same length.
-    //
-    // 	* 'DuplicateUids':
-    // 		- Attempting to set weights with duplicate uids.
-    //
-    // 	* 'InvalidUid':
-    // 		- Attempting to set weights with invalid uids.
-    //
-    pub fn set_root_weights(
-        origin: T::RuntimeOrigin,
-        uids: Vec<u16>,
-        values: Vec<u16>,
-    ) -> dispatch::DispatchResult {
-        let root_netuid: u16 = Self::get_root_netuid();
-
-        // --- 1. Check the caller's signature. This is the hotkey of a registered account.
-        let hotkey = ensure_signed(origin)?;
-        log::info!(
-            "do_set_root_weights( origin:{:?} uids:{:?}, values:{:?})",
-            hotkey,
-            uids,
-            values
-        );
-
-        // --- 2. Check that the length of uid list and value list are equal for this network.
-        ensure!(
-            Self::uids_match_values(&uids, &values),
-            Error::<T>::WeightVecNotEqualSize
-        );
-
-        // --- 3. Check to see if the number of uids is within the max allowed uids for this network.
-        ensure!(
-            uids.len() <= TotalNetworks::<T>::get() as usize,
-            Error::<T>::TooManyUids
-        );
-
-        // --- 4. Ensure the hotkey is registered on the root network.
-        ensure!(
-            Self::is_hotkey_registered_on_network(root_netuid, &hotkey),
-            Error::<T>::NotRegistered
-        );
-
-        // --- 5. Get the neuron uid of associated hotkey on network netuid.
-        let neuron_uid;
-        let net_neuron_uid = Self::get_uid_for_net_and_hotkey(root_netuid, &hotkey);
-        ensure!(
-            net_neuron_uid.is_ok(),
-            net_neuron_uid
-                .err()
-                .unwrap_or(Error::<T>::NotRegistered.into())
-        );
-        neuron_uid = net_neuron_uid.unwrap();
-
-        // --- 6. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
-        let current_block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            Self::check_rate_limit(root_netuid, neuron_uid, current_block),
-            Error::<T>::SettingWeightsTooFast
-        );
-
-        // --- 7. Ensure the passed uids contain no duplicates.
-        ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
-
-        // --- 8. Ensure that the passed uids are valid for the network.
-        ensure!(
-            !Self::contains_invalid_root_uids(&uids),
-            Error::<T>::InvalidUid
-        );
-
-        // --- 9. Max-upscale the weights.
-        let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16(&values);
-
-        // --- 10. Zip weights for sinking to storage map.
-        let mut zipped_weights: Vec<(u16, u16)> = vec![];
-        for (uid, val) in uids.iter().zip(max_upscaled_weights.iter()) {
-            zipped_weights.push((*uid, *val))
-        }
-
-        // --- 11. Set weights under netuid, uid double map entry.
-        Weights::<T>::insert(root_netuid, neuron_uid, zipped_weights);
-
-        // --- 12. Set the activity for the weights on this network.
-        Self::set_last_update_for_uid(root_netuid, neuron_uid, current_block);
-
-        // --- 13. Emit the tracking event.
-        log::info!(
-            "RootWeightsSet( root_netuid:{:?}, neuron_uid:{:?} )",
-            root_netuid,
-            neuron_uid
-        );
-        Self::deposit_event(Event::WeightsSet(root_netuid, neuron_uid));
-
-        // --- 14. Return ok.
-        Ok(())
-    }
-
     /// Registers a user's hotkey to the root network.
     ///
     /// This function is responsible for registering the hotkey of a user.
@@ -397,7 +280,10 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// * `DispatchResult`: A result type indicating success or failure of the registration.
     ///
-    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+    pub fn do_root_register(
+        origin: T::RuntimeOrigin, 
+        hotkey: T::AccountId
+    ) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
         let current_block_number: u64 = Self::get_current_block_as_u64();
@@ -448,13 +334,16 @@ impl<T: Config> Pallet<T> {
         let subnetwork_uid: u16;
 
         // --- 8. Check if the root net is below its allowed size.
-        if current_subnetwork_n < Self::get_max_allowed_uids(root_netuid) {
+        // max allowed is senate size.
+        if (current_subnetwork_n as u32) < T::SenateMembers::max_members() {
             // --- 12.1.1 We can append to the subnetwork as it's not full.
             subnetwork_uid = current_subnetwork_n;
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
+            T::SenateMembers::add_member(&hotkey);
             log::info!("add new neuron account");
+            
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -474,6 +363,7 @@ impl<T: Config> Pallet<T> {
                 }
             }
             subnetwork_uid = lowest_uid;
+            let replaced_hotkey: T::AccountId = Self::get_hotkey_for_net_and_uid( root_netuid, subnetwork_uid ).unwrap();
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
@@ -484,8 +374,14 @@ impl<T: Config> Pallet<T> {
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
+            T::SenateMembers::swap_member( &replaced_hotkey, &hotkey );
             log::info!("replace neuron");
         }
+
+        // --- 13. Force all members on root to become a delegate.
+        if !Self::hotkey_is_delegate( &hotkey ) {
+            Self::delegate_hotkey( &hotkey, 11_796 ); // 18% cut defaulted.
+        }        
 
         // --- 14. Update the registration counters for both the block and interval.
         RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
@@ -503,6 +399,38 @@ impl<T: Config> Pallet<T> {
         // --- 16. Finish and return success.
         Ok(())
     }
+
+    pub fn do_vote_root(
+		origin: T::RuntimeOrigin,
+		hotkey: &T::AccountId,
+		proposal: T::Hash,
+		index: u32,
+		approve: bool
+	) -> DispatchResultWithPostInfo {
+
+        // --- 1. Ensure that the caller has signed with their coldkey.
+		let coldkey = ensure_signed(origin.clone())?;
+
+		// --- 2. Ensure that the calling coldkey owns the associated hotkey.
+		ensure!( Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
+
+        // --- 3. Ensure that the calling hotkey is a member of the senate.
+		ensure!(T::SenateMembers::is_member(&hotkey), Error::<T>::NotSenateMember);
+
+		// --- 4. Detects first vote of the member in the motion
+		let is_account_voting_first_time = T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
+
+		// --- 5. Calculate extrinsic weight
+        let members = T::SenateMembers::members();
+		let member_count = members.len() as u32;
+		let vote_weight = Weight::from_parts(20_528_275, 4980)
+			.saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+			.saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
+
+		Ok((Some(vote_weight), if is_account_voting_first_time { Pays::No } else { Pays::Yes }).into())
+	}
 
     /// Facilitates user registration of a new subnetwork.
     ///
