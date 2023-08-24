@@ -590,6 +590,7 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 100_000_000_000; // 100 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u16 = 8 * 7200;
 }
 
