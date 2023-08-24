@@ -1120,12 +1120,14 @@ pub fn test_sudo_test_pending_emission_ok() {
         let netuids: Vec<u16> = vec![1, 2];
         let emission: Vec<u64> = vec![250000000, 750000000];
 
+        let hotkey_account_id = U256::from(1);
+        let coldkey_account_id = U256::from(2);
+
         add_network(netuid1, tempo1, 0);
         add_network(netuid2, tempo2, 0);
 
-        assert_ok!(SubtensorModule::sudo_set_emission_values(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuids,
+        assert_ok!(SubtensorModule::set_emission_values(
+            &netuids,
             emission
         ));
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 250000000);
@@ -1182,9 +1184,8 @@ pub fn test_sudo_test_pending_emission_ok_empty_network() {
         add_network(netuid1, tempo1, 0);
         add_network(netuid2, tempo2, 0);
 
-        assert_ok!(SubtensorModule::sudo_set_emission_values(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuids,
+        assert_ok!(SubtensorModule::set_emission_values(
+            &netuids,
             emission
         ));
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 250000000);
