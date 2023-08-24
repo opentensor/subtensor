@@ -48,10 +48,11 @@ mod weights;
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod subnet_info;
+pub mod stake_info;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
-mod migration;
+pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -1053,10 +1054,16 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            // --- Migrate to v2
+            // --- Migrate storage
             use crate::migration;
 
-            migration::migrate_to_v2_separate_emission::<T>()
+			let mut weight = frame_support::weights::Weight::from_ref_time(0);
+
+			weight = weight
+				.saturating_add( migration::migrate_to_v1_separate_emission::<T>() )
+				.saturating_add( migration::migrate_to_v2_fixed_total_stake::<T>() );
+
+			return weight;
         }
     }
 

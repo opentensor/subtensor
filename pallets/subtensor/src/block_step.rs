@@ -38,6 +38,7 @@ impl<T: Config> Pallet<T> {
         return tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1);
     }
 
+
     // Helper function returns the number of tuples to drain on a particular step based on
     // the remaining tuples to sink and the block number
     //
