@@ -927,6 +927,8 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
+            use crate::MemberManagement;
+
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -1044,6 +1046,39 @@ pub mod pallet {
 
             // --- Increase total network count.
             TotalNetworks::<T>::mutate(|n| *n += 1);
+
+            // Get the root network uid.
+            let root_netuid: u16 = 0;
+
+            // Set the root network as added.
+            NetworksAdded::<T>::insert(root_netuid, true);
+
+            // Increment the number of total networks.
+            TotalNetworks::<T>::mutate(|n| *n += 1);
+
+            // Set the number of validators to 1.
+            SubnetworkN::<T>::insert(root_netuid, 0);
+
+            // Set the maximum number to the number of senate members.
+            MaxAllowedUids::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
+
+            // Set the maximum number to the number of validators to all members.
+            MaxAllowedValidators::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
+
+            // Set the min allowed weights to zero, no weights restrictions.
+            MinAllowedWeights::<T>::insert(root_netuid, 0);
+
+            // Set the max weight limit to infitiy, no weight restrictions.
+            MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+
+            // Add default root tempo.
+            Tempo::<T>::insert(root_netuid, 100);
+
+            // Set the root network as open.
+            NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+
+            // Set target registrations for validators as 1 per block.
+            TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
         }
     }
 
