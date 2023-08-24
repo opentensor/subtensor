@@ -90,10 +90,19 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
-        ensure!(
-            Self::check_len_uids_within_allowed(netuid, &uids),
-            Error::<T>::TooManyUids
-        );
+        // For the root network this number is the number of subnets.
+        if netuid == Self::get_root_netuid() {
+            // --- 4.a. Ensure that the passed uids are valid for the network.
+            ensure!(
+                !Self::contains_invalid_root_uids(&uids),
+                Error::<T>::InvalidUid
+            );
+        } else {
+            ensure!(
+                Self::check_len_uids_within_allowed(netuid, &uids),
+                Error::<T>::TooManyUids
+            );
+        }
 
         // --- 5. Check to see if the hotkey is registered to the passed network.
         ensure!(
@@ -127,10 +136,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 9. Check that the neuron uid is an allowed validator permitted to set non-self weights.
-        ensure!(
-            Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NoValidatorPermit
-        );
+        if netuid != Self::get_root_netuid() {
+            ensure!(
+                Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
+                Error::<T>::NoValidatorPermit
+            );
+        }
 
         // --- 10. Ensure the passed uids contain no duplicates.
         ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
@@ -222,12 +233,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns true if the passed uids have the same length of the passed values.
-    fn uids_match_values(uids: &Vec<u16>, values: &Vec<u16>) -> bool {
+    pub fn uids_match_values(uids: &Vec<u16>, values: &Vec<u16>) -> bool {
         return uids.len() == values.len();
     }
 
     // Returns true if the items contain duplicates.
-    fn has_duplicate_uids(items: &Vec<u16>) -> bool {
+    pub fn has_duplicate_uids(items: &Vec<u16>) -> bool {
         let mut parsed: Vec<u16> = Vec::new();
         for item in items {
             if parsed.contains(&item) {
@@ -266,7 +277,8 @@ impl<T: Config> Pallet<T> {
         };
 
         // Check self weight. Allowed to set single value for self weight.
-        if Self::is_self_weight(uid, uids, weights) {
+        // Or check that this is the root netuid.
+        if netuid != Self::get_root_netuid() && Self::is_self_weight(uid, uids, weights) {
             return true;
         }
         // Check if number of weights exceeds min.

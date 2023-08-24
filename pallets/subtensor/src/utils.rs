@@ -956,13 +956,38 @@ impl<T: Config> Pallet<T> {
         ));
         Ok(())
     }
+
+    pub fn get_subnet_owner( netuid:u16 ) -> T::AccountId {
+        SubnetOwner::<T>::get( netuid )
+    }
+    pub fn get_subnet_owner_cut() -> u16 {
+        SubnetOwnerCut::<T>::get( )
+    }
+    pub fn set_subnet_owner_cut( subnet_owner_cut: u16 ) {
+        SubnetOwnerCut::<T>::set( subnet_owner_cut );
+    }
+    pub fn do_sudo_set_subnet_owner_cut(
+        origin: T::RuntimeOrigin,
+        subnet_owner_cut: u16,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+        Self::set_subnet_owner_cut( subnet_owner_cut );
+        log::info!(
+            "SubnetOwnerCut( subnet_owner_cut: {:?} ) ",
+            subnet_owner_cut
+        );
+        Self::deposit_event(Event::SubnetOwnerCutSet(
+            subnet_owner_cut,
+        ));
+        Ok(())
+    }
+
     pub fn do_sudo_set_tempo(origin: T::RuntimeOrigin, netuid: u16, tempo: u16) -> DispatchResult {
         ensure_root(origin)?;
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
-        ensure!(Self::if_tempo_is_valid(tempo), Error::<T>::InvalidTempo);
         Self::set_tempo(netuid, tempo);
         log::info!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
         Self::deposit_event(Event::TempoSet(netuid, tempo));
@@ -1002,6 +1027,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_senate_required_stake_perc(required_percent: u64) {
         SenateRequiredStakePercentage::<T>::put(required_percent);
+    }
+
+    pub fn is_senate_member( hotkey: &T::AccountId ) -> bool {
+        T::SenateMembers::is_member( hotkey )
     }
 
     pub fn do_set_senate_required_stake_perc(

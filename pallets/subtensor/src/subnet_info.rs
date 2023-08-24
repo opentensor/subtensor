@@ -49,12 +49,11 @@ impl<T: Config> Pallet<T> {
         let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
 
-
-        let mut network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
-
-        for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
-            network_connect.push([_netuid_, con_req]);
-        }
+        // DEPRECATED
+        let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
+        // DEPRECATED for ( _netuid_, con_req) in < NetworkConnect<T> as IterableStorageDoubleMap<u16, u16, u16> >::iter_prefix(netuid) {
+        //     network_connect.push([_netuid_, con_req]);
+        // }
 
         return Some(SubnetInfo {
             rho: rho.into(),

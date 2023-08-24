@@ -989,7 +989,7 @@ fn test_non_existent_account() {
 #[test]
 fn test_delegate_stake_division_by_zero_check() {
     new_test_ext().execute_with(|| {
-        let netuid: u16 = 0;
+        let netuid: u16 = 1;
         let tempo: u16 = 1;
         let hotkey = U256::from(1);
         let coldkey = U256::from(3);
@@ -1014,7 +1014,9 @@ fn test_full_with_delegating() {
 
         let coldkey0 = U256::from(3);
         let coldkey1 = U256::from(4);
+        add_network(netuid, 0, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 4); // Allow all 4 to be registered at once
 
         // Neither key can add stake because they dont have fundss.
@@ -1110,8 +1112,6 @@ fn test_full_with_delegating() {
         );
 
         // Register the 2 neurons to a new network.
-        let netuid = 1;
-        add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
         assert_eq!(
@@ -2237,14 +2237,13 @@ fn test_faucet_ok() {
         ));
 
         #[cfg(not(feature = "pow-faucet"))]
-        assert_noop!(
+        assert_ok!(
             SubtensorModule::do_faucet(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 0,
                 nonce,
                 vec_work
-            ),
-            Error::<Test>::FaucetDisabled
+            )
         );
     });
 }

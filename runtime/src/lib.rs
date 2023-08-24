@@ -335,7 +335,7 @@ parameter_types! {
 
 // Configure collective pallet for Senate
 parameter_types! {
-    pub const SenateMaxMembers: u32 = 12;
+    pub const SenateMaxMembers: u32 = 128;
 }
 
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
@@ -586,10 +586,11 @@ parameter_types! {
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialSubnetLimit: u16 = 12; // Total subnet limit
     pub const SubtensorInitialNetworkImmunity: u64 = 12 * 7200;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
-    pub const SubtensorInitialMinBurnCost: u64 = 100_000_000_000; // 100 TAO
+    pub const SubtensorInitialMinLockCost: u64 = 100_000_000_000; // 100 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialNetworkLockReductionInterval: u16 = 8 * DAYS;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -631,10 +632,11 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
-    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
     type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
-    type InitialNetworkMinBurnCost = SubtensorInitialMinBurnCost;
+    type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
+    type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
+    type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

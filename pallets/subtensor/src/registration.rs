@@ -7,7 +7,6 @@ use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use substrate_fixed::types::I32F32;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
@@ -21,6 +20,10 @@ impl<T: Config> Pallet<T> {
         balance: u64,
     ) -> DispatchResult {
         ensure_root(origin)?;
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::OperationNotPermittedonRootSubnet
+        );
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
@@ -118,6 +121,10 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::OperationNotPermittedonRootSubnet
+        );
+        ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
@@ -148,11 +155,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AlreadyRegistered
         );
 
-        // --- 6. Ensure that the key passes the registration requirement
-        ensure!(
-            Self::passes_network_connection_requirement(netuid, &hotkey),
-            Error::<T>::DidNotPassConnectedNetworkRequirement
-        );
+        // DEPRECATED --- 6. Ensure that the key passes the registration requirement
+        // ensure!(
+        //     Self::passes_network_connection_requirement(netuid, &hotkey),
+        //     Error::<T>::DidNotPassConnectedNetworkRequirement
+        // );
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
@@ -300,6 +307,10 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::OperationNotPermittedonRootSubnet
+        );
+        ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
@@ -355,11 +366,11 @@ impl<T: Config> Pallet<T> {
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
         UsedWork::<T>::insert(&work.clone(), current_block_number);
 
-        // --- 8. Ensure that the key passes the registration requirement
-        ensure!(
-            Self::passes_network_connection_requirement(netuid, &hotkey),
-            Error::<T>::DidNotPassConnectedNetworkRequirement
-        );
+        // DEPRECATED --- 8. Ensure that the key passes the registration requirement
+        // ensure!(
+        //     Self::passes_network_connection_requirement(netuid, &hotkey),
+        //     Error::<T>::DidNotPassConnectedNetworkRequirement
+        // );
 
         // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
@@ -470,56 +481,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ok and done.
         Ok(())
-    }
-
-    // --- Checks if the hotkey passes the topk prunning requirement in all connected networks.
-    //
-    pub fn passes_network_connection_requirement(netuid_a: u16, hotkey: &T::AccountId) -> bool {
-        // --- 1. We are iterating over all networks to see if there is a registration connection.
-        for (netuid_b, exists) in NetworksAdded::<T>::iter() {
-            // --- 2. If the network exists and the registration connection requirement exists we will
-            // check to see if we pass it.
-            if exists && Self::network_connection_requirement_exists(netuid_a, netuid_b) {
-                // --- 3. We cant be in the top percentile of an empty network.
-                let subnet_n: u16 = Self::get_subnetwork_n(netuid_b);
-                if subnet_n == 0 {
-                    return false;
-                }
-
-                // --- 4. First check to see if this hotkey is already registered on this network.
-                // If we are not registered we trivially fail the requirement.
-                if !Self::is_hotkey_registered_on_network(netuid_b, hotkey) {
-                    return false;
-                }
-                let uid_b: u16 = Self::get_uid_for_net_and_hotkey(netuid_b, hotkey).unwrap();
-
-                // --- 5. Next, count how many keys on the connected network have a better prunning score than
-                // our target network.
-                let mut n_better_prunning_scores: u16 = 0;
-                let our_prunning_score_b: u16 = Self::get_pruning_score_for_uid(netuid_b, uid_b);
-                for other_uid in 0..subnet_n {
-                    let other_runing_score_b: u16 =
-                        Self::get_pruning_score_for_uid(netuid_b, other_uid);
-                    if other_uid != uid_b && other_runing_score_b > our_prunning_score_b {
-                        n_better_prunning_scores = n_better_prunning_scores + 1;
-                    }
-                }
-
-                // --- 6. Using the n_better count we check to see if the target key is in the topk percentile.
-                // The percentile is stored in NetworkConnect( netuid_i, netuid_b ) as a u16 normalized value (0, 1), 1 being top 100%.
-                let topk_percentile_requirement: I32F32 =
-                    I32F32::from_num(Self::get_network_connection_requirement(netuid_a, netuid_b))
-                        / I32F32::from_num(u16::MAX);
-                let topk_percentile_value: I32F32 = I32F32::from_num(n_better_prunning_scores)
-                    / I32F32::from_num(Self::get_subnetwork_n(netuid_b));
-                if topk_percentile_value > topk_percentile_requirement {
-                    return false;
-                }
-            }
-        }
-        // --- 7. If we pass all the active registration requirments we return true allowing the registration to
-        // continue to the normal difficulty check.s
-        return true;
     }
 
     pub fn vec_to_hash(vec_hash: Vec<u8>) -> H256 {
