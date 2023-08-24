@@ -23,7 +23,6 @@ pub mod deprecated_loaded_emission_format {
 }
 
 pub fn migrate_create_root_network<T: Config>() -> Weight {
-
     // Get the root network uid.
     let root_netuid: u16 = 0;
 
@@ -39,8 +38,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
     // Set the number of validators to 1.
-    SubnetworkN::<T>::insert( root_netuid, 0 ); 
-    
+    SubnetworkN::<T>::insert(root_netuid, 0);
+
     // Set the maximum number to the number of senate members.
     MaxAllowedUids::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
 

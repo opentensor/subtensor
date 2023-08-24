@@ -340,7 +340,7 @@ fn test_network_pruning() {
     new_test_ext().execute_with(|| {
         migration::migrate_create_root_network::<Test>();
 
-        assert_eq!( SubtensorModule::get_total_issuance(), 0 );
+        assert_eq!(SubtensorModule::get_total_issuance(), 0);
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
@@ -349,14 +349,14 @@ fn test_network_pruning() {
         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16 + 1);
         SubtensorModule::set_tempo(root_netuid, 1);
         // No validators yet.
-        assert_eq!( SubtensorModule::get_subnetwork_n( root_netuid ), 0 );
+        assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
 
         for i in 0..n {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
             let uids: Vec<u16> = (0..i as u16).collect();
             let values: Vec<u16> = vec![1; i];
-            SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000 );
+            SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000);
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot
@@ -369,8 +369,8 @@ fn test_network_pruning() {
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(cold)
             ));
-            log::debug!("Adding network with netuid: {}", (i as u16) + 1 );
-            assert!( SubtensorModule::if_subnet_exist( (i as u16) + 1 ) );
+            log::debug!("Adding network with netuid: {}", (i as u16) + 1);
+            assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
             assert!(SubtensorModule::is_hotkey_registered_on_network(
                 root_netuid,
                 &hot
@@ -390,22 +390,28 @@ fn test_network_pruning() {
                 (i as u16) + 1,
                 hot
             ));
-            assert_eq!( SubtensorModule::get_total_issuance(), 1_000 * ((i as u64) + 1));
-            assert_eq!( SubtensorModule::get_subnetwork_n( root_netuid ), (i as u16) + 1 );
+            assert_eq!(
+                SubtensorModule::get_total_issuance(),
+                1_000 * ((i as u64) + 1)
+            );
+            assert_eq!(
+                SubtensorModule::get_subnetwork_n(root_netuid),
+                (i as u16) + 1
+            );
         }
 
         // All stake values.
-        assert_eq!( SubtensorModule::get_total_issuance(), 10000 );
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
 
         step_block(1);
-        assert_ok!( SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!( SubtensorModule::get_subnet_emission_value(0), 199999999);
-        assert_eq!( SubtensorModule::get_subnet_emission_value(1), 177777777);
-        assert_eq!( SubtensorModule::get_subnet_emission_value(2), 155555555);
-        assert_eq!( SubtensorModule::get_subnet_emission_value(3), 133333333);
-        assert_eq!( SubtensorModule::get_subnet_emission_value(4), 111111111);
-        assert_eq!( SubtensorModule::get_subnet_emission_value(5), 88888888);
-        assert_eq!( SubtensorModule::get_total_issuance(), 10000 );
+        assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
+        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 199999999);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 177777777);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 155555555);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 133333333);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 111111111);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 88888888);
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
         assert_eq!(SubtensorModule::get_pending_emission(1), 177777777);
@@ -414,6 +420,6 @@ fn test_network_pruning() {
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
         assert_eq!(SubtensorModule::get_pending_emission(5), 88888888);
         step_block(1);
-        assert_eq!( SubtensorModule::get_total_issuance(), 711121108 );
+        assert_eq!(SubtensorModule::get_total_issuance(), 711121108);
     });
 }

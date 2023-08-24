@@ -131,12 +131,14 @@ impl<T: Config> Pallet<T> {
             let remaining: I96F32 = I96F32::from_num(new_queued_emission) - cut;
 
             // --- 4. Add amount to owner coldkey and increment total issuance accordingly.
-            if SubnetOwner::<T>::contains_key( netuid ) {
+            if SubnetOwner::<T>::contains_key(netuid) {
                 Self::add_balance_to_coldkey_account(
                     &Self::get_subnet_owner(netuid),
                     Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
                 );
-                TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()));
+                TotalIssuance::<T>::put(
+                    TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()),
+                );
             }
 
             // --- 5. Add remaining amount to the network's pending emission.

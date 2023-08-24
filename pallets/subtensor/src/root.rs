@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
     /// * `u16`: The total number of validators
     ///
     pub fn get_num_root_validators() -> u16 {
-        Self::get_subnetwork_n( Self::get_root_netuid() )
+        Self::get_subnetwork_n(Self::get_root_netuid())
     }
 
     /// Fetches the total allowed number of root validators.
@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
     /// * `u16`: The max allowed root validators.
     ///
     pub fn get_max_root_validators() -> u16 {
-        Self::get_max_allowed_uids( Self::get_root_netuid() )
+        Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
     /// Returns the emission value for the given subnet.
@@ -144,7 +144,10 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
-                log::debug!( "contains_invalid_root_uids: netuid {:?} does not exist", netuid);
+                log::debug!(
+                    "contains_invalid_root_uids: netuid {:?} does not exist",
+                    netuid
+                );
                 return true;
             }
         }
@@ -241,7 +244,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Check if we should update the emission values based on blocks since emission was last set.
         let blocks_until_next_epoch: u64 =
-        Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
+            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
@@ -372,8 +375,7 @@ impl<T: Config> Pallet<T> {
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
             T::SenateMembers::add_member(&hotkey);
-            log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid );
-
+            log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -407,7 +409,12 @@ impl<T: Config> Pallet<T> {
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
             T::SenateMembers::swap_member(&replaced_hotkey, &hotkey);
             T::TriumvirateInterface::remove_votes(&replaced_hotkey)?;
-            log::info!( "replace neuron: {:?} with {:?} on uid {:?}", replaced_hotkey, hotkey, subnetwork_uid );
+            log::info!(
+                "replace neuron: {:?} with {:?} on uid {:?}",
+                replaced_hotkey,
+                hotkey,
+                subnetwork_uid
+            );
         }
 
         // --- 13. Force all members on root to become a delegate.
@@ -492,8 +499,6 @@ impl<T: Config> Pallet<T> {
     /// 	* `BalanceWithdrawalError`: If an error occurs during balance withdrawal for network registration.
     ///
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
-
-
         let root_netuid: u16 = Self::get_root_netuid();
 
         // --- 0. Ensure the caller is a signed user.
@@ -520,7 +525,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
             if Self::get_num_subnets() < Self::get_max_subnets() {
@@ -533,7 +537,7 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 let netuid_to_prune = Self::get_subnet_to_prune();
-                Self::remove_network( netuid_to_prune );
+                Self::remove_network(netuid_to_prune);
                 log::info!("remove_network: {:?}", netuid_to_prune,);
                 netuid_to_prune
             }
