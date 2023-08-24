@@ -27,120 +27,120 @@ use substrate_fixed::types::{I32F32, I64F64};
 const DAYS: u64 = 7200;
 
 impl<T: Config> Pallet<T> {
-    /// Retrieves the unique identifier (UID) for the root network.
-    ///
-    /// The root network is a special case and has a fixed UID of 0.
-    ///
-    /// # Returns:
-    /// * `u16`: The UID for the root network.
-    ///
+    // Retrieves the unique identifier (UID) for the root network.
+    //
+    // The root network is a special case and has a fixed UID of 0.
+    //
+    // # Returns:
+    // * 'u16': The UID for the root network.
+    //
     pub fn get_root_netuid() -> u16 {
         0
     }
 
-    /// Fetches the total count of subnets.
-    ///
-    /// This function retrieves the total number of subnets present on the chain.
-    ///
-    /// # Returns:
-    /// * `u16`: The total number of subnets.
-    ///
+    // Fetches the total count of subnets.
+    //
+    // This function retrieves the total number of subnets present on the chain.
+    //
+    // # Returns:
+    // * 'u16': The total number of subnets.
+    //
     pub fn get_num_subnets() -> u16 {
         TotalNetworks::<T>::get()
     }
 
-    /// Fetches the total count of subnet validators (those that set weights.)
-    ///
-    /// This function retrieves the total number of subnet validators.
-    ///
-    /// # Returns:
-    /// * `u16`: The total number of validators
-    ///
+    // Fetches the total count of subnet validators (those that set weights.)
+    //
+    // This function retrieves the total number of subnet validators.
+    //
+    // # Returns:
+    // * 'u16': The total number of validators
+    //
     pub fn get_max_subnets() -> u16 {
         SubnetLimit::<T>::get()
     }
 
-    /// Fetches the total count of subnet validators (those that set weights.)
-    ///
-    /// This function retrieves the total number of subnet validators.
-    ///
-    /// # Returns:
-    /// * `u16`: The total number of validators
-    ///
+    // Fetches the total count of subnet validators (those that set weights.)
+    //
+    // This function retrieves the total number of subnet validators.
+    //
+    // # Returns:
+    // * 'u16': The total number of validators
+    //
     pub fn get_num_root_validators() -> u16 {
         Self::get_subnetwork_n(Self::get_root_netuid())
     }
 
-    /// Fetches the total allowed number of root validators.
-    ///
-    /// This function retrieves the max allowed number of validators
-    /// it is equal to SenateMaxMembers
-    ///
-    /// # Returns:
-    /// * `u16`: The max allowed root validators.
-    ///
+    // Fetches the total allowed number of root validators.
+    //
+    // This function retrieves the max allowed number of validators
+    // it is equal to SenateMaxMembers
+    //
+    // # Returns:
+    // * 'u16': The max allowed root validators.
+    //
     pub fn get_max_root_validators() -> u16 {
         Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * `u64`: The emission value for the given subnet.
-    ///
+    // Returns the emission value for the given subnet.
+    //
+    // This function retrieves the emission value for the given subnet.
+    //
+    // # Returns:
+    // * 'u64': The emission value for the given subnet.
+    //
     pub fn get_subnet_emission_value(netuid: u16) -> u64 {
         EmissionValues::<T>::get(netuid)
     }
 
-    /// Returns true if the subnetwork exists.
-    ///
-    /// This function checks if a subnetwork with the given UID exists.
-    ///
-    /// # Returns:
-    /// * `bool`: Whether the subnet exists.
-    ///
+    // Returns true if the subnetwork exists.
+    //
+    // This function checks if a subnetwork with the given UID exists.
+    //
+    // # Returns:
+    // * 'bool': Whether the subnet exists.
+    //
     pub fn if_subnet_exist(netuid: u16) -> bool {
         return NetworksAdded::<T>::get(netuid);
     }
 
-    /// Returns true if the subnetwork allows registration.
-    ///
-    ///
-    /// This function checks if a subnetwork allows registrations.
-    ///
-    /// # Returns:
-    /// * `bool`: Whether the subnet allows registrations.
-    ///
+    // Returns true if the subnetwork allows registration.
+    //
+    //
+    // This function checks if a subnetwork allows registrations.
+    //
+    // # Returns:
+    // * 'bool': Whether the subnet allows registrations.
+    //
     pub fn if_subnet_allows_registration(netuid: u16) -> bool {
         return NetworkRegistrationAllowed::<T>::get(netuid);
     }
 
-    /// Returns a list of subnet netuid equal to total networks.
-    ///
-    ///
-    /// This iterates through all the networks and returns a list of netuids.
-    ///
-    /// # Returns:
-    /// * `Vec<u16>`: Netuids of added subnets.
-    ///
+    // Returns a list of subnet netuid equal to total networks.
+    //
+    //
+    // This iterates through all the networks and returns a list of netuids.
+    //
+    // # Returns:
+    // * 'Vec<u16>': Netuids of added subnets.
+    //
     pub fn get_all_subnet_netuids() -> Vec<u16> {
         return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
             .map(|(netuid, _)| netuid)
             .collect();
     }
 
-    /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
-    ///
-    /// It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
-    ///
-    /// # Arguments:
-    /// * `uids`: A reference to a vector of UIDs to check.
-    ///
-    /// # Returns:
-    /// * `bool`: `true` if any of the UIDs are invalid, `false` otherwise.
-    ///
+    // Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
+    //
+    // It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
+    //
+    // # Arguments:
+    // * 'uids': A reference to a vector of UIDs to check.
+    //
+    // # Returns:
+    // * 'bool': 'true' if any of the UIDs are invalid, 'false' otherwise.
+    //
     pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
@@ -154,9 +154,9 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    /// Sets the emission values for each netuid
-    ///
-    ///
+    // Sets the emission values for each netuid
+    //
+    //
     pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
         log::debug!(
             "set_emission_values: netuids: {:?} emission:{:?}",
@@ -164,7 +164,7 @@ impl<T: Config> Pallet<T> {
             emission
         );
 
-        /// Be careful this function can fail.
+        // Be careful this function can fail.
         if Self::contains_invalid_root_uids(netuids) {
             log::error!("set_emission_values: contains_invalid_root_uids");
             return Err("Invalid netuids");
@@ -180,13 +180,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Retrieves weight matrix associated with the root network.
-    ///  Weights represent the preferences for each subnetwork.
-    ///
-    /// # Returns:
-    /// A 2D vector (`Vec<Vec<I32F32>>`) where each entry [i][j] represents the weight of subnetwork
-    /// `j` with according to the preferences of key. `j` within the root network.
-    ///
+    // Retrieves weight matrix associated with the root network.
+    //  Weights represent the preferences for each subnetwork.
+    //
+    // # Returns:
+    // A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
+    // 'j' with according to the preferences of key. 'j' within the root network.
+    //
     pub fn get_root_weights() -> Vec<Vec<I32F32>> {
         // --- 0. The number of validators on the root network.
         let n: usize = Self::get_num_root_validators() as usize;
@@ -217,11 +217,11 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    /// Computes and sets emission values for the root network which determine the emission for all subnets.
-    ///
-    /// This function is responsible for calculating emission based on network weights, stake values,
-    /// and registered hotkeys.
-    ///
+    // Computes and sets emission values for the root network which determine the emission for all subnets.
+    //
+    // This function is responsible for calculating emission based on network weights, stake values,
+    // and registered hotkeys.
+    //
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
@@ -308,18 +308,18 @@ impl<T: Config> Pallet<T> {
         return Self::set_emission_values(&netuids, emission_u64);
     }
 
-    /// Registers a user's hotkey to the root network.
-    ///
-    /// This function is responsible for registering the hotkey of a user.
-    /// The root key with the least stake if pruned in the event of a filled network.
-    ///
-    /// # Arguments:
-    /// * `origin`: Represents the origin of the call.
-    /// * `hotkey`: The hotkey that the user wants to register to the root network.
-    ///
-    /// # Returns:
-    /// * `DispatchResult`: A result type indicating success or failure of the registration.
-    ///
+    // Registers a user's hotkey to the root network.
+    //
+    // This function is responsible for registering the hotkey of a user.
+    // The root key with the least stake if pruned in the event of a filled network.
+    //
+    // # Arguments:
+    // * 'origin': Represents the origin of the call.
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'DispatchResult': A result type indicating success or failure of the registration.
+    //
     pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
@@ -485,19 +485,19 @@ impl<T: Config> Pallet<T> {
             .into())
     }
 
-    /// Facilitates user registration of a new subnetwork.
-    ///
-    /// # Args:
-    /// 	* `origin`: (`T::RuntimeOrigin`): The calling origin. Must be signed.
-    ///
-    /// # Event:
-    /// 	* `NetworkAdded`: Emitted when a new network is successfully added.
-    ///
-    /// # Raises:
-    /// 	* `TxRateLimitExceeded`: If the rate limit for network registration is exceeded.
-    /// 	* `NotEnoughBalanceToStake`: If there isn't enough balance to stake for network registration.
-    /// 	* `BalanceWithdrawalError`: If an error occurs during balance withdrawal for network registration.
-    ///
+    // Facilitates user registration of a new subnetwork.
+    //
+    // # Args:
+    // 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    //
+    // # Event:
+    // 	* 'NetworkAdded': Emitted when a new network is successfully added.
+    //
+    // # Raises:
+    // 	* 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
+    // 	* 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
+    // 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
+    //
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
         let root_netuid: u16 = Self::get_root_netuid();
 
@@ -573,19 +573,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Facilitates the removal of a user's subnetwork.
-    ///
-    /// # Args:
-    /// 	* `origin`: (`T::RuntimeOrigin`): The calling origin. Must be signed.
-    ///     * `netuid`: (`u16`): The unique identifier of the network to be removed.
-    ///
-    /// # Event:
-    /// 	* `NetworkRemoved`: Emitted when a network is successfully removed.
-    ///
-    /// # Raises:
-    /// 	* `NetworkDoesNotExist`: If the specified network does not exist.
-    /// 	* `NotSubnetOwner`: If the caller does not own the specified subnet.
-    ///
+    // Facilitates the removal of a user's subnetwork.
+    //
+    // # Args:
+    // 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    //     * 'netuid': ('u16'): The unique identifier of the network to be removed.
+    //
+    // # Event:
+    // 	* 'NetworkRemoved': Emitted when a network is successfully removed.
+    //
+    // # Raises:
+    // 	* 'NetworkDoesNotExist': If the specified network does not exist.
+    // 	* 'NotSubnetOwner': If the caller does not own the specified subnet.
+    //
     pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure the function caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -661,7 +661,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Sets initial and custom parameters for a new network.
+    // Sets initial and custom parameters for a new network.
     pub fn init_new_network(netuid: u16, tempo: u16) {
         // --- 1. Set network to 0 size.
         SubnetworkN::<T>::insert(netuid, 0);
@@ -739,19 +739,19 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Removes a network (identified by netuid) and all associated parameters.
-    ///
-    /// This function is responsible for cleaning up all the data associated with a network.
-    /// It ensures that all the storage values related to the network are removed, and any
-    /// reserved balance is returned to the network owner.
-    ///
-    /// # Args:
-    /// 	* `netuid`: (`u16`): The unique identifier of the network to be removed.
-    ///
-    /// # Note:
-    /// This function does not emit any events, nor does it raise any errors. It silently
-    /// returns if any internal checks fail.
-    ///
+    // Removes a network (identified by netuid) and all associated parameters.
+    //
+    // This function is responsible for cleaning up all the data associated with a network.
+    // It ensures that all the storage values related to the network are removed, and any
+    // reserved balance is returned to the network owner.
+    //
+    // # Args:
+    // 	* 'netuid': ('u16'): The unique identifier of the network to be removed.
+    //
+    // # Note:
+    // This function does not emit any events, nor does it raise any errors. It silently
+    // returns if any internal checks fail.
+    //
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey = SubnetOwner::<T>::get(netuid);
