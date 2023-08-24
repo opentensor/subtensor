@@ -422,9 +422,9 @@ pub mod pallet {
     #[pallet::storage] // ITEM( network_min_allowed_uids )
     pub type NetworkMinAllowedUids<T> =
         StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
-    #[pallet::storage] // ITEM( min_network_burn_cost )
+    #[pallet::storage] // ITEM( min_network_lock_cost )
     pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
-    #[pallet::storage] // ITEM( last_network_burn_cost )
+    #[pallet::storage] // ITEM( last_network_lock_cost )
     pub type NetworkLastLockCost<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
     #[pallet::storage] // ITEM( network_lock_reduction_interval )
