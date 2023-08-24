@@ -590,7 +590,8 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 100_000_000_000; // 100 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialNetworkLockReductionInterval: u16 = 8 * DAYS;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 8 * (DAYS as u64);
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -637,6 +638,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
+    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1010,7 +1012,7 @@ impl_runtime_apis! {
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
-            SubtensorModule::get_network_burn_cost()
+            SubtensorModule::get_network_lock_cost()
         }
     }
 }

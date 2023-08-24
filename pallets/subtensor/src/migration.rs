@@ -7,9 +7,6 @@ use frame_support::{
     weights::Weight,
 };
 use log::info;
-use sp_core::crypto::Ss58Codec;
-use sp_core::sr25519;
-use sp_runtime::AccountId32;
 
 // TODO (camfairchild): TEST MIGRATION
 
@@ -26,32 +23,52 @@ pub mod deprecated_loaded_emission_format {
 }
 
 pub fn migrate_create_root_network<T: Config>() -> Weight {
+
+    // Get the root network uid.
     let root_netuid: u16 = 0;
 
     // Check if root network already exists.
     if NetworksAdded::<T>::get(root_netuid) {
         return Weight::zero();
     }
-    // Build the root network if not exists.
-    SubnetworkN::<T>::insert(root_netuid, 0);
+
+    // Set the root network as added.
     NetworksAdded::<T>::insert(root_netuid, true);
-    Tempo::<T>::insert(root_netuid, 100);
-    NetworkModality::<T>::insert(root_netuid, 0);
+
+    // Increment the number of total networks.
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
-    // Fill the root network params.
+    // Set the number of validators to 1.
+    SubnetworkN::<T>::insert( root_netuid, 0 ); 
+    
+    // Set the maximum number to the number of senate members.
     MaxAllowedUids::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
-    NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+
+    // Set the maximum number to the number of validators to all members.
     MaxAllowedValidators::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
+
+    // Set the min allowed weights to zero, no weights restrictions.
     MinAllowedWeights::<T>::insert(root_netuid, 0);
+
+    // Set the max weight limit to infitiy, no weight restrictions.
     MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+
+    // Add default root tempo.
+    Tempo::<T>::insert(root_netuid, 100);
+
+    // Set the root network as open.
+    NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+
+    // Set target registrations for validators as 1 per block.
     TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
 
-    // Empty senate.
+    // Empty senate members entirely, they will be filled by by registrations
+    // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
         T::TriumvirateInterface::remove_votes(&hotkey_i);
         T::SenateMembers::remove_member(&hotkey_i);
     }
+
     // Return zero weight.
     Weight::zero()
 }

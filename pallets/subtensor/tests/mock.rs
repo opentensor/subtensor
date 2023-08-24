@@ -140,7 +140,7 @@ parameter_types! {
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
-    pub const InitialIssuance: u64 = 548833985028256;
+    pub const InitialIssuance: u64 = 0;
     pub const InitialDifficulty: u64 = 10000;
     pub const InitialActivityCutoff: u16 = 5000;
     pub const InitialAdjustmentInterval: u16 = 100;
@@ -158,6 +158,7 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
+    pub const InitialSubnetLimit: u16 = 12; // Max 12 subnets. 
 }
 
 // Configure collective pallet for council
@@ -353,6 +354,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
+    type InitialSubnetLimit = InitialSubnetLimit;
 }
 
 impl pallet_utility::Config for Test {

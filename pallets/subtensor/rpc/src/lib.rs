@@ -47,8 +47,8 @@ pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "subnetInfo_getSubnetsInfo")]
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
-    #[method(name = "subnetInfo_getBurnCost")]
-    fn get_network_burn_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+    #[method(name = "subnetInfo_getLockCost")]
+    fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -242,14 +242,14 @@ where
         })
     }
 
-    fn get_network_burn_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
+    fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_network_registration_cost(at).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
-                "Unable to get subnet burn cost.",
+                "Unable to get subnet lock cost.",
                 Some(e.to_string()),
             ))
             .into()

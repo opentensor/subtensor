@@ -131,11 +131,13 @@ impl<T: Config> Pallet<T> {
             let remaining: I96F32 = I96F32::from_num(new_queued_emission) - cut;
 
             // --- 4. Add amount to owner coldkey and increment total issuance accordingly.
-            Self::add_balance_to_coldkey_account(
-                &Self::get_subnet_owner(netuid),
-                Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
-            );
-            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()));
+            if SubnetOwner::<T>::contains_key( netuid ) {
+                Self::add_balance_to_coldkey_account(
+                    &Self::get_subnet_owner(netuid),
+                    Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
+                );
+                TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()));
+            }
 
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
@@ -163,6 +165,11 @@ impl<T: Config> Pallet<T> {
             // --- 8. Run the epoch mechanism and return emission tuples for hotkeys in the network.
             let emission_tuples_this_block: Vec<(T::AccountId, u64, u64)> =
                 Self::epoch(netuid, emission_to_drain);
+            log::debug!(
+                "netuid_i: {:?} emission_to_drain: {:?} ",
+                netuid,
+                emission_to_drain
+            );
 
             // --- 9. Check that the emission does not exceed the allowed total.
             let emission_sum: u128 = emission_tuples_this_block

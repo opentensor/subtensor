@@ -20,7 +20,7 @@ use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
-use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::{constants::RocksDbWeight, Weight};
 use substrate_fixed::types::{I32F32, I64F64};
@@ -49,30 +49,38 @@ impl<T: Config> Pallet<T> {
         TotalNetworks::<T>::get()
     }
 
-    /// Sets the emission values for each netuid
+    /// Fetches the total count of subnet validators (those that set weights.)
     ///
+    /// This function retrieves the total number of subnet validators.
     ///
-    pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
-        log::debug!(
-            "set_emission_values: netuids: {:?} emission:{:?}",
-            netuids,
-            emission
-        );
+    /// # Returns:
+    /// * `u16`: The total number of validators
+    ///
+    pub fn get_max_subnets() -> u16 {
+        SubnetLimit::<T>::get()
+    }
 
-        /// Be careful this function can fail.
-        if Self::contains_invalid_root_uids(netuids) {
-            log::error!("set_emission_values: contains_invalid_root_uids");
-            return Err("Invalid netuids");
-        }
-        if netuids.len() != emission.len() {
-            log::error!("set_emission_values: netuids.len() != emission.len()");
-            return Err("netuids and emission must have the same length");
-        }
-        for (i, netuid_i) in netuids.iter().enumerate() {
-            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission[i]);
-            EmissionValues::<T>::insert(*netuid_i, emission[i]);
-        }
-        Ok(())
+    /// Fetches the total count of subnet validators (those that set weights.)
+    ///
+    /// This function retrieves the total number of subnet validators.
+    ///
+    /// # Returns:
+    /// * `u16`: The total number of validators
+    ///
+    pub fn get_num_root_validators() -> u16 {
+        Self::get_subnetwork_n( Self::get_root_netuid() )
+    }
+
+    /// Fetches the total allowed number of root validators.
+    ///
+    /// This function retrieves the max allowed number of validators
+    /// it is equal to SenateMaxMembers
+    ///
+    /// # Returns:
+    /// * `u16`: The max allowed root validators.
+    ///
+    pub fn get_max_root_validators() -> u16 {
+        Self::get_max_allowed_uids( Self::get_root_netuid() )
     }
 
     /// Returns the emission value for the given subnet.
@@ -109,6 +117,20 @@ impl<T: Config> Pallet<T> {
         return NetworkRegistrationAllowed::<T>::get(netuid);
     }
 
+    /// Returns a list of subnet netuid equal to total networks.
+    ///
+    ///
+    /// This iterates through all the networks and returns a list of netuids.
+    ///
+    /// # Returns:
+    /// * `Vec<u16>`: Netuids of added subnets.
+    ///
+    pub fn get_all_subnet_netuids() -> Vec<u16> {
+        return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+            .map(|(netuid, _)| netuid)
+            .collect();
+    }
+
     /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
     ///
     /// It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
@@ -122,10 +144,37 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
+                log::debug!( "contains_invalid_root_uids: netuid {:?} does not exist", netuid);
                 return true;
             }
         }
         false
+    }
+
+    /// Sets the emission values for each netuid
+    ///
+    ///
+    pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
+        log::debug!(
+            "set_emission_values: netuids: {:?} emission:{:?}",
+            netuids,
+            emission
+        );
+
+        /// Be careful this function can fail.
+        if Self::contains_invalid_root_uids(netuids) {
+            log::error!("set_emission_values: contains_invalid_root_uids");
+            return Err("Invalid netuids");
+        }
+        if netuids.len() != emission.len() {
+            log::error!("set_emission_values: netuids.len() != emission.len()");
+            return Err("netuids and emission must have the same length");
+        }
+        for (i, netuid_i) in netuids.iter().enumerate() {
+            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission[i]);
+            EmissionValues::<T>::insert(*netuid_i, emission[i]);
+        }
+        Ok(())
     }
 
     /// Retrieves weight matrix associated with the root network.
@@ -136,15 +185,16 @@ impl<T: Config> Pallet<T> {
     /// `j` with according to the preferences of key. `j` within the root network.
     ///
     pub fn get_root_weights() -> Vec<Vec<I32F32>> {
-        // --- 0. Get the size of the root network (the number of registered keys.)
-        let n: usize = Self::get_subnetwork_n(Self::get_root_netuid()) as usize;
+        // --- 0. The number of validators on the root network.
+        let n: usize = Self::get_num_root_validators() as usize;
 
-        // --- 1. Get the total number of subnets.
+        // --- 1 The number of subnets to validate.
         let k: usize = Self::get_num_subnets() as usize;
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
-        // by `n` (number of registered key under  root) and `k` (total number of subnets).
+        // by `n` (number of validators) and `k` (total number of subnets).
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); k]; n];
+        log::debug!("weights:\n{:?}\n", weights);
 
         // --- 3. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
@@ -173,38 +223,37 @@ impl<T: Config> Pallet<T> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
-        // --- -1. Check if we should update the emission values based on blocks since emission was last set.
+        // --- 1. Retrieves the number of root validators on subnets.
+        let n: u16 = Self::get_num_root_validators();
+        log::debug!("n:\n{:?}\n", n);
+        if n == 0 {
+            // No validators.
+            return Err("No validators to validate emission values.");
+        }
+
+        // --- 2. Obtains the number of registered subnets.
+        let k: u16 = Self::get_all_subnet_netuids().len() as u16;
+        log::debug!("k:\n{:?}\n", k);
+        if k == 0 {
+            // No networks to validate.
+            return Err("No networks to validate emission values.");
+        }
+
+        // --- 3. Check if we should update the emission values based on blocks since emission was last set.
         let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
+        Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
             return Err("Not the block to update emission values.");
         }
 
-        // --- 1. Retrieves the number of registered peers on the the root network.
-        let n: u16 = Self::get_subnetwork_n(root_netuid);
-        log::trace!("n:\n{:?}\n", n);
-        if n == 0 {
-            // No validators.
-            return Err("No validators to validate emission values.");
-        }
-
-        // --- 2. Obtains the maximum number of registered subnetworks. This function
-        // will return a vector of size k.
-        let k: u16 = Self::get_num_subnets();
-        log::trace!("k:\n{:?}\n", k);
-        if k == 0 {
-            // No networks to validate.
-            return Err("No networks to validate emission values.");
-        }
-
-        // --- 3. Determines the total block emission across all the subnetworks. This is the
+        // --- 4. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
         let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
         log::trace!("block_emission:\n{:?}\n", block_emission);
 
-        // --- 4. A collection of all registered hotkeys on the root network. Hotkeys
+        // --- 5. A collection of all registered hotkeys on the root network. Hotkeys
         // pairs with network UIDs and stake values.
         let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
         for (uid_i, hotkey) in
@@ -214,7 +263,7 @@ impl<T: Config> Pallet<T> {
         }
         log::trace!("hotkeys:\n{:?}\n", hotkeys);
 
-        // --- 5. Retrieves and stores the stake value associated with each hotkey on the root network.
+        // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
         // Stakes are stored in a 64-bit fixed point representation for precise calculations.
         let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in hotkeys.iter() {
@@ -222,37 +271,37 @@ impl<T: Config> Pallet<T> {
         }
         inplace_normalize_64(&mut stake_i64);
 
-        // --- 6. Converts the 64-bit fixed point stake values to float 32-bit for ease of further calculations.
+        // --- 7. Converts the 64-bit fixed point stake values to float 32-bit for ease of further calculations.
         let stake_i32: Vec<I32F32> = vec_fixed64_to_fixed32(stake_i64);
-        log::trace!("S:\n{:?}\n", &stake_i32);
+        log::debug!("S:\n{:?}\n", &stake_i32);
 
-        // --- 7. Retrieves the network weights in a 2D Vector format. Weights have shape
+        // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
-        let weights_i32: Vec<Vec<I32F32>> = Self::get_weights(root_netuid);
-        log::trace!("W:\n{:?}\n", &weights_i32);
+        let weights_i32: Vec<Vec<I32F32>> = Self::get_root_weights();
+        log::debug!("W:\n{:?}\n", &weights_i32);
 
-        // --- 8. Calculates the rank of networks. Rank is a product of weights and stakes.
+        // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
         let ranks_i32: Vec<I32F32> = matmul(&weights_i32, &stake_i32);
         log::trace!("R:\n{:?}\n", &ranks_i32);
 
-        // --- 9. Converts the rank values to 64-bit fixed point representation for normalization.
+        // --- 10. Converts the rank values to 64-bit fixed point representation for normalization.
         let mut emission_i62: Vec<I64F64> = vec_fixed32_to_fixed64(ranks_i32);
         inplace_normalize_64(&mut emission_i62);
         log::trace!("Ei64:\n{:?}\n", &emission_i62);
 
-        // -- 10. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_as_tao: Vec<I64F64> = emission_i62
             .iter()
             .map(|v: &I64F64| *v * block_emission)
             .collect();
 
-        // --- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
         log::trace!("Eu64:\n{:?}\n", &emission_u64);
 
-        // --- 11. Set the emission values for each subnet directly.
-        let netuids: Vec<u16> = (0..k).collect();
+        // --- 13. Set the emission values for each subnet directly.
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         return Self::set_emission_values(&netuids, emission_u64);
     }
 
@@ -309,25 +358,22 @@ impl<T: Config> Pallet<T> {
         Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 7. Fetch the current size of the subnetwork.
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(root_netuid);
-        ensure!(
-            Self::get_max_allowed_uids(root_netuid) != 0,
-            Error::<T>::NetworkDoesNotExist
-        );
+        let current_num_root_validators: u16 = Self::get_num_root_validators();
 
         // Declare a variable to hold the root UID.
         let subnetwork_uid: u16;
 
         // --- 8. Check if the root net is below its allowed size.
         // max allowed is senate size.
-        if (current_subnetwork_n as u32) < T::SenateMembers::max_members() {
+        if current_num_root_validators < Self::get_max_root_validators() {
             // --- 12.1.1 We can append to the subnetwork as it's not full.
-            subnetwork_uid = current_subnetwork_n;
+            subnetwork_uid = current_num_root_validators;
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
             T::SenateMembers::add_member(&hotkey);
-            log::info!("add new neuron account");
+            log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid );
+
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
@@ -361,7 +407,7 @@ impl<T: Config> Pallet<T> {
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
             T::SenateMembers::swap_member(&replaced_hotkey, &hotkey);
             T::TriumvirateInterface::remove_votes(&replaced_hotkey)?;
-            log::info!("replace neuron");
+            log::info!( "replace neuron: {:?} with {:?} on uid {:?}", replaced_hotkey, hotkey, subnetwork_uid );
         }
 
         // --- 13. Force all members on root to become a delegate.
@@ -446,6 +492,10 @@ impl<T: Config> Pallet<T> {
     /// 	* `BalanceWithdrawalError`: If an error occurs during balance withdrawal for network registration.
     ///
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
+
+
+        let root_netuid: u16 = Self::get_root_netuid();
+
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
@@ -470,13 +520,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 3. Fetch current and maximum subnets.
-        let current_num_subnets: u16 = Self::get_num_subnets();
-        let max_allowed_subnets: u16 = Self::get_max_allowed_uids(Self::get_root_netuid());
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
-            if current_num_subnets < max_allowed_subnets {
+            if Self::get_num_subnets() < Self::get_max_subnets() {
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid += 1;
@@ -486,7 +533,7 @@ impl<T: Config> Pallet<T> {
                 }
             } else {
                 let netuid_to_prune = Self::get_subnet_to_prune();
-                Self::remove_network(netuid_to_prune);
+                Self::remove_network( netuid_to_prune );
                 log::info!("remove_network: {:?}", netuid_to_prune,);
                 netuid_to_prune
             }
@@ -498,16 +545,17 @@ impl<T: Config> Pallet<T> {
             Error::<T>::BalanceWithdrawalError
         );
         Self::set_subnet_locked_balance(netuid_to_register, lock_amount);
+        Self::set_network_last_lock(lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 1000);
         log::info!("init_new_network: {:?}", netuid_to_register,);
 
         // --- 7. Set netuid storage.
-        NetworkLastRegistered::<T>::set(current_block);
-        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block);
+        let current_block_number: u64 = Self::get_current_block_as_u64();
+        NetworkLastRegistered::<T>::set(current_block_number);
+        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
         SubnetOwner::<T>::insert(netuid_to_register, coldkey);
-        Self::set_network_last_lock(lock_amount);
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(

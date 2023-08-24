@@ -226,6 +226,7 @@ impl<T: Config> Pallet<T> {
     pub fn contains_invalid_uids(netuid: u16, uids: &Vec<u16>) -> bool {
         for uid in uids {
             if !Self::is_uid_exist_on_network(netuid, *uid) {
+                log::debug!( "contains_invalid_uids( netuid:{:?}, uid:{:?} does not exist on network. )", netuid, uids );
                 return true;
             }
         }

@@ -176,6 +176,8 @@ pub mod pallet {
         type InitialSubnetOwnerCut: Get<u16>;
         #[pallet::constant] // Initial lock reduction interval.
         type InitialNetworkLockReductionInterval: Get<u64>;
+        #[pallet::constant] // Initial max allowed subnets
+        type InitialSubnetLimit: Get<u16>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -378,7 +380,13 @@ pub mod pallet {
     pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
         T::InitialSubnetOwnerCut::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
+        T::InitialSubnetLimit::get()
+    }
 
+    #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
+    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
