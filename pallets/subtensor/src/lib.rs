@@ -52,7 +52,6 @@ pub mod stake_info;
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 pub mod migration;
-pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {

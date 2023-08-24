@@ -48,7 +48,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
     #[method(name = "subnetInfo_getBurnCost")]
-    fn get_network_burn_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+    fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -242,7 +242,7 @@ where
         })
     }
 
-    fn get_network_burn_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
+    fn get_network_lock_cost(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
