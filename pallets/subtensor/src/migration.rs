@@ -9,8 +9,6 @@ use frame_support::{
     inherent::Vec
 };
 
-// TODO (camfairchild): TEST MIGRATION
-
 const LOG_TARGET: &str = "loadedemissionmigration";
 
 pub mod deprecated_loaded_emission_format {
@@ -31,7 +29,7 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
     let onchain_version =  Pallet::<T>::on_chain_storage_version();
 
     // Only runs if we haven't already updated version to 2.
-    if onchain_version < 2 { 
+    if onchain_version < 2 {
         info!(target: LOG_TARGET, ">>> Updating the LoadedEmission to a new format {:?}", onchain_version);
 
         // We transform the storage values from the old into the new format.
@@ -51,13 +49,13 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
         // Translate the old storage values into the new format.
         LoadedEmission::<T>::translate::<Vec<(AccountIdOf<T>, u64)>, _>(
             |netuid: u16, netuid_emissions: Vec<(AccountIdOf<T>, u64)>| -> Option<Vec<(AccountIdOf<T>, u64, u64)>> {
-                info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid); 
-                
-                // We will assume all loaded emission is validator emissions, 
+                info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
+
+                // We will assume all loaded emission is validator emissions,
                 //      so this will get distributed over delegatees (nominators), if there are any
-                //      This will NOT effect any servers that are not (also) a delegate validator. 
+                //      This will NOT effect any servers that are not (also) a delegate validator.
                 // server_emission will be 0 for any alread loaded emission.
-                
+
                 let mut new_netuid_emissions = Vec::new();
                 for (server, validator_emission) in netuid_emissions {
                     new_netuid_emissions.push((server, 0 as u64, validator_emission));
@@ -74,7 +72,7 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
         StorageVersion::new(1).put::<Pallet::<T>>(); // Update to version 2 so we don't run this again.
         // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
-        
+
         weight
     } else {
         info!(target: LOG_TARGET, "Migration to v2 already done!");
