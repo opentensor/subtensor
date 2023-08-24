@@ -394,7 +394,6 @@ fn test_sudo_set_adjustment_alpha() {
     });
 }
 
-
 #[test]
 fn test_sudo_subnet_owner_cut() {
     new_test_ext().execute_with(|| {
@@ -1097,7 +1096,7 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
         assert_eq!(SubtensorModule::get_emission_value(netuid3), 0);
         let netuids: Vec<u16> = vec![1, 2, 3, 5];
         let emission: Vec<u64> = vec![100000000, 400000000, 200000000, 300000000];
-        SubtensorModule::set_emission_values( &netuids, emission.clone() );
+        SubtensorModule::set_emission_values(&netuids, emission.clone());
         assert_eq!(SubtensorModule::get_emission_value(netuid0), 100000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 400000000);
         assert_eq!(SubtensorModule::get_emission_value(netuid2), 200000000);
@@ -1112,7 +1111,7 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
 #[test]
 pub fn test_sudo_test_pending_emission_ok() {
     new_test_ext().execute_with(|| {
-		let netuid1: u16 = 1;
+        let netuid1: u16 = 1;
         let tempo1: u16 = 5;
 
         let netuid2: u16 = 2;
@@ -1131,38 +1130,44 @@ pub fn test_sudo_test_pending_emission_ok() {
         ));
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 250000000);
 
-		// Need to register at least one UID per network or no emission will be produced
-		register_ok_neuron(netuid1, hotkey_account_id, coldkey_account_id, 0);
+        // Need to register at least one UID per network or no emission will be produced
+        register_ok_neuron(netuid1, hotkey_account_id, coldkey_account_id, 0);
 
-		// We leave netuid2 empty. It should receive no emissions
-		//register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0)
+        // We leave netuid2 empty. It should receive no emissions
+        //register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0)
 
-		step_block(2);
+        step_block(2);
 
-		assert_eq!(SubtensorModule::get_pending_emission(netuid1), 250_000_000 * 2 ); // ONLY it's portion of the emission for 2 blocks
-		assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
+        assert_eq!(
+            SubtensorModule::get_pending_emission(netuid1),
+            250_000_000 * 2
+        ); // ONLY it's portion of the emission for 2 blocks
+        assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
 
         step_block(1); // Block == 3
 
         assert_eq!(SubtensorModule::get_pending_emission(netuid1), 0); // emission drained at block 3 for tempo 5
         assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
 
-		// Step to avoid tempo for netuid 2
-		step_block(1); // Block == 4
+        // Step to avoid tempo for netuid 2
+        step_block(1); // Block == 4
 
-		// Register to netuid2 -- No longer empty
-		register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
+        // Register to netuid2 -- No longer empty
+        register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
 
-		step_block(1); // Block == 5
+        step_block(1); // Block == 5
 
-		assert_eq!(SubtensorModule::get_pending_emission(netuid2), 750_000_000 * 1); // Gets 1 block of emissions
-	}); 
+        assert_eq!(
+            SubtensorModule::get_pending_emission(netuid2),
+            750_000_000 * 1
+        ); // Gets 1 block of emissions
+    });
 }
 
 #[test]
 pub fn test_sudo_test_pending_emission_ok_empty_network() {
     new_test_ext().execute_with(|| {
-		let netuid1: u16 = 1;
+        let netuid1: u16 = 1;
         let tempo1: u16 = 5;
 
         let netuid2: u16 = 2;
@@ -1171,8 +1176,8 @@ pub fn test_sudo_test_pending_emission_ok_empty_network() {
         let netuids: Vec<u16> = vec![1, 2];
         let emission: Vec<u64> = vec![250000000, 750000000];
 
-		let hotkey_account_id: U256 = U256::from(1); // Can share hotkey account ID between networks
-		let coldkey_account_id: U256 = U256::from(2); // Can share coldkey account ID between networks
+        let hotkey_account_id: U256 = U256::from(1); // Can share hotkey account ID between networks
+        let coldkey_account_id: U256 = U256::from(2); // Can share coldkey account ID between networks
 
         add_network(netuid1, tempo1, 0);
         add_network(netuid2, tempo2, 0);
@@ -1184,30 +1189,36 @@ pub fn test_sudo_test_pending_emission_ok_empty_network() {
         ));
         assert_eq!(SubtensorModule::get_emission_value(netuid1), 250000000);
 
-		// Need to register at least one UID per network or no emission will be produced
-		register_ok_neuron(netuid1, hotkey_account_id, coldkey_account_id, 0);
+        // Need to register at least one UID per network or no emission will be produced
+        register_ok_neuron(netuid1, hotkey_account_id, coldkey_account_id, 0);
 
-		// We leave netuid2 empty. It should receive no emissions
-		//register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
+        // We leave netuid2 empty. It should receive no emissions
+        //register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
 
-		step_block(2);
+        step_block(2);
 
-		assert_eq!(SubtensorModule::get_pending_emission(netuid1), 250_000_000 * 2 ); // ONLY it's portion of the emission for 2 blocks
-		assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
+        assert_eq!(
+            SubtensorModule::get_pending_emission(netuid1),
+            250_000_000 * 2
+        ); // ONLY it's portion of the emission for 2 blocks
+        assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
 
         step_block(1); // Block == 3
 
         assert_eq!(SubtensorModule::get_pending_emission(netuid1), 0); // emission drained at block 3 for tempo 5
         assert_eq!(SubtensorModule::get_pending_emission(netuid2), 0); // Empty networks get no emissions
 
-		// Step to avoid tempo for netuid 2
-		step_block(1); // Block == 4
+        // Step to avoid tempo for netuid 2
+        step_block(1); // Block == 4
 
-		// Register to netuid2 -- No longer empty
-		register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
+        // Register to netuid2 -- No longer empty
+        register_ok_neuron(netuid2, hotkey_account_id, coldkey_account_id, 0);
 
-		step_block(1); // Block == 5
+        step_block(1); // Block == 5
 
-		assert_eq!(SubtensorModule::get_pending_emission(netuid2), 750_000_000 * 1); // Gets 1 block of emissions
-	});
+        assert_eq!(
+            SubtensorModule::get_pending_emission(netuid2),
+            750_000_000 * 1
+        ); // Gets 1 block of emissions
+    });
 }

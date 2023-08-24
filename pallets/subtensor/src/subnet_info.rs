@@ -1,7 +1,7 @@
 use super::*;
-use frame_support::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::{Decode, Encode};
+use frame_support::storage::IterableStorageMap;
+use frame_support::IterableStorageDoubleMap;
 extern crate alloc;
 use alloc::vec::Vec;
 use codec::Compact;
@@ -25,11 +25,11 @@ pub struct SubnetInfo<T: Config> {
     network_connect: Vec<[u16; 2]>,
     emission_values: Compact<u64>,
     burn: Compact<u64>,
-    owner: T::AccountId
+    owner: T::AccountId,
 }
 
 impl<T: Config> Pallet<T> {
-	pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T>> {
+    pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
@@ -46,7 +46,7 @@ impl<T: Config> Pallet<T> {
         let max_allowed_uids = Self::get_max_allowed_uids(netuid);
         let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
         let tempo = Self::get_tempo(netuid);
-        let network_modality = <NetworkModality <T>>::get(netuid);
+        let network_modality = <NetworkModality<T>>::get(netuid);
         let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
 
@@ -74,14 +74,14 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
-            owner: Self::get_subnet_owner(netuid).into()
-        })
-	}
+            owner: Self::get_subnet_owner(netuid).into(),
+        });
+    }
 
     pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T>>> {
         let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
-        for ( netuid, added ) in < NetworksAdded<T> as IterableStorageMap<u16, bool> >::iter() {
+        for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
             if added {
                 subnet_netuids.push(netuid);
                 if netuid > max_netuid {
@@ -98,6 +98,5 @@ impl<T: Config> Pallet<T> {
         }
 
         return subnets_info;
-	}
+    }
 }
-
