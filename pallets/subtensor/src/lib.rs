@@ -986,7 +986,7 @@ pub mod pallet {
             // --- Migrate to v2
             use crate::migration;
 
-            migration::migrate_to_v2_separate_emission::<T>()
+            migration::migrate_to_v1_separate_emission::<T>()
         }
     }
 

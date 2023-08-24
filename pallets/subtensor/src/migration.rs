@@ -20,7 +20,7 @@ pub mod deprecated_loaded_emission_format {
     pub(super) type LoadedEmission<T:Config> = StorageMap< Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery >;
 }
 
-pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
+pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
     use deprecated_loaded_emission_format as old;
      // Check storage version
     let mut weight = T::DbWeight::get().reads_writes(1, 0);
@@ -28,8 +28,8 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
     // Grab current version
     let onchain_version =  Pallet::<T>::on_chain_storage_version();
 
-    // Only runs if we haven't already updated version to 2.
-    if onchain_version < 2 {
+    // Only runs if we haven't already updated version to 1.
+    if onchain_version < 1 {
         info!(target: LOG_TARGET, ">>> Updating the LoadedEmission to a new format {:?}", onchain_version);
 
         // We transform the storage values from the old into the new format.
@@ -69,13 +69,13 @@ pub fn migrate_to_v2_separate_emission<T: Config>() -> Weight {
         );
 
         // Update storage version.
-        StorageVersion::new(1).put::<Pallet::<T>>(); // Update to version 2 so we don't run this again.
+        StorageVersion::new(1).put::<Pallet::<T>>(); // Update to version 1 so we don't run this again.
         // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         weight
     } else {
-        info!(target: LOG_TARGET, "Migration to v2 already done!");
+        info!(target: LOG_TARGET, "Migration to v1 already done!");
         Weight::zero()
     }
 }
