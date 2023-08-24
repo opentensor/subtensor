@@ -107,7 +107,7 @@ jobs:
 
       - name: Srtool build
         id: srtool_build
-        uses: chevdor/srtool-actions@v0.7.0
+        uses: chevdor/srtool-actions@v0.8.0
         env:
           RUSTUP_TOOLCHAIN: ${{ matrix.rust-toolchain }}
           TARGET: ${{ matrix.rust-target }}
