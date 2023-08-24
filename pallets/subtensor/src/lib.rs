@@ -949,6 +949,9 @@ pub mod pallet {
                     // Update total issuance value
                     TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 
+                    // Update total stake value
+                    TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(*stake));
+
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
                     next_uid += 1;
