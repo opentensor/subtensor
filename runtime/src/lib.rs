@@ -590,8 +590,7 @@ parameter_types! {
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 100_000_000_000; // 100 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 8 * (DAYS as u64);
-    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    pub const SubtensorInitialNetworkLockReductionInterval: u16 = 8 * 7200;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -1006,6 +1005,18 @@ impl_runtime_apis! {
 
         fn get_subnets_info() -> Vec<u8> {
             let result = SubtensorModule::get_subnets_info();
+            result.encode()
+        }
+    }
+
+	impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
+        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
+			result.encode()
+        }
+
+        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
+            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
             result.encode()
         }
     }
