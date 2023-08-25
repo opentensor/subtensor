@@ -180,7 +180,10 @@ fn test_root_set_weights() {
         for i in 0..n {
             let hotkey_account_id: U256 = U256::from(i);
             let coldkey_account_id: U256 = U256::from(i);
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1_000_000_000_000_000);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey_account_id,
+                1_000_000_000_000_000,
+            );
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
