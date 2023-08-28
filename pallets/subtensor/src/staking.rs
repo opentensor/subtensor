@@ -189,6 +189,9 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!( Self::hotkey_is_delegate( &hotkey ) || Self::coldkey_owns_hotkey( &coldkey, &hotkey ), Error::<T>::NonAssociatedColdKey );
 
+        // --- Ensure that the stake amount to be removed is above zero.
+        ensure!( stake_to_be_removed > 0, Error::<T>::NotEnoughStaketoWithdraw );
+
         // --- 4. Ensure that the hotkey has enough stake to withdraw.
         ensure!( Self::has_enough_stake( &coldkey, &hotkey, stake_to_be_removed ), Error::<T>::NotEnoughStaketoWithdraw );
 
@@ -208,6 +211,17 @@ impl<T: Config> Pallet<T> {
 
 		// Set last block for rate limiting
 		Self::set_last_tx_block(&coldkey, block);
+
+		// If this hotkey is a senator, check to see if they fall below stake threshold in this withdraw
+		if T::SenateMembers::is_member(&hotkey) &&
+			Self::get_total_stake_for_hotkey(&hotkey) * 100 / {
+                if Self::get_total_stake() == 0 {1} else {Self::get_total_stake()}
+            } < SenateRequiredStakePercentage::<T>::get()
+		{
+			// This might cause a panic, but there shouldn't be any reason this will fail with the checks above.
+            T::TriumvirateInterface::remove_votes(&hotkey)?;
+			T::SenateMembers::remove_member(&hotkey)?;
+		}
 
         // --- 9. Emit the unstaking event.
         log::info!("StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )", hotkey, stake_to_be_removed );
@@ -329,7 +343,7 @@ impl<T: Config> Pallet<T> {
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
     //
     pub fn decrease_stake_on_coldkey_hotkey_account( coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64 ){
-        TotalColdkeyStake::<T>::mutate( coldkey, | old | old.saturating_sub( decrement ) );
+        TotalColdkeyStake::<T>::mutate( coldkey, |old| *old = old.saturating_sub( decrement ) );
         TotalHotkeyStake::<T>::insert( hotkey, TotalHotkeyStake::<T>::get(hotkey).saturating_sub( decrement ) );
         Stake::<T>::insert( hotkey, coldkey, Stake::<T>::get( hotkey, coldkey).saturating_sub( decrement ) );
         TotalStake::<T>::put( TotalStake::<T>::get().saturating_sub( decrement ) );
