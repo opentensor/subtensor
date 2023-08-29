@@ -22,9 +22,8 @@ use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
-use frame_support::weights::{constants::RocksDbWeight, Weight};
+use frame_support::weights::Weight;
 use substrate_fixed::types::{I32F32, I64F64};
-const DAYS: u64 = 7200;
 
 impl<T: Config> Pallet<T> {
     // Retrieves the unique identifier (UID) for the root network.

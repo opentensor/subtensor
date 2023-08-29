@@ -1717,6 +1717,7 @@ pub mod pallet {
             Self::do_sudo_set_min_burn(origin, netuid, min_burn)
         }
 
+        /*
         #[pallet::call_index(19)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -1724,6 +1725,7 @@ pub mod pallet {
         pub fn sudo_set_burn(origin: OriginFor<T>, netuid: u16, burn: u64) -> DispatchResult {
             Self::do_sudo_set_burn(origin, netuid, burn)
         }
+        */
 
         #[pallet::call_index(20)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
