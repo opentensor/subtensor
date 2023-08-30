@@ -1008,6 +1008,16 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_subnets_info();
             result.encode()
         }
+
+        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetHyperparams");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {

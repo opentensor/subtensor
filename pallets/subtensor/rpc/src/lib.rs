@@ -46,6 +46,8 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_subnet_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetsInfo")]
     fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetHyperparams")]
+    fn get_subnet_hyperparams(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
@@ -219,6 +221,24 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_subnet_info(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get subnet info.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_subnet_hyperparams(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnet_hyperparams(at, netuid).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get subnet info.",
