@@ -96,7 +96,8 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
     if onchain_version < new_storage_version {
         info!(target: LOG_TARGET_1, ">>> Fixing the TotalStake and TotalColdkeyStake storage {:?}", onchain_version);
 
-		// Stake and TotalHotkeyStake are known to be accurate
+		// Stake is known to be accurate
+		// TotalHotkeyStake is **probably** inaccurate
 		// TotalColdkeyStake is known to be inaccurate
 		// TotalStake is known to be inaccurate
 
@@ -111,17 +112,36 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 		}
 
-		// Now we iterate over the entire stake map, and sum each coldkey stake
+		// Do the same to TotalHotkeyStake
+		let total_hotkey_stake_keys = TotalHotkeyStake::<T>::iter_keys().collect::<Vec<_>>();
+		for hotkey in total_hotkey_stake_keys {
+			weight.saturating_accrue(T::DbWeight::get().reads(1));
+			TotalHotkeyStake::<T>::insert(hotkey, 0); // Set to 0
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+		}
+
+		// Now we iterate over the entire stake map
+		//   We sum each coldkey stake
+		//   We sum each hotkey stake
 		//   We also track TotalStake
-		for (_, coldkey, stake) in Stake::<T>::iter() {
+		for (hotkey, coldkey, stake) in Stake::<T>::iter() {
 			weight.saturating_accrue(T::DbWeight::get().reads(1));
 			// Get the current coldkey stake
-			let mut total_coldkey_stake = TotalColdkeyStake::<T>::get(coldkey.clone());
+			let mut total_coldkey_stake = TotalColdkeyStake::<T>::try_get(coldkey.clone()).unwrap_or(0 as u64);
 			weight.saturating_accrue(T::DbWeight::get().reads(1));
 			// Add the stake to the coldkey stake
 			total_coldkey_stake = total_coldkey_stake.saturating_add(stake);
 			// Update the coldkey stake
 			TotalColdkeyStake::<T>::insert(coldkey, total_coldkey_stake);
+			weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+			// Get the current hotkey stake
+			let mut total_hotkey_stake = TotalHotkeyStake::<T>::try_get(hotkey.clone()).unwrap_or(0 as u64);
+			weight.saturating_accrue(T::DbWeight::get().reads(1));
+			// Add the stake to the hotkey stake
+			total_hotkey_stake = total_hotkey_stake.saturating_add(stake);
+			// Update the hotkey stake
+			TotalHotkeyStake::<T>::insert(hotkey, total_hotkey_stake);
 			weight.saturating_accrue(T::DbWeight::get().writes(1));
 
 			// Get the current total stake
