@@ -68,7 +68,7 @@ fn test_migration_fix_total_stake_maps_wrong_entries() {
 		// Mess up the total hotkey stake
 		pallet_subtensor::TotalHotkeyStake::<Test>::insert(hk1, 0);
 		// Verify that the total hotkey stake is now wrong
-		assert_ne!(SubtensorModule::get_total_stake_for_hotkey(&hk1), 0);
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hk1), 0);
 
 		// Run the migration to fix the total stake maps
 		pallet_subtensor::migration::migrate_to_v2_fixed_total_stake::<Test>();
