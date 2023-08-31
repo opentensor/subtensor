@@ -154,7 +154,7 @@ fn test_migration_fix_total_stake_maps_extra_entries() {
 		let hk3 = U256::from(3 + 100);
 		pallet_subtensor::TotalHotkeyStake::<Test>::insert(hk3, 123_456_000);
 		// Verify that the total hotkey stake is now present for hk3
-		assert_ne!(SubtensorModule::get_total_stake_for_hotkey(&hk3), 123_456_000);
+		assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hk3), 123_456_000);
 
 		// Run the migration to fix the total stake maps
 		pallet_subtensor::migration::migrate_to_v2_fixed_total_stake::<Test>();
