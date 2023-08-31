@@ -475,7 +475,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         adjustment_interval: u16,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
