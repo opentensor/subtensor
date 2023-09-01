@@ -25,6 +25,7 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::remove( netuid, old_hotkey.clone() );
         IsNetworkMember::<T>::remove( old_hotkey.clone(), netuid );
         Keys::<T>::remove( netuid, uid_to_replace );
+		AssociatedIPInfo::<T>::remove( netuid, old_hotkey.clone() );
 
         // 2a. Check if the uid is registered in any other subnetworks.
         let hotkey_is_registered_on_any_network: bool = Self::is_hotkey_registered_on_any_network( &old_hotkey.clone() );
