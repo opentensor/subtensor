@@ -113,26 +113,8 @@ impl<T: Config> Pallet<T> {
     // 	* 'netuid' (u16):
     // 		- The u16 network identifier.
     //
-    // 	* 'version' (u64):
-    // 		- The bittensor version identifier.
-    //
-    // 	* 'ip' (u64):
-    // 		- The endpoint ip information as a u128 encoded integer.
-    //
-    // 	* 'port' (u16):
-    // 		- The endpoint port information as a u16 encoded integer.
-    //
-    // 	* 'ip_type' (u8):
-    // 		- The endpoint ip version as a u8, 4 or 6.
-    //
-    // 	* 'protocol' (u8):
-    // 		- UDP:1 or TCP:0
-    //
-    // 	* 'placeholder1' (u8):
-    // 		- Placeholder for further extra params.
-    //
-    // 	* 'placeholder2' (u8):
-    // 		- Placeholder for further extra params.
+	// 	* 'associated_ips' (Vec<IPInfoOf>):
+	// 		- The associated IP information as a vector of IPInfoOf structs.
     //
     // # Event:
     // 	* IPInfoSet;
@@ -140,7 +122,7 @@ impl<T: Config> Pallet<T> {
     //
     // # Raises:
     // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to set weights on a non-existent network.
+    // 		- Attempting to add associated IPs on a non-existent subnet/netuid.
     //
     // 	* 'NotAValidator':
     // 		- Attempting to add associated IPs without a vpermit.
@@ -152,7 +134,7 @@ impl<T: Config> Pallet<T> {
     // 		- The numerically encoded ip address does not resolve to a proper ip.
     //
     // 	* 'ServingRateLimitExceeded':
-    // 		- Attempting to set prometheus information withing the rate limit min.
+    // 		- Attempting to set new IP Info withing the rate limit min.
     //
     pub fn do_associate_ips(
         origin: T::RuntimeOrigin,
