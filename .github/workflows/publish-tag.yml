@@ -68,7 +68,7 @@ jobs:
           ./scripts/install-deps.sh
 
       - name: 🔧 Install Rust
-        uses: actions-rs/toolchain@v1.0.6
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust-toolchain }}
           target: ${{ matrix.rust-target }}
@@ -101,7 +101,7 @@ jobs:
         run: |
           cargo test --tests
 
-      - name: Build executable
+      - name: 🚀 Build executable
         run: |
           cargo build --release
 
