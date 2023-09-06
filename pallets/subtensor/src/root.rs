@@ -841,11 +841,21 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
         let mult = if last_lock_block == 0 { 1 } else { 2 };
-        let mut lock_cost = (last_lock * mult)
-            - (last_lock / lock_reduction_interval) * (current_block - last_lock_block);
+        
+        let mut lock_cost = 
+            last_lock
+                .saturating_mul(mult)
+                .saturating_sub(
+                    last_lock.saturating_div(lock_reduction_interval)
+                )
+                .saturating_mul(
+                    current_block.saturating_sub(last_lock_block)
+                );
+
         if lock_cost < min_lock {
             lock_cost = min_lock;
         }
+
         log::debug!( "last_lock: {:?}, min_lock: {:?}, last_lock_block: {:?}, lock_reduction_interval: {:?}, current_block: {:?}, mult: {:?} lock_cost: {:?}",
         last_lock, min_lock, last_lock_block, lock_reduction_interval, current_block, mult, lock_cost);
 
