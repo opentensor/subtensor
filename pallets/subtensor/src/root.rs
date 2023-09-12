@@ -225,6 +225,15 @@ impl<T: Config> Pallet<T> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
+        // --- 3. Check if we should update the emission values based on blocks since emission was last set.
+        let blocks_until_next_epoch: u64 =
+            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
+        if blocks_until_next_epoch != 0 {
+            // Not the block to update emission values.
+            log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
+            return Err("Not the block to update emission values.");
+        }
+
         // --- 1. Retrieves the number of root validators on subnets.
         let n: u16 = Self::get_num_root_validators();
         log::debug!("n:\n{:?}\n", n);
@@ -239,15 +248,6 @@ impl<T: Config> Pallet<T> {
         if k == 0 {
             // No networks to validate.
             return Err("No networks to validate emission values.");
-        }
-
-        // --- 3. Check if we should update the emission values based on blocks since emission was last set.
-        let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
-        if blocks_until_next_epoch != 0 {
-            // Not the block to update emission values.
-            log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
-            return Err("Not the block to update emission values.");
         }
 
         // --- 4. Determines the total block emission across all the subnetworks. This is the
@@ -841,15 +841,16 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let lock_reduction_interval = Self::get_lock_reduction_interval();
         let mult = if last_lock_block == 0 { 1 } else { 2 };
-        
+
         let mut lock_cost = 
             last_lock
                 .saturating_mul(mult)
                 .saturating_sub(
-                    last_lock.saturating_div(lock_reduction_interval)
-                )
-                .saturating_mul(
-                    current_block.saturating_sub(last_lock_block)
+                    last_lock
+                        .saturating_div(lock_reduction_interval)
+                        .saturating_mul(
+                            current_block.saturating_sub(last_lock_block)
+                        )
                 );
 
         if lock_cost < min_lock {
