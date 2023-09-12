@@ -147,10 +147,12 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
 
         // --- 11. Ensure that the passed uids are valid for the network.
-        ensure!(
-            !Self::contains_invalid_uids(netuid, &uids),
-            Error::<T>::InvalidUid
-        );
+        if netuid != Self::get_root_netuid() {
+            ensure!(
+                !Self::contains_invalid_uids(netuid, &uids),
+                Error::<T>::InvalidUid
+            );
+        }
 
         // --- 12. Ensure that the weights have the required length.
         ensure!(
