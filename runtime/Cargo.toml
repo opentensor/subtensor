@@ -48,6 +48,9 @@ sp-version = { version = "5.0.0", default-features = false, git = "https://githu
 # Temporary sudo
 pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
+# Temporary
+pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
+
 # Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
 pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }

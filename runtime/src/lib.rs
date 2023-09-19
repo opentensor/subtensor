@@ -629,6 +629,22 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
 }
 
+use sp_runtime::BoundedVec;
+
+pub struct AuraPalletIntrf;
+impl pallet_template::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
+    fn change_authorities(new: BoundedVec<AuraId, ConstU32<32>>) {
+        Aura::change_authorities(new);
+    }
+}
+
+impl pallet_template::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type AuthorityId = AuraId;
+    type MaxAuthorities = ConstU32<32>;
+    type Aura = AuraPalletIntrf;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -652,7 +668,8 @@ construct_runtime!(
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler
+        Scheduler: pallet_scheduler,
+        Template: pallet_template
     }
 );
 
