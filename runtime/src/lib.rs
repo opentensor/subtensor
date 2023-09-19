@@ -632,13 +632,13 @@ impl pallet_subtensor::Config for Runtime {
 use sp_runtime::BoundedVec;
 
 pub struct AuraPalletIntrf;
-impl pallet_template::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
+impl pallet_admin_utils::AuraInterface<AuraId, ConstU32<32>> for AuraPalletIntrf {
     fn change_authorities(new: BoundedVec<AuraId, ConstU32<32>>) {
         Aura::change_authorities(new);
     }
 }
 
-impl pallet_template::Config for Runtime {
+impl pallet_admin_utils::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
@@ -669,7 +669,7 @@ construct_runtime!(
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
-        Template: pallet_template
+        AdminUtils: pallet_admin_utils
     }
 );
 

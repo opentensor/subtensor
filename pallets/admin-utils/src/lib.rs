@@ -1,8 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// Edit this file to define custom logic or remove it if it is not needed.
-/// Learn more about FRAME and the core library of Substrate FRAME pallets:
-/// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
 use sp_runtime::{
@@ -41,28 +38,17 @@ pub mod pallet {
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		SomethingStored { something: u32, who: T::AccountId },
-	}
+	pub enum Event<T: Config> {}
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
-	pub enum Error<T> {
-		/// Error names should be descriptive.
-		NoneValue,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
-	}
+	pub enum Error<T> {}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::call_index(0)]
 		#[pallet::weight(0)]
 		pub fn swap_authorities(origin: OriginFor<T>, new_authorities: BoundedVec<T::AuthorityId, T::MaxAuthorities>) -> DispatchResult {
@@ -79,6 +65,8 @@ pub mod pallet {
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = T::AuthorityId;
 }
+
+// Interfaces to interact with other pallets
 
 use sp_runtime::BoundedVec;
 

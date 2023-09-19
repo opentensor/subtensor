@@ -1,9 +1,9 @@
-//! Benchmarking setup for pallet-template
+//! Benchmarking setup
 #![cfg(feature = "runtime-benchmarks")]
 use super::*;
 
 #[allow(unused)]
-use crate::Pallet as Template;
+use crate::Pallet as AdminUtils;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
@@ -11,6 +11,7 @@ use frame_system::RawOrigin;
 mod benchmarks {
 	use super::*;
 
+	// Example benchmark
 	#[benchmark]
 	fn do_something() {
 		let value = 100u32.into();
@@ -21,15 +22,5 @@ mod benchmarks {
 		assert_eq!(Something::<T>::get(), Some(value));
 	}
 
-	#[benchmark]
-	fn cause_error() {
-		Something::<T>::put(100u32);
-		let caller: T::AccountId = whitelisted_caller();
-		#[extrinsic_call]
-		cause_error(RawOrigin::Signed(caller));
-
-		assert_eq!(Something::<T>::get(), Some(101u32));
-	}
-
-	impl_benchmark_test_suite!(Template, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }
