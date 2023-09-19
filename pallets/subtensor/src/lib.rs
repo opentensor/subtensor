@@ -1060,10 +1060,10 @@ pub mod pallet {
             SubnetworkN::<T>::insert(root_netuid, 0);
 
             // Set the maximum number to the number of senate members.
-            MaxAllowedUids::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
+            MaxAllowedUids::<T>::insert(root_netuid, 64u16);
 
             // Set the maximum number to the number of validators to all members.
-            MaxAllowedValidators::<T>::insert(root_netuid, T::SenateMembers::max_members() as u16);
+            MaxAllowedValidators::<T>::insert(root_netuid, 64u16);
 
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(root_netuid, 0);

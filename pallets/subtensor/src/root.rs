@@ -435,9 +435,9 @@ impl<T: Config> Pallet<T> {
                 if let Some(last) = sorted_members.last() {
                     let last_stake = Self::get_total_stake_for_hotkey(last);
 
-                    ensure!(last_stake < current_stake, Error::<T>::BelowStakeThreshold);
-
-                    T::SenateMembers::swap_member(last, &hotkey)?;
+                    if last_stake < current_stake {
+                        T::SenateMembers::swap_member(last, &hotkey)?;
+                    }
                 }
             } else {
                 T::SenateMembers::add_member(&hotkey)?;
