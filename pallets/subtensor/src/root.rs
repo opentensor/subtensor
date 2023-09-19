@@ -373,7 +373,6 @@ impl<T: Config> Pallet<T> {
 
             // --- 12.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
-            T::SenateMembers::add_member(&hotkey);
             log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
@@ -406,14 +405,43 @@ impl<T: Config> Pallet<T> {
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
-            T::SenateMembers::swap_member(&replaced_hotkey, &hotkey);
-            T::TriumvirateInterface::remove_votes(&replaced_hotkey)?;
+            if T::SenateMembers::is_member(&replaced_hotkey) {
+                T::SenateMembers::remove_member(&replaced_hotkey)?;
+                T::TriumvirateInterface::remove_votes(&replaced_hotkey)?;
+            }
+
             log::info!(
                 "replace neuron: {:?} with {:?} on uid {:?}",
                 replaced_hotkey,
                 hotkey,
                 subnetwork_uid
             );
+        }
+
+        let total_stake = Self::get_total_stake();
+		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+        if total_stake > 0 && current_stake > 0 && current_stake * 100 / total_stake >= SenateRequiredStakePercentage::<T>::get() {
+            // If we're full, we'll swap out the lowest stake member.
+            let members = T::SenateMembers::members();
+            if (members.len() as u32) == T::SenateMembers::max_members() {
+                let mut sorted_members = members.clone();
+                sorted_members.sort_by(|a, b| {
+                    let a_stake = Self::get_total_stake_for_hotkey(a);
+                    let b_stake = Self::get_total_stake_for_hotkey(b);
+
+                    b_stake.cmp(&a_stake)
+                });
+
+                if let Some(last) = sorted_members.last() {
+                    let last_stake = Self::get_total_stake_for_hotkey(last);
+
+                    ensure!(last_stake < current_stake, Error::<T>::BelowStakeThreshold);
+
+                    T::SenateMembers::swap_member(last, &hotkey)?;
+                }
+            } else {
+                T::SenateMembers::add_member(&hotkey)?;
+            }
         }
 
         // --- 13. Force all members on root to become a delegate.
