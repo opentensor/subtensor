@@ -115,7 +115,7 @@ jobs:
         env:
           RUSTUP_TOOLCHAIN: ${{ matrix.rust-toolchain }}
           TARGET: ${{ matrix.rust-target }}
-          BUILD_OPTS: "+nightly"
+          #BUILD_OPTS: ""
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: runtime
