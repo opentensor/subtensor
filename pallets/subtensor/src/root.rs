@@ -287,13 +287,46 @@ impl<T: Config> Pallet<T> {
         let ranks_i32: Vec<I32F32> = matmul(&weights_i32, &stake_i32);
         log::trace!("R:\n{:?}\n", &ranks_i32);
 
-        // --- 10. Converts the rank values to 64-bit fixed point representation for normalization.
-        let mut emission_i62: Vec<I64F64> = vec_fixed32_to_fixed64(ranks_i32);
-        inplace_normalize_64(&mut emission_i62);
-        log::trace!("Ei64:\n{:?}\n", &emission_i62);
+        let total_networks = Self::get_num_subnets();
+        let mut trust = vec![I64F64::from_num(0); total_networks as usize];
+        let mut total_stake: I64F64 = I64F64::from_num(0);
+        for (idx, weights) in weights_i32.iter().enumerate() {
+            let uid = idx as u16;
+            let hotkey_stake = I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(0, uid));
+            total_stake += hotkey_stake;
+
+            for (net_uid, weight) in weights.iter().enumerate() {
+                if *weight > 0 {
+                    trust[net_uid] += hotkey_stake;
+                }
+            }
+        }
+
+        for trust_score in trust.iter_mut() {
+            *trust_score /= total_stake;
+        }
+
+        let one = I64F64::from_num(1);
+        let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
+        for (idx, trust_score) in trust.iter_mut().enumerate() {
+            let shifted_trust = *trust_score - I64F64::from_num(0.5); // Range( -kappa, 1 - kappa )
+            let temperatured_trust = shifted_trust * I64F64::from_num(10); // Range( -rho * kappa, rho ( 1 - kappa ) )
+            let exponentiated_trust: I64F64 = substrate_fixed::transcendental::exp(-temperatured_trust).expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
+
+            consensus[idx] = one / (one + exponentiated_trust);
+        }
+
+        let ranks_f64: Vec<I64F64> = vec_fixed32_to_fixed64(ranks_i32);
+        let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
+        for (idx, emission) in weighted_emission.iter_mut().enumerate() {
+            *emission = consensus[idx] * ranks_f64[idx];
+        }
+
+        inplace_normalize_64(&mut weighted_emission);
+        log::trace!("Ei64:\n{:?}\n", &weighted_emission);
 
         // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_as_tao: Vec<I64F64> = emission_i62
+        let emission_as_tao: Vec<I64F64> = weighted_emission
             .iter()
             .map(|v: &I64F64| *v * block_emission)
             .collect();
