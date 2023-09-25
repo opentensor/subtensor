@@ -653,6 +653,28 @@ pub fn matmul(matrix: &Vec<Vec<I32F32>>, vector: &Vec<I32F32>) -> Vec<I32F32> {
     result
 }
 
+// Row-wise matrix-vector product, column-wise sum: result_j = SUM(i) vector_i * matrix_ij.
+#[allow(dead_code)]
+pub fn matmul_64(matrix: &Vec<Vec<I64F64>>, vector: &Vec<I64F64>) -> Vec<I64F64> {
+    if matrix.len() == 0 {
+        return vec![];
+    }
+    if matrix[0].len() == 0 {
+        return vec![];
+    }
+    assert!(matrix.len() == vector.len());
+    let mut result: Vec<I64F64> = vec![I64F64::from_num(0.0); matrix[0].len()];
+    for i in 0..matrix.len() {
+        for j in 0..matrix[i].len() {
+            // Compute ranks: r_j = SUM(i) w_ij * s_i
+            // Compute trust scores: t_j = SUM(i) w_ij * s_i
+            // result_j = SUM(i) vector_i * matrix_ij
+            result[j] += vector[i] * matrix[i][j];
+        }
+    }
+    result
+}
+
 // Column-wise matrix-vector product, row-wise sum: result_i = SUM(j) vector_j * matrix_ij.
 #[allow(dead_code)]
 pub fn matmul_transpose(matrix: &Vec<Vec<I32F32>>, vector: &Vec<I32F32>) -> Vec<I32F32> {

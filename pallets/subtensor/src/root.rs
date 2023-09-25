@@ -186,7 +186,7 @@ impl<T: Config> Pallet<T> {
     // A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
     // 'j' with according to the preferences of key. 'j' within the root network.
     //
-    pub fn get_root_weights() -> Vec<Vec<I32F32>> {
+    pub fn get_root_weights() -> Vec<Vec<I64F64>> {
         // --- 0. The number of validators on the root network.
         let n: usize = Self::get_num_root_validators() as usize;
 
@@ -195,7 +195,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
         // by `n` (number of validators) and `k` (total number of subnets).
-        let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); k]; n];
+        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
         log::debug!("weights:\n{:?}\n", weights);
 
         // --- 3. Iterate over stored weights and fill the matrix.
@@ -208,7 +208,7 @@ impl<T: Config> Pallet<T> {
             // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
             // weight of `uid_i` with respect to `uid_j`.
             for (uid_j, weight_ij) in weights_i.iter() {
-                weights[uid_i as usize][*uid_j as usize] = I32F32::from_num(*weight_ij);
+                weights[uid_i as usize][*uid_j as usize] = I64F64::from_num(*weight_ij);
             }
         }
 
@@ -273,24 +273,20 @@ impl<T: Config> Pallet<T> {
         }
         inplace_normalize_64(&mut stake_i64);
 
-        // --- 7. Converts the 64-bit fixed point stake values to float 32-bit for ease of further calculations.
-        let stake_i32: Vec<I32F32> = vec_fixed64_to_fixed32(stake_i64);
-        log::debug!("S:\n{:?}\n", &stake_i32);
-
         // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
-        let weights_i32: Vec<Vec<I32F32>> = Self::get_root_weights();
-        log::debug!("W:\n{:?}\n", &weights_i32);
+        let weights: Vec<Vec<I64F64>> = Self::get_root_weights();
+        log::debug!("W:\n{:?}\n", &weights);
 
         // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
-        let ranks_i32: Vec<I32F32> = matmul(&weights_i32, &stake_i32);
-        log::trace!("R:\n{:?}\n", &ranks_i32);
+        let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
+        log::trace!("R:\n{:?}\n", &ranks);
 
         let total_networks = Self::get_num_subnets();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
-        for (idx, weights) in weights_i32.iter().enumerate() {
+        for (idx, weights) in weights.iter().enumerate() {
             let uid = idx as u16;
             let hotkey_stake = I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(0, uid));
             total_stake += hotkey_stake;
@@ -316,10 +312,9 @@ impl<T: Config> Pallet<T> {
             consensus[idx] = one / (one + exponentiated_trust);
         }
 
-        let ranks_f64: Vec<I64F64> = vec_fixed32_to_fixed64(ranks_i32);
         let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
         for (idx, emission) in weighted_emission.iter_mut().enumerate() {
-            *emission = consensus[idx] * ranks_f64[idx];
+            *emission = consensus[idx] * ranks[idx];
         }
 
         inplace_normalize_64(&mut weighted_emission);
