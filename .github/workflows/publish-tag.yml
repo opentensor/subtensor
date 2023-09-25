@@ -111,7 +111,7 @@ jobs:
         with:
           chain: ${{ matrix.chain }}
           runtime_dir: runtime
-          package: node-subtensor
+          package: node-subtensor-runtime
 
       - name: Srtool summary
         run: |
