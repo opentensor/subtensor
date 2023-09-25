@@ -112,7 +112,7 @@ jobs:
           chain: ${{ matrix.chain }}
           #runtime_dir: ./runtime
 
-      - name: Summary
+      - name: Srtool summary
         run: |
           echo '${{ steps.srtool_build.outputs.json }}' | jq . > ${{ matrix.chain }}-srtool-digest.json
           cat ${{ matrix.chain }}-srtool-digest.json
