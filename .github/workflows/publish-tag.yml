@@ -110,7 +110,7 @@ jobs:
           #BUILD_OPTS: ""
         with:
           chain: ${{ matrix.chain }}
-          runtime_dir: ./runtime
+          #runtime_dir: ./runtime
 
       - name: Summary
         run: |
