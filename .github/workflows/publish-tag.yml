@@ -97,10 +97,6 @@ jobs:
         run: |
           whoami
 
-      - name: 🔨 Build
-        run: |
-          cargo build
-
       - name: 🔎 Test
         run: |
           cargo test --tests
