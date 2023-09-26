@@ -591,7 +591,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
-            if Self::get_num_subnets() < Self::get_max_subnets() {
+            if Self::get_num_subnets() - 1 < Self::get_max_subnets() { // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid += 1;
@@ -746,7 +746,7 @@ impl<T: Config> Pallet<T> {
         Self::set_network_registration_allowed(netuid, true);
         Self::set_immunity_period(netuid, 1000);
         Self::set_max_allowed_uids(netuid, 256);
-        Self::set_max_allowed_validators(netuid, 128);
+        Self::set_max_allowed_validators(netuid, 64);
         Self::set_min_allowed_weights(netuid, 64);
         Self::set_max_weight_limit(netuid, 511);
         Self::set_adjustment_interval(netuid, 500);
@@ -943,7 +943,7 @@ impl<T: Config> Pallet<T> {
         let mut uid_with_min_score_in_immunity_period: u16 = 1;
 
         // Iterate over all networks
-        for netuid in 1..TotalNetworks::<T>::get() {
+        for netuid in 1..TotalNetworks::<T>::get() - 1 { // Don't count root netuid
             let emission_value: u64 = Self::get_emission_value(netuid);
             let block_at_registration: u64 = Self::get_network_registered_block(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
