@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
         let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
         for (idx, trust_score) in trust.iter_mut().enumerate() {
             let shifted_trust = *trust_score - I64F64::from_num(Self::get_kappa(0)); // Range( -kappa, 1 - kappa )
-            let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
+            let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_float_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
             let exponentiated_trust: I64F64 = substrate_fixed::transcendental::exp(-temperatured_trust).expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
 
             consensus[idx] = one / (one + exponentiated_trust);
