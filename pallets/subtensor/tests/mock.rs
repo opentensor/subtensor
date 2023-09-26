@@ -158,7 +158,7 @@ parameter_types! {
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialSubnetLimit: u16 = 12; // Max 12 subnets.
+    pub const InitialSubnetLimit: u16 = 4; // Max 4 subnets.
 }
 
 // Configure collective pallet for council
