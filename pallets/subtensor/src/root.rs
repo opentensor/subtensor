@@ -298,8 +298,17 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        if total_stake == 0 {
+            return Err("No stake on network")
+        }
+
         for trust_score in trust.iter_mut() {
-            *trust_score /= total_stake;
+            match trust_score.checked_div(total_stake) {
+                Some(quotient) => {
+                    *trust_score = quotient;
+                }
+                None => {}
+            }
         }
 
         let one = I64F64::from_num(1);
