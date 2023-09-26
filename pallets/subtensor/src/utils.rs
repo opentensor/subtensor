@@ -364,7 +364,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         min_difficulty: u64,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         max_difficulty: u64,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -527,7 +527,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         validator_prune_len: u64,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -609,11 +609,15 @@ impl<T: Config> Pallet<T> {
         immunity_period: u16,
     ) -> DispatchResult {
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
+        ensure!(
+            immunity_period <= 7200,
+            Error::<T>::StorageValueOutOfRange
+        );
+
         Self::set_immunity_period(netuid, immunity_period);
         log::info!(
             "ImmunityPeriodSet( netuid: {:?} immunity_period: {:?} ) ",
@@ -688,7 +692,7 @@ impl<T: Config> Pallet<T> {
         Kappa::<T>::insert(netuid, kappa);
     }
     pub fn do_sudo_set_kappa(origin: T::RuntimeOrigin, netuid: u16, kappa: u16) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -707,7 +711,7 @@ impl<T: Config> Pallet<T> {
         Rho::<T>::insert(netuid, rho);
     }
     pub fn do_sudo_set_rho(origin: T::RuntimeOrigin, netuid: u16, rho: u16) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -758,7 +762,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         registration_allowed: bool,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         Self::set_network_registration_allowed(netuid, registration_allowed);
         log::info!(
@@ -783,7 +787,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         target_registrations_per_interval: u16,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -831,7 +835,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         min_burn: u64,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -858,7 +862,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         max_burn: u64,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -911,11 +915,17 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         max_allowed_validators: u16,
     ) -> DispatchResult {
-        ensure_root(origin)?;
+        Self::ensure_subnet_owner_or_root(origin, netuid)?;
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
+        ensure!(
+            max_allowed_validators <= Self::get_max_allowed_uids(netuid),
+            Error::<T>::StorageValueOutOfRange
+        );
+
+
         Self::set_max_allowed_validators(netuid, max_allowed_validators);
         log::info!(
             "MaxAllowedValidatorsSet( netuid: {:?} max_allowed_validators: {:?} ) ",
@@ -940,7 +950,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         bonds_moving_average: u64,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -967,7 +977,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         max_registrations_per_block: u16,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        ensure_root(origin)?;
         
         ensure!(
             Self::if_subnet_exist(netuid),
