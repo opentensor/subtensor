@@ -287,8 +287,7 @@ impl<T: Config> Pallet<T> {
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
         for (idx, weights) in weights.iter().enumerate() {
-            let uid = idx as u16;
-            let hotkey_stake = I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(0, uid));
+            let hotkey_stake = stake_i64[idx];
             total_stake += hotkey_stake;
 
             for (net_uid, weight) in weights.iter().enumerate() {
