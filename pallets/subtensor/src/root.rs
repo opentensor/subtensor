@@ -272,6 +272,7 @@ impl<T: Config> Pallet<T> {
             stake_i64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
         }
         inplace_normalize_64(&mut stake_i64);
+        log::debug!("S:\n{:?}\n", &stake_i64);
 
         // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
@@ -281,8 +282,10 @@ impl<T: Config> Pallet<T> {
         // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
         let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
-        log::trace!("R:\n{:?}\n", &ranks);
+        log::debug!("R:\n{:?}\n", &ranks);
 
+        // --- 10. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
+        // Trust will have shape k, a score for each subnet.
         let total_networks = Self::get_num_subnets();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
@@ -310,6 +313,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
+        // --- 11. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
+        // Consensus will have shape k, a score for each subnet.
+        log::debug!("T:\n{:?}\n", &trust);
         let one = I64F64::from_num(1);
         let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
         for (idx, trust_score) in trust.iter_mut().enumerate() {
@@ -320,11 +326,11 @@ impl<T: Config> Pallet<T> {
             consensus[idx] = one / (one + exponentiated_trust);
         }
 
+        log::debug!("C:\n{:?}\n", &consensus);
         let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
         for (idx, emission) in weighted_emission.iter_mut().enumerate() {
             *emission = consensus[idx] * ranks[idx];
         }
-
         inplace_normalize_64(&mut weighted_emission);
         log::trace!("Ei64:\n{:?}\n", &weighted_emission);
 
