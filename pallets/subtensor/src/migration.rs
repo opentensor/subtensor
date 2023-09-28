@@ -37,9 +37,6 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Increment the number of total networks.
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
-    // Set the number of validators to 1.
-    SubnetworkN::<T>::insert(root_netuid, 0);
-
     // Set the maximum number to the number of senate members.
     MaxAllowedUids::<T>::insert(root_netuid, 64);
 
