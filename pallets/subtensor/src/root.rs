@@ -577,7 +577,7 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block - last_lock_block >= NetworkImmunityPeriod::<T>::get(), // Replace 1 with a configurable time limit if desired.
+            current_block - last_lock_block >= 7200, // Replace 1 with a configurable time limit if desired.
             Error::<T>::TxRateLimitExceeded
         );
 
