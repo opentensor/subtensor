@@ -153,12 +153,12 @@ parameter_types! {
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
-    pub const InitialNetworkImmunityPeriod: u64 = 4096;
+    pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
     pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialSubnetLimit: u16 = 4; // Max 4 subnets.
+    pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
 }
 
 // Configure collective pallet for council

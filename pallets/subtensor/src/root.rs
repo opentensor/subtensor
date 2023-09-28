@@ -576,10 +576,10 @@ impl<T: Config> Pallet<T> {
         // --- 1. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
-        // ensure!(
-        //     current_block - last_burn_block >= 1, // Replace 1 with a configurable time limit if desired.
-        //     Error::<T>::TxRateLimitExceeded
-        // );
+        ensure!(
+            current_block - last_lock_block >= NetworkImmunityPeriod::<T>::get(), // Replace 1 with a configurable time limit if desired.
+            Error::<T>::TxRateLimitExceeded
+        );
 
         // --- 2. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
