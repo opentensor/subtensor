@@ -586,12 +586,12 @@ parameter_types! {
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 12 * 7200;
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
-    pub const SubtensorInitialMinLockCost: u64 = 100_000_000_000; // 100 TAO
+    pub const SubtensorInitialMinLockCost: u64 = 2_500_000_000_000; // 2500 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialSubnetLimit: u16 = 4;
-    pub const SubtensorInitialNetworkLockReductionInterval: u16 = 8 * 7200;
+    pub const SubtensorInitialSubnetLimit: u16 = 9;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
 }
 
 impl pallet_subtensor::Config for Runtime {
