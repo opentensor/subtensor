@@ -4609,6 +4609,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex",
  "log",
  "ndarray",
  "pallet-balances",

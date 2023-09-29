@@ -22,18 +22,62 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
+pub fn migrate_transfer_ownership_to_foundation<T: Config>() -> Weight {
+    let new_storage_version = 3;
+
+    // Setup migration weight
+    let mut weight = T::DbWeight::get().reads(1);
+
+    // Grab current version
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+    // Only runs if we haven't already updated version past above new_storage_version.
+    if onchain_version < new_storage_version {
+        info!(target: LOG_TARGET_1, ">>> Migrating subnet 1 and 11 to foundation control {:?}", onchain_version);
+
+        // This is frankly horrifying, hacky fix for rust type aliasing issues
+        let mut slice: [u8; 32] = [0u8; 32];
+        hex::encode_to_slice("0x0", &mut slice).expect("Encoding failure");
+        let coldkey_account: <T as frame_system::Config>::AccountId = <T as frame_system::Config>::AccountId::decode(&mut &slice[..]).unwrap();
+
+        let current_block = Pallet::<T>::get_current_block_as_u64();
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+        // Migrate ownership and set creation time as now
+        SubnetOwner::<T>::insert(1, coldkey_account.clone());
+        SubnetOwner::<T>::insert(11, coldkey_account);
+        NetworkRegisteredAt::<T>::insert(1, current_block);
+        NetworkRegisteredAt::<T>::insert(11, current_block);
+
+        weight.saturating_accrue(T::DbWeight::get().writes(4));
+
+        // Update storage version.
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_1, "Migration to v3 already done!");
+        Weight::zero()
+    }
+}
+
 pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Get the root network uid.
     let root_netuid: u16 = 0;
 
+    // Setup migration weight
+    let mut weight = T::DbWeight::get().reads(1);
+
     // Check if root network already exists.
     if NetworksAdded::<T>::get(root_netuid) {
-        return Weight::zero();
+        // Since we read from the database once to determine this
+        return weight;
     }
 
     // Set the root network as added.
     NetworksAdded::<T>::insert(root_netuid, true);
-
+    
     // Increment the number of total networks.
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
@@ -58,15 +102,20 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Set target registrations for validators as 1 per block.
     TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
 
+    // Add our weights for writing to database
+    weight.saturating_accrue(T::DbWeight::get().writes(8));
+
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
         T::TriumvirateInterface::remove_votes(&hotkey_i);
         T::SenateMembers::remove_member(&hotkey_i);
-    }
+        
+        weight.saturating_accrue(T::DbWeight::get().reads(2));
+        weight.saturating_accrue(T::DbWeight::get().writes(2));
+    }  
 
-    // Return zero weight.
-    Weight::zero()
+    weight
 }
 
 pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
