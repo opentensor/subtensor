@@ -852,6 +852,8 @@ pub mod pallet {
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
         SubnetOwnerCutSet(u16),    // Event created when the subnet owner cut is set.
         NetworkRateLimitSet(u64), // Event created when the network creation rate limit is set.
+        NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
+        NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
     }
 
     // Errors inform users that something went wrong.
@@ -1056,6 +1058,39 @@ pub mod pallet {
 
             // --- Increase total network count.
             TotalNetworks::<T>::mutate(|n| *n += 1);
+
+            // Get the root network uid.
+            let root_netuid: u16 = 0;
+
+            // Set the root network as added.
+            NetworksAdded::<T>::insert(root_netuid, true);
+
+            // Increment the number of total networks.
+            TotalNetworks::<T>::mutate(|n| *n += 1);
+
+            // Set the number of validators to 1.
+            SubnetworkN::<T>::insert(root_netuid, 0);
+
+            // Set the maximum number to the number of senate members.
+            MaxAllowedUids::<T>::insert(root_netuid, 64u16);
+
+            // Set the maximum number to the number of validators to all members.
+            MaxAllowedValidators::<T>::insert(root_netuid, 64u16);
+
+            // Set the min allowed weights to zero, no weights restrictions.
+            MinAllowedWeights::<T>::insert(root_netuid, 0);
+
+            // Set the max weight limit to infitiy, no weight restrictions.
+            MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+
+            // Add default root tempo.
+            Tempo::<T>::insert(root_netuid, 100);
+
+            // Set the root network as open.
+            NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+
+            // Set target registrations for validators as 1 per block.
+            TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
         }
     }
 
@@ -2120,6 +2155,42 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult {
             Self::do_sudo_set_network_rate_limit(origin, rate_limit)
+        }
+
+        #[pallet::call_index(65)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_immunity_period(origin: OriginFor<T>, immunity_period: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::set_network_immunity_period( immunity_period );
+
+            log::info!(
+                "NetworkImmunityPeriod( period: {:?} ) ",
+                immunity_period
+            );
+            Self::deposit_event(Event::NetworkImmunityPeriodSet(
+                immunity_period,
+            ));
+
+            Ok(())
+        }
+
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_min_lock_cost(origin: OriginFor<T>, lock_cost: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::set_network_min_lock( lock_cost );
+
+            log::info!(
+                "NetworkMinLockCost( lock_cost: {:?} ) ",
+                lock_cost
+            );
+            Self::deposit_event(Event::NetworkMinLockCostSet(
+                lock_cost,
+            ));
+
+            Ok(())
         }
     }
 
