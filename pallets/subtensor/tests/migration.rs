@@ -125,10 +125,25 @@ fn test_migration_delete_subnet_3() {
     new_test_ext().execute_with(|| {
         // Create subnet 3
         add_network(3, 1, 0);
+        assert_eq!(SubtensorModule::if_subnet_exist(3), true);
 
         // Run the migration to transfer ownership
         pallet_subtensor::migration::migrate_delete_subnet_3::<Test>();
 
         assert_eq!(SubtensorModule::if_subnet_exist(3), false);
+    })
+}
+
+#[test]
+fn test_migration_delete_subnet_21() {
+    new_test_ext().execute_with(|| {
+        // Create subnet 21
+        add_network(21, 1, 0);
+        assert_eq!(SubtensorModule::if_subnet_exist(21), true);
+
+        // Run the migration to transfer ownership
+        pallet_subtensor::migration::migrate_delete_subnet_21::<Test>();
+
+        assert_eq!(SubtensorModule::if_subnet_exist(21), false);
     })
 }
