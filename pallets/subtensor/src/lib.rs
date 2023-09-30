@@ -1122,7 +1122,8 @@ pub mod pallet {
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 .saturating_add(migration::migrate_create_root_network::<T>())
-                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>());
+                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>())
+                .saturating_add(migration::migrate_delete_subnet_3::<T>());
 
             return weight;
         }

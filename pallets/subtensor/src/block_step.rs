@@ -131,14 +131,19 @@ impl<T: Config> Pallet<T> {
                 new_queued_emission,
             );
 
-            // --- 3. Compute 18% cut for owners.
-            let cut: I96F32 = I96F32::from_num(new_queued_emission)
-                * I96F32::from_num(Self::get_subnet_owner_cut())
-                / I96F32::from_num(u16::MAX);
-            let remaining: I96F32 = I96F32::from_num(new_queued_emission) - cut;
+            let subnet_has_owner = SubnetOwner::<T>::contains_key(netuid);
+            let mut remaining = I96F32::from_num(new_queued_emission);
+            if subnet_has_owner {
+                let cut = remaining
+                    .saturating_mul(
+                        I96F32::from_num(Self::get_subnet_owner_cut())
+                    )
+                    .saturating_div(
+                        I96F32::from_num(u16::MAX)
+                    );
 
-            // --- 4. Add amount to owner coldkey and increment total issuance accordingly.
-            if SubnetOwner::<T>::contains_key(netuid) {
+                remaining = remaining.saturating_sub(cut);
+
                 Self::add_balance_to_coldkey_account(
                     &Self::get_subnet_owner(netuid),
                     Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
@@ -147,7 +152,6 @@ impl<T: Config> Pallet<T> {
                     TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()),
                 );
             }
-
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
             log::debug!(

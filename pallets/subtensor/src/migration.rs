@@ -110,12 +110,90 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     for hotkey_i in T::SenateMembers::members().iter() {
         T::TriumvirateInterface::remove_votes(&hotkey_i);
         T::SenateMembers::remove_member(&hotkey_i);
-        
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
-        weight.saturating_accrue(T::DbWeight::get().writes(2));
+
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }  
 
     weight
+}
+
+pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
+    let new_storage_version = 3;
+
+    // Setup migration weight
+    let mut weight = T::DbWeight::get().reads(1);
+
+    // Grab current version
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+    // Only runs if we haven't already updated version past above new_storage_version.
+    if onchain_version < new_storage_version {
+        info!(target: LOG_TARGET_1, ">>> Removing subnet 3 {:?}", onchain_version);
+        
+        let netuid = 3;
+
+        // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
+        // --- 2. Remove network count.
+        SubnetworkN::<T>::remove(netuid);
+
+        // --- 3. Remove network modality storage.
+        NetworkModality::<T>::remove(netuid);
+
+        // --- 4. Remove netuid from added networks.
+        NetworksAdded::<T>::remove(netuid);
+
+        // --- 6. Decrement the network counter.
+        TotalNetworks::<T>::mutate(|n| *n -= 1);
+
+        // --- 7. Remove various network-related storages.
+        NetworkRegisteredAt::<T>::remove(netuid);
+
+        weight.saturating_accrue(T::DbWeight::get().writes(5));
+
+        // --- 8. Remove incentive mechanism memory.
+        let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
+
+        weight.saturating_accrue(T::DbWeight::get().writes(4));
+
+        // --- 9. Remove various network-related parameters.
+        Rank::<T>::remove(netuid);
+        Trust::<T>::remove(netuid);
+        Active::<T>::remove(netuid);
+        Emission::<T>::remove(netuid);
+        Incentive::<T>::remove(netuid);
+        Consensus::<T>::remove(netuid);
+        Dividends::<T>::remove(netuid);
+        PruningScores::<T>::remove(netuid);
+        LastUpdate::<T>::remove(netuid);
+        ValidatorPermit::<T>::remove(netuid);
+        ValidatorTrust::<T>::remove(netuid);
+
+        weight.saturating_accrue(T::DbWeight::get().writes(11));
+
+        // --- 10. Erase network parameters.
+        Tempo::<T>::remove(netuid);
+        Kappa::<T>::remove(netuid);
+        Difficulty::<T>::remove(netuid);
+        MaxAllowedUids::<T>::remove(netuid);
+        ImmunityPeriod::<T>::remove(netuid);
+        ActivityCutoff::<T>::remove(netuid);
+        EmissionValues::<T>::remove(netuid);
+        MaxWeightsLimit::<T>::remove(netuid);
+        MinAllowedWeights::<T>::remove(netuid);
+        RegistrationsThisInterval::<T>::remove(netuid);
+        POWRegistrationsThisInterval::<T>::remove(netuid);
+        BurnRegistrationsThisInterval::<T>::remove(netuid);
+
+        weight.saturating_accrue(T::DbWeight::get().writes(12));
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_1, "Migration to v3 already done!");
+        Weight::zero()
+    }
 }
 
 pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
