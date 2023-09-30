@@ -1026,7 +1026,7 @@ impl<T: Config> Pallet<T> {
         Self::set_network_rate_limit( rate_limit );
         log::info!(
             "NetworkRateLimit( rate_limit: {:?} ) ",
-            subnet_owner_cut
+            rate_limit
         );
         Self::deposit_event(Event::NetworkRateLimitSet(
             rate_limit,

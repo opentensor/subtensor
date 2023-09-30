@@ -22,7 +22,7 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
-pub fn migrate_transfer_ownership_to_foundation<T: Config>() -> Weight {
+pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: &'static str) -> Weight {
     let new_storage_version = 3;
 
     // Setup migration weight
@@ -37,7 +37,8 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>() -> Weight {
 
         // This is frankly horrifying, hacky fix for rust type aliasing issues
         let mut slice: [u8; 32] = [0u8; 32];
-        hex::encode_to_slice("0x0", &mut slice).expect("Encoding failure");
+        log::info!("string length: {:?}", coldkey.len());
+        hex::encode_to_slice(coldkey, &mut slice).expect("Encoding failure");
         let coldkey_account: <T as frame_system::Config>::AccountId = <T as frame_system::Config>::AccountId::decode(&mut &slice[..]).unwrap();
 
         let current_block = Pallet::<T>::get_current_block_as_u64();

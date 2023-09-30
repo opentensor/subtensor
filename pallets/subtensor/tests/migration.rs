@@ -99,3 +99,36 @@ fn test_migration_fix_total_stake_maps() {
         ); // 2 stake entries for hk2
     })
 }
+
+/*
+#[test]
+fn test_migration_transfer_nets_to_foundation() {
+    new_test_ext().execute_with(|| {
+        // Create subnet 1
+        add_network(1, 1, 0);
+        // Create subnet 11
+        add_network(11, 1, 0);
+        
+        log::info!("{:?}", SubtensorModule::get_subnet_owner(1));
+        //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
+
+        // Run the migration to transfer ownership
+        pallet_subtensor::migration::migrate_transfer_ownership_to_foundation::<Test>("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY");
+
+        log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1));
+    })
+}
+*/
+
+#[test]
+fn test_migration_delete_subnet_3() {
+    new_test_ext().execute_with(|| {
+        // Create subnet 3
+        add_network(3, 1, 0);
+
+        // Run the migration to transfer ownership
+        pallet_subtensor::migration::migrate_delete_subnet_3::<Test>();
+
+        assert_eq!(SubtensorModule::if_subnet_exist(3), false);
+    })
+}
