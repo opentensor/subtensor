@@ -191,7 +191,9 @@ impl<T: Config> Pallet<T> {
         let n: usize = Self::get_num_root_validators() as usize;
 
         // --- 1 The number of subnets to validate.
+        log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
         let k: usize = Self::get_num_subnets() as usize;
+        log::debug!("n: {:?} k: {:?}", n, k);
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
         // by `n` (number of validators) and `k` (total number of subnets).
@@ -217,6 +219,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Return the filled weights matrix.
         weights
+    }
+
+    pub fn get_network_rate_limit() -> u64 {
+        NetworkRateLimit::<T>::get()
+    }
+    pub fn set_network_rate_limit( limit: u64 ) {
+        NetworkRateLimit::<T>::set(limit);
     }
 
     // Computes and sets emission values for the root network which determine the emission for all subnets.
@@ -256,7 +265,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
         let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
-        log::trace!("block_emission:\n{:?}\n", block_emission);
+        log::debug!("block_emission:\n{:?}\n", block_emission);
 
         // --- 5. A collection of all registered hotkeys on the root network. Hotkeys
         // pairs with network UIDs and stake values.
@@ -266,7 +275,7 @@ impl<T: Config> Pallet<T> {
         {
             hotkeys.push((uid_i, hotkey));
         }
-        log::trace!("hotkeys:\n{:?}\n", hotkeys);
+        log::debug!("hotkeys:\n{:?}\n", hotkeys);
 
         // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
         // Stakes are stored in a 64-bit fixed point representation for precise calculations.
@@ -293,12 +302,12 @@ impl<T: Config> Pallet<T> {
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
         for (idx, weights) in weights.iter().enumerate() {
-            let hotkey_stake = stake_i64[idx];
-            total_stake += hotkey_stake;
+            for (netuid, weight) in weights.iter().enumerate() {
+                let hotkey_stake = stake_i64[idx];
+                total_stake += hotkey_stake;
 
-            for (net_uid, weight) in weights.iter().enumerate() {
                 if *weight > 0 {
-                    trust[net_uid] += hotkey_stake;
+                    trust[netuid] += hotkey_stake;
                 }
             }
         }
@@ -335,7 +344,7 @@ impl<T: Config> Pallet<T> {
             *emission = consensus[idx] * ranks[idx];
         }
         inplace_normalize_64(&mut weighted_emission);
-        log::trace!("Ei64:\n{:?}\n", &weighted_emission);
+        log::debug!("Ei64:\n{:?}\n", &weighted_emission);
 
         // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_as_tao: Vec<I64F64> = weighted_emission
@@ -345,10 +354,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
-        log::trace!("Eu64:\n{:?}\n", &emission_u64);
+        log::debug!("Eu64:\n{:?}\n", &emission_u64);
 
         // --- 13. Set the emission values for each subnet directly.
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
+
         return Self::set_emission_values(&netuids, emission_u64);
     }
 
@@ -463,30 +474,27 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let total_stake = Self::get_total_stake();
 		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
-        if total_stake > 0 && current_stake > 0 && current_stake * 100 / total_stake >= SenateRequiredStakePercentage::<T>::get() {
-            // If we're full, we'll swap out the lowest stake member.
-            let members = T::SenateMembers::members();
-            if (members.len() as u32) == T::SenateMembers::max_members() {
-                let mut sorted_members = members.clone();
-                sorted_members.sort_by(|a, b| {
-                    let a_stake = Self::get_total_stake_for_hotkey(a);
-                    let b_stake = Self::get_total_stake_for_hotkey(b);
+        // If we're full, we'll swap out the lowest stake member.
+        let members = T::SenateMembers::members();
+        if (members.len() as u32) == T::SenateMembers::max_members() {
+            let mut sorted_members = members.clone();
+            sorted_members.sort_by(|a, b| {
+                let a_stake = Self::get_total_stake_for_hotkey(a);
+                let b_stake = Self::get_total_stake_for_hotkey(b);
 
-                    b_stake.cmp(&a_stake)
-                });
+                b_stake.cmp(&a_stake)
+            });
 
-                if let Some(last) = sorted_members.last() {
-                    let last_stake = Self::get_total_stake_for_hotkey(last);
+            if let Some(last) = sorted_members.last() {
+                let last_stake = Self::get_total_stake_for_hotkey(last);
 
-                    if last_stake < current_stake {
-                        T::SenateMembers::swap_member(last, &hotkey)?;
-                    }
+                if last_stake < current_stake {
+                    T::SenateMembers::swap_member(last, &hotkey)?;
                 }
-            } else {
-                T::SenateMembers::add_member(&hotkey)?;
             }
+        } else {
+            T::SenateMembers::add_member(&hotkey)?;
         }
 
         // --- 13. Force all members on root to become a delegate.
@@ -571,8 +579,6 @@ impl<T: Config> Pallet<T> {
     // 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     //
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
-        let root_netuid: u16 = Self::get_root_netuid();
-
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
@@ -580,14 +586,14 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block - last_lock_block >= 7200, // Replace 1 with a configurable time limit if desired.
+            current_block - last_lock_block >= Self::get_network_rate_limit(), 
             Error::<T>::TxRateLimitExceeded
         );
 
         // --- 2. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
         let lock_as_balance = Self::u64_to_balance(lock_amount);
-        log::info!("network lock_amount: {:?}", lock_amount,);
+        log::debug!("network lock_amount: {:?}", lock_amount,);
         ensure!(
             lock_as_balance.is_some(),
             Error::<T>::CouldNotConvertToBalance
@@ -599,18 +605,22 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
+            log::debug!("subnet count: {:?}\nmax subnets: {:?}", Self::get_num_subnets(), Self::get_max_subnets());
             if Self::get_num_subnets() - 1 < Self::get_max_subnets() { // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid += 1;
                     if !Self::if_subnet_exist(next_available_netuid) {
+                        log::debug!("got subnet id: {:?}", next_available_netuid);
                         break next_available_netuid;
                     }
                 }
             } else {
                 let netuid_to_prune = Self::get_subnet_to_prune();
+                ensure!(netuid_to_prune > 0, Error::<T>::AllNetworksInImmunity);
+
                 Self::remove_network(netuid_to_prune);
-                log::info!("remove_network: {:?}", netuid_to_prune,);
+                log::debug!("remove_network: {:?}", netuid_to_prune,);
                 netuid_to_prune
             }
         };
@@ -625,7 +635,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 1000);
-        log::info!("init_new_network: {:?}", netuid_to_register,);
+        log::debug!("init_new_network: {:?}", netuid_to_register,);
 
         // --- 7. Set netuid storage.
         let current_block_number: u64 = Self::get_current_block_as_u64();
@@ -986,7 +996,7 @@ impl<T: Config> Pallet<T> {
         // If all networks are in the immunity period, return the one with the minimum emission value.
         if min_score == 1 {
             // all networks are in immunity period
-            return uid_with_min_score_in_immunity_period;
+            return 0;
         } else {
             return uid_with_min_score;
         }

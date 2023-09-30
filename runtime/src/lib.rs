@@ -592,6 +592,7 @@ parameter_types! {
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetLimit: u16 = 9;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -639,6 +640,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
     type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
+    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

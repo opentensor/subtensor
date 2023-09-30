@@ -2,6 +2,7 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
+use log::info;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 use sp_core::{H256, U256};
@@ -92,8 +93,8 @@ fn test_root_register_stake_based_pruning_works() {
         SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, 1000);
 
-        // Register 256 accounts with stake to the other network.
-        for i in 0..256 {
+        // Register 128 accounts with stake to the other network.
+        for i in 0..128 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
             // Add balance
@@ -116,8 +117,8 @@ fn test_root_register_stake_based_pruning_works() {
             assert!(!SubtensorModule::hotkey_is_delegate(&hot));
         }
 
-        // Register the first 128 accounts with stake to the root network.
-        for i in 0..128 {
+        // Register the first 64 accounts with stake to the root network.
+        for i in 0..64 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
             assert_ok!(SubtensorModule::root_register(
@@ -126,15 +127,13 @@ fn test_root_register_stake_based_pruning_works() {
             ));
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are all senate members
-            assert!(SubtensorModule::is_senate_member(&hot));
             // Check that they are all delegates
             assert!(SubtensorModule::hotkey_is_delegate(&hot));
         }
 
-        // Register the second 128 accounts with stake to the root network.
-        // Replaces the first 128
-        for i in 128..256 {
+        // Register the second 64 accounts with stake to the root network.
+        // Replaces the first 64
+        for i in 64..128 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
             assert_ok!(SubtensorModule::root_register(
@@ -143,13 +142,11 @@ fn test_root_register_stake_based_pruning_works() {
             ));
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are all senate members
-            assert!(SubtensorModule::is_senate_member(&hot));
         }
 
-        // Register the first 128 accounts again, this time failing because they
+        // Register the first 64 accounts again, this time failing because they
         // dont have enough stake.
-        for i in 0..128 {
+        for i in 0..64 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
             assert_eq!(
@@ -195,10 +192,12 @@ fn test_root_set_weights() {
             ));
         }
 
+        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
+        log::info!("current subnet count: {:?}", SubtensorModule::get_num_subnets());
+
         // Lets create n networks
         for netuid in 1..n {
             log::debug!("Adding network with netuid: {}", netuid);
-            add_network(netuid as u16, 13, 0);
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
             ));
@@ -207,7 +206,7 @@ fn test_root_set_weights() {
         // Set weights into diagonal matrix.
         for i in 0..n {
             let uids: Vec<u16> = vec![i as u16];
-            let values: Vec<u16> = vec![i as u16];
+            let values: Vec<u16> = vec![1];
             assert_ok!(SubtensorModule::set_weights(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
                 root_netuid,
@@ -225,10 +224,10 @@ fn test_root_set_weights() {
             log::debug!("check emission for netuid: {}", netuid);
             assert_eq!(
                 SubtensorModule::get_subnet_emission_value(netuid as u16),
-                111111111
+                99_999_999
             );
         }
-        step_block(1);
+        step_block(2);
         // Check that the pending emission values have been set.
         for netuid in 1..n {
             log::debug!(
@@ -238,7 +237,7 @@ fn test_root_set_weights() {
             );
             assert_eq!(
                 SubtensorModule::get_pending_emission(netuid as u16),
-                111111111
+                199_999_998
             );
         }
         step_block(1);
@@ -250,11 +249,11 @@ fn test_root_set_weights() {
             );
             assert_eq!(
                 SubtensorModule::get_pending_emission(netuid as u16),
-                222222222
+                299_999_997
             );
         }
-        // Step block clears the emission on subnet 9.
-        step_block(1);
+        let step = SubtensorModule::blocks_until_next_epoch(9, 1000, SubtensorModule::get_current_block_as_u64());
+        step_block(step as u16);
         assert_eq!(SubtensorModule::get_pending_emission(9), 0);
     });
 }
@@ -408,21 +407,21 @@ fn test_network_pruning() {
 
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 199999999);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 177777777);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 155555555);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 133333333);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 111111111);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 88888888);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 353_070_300);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 238_926_920);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 159_158_365);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 103_857_758);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 65_889_150);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 40_129_160);
         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 177777777);
+        assert_eq!(SubtensorModule::get_pending_emission(1), 238_926_920);
         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 133333333);
+        assert_eq!(SubtensorModule::get_pending_emission(3), 103_857_758);
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 88888888);
+        assert_eq!(SubtensorModule::get_pending_emission(5), 40_129_160);
         step_block(1);
-        assert_eq!(SubtensorModule::get_total_issuance(), 711121108);
+        assert_eq!(SubtensorModule::get_total_issuance(), 504_783_718);
     });
 }

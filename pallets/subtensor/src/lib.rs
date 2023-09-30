@@ -179,6 +179,8 @@ pub mod pallet {
         type InitialNetworkLockReductionInterval: Get<u64>;
         #[pallet::constant] // Initial max allowed subnets
         type InitialSubnetLimit: Get<u16>;
+        #[pallet::constant] // Initial network creation rate limit
+        type InitialNetworkRateLimit: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -385,6 +387,10 @@ pub mod pallet {
     pub fn DefaultSubnetLimit<T: Config>() -> u16 {
         T::InitialSubnetLimit::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
+        T::InitialNetworkRateLimit::get()
+    }
 
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
@@ -433,6 +439,8 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
     #[pallet::storage] // ITEM( subnet_owner_cut )
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+    #[pallet::storage] // ITEM( network_rate_limit )
+    pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -843,6 +851,7 @@ pub mod pallet {
         SubnetTransferred(u16, T::AccountId, T::AccountId), // Event created when a subnet's ownership is transferred to another user
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
         SubnetOwnerCutSet(u16),    // Event created when the subnet owner cut is set.
+        NetworkRateLimitSet(u64), // Event created when the network creation rate limit is set.
     }
 
     // Errors inform users that something went wrong.
@@ -901,6 +910,7 @@ pub mod pallet {
         NotSubnetOwner,
         OperationNotPermittedonRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
+        AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
     }
 
     // ==================
@@ -1046,39 +1056,6 @@ pub mod pallet {
 
             // --- Increase total network count.
             TotalNetworks::<T>::mutate(|n| *n += 1);
-
-            // Get the root network uid.
-            let root_netuid: u16 = 0;
-
-            // Set the root network as added.
-            NetworksAdded::<T>::insert(root_netuid, true);
-
-            // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
-
-            // Set the number of validators to 1.
-            SubnetworkN::<T>::insert(root_netuid, 0);
-
-            // Set the maximum number to the number of senate members.
-            MaxAllowedUids::<T>::insert(root_netuid, 64u16);
-
-            // Set the maximum number to the number of validators to all members.
-            MaxAllowedValidators::<T>::insert(root_netuid, 64u16);
-
-            // Set the min allowed weights to zero, no weights restrictions.
-            MinAllowedWeights::<T>::insert(root_netuid, 0);
-
-            // Set the max weight limit to infitiy, no weight restrictions.
-            MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
-
-            // Add default root tempo.
-            Tempo::<T>::insert(root_netuid, 100);
-
-            // Set the root network as open.
-            NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
-
-            // Set target registrations for validators as 1 per block.
-            TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
         }
     }
 
@@ -2137,6 +2114,12 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_subnet_owner_cut(origin: OriginFor<T>, cut: u16) -> DispatchResult {
             Self::do_sudo_set_subnet_owner_cut(origin, cut)
+        }
+
+        #[pallet::call_index(64)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult {
+            Self::do_sudo_set_network_rate_limit(origin, rate_limit)
         }
     }
 

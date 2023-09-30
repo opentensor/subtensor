@@ -133,7 +133,7 @@ parameter_types! {
     pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
-    pub const InitialTxRateLimit: u64 = 2; // 2 blocks per stake/unstake/delegate
+    pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -159,6 +159,7 @@ parameter_types! {
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
+    pub const InitialNetworkRateLimit: u64 = 0;
 }
 
 // Configure collective pallet for council
@@ -355,6 +356,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
+    type InitialNetworkRateLimit = InitialNetworkRateLimit;
 }
 
 impl pallet_utility::Config for Test {

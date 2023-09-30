@@ -1021,6 +1021,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn do_sudo_set_network_rate_limit(origin: T::RuntimeOrigin, rate_limit: u64) -> DispatchResult {
+        ensure_root(origin)?;
+        Self::set_network_rate_limit( rate_limit );
+        log::info!(
+            "NetworkRateLimit( rate_limit: {:?} ) ",
+            subnet_owner_cut
+        );
+        Self::deposit_event(Event::NetworkRateLimitSet(
+            rate_limit,
+        ));
+        Ok(())
+    }
+
     pub fn do_sudo_set_tempo(origin: T::RuntimeOrigin, netuid: u16, tempo: u16) -> DispatchResult {
         ensure_root(origin)?;
         ensure!(
