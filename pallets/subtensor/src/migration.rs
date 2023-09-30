@@ -128,7 +128,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     let onchain_version = Pallet::<T>::on_chain_storage_version();
 
     // Only runs if we haven't already updated version past above new_storage_version.
-    if onchain_version < new_storage_version {
+    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 3 {:?}", onchain_version);
         
         let netuid = 3;
@@ -190,6 +190,11 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
 
         weight.saturating_accrue(T::DbWeight::get().writes(12));
 
+        // Update storage version.
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update version so we don't run this again.
+        // One write to storage version
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
         weight
     } else {
         info!(target: LOG_TARGET_1, "Migration to v3 already done!");
@@ -207,7 +212,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
     let onchain_version = Pallet::<T>::on_chain_storage_version();
 
     // Only runs if we haven't already updated version past above new_storage_version.
-    if onchain_version < new_storage_version {
+    if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(21) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 21 {:?}", onchain_version);
         
         let netuid = 21;
@@ -268,6 +273,11 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         weight.saturating_accrue(T::DbWeight::get().writes(12));
+
+        // Update storage version.
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update version so we don't run this again.
+        // One write to storage version
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         weight
     } else {
