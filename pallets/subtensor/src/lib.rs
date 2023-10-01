@@ -1733,17 +1733,7 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_sudo_set_min_burn(origin, netuid, min_burn)
         }
-
-        /*
-        #[pallet::call_index(19)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_burn(origin: OriginFor<T>, netuid: u16, burn: u64) -> DispatchResult {
-            Self::do_sudo_set_burn(origin, netuid, burn)
-        }
-        */
-
+        
         #[pallet::call_index(20)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -2046,24 +2036,6 @@ pub mod pallet {
             return result;
         }
 
-        // --- DEPRECATED #[pallet::call_index(53)]
-        // #[pallet::weight((Weight::from_ref_time(67_000_000)
-        // .saturating_add(Weight::from_proof_size(61173))
-        // .saturating_add(T::DbWeight::get().reads(20))
-        // .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        // pub fn join_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-        //     Self::do_join_senate(origin, &hotkey)
-        // }
-
-        // --- DEPRECATED #[pallet::call_index(54)]
-        // #[pallet::weight((Weight::from_ref_time(20_000_000)
-        // .saturating_add(Weight::from_proof_size(4748))
-        // .saturating_add(T::DbWeight::get().reads(4))
-        // .saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        // pub fn leave_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-        //     Self::do_leave_senate(origin, &hotkey)
-        // }
-
         #[pallet::call_index(55)]
         #[pallet::weight((Weight::from_ref_time(0)
 		.saturating_add(Weight::from_proof_size(0))
@@ -2092,21 +2064,6 @@ pub mod pallet {
             Self::do_sudo_set_network_registration_allowed(origin, netuid, registration_allowed)
         }
 
-        // --- DEPRECATED#[pallet::call_index(56)]
-        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_set_senate_required_stake_perc(
-        //     origin: OriginFor<T>,
-        //     required_percent: u64,
-        // ) -> DispatchResult {
-        //     Self::do_set_senate_required_stake_perc(origin, required_percent)
-        // }
-
-        // --- DEPRECATED  #[pallet::call_index(57)]
-        // #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId) -> DispatchResult {
-        //     Self::do_remove_votes(origin, &who)
-        // }
-
         #[pallet::call_index(58)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -2127,20 +2084,20 @@ pub mod pallet {
             Self::user_add_network(origin)
         }
 
-        #[pallet::call_index(60)]
-        #[pallet::weight((Weight::from_ref_time(91_000_000)
-		.saturating_add(T::DbWeight::get().reads(27))
-		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
-        pub fn faucet(
-            origin: OriginFor<T>,
-            block_number: u64,
-            nonce: u64,
-            work: Vec<u8>,
-        ) -> DispatchResult {
-            ensure!(false, Error::<T>::FaucetDisabled);
-            //Self::do_faucet(origin, block_number, nonce, work)
-            Ok(())
-        }
+        // #[pallet::call_index(60)]
+        // #[pallet::weight((Weight::from_ref_time(91_000_000)
+		// .saturating_add(T::DbWeight::get().reads(27))
+		// .saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        // pub fn faucet(
+        //     origin: OriginFor<T>,
+        //     block_number: u64,
+        //     nonce: u64,
+        //     work: Vec<u8>,
+        // ) -> DispatchResult {
+        //     ensure!(false, Error::<T>::FaucetDisabled);
+        //     //Self::do_faucet(origin, block_number, nonce, work)
+        //     Ok(())
+        // }
 
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
@@ -2211,64 +2168,6 @@ pub mod pallet {
                 return default_priority + u32::max_value() as u64;
             }
             return 0;
-        }
-
-        // Benchmarking functions.
-        #[cfg(feature = "runtime-benchmarks")]
-        pub fn create_network(_: OriginFor<T>, netuid: u16, n: u16, tempo: u16) -> DispatchResult {
-            Self::init_new_network(netuid, tempo, 1);
-            Self::set_max_allowed_uids(netuid, n);
-            let mut seed: u32 = 1;
-            for _ in 0..n {
-                let block_number: u64 = Self::get_current_block_as_u64();
-                let hotkey: T::AccountId =
-                    T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-                        .unwrap();
-                Self::append_neuron(netuid, &hotkey, block_number);
-                seed = seed + 1;
-            }
-            Ok(())
-        }
-
-        #[cfg(feature = "runtime-benchmarks")]
-        pub fn create_network_with_weights(
-            _: OriginFor<T>,
-            netuid: u16,
-            n: u16,
-            tempo: u16,
-            n_vals: u16,
-            n_weights: u16,
-        ) -> DispatchResult {
-            Self::init_new_network(netuid, tempo, 1);
-            Self::set_max_allowed_uids(netuid, n);
-            Self::set_max_allowed_validators(netuid, n_vals);
-            Self::set_min_allowed_weights(netuid, n_weights);
-            Self::set_emission_for_network(netuid, 1_000_000_000);
-            let mut seed: u32 = 1;
-            for _ in 0..n {
-                let block_number: u64 = Self::get_current_block_as_u64();
-                let hotkey: T::AccountId =
-                    T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-                        .unwrap();
-                Self::increase_stake_on_coldkey_hotkey_account(&hotkey, &hotkey, 1_000_000_000);
-                Self::append_neuron(netuid, &hotkey, block_number);
-                seed = seed + 1;
-            }
-            for uid in 0..n {
-                let uids: Vec<u16> = (0..n_weights).collect();
-                let values: Vec<u16> = vec![1; n_weights as usize];
-                let normalized_values = Self::normalize_weights(values);
-                let mut zipped_weights: Vec<(u16, u16)> = vec![];
-                for (uid, val) in uids.iter().zip(normalized_values.iter()) {
-                    zipped_weights.push((*uid, *val))
-                }
-                if uid < n_vals {
-                    Weights::<T>::insert(netuid, uid, zipped_weights);
-                } else {
-                    break;
-                }
-            }
-            Ok(())
         }
     }
 }
