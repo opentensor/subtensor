@@ -200,19 +200,28 @@ impl<T: Config> Pallet<T> {
         let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
         log::debug!("weights:\n{:?}\n", weights);
 
+        let subnet_list = Self::get_all_subnet_netuids();
+
         // --- 3. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
                 Self::get_root_netuid(),
             )
         {
+
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
             // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
             // weight of `uid_i` with respect to `uid_j`.
-            for (uid_j, weight_ij) in weights_i.iter() {
+            for (netuid, weight_ij) in weights_i.iter() {
+                let option = subnet_list.iter().position(|item| {
+                    item == netuid
+                });
+
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
-                    weight[*uid_j as usize] = I64F64::from_num(*weight_ij);
+                    if let Some(netuid_idx) = option {
+                        weight[netuid_idx] = I64F64::from_num(*weight_ij);
+                    }
                 }
             }
         }
@@ -304,10 +313,10 @@ impl<T: Config> Pallet<T> {
         for (idx, weights) in weights.iter().enumerate() {
             let hotkey_stake = stake_i64[idx];
             total_stake += hotkey_stake;
-            for (netuid, weight) in weights.iter().enumerate() {
+            for (weight_idx, weight) in weights.iter().enumerate() {
 
                 if *weight > 0 {
-                    trust[netuid] += hotkey_stake;
+                    trust[weight_idx] += hotkey_stake;
                 }
             }
         }

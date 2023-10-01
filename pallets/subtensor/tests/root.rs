@@ -259,6 +259,114 @@ fn test_root_set_weights() {
 }
 
 #[test]
+fn test_root_set_weights_out_of_order_netuids() {
+    new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
+        let n: usize = 10;
+        let root_netuid: u16 = 0;
+        SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
+        SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
+        SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
+        for i in 0..n {
+            let hotkey_account_id: U256 = U256::from(i);
+            let coldkey_account_id: U256 = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey_account_id,
+                1_000_000_000_000_000,
+            );
+            assert_ok!(SubtensorModule::root_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+            ));
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                1000
+            ));
+        }
+
+        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
+        log::info!("current subnet count: {:?}", SubtensorModule::get_num_subnets());
+
+        // Lets create n networks
+        for netuid in 1..n {
+            log::debug!("Adding network with netuid: {}", netuid);
+
+            if netuid % 2 == 0 {
+                assert_ok!(SubtensorModule::register_network(
+                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
+                ));
+            } else {
+                add_network(netuid as u16 * 10, 1000, 0)
+            }
+        }
+
+        log::info!("netuids: {:?}", SubtensorModule::get_all_subnet_netuids());
+        log::info!("root network count: {:?}", SubtensorModule::get_subnetwork_n(0));
+
+        let subnets = SubtensorModule::get_all_subnet_netuids();
+        // Set weights into diagonal matrix.
+        for (i, netuid) in subnets.iter().enumerate() {
+            let uids: Vec<u16> = vec![*netuid];
+
+            let values: Vec<u16> = vec![1];
+            assert_ok!(SubtensorModule::set_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+                root_netuid,
+                uids,
+                values,
+                0,
+            ));
+        }
+        // Run the root epoch
+        log::debug!("Running Root epoch");
+        SubtensorModule::set_tempo(root_netuid, 1);
+        assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
+        // Check that the emission values have been set.
+        for netuid in subnets.iter() {
+            log::debug!("check emission for netuid: {}", netuid);
+            assert_eq!(
+                SubtensorModule::get_subnet_emission_value(*netuid),
+                99_999_999
+            );
+        }
+        step_block(2);
+        // Check that the pending emission values have been set.
+        for netuid in subnets.iter() {
+            if *netuid == 0 { continue }
+
+            log::debug!(
+                "check pending emission for netuid {} has pending {}",
+                netuid,
+                SubtensorModule::get_pending_emission(*netuid)
+            );
+            assert_eq!(
+                SubtensorModule::get_pending_emission(*netuid),
+                199_999_998
+            );
+        }
+        step_block(1);
+        for netuid in subnets.iter() {
+            if *netuid == 0 { continue }
+            
+            log::debug!(
+                "check pending emission for netuid {} has pending {}",
+                netuid,
+                SubtensorModule::get_pending_emission(*netuid)
+            );
+            assert_eq!(
+                SubtensorModule::get_pending_emission(*netuid),
+                299_999_997
+            );
+        }
+        let step = SubtensorModule::blocks_until_next_epoch(9, 1000, SubtensorModule::get_current_block_as_u64());
+        step_block(step as u16);
+        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
+    });
+}
+
+#[test]
 fn test_root_subnet_creation_deletion() {
     new_test_ext().execute_with(|| {
         migration::migrate_create_root_network::<Test>();
