@@ -1130,11 +1130,13 @@ pub mod pallet {
             use crate::migration;
             let mut weight = frame_support::weights::Weight::from_ref_time(0);
 
+            // Hex encoded foundation coldkey
+            let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
             weight = weight
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 .saturating_add(migration::migrate_create_root_network::<T>())
-                //.saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>("0x0"))
+                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(hex))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 .saturating_add(migration::migrate_delete_subnet_21::<T>());
 
@@ -2135,7 +2137,9 @@ pub mod pallet {
             nonce: u64,
             work: Vec<u8>,
         ) -> DispatchResult {
-            Self::do_faucet(origin, block_number, nonce, work)
+            ensure!(false, Error::<T>::FaucetDisabled);
+            //Self::do_faucet(origin, block_number, nonce, work)
+            Ok(())
         }
 
         #[pallet::call_index(61)]
