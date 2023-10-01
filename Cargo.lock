@@ -4143,7 +4143,6 @@ dependencies = [
  "frame-benchmarking-cli",
  "frame-system",
  "futures",
- "hex-literal",
  "jsonrpsee",
  "memmap2",
  "node-subtensor-runtime",
