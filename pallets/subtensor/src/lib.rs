@@ -1500,9 +1500,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_ref_time(91_000_000)
-		.saturating_add(T::DbWeight::get().reads(27))
-		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(120_000_000)
+		.saturating_add(T::DbWeight::get().reads(23))
+		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
@@ -1535,143 +1535,6 @@ pub mod pallet {
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
-
-        // DEPRECATED ---- Sudo add a network to the network set.
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- Must be sudo.
-        //
-        // 	* 'netuid' (u16):
-        // 		- The u16 network identifier.
-        //
-        // 	* 'tempo' ( u16 ):
-        // 		- Number of blocks between epoch step.
-        //
-        // 	* 'modality' ( u16 ):
-        // 		- Network modality specifier.
-        //
-        // # Event:
-        // 	* NetworkAdded;
-        // 		- On successfully creation of a network.
-        //
-        // # Raises:
-        // 	* 'NetworkExist':
-        // 		- Attempting to register an already existing.
-        //
-        // 	* 'InvalidModality':
-        // 		- Attempting to register a network with an invalid modality.
-        //
-        // 	* 'InvalidTempo':
-        // 		- Attempting to register a network with an invalid tempo.
-        //
-        // #[pallet::call_index(9)]
-        // #[pallet::weight((Weight::from_ref_time(50_000_000)
-        // .saturating_add(T::DbWeight::get().reads(17))
-        // .saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_add_network(
-        //     origin: OriginFor<T>,
-        //     netuid: u16,
-        //     tempo: u16,
-        //     modality: u16,
-        // ) -> DispatchResultWithPostInfo {
-        //     // Deprecated
-        //     Ok(())
-        // }
-
-        // DEPRECATED ---- Sudo remove a network from the network set.
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- Must be sudo.
-        //
-        // 	* 'netuid' (u16):
-        // 		- The u16 network identifier.
-        //
-        // # Event:
-        // 	* NetworkRemoved;
-        // 		- On the successfull removing of this network.
-        //
-        // # Raises:
-        // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to remove a non existent network.
-        //
-        // #[pallet::call_index(10)]
-        // #[pallet::weight((Weight::from_ref_time(42_000_000)
-        // .saturating_add(T::DbWeight::get().reads(2))
-        // .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_remove_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-        //     // Deprecated
-        //     Ok(())
-        // }
-
-        // ---- Sudo set emission values for all networks.
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        //
-        // 	* `netuids` (Vec<u16>):
-        // 		- A vector of network uids values. This must include all netuids.
-        //
-        // 	* `emission` (Vec<u64>):
-        // 		- The emission values associated with passed netuids in order.
-        //
-        // #[pallet::call_index(11)]
-        // #[pallet::weight((Weight::from_ref_time(28_000_000)
-        // .saturating_add(T::DbWeight::get().reads(12))
-        // .saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_set_emission_values(
-        //     origin: OriginFor<T>,
-        //     netuids: Vec<u16>,
-        //     emission: Vec<u64>,
-        // ) -> DispatchResult {
-        //     // Deprecated
-        //     Ok(())
-        // }
-
-        // DEPRECATED ---- Sudo add a network connect requirement.
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        //
-        // 	* `netuid_a` (u16):
-        // 		- The network we are adding the requirment to (parent network)
-        //
-        // 	* `netuid_b` (u16):
-        // 		- The network we the requirement refers to (child network)
-        //
-        // 	* `requirement` (u16):
-        // 		- The topk percentile prunning score requirement (u16:MAX normalized.)
-        //
-        // #[pallet::call_index(12)]
-        // #[pallet::weight((Weight::from_ref_time(17_000_000)
-        // .saturating_add(T::DbWeight::get().reads(2))
-        // .saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_add_network_connection_requirement(
-        //     origin: OriginFor<T>,
-        //     netuid_a: u16,
-        //     netuid_b: u16,
-        //     requirement: u16,
-        // ) -> DispatchResult {
-        //     Ok(())
-        // }
-
-        // DEPRECATED ---- Sudo remove a network connection requirement.
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        // 	* `netuid_a` (u16):
-        // 		- The network we are removing the requirment from.
-        // 	* `netuid_b` (u16):
-        // 		- The required network connection to remove.
-        // #[pallet::call_index(13)]
-        // #[pallet::weight((Weight::from_ref_time(15_000_000)
-        // .saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
-        // pub fn sudo_remove_network_connection_requirement(
-        //     origin: OriginFor<T>,
-        //     netuid_a: u16,
-        //     netuid_b: u16,
-        // ) -> DispatchResult {
-        //     Ok(())
-        // }
 
         // ==================================
         // ==== Parameter Sudo calls ========
@@ -2077,9 +1940,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(85_000_000)
+		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
             Self::user_add_network(origin)
         }
@@ -2100,27 +1963,30 @@ pub mod pallet {
         // }
 
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(70_000_000)
+		.saturating_add(T::DbWeight::get().reads(5))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
         }
 
         #[pallet::call_index(63)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_subnet_owner_cut(origin: OriginFor<T>, cut: u16) -> DispatchResult {
             Self::do_sudo_set_subnet_owner_cut(origin, cut)
         }
 
         #[pallet::call_index(64)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult {
             Self::do_sudo_set_network_rate_limit(origin, rate_limit)
         }
 
         #[pallet::call_index(65)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_immunity_period(origin: OriginFor<T>, immunity_period: u64) -> DispatchResult {
             ensure_root(origin)?;
 
@@ -2138,7 +2004,8 @@ pub mod pallet {
         }
 
         #[pallet::call_index(66)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_min_lock_cost(origin: OriginFor<T>, lock_cost: u64) -> DispatchResult {
             ensure_root(origin)?;
 

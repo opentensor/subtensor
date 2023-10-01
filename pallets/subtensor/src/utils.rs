@@ -812,17 +812,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_burn(netuid: u16, burn: u64) {
         Burn::<T>::insert(netuid, burn);
     }
-    pub fn do_sudo_set_burn(origin: T::RuntimeOrigin, netuid: u16, burn: u64) -> DispatchResult {
-        ensure_root(origin)?;
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-        Self::set_burn(netuid, burn);
-        log::info!("BurnSet( netuid: {:?} burn: {:?} ) ", netuid, burn);
-        Self::deposit_event(Event::BurnSet(netuid, burn));
-        Ok(())
-    }
 
     pub fn get_min_burn_as_u64(netuid: u16) -> u64 {
         MinBurn::<T>::get(netuid)
