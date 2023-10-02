@@ -515,21 +515,21 @@ fn test_network_pruning() {
 
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 353_070_300);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 238_926_920);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 159_158_365);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 103_857_758);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 65_889_150);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 40_129_160);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 277_820_113);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 246_922_263);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 215_549_466);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 176_432_500);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 77_181_559);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 5_857_251);
         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 238_926_920);
+        assert_eq!(SubtensorModule::get_pending_emission(1), 246_922_263);
         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 103_857_758);
+        assert_eq!(SubtensorModule::get_pending_emission(3), 176_432_500);
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 40_129_160);
+        assert_eq!(SubtensorModule::get_pending_emission(5), 5_857_251);
         step_block(1);
-        assert_eq!(SubtensorModule::get_total_issuance(), 504_783_718);
+        assert_eq!(SubtensorModule::get_total_issuance(), 585_930_498);
     });
 }
