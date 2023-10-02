@@ -980,7 +980,7 @@ impl<T: Config> Pallet<T> {
 
             // Check if the network is in the immunity period
             if min_score == emission_value {
-                if current_block - block_at_registration < immunity_period {
+                if current_block.saturating_sub(block_at_registration) < immunity_period {
                     //neuron is in immunity period
                     if min_score_in_immunity_period > emission_value {
                         min_score_in_immunity_period = emission_value;
@@ -993,7 +993,7 @@ impl<T: Config> Pallet<T> {
             }
             // Find min emission value.
             else if min_score > emission_value {
-                if current_block - block_at_registration < immunity_period {
+                if current_block.saturating_sub(block_at_registration) < immunity_period {
                     // network is in immunity period
                     if min_score_in_immunity_period > emission_value {
                         min_score_in_immunity_period = emission_value;
