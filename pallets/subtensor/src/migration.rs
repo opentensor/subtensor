@@ -45,7 +45,9 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
         // Migrate ownership and set creation time as now
         SubnetOwner::<T>::insert(1, coldkey_account.clone());
         SubnetOwner::<T>::insert(11, coldkey_account);
-        NetworkRegisteredAt::<T>::insert(1, current_block);
+
+        // We are setting the NetworkRegisteredAt storage to a future block to extend the immunity period to 2 weeks
+        NetworkRegisteredAt::<T>::insert(1, current_block.saturating_add(13 * 7200));
         NetworkRegisteredAt::<T>::insert(11, current_block);
 
         weight.saturating_accrue(T::DbWeight::get().writes(4));
