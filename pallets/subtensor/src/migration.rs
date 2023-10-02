@@ -104,7 +104,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
 
     // Set weight setting rate limit to 1 day
-    WeightsSetRateLimit::<T>::insert(root_netuid, 7200);
+    //WeightsSetRateLimit::<T>::insert(root_netuid, 7200);
 
     // Add our weights for writing to database
     weight.saturating_accrue(T::DbWeight::get().writes(8));
