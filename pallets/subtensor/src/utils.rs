@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
-            Ok(Some(_)) => Ok(()),
+            Ok(Some(_)) => Err(DispatchError::BadOrigin.into()),
             Ok(None) => Ok(()),
             Err(x) => Err(x.into())
         }

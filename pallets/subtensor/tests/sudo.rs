@@ -174,7 +174,7 @@ fn test_sudo_set_serving_rate_limit() {
         let init_value: u64 = SubtensorModule::get_serving_rate_limit(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_serving_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -265,7 +265,7 @@ fn test_sudo_set_weights_version_key() {
         let init_value: u64 = SubtensorModule::get_weights_version_key(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_weights_version_key(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -298,7 +298,7 @@ fn test_sudo_set_weights_set_rate_limit() {
         let init_value: u64 = SubtensorModule::get_weights_set_rate_limit(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_weights_set_rate_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -490,7 +490,7 @@ fn test_sudo_set_max_weight_limit() {
         let init_value: u16 = SubtensorModule::get_max_weight_limit(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_max_weight_limit(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -542,7 +542,7 @@ fn test_sudo_set_immunity_period() {
         let init_value: u16 = SubtensorModule::get_immunity_period(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_immunity_period(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -575,7 +575,7 @@ fn test_sudo_set_min_allowed_weights() {
         let init_value: u16 = SubtensorModule::get_min_allowed_weights(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_min_allowed_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -744,7 +744,7 @@ fn test_sudo_set_activity_cutoff() {
         let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_activity_cutoff(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -849,7 +849,7 @@ fn test_sudo_set_max_allowed_validators() {
         let init_value: u16 = SubtensorModule::get_max_allowed_validators(netuid);
         assert_eq!(
             SubtensorModule::sudo_set_max_allowed_validators(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),

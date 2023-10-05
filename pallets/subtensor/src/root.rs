@@ -473,10 +473,6 @@ impl<T: Config> Pallet<T> {
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
-            if T::SenateMembers::is_member(&replaced_hotkey) {
-                T::SenateMembers::remove_member(&replaced_hotkey)?;
-                T::TriumvirateInterface::remove_votes(&replaced_hotkey)?;
-            }
 
             log::info!(
                 "replace neuron: {:?} with {:?} on uid {:?}",
@@ -503,6 +499,7 @@ impl<T: Config> Pallet<T> {
 
                 if last_stake < current_stake {
                     T::SenateMembers::swap_member(last, &hotkey)?;
+                    T::TriumvirateInterface::remove_votes(&last)?;
                 }
             }
         } else {
@@ -704,54 +701,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NetworkRemoved(netuid));
 
         // --- 6. Return success.
-        Ok(())
-    }
-
-    // ---- The implementation for the extrinsic network_transfer_ownership.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The caller, must be the current owner of the network.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'dest' (T::AccountId):
-    // 		- The new owner of the network.
-    //
-    // # Event:
-    // 	* SubnetTransferred;
-    // 		- On the successful transfer of network ownership.
-    //
-    // # Raises:
-    // 	* 'BadOrigin':
-    // 		- The caller is not the current owner of the network.
-    //
-    pub fn network_transfer_ownership(
-        origin: T::RuntimeOrigin,
-        netuid: u16,
-        dest: T::AccountId,
-    ) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        // Ensure that the caller is the current owner of the network.
-        ensure!(
-            SubnetOwner::<T>::get(netuid) == coldkey,
-            Error::<T>::NotSubnetOwner
-        );
-
-        // Set the new owner of the network.
-        SubnetOwner::<T>::set(netuid, dest.clone());
-
-        // Emit the SubnetTransferred event.
-        Self::deposit_event(Event::SubnetTransferred(netuid, coldkey, dest));
-
-        // Return success.
         Ok(())
     }
 
