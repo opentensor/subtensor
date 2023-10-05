@@ -21,3 +21,4 @@ default = ["std"]
 std = [
 	"sp-api/std",
 ]
+pow-faucet = []

@@ -41,6 +41,9 @@ frame_support::construct_runtime!(
 pub type SubtensorCall = pallet_subtensor::Call<Test>;
 
 #[allow(dead_code)]
+pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+
+#[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
 
 #[allow(dead_code)]
@@ -130,17 +133,14 @@ parameter_types! {
     pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
-    pub const InitialTxRateLimit: u64 = 2; // 2 blocks per stake/unstake/delegate
-
+    pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
-
     pub const InitialValidatorPruneLen: u64 = 0;
     pub const InitialScalingLawPower: u16 = 50;
     pub const InitialMaxAllowedValidators: u16 = 100;
-
-    pub const InitialIssuance: u64 = 548833985028256;
+    pub const InitialIssuance: u64 = 0;
     pub const InitialDifficulty: u64 = 10000;
     pub const InitialActivityCutoff: u16 = 5000;
     pub const InitialAdjustmentInterval: u16 = 100;
@@ -152,8 +152,14 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
+    pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
+    pub const InitialNetworkMinAllowedUids: u16 = 128;
+    pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
+    pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
+    pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
+    pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
+    pub const InitialNetworkRateLimit: u64 = 0;
 }
 
 // Configure collective pallet for council
@@ -165,7 +171,7 @@ parameter_types! {
 
 // Configure collective pallet for Senate
 parameter_types! {
-    pub const SenateMaxMembers: u32 = 10;
+    pub const SenateMaxMembers: u32 = 12;
 }
 
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
@@ -344,6 +350,13 @@ impl pallet_subtensor::Config for Test {
     type InitialMinBurn = InitialMinBurn;
     type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
+    type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
+    type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
+    type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
+    type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
+    type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
+    type InitialSubnetLimit = InitialSubnetLimit;
+    type InitialNetworkRateLimit = InitialNetworkRateLimit;
 }
 
 impl pallet_utility::Config for Test {
@@ -443,12 +456,6 @@ pub fn register_ok_neuron(
 
 #[allow(dead_code)]
 pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
-    let result = SubtensorModule::do_add_network(
-        <<Test as Config>::RuntimeOrigin>::root(),
-        netuid,
-        tempo,
-        modality,
-    );
+    SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
-    assert_ok!(result);
 }
