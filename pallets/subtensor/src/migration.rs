@@ -122,7 +122,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
 }
 
 pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
-    let new_storage_version = 3;
+    let new_storage_version = 5;
 
     // Setup migration weight
     let mut weight = T::DbWeight::get().reads(1);
