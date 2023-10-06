@@ -8,9 +8,7 @@ members = [
 
 [profile.ci-dev]
 inherits = "dev"
-opt-level = 0
-incremental = true
-codegen-units = 256
+incremental = false
 
 [profile.ci-test]
 inherits = "ci-dev"
