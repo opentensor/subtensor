@@ -8,7 +8,7 @@ members = [
 
 [profile.ci-dev]
 inherits = "dev"
-incremental = false
+incremental = true
 
 [profile.ci-test]
 inherits = "ci-dev"
