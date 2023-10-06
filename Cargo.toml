@@ -6,16 +6,18 @@ members = [
     "runtime",
 ]
 
+[profile.dev]
+opt-level = 1
+codegen-units = 16
+incremental = true
+
+[profile.test]
+inherits = "dev"
+opt-level = 1
+codegen-units = 16
+incremental = true
+
 [profile.release]
 panic = "unwind"
 opt-level = 3
-codegen-units = 16
-
-
-[profile.test]
-opt-level = 2
-
-[profile.ephemeral-build]
-inherits = "release"
-opt-level = 2
 codegen-units = 8
