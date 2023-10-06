@@ -99,7 +99,7 @@ jobs:
 
       - name: 🚀 Build executable
         run: |
-          cargo build --release --profile ci-release
+          cargo build --profile ci-release
 
       - name: Srtool build
         id: srtool_build
