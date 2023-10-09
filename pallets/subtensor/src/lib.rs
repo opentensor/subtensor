@@ -854,7 +854,7 @@ pub mod pallet {
         NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
         NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
-        NetworkLockCostReductionIntervalSet(u64), /// Event created when the lock cost reduction is set
+        NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
     }
 
     // Errors inform users that something went wrong.
