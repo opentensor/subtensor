@@ -1107,3 +1107,63 @@ fn test_sudo_test_tempo_pending_emissions_ok() {
         assert_eq!(SubtensorModule::get_pending_emission(netuid3), 0);
     });
 }
+
+#[test]
+fn test_sudo_set_subnet_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        add_network(netuid, 10, 0);
+
+        let init_value: u16 = SubtensorModule::get_max_subnets();
+        assert_eq!(
+            SubtensorModule::sudo_set_subnet_limit(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_max_subnets(),
+            init_value
+        );
+        assert_ok!(SubtensorModule::sudo_set_subnet_limit(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_max_subnets(),
+            to_be_set
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_network_lock_reduction_interval() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u64 = 7200;
+        add_network(netuid, 10, 0);
+
+        let init_value: u64 = SubtensorModule::get_lock_reduction_interval();
+        assert_eq!(
+            SubtensorModule::sudo_set_lock_reduction_interval(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_lock_reduction_interval(),
+            init_value
+        );
+        assert_ok!(SubtensorModule::sudo_set_lock_reduction_interval(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_lock_reduction_interval(),
+            to_be_set
+        );
+    });
+}

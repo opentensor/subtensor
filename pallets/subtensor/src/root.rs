@@ -727,11 +727,13 @@ impl<T: Config> Pallet<T> {
         Self::set_max_allowed_validators(netuid, 64);
         Self::set_min_allowed_weights(netuid, 1);
         Self::set_max_weight_limit(netuid, u16::MAX);
-        Self::set_adjustment_interval(netuid, 500);
+        Self::set_adjustment_interval(netuid, 360);
         Self::set_target_registrations_per_interval(netuid, 1);
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 1);
+        Self::set_min_difficulty(netuid, 10^14);
+        Self::set_max_difficulty(netuid, 10^14 + 1);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
