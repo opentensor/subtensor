@@ -643,7 +643,7 @@ impl<T: Config> Pallet<T> {
         Self::set_network_last_lock(lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
-        Self::init_new_network(netuid_to_register, 1000);
+        Self::init_new_network(netuid_to_register, 360);
         log::debug!("init_new_network: {:?}", netuid_to_register,);
 
         // --- 7. Set netuid storage.

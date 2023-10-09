@@ -853,6 +853,8 @@ pub mod pallet {
         NetworkRateLimitSet(u64), // Event created when the network creation rate limit is set.
         NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
         NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
+        SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
+        NetworkLockCostReductionIntervalSet(u64), /// Event created when the lock cost reduction is set
     }
 
     // Errors inform users that something went wrong.
@@ -2016,6 +2018,45 @@ pub mod pallet {
             );
             Self::deposit_event(Event::NetworkMinLockCostSet(
                 lock_cost,
+            ));
+
+            Ok(())
+        }
+
+        #[pallet::call_index(67)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
+            ensure_root(origin)?;
+
+            SubnetLimit::<T>::set(max_subnets);
+
+            log::info!(
+                "SubnetLimit( max_subnets: {:?} ) ",
+                max_subnets
+            );
+            Self::deposit_event(Event::SubnetLimitSet(
+                max_subnets,
+            ));
+
+            Ok(())
+        }
+
+
+        #[pallet::call_index(68)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_lock_reduction_interval(origin: OriginFor<T>, interval: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::set_lock_reduction_interval(interval);
+
+            log::info!(
+                "NetworkLockReductionInterval( interval: {:?} ) ",
+                interval
+            );
+            Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(
+                interval,
             ));
 
             Ok(())
