@@ -15,6 +15,7 @@ use pallet_grandpa::{
 use frame_support::pallet_prelude::{DispatchResult, Get};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
+use pallet_identity::CanRegisterIdentity;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -553,6 +554,20 @@ impl pallet_preimage::Config for Runtime {
     type ByteDeposit = PreimageByteDeposit;
 }
 
+pub struct AllowIdentityReg;
+
+impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
+    fn can_register(address: AccountId) -> bool {
+        true
+    }
+}
+
+impl pallet_registry::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type CanRegister = AllowIdentityReg;
+    type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -666,7 +681,8 @@ construct_runtime!(
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler
+        Scheduler: pallet_scheduler,
+        Registry: pallet_registry
     }
 );
 
