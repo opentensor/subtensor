@@ -42,6 +42,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		IdentityRegistered {who: T::AccountId}, // Emitted when a user registers an identity
+		IdentityUpdated {who: T::AccountId}, // Emitted when a user registers an identity
 		IdentityDissolved {who: T::AccountId}, // Emitted when a user dissolves an identity
 	}
 
