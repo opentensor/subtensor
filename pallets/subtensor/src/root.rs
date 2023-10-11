@@ -732,8 +732,8 @@ impl<T: Config> Pallet<T> {
         Self::set_adjustment_alpha(netuid, 58000);
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 1);
-        Self::set_min_difficulty(netuid, 10^14);
-        Self::set_max_difficulty(netuid, 10^14 + 1);
+        Self::set_min_difficulty(netuid, u64::MAX);
+        Self::set_max_difficulty(netuid, u64::MAX);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
