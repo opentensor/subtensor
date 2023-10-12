@@ -1,3 +1,5 @@
+# Rust environment setup
+
 ---
 title: Installation
 ---

@@ -1,3 +1,7 @@
+//! Subtensor
+//!
+//! Provides all the unique functionality for the Bittensor blockchain to Substrate
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
 // Edit this file to define custom logic or remove it if it is not needed.
