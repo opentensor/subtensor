@@ -97,9 +97,9 @@ jobs:
       #  run: |
       #    cargo test --tests --profile ci-test
 
-      - name: 🚀 Build executable
-        run: |
-          cargo build --profile ci-release
+      #- name: 🚀 Build executable
+      #  run: |
+      #    cargo build --profile ci-release
 
       - name: Srtool build
         id: srtool_build
@@ -110,7 +110,7 @@ jobs:
           #BUILD_OPTS: ""
         with:
           chain: ${{ matrix.chain }}
-          image: paritytech/srtool # default one
+          image: opentensorfdn/srtool # default one
           tag: nightly-x86_64-unknown-linux-gnu # locally available in our github action server
           runtime_dir: runtime
           package: node-subtensor-runtime
