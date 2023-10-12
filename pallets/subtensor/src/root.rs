@@ -104,18 +104,6 @@ impl<T: Config> Pallet<T> {
         return NetworksAdded::<T>::get(netuid);
     }
 
-    // Returns true if the subnetwork allows registration.
-    //
-    //
-    // This function checks if a subnetwork allows registrations.
-    //
-    // # Returns:
-    // * 'bool': Whether the subnet allows registrations.
-    //
-    pub fn if_subnet_allows_registration(netuid: u16) -> bool {
-        return NetworkRegistrationAllowed::<T>::get(netuid);
-    }
-
     // Returns a list of subnet netuid equal to total networks.
     //
     //
