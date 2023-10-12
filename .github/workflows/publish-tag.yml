@@ -110,7 +110,8 @@ jobs:
           #BUILD_OPTS: ""
         with:
           chain: ${{ matrix.chain }}
-          image: paritytech/srtool:nightly-x86_64-unknown-linux-gnu # locally available in our github action server
+          image: paritytech/srtool # default one
+          tag: nightly-x86_64-unknown-linux-gnu # locally available in our github action server
           runtime_dir: runtime
           package: node-subtensor-runtime
           profile: ci-release
