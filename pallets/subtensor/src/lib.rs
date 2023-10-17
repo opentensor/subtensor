@@ -1948,20 +1948,22 @@ pub mod pallet {
             Self::user_add_network(origin)
         }
 
-        // #[pallet::call_index(60)]
-        // #[pallet::weight((Weight::from_ref_time(91_000_000)
-		// .saturating_add(T::DbWeight::get().reads(27))
-		// .saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
-        // pub fn faucet(
-        //     origin: OriginFor<T>,
-        //     block_number: u64,
-        //     nonce: u64,
-        //     work: Vec<u8>,
-        // ) -> DispatchResult {
-        //     ensure!(false, Error::<T>::FaucetDisabled);
-        //     //Self::do_faucet(origin, block_number, nonce, work)
-        //     Ok(())
-        // }
+        #[pallet::call_index(60)]
+        #[pallet::weight((Weight::from_ref_time(91_000_000)
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        pub fn faucet(
+            origin: OriginFor<T>,
+            block_number: u64,
+            nonce: u64,
+            work: Vec<u8>,
+        ) -> DispatchResult {
+            if cfg!(feature = "pow-faucet") {
+                return Self::do_faucet(origin, block_number, nonce, work);
+            }
+            
+            Err(Error::<T>::FaucetDisabled.into())
+        }
 
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_ref_time(70_000_000)
