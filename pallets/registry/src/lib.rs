@@ -14,7 +14,7 @@ pub use weights::WeightInfo;
 
 use sp_std::boxed::Box;
 use frame_support::traits::Currency;
-use sp_runtime::traits::{StaticLookup, Zero};
+use sp_runtime::traits::Zero;
 
 type BalanceOf<T> =
 	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
