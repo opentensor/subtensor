@@ -4528,21 +4528,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-identity"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.39#8c4b84520cee2d7de53cc33cb67605ce4efefba8"
-dependencies = [
- "enumflags2",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-insecure-randomness-collective-flip"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.39#8c4b84520cee2d7de53cc33cb67605ce4efefba8"
@@ -4610,15 +4595,16 @@ dependencies = [
 name = "pallet-registry"
 version = "4.0.0-dev"
 dependencies = [
+ "enumflags2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-identity",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

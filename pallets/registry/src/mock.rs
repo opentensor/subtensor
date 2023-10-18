@@ -43,9 +43,11 @@ impl frame_system::Config for Test {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl pallet_identity::Config for Test {
+impl pallet_registry::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type WeightInfo = ();
+	type MaxAdditionalFields = frame_support::traits::ConstU32<16>;
+	type CanRegisterIdentity = ();
 }
 
 // Build genesis storage according to the mock runtime.

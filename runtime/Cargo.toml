@@ -114,6 +114,7 @@ std = [
 	"substrate-wasm-builder",
 	"pallet-collective/std",
 	"pallet-membership/std",
+	"pallet-registry/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

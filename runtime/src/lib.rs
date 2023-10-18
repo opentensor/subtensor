@@ -15,7 +15,7 @@ use pallet_grandpa::{
 use frame_support::pallet_prelude::{DispatchResult, Get};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
-use pallet_identity::CanRegisterIdentity;
+use pallet_registry::CanRegisterIdentity;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -557,15 +557,27 @@ impl pallet_preimage::Config for Runtime {
 pub struct AllowIdentityReg;
 
 impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
-    fn can_register(address: AccountId) -> bool {
+    fn can_register(address: &AccountId) -> bool {
         true
     }
 }
 
+// Configure registry pallet.
+parameter_types! {
+    pub const MaxAdditionalFields: u32 = 1;
+    pub const InitialDeposit: Balance = 1_000_000_000;
+    pub const FieldDeposit: Balance = 100_000_000;
+}
+
 impl pallet_registry::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
     type CanRegister = AllowIdentityReg;
     type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
+
+    type MaxAdditionalFields = MaxAdditionalFields;
+    type InitialDeposit = InitialDeposit;
+    type FieldDeposit = FieldDeposit;
 }
 
 // Configure the pallet subtensor.
