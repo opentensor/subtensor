@@ -110,8 +110,8 @@ jobs:
           #BUILD_OPTS: ""
         with:
           chain: ${{ matrix.chain }}
-          image: opentensorfdn/srtool # default one
-          tag: nightly-x86_64-unknown-linux-gnu # locally available in our github action server
+          image: opentensorfdn/srtool
+          tag: 1.69
           runtime_dir: runtime
           package: node-subtensor-runtime
           profile: ci-release
