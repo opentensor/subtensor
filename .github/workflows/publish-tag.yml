@@ -111,7 +111,7 @@ jobs:
         with:
           chain: ${{ matrix.chain }}
           image: opentensorfdn/srtool
-          tag: 1.69
+          tag: 1.69-custom
           runtime_dir: runtime
           package: node-subtensor-runtime
           profile: ci-release
