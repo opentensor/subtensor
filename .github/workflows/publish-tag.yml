@@ -110,8 +110,8 @@ jobs:
           #BUILD_OPTS: ""
         with:
           chain: ${{ matrix.chain }}
-          image: opentensorfdn/srtool
-          tag: 1.69-custom
+          image: paritytech/srtool
+          tag: 1.69.0
           runtime_dir: runtime
           package: node-subtensor-runtime
           profile: ci-release
