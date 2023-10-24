@@ -557,7 +557,13 @@ impl pallet_preimage::Config for Runtime {
 pub struct AllowIdentityReg;
 
 impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
+    #[cfg(not(feature = "runtime-benchmarks"))]
     fn can_register(address: &AccountId) -> bool {
+        SubtensorModule::get_axon_info(0, address).block > 0 || SubtensorModule::is_subnet_owner(address)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_register(_: &AccountId) -> bool {
         true
     }
 }
