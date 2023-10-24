@@ -129,6 +129,7 @@ runtime-benchmarks = [
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
+	"pallet-registry/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

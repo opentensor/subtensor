@@ -743,6 +743,7 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
+        [pallet_registry, Registry]
     );
 }
 

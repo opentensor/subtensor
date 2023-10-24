@@ -23,7 +23,7 @@ type BalanceOf<T> =
 pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::ReservableCurrency};
-	use frame_system::pallet_prelude::*;
+	use frame_system::{pallet_prelude::*};
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -89,7 +89,10 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight((0, DispatchClass::Operational))]
+		#[pallet::weight((
+			T::WeightInfo::set_identity(), 
+			DispatchClass::Operational
+		))]
 		pub fn set_identity(origin: OriginFor<T>, info: Box<IdentityInfo<T::MaxAdditionalFields>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(T::CanRegister::can_register(&who), Error::<T>::CannotRegister);
@@ -126,7 +129,7 @@ pub mod pallet {
 		}
 
 		#[pallet::call_index(1)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::clear_identity())]
 		pub fn clear_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
 
