@@ -762,4 +762,31 @@ impl<T: Config> Pallet<T> {
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         return (nonce, vec_work);
     }
+
+    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        ensure!(Self::coldkey_owns_hotkey(&coldkey, hotkey), Error::<T>::NonAssociatedColdKey);
+
+        let total_hotkey_stake = TotalHotkeyStake::<T>::take(hotkey);
+        TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
+
+        let delegate_take = Delegates::<T>::take(hotkey);
+        Delegates::<T>::insert(new_hotkey, delegate_take);
+
+        // Stake -- have to search for every occurance of hotkey regardless of coldkey
+        // IsNetworkMember -- update every hotkey+netuid pair
+
+        let last_tx = LastTxBlock::<T>::take(hotkey);
+        LastTxBlock::<T>::insert(new_hotkey, last_tx);
+
+        // Axons -- update every netuid+hotkey pair -- take + insert
+
+        // Uids -- update every netuid+hotkey pair -- take + insert
+
+        // Keys -- update every netuid+uid to new hotkey -- use mutate
+
+        // LoadedEmission -- find hotkey in tuple vector, mutate tuple
+
+        Ok(())
+    }
 }
