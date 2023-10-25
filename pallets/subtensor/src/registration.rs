@@ -7,6 +7,7 @@ use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use frame_support::storage::IterableStorageDoubleMap;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
@@ -763,29 +764,94 @@ impl<T: Config> Pallet<T> {
         return (nonce, vec_work);
     }
 
-    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-        ensure!(Self::coldkey_owns_hotkey(&coldkey, hotkey), Error::<T>::NonAssociatedColdKey);
+    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResult {
+        // Rate limit
 
-        let total_hotkey_stake = TotalHotkeyStake::<T>::take(hotkey);
+        let coldkey = ensure_signed(origin)?;
+        ensure!(Self::coldkey_owns_hotkey(&coldkey, old_hotkey), Error::<T>::NonAssociatedColdKey);
+
+        let total_hotkey_stake = TotalHotkeyStake::<T>::take(old_hotkey);
         TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
 
-        let delegate_take = Delegates::<T>::take(hotkey);
+        let delegate_take = Delegates::<T>::take(old_hotkey);
         Delegates::<T>::insert(new_hotkey, delegate_take);
 
-        // Stake -- have to search for every occurance of hotkey regardless of coldkey
-        // IsNetworkMember -- update every hotkey+netuid pair
-
-        let last_tx = LastTxBlock::<T>::take(hotkey);
+        let last_tx = LastTxBlock::<T>::take(old_hotkey);
         LastTxBlock::<T>::insert(new_hotkey, last_tx);
 
-        // Axons -- update every netuid+hotkey pair -- take + insert
+        let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
+        <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::translate(
+            |coldkey, hotkey, stake_amount| {
+                if *old_hotkey == hotkey {
+                    coldkey_stake.push((coldkey, stake_amount));
+                    return None;
+                }
+
+                Some(stake_amount)
+            }
+        );
+        for (coldkey, stake_amount) in coldkey_stake {
+            Stake::<T>::insert(coldkey, new_hotkey, stake_amount);
+        }
+
+        let mut netuid_is_member: Vec<u16> = vec![];
+        <IsNetworkMember<T> as IterableStorageDoubleMap<T::AccountId, u16, bool>>::translate(
+            |hotkey, netuid, is_member| {
+                if *old_hotkey == hotkey {
+                    netuid_is_member.push(netuid);
+                    return None;
+                }
+
+                Some(is_member)
+            }
+        );
+        for netuid in netuid_is_member {
+            IsNetworkMember::<T>::insert(new_hotkey, netuid, true);
+        }
+
+        let mut netuid_axon: Vec<(u16, AxonInfo)> = vec![];
+        <Axons<T> as IterableStorageDoubleMap<u16, T::AccountId, AxonInfo>>::translate(
+            |netuid, hotkey, axon_info| {
+                if *old_hotkey == hotkey {
+                    netuid_axon.push((netuid, axon_info));
+                    return None;
+                }
+
+                Some(axon_info)
+            }
+        );
+        for (netuid, axon_info) in netuid_axon {
+            Axons::<T>::insert(netuid, new_hotkey, axon_info);
+        }
 
         // Uids -- update every netuid+hotkey pair -- take + insert
+        let mut netuid_uid: Vec<(u16, u16)> = vec![];
+        <Uids<T> as IterableStorageDoubleMap<u16, T::AccountId, u16>>::translate(
+            |netuid, hotkey, uid| {
+                if hotkey == *old_hotkey {
+                    netuid_uid.push((netuid, uid));
+                    return None;
+                }
 
-        // Keys -- update every netuid+uid to new hotkey -- use mutate
+                Some(uid)
+            }
+        );
+        for (netuid, uid) in netuid_uid {
+            Uids::<T>::insert(netuid, new_hotkey, uid);
+            Keys::<T>::insert(netuid, uid, new_hotkey);
+            LoadedEmission::<T>::mutate(netuid, |emission_exists| {
+                match emission_exists {
+                    Some(emissions) => {
+                        if let Some(emission) = emissions.get_mut(uid as usize) {
+                            let (_, se, ve) = emission;
+                            *emission = (new_hotkey.clone(), *se, *ve);
 
-        // LoadedEmission -- find hotkey in tuple vector, mutate tuple
+                        }
+                    }
+                    None => {}
+                }
+            });
+        }
 
         Ok(())
     }
