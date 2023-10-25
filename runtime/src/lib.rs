@@ -559,7 +559,7 @@ pub struct AllowIdentityReg;
 impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn can_register(address: &AccountId) -> bool {
-        SubtensorModule::get_axon_info(0, address).block > 0 || SubtensorModule::is_subnet_owner(address)
+        SubtensorModule::is_hotkey_registered_on_network(0, address) || SubtensorModule::is_subnet_owner(address)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
