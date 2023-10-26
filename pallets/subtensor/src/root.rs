@@ -104,6 +104,17 @@ impl<T: Config> Pallet<T> {
         return NetworksAdded::<T>::get(netuid);
     }
 
+    // Returns true if a hotkey is a root network member.
+    //
+    // This function checks if the hotkey is a member of the root network.
+    //
+    // # Returns:
+    // * 'bool': Whether the hotkey is registered on the root network.
+    //
+    pub fn is_root_member( hotkey: &T::AccountId ) -> bool {
+        Uids::<T>::contains_key( Self::get_root_netuid(), hotkey )
+    }
+
     // Returns true if the subnetwork allows registration.
     //
     //
@@ -179,6 +190,20 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // Output unnormalized bonds in [n, n] matrix where bonds are u16_proportion_to_fixed64 in [0, 1].
+    pub fn get_root_bonds() -> Vec<Vec<I64F64>> { 
+        // --- 0. The number of validators on the root network.
+        let n: usize = Self::get_num_root_validators() as usize;
+        let k: usize = Self::get_num_subnets() as usize;
+        let mut root_bonds: Vec<Vec<I64F64>> = vec![ vec![ I64F64::from_num(0.0); k ]; n ]; 
+        for ( uid_i, bonds_i ) in < Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)> >>::iter_prefix( Self::get_root_netuid() ) {
+            for (uid_j, bonds_ij) in bonds_i.iter() { 
+                bonds [ uid_i as usize ] [ *uid_j as usize ] = u16_proportion_to_fixed64( *bonds_ij );
+            }
+        }
+        root_bonds
+    }
+
     // Retrieves weight matrix associated with the root network.
     //  Weights represent the preferences for each subnetwork.
     //
@@ -243,6 +268,11 @@ impl<T: Config> Pallet<T> {
     // and registered hotkeys.
     //
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
+
+        // =============
+        // == Params ===
+        // =============
+
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
@@ -276,6 +306,10 @@ impl<T: Config> Pallet<T> {
         let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
         log::debug!("block_emission:\n{:?}\n", block_emission);
 
+        // ==============
+        // == Hotkeys ===
+        // ==============
+
         // --- 5. A collection of all registered hotkeys on the root network. Hotkeys
         // pairs with network UIDs and stake values.
         let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
@@ -286,6 +320,10 @@ impl<T: Config> Pallet<T> {
         }
         log::debug!("hotkeys:\n{:?}\n", hotkeys);
 
+        // ============
+        // == Stake ===
+        // ============
+
         // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
         // Stakes are stored in a 64-bit fixed point representation for precise calculations.
         let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
@@ -295,15 +333,27 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut stake_i64);
         log::debug!("S:\n{:?}\n", &stake_i64);
 
+        // ==============
+        // == Weights ===
+        // ==============
+
         // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
         let weights: Vec<Vec<I64F64>> = Self::get_root_weights();
         log::debug!("W:\n{:?}\n", &weights);
 
+        // =============
+        // == Ranks =====
+        // ==============
+
         // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
         let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
         log::debug!("R:\n{:?}\n", &ranks);
+
+        // ==============
+        // == Trust =====
+        // ==============
 
         // --- 10. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
         // Trust will have shape k, a score for each subnet.
@@ -320,14 +370,9 @@ impl<T: Config> Pallet<T> {
                 }
             }
         }
-
         log::debug!("T_before normalization:\n{:?}\n", &trust);
         log::debug!("Total_stake:\n{:?}\n", &total_stake);
-
-        if total_stake == 0 {
-            return Err("No stake on network")
-        }
-
+        if total_stake == 0 { return Err("No stake on network") }
         for trust_score in trust.iter_mut() {
             match trust_score.checked_div(total_stake) {
                 Some(quotient) => {
@@ -336,6 +381,10 @@ impl<T: Config> Pallet<T> {
                 None => {}
             }
         }
+
+        // ==================
+        // == Consensus =====
+        // ==================
 
         // --- 11. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
         // Consensus will have shape k, a score for each subnet.
@@ -350,6 +399,10 @@ impl<T: Config> Pallet<T> {
             consensus[idx] = one / (one + exponentiated_trust);
         }
 
+        // =================
+        // == Emission =====
+        // =================
+
         log::debug!("C:\n{:?}\n", &consensus);
         let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
         for (idx, emission) in weighted_emission.iter_mut().enumerate() {
@@ -358,17 +411,48 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut weighted_emission);
         log::debug!("Ei64:\n{:?}\n", &weighted_emission);
 
-        // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        // =========================
+        // == Bonds and Alpha ==
+        // =========================
+
+        // --- 13. Compute the moving average of the bonds given alpha.
+        // Alpha = 1 - C
+        let alpha: Vec<I64F64> = consensus.iter().map( |c: &I64F64| I64F64::from_num( 1.0 ) - c ).collect();
+
+        // Access network bonds.
+        let mut root_bonds: Vec<Vec<I64F64>> = Self::get_root_bonds( );
+        // log::trace!( "B:\n{:?}\n", &bonds );
+    
+        // Subnet specific moving average.
+        let mut ema_bonds: Vec<Vec<I64F64>> = mat_ema_alpha_vec_f64( &weights, &root_bonds, &alpha );
+        // log::trace!( "emaB:\n{:?}\n", &ema_bonds );
+
+        // Sink bonds to storage.
+        for i in 0..n {
+            let mut bonds_i: Vec<(u16,u16)>;
+            for j in 0..k {
+                if ema_bonds[i][j] != 0 {
+                    bonds_i.push( (j as u16, fixed64_proportion_to_u16( ema_bonds[i][j] ) ) )
+                }
+            }
+            Bonds::<T>::insert( root_netuid, i, bonds_i );
+        }
+
+        // ==================
+        // == Sink Emission ==
+        // ==================
+
+        // --- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_as_tao: Vec<I64F64> = weighted_emission
-            .iter()
-            .map(|v: &I64F64| *v * block_emission)
-            .collect();
+        .iter()
+        .map(|v: &I64F64| *v * block_emission)
+        .collect();
 
         // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
         log::debug!("Eu64:\n{:?}\n", &emission_u64);
 
-        // --- 13. Set the emission values for each subnet directly.
+        // --- 14. Set the emission values for each subnet directly.
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
 

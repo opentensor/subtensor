@@ -160,6 +160,8 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
+    pub const InitialTau: u64 = 0;
+    pub const InitialGamma: u64 = 1;
 }
 
 // Configure collective pallet for council
@@ -357,6 +359,8 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
+    type InitialTau = InitialTau;
+    type InitialGamma = InitialGamma;
 }
 
 impl pallet_utility::Config for Test {

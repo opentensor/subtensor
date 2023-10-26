@@ -15,6 +15,11 @@ pub fn fixed_to_u16(x: I32F32) -> u16 {
 }
 
 #[allow(dead_code)]
+pub fn fixed64_to_u16(x: I64F64) -> u16 {
+    x.to_num::<u16>()
+}
+
+#[allow(dead_code)]
 pub fn fixed_to_u64(x: I32F32) -> u64 {
     x.to_num::<u64>()
 }
@@ -47,6 +52,16 @@ pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
 #[allow(dead_code)]
 pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
     fixed_to_u16(x * I32F32::from_num(u16::MAX))
+}
+
+#[allow(dead_code)]
+pub fn u16_proportion_to_fixed64(x: u16) -> I64F64 {
+    I64F64::from_num(x) / I64F64::from_num(u16::MAX)
+}
+
+#[allow(dead_code)]
+pub fn fixed64_proportion_to_u16(x: I64F64) -> u16 {
+    fixed64_to_u16(x * I64F64::from_num(u16::MAX))
 }
 
 #[allow(dead_code)]
@@ -1089,6 +1104,29 @@ pub fn mat_ema_sparse(
             if *value > zero {
                 result[i].push((j as u16, *value))
             }
+        }
+    }
+    result
+}
+
+// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
+// `alpha_` is the EMA coefficient passed as a vector per col.
+#[allow(dead_code)]
+pub fn mat_ema_alpha_vec_f64(new: &Vec<Vec<I64F64>>, old: &Vec<Vec<I64F64>>, alpha: &Vec<I64F64>) -> Vec<Vec<I64F64>> {
+    if new.len() == 0 {
+        return vec![vec![]; 1];
+    }
+    if new[0].len() == 0 {
+        return vec![vec![]; 1];
+    }
+    let mut result: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); new[0].len()]; new.len()];
+    assert!(new.len() == old.len());
+    for i in 0..new.len() {
+        assert!(new[i].len() == old[i].len());
+        for j in 0..new[i].len() {
+            alpha = alpha[j];
+            one_minus_alpha = I64F64::from_num(1.0) - alpha;
+            result[i][j] = alpha * new[i][j] + one_minus_alpha * old[i][j]
         }
     }
     result

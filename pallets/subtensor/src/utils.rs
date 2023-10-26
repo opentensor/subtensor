@@ -685,6 +685,50 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_tau() -> u16 {
+        Tau::<T>::get( )
+    }
+    pub fn set_tau( tau: u16 ) {
+        Tau::<T>::set( tau );
+    }
+    pub fn do_sudo_set_tau(
+        origin: T::RuntimeOrigin,
+        tau: u16,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+        Self::set_tau( tau );
+        log::info!(
+            "TauSet( tau: {:?} ) ",
+            tau
+        );
+        Self::deposit_event(Event::TauSet(
+            tau,
+        ));
+        Ok(())
+    }
+
+    pub fn get_gamma() -> u16 {
+        Gamma::<T>::get( )
+    }
+    pub fn set_gamma( gamma: u16 ) {
+        Gamma::<T>::set( gamma );
+    }
+    pub fn do_sudo_set_gamma(
+        origin: T::RuntimeOrigin,
+        gamma: u16,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+        Self::set_gamma( gamma );
+        log::info!(
+            "GammaSet( gamma: {:?} ) ",
+            gamma
+        );
+        Self::deposit_event(Event::GammaSet(
+            gamma,
+        ));
+        Ok(())
+    }
+
     pub fn get_kappa(netuid: u16) -> u16 {
         Kappa::<T>::get(netuid)
     }

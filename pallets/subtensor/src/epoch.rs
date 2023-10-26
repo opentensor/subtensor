@@ -176,7 +176,31 @@ impl<T: Config> Pallet<T> {
         // Compute dividends: d_i = SUM(j) b_ij * inc_j
         let mut dividends: Vec<I32F32> = matmul_transpose( &ema_bonds, &incentive );
         inplace_normalize( &mut dividends );
-        log::trace!( "D:\n{:?}\n", &dividends );
+
+        // ========================
+        // == Root Bonds Scaling ==
+        // ========================
+
+        // Get the root bonds for this network.
+        let root_netuid: u16 = Self::root_netuid();
+        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds( root_netuid );   
+
+        // Iter through local hotkeys, for each hotkey check if it is a root member.
+        // If it is a root member, get its root uid, and attain its bonds
+        let tau: I64F64::from_num( Self::get_tau() );
+        let gamma: I64F64::from_num( Self::get_gamma() );
+        for uid_i, hotkey_i in hotkeys.iter() {
+            if Self::is_root_member( hotkey_i ) {
+                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i );
+                let root_bond_i: u16 = root_bonds[ root_val_uid as usize ][ netuid ];
+                let mutliplier = ( gamma + tau * root_bond_i )
+                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ] * multiplier;
+            }
+        }
+
+        // Renormalize dividends.
+        inplace_normalize( &mut dividends );
+        log::trace!( "D: {:?}", &dividends );
 
         // =================================
         // == Emission and Pruning scores ==
@@ -474,6 +498,30 @@ impl<T: Config> Pallet<T> {
         // Compute dividends: d_i = SUM(j) b_ij * inc_j.
         // range: I32F32(0, 1)
         let mut dividends: Vec<I32F32> = matmul_transpose_sparse( &ema_bonds, &incentive );
+        inplace_normalize( &mut dividends );
+
+        // ========================
+        // == Root Bonds Scaling ==
+        // ========================
+
+        // Get the root bonds for this network.
+        let root_netuid: u16 = Self::root_netuid();
+        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds( root_netuid );   
+
+        // Iter through local hotkeys, for each hotkey check if it is a root member.
+        // If it is a root member, get its root uid, and attain its bonds
+        let tau: I64F64::from_num( Self::get_tau() );
+        let gamma: I64F64::from_num( Self::get_gamma() );
+        for uid_i, hotkey_i in hotkeys.iter() {
+            if Self::is_root_member( hotkey_i ) {
+                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i );
+                let root_bond_i: u16 = root_bonds[ root_val_uid as usize ][ netuid ];
+                let mutliplier = ( gamma + tau * root_bond_i )
+                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ] * multiplier;
+            }
+        }
+
+        // Renormalize dividends.
         inplace_normalize( &mut dividends );
         log::trace!( "D: {:?}", &dividends );
 

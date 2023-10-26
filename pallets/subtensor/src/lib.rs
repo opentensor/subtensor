@@ -181,6 +181,11 @@ pub mod pallet {
         type InitialSubnetLimit: Get<u16>;
         #[pallet::constant] // Initial network creation rate limit
         type InitialNetworkRateLimit: Get<u64>;
+        #[pallet::constant] // Initial tau value
+        type InitialTau: Get<u16>;
+        #[pallet::constant] // Initial gamma value
+        type InitialGamma: Get<u16>;
+
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -583,6 +588,14 @@ pub mod pallet {
         T::InitialKappa::get()
     }
     #[pallet::type_value]
+    pub fn DefaultTau<T: Config>() -> u16 {
+        T::InitialTau::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultGamma<T: Config>() -> u16 {
+        T::InitialGamma::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultMaxAllowedUids<T: Config>() -> u16 {
         T::InitialMaxAllowedUids::get()
     }
@@ -635,6 +648,10 @@ pub mod pallet {
         T::InitialAdjustmentAlpha::get()
     }
 
+    #[pallet::storage] // --- ITEM ( tau )
+    pub type Tau<T> = StorageValue<_, u16, ValueQuery, DefaultTau<T>>;
+    #[pallet::storage] // --- ITEM ( gamma )
+    pub type Gamma<T> = StorageValue<_, u16, ValueQuery, DefaultGamma<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> Rho
     pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> Kappa
@@ -855,6 +872,8 @@ pub mod pallet {
         NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
+        TauSet(u16), // Event created when tau is set.
+        GammaSet(u16), // Event created when gamma is set.
     }
 
     // Errors inform users that something went wrong.
@@ -2062,6 +2081,20 @@ pub mod pallet {
             ));
 
             Ok(())
+        }
+
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_tau(origin: OriginFor<T>, tau: u16) -> DispatchResult {
+            Self::sudo_set_tau(origin, tau)
+        }
+
+        #[pallet::call_index(70)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_gamma(origin: OriginFor<T>, gamma: u16) -> DispatchResult {
+            Self::sudo_set_gamma(origin, gamma)
         }
     }
 
