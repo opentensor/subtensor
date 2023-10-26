@@ -765,19 +765,37 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_swap_hotkey(origin: T::RuntimeOrigin, old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResult {
-        // Rate limit
-
         let coldkey = ensure_signed(origin)?;
         ensure!(Self::coldkey_owns_hotkey(&coldkey, old_hotkey), Error::<T>::NonAssociatedColdKey);
 
-        let total_hotkey_stake = TotalHotkeyStake::<T>::take(old_hotkey);
-        TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
+        let block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            Error::<T>::TxRateLimitExceeded
+        );
 
-        let delegate_take = Delegates::<T>::take(old_hotkey);
-        Delegates::<T>::insert(new_hotkey, delegate_take);
+        ensure!(old_hotkey != new_hotkey, Error::<T>::AlreadyRegistered);
+        ensure!(!Self::is_hotkey_registered_on_any_network(new_hotkey), Error::<T>::AlreadyRegistered);  
 
-        let last_tx = LastTxBlock::<T>::take(old_hotkey);
-        LastTxBlock::<T>::insert(new_hotkey, last_tx);
+        // Pay TAO?
+
+        Owner::<T>::remove(old_hotkey);
+        Owner::<T>::insert(new_hotkey, coldkey.clone());
+
+        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
+            TotalHotkeyStake::<T>::remove(old_hotkey);
+            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
+        }
+
+        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
+            Delegates::<T>::remove(old_hotkey);
+            Delegates::<T>::insert(new_hotkey, delegate_take);
+        }
+
+        if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
+            LastTxBlock::<T>::remove(old_hotkey);
+            LastTxBlock::<T>::insert(new_hotkey, last_tx);
+        }
 
         let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
         <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::translate(
@@ -852,6 +870,10 @@ impl<T: Config> Pallet<T> {
                 }
             });
         }
+
+        Self::set_last_tx_block(&coldkey, block);
+
+        Self::deposit_event(Event::HotkeySwapped{coldkey, old_hotkey: old_hotkey.clone(), new_hotkey: new_hotkey.clone()});
 
         Ok(())
     }
