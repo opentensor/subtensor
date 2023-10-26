@@ -1504,8 +1504,8 @@ pub mod pallet {
         #[pallet::weight((Weight::from_ref_time(120_000_000)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
-        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_root_register(origin, hotkey)
+        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
+            Self::do_root_register(origin, hotkey, take)
         }
 
         #[pallet::call_index(7)]
