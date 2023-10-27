@@ -712,6 +712,27 @@ pub fn matmul_transpose(matrix: &Vec<Vec<I32F32>>, vector: &Vec<I32F32>) -> Vec<
     result
 }
 
+#[allow(dead_code)]
+pub fn matmul_transpose_i64(matrix: &Vec<Vec<I64F64>>, vector: &Vec<I64F64>) -> Vec<I64F64> {
+    if matrix.len() == 0 {
+        return vec![];
+    }
+    if matrix[0].len() == 0 {
+        return vec![];
+    }
+    assert!(matrix[0].len() == vector.len());
+    let mut result: Vec<I64F64> = vec![I64F64::from_num(0.0); matrix.len()];
+    for i in 0..matrix.len() {
+        for j in 0..matrix[i].len() {
+            // Compute dividends: d_j = SUM(i) b_ji * inc_i
+            // result_j = SUM(i) vector_i * matrix_ji
+            // result_i = SUM(j) vector_j * matrix_ij
+            result[i] += vector[j] * matrix[i][j];
+        }
+    }
+    result
+}
+
 // Row-wise sparse_matrix-vector product, column-wise sum: result_j = SUM(i) vector_i * matrix_ij.
 #[allow(dead_code)]
 pub fn matmul_sparse(
@@ -1112,20 +1133,23 @@ pub fn mat_ema_sparse(
 // Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
 // `alpha_` is the EMA coefficient passed as a vector per col.
 #[allow(dead_code)]
-pub fn mat_ema_alpha_vec_f64(new: &Vec<Vec<I64F64>>, old: &Vec<Vec<I64F64>>, alpha: &Vec<I64F64>) -> Vec<Vec<I64F64>> {
+pub fn mat_ema_alpha_vec(new: &Vec<Vec<I32F32>>, old: &Vec<Vec<I32F32>>, alpha: &Vec<I32F32>) -> Vec<Vec<I32F32>> {
     if new.len() == 0 {
         return vec![vec![]; 1];
     }
     if new[0].len() == 0 {
         return vec![vec![]; 1];
     }
-    let mut result: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); new[0].len()]; new.len()];
+    let mut result: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); new[0].len()]; new.len()];
     assert!(new.len() == old.len());
+
     for i in 0..new.len() {
         assert!(new[i].len() == old[i].len());
+
         for j in 0..new[i].len() {
-            alpha = alpha[j];
-            one_minus_alpha = I64F64::from_num(1.0) - alpha;
+            let alpha = alpha[j];
+            let one_minus_alpha = I32F32::from_num(1.0).saturating_sub(alpha);
+
             result[i][j] = alpha * new[i][j] + one_minus_alpha * old[i][j]
         }
     }
@@ -1144,6 +1168,26 @@ pub fn sparse_threshold(w: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32) -> Vec<V
         }
     }
     sparse_threshold_result
+}
+
+pub fn matrix_64_to_32(vec: Vec<Vec<I64F64>>) -> Vec<Vec<I32F32>> {
+    let mut result: Vec<Vec<I32F32>> = vec![vec![]; vec.len()];
+    for (i, vi) in vec.iter().enumerate() {
+        for vj in vi.iter() {
+            result[i].push(vj.to_num::<I32F32>());
+        }
+    }
+
+    result
+}
+
+pub fn vec_64_to_32(vec: Vec<I64F64>) -> Vec<I32F32> {
+    let mut result: Vec<I32F32> = vec![];
+    for (i, vi) in vec.iter().enumerate() {
+        result[i] = vi.to_num::<I32F32>();
+    }
+
+    result
 }
 
 #[cfg(test)]

@@ -156,9 +156,10 @@ impl<T: Config> Pallet<T> {
         // =========================
 
         // Access network bonds.
-        let mut bonds: Vec<Vec<I32F32>> = Self::get_bonds( netuid );
-        inplace_mask_matrix( &outdated, &mut bonds );  // mask outdated bonds
-        inplace_col_normalize( &mut bonds ); // sum_i b_ij = 1
+        let bonds: Vec<Vec<I64F64>> = Self::get_bonds( netuid );
+        let mut bonds_32 = matrix_64_to_32(bonds);
+        inplace_mask_matrix( &outdated, &mut bonds_32 );  // mask outdated bonds
+        inplace_col_normalize( &mut bonds_32 ); // sum_i b_ij = 1
         // log::trace!( "B:\n{:?}\n", &bonds );
 
         // Compute bonds delta column normalized.
@@ -169,7 +170,7 @@ impl<T: Config> Pallet<T> {
         // Compute bonds moving average.
         let bonds_moving_average: I64F64 = I64F64::from_num( Self::get_bonds_moving_average( netuid ) ) / I64F64::from_num( 1_000_000 );
         let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
-        let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds, alpha );
+        let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds_32, alpha );
         inplace_col_normalize( &mut ema_bonds ); // sum_i b_ij = 1
         // log::trace!( "emaB:\n{:?}\n", &ema_bonds );
 
@@ -182,19 +183,19 @@ impl<T: Config> Pallet<T> {
         // ========================
 
         // Get the root bonds for this network.
-        let root_netuid: u16 = Self::root_netuid();
-        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds( root_netuid );   
+        let root_netuid: u16 = Self::get_root_netuid();
+        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds();   
 
         // Iter through local hotkeys, for each hotkey check if it is a root member.
         // If it is a root member, get its root uid, and attain its bonds
-        let tau: I64F64::from_num( Self::get_tau() );
-        let gamma: I64F64::from_num( Self::get_gamma() );
-        for uid_i, hotkey_i in hotkeys.iter() {
+        let tau = I32F32::from_num( Self::get_tau() );
+        let gamma = I32F32::from_num( Self::get_gamma() );
+        for (uid_i, hotkey_i) in hotkeys.iter() {
             if Self::is_root_member( hotkey_i ) {
-                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i );
-                let root_bond_i: u16 = root_bonds[ root_val_uid as usize ][ netuid ];
-                let mutliplier = ( gamma + tau * root_bond_i )
-                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ] * multiplier;
+                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i ).unwrap();
+                let root_bond_i: I32F32 = root_bonds[ root_val_uid as usize ][ netuid as usize ];
+                let multiplier = gamma.saturating_add(tau.saturating_mul(root_bond_i));
+                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ].saturating_mul(multiplier);
             }
         }
 
@@ -505,19 +506,19 @@ impl<T: Config> Pallet<T> {
         // ========================
 
         // Get the root bonds for this network.
-        let root_netuid: u16 = Self::root_netuid();
-        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds( root_netuid );   
+        let root_netuid: u16 = Self::get_root_netuid();
+        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds();   
 
         // Iter through local hotkeys, for each hotkey check if it is a root member.
         // If it is a root member, get its root uid, and attain its bonds
-        let tau: I64F64::from_num( Self::get_tau() );
-        let gamma: I64F64::from_num( Self::get_gamma() );
-        for uid_i, hotkey_i in hotkeys.iter() {
+        let tau = I32F32::from_num( Self::get_tau() );
+        let gamma = I32F32::from_num( Self::get_gamma() );
+        for (uid_i, hotkey_i) in hotkeys.iter() {
             if Self::is_root_member( hotkey_i ) {
-                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i );
-                let root_bond_i: u16 = root_bonds[ root_val_uid as usize ][ netuid ];
-                let mutliplier = ( gamma + tau * root_bond_i )
-                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ] * multiplier;
+                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i ).unwrap();
+                let root_bond_i: I32F32 = root_bonds[ root_val_uid as usize ][ netuid as usize ];
+                let multiplier = gamma.saturating_add(tau.saturating_mul(root_bond_i));
+                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ].saturating_mul(multiplier);
             }
         }
 
@@ -685,12 +686,12 @@ impl<T: Config> Pallet<T> {
     } 
 
     // Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
-    pub fn get_bonds( netuid:u16 ) -> Vec<Vec<I32F32>> { 
+    pub fn get_bonds( netuid:u16 ) -> Vec<Vec<I64F64>> { 
         let n: usize = Self::get_subnetwork_n( netuid ) as usize; 
-        let mut bonds: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0.0); n ]; n ]; 
+        let mut bonds: Vec<Vec<I64F64>> = vec![ vec![ I64F64::from_num(0.0); n ]; n ]; 
         for ( uid_i, bonds_i ) in < Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)> >>::iter_prefix( netuid ) {
             for (uid_j, bonds_ij) in bonds_i.iter() { 
-                bonds [ uid_i as usize ] [ *uid_j as usize ] = I32F32::from_num( *bonds_ij );
+                bonds [ uid_i as usize ] [ *uid_j as usize ] = I64F64::from_num( *bonds_ij );
             }
         }
         bonds

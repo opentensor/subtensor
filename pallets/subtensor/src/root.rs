@@ -190,17 +190,18 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Output unnormalized bonds in [n, n] matrix where bonds are u16_proportion_to_fixed64 in [0, 1].
-    pub fn get_root_bonds() -> Vec<Vec<I64F64>> { 
+    // Output unnormalized bonds in [n, n] matrix where bonds are u16_proportion_to_fixed in [0, 1].
+    pub fn get_root_bonds() -> Vec<Vec<I32F32>> { 
         // --- 0. The number of validators on the root network.
         let n: usize = Self::get_num_root_validators() as usize;
         let k: usize = Self::get_num_subnets() as usize;
-        let mut root_bonds: Vec<Vec<I64F64>> = vec![ vec![ I64F64::from_num(0.0); k ]; n ]; 
+        let mut root_bonds: Vec<Vec<I32F32>> = vec![ vec![ I32F32::from_num(0.0); k ]; n ]; 
         for ( uid_i, bonds_i ) in < Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)> >>::iter_prefix( Self::get_root_netuid() ) {
             for (uid_j, bonds_ij) in bonds_i.iter() { 
-                bonds [ uid_i as usize ] [ *uid_j as usize ] = u16_proportion_to_fixed64( *bonds_ij );
+                root_bonds[ uid_i as usize ] [ *uid_j as usize ] = u16_proportion_to_fixed( *bonds_ij );
             }
         }
+
         root_bonds
     }
 
@@ -420,19 +421,19 @@ impl<T: Config> Pallet<T> {
         let alpha: Vec<I64F64> = consensus.iter().map( |c: &I64F64| I64F64::from_num( 1.0 ) - c ).collect();
 
         // Access network bonds.
-        let mut root_bonds: Vec<Vec<I64F64>> = Self::get_root_bonds( );
+        let root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds( );
         // log::trace!( "B:\n{:?}\n", &bonds );
     
         // Subnet specific moving average.
-        let mut ema_bonds: Vec<Vec<I64F64>> = mat_ema_alpha_vec_f64( &weights, &root_bonds, &alpha );
+        let ema_bonds: Vec<Vec<I32F32>> = mat_ema_alpha_vec( &matrix_64_to_32(weights), &root_bonds, &vec_64_to_32(alpha) );
         // log::trace!( "emaB:\n{:?}\n", &ema_bonds );
 
         // Sink bonds to storage.
         for i in 0..n {
-            let mut bonds_i: Vec<(u16,u16)>;
+            let mut bonds_i: Vec<(u16,u16)> = vec![];
             for j in 0..k {
-                if ema_bonds[i][j] != 0 {
-                    bonds_i.push( (j as u16, fixed64_proportion_to_u16( ema_bonds[i][j] ) ) )
+                if ema_bonds[i as usize][j as usize] != 0 {
+                    bonds_i.push( (j, fixed_proportion_to_u16( ema_bonds[i as usize][j as usize] ) ) )
                 }
             }
             Bonds::<T>::insert( root_netuid, i, bonds_i );
