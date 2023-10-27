@@ -119,7 +119,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 127,
+    spec_version: 135,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -473,9 +473,9 @@ impl pallet_sudo::Config for Runtime {
 
 parameter_types! {
     // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-    pub const DepositBase: Balance = (1) as Balance * 2_000 * 10_000_000 + (88 as Balance) * 100 * 1_000_000;
+    pub const DepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (88 as Balance) * 100 * 10_000;
     // Additional storage item size of 32 bytes.
-    pub const DepositFactor: Balance = (0) as Balance * 2_000 * 10_000_000 + (32 as Balance) * 100 * 1_000_000;
+    pub const DepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (32 as Balance) * 100 * 10_000;
     pub const MaxSignatories: u32 = 100;
 }
 
@@ -586,6 +586,13 @@ parameter_types! {
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -627,6 +634,13 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
+    type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
+    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
+    type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
+    type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
+    type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
+    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
+    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
 }
 
 use sp_runtime::BoundedVec;
@@ -1013,17 +1027,33 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_subnets_info();
             result.encode()
         }
+
+        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetHyperparams");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
     }
 
-	impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
+    impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
-			result.encode()
+            result.encode()
         }
 
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
             result.encode()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
+        fn get_network_registration_cost() -> u64 {
+            SubtensorModule::get_network_lock_cost()
         }
     }
 }
