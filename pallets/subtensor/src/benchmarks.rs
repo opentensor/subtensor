@@ -561,17 +561,18 @@ benchmarks! {
 	Subtensor::<T>::set_target_registrations_per_interval(netuid, 256);
 	Subtensor::<T>::set_max_registrations_per_block(netuid, 256);
 
+	Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(10_000_000_000).unwrap());
+	assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, old_hotkey.clone()));
+	assert_ok!(Subtensor::<T>::become_delegate(RawOrigin::Signed(coldkey.clone()).into(), old_hotkey.clone()));
+
 	let max_uids = Subtensor::<T>::get_max_allowed_uids(netuid) as u32;
 	for i in 0..max_uids - 1 {
 		let coldkey: T::AccountId = account("Axon", 0, i);
 		let hotkey: T::AccountId = account("Hotkey", 0, i);
 
 		Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(10_000_000_000).unwrap());
-		assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey).into(), netuid, hotkey));
+		assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey));
+		assert_ok!(Subtensor::<T>::add_stake(RawOrigin::Signed(coldkey).into(), old_hotkey.clone(), 1_000_000_000));
 	}
-
-	Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(10_000_000_000).unwrap());
-
-	assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, old_hotkey.clone()));
   }: _(RawOrigin::Signed(coldkey), old_hotkey, new_hotkey)
 }
