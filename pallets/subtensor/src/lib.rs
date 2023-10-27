@@ -855,6 +855,7 @@ pub mod pallet {
         NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
+        DelegateTakeSet(u16),
     }
 
     // Errors inform users that something went wrong.
@@ -1533,6 +1534,24 @@ pub mod pallet {
             balance: u64,
         ) -> DispatchResult {
             Self::do_sudo_registration(origin, netuid, hotkey, coldkey, stake, balance)
+        }
+
+        #[pallet::call_index(70)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn set_delegate_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16
+        ) -> DispatchResult {
+            let coldkey = ensure_signed(origin)?;
+            ensure!(Self::coldkey_owns_hotkey(&coldkey, &hotkey), Error::<T>::NonAssociatedColdKey);
+            ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotDelegate);
+
+            Delegates::<T>::set(hotkey, take);
+
+            Self::deposit_event(Event::<T>::DelegateTakeSet(take));
+
+            Ok(())
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
