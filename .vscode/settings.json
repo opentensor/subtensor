@@ -1,0 +1,8 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./pallets/subtensor/Cargo.toml",
+    ],
+    "rust-analyzer.cargo.features": [
+        "runtime-benchmarks"
+    ]
+}
