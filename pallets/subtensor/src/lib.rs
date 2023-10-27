@@ -915,6 +915,7 @@ pub mod pallet {
         OperationNotPermittedonRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
+        NotEnoughBalance,
     }
 
     // ==================

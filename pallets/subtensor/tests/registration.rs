@@ -1585,7 +1585,7 @@ fn test_hotkey_swap_ok() {
         add_network(netuid, tempo, 0);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
 
         // Subscribe and check extrinsic output
         assert_ok!(SubtensorModule::burned_register(

@@ -783,7 +783,18 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
-        // Pay TAO?
+        let swap_cost = 1_000_000_000u64;
+        let swap_cost_as_balance = Self::u64_to_balance(swap_cost).unwrap();
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
+            Error::<T>::NotEnoughBalance
+        );
+        ensure!(
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)
+                == true,
+            Error::<T>::BalanceWithdrawalError
+        );
+        Self::burn_tokens(swap_cost);
 
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());
