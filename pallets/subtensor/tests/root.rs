@@ -252,9 +252,9 @@ fn test_root_set_weights() {
                 299_999_997
             );
         }
-        let step = SubtensorModule::blocks_until_next_epoch(9, 1000, SubtensorModule::get_current_block_as_u64());
+        let step = SubtensorModule::blocks_until_next_epoch(10, 1000, SubtensorModule::get_current_block_as_u64());
         step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
+        assert_eq!(SubtensorModule::get_pending_emission(10), 0);
     });
 }
 
