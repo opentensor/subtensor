@@ -1106,4 +1106,8 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
         Ok(())
     }
+
+    pub fn is_subnet_owner(address: &T::AccountId) -> bool {
+        SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
+    }
 }
