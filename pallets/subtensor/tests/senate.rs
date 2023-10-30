@@ -112,7 +112,8 @@ fn test_senate_join_works() {
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
+            hotkey_account_id,
+            11_796
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });
@@ -181,7 +182,8 @@ fn test_senate_vote_works() {
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
+            hotkey_account_id,
+            11_796
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
 
@@ -351,7 +353,8 @@ fn test_senate_leave_works() {
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
+            hotkey_account_id,
+            11_796
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });
@@ -421,7 +424,8 @@ fn test_senate_leave_vote_removal() {
 
         assert_ok!(SubtensorModule::root_register(
             coldkey_origin.clone(),
-            hotkey_account_id
+            hotkey_account_id,
+            11_796
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
 
@@ -476,6 +480,7 @@ fn test_senate_leave_vote_removal() {
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                11_796
             ));
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
@@ -557,7 +562,8 @@ fn test_senate_not_leave_when_stake_removed() {
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
+            hotkey_account_id,
+            11_796
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
 

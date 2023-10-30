@@ -28,6 +28,7 @@ fn test_root_register_network_exist() {
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
+            11_796
         ));
     });
 }
@@ -124,6 +125,7 @@ fn test_root_register_stake_based_pruning_works() {
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                11_796
             ));
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
@@ -139,6 +141,7 @@ fn test_root_register_stake_based_pruning_works() {
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                11_796
             ));
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
@@ -153,6 +156,7 @@ fn test_root_register_stake_based_pruning_works() {
                 SubtensorModule::root_register(
                     <<Test as Config>::RuntimeOrigin>::signed(cold),
                     hot,
+                    11_796
                 ),
                 Err(Error::<Test>::StakeTooLowForRoot.into())
             );
@@ -184,6 +188,7 @@ fn test_root_set_weights() {
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                11_796
             ));
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -278,6 +283,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                11_796
             ));
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -469,7 +475,8 @@ fn test_network_pruning() {
             SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000);
             assert_ok!(SubtensorModule::root_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
-                hot
+                hot,
+                11_796
             ));
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
