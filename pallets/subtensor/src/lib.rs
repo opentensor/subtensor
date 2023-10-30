@@ -2094,7 +2094,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::call_index(69)]
+        #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult {
