@@ -38,7 +38,7 @@ pub enum Data {
 	/// No data here.
 	None,
 	/// The data is stored directly.
-	Raw(BoundedVec<u8, ConstU32<32>>),
+	Raw(BoundedVec<u8, ConstU32<64>>),
 	/// Only the Blake2 hash of the data is stored. The preimage of the hash may be retrieved
 	/// through some hash-lookup service.
 	BlakeTwo256([u8; 32]),
@@ -64,17 +64,17 @@ impl Decode for Data {
 		let b = input.read_byte()?;
 		Ok(match b {
 			0 => Data::None,
-			n @ 1..=33 => {
+			n @ 1..=65 => {
 				let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
 					.try_into()
 					.expect("bound checked in match arm condition; qed");
 				input.read(&mut r[..])?;
 				Data::Raw(r)
 			},
-			34 => Data::BlakeTwo256(<[u8; 32]>::decode(input)?),
-			35 => Data::Sha256(<[u8; 32]>::decode(input)?),
-			36 => Data::Keccak256(<[u8; 32]>::decode(input)?),
-			37 => Data::ShaThree256(<[u8; 32]>::decode(input)?),
+			66 => Data::BlakeTwo256(<[u8; 32]>::decode(input)?),
+			67 => Data::Sha256(<[u8; 32]>::decode(input)?),
+			68 => Data::Keccak256(<[u8; 32]>::decode(input)?),
+			69 => Data::ShaThree256(<[u8; 32]>::decode(input)?),
 			_ => return Err(codec::Error::from("invalid leading byte")),
 		})
 	}
@@ -85,7 +85,7 @@ impl Encode for Data {
 		match self {
 			Data::None => vec![0u8; 1],
 			Data::Raw(ref x) => {
-				let l = x.len().min(32);
+				let l = x.len().min(64);
 				let mut r = vec![l as u8 + 1; l + 1];
 				r[1..].copy_from_slice(&x[..l as usize]);
 				r
@@ -184,21 +184,22 @@ impl TypeInfo for Data {
 			(61, 60),
 			(62, 61),
 			(63, 62),
-			(64, 63)
+			(64, 63),
+			(65, 64)
 		);
 
 		let variants = variants
 			.variant("BlakeTwo256", |v| {
-				v.index(34).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(66).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			})
 			.variant("Sha256", |v| {
-				v.index(35).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(67).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			})
 			.variant("Keccak256", |v| {
-				v.index(36).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(68).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			})
 			.variant("ShaThree256", |v| {
-				v.index(37).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(69).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			});
 
 		Type::builder().path(Path::new("Data", module_path!())).variant(variants)
@@ -445,7 +446,7 @@ mod tests {
 		];
 
 		// A Raw instance for all possible sizes of the Raw data
-		for n in 0..32 {
+		for n in 0..64 {
 			data.push(Data::Raw(vec![0u8; n as usize].try_into().unwrap()))
 		}
 
