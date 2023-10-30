@@ -93,9 +93,9 @@ pub mod pallet {
 			T::WeightInfo::set_identity(), 
 			DispatchClass::Operational
 		))]
-		pub fn set_identity(origin: OriginFor<T>, info: Box<IdentityInfo<T::MaxAdditionalFields>>) -> DispatchResult {
+		pub fn set_identity(origin: OriginFor<T>, identified: T::AccountId, info: Box<IdentityInfo<T::MaxAdditionalFields>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(T::CanRegister::can_register(&who), Error::<T>::CannotRegister);
+			ensure!(T::CanRegister::can_register(&who, &identified), Error::<T>::CannotRegister);
 			
 			let extra_fields = info.additional.len() as u32;
 			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
@@ -147,9 +147,9 @@ pub mod pallet {
 }
 // Interfaces to interact with other pallets
 pub trait CanRegisterIdentity<AccountId> {
-    fn can_register(who: &AccountId) -> bool;
+    fn can_register(who: &AccountId, identified: &AccountId) -> bool;
 }
 
 impl<A> CanRegisterIdentity<A> for () {
-	fn can_register(_: &A) -> bool {false}
+	fn can_register(_: &A, _: &A) -> bool {false}
 }

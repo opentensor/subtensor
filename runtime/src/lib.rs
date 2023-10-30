@@ -558,12 +558,16 @@ pub struct AllowIdentityReg;
 
 impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
     #[cfg(not(feature = "runtime-benchmarks"))]
-    fn can_register(address: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(0, address) || SubtensorModule::is_subnet_owner(address)
+    fn can_register(address: &AccountId, identified: &AccountId) -> bool {
+        if address != identified {
+            return SubtensorModule::coldkey_owns_hotkey(address, identified) && SubtensorModule::is_hotkey_registered_on_network(0, identified);
+        } else {
+            return SubtensorModule::is_subnet_owner(address);
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-    fn can_register(_: &AccountId) -> bool {
+    fn can_register(_: &AccountId, _: &AccountId) -> bool {
         true
     }
 }
