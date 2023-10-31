@@ -101,7 +101,7 @@ pub mod pallet {
 			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
 
 			let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
-			let mut id = match <IdentityOf<T>>::get(&who) {
+			let mut id = match <IdentityOf<T>>::get(&identified) {
 				Some(mut id) => {
 					id.info = *info;
 					id
@@ -122,8 +122,8 @@ pub mod pallet {
 				debug_assert!(err_amount.is_zero());
 			}
 
-			<IdentityOf<T>>::insert(&who, id);
-			Self::deposit_event(Event::IdentitySet { who });
+			<IdentityOf<T>>::insert(&identified, id);
+			Self::deposit_event(Event::IdentitySet { who: identified });
 
 			Ok(().into())
 		}
