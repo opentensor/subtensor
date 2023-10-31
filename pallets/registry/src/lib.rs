@@ -101,7 +101,7 @@ pub mod pallet {
 			ensure!(extra_fields <= T::MaxAdditionalFields::get(), Error::<T>::TooManyFields);
 
 			let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
-			let mut id = match <IdentityOf<T>>::get(&who) {
+			let mut id = match <IdentityOf<T>>::get(&identified) {
 				Some(mut id) => {
 					id.info = *info;
 					id
@@ -122,24 +122,25 @@ pub mod pallet {
 				debug_assert!(err_amount.is_zero());
 			}
 
-			<IdentityOf<T>>::insert(&who, id);
-			Self::deposit_event(Event::IdentitySet { who });
+			<IdentityOf<T>>::insert(&identified, id);
+			Self::deposit_event(Event::IdentitySet { who: identified });
 
 			Ok(().into())
 		}
 
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::clear_identity())]
-		pub fn clear_identity(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+		pub fn clear_identity(origin: OriginFor<T>, identified: T::AccountId) -> DispatchResultWithPostInfo {
 			let who = ensure_signed(origin)?;
+			ensure!(T::CanRegister::can_register(&who, &identified), Error::<T>::CannotRegister);
 
-			let id = <IdentityOf<T>>::take(&who).ok_or(Error::<T>::NotRegistered)?;
+			let id = <IdentityOf<T>>::take(&identified).ok_or(Error::<T>::NotRegistered)?;
 			let deposit = id.total_deposit();
 
 			let err_amount = T::Currency::unreserve(&who, deposit);
 			debug_assert!(err_amount.is_zero());
 
-			Self::deposit_event(Event::IdentityDissolved { who });
+			Self::deposit_event(Event::IdentityDissolved { who: identified });
 
 			Ok(().into())
 		}
