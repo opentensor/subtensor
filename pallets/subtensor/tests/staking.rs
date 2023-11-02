@@ -5,7 +5,7 @@ use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_subtensor::Error;
-use sp_core::U256;
+use sp_core::{H256, U256};
 
 /***********************************************************
     staking::add_stake() tests
@@ -989,7 +989,7 @@ fn test_non_existent_account() {
 #[test]
 fn test_delegate_stake_division_by_zero_check() {
     new_test_ext().execute_with(|| {
-        let netuid: u16 = 0;
+        let netuid: u16 = 1;
         let tempo: u16 = 1;
         let hotkey = U256::from(1);
         let coldkey = U256::from(3);
@@ -1014,7 +1014,9 @@ fn test_full_with_delegating() {
 
         let coldkey0 = U256::from(3);
         let coldkey1 = U256::from(4);
+        add_network(netuid, 0, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 4); // Allow all 4 to be registered at once
 
         // Neither key can add stake because they dont have fundss.
@@ -1110,8 +1112,6 @@ fn test_full_with_delegating() {
         );
 
         // Register the 2 neurons to a new network.
-        let netuid = 1;
-        add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
         assert_eq!(
@@ -2206,5 +2206,44 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
 
         // Verify free balance is correct for single coldkey
         assert_eq!(Balances::free_balance(coldkey0_id), amount);
+    });
+}
+
+#[test]
+fn test_faucet_ok() {
+    new_test_ext().execute_with(|| {
+        let coldkey = U256::from(123560);
+
+        log::info!("Creating work for submission to faucet...");
+
+        let block_number = SubtensorModule::get_current_block_as_u64();
+        let difficulty: U256 = U256::from(10_000_000);
+        let mut nonce: u64 = 0;
+        let mut work: H256 = SubtensorModule::create_seal_hash(block_number, nonce, &coldkey);
+        while !SubtensorModule::hash_meets_difficulty(&work, difficulty) {
+            nonce = nonce + 1;
+            work = SubtensorModule::create_seal_hash(block_number, nonce, &coldkey);
+        }
+        let vec_work: Vec<u8> = SubtensorModule::hash_to_vec(work);
+
+        log::info!("Faucet state: {}", cfg!(feature = "pow-faucet"));
+
+        #[cfg(feature = "pow-faucet")]
+        assert_ok!(SubtensorModule::do_faucet(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            0,
+            nonce,
+            vec_work
+        ));
+
+        #[cfg(not(feature = "pow-faucet"))]
+        assert_ok!(
+            SubtensorModule::do_faucet(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                0,
+                nonce,
+                vec_work
+            )
+        );
     });
 }

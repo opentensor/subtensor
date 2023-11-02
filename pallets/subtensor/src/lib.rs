@@ -36,9 +36,8 @@ mod block_step;
 
 mod epoch;
 mod math;
-mod networks;
 mod registration;
-mod senate;
+mod root;
 mod serving;
 mod staking;
 mod uids;
@@ -47,8 +46,8 @@ mod weights;
 
 pub mod delegate_info;
 pub mod neuron_info;
-pub mod subnet_info;
 pub mod stake_info;
+pub mod subnet_info;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -56,14 +55,16 @@ pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::inherent::Vec;
-    use frame_support::sp_std::vec;
-    use frame_support::traits::{Currency, UnfilteredDispatchable};
+
     use frame_support::{
         dispatch::GetDispatchInfo,
-        pallet_prelude::{DispatchResult, StorageMap, *},
+        inherent::Vec,
+        pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
+        sp_std::vec,
+        traits::{Currency, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
+    use sp_runtime::traits::TrailingZeroInput;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -166,6 +167,20 @@ pub mod pallet {
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
+        #[pallet::constant] // Initial network immunity period
+        type InitialNetworkImmunityPeriod: Get<u64>;
+        #[pallet::constant] // Initial minimum allowed network UIDs
+        type InitialNetworkMinAllowedUids: Get<u16>;
+        #[pallet::constant] // Initial network minimum burn cost
+        type InitialNetworkMinLockCost: Get<u64>;
+        #[pallet::constant] // Initial network subnet cut.
+        type InitialSubnetOwnerCut: Get<u16>;
+        #[pallet::constant] // Initial lock reduction interval.
+        type InitialNetworkLockReductionInterval: Get<u64>;
+        #[pallet::constant] // Initial max allowed subnets
+        type InitialSubnetLimit: Get<u16>;
+        #[pallet::constant] // Initial network creation rate limit
+        type InitialNetworkRateLimit: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -205,7 +220,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
 
     #[pallet::storage] // --- ITEM ( total_stake )
@@ -340,7 +355,45 @@ pub mod pallet {
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
         false
     }
+    #[pallet::type_value]
+    pub fn DefaultNetworkRegisteredAt<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkImmunityPeriod<T: Config>() -> u64 {
+        T::InitialNetworkImmunityPeriod::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
+        T::InitialNetworkMinAllowedUids::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkMinLockCost<T: Config>() -> u64 {
+        T::InitialNetworkMinLockCost::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkLockReductionInterval<T: Config>() -> u64 {
+        T::InitialNetworkLockReductionInterval::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
+        T::InitialSubnetOwnerCut::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultSubnetLimit<T: Config>() -> u16 {
+        T::InitialSubnetLimit::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
+        T::InitialNetworkRateLimit::get()
+    }
 
+    #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
+    pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> subnetwork_n (Number of UIDs in the network).
@@ -350,9 +403,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> network_is_added
     pub type NetworksAdded<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultNeworksAdded<T>>;
-    #[pallet::storage] // --- DMAP ( netuid, netuid ) -> registration_requirement
-    pub type NetworkConnect<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Identity, u16, u16, OptionQuery>;
     #[pallet::storage] // --- DMAP ( hotkey, netuid ) --> bool
     pub type IsNetworkMember<T: Config> = StorageDoubleMap<
         _,
@@ -367,6 +417,30 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> block_created
+    pub type NetworkRegisteredAt<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
+    #[pallet::storage] // ITEM( network_immunity_period )
+    pub type NetworkImmunityPeriod<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
+    #[pallet::storage] // ITEM( network_last_registered_block )
+    pub type NetworkLastRegistered<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
+    #[pallet::storage] // ITEM( network_min_allowed_uids )
+    pub type NetworkMinAllowedUids<T> =
+        StorageValue<_, u16, ValueQuery, DefaultNetworkMinAllowedUids<T>>;
+    #[pallet::storage] // ITEM( min_network_lock_cost )
+    pub type NetworkMinLockCost<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
+    #[pallet::storage] // ITEM( last_network_lock_cost )
+    pub type NetworkLastLockCost<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkMinLockCost<T>>;
+    #[pallet::storage] // ITEM( network_lock_reduction_interval )
+    pub type NetworkLockReductionInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNetworkLockReductionInterval<T>>;
+    #[pallet::storage] // ITEM( subnet_owner_cut )
+    pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
+    #[pallet::storage] // ITEM( network_rate_limit )
+    pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -388,6 +462,14 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
+        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+    }
+    #[pallet::type_value]
+    pub fn DefaultSubnetLocked<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
     }
@@ -406,6 +488,12 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T>>;
+    #[pallet::storage]
+    pub type SubnetOwner<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
+    pub type SubnetLocked<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
     // =================================
     // ==== Axon / Promo Endpoints =====
@@ -744,8 +832,6 @@ pub mod pallet {
         AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
         PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
         EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
-        NetworkConnectionAdded(u16, u16, u16), // --- Event created when a network connection requirement is added.
-        NetworkConnectionRemoved(u16, u16), // --- Event created when a network connection requirement is removed.
         DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
         DefaultTakeSet(u16), // --- Event created when the default take is set.
         WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
@@ -762,15 +848,21 @@ pub mod pallet {
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
+        Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
+        SubnetOwnerCutSet(u16),    // Event created when the subnet owner cut is set.
+        NetworkRateLimitSet(u64), // Event created when the network creation rate limit is set.
+        NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
+        NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
+        SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
+        NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
     }
 
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
-        InvalidConnectionRequirement, // --- Thrown if we are attempting to create an invalid connection requirement.
-        NetworkDoesNotExist,          // --- Thrown when the network does not exist.
-        NetworkExist,                 // --- Thrown when the network already exists.
-        InvalidModality,              // --- Thrown when an invalid modality attempted on serve.
+        NetworkDoesNotExist,                // --- Thrown when the network does not exist.
+        NetworkExist,                       // --- Thrown when the network already exists.
+        InvalidModality,  // --- Thrown when an invalid modality attempted on serve.
         InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
         InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
         InvalidPort,   // --- Thrown when an invalid port is passed to the serve function.
@@ -798,7 +890,6 @@ pub mod pallet {
         InvalidTempo,           // --- Thrown when tempo is not valid.
         EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks.
         InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
-        DidNotPassConnectedNetworkRequirement, // --- Thrown when a hotkey attempts to register into a network without passing the registration requirment from another network.
         AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
         SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
         IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
@@ -818,6 +909,11 @@ pub mod pallet {
         BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
         NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
+        FaucetDisabled,         // --- Thrown when the faucet is disabled
+        NotSubnetOwner,
+        OperationNotPermittedonRootSubnet,
+        StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
+        AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
     }
 
     // ==================
@@ -844,6 +940,8 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
+            use crate::MemberManagement;
+
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -961,6 +1059,39 @@ pub mod pallet {
 
             // --- Increase total network count.
             TotalNetworks::<T>::mutate(|n| *n += 1);
+
+            // Get the root network uid.
+            let root_netuid: u16 = 0;
+
+            // Set the root network as added.
+            NetworksAdded::<T>::insert(root_netuid, true);
+
+            // Increment the number of total networks.
+            TotalNetworks::<T>::mutate(|n| *n += 1);
+
+            // Set the number of validators to 1.
+            SubnetworkN::<T>::insert(root_netuid, 0);
+
+            // Set the maximum number to the number of senate members.
+            MaxAllowedUids::<T>::insert(root_netuid, 64u16);
+
+            // Set the maximum number to the number of validators to all members.
+            MaxAllowedValidators::<T>::insert(root_netuid, 64u16);
+
+            // Set the min allowed weights to zero, no weights restrictions.
+            MinAllowedWeights::<T>::insert(root_netuid, 0);
+
+            // Set the max weight limit to infitiy, no weight restrictions.
+            MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
+
+            // Add default root tempo.
+            Tempo::<T>::insert(root_netuid, 100);
+
+            // Set the root network as open.
+            NetworkRegistrationAllowed::<T>::insert(root_netuid, true);
+
+            // Set target registrations for validators as 1 per block.
+            TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
         }
     }
 
@@ -976,24 +1107,41 @@ pub mod pallet {
         // 	* 'n': (T::BlockNumber):
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
-            Self::block_step();
-
-            return Weight::from_ref_time(110_634_229_000 as u64)
-                .saturating_add(T::DbWeight::get().reads(8304 as u64))
-                .saturating_add(T::DbWeight::get().writes(110 as u64));
+            let block_step_result = Self::block_step();
+            match block_step_result {
+                Ok(_) => {
+                    // --- If the block step was successful, return the weight.
+                    log::info!("Successfully ran block step.");
+                    return Weight::from_ref_time(110_634_229_000 as u64)
+                        .saturating_add(T::DbWeight::get().reads(8304 as u64))
+                        .saturating_add(T::DbWeight::get().writes(110 as u64));
+                }
+                Err(e) => {
+                    // --- If the block step was unsuccessful, return the weight anyway.
+                    log::error!("Error while stepping block: {:?}", e);
+                    return Weight::from_ref_time(110_634_229_000 as u64)
+                        .saturating_add(T::DbWeight::get().reads(8304 as u64))
+                        .saturating_add(T::DbWeight::get().writes(110 as u64));
+                }
+            }
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
             use crate::migration;
+            let mut weight = frame_support::weights::Weight::from_ref_time(0);
 
-			let mut weight = frame_support::weights::Weight::from_ref_time(0);
+            // Hex encoded foundation coldkey
+            let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
+            weight = weight
+                .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
+                .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
+                .saturating_add(migration::migrate_create_root_network::<T>())
+                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(hex))
+                .saturating_add(migration::migrate_delete_subnet_3::<T>())
+                .saturating_add(migration::migrate_delete_subnet_21::<T>());
 
-			weight = weight
-				.saturating_add( migration::migrate_to_v1_separate_emission::<T>() )
-				.saturating_add( migration::migrate_to_v2_fixed_total_stake::<T>() );
-
-			return weight;
+            return weight;
         }
     }
 
@@ -1352,6 +1500,14 @@ pub mod pallet {
             Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
         }
 
+        #[pallet::call_index(62)]
+        #[pallet::weight((Weight::from_ref_time(120_000_000)
+		.saturating_add(T::DbWeight::get().reads(23))
+		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
+        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_root_register(origin, hotkey)
+        }
+
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_ref_time(89_000_000)
 		.saturating_add(T::DbWeight::get().reads(27))
@@ -1380,148 +1536,6 @@ pub mod pallet {
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
-
-        // ---- Sudo add a network to the network set.
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- Must be sudo.
-        //
-        // 	* 'netuid' (u16):
-        // 		- The u16 network identifier.
-        //
-        // 	* 'tempo' ( u16 ):
-        // 		- Number of blocks between epoch step.
-        //
-        // 	* 'modality' ( u16 ):
-        // 		- Network modality specifier.
-        //
-        // # Event:
-        // 	* NetworkAdded;
-        // 		- On successfully creation of a network.
-        //
-        // # Raises:
-        // 	* 'NetworkExist':
-        // 		- Attempting to register an already existing.
-        //
-        // 	* 'InvalidModality':
-        // 		- Attempting to register a network with an invalid modality.
-        //
-        // 	* 'InvalidTempo':
-        // 		- Attempting to register a network with an invalid tempo.
-        //
-        #[pallet::call_index(9)]
-        #[pallet::weight((Weight::from_ref_time(50_000_000)
-		.saturating_add(T::DbWeight::get().reads(17))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_add_network(
-            origin: OriginFor<T>,
-            netuid: u16,
-            tempo: u16,
-            modality: u16,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_add_network(origin, netuid, tempo, modality)
-        }
-
-        // ---- Sudo remove a network from the network set.
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- Must be sudo.
-        //
-        // 	* 'netuid' (u16):
-        // 		- The u16 network identifier.
-        //
-        // # Event:
-        // 	* NetworkRemoved;
-        // 		- On the successfull removing of this network.
-        //
-        // # Raises:
-        // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to remove a non existent network.
-        //
-        #[pallet::call_index(10)]
-        #[pallet::weight((Weight::from_ref_time(42_000_000)
-		.saturating_add(T::DbWeight::get().reads(2))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_remove_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::do_remove_network(origin, netuid)
-        }
-
-        // ---- Sudo set emission values for all networks.
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        //
-        // 	* `netuids` (Vec<u16>):
-        // 		- A vector of network uids values. This must include all netuids.
-        //
-        // 	* `emission` (Vec<u64>):
-        // 		- The emission values associated with passed netuids in order.
-        //
-        #[pallet::call_index(11)]
-        #[pallet::weight((Weight::from_ref_time(28_000_000)
-		.saturating_add(T::DbWeight::get().reads(12))
-		.saturating_add(T::DbWeight::get().writes(10)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_emission_values(
-            origin: OriginFor<T>,
-            netuids: Vec<u16>,
-            emission: Vec<u64>,
-        ) -> DispatchResult {
-            Self::do_set_emission_values(origin, netuids, emission)
-        }
-
-        // ---- Sudo add a network connect requirement.
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        //
-        // 	* `netuid_a` (u16):
-        // 		- The network we are adding the requirment to (parent network)
-        //
-        // 	* `netuid_b` (u16):
-        // 		- The network we the requirement refers to (child network)
-        //
-        // 	* `requirement` (u16):
-        // 		- The topk percentile prunning score requirement (u16:MAX normalized.)
-        //
-        #[pallet::call_index(12)]
-        #[pallet::weight((Weight::from_ref_time(17_000_000)
-		.saturating_add(T::DbWeight::get().reads(2))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_add_network_connection_requirement(
-            origin: OriginFor<T>,
-            netuid_a: u16,
-            netuid_b: u16,
-            requirement: u16,
-        ) -> DispatchResult {
-            Self::do_sudo_add_network_connection_requirement(
-                origin,
-                netuid_a,
-                netuid_b,
-                requirement,
-            )
-        }
-
-        // ---- Sudo remove a network connection requirement.
-        // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The caller, must be sudo.
-        //
-        // 	* `netuid_a` (u16):
-        // 		- The network we are removing the requirment from.
-        //
-        // 	* `netuid_b` (u16):
-        // 		- The required network connection to remove.
-        //
-        #[pallet::call_index(13)]
-        #[pallet::weight((Weight::from_ref_time(15_000_000)
-		.saturating_add(T::DbWeight::get().reads(3)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_remove_network_connection_requirement(
-            origin: OriginFor<T>,
-            netuid_a: u16,
-            netuid_b: u16,
-        ) -> DispatchResult {
-            Self::do_sudo_remove_network_connection_requirement(origin, netuid_a, netuid_b)
-        }
 
         // ==================================
         // ==== Parameter Sudo calls ========
@@ -1583,15 +1597,7 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_sudo_set_min_burn(origin, netuid, min_burn)
         }
-
-        #[pallet::call_index(19)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_burn(origin: OriginFor<T>, netuid: u16, burn: u64) -> DispatchResult {
-            Self::do_sudo_set_burn(origin, netuid, burn)
-        }
-
+        
         #[pallet::call_index(20)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -1894,24 +1900,6 @@ pub mod pallet {
             return result;
         }
 
-        #[pallet::call_index(53)]
-        #[pallet::weight((Weight::from_ref_time(67_000_000)
-		.saturating_add(Weight::from_proof_size(61173))
-		.saturating_add(T::DbWeight::get().reads(20))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn join_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_join_senate(origin, &hotkey)
-        }
-
-        #[pallet::call_index(54)]
-        #[pallet::weight((Weight::from_ref_time(20_000_000)
-		.saturating_add(Weight::from_proof_size(4748))
-		.saturating_add(T::DbWeight::get().reads(4))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn leave_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_leave_senate(origin, &hotkey)
-        }
-
         #[pallet::call_index(55)]
         #[pallet::weight((Weight::from_ref_time(0)
 		.saturating_add(Weight::from_proof_size(0))
@@ -1924,7 +1912,7 @@ pub mod pallet {
             #[pallet::compact] index: u32,
             approve: bool,
         ) -> DispatchResultWithPostInfo {
-            Self::do_vote_senate(origin, &hotkey, proposal, index, approve)
+            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
         }
 
         // Sudo call for setting registration allowed
@@ -1940,21 +1928,6 @@ pub mod pallet {
             Self::do_sudo_set_network_registration_allowed(origin, netuid, registration_allowed)
         }
 
-        #[pallet::call_index(56)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_senate_required_stake_perc(
-            origin: OriginFor<T>,
-            required_percent: u64,
-        ) -> DispatchResult {
-            Self::do_set_senate_required_stake_perc(origin, required_percent)
-        }
-
-        #[pallet::call_index(57)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_remove_votes(origin: OriginFor<T>, who: T::AccountId) -> DispatchResult {
-            Self::do_remove_votes(origin, &who)
-        }
-
         #[pallet::call_index(58)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -1965,6 +1938,130 @@ pub mod pallet {
             adjustment_alpha: u64,
         ) -> DispatchResult {
             Self::do_sudo_set_adjustment_alpha(origin, netuid, adjustment_alpha)
+        }
+
+        #[pallet::call_index(59)]
+        #[pallet::weight((Weight::from_ref_time(85_000_000)
+		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
+        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
+            Self::user_add_network(origin)
+        }
+
+        #[pallet::call_index(60)]
+        #[pallet::weight((Weight::from_ref_time(91_000_000)
+		.saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        pub fn faucet(
+            origin: OriginFor<T>,
+            block_number: u64,
+            nonce: u64,
+            work: Vec<u8>,
+        ) -> DispatchResult {
+            if cfg!(feature = "pow-faucet") {
+                return Self::do_faucet(origin, block_number, nonce, work);
+            }
+            
+            Err(Error::<T>::FaucetDisabled.into())
+        }
+
+        #[pallet::call_index(61)]
+        #[pallet::weight((Weight::from_ref_time(70_000_000)
+		.saturating_add(T::DbWeight::get().reads(5))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            Self::user_remove_network(origin, netuid)
+        }
+
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_owner_cut(origin: OriginFor<T>, cut: u16) -> DispatchResult {
+            Self::do_sudo_set_subnet_owner_cut(origin, cut)
+        }
+
+        #[pallet::call_index(64)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult {
+            Self::do_sudo_set_network_rate_limit(origin, rate_limit)
+        }
+
+        #[pallet::call_index(65)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_immunity_period(origin: OriginFor<T>, immunity_period: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::set_network_immunity_period( immunity_period );
+
+            log::info!(
+                "NetworkImmunityPeriod( period: {:?} ) ",
+                immunity_period
+            );
+            Self::deposit_event(Event::NetworkImmunityPeriodSet(
+                immunity_period,
+            ));
+
+            Ok(())
+        }
+
+        #[pallet::call_index(66)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_min_lock_cost(origin: OriginFor<T>, lock_cost: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::set_network_min_lock( lock_cost );
+
+            log::info!(
+                "NetworkMinLockCost( lock_cost: {:?} ) ",
+                lock_cost
+            );
+            Self::deposit_event(Event::NetworkMinLockCostSet(
+                lock_cost,
+            ));
+
+            Ok(())
+        }
+
+        #[pallet::call_index(67)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
+            ensure_root(origin)?;
+
+            SubnetLimit::<T>::set(max_subnets);
+
+            log::info!(
+                "SubnetLimit( max_subnets: {:?} ) ",
+                max_subnets
+            );
+            Self::deposit_event(Event::SubnetLimitSet(
+                max_subnets,
+            ));
+
+            Ok(())
+        }
+
+
+        #[pallet::call_index(68)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_lock_reduction_interval(origin: OriginFor<T>, interval: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            Self::set_lock_reduction_interval(interval);
+
+            log::info!(
+                "NetworkLockReductionInterval( interval: {:?} ) ",
+                interval
+            );
+            Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(
+                interval,
+            ));
+
+            Ok(())
         }
     }
 
@@ -1981,64 +2078,6 @@ pub mod pallet {
             }
             return 0;
         }
-
-        // Benchmarking functions.
-        #[cfg(feature = "runtime-benchmarks")]
-        pub fn create_network(_: OriginFor<T>, netuid: u16, n: u16, tempo: u16) -> DispatchResult {
-            Self::init_new_network(netuid, tempo, 1);
-            Self::set_max_allowed_uids(netuid, n);
-            let mut seed: u32 = 1;
-            for _ in 0..n {
-                let block_number: u64 = Self::get_current_block_as_u64();
-                let hotkey: T::AccountId =
-                    T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-                        .unwrap();
-                Self::append_neuron(netuid, &hotkey, block_number);
-                seed = seed + 1;
-            }
-            Ok(())
-        }
-
-        #[cfg(feature = "runtime-benchmarks")]
-        pub fn create_network_with_weights(
-            _: OriginFor<T>,
-            netuid: u16,
-            n: u16,
-            tempo: u16,
-            n_vals: u16,
-            n_weights: u16,
-        ) -> DispatchResult {
-            Self::init_new_network(netuid, tempo, 1);
-            Self::set_max_allowed_uids(netuid, n);
-            Self::set_max_allowed_validators(netuid, n_vals);
-            Self::set_min_allowed_weights(netuid, n_weights);
-            Self::set_emission_for_network(netuid, 1_000_000_000);
-            let mut seed: u32 = 1;
-            for _ in 0..n {
-                let block_number: u64 = Self::get_current_block_as_u64();
-                let hotkey: T::AccountId =
-                    T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-                        .unwrap();
-                Self::increase_stake_on_coldkey_hotkey_account(&hotkey, &hotkey, 1_000_000_000);
-                Self::append_neuron(netuid, &hotkey, block_number);
-                seed = seed + 1;
-            }
-            for uid in 0..n {
-                let uids: Vec<u16> = (0..n_weights).collect();
-                let values: Vec<u16> = vec![1; n_weights as usize];
-                let normalized_values = Self::normalize_weights(values);
-                let mut zipped_weights: Vec<(u16, u16)> = vec![];
-                for (uid, val) in uids.iter().zip(normalized_values.iter()) {
-                    zipped_weights.push((*uid, *val))
-                }
-                if uid < n_vals {
-                    Weights::<T>::insert(netuid, uid, zipped_weights);
-                } else {
-                    break;
-                }
-            }
-            Ok(())
-        }
     }
 }
 
@@ -2053,6 +2092,7 @@ pub enum CallType {
     AddDelegate,
     Register,
     Serve,
+    RegisterNetwork,
     Other,
 }
 impl Default for CallType {
@@ -2144,6 +2184,10 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
+            Some(Call::register_network { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
@@ -2179,6 +2223,10 @@ where
             Some(Call::serve_axon { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::Serve, transaction_fee, who.clone()))
+            }
+            Some(Call::register_network { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::RegisterNetwork, transaction_fee, who.clone()))
             }
             _ => {
                 let transaction_fee = 0;
