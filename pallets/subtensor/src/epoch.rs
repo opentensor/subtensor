@@ -507,18 +507,25 @@ impl<T: Config> Pallet<T> {
 
         // Get the root bonds for this network.
         let root_netuid: u16 = Self::get_root_netuid();
-        let mut root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds();   
+        let root_bonds: Vec<Vec<I32F32>> = Self::get_root_bonds();
 
         // Iter through local hotkeys, for each hotkey check if it is a root member.
         // If it is a root member, get its root uid, and attain its bonds
         let tau = I32F32::from_num( Self::get_tau() );
         let gamma = I32F32::from_num( Self::get_gamma() );
-        for (uid_i, hotkey_i) in hotkeys.iter() {
+        for (idx, (_, hotkey_i)) in hotkeys.iter().enumerate() {
             if Self::is_root_member( hotkey_i ) {
-                let root_val_uid: u16 = Uids::<T>::get( root_netuid, hotkey_i ).unwrap();
-                let root_bond_i: I32F32 = root_bonds[ root_val_uid as usize ][ netuid as usize ];
-                let multiplier = gamma.saturating_add(tau.saturating_mul(root_bond_i));
-                dividends[ *uid_i as usize ] = dividends[ *uid_i as usize ].saturating_mul(multiplier);
+                // Nesting hell
+                if let Some(root_val_uid) = Uids::<T>::get(root_netuid, hotkey_i) {
+                    if let Some(root_bonds_by_uid) = root_bonds.get(root_val_uid as usize) {
+                        if let Some(root_bond_i) = root_bonds_by_uid.get(netuid as usize) {
+                            let multiplier = gamma.saturating_add(tau.saturating_mul(*root_bond_i));
+                            if let Some(dividend_by_uid) = dividends.get_mut(idx) {
+                                *dividend_by_uid = dividend_by_uid.saturating_mul(multiplier);
+                            }
+                        }
+                    }
+                }
             }
         }
 
