@@ -67,7 +67,6 @@ impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 }
 
 // Interfaces to interact with other pallets
-
 use sp_runtime::BoundedVec;
 
 pub trait AuraInterface<AuthorityId, MaxAuthorities> {
@@ -76,4 +75,28 @@ pub trait AuraInterface<AuthorityId, MaxAuthorities> {
 
 impl<A, M> AuraInterface<A, M> for () {
 	fn change_authorities(_: BoundedVec<A, M>) {}
+}
+
+pub trait SubtensorInterface {
+	fn set_default_take(default_take: u16);
+	fn set_tx_rate_limit(rate_limit: u64);
+
+	fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
+
+	fn set_max_burn(netuid: u16, max_burn: u64);
+	fn set_min_burn(netuid: u16, min_burn: u64);
+	fn set_burn(netuid: u16, burn: u64);
+
+	fn set_max_difficulty(netuid: u16, max_diff: u64);
+	fn set_min_difficulty(netuid: u16, min_diff: u64);
+	fn set_difficulty(netuid: u16, diff: u64);
+
+	fn set_weights_rate_limit(netuid: u16, rate_limit: u64);
+
+	fn set_weights_version_key(netuid: u16, version: u64);
+
+	fn set_bonds_moving_average(netuid: u16, moving_average: u64);
+
+	fn set_max_allowed_validators(netuid: u16, max_validators: u16);
+	
 }
