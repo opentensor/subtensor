@@ -904,7 +904,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         max_allowed_validators: u16,
     ) -> DispatchResult {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        Self::ensure_root(origin)?;
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
