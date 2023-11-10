@@ -4,21 +4,19 @@ use frame_support::storage::IterableStorageDoubleMap;
 impl<T: Config> Pallet<T> {
 
     pub fn do_ostraca( 
-        origin: T::RuntimeOrigin
+        origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
-        // --- 0. Ensure called is origin.
-        ensure_root( origin )?;
 
         // --- 1. Ensure that the hotkey account exists this is only possible through registration.
         ensure!( Self::hotkey_account_exists(&hotkey), Error::<T>::NotDelegate);
 
         // --- 2. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
-        ensure!( Self::hotkey_is_delegate(&hotkey) Error::<T>::NotDelegate );
+        ensure!( Self::hotkey_is_delegate(&hotkey), Error::<T>::NotDelegate );
 
         // --- 3. Remove stake from delegate.
         // Iterate through all delegates and remove their stake back into their coldkey account.
-        for (delegate_coldkey_i, stake_i) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey ){
+        for (delegate_coldkey_i, stake_i) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( &hotkey ){
 
             // Convert to balance and add to the coldkey account.
             let stake_i_as_balance = Self::u64_to_balance(stake_i);
@@ -29,7 +27,7 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the coldkey - hotkey pairing.
                 Self::decrease_stake_on_coldkey_hotkey_account(
                     &delegate_coldkey_i,
-                    hotkey,
+                    &hotkey,
                     stake_i,
                 );
 

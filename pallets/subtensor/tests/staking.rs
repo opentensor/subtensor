@@ -2210,6 +2210,45 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
 }
 
 #[test]
+fn test_ostraca() {
+    new_test_ext().execute_with(|| {
+        let delegate_hotkey = U256::from(123570);
+        let delegate_coldkey = U256::from(123560);
+
+        // Add self stake.
+        let self_delegated_amount: u64 = 10;
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&delegate_coldkey, &delegate_hotkey, self_delegated_amount);
+
+        // Nominate 10 times.
+        for i in 1..10 {
+            let nominator_amount: u64 = 1000;
+            let nominator_coldkey = U256::from(123560 + i);
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator_coldkey, &delegate_hotkey, nominator_amount);
+        }
+
+        // Verify total stake is correct
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey),
+            10010
+        );
+        
+        // Run ostraca.
+        assert_ok!(SubtensorModule::sudo_ostraca(
+            <<Test as Config>::RuntimeOrigin>::signed( U256::from(0) ),
+            delegate_hotkey,
+        ));
+
+        // Check nominator balances.
+        assert_eq!(Balances::free_balance(delegate_coldkey), 10);
+        for i in 1..10 {
+            let nominator_coldkey = U256::from(123560 + i);
+            assert_eq!(Balances::free_balance(nominator_coldkey), 1000);
+            assert_eq!(SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_coldkey, &delegate_hotkey), 0 );
+        }
+    });
+}
+
+#[test]
 fn test_faucet_ok() {
     new_test_ext().execute_with(|| {
         let coldkey = U256::from(123560);
