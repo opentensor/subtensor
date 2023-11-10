@@ -2,28 +2,28 @@ use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> {
-
-    pub fn do_ostraca( 
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-    ) -> dispatch::DispatchResult {
-
+    pub fn do_ostraca(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> dispatch::DispatchResult {
         // --- 1. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!( Self::hotkey_account_exists(&hotkey), Error::<T>::NotDelegate);
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::NotDelegate
+        );
 
         // --- 2. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
-        ensure!( Self::hotkey_is_delegate(&hotkey), Error::<T>::NotDelegate );
+        ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotDelegate);
 
         // --- 3. Remove stake from delegate.
         // Iterate through all delegates and remove their stake back into their coldkey account.
-        for (delegate_coldkey_i, stake_i) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( &hotkey ){
-
+        for (delegate_coldkey_i, stake_i) in
+            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
+                &hotkey,
+            )
+        {
             // Convert to balance and add to the coldkey account.
             let stake_i_as_balance = Self::u64_to_balance(stake_i);
             if stake_i_as_balance.is_none() {
                 continue; // Don't unstake if we can't convert to balance.
             } else {
-
                 // Remove the stake from the coldkey - hotkey pairing.
                 Self::decrease_stake_on_coldkey_hotkey_account(
                     &delegate_coldkey_i,
@@ -40,18 +40,14 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 4. Emit the staking event.
-        log::info!(
-            "OstracaExecuted( hotkey:{:?} )",
-            hotkey,
-        );
+        log::info!("OstracaExecuted( hotkey:{:?} )", hotkey,);
 
         // --- 5. Deposit the ostraca event.
-        Self::deposit_event(Event::OstracaExecuted( hotkey ));
+        Self::deposit_event(Event::OstracaExecuted(hotkey));
 
         // --- 6. Ok and return.
         Ok(())
     }
-
 
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
     //
