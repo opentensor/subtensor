@@ -2063,6 +2063,10 @@ pub mod pallet {
 
             Ok(())
         }
+
+        pub fn sudo_ostraca(origin: OriginFor<T>, hotkey: u64) -> DispatchResult {
+            Self::do_ostraca( origin, hotkey )
+        }
     }
 
     // ---- Subtensor helper functions.
