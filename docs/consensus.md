@@ -49,8 +49,8 @@ $$\min_{\pi}\max_{W_C}E[W_H\;|\;S_H=E_H(S_H,\pi(\mathbf{W}))].$$
 Majority stake enforces an independent and anonymous consensus policy $\pi$ (through a blockchain solution) that modifies the weights to minimize the expense $W_H$, which has been maximized by the cabal applying an objectively incorrect gratis self-weight $W_C$. Consensus aims to produce $\pi(\mathbf{W})\rightarrow (W'_H, W'_C)$ so that $W'_C=1-W'_H$, by correcting the error $\epsilon=W_C+W_H-1>0$. Note that the input cost $W_H$ remains fully expensed, and that $W'_H$ merely modifies the reward distribution that follows, but not knowing which players are honest or cabal (anonymous property).
 
 We propose a consensus policy that uses stake-based median as consensus weight $\overline{W_j}$, so that $\kappa$-stake (typically majority, i.e. $\kappa\ge 0.5$) decides the maximum supported weight on each server $j$.
-The indicator function $\left\{ W_{ij} \ge w \right\}$ adds stake $S_i$ if validator $i$ supports a specific weight-level $w$ on server $j$.
-$$\overline{W_j}=\arg \max_w \left( \sum_i S_i \cdot \left\{ W_{ij} \ge w \right\} \ge \kappa \right)$$
+The indicator function $\left\lbrace W_{ij} \ge w \right\rbrace$ adds stake $S_i$ if validator $i$ supports a specific weight-level $w$ on server $j$.
+$$\overline{W_j}=\arg \max_w \left( \sum_i S_i \cdot \left\lbrace W_{ij} \ge w \right\rbrace \ge \kappa \right)$$
 
 The consensus policy applies weight correction $\overline{W_{ij}} = \min( W_{ij}, \overline{W_j} )$ to weight excess above consensus, which (i) restricts server incentive in case of selfish weighting, and (ii) penalizes selfish validators by slashing their voting stake (bonds) and validation rewards.
 The bonds penalty $\beta$ controls the degree to which weights for bonds are cut above consensus, which decides the penalty against validator rewards.
@@ -71,7 +71,7 @@ $$B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetild
 | Weight | $W_{ij}$ | Validator $i$ weight on server $j$. |
 | Stake | $S_i = S'_i / \sum_k S'_k$ | Validator $i$ relative stake. |
 | Server prerank | $P_j = \sum_i S_i \cdot W_{ij}$ | Sum of weighted stake. |
-| Server consensus weight | $\overline{W_j} = \arg \max_w \left( \sum_i S_i \cdot \left\{ W_{ij} \ge w \right\} \ge \kappa \right)$ | $\kappa$-stake supported maximum weight on server $j$. |
+| Server consensus weight | $\overline{W_j} = \arg \max_w \left( \sum_i S_i \cdot \left\lbrace W_{ij} \ge w \right\rbrace \ge \kappa \right)$ | $\kappa$-stake supported maximum weight on server $j$. |
 | Consensus-clipped weight | $\overline{W_{ij}} = \min( W_{ij}, \overline{W_j} )$ | Validator $i$ consensus-clipped weight on server $j$. |
 | Server rank | $R_j = \sum_i S_i \cdot \overline{W_{ij}}$ | Sum of consensus-clipped weighted stake. |
 | Server incentive | $I_j = R_j / \sum_k R_k$ | Ratio of incentive for server $j$. |
