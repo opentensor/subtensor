@@ -34,7 +34,7 @@ Yuma Consensus is adversarially-resilient when majority stake is honest, via sta
 ### Game-theoretic framework
 
 #### Preliminaries
-We consider a two-team game between (protagonist) honest stake ($0.5< S_H\le 1$) and (adversarial) cabal stake ($1 - S_H$), with $|H|$ honest and $|C|$ cabal players, that have $S_H = \sum_{i\in H}S_i$ honest stake and $1-S_H = \sum_{i\in C}S_i$ cabal stake. They compete for total fixed reward $E_H + E_C = 1$, with honest emission $E_H$ and cabal emission $E_C$, respectively, followed by stake updates $S_H'=\frac{S_H+E_H}{2}$ and $S_C'=\frac{1 - S_H+E_C}{2}$. The honest objective $S_H\le E_H$ at least retains scoring power $S_H$ over all action transitions in the game, otherwise when $E_H\le S_H$ honest emission will erode to 0 over time, despite a starting condition of $0.5<S_H$.
+We consider a two-team game between (protagonist) honest stake ($0.5< S_H\le 1$) and (adversarial) cabal stake ($1 - S_H$), with $|H|$ honest and $|C|$ cabal players, that have $S_H = \sum_{i\in H}S_i$ honest stake and $1-S_H = \sum_{i\in C}S_i$ cabal stake. They compete for total fixed reward $E_H + E_C = 1$, with honest emission $E_H$ and cabal emission $E_C$, respectively, followed by stake updates $S_H'=\frac{S_H+E_H}{2}$ and $S_C'=\frac{1 - S_H+E_C}{2}$. The honest objective $S_H\le E_H$ at least retains scoring power $S_H$ over all action transitions in the game, otherwise when $E_H\le S_H$ honest emission will erode to 0 over time, despite a starting condition of $0.5\lt S_H$.
 
 We assume honest stake sets objectively correct weights $W_H$ on itself, and $1 - W_H$ on the cabal, where honest weight $W_H$ represents an ongoing expense of the honest player such as utility production, sustained throughout the game. However, cabal stake has an action policy that freely sets weight $W_C$ on itself, and $1 - W_C$ on the honest player, at no cost to the cabal player.
 Specifically, honest players $i\in H$ set $W_H = \sum_{j\in H}W_{ij}$ self-weight and $1-W_H = \sum_{j\in C}W_{ij}$ weight on cabal players, while cabal players $i\in C$ set $W_C = \sum_{j\in C}W_{ij}$ self-weight and $1-W_C = \sum_{j\in H}W_{ij}$ weight on honest players.
@@ -48,9 +48,9 @@ $$\min_{\pi}\max_{W_C}E[W_H\;|\;S_H=E_H(S_H,\pi(\mathbf{W}))].$$
 #### Consensus policy
 Majority stake enforces an independent and anonymous consensus policy $\pi$ (through a blockchain solution) that modifies the weights to minimize the expense $W_H$, which has been maximized by the cabal applying an objectively incorrect gratis self-weight $W_C$. Consensus aims to produce $\pi(\mathbf{W})\rightarrow (W'_H, W'_C)$ so that $W'_C=1-W'_H$, by correcting the error $\epsilon=W_C+W_H-1>0$. Note that the input cost $W_H$ remains fully expensed, and that $W'_H$ merely modifies the reward distribution that follows, but not knowing which players are honest or cabal (anonymous property).
 
-We propose a consensus policy that uses stake-based median as consensus weight $\overline{W}_j$, so that $\kappa$-stake (typically majority, i.e. $\kappa\ge 0.5$) decides the maximum supported weight on each server $j$.
+We propose a consensus policy that uses stake-based median as consensus weight $\overline{W_j}$, so that $\kappa$-stake (typically majority, i.e. $\kappa\ge 0.5$) decides the maximum supported weight on each server $j$.
 The indicator function $\left\{ W_{ij} \ge w \right\}$ adds stake $S_i$ if validator $i$ supports a specific weight-level $w$ on server $j$.
-$$\overline{W}_{j}=\arg \max_w \left( \sum_i S_i \cdot \left\{ W_{ij} \ge w \right\} \ge \kappa \right)$$
+$$\overline{W_j}=\arg \max_w \left( \sum_i S_i \cdot \left\{ W_{ij} \ge w \right\} \ge \kappa \right)$$
 
 The consensus policy applies weight correction $\overline{W_{ij}} = \min( W_{ij}, \overline{W_j} )$ to weight excess above consensus, which (i) restricts server incentive in case of selfish weighting, and (ii) penalizes selfish validators by slashing their voting stake (bonds) and validation rewards.
 The bonds penalty $\beta$ controls the degree to which weights for bonds are cut above consensus, which decides the penalty against validator rewards.
@@ -71,7 +71,7 @@ $$B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetild
 | Weight | $W_{ij}$ | Validator $i$ weight on server $j$. |
 | Stake | $S_i = S'_i / \sum_k S'_k$ | Validator $i$ relative stake. |
 | Server prerank | $P_j = \sum_i S_i \cdot W_{ij}$ | Sum of weighted stake. |
-| Server consensus weight | $\overline{W_j}=\arg \max_w \left( \sum_i S_i \cdot \left\{ W_{ij} \ge w \right\} \ge \kappa \right)$ | $\kappa$-stake supported maximum weight on server $j$. |
+| Server consensus weight | $\overline{W_j} = \arg \max_w \left( \sum_i S_i \cdot \left\{ W_{ij} \ge w \right\} \ge \kappa \right)$ | $\kappa$-stake supported maximum weight on server $j$. |
 | Consensus-clipped weight | $\overline{W_{ij}} = \min( W_{ij}, \overline{W_j} )$ | Validator $i$ consensus-clipped weight on server $j$. |
 | Server rank | $R_j = \sum_i S_i \cdot \overline{W_{ij}}$ | Sum of consensus-clipped weighted stake. |
 | Server incentive | $I_j = R_j / \sum_k R_k$ | Ratio of incentive for server $j$. |
@@ -128,7 +128,7 @@ Bitcoin has its well-known 51% attack, while Yuma Consensus has a 40% stake + 30
 This means that a bad actor with 40% stake that produces 30% utility or more can gain majority stake over time.
 In practice, we typically observe standard deviations of $0.2\mu$ to $0.4\mu$, so Yuma Consensus guarantees honest 60% stake retention for ~70% honest utility or more.
 
-#### Majority ratio ($\kappa$)
+#### Majority ratio (κ)
 Hyperparameter `Kappa` sets the ratio of stake that decides consensus, with a typical recommended value of $\kappa=0.5$, which means that at least 50% of stake needs to be in consensus on the maximum weight assignable to a specific server.
 Reducing $\kappa$ weakens consensus and allows smaller cabals to manipulate rewards, in particular $\kappa=0.4$ demands higher honest utility when $S_H<0.6$ (such as $0.51$ and $0.55$).
 Increasing $\kappa$ demands greater honest stake, e.g. when $\kappa=0.6$ there is no protection for $S_H<0.6$ even with $W_H=1$.
@@ -138,7 +138,7 @@ Hence $\kappa=0.5$ is typically the most sensible setting.
 <img src="img/kappa_50.svg" width="270">
 <img src="img/kappa_60.svg" width="270">
 
-#### Bonds penalty ($\beta$)
+#### Bonds penalty (β)
 Yuma Consensus separately adjusts server incentive $I_j$ and validation reward $D_i$ to counter manipulation, where the extent of validation reward correction depends on the bonds penalty $\beta$.
 Server incentive is always corrects fully, but validation reward correction is adjustable to control the penalty of out-of-consensus validation.
 Lower-stake validators may experience lower service priority, which can result in partial validation, or exploratory validators may skew weighting toward emergent high-utility.
@@ -150,7 +150,7 @@ Full bonds penalty $\beta=1$ may not be desired, due to the presence of non-adve
 
 We expect that greater bonds penalty will penalize out-of-consensus validators more, which means less emission going to cabals. Comprehensive simulation with $\beta = 0$, $0.5$, and $1$ respectively show 78%, 76%, and 73% honest utility requirement. This confirms the expectation, that greater bonds penalty means greater inflation going to the honest majority.
 
-#### Emission ratio ($\xi$)
+#### Emission ratio (ξ)
 Servers need incentive to deliver high utility, and validators need rewards to secure the network.
 We expect that more emission going to validators will improve security guarantees, since self-serving validation can then be economically disincentivized.
 
