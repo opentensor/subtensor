@@ -96,9 +96,9 @@ The x-axis is major self-weight and the y-axis is minor self-weight, and each co
 Major/honest self-weight $W_H$ is the true honest utility, while minor/cabal self-weight $W_C$ is an arbitrary value a self-serving coalition may self-report.
 
 <p align="center">
- <img src="img/emission-60.svg" width="270">
- <img src="img/emission-70.svg" width="270">
- <img src="img/retention-lines.svg" width="270">
+ <img src="img/emission-60.svg" width="295">
+ <img src="img/emission-70.svg" width="295">
+ <img src="img/retention-lines.svg" width="295">
 </p>
 
 To understand how we construct these plots, let us first consider contour plot for a single major/honest stake setting $S_H=0.6$. Here each contour value is the honest emission $E_H$, and we highlight at (1) the specific contour $E_H=0.6$ that matches the honest stake. This means that any weight setting on contour $E_H=S_H=0.6$ will retain honest stake, while any setting to the right of it will grow honest stake.
