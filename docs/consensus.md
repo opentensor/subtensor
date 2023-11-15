@@ -23,7 +23,7 @@ Yuma Consensus guarantees long-term network honesty despite persistent adversari
 
 Yuma Consensus is adversarially-resilient when majority stake is honest, via stake-based median scoring that punishes selfish weighting by minority stake (cabal). We clip excess weight above the maximum weight supported by at least $\kappa$-majority stake, which ensures selfish weighting is corrected and reduces voting stake of cabal validators via bonds penalty $\beta$.
 
-<img src="img/consensus_plots.png" width="817">
+<img src="img/consensus_plots.png" width="1000">
 
 **Max weight supported by $\kappa$-majority stake**: We can plot a consensus graph for each active miner by ordering weights (y-axis) set on the target miner and recording cumulative stake (x-axis) of the source validators. The weight read at $x=1-\kappa$ ratio of total active stake is the stake-based median, which means that at least $\kappa$ stake supports that weight decision. Typically $\kappa=0.5$, which means that 50% of stake needs to agree on the relative utility of a miner, and we clip excess weight above this median to encourage validators to vote fairly and uphold consensus.
 
