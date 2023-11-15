@@ -40,10 +40,10 @@ We assume honest stake sets objectively correct weights $W_H$ on itself, and $1 
 Specifically, honest players $i\in H$ set $W_H = \sum_{j\in H}W_{ij}$ self-weight and $1-W_H = \sum_{j\in C}W_{ij}$ weight on cabal players, while cabal players $i\in C$ set $W_C = \sum_{j\in C}W_{ij}$ self-weight and $1-W_C = \sum_{j\in H}W_{ij}$ weight on honest players.
 
 The cabal has the objective to maximize the required honest self-weight expense $W_H$ via
-$$W_C^*=\arg\max_{W_C}E[W_H | S_H=E_H(S_H,W_H,W_C)].$$
+$$W_C^*=\arg\max_{W_C}E[W_H\ | \ S_H=E_H(S_H,W_H,W_C)].$$
 
 We then assume the honest majority $S_H>0.5$ can counter with a consensus policy $\pi$ allowed to modify all weights modulo player labels, so it is purely based on the anonymous weight distribution itself, optimizing the Nash equilibrium
-$$\min_{\pi}\max_{W_C}E[W_H | S_H=E_H(S_H,\pi(\mathbf{W}))].$$
+$$\min_{\pi}\max_{W_C}E[W_H\ | \ S_H=E_H(S_H,\pi(\mathbf{W}))].$$
 
 #### Consensus policy
 Majority stake enforces an independent and anonymous consensus policy $\pi$ (through a blockchain solution) that modifies the weights to minimize the expense $W_H$, which has been maximized by the cabal applying an objectively incorrect gratis self-weight $W_C$. Consensus aims to produce $\pi(\mathbf{W})\rightarrow (W'_H, W'_C)$ so that $W'_C=1-W'_H$, by correcting the error $\epsilon=W_C+W_H-1>0$. Note that the input cost $W_H$ remains fully expensed, and that $W'_H$ merely modifies the reward distribution that follows, but not knowing which players are honest or cabal (anonymous property).
