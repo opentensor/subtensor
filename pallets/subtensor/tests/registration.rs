@@ -1558,6 +1558,7 @@ fn test_registration_disabled() {
         //add network
         add_network(netuid, tempo, 0);
         SubtensorModule::set_network_registration_allowed(netuid, false);
+        SubtensorModule::set_network_pow_registration_allowed(netuid, false);
 
         let result = SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),

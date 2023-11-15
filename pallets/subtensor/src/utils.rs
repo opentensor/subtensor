@@ -769,6 +769,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_network_pow_registration_allowed(netuid: u16) -> bool {
+        NetworkPowRegistrationAllowed::<T>::get(netuid)
+    }
+    pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
+        NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed)
+    }
+    pub fn do_sudo_set_network_pow_registration_allowed(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        registration_allowed: bool,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+
+        Self::set_network_pow_registration_allowed(netuid, registration_allowed);
+        log::info!(
+            "NetworkPowRegistrationAllowed( registration_allowed: {:?} ) ",
+            registration_allowed
+        );
+        Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
+        Ok(())
+    }
+
     pub fn get_target_registrations_per_interval(netuid: u16) -> u16 {
         TargetRegistrationsPerInterval::<T>::get(netuid)
     }

@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::if_subnet_allows_registration(netuid),
+            Self::get_network_registration_allowed(netuid),
             Error::<T>::RegistrationDisabled
         );
 
@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::if_subnet_allows_registration(netuid),
+            Self::get_network_pow_registration_allowed(netuid),
             Error::<T>::RegistrationDisabled
         );
 

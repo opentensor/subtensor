@@ -417,6 +417,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> network_pow_allowed
+    pub type NetworkPowRegistrationAllowed<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
@@ -844,6 +847,7 @@ pub mod pallet {
         TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
         Sudid(DispatchResult),         // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
+        PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),             // --- Event created when setting tempo on a network
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
@@ -2052,7 +2056,6 @@ pub mod pallet {
             Ok(())
         }
 
-
         #[pallet::call_index(68)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
@@ -2070,6 +2073,13 @@ pub mod pallet {
             ));
 
             Ok(())
+        }
+
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult {
+            Self::do_sudo_set_network_pow_registration_allowed(origin, netuid, registration_allowed)
         }
     }
 
