@@ -118,9 +118,11 @@ RUST_BACKTRACE=1 SKIP_WASM_BUILD=1 cargo test -- _map_consensus_guarantees --exa
 #### Subjectivity variance
 Yuma Consensus corrects reward manipulation in subjective utility networks, but the extent of subjectivity influences the exact consensus guarantees. In particular, we expect lower subjectivity to offer improved guarantees since there is stronger consensus. However, for higher variance in assigned weights it is easier to hide reward manipulation, we then expect poorer guarantees.
 
-<img src="img/weights_stddev_0.svg" width="270">
-<img src="img/weights_stddev_20.svg" width="270">
-<img src="img/weights_stddev_40.svg" width="270">
+<p align="center">
+ <img src="img/weights_stddev_0.svg" width="330">
+ <img src="img/weights_stddev_20.svg" width="330">
+ <img src="img/weights_stddev_40.svg" width="330">
+</p>
 
 We assume normally distributed weights originating from a particular side, either honest or cabal, then we modify the weight deviation magnitude $\sigma(W)$ in terms of the mean weight $\mu(W)$.
 Weight deviations of $\sigma=0\mu$, $0.2\mu$, and $0.4\mu$ respectively require 60%, 67%, and 73% honest utility to preserve 60% honest stake.
@@ -136,9 +138,11 @@ Reducing $\kappa$ weakens consensus and allows smaller cabals to manipulate rewa
 Increasing $\kappa$ demands greater honest stake, e.g. when $\kappa=0.6$ there is no protection for $S_H<0.6$ even with $W_H=1$.
 Hence $\kappa=0.5$ is typically the most sensible setting.
 
-<img src="img/kappa_40.svg" width="270">
-<img src="img/kappa_50.svg" width="270">
-<img src="img/kappa_60.svg" width="270">
+<p align="center">
+ <img src="img/kappa_40.svg" width="330">
+ <img src="img/kappa_50.svg" width="330">
+ <img src="img/kappa_60.svg" width="330">
+</p>
 
 #### Bonds penalty (β)
 Yuma Consensus separately adjusts server incentive $I_j$ and validation reward $D_i$ to counter manipulation, where the extent of validation reward correction depends on the bonds penalty $\beta$.
@@ -146,9 +150,11 @@ Server incentive is always corrects fully, but validation reward correction is a
 Lower-stake validators may experience lower service priority, which can result in partial validation, or exploratory validators may skew weighting toward emergent high-utility.
 Full bonds penalty $\beta=1$ may not be desired, due to the presence of non-adversarial cases like these.
 
-<img src="img/bonds_penalty_0.svg" width="270">
-<img src="img/bonds_penalty_50.svg" width="270">
-<img src="img/bonds_penalty_100.svg" width="270">
+<p align="center">
+ <img src="img/bonds_penalty_0.svg" width="330">
+ <img src="img/bonds_penalty_50.svg" width="330">
+ <img src="img/bonds_penalty_100.svg" width="330">
+</p>
 
 We expect that greater bonds penalty will penalize out-of-consensus validators more, which means less emission going to cabals. Comprehensive simulation with $\beta = 0$, $0.5$, and $1$ respectively show 78%, 76%, and 73% honest utility requirement. This confirms the expectation, that greater bonds penalty means greater inflation going to the honest majority.
 
@@ -156,9 +162,11 @@ We expect that greater bonds penalty will penalize out-of-consensus validators m
 Servers need incentive to deliver high utility, and validators need rewards to secure the network.
 We expect that more emission going to validators will improve security guarantees, since self-serving validation can then be economically disincentivized.
 
-<img src="img/validator_emission_0.svg" width="270">
-<img src="img/validator_emission_25.svg" width="270">
-<img src="img/validator_emission_50.svg" width="270">
+<p align="center">
+ <img src="img/validator_emission_0.svg" width="330">
+ <img src="img/validator_emission_25.svg" width="330">
+ <img src="img/validator_emission_50.svg" width="330">
+</p>
 
 We set validation reward ratio at $\xi=0$, $0.25$, and $0.5$ and respectively observe 82%, 78%, 73% honest utility requirement for 60% honest stake preservation.
 This means that network security improves as the validation reward ratio is increased, although a significant server incentive ratio still needs to be maintained to ensure overall high utility.
