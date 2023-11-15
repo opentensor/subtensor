@@ -1,7 +1,7 @@
 use frame_support::traits::Currency;
 
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, assert_err};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use frame_system::Config;
@@ -1569,5 +1569,121 @@ fn test_registration_disabled() {
             coldkey_account_id,
         );
         assert_eq!(result, Err(Error::<Test>::RegistrationDisabled.into()));
+    });
+}
+
+#[test]
+fn test_hotkey_swap_ok() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(667); 
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
+
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        let new_hotkey = U256::from(1337);
+        assert_ok!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey));
+        assert_ne!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey), coldkey_account_id);
+    });
+}
+
+#[test]
+fn test_hotkey_swap_not_owner() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(2);
+        let not_owner_coldkey = U256::from(3);
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        let new_hotkey = U256::from(4);
+        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey), hotkey_account_id, new_hotkey), Error::<Test>::NonAssociatedColdKey);
+    });
+}
+
+#[test]
+fn test_hotkey_swap_same_key() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(2);
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, hotkey_account_id), Error::<Test>::AlreadyRegistered);
+    });
+}
+
+#[test]
+fn test_hotkey_swap_registered_key() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(2);
+
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+
+        // Subscribe and check extrinsic output
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id
+        ));
+
+        let new_hotkey = U256::from(3);
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            new_hotkey
+        ));
+
+        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey), Error::<Test>::AlreadyRegistered);
     });
 }

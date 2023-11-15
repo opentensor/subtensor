@@ -855,6 +855,7 @@ pub mod pallet {
         NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
+        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId} // Event created when a hotkey is swapped 
     }
 
     // Errors inform users that something went wrong.
@@ -914,6 +915,7 @@ pub mod pallet {
         OperationNotPermittedonRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
+        NotEnoughBalance,
     }
 
     // ==================
@@ -1518,6 +1520,12 @@ pub mod pallet {
             hotkey: T::AccountId,
         ) -> DispatchResult {
             Self::do_burned_registration(origin, netuid, hotkey)
+        }
+
+        #[pallet::call_index(69)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn swap_hotkey(origin: OriginFor<T>, hotkey: T::AccountId, new_hotkey: T::AccountId) -> DispatchResultWithPostInfo {
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
         }
 
         #[pallet::call_index(8)]
