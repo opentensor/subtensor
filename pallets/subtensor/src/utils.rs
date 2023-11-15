@@ -613,10 +613,6 @@ impl<T: Config> Pallet<T> {
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
-        ensure!(
-            immunity_period <= 7200,
-            Error::<T>::StorageValueOutOfRange
-        );
 
         Self::set_immunity_period(netuid, immunity_period);
         log::info!(
