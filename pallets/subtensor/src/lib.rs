@@ -1526,7 +1526,7 @@ pub mod pallet {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        #[pallet::call_index(69)]
+        #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(origin: OriginFor<T>, hotkey: T::AccountId, new_hotkey: T::AccountId) -> DispatchResultWithPostInfo {
             Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
