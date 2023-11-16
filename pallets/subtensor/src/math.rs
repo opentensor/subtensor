@@ -1108,13 +1108,13 @@ pub fn mat_ema_alpha_vec(
     if new[0].len() == 0 {
         return vec![vec![]; 1];
     }
-    let mut result: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); new[0].len()]; new.len()];
+    let mut result: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); new[0].len()]; new.len()];
     assert!(new.len() == old.len());
     for i in 0..new.len() {
         assert!(new[i].len() == old[i].len());
         for j in 0..new[i].len() {
-            alpha = alpha[j];
-            one_minus_alpha = I64F64::from_num(1.0) - alpha;
+            let alpha: I32F32 = alpha[ j ];
+            let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha;
             result[i][j] = alpha * new[i][j] + one_minus_alpha * old[i][j]
         }
     }
@@ -1137,11 +1137,11 @@ pub fn mat_ema_alpha_vec_sparse(
     for i in 0..new.len() {
         let mut row: Vec<I32F32> = vec![zero; n];
         for (j, value) in new[i].iter() {
-            alpha = alpha[j];
+            let alpha: I32F32 = alpha[*j as usize];
             row[*j as usize] += alpha * value;
         }
         for (j, value) in old[i].iter() {
-            one_minus_alpha = I32F32::from_num(1.0) - alpha[j];
+            let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha[*j as usize];
             row[*j as usize] += one_minus_alpha * value;
         }
         for (j, value) in row.iter().enumerate() {

@@ -866,12 +866,12 @@ pub mod pallet {
         NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
+        LiquidAlphaSet(u16, bool),
         HotkeySwapped {
             coldkey: T::AccountId,
             old_hotkey: T::AccountId,
             new_hotkey: T::AccountId,
         }, // Event created when a hotkey is swapped
-        LiquidAlphaSet(u16, bool),                // Event created when liquid alpha is set
     }
 
     // Errors inform users that something went wrong.
@@ -2099,7 +2099,7 @@ pub mod pallet {
             Self::do_sudo_set_network_pow_registration_allowed(origin, netuid, registration_allowed)
         }
 
-        #[pallet::call_index(69)]
+        #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_liquid_alpha_on(

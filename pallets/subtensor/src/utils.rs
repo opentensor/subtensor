@@ -728,7 +728,7 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::insert(netuid, liquid_on);
     }
     pub fn do_sudo_set_liquid_alpha_on(
-        origin: OriginFor<T>,
+        origin: T::RuntimeOrigin,
         netuid: u16,
         liquid_on: bool,
     ) -> DispatchResult {
