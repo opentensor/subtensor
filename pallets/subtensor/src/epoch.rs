@@ -168,8 +168,13 @@ impl<T: Config> Pallet<T> {
     
         // Compute bonds moving average.
         let bonds_moving_average: I64F64 = I64F64::from_num( Self::get_bonds_moving_average( netuid ) ) / I64F64::from_num( 1_000_000 );
-        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
-        let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds, alpha );
+        if LiquidAlphaOn::<T>::get( netuid ) {
+            let alpha: Vec<I64F64> = consensus.iter().map( |c: &I32F32| I32F32::from_num( 1.0 ) - c ).collect();
+            let mut ema_bonds: Vec<Vec<(u16, I32F32)>> = mat_ema_alpha_vec( &bonds_delta, &bonds, alpha );
+        } else {
+            let alpha: I32F32 = I32F32::from_num(1.0) - I32F32::from_num( bonds_moving_average );
+            let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema( &bonds_delta, &bonds, alpha );
+        }
         inplace_col_normalize( &mut ema_bonds ); // sum_i b_ij = 1
         // log::trace!( "emaB:\n{:?}\n", &ema_bonds );
 
@@ -464,10 +469,13 @@ impl<T: Config> Pallet<T> {
     
         // Compute bonds moving average.
         let bonds_moving_average: I64F64 = I64F64::from_num( Self::get_bonds_moving_average( netuid ) ) / I64F64::from_num( 1_000_000 );
-        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
-        let mut ema_bonds: Vec<Vec<(u16, I32F32)>> = mat_ema_sparse( &bonds_delta, &bonds, alpha );
-
-        // Normalize EMA bonds.
+        if LiquidAlphaOn::<T>::get( netuid ) {
+            let alpha: Vec<I64F64> = consensus.iter().map( |c: &I32F32| I32F32::from_num( 1.0 ) - c ).collect();
+            let mut ema_bonds: Vec<Vec<(u16, I32F32)>> = mat_ema_alpha_vec_sparse( &bonds_delta, &bonds, alpha );
+        } else {
+            let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num( bonds_moving_average );
+            let mut ema_bonds: Vec<Vec<(u16, I32F32)>> = mat_ema_sparse( &bonds_delta, &bonds, alpha );
+        }
         inplace_col_normalize_sparse( &mut ema_bonds, n ); // sum_i b_ij = 1
         // log::trace!( "emaB: {:?}", &ema_bonds );
 

@@ -719,6 +719,24 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_liquid_alpha_on( netuid: u16 ) -> bool {
+        LiquidAlphaOn::<T>::get(netuid)
+    }
+    pub fn set_liquid_alpha_on( netuid: u16, liquid_on: bool ) {
+        LiquidAlphaOn::<T>::insert(netuid, liquid_on);
+    }
+    pub fn do_sudo_set_liquid_alpha_on( origin: OriginFor<T>, netuid: u16, liquid_on: bool ) -> DispatchResult {
+        ensure_root(origin)?;
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+        Self::set_liquid_alpha_on( netuid, liquid_on );
+        log::info!("LiquidAlphaSet( netuid: {:?} liquid_on: {:?} ) ", netuid, liquid_on);
+        Self::deposit_event(Event::LiquidAlphaSet(netuid, liquid_on));
+        Ok(())
+    }
+
     pub fn get_activity_cutoff(netuid: u16) -> u16 {
         ActivityCutoff::<T>::get(netuid)
     }

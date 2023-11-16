@@ -1094,6 +1094,61 @@ pub fn mat_ema_sparse(
     result
 }
 
+// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
+// `alpha_` is the EMA coefficient passed as a vector per col.
+#[allow(dead_code)]
+pub fn mat_ema_alpha_vec( new: &Vec<Vec<I32F32>>, old: &Vec<Vec<I32F32>>, alpha: &Vec<I32F32> ) -> Vec<Vec<I32F32>> {
+    if new.len() == 0 {
+        return vec![vec![]; 1];
+    }
+    if new[0].len() == 0 {
+        return vec![vec![]; 1];
+    }
+    let mut result: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); new[0].len()]; new.len()];
+    assert!(new.len() == old.len());
+    for i in 0..new.len() {
+        assert!(new[i].len() == old[i].len());
+        for j in 0..new[i].len() {
+            alpha = alpha[j];
+            one_minus_alpha = I64F64::from_num(1.0) - alpha;
+            result[i][j] = alpha * new[i][j] + one_minus_alpha * old[i][j]
+        }
+    }
+    result
+}
+
+// Return sparse matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
+// `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
+// higher alpha discounts older observations faster.
+#[allow(dead_code)]
+pub fn mat_ema_alpha_vec_sparse(
+    new: &Vec<Vec<(u16, I32F32)>>,
+    old: &Vec<Vec<(u16, I32F32)>>,
+    alpha: &Vec<I32F32> ,
+) -> Vec<Vec<(u16, I32F32)>> {
+    assert!(new.len() == old.len());
+    let n = new.len(); // assume square matrix, rows=cols
+    let zero: I32F32 = I32F32::from_num(0.0);
+    let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+    for i in 0..new.len() {
+        let mut row: Vec<I32F32> = vec![zero; n];
+        for (j, value) in new[i].iter() {
+            alpha = alpha[j];
+            row[*j as usize] += alpha * value;
+        }
+        for (j, value) in old[i].iter() {
+            one_minus_alpha = I32F32::from_num(1.0) - alpha[j];
+            row[*j as usize] += one_minus_alpha * value;
+        }
+        for (j, value) in row.iter().enumerate() {
+            if *value > zero {
+                result[i].push((j as u16, *value))
+            }
+        }
+    }
+    result
+}
+
 // Return sparse matrix only with elements >= threshold of an input sparse matrix.
 #[allow(dead_code)]
 pub fn sparse_threshold(w: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32) -> Vec<Vec<(u16, I32F32)>> {

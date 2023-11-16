@@ -352,6 +352,10 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    pub fn DefaultLiquidAlphaOn<T: Config>() -> bool {
+        false
+    }
+    #[pallet::type_value]
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
         false
     }
@@ -414,6 +418,9 @@ pub mod pallet {
         ValueQuery,
         DefaultIsNetworkMember<T>,
     >;
+    #[pallet::storage] // --- MAP ( netuid ) --> network uses liquid alpha
+    pub type LiquidAlphaOn<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultLiquidAlphaOn<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
@@ -859,7 +866,8 @@ pub mod pallet {
         NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId} // Event created when a hotkey is swapped 
+        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId}, // Event created when a hotkey is swapped 
+        LiquidAlphaSet( u16, bool ), // Event created when liquid alpha is set
     }
 
     // Errors inform users that something went wrong.
@@ -2081,6 +2089,13 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult {
             Self::do_sudo_set_network_pow_registration_allowed(origin, netuid, registration_allowed)
+        }
+
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_liquid_alpha_on(origin: OriginFor<T>, netuid: u16, liquid_on: bool) -> DispatchResult {
+            Self::do_sudo_set_liquid_alpha_on(origin, netuid, liquid_on)
         }
     }
 
