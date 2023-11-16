@@ -533,3 +533,44 @@ fn test_network_pruning() {
         assert_eq!(SubtensorModule::get_total_issuance(), 585_930_498);
     });
 }
+
+#[test]
+fn test_network_prune_results() {
+    new_test_ext().execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+
+        SubtensorModule::set_network_immunity_period(3);
+        SubtensorModule::set_network_min_lock(0);
+        SubtensorModule::set_network_rate_limit(0);
+
+        let owner: U256 = U256::from(0);
+        SubtensorModule::add_balance_to_coldkey_account(&owner, 1_000_000_000_000_000);
+
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(owner)
+        ));
+        step_block(3);
+
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(owner)
+        ));
+        step_block(3);
+
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(owner)
+        ));
+        step_block(3);
+
+        // lowest emission
+        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64]);
+        assert_eq!(SubtensorModule::get_subnet_to_prune(), 2u16);
+
+        // equal emission, creation date
+        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64]);
+        assert_eq!(SubtensorModule::get_subnet_to_prune(), 3u16);
+
+        // equal emission, creation date
+        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64]);
+        assert_eq!(SubtensorModule::get_subnet_to_prune(), 1u16);
+    });
+}
