@@ -918,7 +918,7 @@ impl<T: Config> Pallet<T> {
             netuids.push(netuid);
         }
 
-        // Now we sort by emission, and then by subnet.
+        // Now we sort by emission, and then by subnet creation time.
         netuids.sort_by(|a, b| {
             use sp_std::cmp::Ordering;
 
