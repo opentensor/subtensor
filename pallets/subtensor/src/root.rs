@@ -936,7 +936,10 @@ impl<T: Config> Pallet<T> {
 
         log::info!("{:?}", netuids);
 
-        return 0
+        match netuids.last() {
+            Some(netuid) => *netuid,
+            None => 0
+        }
     }
 
     pub fn get_network_registered_block(netuid: u16) -> u64 {
