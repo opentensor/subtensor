@@ -855,19 +855,23 @@ pub mod pallet {
         Sudid(DispatchResult),         // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
-        TempoSet(u16, u16),             // --- Event created when setting tempo on a network
+        TempoSet(u16, u16),                // --- Event created when setting tempo on a network
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
-        Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
-        SubnetOwnerCutSet(u16),    // Event created when the subnet owner cut is set.
-        NetworkRateLimitSet(u64), // Event created when the network creation rate limit is set.
+        Faucet(T::AccountId, u64),    // Event created when the facuet it called on the test net.
+        SubnetOwnerCutSet(u16),       // Event created when the subnet owner cut is set.
+        NetworkRateLimitSet(u64),     // Event created when the network creation rate limit is set.
         NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
-        NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
-        SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
+        NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
+        SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId}, // Event created when a hotkey is swapped 
-        LiquidAlphaSet( u16, bool ), // Event created when liquid alpha is set
+        HotkeySwapped {
+            coldkey: T::AccountId,
+            old_hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+        }, // Event created when a hotkey is swapped
+        LiquidAlphaSet(u16, bool),                // Event created when liquid alpha is set
     }
 
     // Errors inform users that something went wrong.
@@ -1146,12 +1150,16 @@ pub mod pallet {
             let mut weight = frame_support::weights::Weight::from_ref_time(0);
 
             // Hex encoded foundation coldkey
-            let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
+            let hex = hex_literal::hex![
+                "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
+            ];
             weight = weight
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 .saturating_add(migration::migrate_create_root_network::<T>())
-                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(hex))
+                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
+                    hex,
+                ))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 .saturating_add(migration::migrate_delete_subnet_21::<T>());
 
@@ -1536,7 +1544,11 @@ pub mod pallet {
 
         #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn swap_hotkey(origin: OriginFor<T>, hotkey: T::AccountId, new_hotkey: T::AccountId) -> DispatchResultWithPostInfo {
+        pub fn swap_hotkey(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             //Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
             Ok(().into())
         }
@@ -1618,7 +1630,7 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_sudo_set_min_burn(origin, netuid, min_burn)
         }
-        
+
         #[pallet::call_index(20)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().reads(1))
@@ -1982,7 +1994,7 @@ pub mod pallet {
             if cfg!(feature = "pow-faucet") {
                 return Self::do_faucet(origin, block_number, nonce, work);
             }
-            
+
             Err(Error::<T>::FaucetDisabled.into())
         }
 
@@ -2004,25 +2016,26 @@ pub mod pallet {
         #[pallet::call_index(64)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult {
+        pub fn sudo_set_network_rate_limit(
+            origin: OriginFor<T>,
+            rate_limit: u64,
+        ) -> DispatchResult {
             Self::do_sudo_set_network_rate_limit(origin, rate_limit)
         }
 
         #[pallet::call_index(65)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_network_immunity_period(origin: OriginFor<T>, immunity_period: u64) -> DispatchResult {
+        pub fn sudo_set_network_immunity_period(
+            origin: OriginFor<T>,
+            immunity_period: u64,
+        ) -> DispatchResult {
             ensure_root(origin)?;
 
-            Self::set_network_immunity_period( immunity_period );
+            Self::set_network_immunity_period(immunity_period);
 
-            log::info!(
-                "NetworkImmunityPeriod( period: {:?} ) ",
-                immunity_period
-            );
-            Self::deposit_event(Event::NetworkImmunityPeriodSet(
-                immunity_period,
-            ));
+            log::info!("NetworkImmunityPeriod( period: {:?} ) ", immunity_period);
+            Self::deposit_event(Event::NetworkImmunityPeriodSet(immunity_period));
 
             Ok(())
         }
@@ -2030,18 +2043,16 @@ pub mod pallet {
         #[pallet::call_index(66)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_network_min_lock_cost(origin: OriginFor<T>, lock_cost: u64) -> DispatchResult {
+        pub fn sudo_set_network_min_lock_cost(
+            origin: OriginFor<T>,
+            lock_cost: u64,
+        ) -> DispatchResult {
             ensure_root(origin)?;
 
-            Self::set_network_min_lock( lock_cost );
+            Self::set_network_min_lock(lock_cost);
 
-            log::info!(
-                "NetworkMinLockCost( lock_cost: {:?} ) ",
-                lock_cost
-            );
-            Self::deposit_event(Event::NetworkMinLockCostSet(
-                lock_cost,
-            ));
+            log::info!("NetworkMinLockCost( lock_cost: {:?} ) ", lock_cost);
+            Self::deposit_event(Event::NetworkMinLockCostSet(lock_cost));
 
             Ok(())
         }
@@ -2054,13 +2065,8 @@ pub mod pallet {
 
             SubnetLimit::<T>::set(max_subnets);
 
-            log::info!(
-                "SubnetLimit( max_subnets: {:?} ) ",
-                max_subnets
-            );
-            Self::deposit_event(Event::SubnetLimitSet(
-                max_subnets,
-            ));
+            log::info!("SubnetLimit( max_subnets: {:?} ) ", max_subnets);
+            Self::deposit_event(Event::SubnetLimitSet(max_subnets));
 
             Ok(())
         }
@@ -2068,18 +2074,16 @@ pub mod pallet {
         #[pallet::call_index(68)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_lock_reduction_interval(origin: OriginFor<T>, interval: u64) -> DispatchResult {
+        pub fn sudo_set_lock_reduction_interval(
+            origin: OriginFor<T>,
+            interval: u64,
+        ) -> DispatchResult {
             ensure_root(origin)?;
 
             Self::set_lock_reduction_interval(interval);
 
-            log::info!(
-                "NetworkLockReductionInterval( interval: {:?} ) ",
-                interval
-            );
-            Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(
-                interval,
-            ));
+            log::info!("NetworkLockReductionInterval( interval: {:?} ) ", interval);
+            Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
 
             Ok(())
         }
@@ -2087,14 +2091,22 @@ pub mod pallet {
         #[pallet::call_index(69)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult {
+        pub fn sudo_set_network_pow_registration_allowed(
+            origin: OriginFor<T>,
+            netuid: u16,
+            registration_allowed: bool,
+        ) -> DispatchResult {
             Self::do_sudo_set_network_pow_registration_allowed(origin, netuid, registration_allowed)
         }
 
         #[pallet::call_index(69)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_liquid_alpha_on(origin: OriginFor<T>, netuid: u16, liquid_on: bool) -> DispatchResult {
+        pub fn sudo_set_liquid_alpha_on(
+            origin: OriginFor<T>,
+            netuid: u16,
+            liquid_on: bool,
+        ) -> DispatchResult {
             Self::do_sudo_set_liquid_alpha_on(origin, netuid, liquid_on)
         }
     }

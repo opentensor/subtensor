@@ -5,13 +5,16 @@ use frame_support::pallet_prelude::DispatchResult;
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
-    pub fn ensure_subnet_owner_or_root(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+    pub fn ensure_subnet_owner_or_root(
+        o: T::RuntimeOrigin,
+        netuid: u16,
+    ) -> Result<(), DispatchError> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin.into()),
             Ok(None) => Ok(()),
-            Err(x) => Err(x.into())
+            Err(x) => Err(x.into()),
         }
     }
 
@@ -308,7 +311,6 @@ impl<T: Config> Pallet<T> {
         SubnetLocked::<T>::get(netuid)
     }
 
-
     // ========================
     // ========= Sudo =========
     // ========================
@@ -581,7 +583,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         max_weight_limit: u16,
     ) -> DispatchResult {
-       Self::ensure_subnet_owner_or_root(origin, netuid)?;
+        Self::ensure_subnet_owner_or_root(origin, netuid)?;
 
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -719,20 +721,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn get_liquid_alpha_on( netuid: u16 ) -> bool {
+    pub fn get_liquid_alpha_on(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
     }
-    pub fn set_liquid_alpha_on( netuid: u16, liquid_on: bool ) {
+    pub fn set_liquid_alpha_on(netuid: u16, liquid_on: bool) {
         LiquidAlphaOn::<T>::insert(netuid, liquid_on);
     }
-    pub fn do_sudo_set_liquid_alpha_on( origin: OriginFor<T>, netuid: u16, liquid_on: bool ) -> DispatchResult {
+    pub fn do_sudo_set_liquid_alpha_on(
+        origin: OriginFor<T>,
+        netuid: u16,
+        liquid_on: bool,
+    ) -> DispatchResult {
         ensure_root(origin)?;
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
-        Self::set_liquid_alpha_on( netuid, liquid_on );
-        log::info!("LiquidAlphaSet( netuid: {:?} liquid_on: {:?} ) ", netuid, liquid_on);
+        Self::set_liquid_alpha_on(netuid, liquid_on);
+        log::info!(
+            "LiquidAlphaSet( netuid: {:?} liquid_on: {:?} ) ",
+            netuid,
+            liquid_on
+        );
         Self::deposit_event(Event::LiquidAlphaSet(netuid, liquid_on));
         Ok(())
     }
@@ -950,7 +960,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StorageValueOutOfRange
         );
 
-
         Self::set_max_allowed_validators(netuid, max_allowed_validators);
         log::info!(
             "MaxAllowedValidatorsSet( netuid: {:?} max_allowed_validators: {:?} ) ",
@@ -1003,7 +1012,7 @@ impl<T: Config> Pallet<T> {
         max_registrations_per_block: u16,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        
+
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
@@ -1021,41 +1030,37 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn get_subnet_owner( netuid:u16 ) -> T::AccountId {
-        SubnetOwner::<T>::get( netuid )
+    pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
+        SubnetOwner::<T>::get(netuid)
     }
     pub fn get_subnet_owner_cut() -> u16 {
-        SubnetOwnerCut::<T>::get( )
+        SubnetOwnerCut::<T>::get()
     }
-    pub fn set_subnet_owner_cut( subnet_owner_cut: u16 ) {
-        SubnetOwnerCut::<T>::set( subnet_owner_cut );
+    pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
+        SubnetOwnerCut::<T>::set(subnet_owner_cut);
     }
     pub fn do_sudo_set_subnet_owner_cut(
         origin: T::RuntimeOrigin,
         subnet_owner_cut: u16,
     ) -> DispatchResult {
         ensure_root(origin)?;
-        Self::set_subnet_owner_cut( subnet_owner_cut );
+        Self::set_subnet_owner_cut(subnet_owner_cut);
         log::info!(
             "SubnetOwnerCut( subnet_owner_cut: {:?} ) ",
             subnet_owner_cut
         );
-        Self::deposit_event(Event::SubnetOwnerCutSet(
-            subnet_owner_cut,
-        ));
+        Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
         Ok(())
     }
 
-    pub fn do_sudo_set_network_rate_limit(origin: T::RuntimeOrigin, rate_limit: u64) -> DispatchResult {
+    pub fn do_sudo_set_network_rate_limit(
+        origin: T::RuntimeOrigin,
+        rate_limit: u64,
+    ) -> DispatchResult {
         ensure_root(origin)?;
-        Self::set_network_rate_limit( rate_limit );
-        log::info!(
-            "NetworkRateLimit( rate_limit: {:?} ) ",
-            rate_limit
-        );
-        Self::deposit_event(Event::NetworkRateLimitSet(
-            rate_limit,
-        ));
+        Self::set_network_rate_limit(rate_limit);
+        log::info!("NetworkRateLimit( rate_limit: {:?} ) ", rate_limit);
+        Self::deposit_event(Event::NetworkRateLimitSet(rate_limit));
         Ok(())
     }
 
@@ -1106,8 +1111,8 @@ impl<T: Config> Pallet<T> {
         SenateRequiredStakePercentage::<T>::put(required_percent);
     }
 
-    pub fn is_senate_member( hotkey: &T::AccountId ) -> bool {
-        T::SenateMembers::is_member( hotkey )
+    pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
+        T::SenateMembers::is_member(hotkey)
     }
 
     pub fn do_set_senate_required_stake_perc(

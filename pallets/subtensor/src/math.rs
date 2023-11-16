@@ -1097,7 +1097,11 @@ pub fn mat_ema_sparse(
 // Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
 // `alpha_` is the EMA coefficient passed as a vector per col.
 #[allow(dead_code)]
-pub fn mat_ema_alpha_vec( new: &Vec<Vec<I32F32>>, old: &Vec<Vec<I32F32>>, alpha: &Vec<I32F32> ) -> Vec<Vec<I32F32>> {
+pub fn mat_ema_alpha_vec(
+    new: &Vec<Vec<I32F32>>,
+    old: &Vec<Vec<I32F32>>,
+    alpha: &Vec<I32F32>,
+) -> Vec<Vec<I32F32>> {
     if new.len() == 0 {
         return vec![vec![]; 1];
     }
@@ -1124,7 +1128,7 @@ pub fn mat_ema_alpha_vec( new: &Vec<Vec<I32F32>>, old: &Vec<Vec<I32F32>>, alpha:
 pub fn mat_ema_alpha_vec_sparse(
     new: &Vec<Vec<(u16, I32F32)>>,
     old: &Vec<Vec<(u16, I32F32)>>,
-    alpha: &Vec<I32F32> ,
+    alpha: &Vec<I32F32>,
 ) -> Vec<Vec<(u16, I32F32)>> {
     assert!(new.len() == old.len());
     let n = new.len(); // assume square matrix, rows=cols
