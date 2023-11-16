@@ -191,7 +191,7 @@ pub mod pallet {
         T::InitialSenateRequiredStakePercentage::get()
     }
 
-    #[pallet::storage] // --- ITEM ( tx_rate_limit )
+    #[pallet::storage]
     pub(super) type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
@@ -324,7 +324,7 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM( global_max_registrations_per_block )
     pub type MaxRegistrationsPerBlock<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxRegistrationsPerBlock<T>>;
-    #[pallet::storage] // --- MAP ( netuid, global_RAO_recycled_for_registration )
+    #[pallet::storage] // --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
 
@@ -392,7 +392,7 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
 
-    #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
+    #[pallet::storage] // --- ITEM( maximum_allowed_number_of_subnets )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
@@ -485,16 +485,16 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
+    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T>>;
-    #[pallet::storage]
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
-    #[pallet::storage]
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
@@ -514,7 +514,7 @@ pub mod pallet {
         pub ip_type: u8,      // --- Axon ip type, 4 for ipv4 and 6 for ipv6.
         pub protocol: u8,     // --- Axon protocol. TCP, UDP, other.
         pub placeholder1: u8, // --- Axon proto placeholder 1.
-        pub placeholder2: u8, // --- Axon proto placeholder 1.
+        pub placeholder2: u8, // --- Axon proto placeholder 2.
     }
 
     // --- Struct for Prometheus.
@@ -702,7 +702,7 @@ pub mod pallet {
         ValueQuery,
         DefaultBlockAtRegistration<T>,
     >;
-    #[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
+    #[pallet::storage] // --- MAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
@@ -740,41 +740,41 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> hotkey
     pub(super) type Keys<T: Config> =
         StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
+    #[pallet::storage] // --- MAP ( netuid ) --> (hotkey, se, ve)
     pub(super) type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
-    #[pallet::storage] // --- DMAP ( netuid ) --> active
+    #[pallet::storage] // --- MAP ( netuid ) --> active
     pub(super) type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> rank
+    #[pallet::storage] // --- MAP ( netuid ) --> rank
     pub(super) type Rank<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> trust
+    #[pallet::storage] // --- MAP ( netuid ) --> trust
     pub(super) type Trust<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> consensus
+    #[pallet::storage] // --- MAP ( netuid ) --> consensus
     pub(super) type Consensus<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> incentive
+    #[pallet::storage] // --- MAP ( netuid ) --> incentive
     pub(super) type Incentive<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> dividends
+    #[pallet::storage] // --- MAP ( netuid ) --> dividends
     pub(super) type Dividends<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> emission
+    #[pallet::storage] // --- MAP ( netuid ) --> emission
     pub(super) type Emission<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> last_update
+    #[pallet::storage] // --- MAP ( netuid ) --> last_update
     pub(super) type LastUpdate<T: Config> =
         StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> validator_trust
+    #[pallet::storage] // --- MAP ( netuid ) --> validator_trust
     pub(super) type ValidatorTrust<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> pruning_scores
+    #[pallet::storage] // --- MAP ( netuid ) --> pruning_scores
     pub(super) type PruningScores<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
-    #[pallet::storage] // --- DMAP ( netuid ) --> validator_permit
+    #[pallet::storage] // --- MAP ( netuid ) --> validator_permit
     pub(super) type ValidatorPermit<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
 
@@ -808,58 +808,58 @@ pub mod pallet {
     pub enum Event<T: Config> {
         // Event documentation should end with an array that provides descriptive names for event
         // parameters. [something, who]
-        NetworkAdded(u16, u16), // --- Event created when a new network is added.
-        NetworkRemoved(u16),    // --- Event created when a network is removed.
-        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
-        StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
-        WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
-        NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
-        BulkNeuronsRegistered(u16, u16), // --- Event created when multiple uids have been concurrently registered.
-        BulkBalancesSet(u16, u16),       // --- FIXME: Not used yet
-        MaxAllowedUidsSet(u16, u16), // --- Event created when max allowed uids has been set for a subnetwork.
-        MaxWeightLimitSet(u16, u16), // --- Event created when the max weight limit has been set for a subnetwork.
-        DifficultySet(u16, u64), // --- Event created when the difficulty has been set for a subnet.
-        AdjustmentIntervalSet(u16, u16), // --- Event created when the adjustment interval is set for a subnet.
-        RegistrationPerIntervalSet(u16, u16), // --- Event created when registeration per interval is set for a subnet.
-        MaxRegistrationsPerBlockSet(u16, u16), // --- Event created when we set max registrations per block.
-        ActivityCutoffSet(u16, u16), // --- Event created when an activity cutoff is set for a subnet.
-        RhoSet(u16, u16),            // --- Event created when Rho value is set.
-        KappaSet(u16, u16),          // --- Event created when Kappa is set for a subnet.
-        MinAllowedWeightSet(u16, u16), // --- Event created when minimun allowed weight is set for a subnet.
-        ValidatorPruneLenSet(u16, u64), // --- Event created when the validator pruning length has been set.
-        ScalingLawPowerSet(u16, u16), // --- Event created when the scaling law power has been set for a subnet.
-        WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet.
-        ImmunityPeriodSet(u16, u16), // --- Event created when immunity period is set for a subnet.
-        BondsMovingAverageSet(u16, u64), // --- Event created when bonds moving average is set for a subnet.
-        MaxAllowedValidatorsSet(u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
-        AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
-        PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
-        EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
-        DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
-        DefaultTakeSet(u16), // --- Event created when the default take is set.
-        WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
-        MinDifficultySet(u16, u64), // --- Event created when setting min difficutly on a network.
-        MaxDifficultySet(u16, u64), // --- Event created when setting max difficutly on a network.
-        ServingRateLimitSet(u16, u64), // --- Event created when setting the prometheus serving rate limit.
-        BurnSet(u16, u64),             // --- Event created when setting burn on a network.
-        MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
-        MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
-        TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
-        Sudid(DispatchResult),         // --- Event created when a sudo call is done.
-        RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
-        PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
-        TempoSet(u16, u16),             // --- Event created when setting tempo on a network
-        RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
-        SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
-        AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
-        Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
-        SubnetOwnerCutSet(u16),    // Event created when the subnet owner cut is set.
-        NetworkRateLimitSet(u64), // Event created when the network creation rate limit is set.
-        NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
-        NetworkMinLockCostSet(u64), // Event created when the network minimum locking cost is set.
-        SubnetLimitSet(u16), // Event created when the maximum number of subnets is set
-        NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId} // Event created when a hotkey is swapped 
+        NetworkAdded(u16, u16), // --- Event created when a new network is added. (netuid, modality)
+        NetworkRemoved(u16),    // --- Event created when a network is removed. (netuid)
+        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account. (hotkey, amount)
+        StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account. (hotkey, amount)
+        WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork. (netuid, weights_set_rate_limit)
+        NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain. (netuid, uid, hotkey)
+        BulkNeuronsRegistered(u16, u16), // --- FIXME: Not in use
+        BulkBalancesSet(u16, u16),       // --- FIXME: Not in use
+        MaxAllowedUidsSet(u16, u16), // --- Event created when max allowed uids has been set for a subnetwork. (netuid, max_allowed_uids)
+        MaxWeightLimitSet(u16, u16), // --- Event created when the max weight limit has been set for a subnetwork. (netuid, max_weight_limit)
+        DifficultySet(u16, u64), // --- Event created when the difficulty has been set for a subnet. (netuid, difficulty)
+        AdjustmentIntervalSet(u16, u16), // --- Event created when the adjustment interval is set for a subnet. (netuid, adjustment_interval)
+        RegistrationPerIntervalSet(u16, u16), // --- Event created when registeration per interval is set for a subnet. (netuid, registrations_per_interval)
+        MaxRegistrationsPerBlockSet(u16, u16), // --- Event created when we set max registrations per block. (netuid, max_registrations_per_block)
+        ActivityCutoffSet(u16, u16), // --- Event created when an activity cutoff is set for a subnet. (netuid, activity_cutoff)
+        RhoSet(u16, u16),            // --- Event created when Rho value is set. (netuid, rho)
+        KappaSet(u16, u16),          // --- Event created when Kappa is set for a subnet. (netuid, kappa)
+        MinAllowedWeightSet(u16, u16), // --- Event created when minimun allowed weight is set for a subnet. (netuid, min_allowed_uid)
+        ValidatorPruneLenSet(u16, u64), // --- Event created when the validator pruning length has been set. (netuid, validator_prune_len)
+        ScalingLawPowerSet(u16, u16), // --- Event created when the scaling law power has been set for a subnet. (netuid, scaling_law_power)
+        WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet. (netuid, weights_set_rate_limit)
+        ImmunityPeriodSet(u16, u16), // --- Event created when immunity period is set for a subnet. (netuid, immunity_period)
+        BondsMovingAverageSet(u16, u64), // --- Event created when bonds moving average is set for a subnet. (netuid, bonds_moving_average)
+        MaxAllowedValidatorsSet(u16, u16), // --- Event created when setting the max number of allowed validators on a subnet. (netuid, max_allowed_validators)
+        AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network. (netuid, hotkey)
+        PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network. (netuid, hotkey)
+        EmissionValuesSet(), // FIXME: Not in use
+        DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate. (coldkey, hotkey, take)
+        DefaultTakeSet(u16), // --- Event created when the default take is set. (default_take)
+        WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network. (netuid, weights_version_key)
+        MinDifficultySet(u16, u64), // --- Event created when setting min difficutly on a network. (netuid, min_difficulty)
+        MaxDifficultySet(u16, u64), // --- Event created when setting max difficutly on a network. (netuid, max_difficulty)
+        ServingRateLimitSet(u16, u64), // --- Event created when setting the prometheus serving rate limit. (netuid, serving_rate_limit)
+        BurnSet(u16, u64),             // FIXME: Not in use
+        MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network. (netuid, max_burn)
+        MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network. (netuid, min_burn)
+        TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit. (tx_rate_limit)
+        Sudid(DispatchResult),         // --- Event created when a sudo call is done. (dispatch_result)
+        RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet. (netuid, registration_allowed)
+        PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet. (netuid, pow_registration_allowed)
+        TempoSet(u16, u16),             // --- Event created when setting tempo on a network (netuid, tempo)
+        RAORecycledForRegistrationSet(u16, u64), // --- Event created when setting the RAO recycled for registration. (netuid, rao_recycled_for_registration)
+        SenateRequiredStakePercentSet(u64), // --- Event created when setting the minimum required stake amount for senate registration. (required_percent)
+        AdjustmentAlphaSet(u16, u64),   // --- Event created when setting the adjustment alpha on a subnet. (netuid, adjustment_alpha)
+        Faucet(T::AccountId, u64),      // --- Event created when the facuet it called on the test net. (coldkey, amount)
+        SubnetOwnerCutSet(u16),         // --- Event created when the subnet owner cut is set. (subnet_owner_cut)
+        NetworkRateLimitSet(u64),       // --- Event created when the network creation rate limit is set. (network_rate_limit)
+        NetworkImmunityPeriodSet(u64),  // --- Event created when the network immunity period is set. (network_immunity_period)
+        NetworkMinLockCostSet(u64),     // --- Event created when the network minimum locking cost is set. (network_min_lock_cost)
+        SubnetLimitSet(u16),            // --- Event created when the maximum number of subnets is set. (max_subnets)
+        NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set. (interval)
+        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId} // Event created when a hotkey is swapped.
     }
 
     // Errors inform users that something went wrong.
@@ -873,7 +873,7 @@ pub mod pallet {
         InvalidPort,   // --- Thrown when an invalid port is passed to the serve function.
         NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
         NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
-        NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
+        NotEnoughStakeToWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
         NotEnoughBalanceToStake, //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
         BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         NoValidatorPermit, // ---- Thrown when the caller attempts to set non-self weights without being a permitted validator.
@@ -888,32 +888,32 @@ pub mod pallet {
         InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
         MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids.
         CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
-        StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
+        StakeAlreadyAdded, // FIXME: Not in use
         MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.
         TempoHasNotSet,         // --- Thrown when tempo has not set.
         InvalidTempo,           // --- Thrown when tempo is not valid.
-        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks.
-        InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
+        EmissionValuesDoesNotMatchNetworks, // FIXME: Not in use
+        InvalidEmissionValues, // FIXME: Not in use
         AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
         SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
         IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
         ServingRateLimitExceeded, // --- Thrown when an axon or prometheus serving exceeds the rate limit for a registered neuron.
-        BalanceSetError,          // --- Thrown when an error occurs while setting a balance.
-        MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
+        BalanceSetError,          // FIXME: Not in use
+        MaxAllowedUidsExceeded, // FIXME: Not in use
         TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
         TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
         RegistrationDisabled, // --- Thrown when registration is disabled
         TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
-        BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
+        BenchmarkingOnly, // FIXME: Not in use
         HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
         // Senate errors
         SenateMember, // --- Thrown when attempting to do something to a senate member that is limited
         NotSenateMember, // --- Thrown when a hotkey attempts to do something only senate members can do
-        AlreadySenateMember, // --- Thrown when a hotkey attempts to join the senate while already being a member
-        BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
-        NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
-        IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
+        AlreadySenateMember, // FIXME: Not in use
+        BelowStakeThreshold, // FIXME: Not in use
+        NotDelegate, // FIXME: Not in use
+        IncorrectNetuidsLength, // FIXME: Not in use
         FaucetDisabled,         // --- Thrown when the faucet is disabled
         NotSubnetOwner,
         OperationNotPermittedonRootSubnet,
@@ -1170,7 +1170,7 @@ pub mod pallet {
         // will be corrected for this deviation.
         //
         // # Args:
-        // 	* `origin`: (<T as frame_system::Config>Origin):
+        // 	* `origin`: (<T as frame_system::Config>::Origin):
         // 		- The caller, a hotkey who wishes to set their weights.
         //
         // 	* `netuid` (u16):
@@ -1203,7 +1203,7 @@ pub mod pallet {
         // 	* 'DuplicateUids':
         // 		- Attempting to set weights with duplicate uids.
         //
-        //     * 'TooManyUids':
+        //  * 'TooManyUids':
         // 		- Attempting to set weights above the max allowed uids.
         //
         // 	* 'InvalidUid':
@@ -1231,14 +1231,11 @@ pub mod pallet {
         // --- Sets the key as a delegate.
         //
         // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
         // 		- The signature of the caller's coldkey.
         //
         // 	* 'hotkey' (T::AccountId):
         // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'take' (u64):
-        // 		- The stake proportion that this hotkey takes from delegations.
         //
         // # Event:
         // 	* DelegateAdded;
@@ -1265,7 +1262,7 @@ pub mod pallet {
         // attacks on its hotkey running in production code.
         //
         // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
         // 		- The signature of the caller's coldkey.
         //
         // 	* 'hotkey' (T::AccountId):
@@ -1316,7 +1313,7 @@ pub mod pallet {
         // 		- The associated hotkey account.
         //
         // 	* 'amount_unstaked' (u64):
-        // 		- The amount of stake to be added to the hotkey staking account.
+        // 		- The amount of stake to be removed from the hotkey staking account.
         //
         // # Event:
         // 	* StakeRemoved;
@@ -1329,7 +1326,7 @@ pub mod pallet {
         // 	* 'NonAssociatedColdKey':
         // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
         //
-        // 	* 'NotEnoughStaketoWithdraw':
+        // 	* 'NotEnoughStakeToWithdraw':
         // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         //
         // 	* 'CouldNotConvertToBalance':
@@ -1349,11 +1346,11 @@ pub mod pallet {
             Self::do_remove_stake(origin, hotkey, amount_unstaked)
         }
 
-        // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
-        // already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
+        // ---- Serves or updates axon / promethteus information for the neuron associated with the caller. If the caller is
+        // already registered the metadata is updated. If the caller is not registered this call throws `NotRegistered`.
         //
         // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
         // 		- The signature of the caller.
         //
         // 	* 'netuid' (u16):
@@ -1446,7 +1443,7 @@ pub mod pallet {
         // ---- Registers a new neuron to the subnetwork.
         //
         // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
         // 		- The signature of the calling hotkey.
         //
         // 	* 'netuid' (u16):
@@ -1469,14 +1466,14 @@ pub mod pallet {
         //
         // # Event:
         // 	* NeuronRegistered;
-        // 		- On successfully registereing a uid to a neuron slot on a subnetwork.
+        // 		- On successfully registering a uid to a neuron slot on a subnetwork.
         //
         // # Raises:
         // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to registed to a non existent network.
+        // 		- Attempting to register to a non existent network.
         //
         // 	* 'TooManyRegistrationsThisBlock':
-        // 		- This registration exceeds the total allowed on this network this block.
+        // 		- This registration exceeds the total allowed on this block.
         //
         // 	* 'AlreadyRegistered':
         // 		- The hotkey is already registered on this network.
@@ -1554,13 +1551,13 @@ pub mod pallet {
         // ==================================
         // Each function sets the corresponding hyper paramter on the specified network
         // Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
         // 		- The caller, must be sudo.
         //
         // 	* `netuid` (u16):
         // 		- The network identifier.
         //
-        // 	* `hyperparameter value` (u16):
+        // 	* `hyperparameter value` (u16 / u64):
         // 		- The value of the hyper parameter.
         //
         #[pallet::call_index(14)]
