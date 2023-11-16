@@ -897,8 +897,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
-    // It iterates over all the networks and finds the one with the minimum emission value that is not in the immunity period.
-    // If all networks are in the immunity period, it returns the one with the minimum emission value.
+    // It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
     //
     // # Returns:
     // 	* 'u16':
