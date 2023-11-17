@@ -61,51 +61,43 @@ impl<T: Config> Pallet<T> {
         let mut neurons = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let uid = uid;
-            let netuid = netuid;
-
             let _neuron = Self::get_neuron_subnet_exists(netuid, uid);
-            let neuron;
             if _neuron.is_none() {
                 break; // No more neurons
             } else {
                 // No error, hotkey was registered
-                neuron = _neuron.expect("Neuron should exist");
+                let neuron = _neuron.expect("Neuron should exist");
+                neurons.push( neuron );
             }
-
-            neurons.push( neuron );
         }
         neurons
 	}
 
     fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
         let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
-        let hotkey;
         if _hotkey.is_err() {
             return None;
-        } else {
-            // No error, hotkey was registered
-            hotkey = _hotkey.expect("Hotkey should exist");
         }
+        // No error, hotkey was registered
+        let hotkey = _hotkey.expect("Hotkey should exist");
 
         let axon_info = Self::get_axon_info( netuid, &hotkey.clone() );
 
         let prometheus_info = Self::get_prometheus_info( netuid, &hotkey.clone() );
 
-        
         let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
         
-        let active = Self::get_active_for_uid( netuid, uid as u16 );
-        let rank = Self::get_rank_for_uid( netuid, uid as u16 );
-        let emission = Self::get_emission_for_uid( netuid, uid as u16 );
-        let incentive = Self::get_incentive_for_uid( netuid, uid as u16 );
-        let consensus = Self::get_consensus_for_uid( netuid, uid as u16 );
-        let trust = Self::get_trust_for_uid( netuid, uid as u16 );
-        let validator_trust = Self::get_validator_trust_for_uid( netuid, uid as u16 );
-        let dividends = Self::get_dividends_for_uid( netuid, uid as u16 );
-        let pruning_score = Self::get_pruning_score_for_uid( netuid, uid as u16 );
-        let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
-        let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
+        let active = Self::get_active_for_uid(netuid, uid);
+        let rank = Self::get_rank_for_uid(netuid, uid);
+        let emission = Self::get_emission_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let consensus = Self::get_consensus_for_uid(netuid, uid);
+        let trust = Self::get_trust_for_uid(netuid, uid);
+        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
+        let dividends = Self::get_dividends_for_uid(netuid, uid);
+        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let weights = <Weights<T>>::get(netuid, uid).iter()
             .filter_map(|(i, w)| if *w > 0 { Some((i.into(), w.into())) } else { None })
@@ -120,8 +112,8 @@ impl<T: Config> Pallet<T> {
             .collect();
 
         let neuron = NeuronInfo {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey,
+            coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,
@@ -150,46 +142,39 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let neuron = Self::get_neuron_subnet_exists(netuid, uid);
-        neuron
+        Self::get_neuron_subnet_exists(netuid, uid)
 	}
 
     fn get_neuron_lite_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
         let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
-        let hotkey;
         if _hotkey.is_err() {
             return None;
-        } else {
-            // No error, hotkey was registered
-            hotkey = _hotkey.expect("Hotkey should exist");
         }
+        // No error, hotkey was registered
+        let hotkey = _hotkey.expect("Hotkey should exist");
 
         let axon_info = Self::get_axon_info( netuid, &hotkey.clone() );
-
         let prometheus_info = Self::get_prometheus_info( netuid, &hotkey.clone() );
-
-        
         let coldkey = Owner::<T>::get( hotkey.clone() ).clone();
-        
-        let active = Self::get_active_for_uid( netuid, uid as u16 );
-        let rank = Self::get_rank_for_uid( netuid, uid as u16 );
-        let emission = Self::get_emission_for_uid( netuid, uid as u16 );
-        let incentive = Self::get_incentive_for_uid( netuid, uid as u16 );
-        let consensus = Self::get_consensus_for_uid( netuid, uid as u16 );
-        let trust = Self::get_trust_for_uid( netuid, uid as u16 );
-        let validator_trust = Self::get_validator_trust_for_uid( netuid, uid as u16 );
-        let dividends = Self::get_dividends_for_uid( netuid, uid as u16 );
-        let pruning_score = Self::get_pruning_score_for_uid( netuid, uid as u16 );
-        let last_update = Self::get_last_update_for_uid( netuid, uid as u16 );
-        let validator_permit = Self::get_validator_permit_for_uid( netuid, uid as u16 );
+        let active = Self::get_active_for_uid(netuid, uid);
+        let rank = Self::get_rank_for_uid(netuid, uid);
+        let emission = Self::get_emission_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let consensus = Self::get_consensus_for_uid(netuid, uid);
+        let trust = Self::get_trust_for_uid(netuid, uid);
+        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
+        let dividends = Self::get_dividends_for_uid(netuid, uid);
+        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let stake: Vec<(T::AccountId, Compact<u64>)> = < Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64> >::iter_prefix( hotkey.clone() )
             .map(|(coldkey, stake)| (coldkey, stake.into()))
             .collect();
 
         let neuron = NeuronInfoLite {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey,
+            coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,
@@ -219,17 +204,12 @@ impl<T: Config> Pallet<T> {
         let mut neurons: Vec<NeuronInfoLite<T>> = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let uid = uid;
-
             let _neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
-            let neuron;
             if _neuron.is_none() {
                 break; // No more neurons
-            } else {
-                // No error, hotkey was registered
-                neuron = _neuron.expect("Neuron should exist");
             }
-
+            // No error, hotkey was registered
+            let neuron = _neuron.expect("Neuron should exist");
             neurons.push( neuron );
         }
         neurons 
@@ -240,8 +220,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
-        neuron
+        Self::get_neuron_lite_subnet_exists(netuid, uid)
    }
 }
 
