@@ -9,7 +9,7 @@ use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 use frame_support::storage::IterableStorageDoubleMap;
 
-const LOG_TARGET: &'static str = "runtime::subtensor::registration";
+const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
     pub fn do_sudo_registration(

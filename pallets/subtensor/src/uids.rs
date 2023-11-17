@@ -92,16 +92,16 @@ impl<T: Config> Pallet<T> {
     // Returns the uid of the hotkey in the network as a Result. Ok if the hotkey has a slot.
     //
     pub fn get_uid_for_net_and_hotkey( netuid: u16, hotkey: &T::AccountId) -> Result<u16, DispatchError> { 
-        return Uids::<T>::try_get(netuid, &hotkey).map_err(|_err| Error::<T>::NotRegistered.into()) 
+        Uids::<T>::try_get(netuid, &hotkey).map_err(|_err| Error::<T>::NotRegistered.into()) 
     }
 
     // Returns the stake of the uid on network or 0 if it doesnt exist.
     //
     pub fn get_stake_for_uid_and_subnetwork( netuid: u16, neuron_uid: u16) -> u64 { 
         if Self::is_uid_exist_on_network( netuid, neuron_uid) {
-            return Self::get_total_stake_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap() ) 
+            Self::get_total_stake_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap() ) 
         } else {
-            return 0;
+            0
         }
     }
 
@@ -111,9 +111,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_number_of_subnets()-> u16 {
         let mut number_of_subnets : u16 = 0;
         for (_, _)  in <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter(){
-            number_of_subnets = number_of_subnets + 1;
+            number_of_subnets += 1;
         }
-        return number_of_subnets;
+        number_of_subnets
     }
 
     // Return a list of all networks a hotkey is registered on.

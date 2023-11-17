@@ -9,7 +9,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
-            Ok(Some(_)) => Err(DispatchError::BadOrigin.into()),
+            Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
             Err(x) => Err(x.into())
         }
@@ -136,89 +136,89 @@ impl<T: Config> Pallet<T> {
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Trust::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_emission_for_uid(netuid: u16, uid: u16) -> u64 {
         let vec = Emission::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_active_for_uid(netuid: u16, uid: u16) -> bool {
         let vec = Active::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return false;
+            false
         }
     }
     pub fn get_consensus_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Consensus::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_incentive_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Incentive::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_dividends_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Dividends::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_last_update_for_uid(netuid: u16, uid: u16) -> u64 {
         let vec = LastUpdate::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_pruning_score_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = PruningScores::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return u16::MAX;
+            u16::MAX
         }
     }
     pub fn get_validator_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = ValidatorTrust::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_validator_permit_for_uid(netuid: u16, uid: u16) -> bool {
         let vec = ValidatorPermit::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return false;
+            false
         }
     }
 
@@ -274,10 +274,11 @@ impl<T: Config> Pallet<T> {
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
         if rate_limit == 0 || prev_tx_block == 0 {
-            return false;
+            false
         }
-
-        return current_block - prev_tx_block <= rate_limit;
+        else {
+            current_block - prev_tx_block <= rate_limit
+        }
     }
 
     // ========================

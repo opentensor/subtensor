@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
             stake_info.push((coldkey_, stake_info_for_coldkey));
         }
 
-        return stake_info;
+        stake_info
     }
 
     pub fn get_stake_info_for_coldkeys(

@@ -946,8 +946,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            use crate::MemberManagement;
-
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -2182,7 +2180,7 @@ where
             Some(Call::set_weights { netuid, .. }) => {
                 let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                 Ok(ValidTransaction {
-                    priority: priority,
+                    priority,
                     longevity: 1,
                     ..Default::default()
                 })

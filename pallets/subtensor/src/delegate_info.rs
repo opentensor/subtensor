@@ -37,20 +37,16 @@ impl<T: Config> Pallet<T> {
         
         for netuid in registrations.iter() {
             let _uid = Self::get_uid_for_net_and_hotkey( *netuid, &delegate.clone());
-            if !_uid.is_ok() {
-                continue; // this should never happen
-            } else {
-                let uid = _uid.expect("Delegate's UID should be ok");
-                let validator_permit = Self::get_validator_permit_for_uid( *netuid, uid );
-                if validator_permit {
-                    validator_permits.push( (*netuid).into() );
-                }
-                
-                let emission: U64F64 = Self::get_emission_for_uid( *netuid, uid).into();
-                let tempo: U64F64 = Self::get_tempo( *netuid ).into();
-                let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
-                emissions_per_day += emission * epochs_per_day;
+            let uid = _uid.expect("Delegate's UID should be ok");
+            let validator_permit = Self::get_validator_permit_for_uid( *netuid, uid );
+            if validator_permit {
+                validator_permits.push( (*netuid).into() );
             }
+            
+            let emission: U64F64 = Self::get_emission_for_uid( *netuid, uid).into();
+            let tempo: U64F64 = Self::get_tempo( *netuid ).into();
+            let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
+            emissions_per_day += emission * epochs_per_day;
         }
 
         let owner = Self::get_owning_coldkey_for_hotkey( &delegate.clone() );

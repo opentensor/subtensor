@@ -1058,7 +1058,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         index: ProposalIndex,
         who: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        let voting = Self::voting(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+        let voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalMissing)?;
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
         let position_yes = voting.ayes.iter().position(|a| a == who);
@@ -1098,16 +1098,8 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
         for h in Self::proposals().into_iter() {
             <Voting<T, I>>::mutate(h, |v| {
                 if let Some(mut votes) = v.take() {
-                    votes.ayes = votes
-                        .ayes
-                        .into_iter()
-                        .filter(|i| outgoing.binary_search(i).is_err())
-                        .collect();
-                    votes.nays = votes
-                        .nays
-                        .into_iter()
-                        .filter(|i| outgoing.binary_search(i).is_err())
-                        .collect();
+                    votes.ayes.retain(|i| outgoing.binary_search(i).is_err());
+                    votes.nays.retain(|i| outgoing.binary_search(i).is_err());
                     *v = Some(votes);
                 }
             });
