@@ -29,7 +29,7 @@ This repository contains Bittensor's substrate-chain. Subtensor contains the tru
 * OSs other than Linux and MacOS are currently not supported.               
 
 ## Architectures
-Subtensor support the following architectures:
+Subtensor supports the following architectures:
 
 ## Linux x86_64
 Requirements:
@@ -167,7 +167,7 @@ bash scripts/code-coverage.sh
 In case of being interested in maintaining the chain' state between runs a base path must be added
 so the db can be stored in the provided folder instead of a temporal one. We could use this folder
 to store different chain databases, as a different folder will be created per different chain that
-is ran. The following commands shows how to use a newly created folder as our db base path.
+is ran. The following commands show how to use a newly created folder as our db base path.
 
 ```bash
 # Create a folder to use as the db base path
