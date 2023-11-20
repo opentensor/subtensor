@@ -56,14 +56,24 @@ The consensus policy applies weight correction $\overline{W_{ij}} = \min( W_{ij}
 The bonds penalty $\beta$ controls the degree to which weights for bonds are cut above consensus, which decides the penalty against validator rewards.
 $$\widetilde{W_{ij}} = (1-\beta) \cdot W_{ij} + \beta \cdot \overline{W_{ij}}$$
 
+#### Validator bonding
+A validator $i$ bonds with server $j$, where the instant bond value is the normalized bonds penalty clipped weighted stake.
+$$\Delta B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetilde{W_{kj}} \right) \right.$$
+Validators can speculate on server utility by discovering and bonding to promising new servers, but to reward such exploration we use an exponential moving average (EMA) bond over time.
+Instant bond $\Delta B_{ij}$ at current timestep becomes an EMA observation.
+We sum typical $\alpha=10\%$ of the instant bond with remaining $90\%$ of previous EMA bond, to bond over time and reward early discovery while preventing abrupt changes and its exploitation potential.
+$$B_{ij}^{(t)} = \alpha\cdot\Delta B_{ij} + (1-\alpha)\cdot B_{ij}^{(t-1)}$$
+
+
 #### Reward distribution
 Emission ratio $\xi$ decides the ratio of emission for validation rewards, and $1-\xi$ the ratio for server incentive, typically $\xi=0.5$. 
 $$E_i = \xi \cdot D_i + (1-\xi) \cdot I_i$$
 
 Server incentive $I_j = R_j / \sum_k R_k$ is normalized server rank $R_j = \sum_i S_i \cdot \overline{W_{ij}}$ (sum of consensus-clipped weighted stake).
 
-Validation reward $D_i = \sum_j B_{ij} \cdot I_j$ is the product of the validator's bond with server $j$ and server $j$ incentive, where the bond is the normalized bonds penalty clipped weighted stake.
-$$B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetilde{W_{kj}} \right) \right.$$
+Validation reward $D_i = \sum_j B_{ij} \cdot I_j$ is the validator's EMA bond with server $j$ multiplied with server $j$ incentive. 
+
+
 
 #### Mathematical definitions
 | Variable | Equation | Description |
@@ -79,7 +89,8 @@ $$B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetild
 | Validator trust | $T_{vi} =  \sum_j \overline{W_{ij}}$ | Relative validator weight remaining after consensus-clip. |
 | Bonds penalty | $\beta \in [0, 1]$ | Degree to cut bonds above consensus weight. |
 | Weight for bonds | $\widetilde{W_{ij}} = (1-\beta) \cdot W_{ij} + \beta \cdot \overline{W_{ij}}$ | Apply bonds penalty to weights. |
-| Validator bond | $B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetilde{W_{kj}} \right) \right.$ | Validator $i$ bond with server $j$. |
+| Validator bond | $\Delta B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetilde{W_{kj}} \right) \right.$ | Validator $i$ bond with server $j$. |
+| Validator EMA bond | $B_{ij}^{(t)} = \alpha\cdot\Delta B_{ij} + (1-\alpha)\cdot B_{ij}^{(t-1)}$ | Validator $i$ EMA bond with server $j$. |
 | Validator reward | $D_i = \sum_j B_{ij} \cdot I_j$ | Validator $i$ portion of incentive. |
 | Emission ratio | $\xi \in [0, 1]$ | Reward/incentive ratio for emission |
 | Emission | $E_i = \xi \cdot D_i + (1-\xi) \cdot I_i$ | Emission for node $i$. |
@@ -146,7 +157,7 @@ Hence $\kappa=0.5$ is typically the most sensible setting.
 
 #### Bonds penalty (β)
 Yuma Consensus separately adjusts server incentive $I_j$ and validation reward $D_i$ to counter manipulation, where the extent of validation reward correction depends on the bonds penalty $\beta$.
-Server incentive is always corrects fully, but validation reward correction is adjustable to control the penalty of out-of-consensus validation.
+Server incentive always corrects fully, but validation reward correction is adjustable to control the penalty of out-of-consensus validation.
 Lower-stake validators may experience lower service priority, which can result in partial validation, or exploratory validators may skew weighting toward emergent high-utility.
 Full bonds penalty $\beta=1$ may not be desired, due to the presence of non-adversarial cases like these.
 
