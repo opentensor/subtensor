@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     // 		- The hotkey we are delegating is not registered on the network.
     //
     // 	* 'NonAssociatedColdKey':
-    // 		- The hotkey we are delegating is not owned by the calling coldket.
+    // 		- The hotkey we are delegating is not owned by the calling coldkey.
     //
     // 	* 'TxRateLimitExceeded':
     // 		- Thrown if key has hit transaction rate limit
