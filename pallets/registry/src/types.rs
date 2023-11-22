@@ -90,10 +90,10 @@ impl Encode for Data {
 				r[1..].copy_from_slice(&x[..l as usize]);
 				r
 			},
-			Data::BlakeTwo256(ref h) => once(34u8).chain(h.iter().cloned()).collect(),
-			Data::Sha256(ref h) => once(35u8).chain(h.iter().cloned()).collect(),
-			Data::Keccak256(ref h) => once(36u8).chain(h.iter().cloned()).collect(),
-			Data::ShaThree256(ref h) => once(37u8).chain(h.iter().cloned()).collect(),
+			Data::BlakeTwo256(ref h) => once(66u8).chain(h.iter().cloned()).collect(),
+			Data::Sha256(ref h) => once(67u8).chain(h.iter().cloned()).collect(),
+			Data::Keccak256(ref h) => once(68u8).chain(h.iter().cloned()).collect(),
+			Data::ShaThree256(ref h) => once(69u8).chain(h.iter().cloned()).collect(),
 		}
 	}
 }
