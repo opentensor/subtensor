@@ -575,8 +575,8 @@ impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
 // Configure registry pallet.
 parameter_types! {
     pub const MaxAdditionalFields: u32 = 1;
-    pub const InitialDeposit: Balance = 1_000_000_000;
-    pub const FieldDeposit: Balance = 100_000_000;
+    pub const InitialDeposit: Balance = 100_000_000; // 0.1 TAO
+    pub const FieldDeposit: Balance = 100_000_000; // 0.1 TAO
 }
 
 impl pallet_registry::Config for Runtime {
