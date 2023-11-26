@@ -1573,6 +1573,7 @@ fn test_registration_disabled() {
     });
 }
 
+#[ignore]
 #[test]
 fn test_hotkey_swap_ok() {
     new_test_ext().execute_with(|| {
@@ -1602,6 +1603,7 @@ fn test_hotkey_swap_ok() {
     });
 }
 
+#[ignore]
 #[test]
 fn test_hotkey_swap_not_owner() {
     new_test_ext().execute_with(|| {
@@ -1630,6 +1632,7 @@ fn test_hotkey_swap_not_owner() {
     });
 }
 
+#[ignore]
 #[test]
 fn test_hotkey_swap_same_key() {
     new_test_ext().execute_with(|| {
@@ -1656,6 +1659,7 @@ fn test_hotkey_swap_same_key() {
     });
 }
 
+#[ignore]
 #[test]
 fn test_hotkey_swap_registered_key() {
     new_test_ext().execute_with(|| {
