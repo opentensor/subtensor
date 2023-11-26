@@ -764,15 +764,15 @@ impl<T: Config> Pallet<T> {
         return (nonce, vec_work);
     }
 
-    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResultWithPostInfo {
-        let coldkey = ensure_signed(origin)?;
+    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, coldkey: &T::AccountId, old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResultWithPostInfo {
+        //let coldkey = ensure_signed(origin)?;
 
         let mut weight = T::DbWeight::get().reads_writes(2, 0);
-        ensure!(Self::coldkey_owns_hotkey(&coldkey, old_hotkey), Error::<T>::NonAssociatedColdKey);
+        //ensure!(Self::coldkey_owns_hotkey(&coldkey, old_hotkey), Error::<T>::NonAssociatedColdKey);
 
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
@@ -887,7 +887,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        Self::deposit_event(Event::HotkeySwapped{coldkey, old_hotkey: old_hotkey.clone(), new_hotkey: new_hotkey.clone()});
+        Self::deposit_event(Event::HotkeySwapped{coldkey: coldkey.clone(), old_hotkey: old_hotkey.clone(), new_hotkey: new_hotkey.clone()});
 
         Ok(Some(weight).into())
     }
