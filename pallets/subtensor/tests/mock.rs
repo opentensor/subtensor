@@ -14,7 +14,7 @@ use sp_runtime::{
     DispatchResult,
 };
 
-use pallet_collective::MemberCount;
+//use pallet_collective::MemberCount;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -28,10 +28,10 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        /*Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},*/
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
     }
@@ -162,6 +162,7 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
 }
 
+/*
 // Configure collective pallet for council
 parameter_types! {
     pub const CouncilMotionDuration: BlockNumber = 100;
@@ -310,6 +311,7 @@ impl pallet_membership::Config<SenateMembership> for Test {
     type MaxMembers = SenateMaxMembers;
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
 }
+*/
 
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
@@ -317,8 +319,8 @@ impl pallet_subtensor::Config for Test {
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
-    type SenateMembers = ManageSenateMembers;
-    type TriumvirateInterface = TriumvirateVotes;
+    type SenateMembers = ();
+    type TriumvirateInterface = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
