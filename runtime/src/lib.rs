@@ -120,7 +120,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 136,
+    spec_version: 137,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -327,6 +327,7 @@ impl pallet_transaction_payment::Config for Runtime {
     //type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
+/*
 // Configure collective pallet for council
 parameter_types! {
     pub const CouncilMotionDuration: BlockNumber = 12 * HOURS;
@@ -343,7 +344,8 @@ use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
 pub struct CanProposeToTriumvirate;
 impl CanPropose<AccountId> for CanProposeToTriumvirate {
     fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
+        //Triumvirate::is_member(account)
+        return false;
     }
 }
 
@@ -354,6 +356,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
         false // Disable voting from pallet_collective::vote
     }
 }
+
 
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
@@ -372,8 +375,8 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
-        Triumvirate::remove_votes(rm)?;
-        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
+        //Triumvirate::remove_votes(rm)?;
+        //SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
     fn is_member(account: &AccountId) -> bool {
@@ -465,7 +468,7 @@ impl pallet_membership::Config<SenateMembership> for Runtime {
     type MembershipChanged = ();
     type MaxMembers = SenateMaxMembers;
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
-}
+}*/
 
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -497,6 +500,7 @@ parameter_types! {
     pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
 
+/*
 /// Used the compare the privilege of an origin inside the scheduler.
 pub struct OriginPrivilegeCmp;
 
@@ -525,6 +529,9 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
         }
     }
 }
+*/
+
+use frame_support::traits::EqualPrivilegeOnly;
 
 impl pallet_scheduler::Config for Runtime {
     type RuntimeOrigin = RuntimeOrigin;
@@ -535,7 +542,7 @@ impl pallet_scheduler::Config for Runtime {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
-    type OriginPrivilegeCmp = OriginPrivilegeCmp;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;//OriginPrivilegeCmp;
     type Preimages = Preimage;
 }
 
@@ -636,9 +643,9 @@ impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type CouncilOrigin = EnsureMajoritySenate;
-    type SenateMembers = ManageSenateMembers;
-    type TriumvirateInterface = TriumvirateVotes;
+    type CouncilOrigin = EnsureNever<RuntimeOrigin>;//EnsureMajoritySenate;
+    type SenateMembers = ();//ManageSenateMembers;
+    type TriumvirateInterface = ();//TriumvirateVotes;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
@@ -696,9 +703,9 @@ construct_runtime!(
         Balances: pallet_balances,
         TransactionPayment: pallet_transaction_payment,
         SubtensorModule: pallet_subtensor,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        //Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        //TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        //SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         Utility: pallet_utility,
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,

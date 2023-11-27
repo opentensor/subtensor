@@ -1,6 +1,6 @@
 use node_subtensor_runtime::{
 	AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-	SystemConfig, WASM_BINARY, SubtensorModuleConfig, TriumvirateConfig, TriumvirateMembersConfig, SenateMembersConfig
+	SystemConfig, WASM_BINARY, SubtensorModuleConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -360,27 +360,7 @@ fn localnet_genesis(
 			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
 		},
 		transaction_payment: Default::default(),
-		subtensor_module: Default::default(),
-		triumvirate: TriumvirateConfig {
-			members: Default::default(),
-			phantom: Default::default(),
-		},
-		triumvirate_members: TriumvirateMembersConfig {
-			members: bounded_vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			],
-			phantom: Default::default()
-		},
-		senate_members: SenateMembersConfig {
-			members: bounded_vec![
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			],
-			phantom: Default::default()
-		}
+		subtensor_module: Default::default()
 	}
 }
 
@@ -417,19 +397,7 @@ fn testnet_genesis(
 			key: Some(Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx").unwrap()),
 		},
 		transaction_payment: Default::default(),
-		subtensor_module: Default::default(),
-		triumvirate: TriumvirateConfig { // Add initial authorities as collective members
-			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-			phantom: Default::default(),
-		},
-		triumvirate_members: TriumvirateMembersConfig {
-			members: Default::default(),
-			phantom: Default::default()
-		},
-		senate_members: SenateMembersConfig {
-			members: Default::default(),
-			phantom: Default::default()
-		}
+		subtensor_module: Default::default()
 	}
 }
 
@@ -469,18 +437,6 @@ fn finney_genesis(
 		subtensor_module: SubtensorModuleConfig {
 			stakes: stakes,
 			balances_issuance: balances_issuance
-		},
-		triumvirate: TriumvirateConfig { // Add initial authorities as collective members
-			members: Default::default(),//initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-			phantom: Default::default(),
-		},
-		triumvirate_members: TriumvirateMembersConfig {
-			members: Default::default(),
-			phantom: Default::default()
-		},
-		senate_members: SenateMembersConfig {
-			members: Default::default(),
-			phantom: Default::default()
 		}
 	}
 }

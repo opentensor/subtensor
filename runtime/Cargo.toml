@@ -49,8 +49,8 @@ sp-version = { version = "5.0.0", default-features = false, git = "https://githu
 pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
 # Used for sudo decentralization
-pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
-pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+#pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
+#pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
 # Multisig
 pallet-multisig = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -112,8 +112,8 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	"pallet-collective/std",
-	"pallet-membership/std",
+	#"pallet-collective/std",
+	#"pallet-membership/std",
 	"pallet-registry/std"
 ]
 runtime-benchmarks = [
@@ -127,8 +127,6 @@ runtime-benchmarks = [
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
-	"pallet-collective/runtime-benchmarks",
-	"pallet-membership/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks"
 ]
 try-runtime = [
@@ -145,8 +143,6 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"pallet-subtensor/try-runtime",
-	"pallet-collective/try-runtime",
-	"pallet-membership/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-preimage/try-runtime",
