@@ -319,9 +319,7 @@ impl pallet_subtensor::Config for Test {
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
-    type SenateMembers = ();
-    type TriumvirateInterface = ();
-
+    
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;

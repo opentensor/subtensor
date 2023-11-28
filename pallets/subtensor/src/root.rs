@@ -470,7 +470,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+		/*let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
         if (members.len() as u32) == T::SenateMembers::max_members() {
@@ -492,7 +492,7 @@ impl<T: Config> Pallet<T> {
             }
         } else {
             T::SenateMembers::add_member(&hotkey)?;
-        }
+        }*/
 
         // --- 13. Force all members on root to become a delegate.
         if !Self::hotkey_is_delegate(&hotkey) {
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn do_vote_root(
+    /*pub fn do_vote_root(
         origin: T::RuntimeOrigin,
         hotkey: &T::AccountId,
         proposal: T::Hash,
@@ -560,7 +560,7 @@ impl<T: Config> Pallet<T> {
             },
         )
             .into())
-    }
+    }*/
 
     // Facilitates user registration of a new subnetwork.
     //

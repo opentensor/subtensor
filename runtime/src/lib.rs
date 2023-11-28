@@ -644,8 +644,6 @@ impl pallet_subtensor::Config for Runtime {
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureNever<RuntimeOrigin>;//EnsureMajoritySenate;
-    type SenateMembers = ();//ManageSenateMembers;
-    type TriumvirateInterface = ();//TriumvirateVotes;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;

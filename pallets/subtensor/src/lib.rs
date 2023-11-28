@@ -98,9 +98,8 @@ pub mod pallet {
         // --- Currency type that will be used to place deposits on neurons
         type Currency: Currency<Self::AccountId> + Send + Sync;
 
-        type SenateMembers: crate::MemberManagement<Self::AccountId>;
-
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+        //type SenateMembers: crate::MemberManagement<Self::AccountId>;
+        //type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         // =================================
         // ==== Initial Value Constants ====
@@ -1913,7 +1912,7 @@ pub mod pallet {
             return result;
         }
 
-        #[pallet::call_index(55)]
+        /*#[pallet::call_index(55)]
         #[pallet::weight((Weight::from_ref_time(0)
 		.saturating_add(Weight::from_proof_size(0))
 		.saturating_add(T::DbWeight::get().reads(0))
@@ -1926,7 +1925,7 @@ pub mod pallet {
             approve: bool,
         ) -> DispatchResultWithPostInfo {
             Self::do_vote_root(origin, &hotkey, proposal, index, approve)
-        }
+        }*/
 
         // Sudo call for setting registration allowed
         #[pallet::call_index(49)]
