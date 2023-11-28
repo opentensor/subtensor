@@ -1980,6 +1980,167 @@ fn test_validator_permits() {
     }
 }
 
+#[test]
+fn test_subnet_owner_weight()
+{
+    new_test_ext().execute_with(|| 
+    {
+        //SubtensorModule::init_new_network(1, 1);
+        
+        let (ColdKey, HotKey) = (U256::from(1), U256::from(2));
+        SubtensorModule::add_balance_to_coldkey_account(&ColdKey, 10_000_000_000_000);
+        SubtensorModule::user_add_network(RuntimeOrigin::signed(ColdKey));
+        SubtensorModule::set_tempo(1, 1);
+        SubtensorModule::set_target_registrations_per_interval(1, 0xFF);
+        SubtensorModule::set_max_registrations_per_block(1, 0xFF);
+        SubtensorModule::set_weights_set_rate_limit(1, 1);
+        SubtensorModule::burned_register(RuntimeOrigin::signed(ColdKey), 1, HotKey);
+        SubtensorModule::set_emission_values(&vec![ 1 ], vec![ 1_000_000_000 ]);
+
+        let (ColdKey2, HotKey2) = (U256::from(3), U256::from(4));
+        SubtensorModule::add_balance_to_coldkey_account(&ColdKey2, 10_000_000_000_000);
+        SubtensorModule::burned_register(RuntimeOrigin::signed(ColdKey2), 1, HotKey2);
+        SubtensorModule::add_stake(RuntimeOrigin::signed(ColdKey2), HotKey2, 10_000_000_000);
+
+        for idx in 1u16..64
+        {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(100 + idx), 10_000_000_000_000);
+            SubtensorModule::burned_register(RuntimeOrigin::signed(U256::from(100 + idx)), 1, U256::from(200 + idx));
+            SubtensorModule::add_stake(RuntimeOrigin::signed(U256::from(100 + idx)), U256::from(200 + idx), 10_000_000_000);
+
+            SubtensorModule::set_last_update_for_uid(1, idx, 3);
+        }
+
+        step_block(1);
+
+        for idx in  1u16..64
+        {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(300 + idx), 10_000_000_000_000);
+            SubtensorModule::burned_register(RuntimeOrigin::signed(U256::from(300 + idx)), 1, U256::from(400 + idx));
+        }
+
+        step_block(10);
+
+        for idx in  1u16..64
+        {
+            assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(200 + idx)), 1, vec![ 65u16 ], vec![ 65535u16 ], 0));
+        }
+
+        SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), 1, vec![ 65u16 ], vec![ 65535u16 ], 0);
+
+        step_block(10);
+        log::info!("-> {:?}", SubtensorModule::get_emission(1));
+        //step_block(2);
+
+        assert_eq!(SubtensorModule::get_emission(1)[0], 337063062);
+    });
+}
+
+#[test]
+fn test_subnet_owner_no_uid()
+{
+    new_test_ext().execute_with(||
+    {
+        let (ColdKey, HotKey) = (U256::from(1), U256::from(2));
+        SubtensorModule::add_balance_to_coldkey_account(&ColdKey, 10_000_000_000_000);
+        SubtensorModule::user_add_network(RuntimeOrigin::signed(ColdKey));
+        SubtensorModule::set_tempo(1, 1);
+        SubtensorModule::set_target_registrations_per_interval(1, 0xFF);
+        SubtensorModule::set_max_registrations_per_block(1, 0xFF);
+        SubtensorModule::set_weights_set_rate_limit(1, 1);
+        SubtensorModule::set_emission_values(&vec![ 1 ], vec![ 1_000_000_000 ]);
+        
+        let (ColdKey2, HotKey2) = (U256::from(3), U256::from(4));
+        SubtensorModule::add_balance_to_coldkey_account(&ColdKey2, 10_000_000_000_000);
+        SubtensorModule::burned_register(RuntimeOrigin::signed(ColdKey2), 1, HotKey2);
+        SubtensorModule::add_stake(RuntimeOrigin::signed(ColdKey2), HotKey2, 10_000_000_000);
+
+        for idx in 1u16..64
+        {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(100 + idx), 10_000_000_000_000);
+            SubtensorModule::burned_register(RuntimeOrigin::signed(U256::from(100 + idx)), 1, U256::from(200 + idx));
+            SubtensorModule::add_stake(RuntimeOrigin::signed(U256::from(100 + idx)), U256::from(200 + idx), 10_000_000_000);
+
+            SubtensorModule::set_last_update_for_uid(1, idx, 3);
+        }
+
+        step_block(1);
+
+        for idx in  1u16..64
+        {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(300 + idx), 10_000_000_000_000);
+            SubtensorModule::burned_register(RuntimeOrigin::signed(U256::from(300 + idx)), 1, U256::from(400 + idx));
+        }
+
+        step_block(10);
+
+        for idx in  1u16..64
+        {
+            assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(200 + idx)), 1, vec![ 65u16 ], vec![ 65535u16 ], 0));
+        }
+
+        SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), 1, vec![ 65u16 ], vec![ 65535u16 ], 0);
+
+        step_block(10);
+        log::info!("-> {:?}", SubtensorModule::get_emission(1));
+        //step_block(2);
+
+        assert_eq!(SubtensorModule::get_emission(1)[0], 0);
+    });
+}
+
+#[test]
+fn test_subnet_no_validator_weights()
+{
+    new_test_ext().execute_with(||
+    {
+        let (ColdKey, HotKey) = (U256::from(1), U256::from(2));
+        SubtensorModule::add_balance_to_coldkey_account(&ColdKey, 10_000_000_000_000);
+        SubtensorModule::user_add_network(RuntimeOrigin::signed(ColdKey));
+        SubtensorModule::set_tempo(1, 1);
+        SubtensorModule::set_target_registrations_per_interval(1, 0xFF);
+        SubtensorModule::set_max_registrations_per_block(1, 0xFF);
+        SubtensorModule::set_weights_set_rate_limit(1, 1);
+        SubtensorModule::set_emission_values(&vec![ 1 ], vec![ 1_000_000_000 ]);
+        SubtensorModule::burned_register(RuntimeOrigin::signed(ColdKey), 1, HotKey);
+        
+        let (ColdKey2, HotKey2) = (U256::from(3), U256::from(4));
+        SubtensorModule::add_balance_to_coldkey_account(&ColdKey2, 10_000_000_000_000);
+        SubtensorModule::burned_register(RuntimeOrigin::signed(ColdKey2), 1, HotKey2);
+        SubtensorModule::add_stake(RuntimeOrigin::signed(ColdKey2), HotKey2, 10_000_000_000);
+
+        for idx in 1u16..64
+        {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(100 + idx), 10_000_000_000_000);
+            SubtensorModule::burned_register(RuntimeOrigin::signed(U256::from(100 + idx)), 1, U256::from(200 + idx));
+            SubtensorModule::add_stake(RuntimeOrigin::signed(U256::from(100 + idx)), U256::from(200 + idx), 10_000_000_000);
+
+            SubtensorModule::set_last_update_for_uid(1, idx, 3);
+        }
+
+        step_block(1);
+
+        for idx in  1u16..64
+        {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(300 + idx), 10_000_000_000_000);
+            SubtensorModule::burned_register(RuntimeOrigin::signed(U256::from(300 + idx)), 1, U256::from(400 + idx));
+        }
+
+        step_block(10);
+
+        for idx in  1u16..64
+        {
+            assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(200 + idx)), 1, vec![ 65u16 ], vec![ 65535u16 ], 0));
+        }
+
+        step_block(10);
+        log::info!("-> {:?}", SubtensorModule::get_emission(1));
+        //step_block(2);
+
+        assert_eq!(SubtensorModule::get_emission(1)[0], 179999999);
+    });
+}
+
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //
 // // ```import torch
