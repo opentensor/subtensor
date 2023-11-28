@@ -81,9 +81,6 @@ pub type Index = u32;
 // A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 
-// Member type for membership
-type MemberCount = u32;
-
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
 // of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -327,149 +324,6 @@ impl pallet_transaction_payment::Config for Runtime {
     //type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
 
-/*
-// Configure collective pallet for council
-parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 12 * HOURS;
-    pub const CouncilMaxProposals: u32 = 10;
-    pub const CouncilMaxMembers: u32 = 3;
-}
-
-// Configure collective pallet for Senate
-parameter_types! {
-    pub const SenateMaxMembers: u32 = 12;
-}
-
-use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
-    fn can_propose(account: &AccountId) -> bool {
-        //Triumvirate::is_member(account)
-        return false;
-    }
-}
-
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
-    }
-}
-
-
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
-pub struct ManageSenateMembers;
-impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResult {
-        let who = Address::Id(account.clone());
-        SenateMembers::add_member(RawOrigin::Root.into(), who)
-    }
-
-    fn remove_member(account: &AccountId) -> DispatchResult {
-        let who = Address::Id(account.clone());
-        SenateMembers::remove_member(RawOrigin::Root.into(), who)
-    }
-
-    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResult {
-        let remove = Address::Id(rm.clone());
-        let add = Address::Id(add.clone());
-
-        //Triumvirate::remove_votes(rm)?;
-        //SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
-    }
-
-    fn is_member(account: &AccountId) -> bool {
-        SenateMembers::members().contains(account)
-    }
-
-    fn members() -> Vec<AccountId> {
-        SenateMembers::members().into()
-    }
-
-    fn max_members() -> u32 {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct GetSenateMemberCount;
-impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-    fn get_count() -> MemberCount {
-        SenateMembers::members().len() as u32
-    }
-}
-impl Get<MemberCount> for GetSenateMemberCount {
-    fn get() -> MemberCount {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
-    }
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: u32,
-        approve: bool,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
-    }
-}
-
-type EnsureMajoritySenate =
-    pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
-
-// We call pallet_collective TriumvirateCollective
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Runtime {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = GetSenateMemberCount;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
-    type GetVotingMembers = GetSenateMemberCount;
-}
-
-// We call council members Triumvirate
-type TriumvirateMembership = pallet_membership::Instance1;
-impl pallet_membership::Config<TriumvirateMembership> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
-    type MaxMembers = CouncilMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
-}
-
-// We call our top K delegates membership Senate
-type SenateMembership = pallet_membership::Instance2;
-impl pallet_membership::Config<SenateMembership> for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = ();
-    type MembershipChanged = ();
-    type MaxMembers = SenateMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
-}*/
-
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -499,37 +353,6 @@ parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
     pub const NoPreimagePostponement: Option<u32> = Some(10);
 }
-
-/*
-/// Used the compare the privilege of an origin inside the scheduler.
-pub struct OriginPrivilegeCmp;
-
-impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
-    fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
-        if left == right {
-            return Some(Ordering::Equal);
-        }
-
-        match (left, right) {
-            // Root is greater than anything.
-            (OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
-            // Check which one has more yes votes.
-            (
-                OriginCaller::Triumvirate(pallet_collective::RawOrigin::Members(
-                    l_yes_votes,
-                    l_count,
-                )),
-                OriginCaller::Triumvirate(pallet_collective::RawOrigin::Members(
-                    r_yes_votes,
-                    r_count,
-                )), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
-            ) => Some((l_yes_votes * r_count).cmp(&(r_yes_votes * l_count))),
-            // For every other origin we don't care, as they are not used for `ScheduleOrigin`.
-            _ => None,
-        }
-    }
-}
-*/
 
 use frame_support::traits::EqualPrivilegeOnly;
 
@@ -629,7 +452,6 @@ parameter_types! {
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
-    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
@@ -675,7 +497,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMinBurn = SubtensorInitialMinBurn;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
     type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
@@ -701,9 +522,6 @@ construct_runtime!(
         Balances: pallet_balances,
         TransactionPayment: pallet_transaction_payment,
         SubtensorModule: pallet_subtensor,
-        //Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        //TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        //SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         Utility: pallet_utility,
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,

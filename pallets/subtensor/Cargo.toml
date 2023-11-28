@@ -36,9 +36,6 @@ pallet-utility = { git = "https://github.com/paritytech/substrate", default-feat
 ndarray = { version = "0.15.0", default-features = false }
 hex = { version = "0.4", default-features = false }
 
-# Used for sudo decentralization
-#pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
-#pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 hex-literal = "0.4.1"
 
 [dev-dependencies]

@@ -162,8 +162,6 @@ pub mod pallet {
         type InitialServingRateLimit: Get<u64>;
         #[pallet::constant] // Initial transaction rate limit.
         type InitialTxRateLimit: Get<u64>;
-        #[pallet::constant] // Initial percentage of total stake required to join senate.
-        type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
         #[pallet::constant] // Initial network immunity period
@@ -183,16 +181,6 @@ pub mod pallet {
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
-
-    // Senate requirements
-    #[pallet::type_value]
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
-        T::InitialSenateRequiredStakePercentage::get()
-    }
-
-    #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     // ============================
     // ==== Staking + Accounts ====

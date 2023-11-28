@@ -470,30 +470,6 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-		/*let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
-        // If we're full, we'll swap out the lowest stake member.
-        let members = T::SenateMembers::members();
-        if (members.len() as u32) == T::SenateMembers::max_members() {
-            let mut sorted_members = members.clone();
-            sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
-
-                b_stake.cmp(&a_stake)
-            });
-
-            if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
-
-                if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey)?;
-                    T::TriumvirateInterface::remove_votes(&last)?;
-                }
-            }
-        } else {
-            T::SenateMembers::add_member(&hotkey)?;
-        }*/
-
         // --- 13. Force all members on root to become a delegate.
         if !Self::hotkey_is_delegate(&hotkey) {
             Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.

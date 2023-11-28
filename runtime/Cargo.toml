@@ -48,10 +48,6 @@ sp-version = { version = "5.0.0", default-features = false, git = "https://githu
 # Temporary sudo
 pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
-# Used for sudo decentralization
-#pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
-#pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
-
 # Multisig
 pallet-multisig = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
@@ -112,8 +108,6 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
-	#"pallet-collective/std",
-	#"pallet-membership/std",
 	"pallet-registry/std"
 ]
 runtime-benchmarks = [

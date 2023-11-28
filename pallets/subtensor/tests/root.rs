@@ -158,9 +158,6 @@ fn test_root_register_stake_based_pruning_works() {
             );
             // Check for unsuccesfull registration.
             assert!(!SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are NOT senate members
-            
-            //assert!(!SubtensorModule::is_senate_member(&hot));
         }
     });
 }
