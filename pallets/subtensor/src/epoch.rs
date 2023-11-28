@@ -452,7 +452,20 @@ impl<T: Config> Pallet<T> {
         log::trace!( "T: {:?}", &trust );
 
         inplace_normalize( &mut ranks );  // range: I32F32(0, 1)
-        let incentive: Vec<I32F32> = ranks.clone();
+        let mut incentive: Vec<I32F32> = ranks.clone();
+        if let Some(owner_incentive) = incentive.get_mut(owner_validator_uid) 
+        {
+            *owner_incentive = I32F32::from_num(0.18);
+        }
+
+        // Multiply every incentive other than the owners by 0.82 to prevent overflow
+        for (index, cur_incentive) in incentive.iter_mut().enumerate()
+        {
+            if index != owner_validator_uid
+            {
+                *cur_incentive = cur_incentive.saturating_mul(I32F32::from_num(0.82));
+            }
+        }
         log::trace!( "I (=R): {:?}", &incentive );
 
         // =========================
