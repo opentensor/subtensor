@@ -356,6 +356,7 @@ impl<T: Config> Pallet<T> {
             stake_64[owner_validator_uid] = percentile_stake;
         }
 
+        log::trace!( "S64: {:?}", &stake_64 );
         inplace_normalize_64( &mut stake_64 );
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32( stake_64 );
         // range: I32F32(0, 1)
@@ -402,23 +403,23 @@ impl<T: Config> Pallet<T> {
 
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse( netuid );
-        // log::trace!( "W: {:?}", &weights );
+        log::trace!( "W: {:?}", &weights );
 
         // Mask weights that are not from permitted validators.
         weights = mask_rows_sparse( &validator_forbids, &weights );
-        // log::trace!( "W (permit): {:?}", &weights );
+        log::trace!( "W (permit): {:?}", &weights );
 
         // Remove self-weight by masking diagonal.
         weights = mask_diag_sparse( &weights );
-        // log::trace!( "W (permit+diag): {:?}", &weights );
+        log::trace!( "W (permit+diag): {:?}", &weights );
 
         // Remove weights referring to deregistered neurons.
         weights = vec_mask_sparse_matrix( &weights, &last_update, &block_at_registration, &| updated, registered | updated <= registered );
-        // log::trace!( "W (permit+diag+outdate): {:?}", &weights );
+        log::trace!( "W (permit+diag+outdate): {:?}", &weights );
 
         // Normalize remaining weights.
         inplace_row_normalize_sparse( &mut weights );
-        // log::trace!( "W (mask+norm): {:?}", &weights );
+        log::trace!( "W (mask+norm): {:?}", &weights );
 
         // ================================
         // == Consensus, Validator Trust ==
@@ -426,7 +427,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute preranks: r_j = SUM(i) w_ij * s_i
         let preranks: Vec<I32F32> = matmul_sparse( &weights, &active_stake, n );
-        // log::trace!( "R (before): {:?}", &preranks );
+        log::trace!( "R (before): {:?}", &preranks );
 
         // Clip weights at majority consensus
         let kappa: I32F32 = Self::get_float_kappa( netuid );  // consensus majority ratio, e.g. 51%.
@@ -434,7 +435,7 @@ impl<T: Config> Pallet<T> {
         log::trace!( "C: {:?}", &consensus );
 
         weights = col_clip_sparse( &weights, &consensus );
-        // log::trace!( "W: {:?}", &weights );
+        log::trace!( "W: {:?}", &weights );
 
         let validator_trust: Vec<I32F32> = row_sum_sparse( &weights );
         log::trace!( "Tv: {:?}", &validator_trust );
@@ -445,7 +446,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute ranks: r_j = SUM(i) w_ij * s_i.
         let mut ranks: Vec<I32F32> = matmul_sparse( &weights, &active_stake, n );
-        // log::trace!( "R (after): {:?}", &ranks );
+        log::trace!( "R (after): {:?}", &ranks );
 
         // Compute server trust: ratio of rank after vs. rank before.
         let trust: Vec<I32F32> = vecdiv( &ranks, &preranks );  // range: I32F32(0, 1)
@@ -474,23 +475,23 @@ impl<T: Config> Pallet<T> {
 
         // Access network bonds.
         let mut bonds: Vec<Vec<(u16, I32F32)>> = Self::get_bonds_sparse( netuid );
-        // log::trace!( "B: {:?}", &bonds );
+        log::trace!( "B: {:?}", &bonds );
 
         // Remove bonds referring to deregistered neurons.
         bonds = vec_mask_sparse_matrix( &bonds, &last_update, &block_at_registration, &| updated, registered | updated <= registered );
-        // log::trace!( "B (outdatedmask): {:?}", &bonds );
+        log::trace!( "B (outdatedmask): {:?}", &bonds );
 
         // Normalize remaining bonds: sum_i b_ij = 1.
         inplace_col_normalize_sparse( &mut bonds, n );
-        // log::trace!( "B (mask+norm): {:?}", &bonds );
+        log::trace!( "B (mask+norm): {:?}", &bonds );
 
         // Compute bonds delta column normalized.
         let mut bonds_delta: Vec<Vec<(u16, I32F32)>> = row_hadamard_sparse( &weights, &active_stake ); // ΔB = W◦S (outdated W masked)
-        // log::trace!( "ΔB: {:?}", &bonds_delta );
+        log::trace!( "ΔB: {:?}", &bonds_delta );
 
         // Normalize bonds delta.
         inplace_col_normalize_sparse( &mut bonds_delta, n ); // sum_i b_ij = 1
-        // log::trace!( "ΔB (norm): {:?}", &bonds_delta );
+        log::trace!( "ΔB (norm): {:?}", &bonds_delta );
 
         // Compute bonds moving average.
         let bonds_moving_average: I64F64 = I64F64::from_num( Self::get_bonds_moving_average( netuid ) ) / I64F64::from_num( 1_000_000 );
@@ -499,7 +500,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize EMA bonds.
         inplace_col_normalize_sparse( &mut ema_bonds, n ); // sum_i b_ij = 1
-        // log::trace!( "emaB: {:?}", &ema_bonds );
+        log::trace!( "emaB: {:?}", &ema_bonds );
 
         // Compute dividends: d_i = SUM(j) b_ij * inc_j.
         // range: I32F32(0, 1)
@@ -547,6 +548,9 @@ impl<T: Config> Pallet<T> {
         // Only used to track emission in storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission.iter().map( |ce: &I32F32| I96F32::from_num( *ce ) * float_rao_emission ).collect();
         let combined_emission: Vec<u64> = combined_emission.iter().map( |e: &I96F32| e.to_num::<u64>() ).collect();
+
+        log::trace!("rao_emi: {:?}", &rao_emission);
+        log::trace!("frao_emi: {:?}", &float_rao_emission);
 
         log::trace!( "nSE: {:?}", &normalized_server_emission );
         log::trace!( "SE: {:?}", &server_emission );
@@ -602,6 +606,9 @@ impl<T: Config> Pallet<T> {
         for ( uid_i, hotkey ) in hotkeys.iter() {
             result.push( ( hotkey.clone(), server_emission[ *uid_i as usize ], validator_emission[ *uid_i as usize ] ) );
         }
+
+        log::info!("{:?}", result);
+
         result
     }
 
