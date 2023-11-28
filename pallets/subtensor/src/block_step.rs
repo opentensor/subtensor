@@ -131,27 +131,7 @@ impl<T: Config> Pallet<T> {
                 new_queued_emission,
             );
 
-            let subnet_has_owner = SubnetOwner::<T>::contains_key(netuid);
-            let mut remaining = I96F32::from_num(new_queued_emission);
-            if subnet_has_owner {
-                let cut = remaining
-                    .saturating_mul(
-                        I96F32::from_num(Self::get_subnet_owner_cut())
-                    )
-                    .saturating_div(
-                        I96F32::from_num(u16::MAX)
-                    );
-
-                remaining = remaining.saturating_sub(cut);
-
-                Self::add_balance_to_coldkey_account(
-                    &Self::get_subnet_owner(netuid),
-                    Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
-                );
-                TotalIssuance::<T>::put(
-                    TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()),
-                );
-            }
+            let remaining = I96F32::from_num(new_queued_emission);
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
             log::debug!(
@@ -355,7 +335,7 @@ impl<T: Config> Pallet<T> {
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
-            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}", 
+            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
                 last_adjustment_block,
                 adjustment_interval,
