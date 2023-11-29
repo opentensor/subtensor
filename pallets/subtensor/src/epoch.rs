@@ -550,7 +550,7 @@ impl<T: Config> Pallet<T> {
         if LiquidAlphaOn::<T>::get(netuid) {
             let alpha: Vec<I32F32> = consensus
                 .iter()
-                .map(|c: &I32F32| I32F32::from_num(1.0).saturating_sub(c))
+                .map(|c: &I32F32| I32F32::from_num(1.0).saturating_sub(*c))
                 .collect();
             ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &alpha);
         } else {
