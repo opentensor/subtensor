@@ -43,10 +43,10 @@ fn test_registration_difficulty_adjustment() {
         ); // Check set registration allowed
 
         // Lets register 3 neurons...
-        let hotkey0 = U256::from(0);
+        let hotkey0 = U256::from(1);
         let hotkey1 = U256::from(100);
         let hotkey2 = U256::from(2000);
-        let coldkey0 = U256::from(0);
+        let coldkey0 = U256::from(1);
         let coldkey1 = U256::from(1000);
         let coldkey2 = U256::from(20000);
         register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
