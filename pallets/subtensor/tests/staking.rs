@@ -2215,6 +2215,11 @@ fn test_ostraca() {
         let delegate_hotkey = U256::from(123570);
         let delegate_coldkey = U256::from(123560);
 
+        SubtensorModule::init_new_network(1, 10);
+        SubtensorModule::set_network_registration_allowed(1, true);
+        SubtensorModule::burned_register(RuntimeOrigin::signed(delegate_coldkey), 1, delegate_hotkey.clone());
+        SubtensorModule::delegate_hotkey(&delegate_hotkey, 11_786);
+
         // Add self stake.
         let self_delegated_amount: u64 = 10;
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
@@ -2224,7 +2229,7 @@ fn test_ostraca() {
         );
 
         // Nominate 10 times.
-        for i in 1..10 {
+        for i in 1..=10 {
             let nominator_amount: u64 = 1000;
             let nominator_coldkey = U256::from(123560 + i);
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
