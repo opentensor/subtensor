@@ -1003,6 +1003,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn set_subnet_owner( netuid: u16, key: T::AccountId ) {
+        SubnetOwner::<T>::set( netuid, key );
+    }
     pub fn get_subnet_owner( netuid:u16 ) -> T::AccountId {
         SubnetOwner::<T>::get( netuid )
     }

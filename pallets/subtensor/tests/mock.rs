@@ -459,4 +459,5 @@ pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    SubtensorModule::set_subnet_owner(netuid, U256::from(i32::MAX));
 }
