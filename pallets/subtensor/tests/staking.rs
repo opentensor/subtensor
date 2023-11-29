@@ -1,3 +1,4 @@
+use frame_support::traits::OriginTrait;
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
@@ -2247,7 +2248,7 @@ fn test_ostraca() {
 
         // Run ostraca.
         assert_ok!(SubtensorModule::sudo_ostraca(
-            <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+            <<Test as Config>::RuntimeOrigin>::root(),
             delegate_hotkey,
         ));
 
