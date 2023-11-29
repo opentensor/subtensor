@@ -1,16 +1,25 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::{
+    storage::IterableStorageDoubleMap,
+    traits::Get,
+    weights::Weight
+};
+
 
 impl<T: Config> Pallet<T> {
-    pub fn do_ostraca(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> dispatch::DispatchResult {
+    pub fn do_ostraca(hotkey: T::AccountId) -> dispatch::DispatchResultWithPostInfo {
+        let mut weight = Weight::from_parts(64_000_000, 28078);
+
         // --- 1. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
 
         // --- 2. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(Self::hotkey_is_delegate(&hotkey), Error::<T>::NotDelegate);
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
 
         // --- 3. Remove stake from delegate.
         // Iterate through all delegates and remove their stake back into their coldkey account.
@@ -19,6 +28,8 @@ impl<T: Config> Pallet<T> {
                 &hotkey,
             )
         {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
             // Convert to balance and add to the coldkey account.
             let stake_i_as_balance = Self::u64_to_balance(stake_i);
             if stake_i_as_balance.is_none() {
@@ -31,11 +42,15 @@ impl<T: Config> Pallet<T> {
                     stake_i,
                 );
 
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(5, 5));
+
                 // Add the balance to the coldkey account.
                 Self::add_balance_to_coldkey_account(
                     &delegate_coldkey_i,
                     stake_i_as_balance.unwrap(),
                 );
+
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
             }
         }
 
@@ -46,7 +61,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::OstracaExecuted(hotkey));
 
         // --- 6. Ok and return.
-        Ok(())
+        Ok(Some(weight).into())
     }
 
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.

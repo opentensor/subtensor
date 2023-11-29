@@ -575,4 +575,24 @@ benchmarks! {
 		assert_ok!(Subtensor::<T>::add_stake(RawOrigin::Signed(coldkey).into(), old_hotkey.clone(), 1_000_000_000));
 	}
   }: _(RawOrigin::Signed(coldkey), old_hotkey, new_hotkey)
+
+  sudo_ostraca {
+	let seed = 42069;
+	let delegate_hotkey: T::AccountId = account("Alice", 0, seed);
+	let delegate_coldkey: T::AccountId = account("Bob", 0, seed);
+
+	Subtensor::<T>::init_new_network(1, 10);
+	Subtensor::<T>::set_network_registration_allowed(1, true);
+	Subtensor::<T>::add_balance_to_coldkey_account(&delegate_coldkey, Subtensor::<T>::u64_to_balance(10_000_000_000).unwrap());
+	Subtensor::<T>::burned_register(RawOrigin::Signed(delegate_coldkey.clone()).into(), 1, delegate_hotkey.clone());
+	Subtensor::<T>::delegate_hotkey(&delegate_hotkey, 11_786);
+
+	// Add self stake.
+	let self_delegated_amount: u64 = 10;
+	Subtensor::<T>::increase_stake_on_coldkey_hotkey_account(
+		&delegate_coldkey,
+		&delegate_hotkey,
+		self_delegated_amount,
+	);
+  }: _(RawOrigin::<AccountIdOf<T>>::Root, delegate_hotkey)
 }

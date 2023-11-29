@@ -2076,11 +2076,10 @@ pub mod pallet {
         #[pallet::call_index(69)]
         #[pallet::weight((Weight::from_ref_time(14_000_000)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_ostraca(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            // This is a public call, so we ensure that the origin is a council majority.
-            T::CouncilOrigin::ensure_origin(origin.clone())?;
+        pub fn sudo_ostraca(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
 
-            Self::do_ostraca(origin, hotkey)
+            Self::do_ostraca(hotkey)
         }
 
         #[pallet::call_index(70)]
