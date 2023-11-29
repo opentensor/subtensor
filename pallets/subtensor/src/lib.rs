@@ -417,6 +417,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> network_pow_allowed
+    pub type NetworkPowRegistrationAllowed<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
@@ -844,6 +847,7 @@ pub mod pallet {
         TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
         Sudid(DispatchResult),         // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
+        PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),             // --- Event created when setting tempo on a network
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
@@ -856,6 +860,7 @@ pub mod pallet {
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
         OstracaExecuted(T::AccountId),
+        HotkeySwapped{coldkey: T::AccountId, old_hotkey: T::AccountId, new_hotkey: T::AccountId} // Event created when a hotkey is swapped 
     }
 
     // Errors inform users that something went wrong.
@@ -915,6 +920,7 @@ pub mod pallet {
         OperationNotPermittedonRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
+        NotEnoughBalance,
     }
 
     // ==================
@@ -1525,6 +1531,13 @@ pub mod pallet {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
+        #[pallet::call_index(70)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn swap_hotkey(origin: OriginFor<T>, hotkey: T::AccountId, new_hotkey: T::AccountId) -> DispatchResultWithPostInfo {
+            //Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+            Ok(().into())
+        }
+
         #[pallet::call_index(8)]
         #[pallet::weight((Weight::from_ref_time(81_000_000)
 		.saturating_add(T::DbWeight::get().reads(21))
@@ -2068,6 +2081,13 @@ pub mod pallet {
             T::CouncilOrigin::ensure_origin(origin.clone())?;
 
             Self::do_ostraca(origin, hotkey)
+        }
+
+        #[pallet::call_index(70)]
+        #[pallet::weight((Weight::from_ref_time(14_000_000)
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult {
+            Self::do_sudo_set_network_pow_registration_allowed(origin, netuid, registration_allowed)
         }
     }
 

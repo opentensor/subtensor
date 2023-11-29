@@ -613,10 +613,6 @@ impl<T: Config> Pallet<T> {
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
-        ensure!(
-            immunity_period <= 7200,
-            Error::<T>::StorageValueOutOfRange
-        );
 
         Self::set_immunity_period(netuid, immunity_period);
         log::info!(
@@ -770,6 +766,28 @@ impl<T: Config> Pallet<T> {
             registration_allowed
         );
         Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
+        Ok(())
+    }
+
+    pub fn get_network_pow_registration_allowed(netuid: u16) -> bool {
+        NetworkPowRegistrationAllowed::<T>::get(netuid)
+    }
+    pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
+        NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed)
+    }
+    pub fn do_sudo_set_network_pow_registration_allowed(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        registration_allowed: bool,
+    ) -> DispatchResult {
+        ensure_root(origin)?;
+
+        Self::set_network_pow_registration_allowed(netuid, registration_allowed);
+        log::info!(
+            "NetworkPowRegistrationAllowed( registration_allowed: {:?} ) ",
+            registration_allowed
+        );
+        Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
         Ok(())
     }
 
@@ -1083,5 +1101,9 @@ impl<T: Config> Pallet<T> {
         Self::set_senate_required_stake_perc(required_percent);
         Self::deposit_event(Event::SenateRequiredStakePercentSet(required_percent));
         Ok(())
+    }
+
+    pub fn is_subnet_owner(address: &T::AccountId) -> bool {
+        SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
 }
