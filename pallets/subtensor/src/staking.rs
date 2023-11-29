@@ -6,7 +6,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
-            Error::<T>::NotDelegate
+            Error::<T>::NotRegistered
         );
 
         // --- 2. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
