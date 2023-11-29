@@ -15,6 +15,7 @@ use pallet_grandpa::{
 use frame_support::pallet_prelude::{DispatchResult, Get};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
+use pallet_registry::CanRegisterIdentity;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -119,7 +120,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 135,
+    spec_version: 136,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -553,6 +554,42 @@ impl pallet_preimage::Config for Runtime {
     type ByteDeposit = PreimageByteDeposit;
 }
 
+pub struct AllowIdentityReg;
+
+impl CanRegisterIdentity<AccountId> for AllowIdentityReg {
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    fn can_register(address: &AccountId, identified: &AccountId) -> bool {
+        if address != identified {
+            return SubtensorModule::coldkey_owns_hotkey(address, identified) && SubtensorModule::is_hotkey_registered_on_network(0, identified);
+        } else {
+            return SubtensorModule::is_subnet_owner(address);
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_register(_: &AccountId, _: &AccountId) -> bool {
+        true
+    }
+}
+
+// Configure registry pallet.
+parameter_types! {
+    pub const MaxAdditionalFields: u32 = 1;
+    pub const InitialDeposit: Balance = 100_000_000; // 0.1 TAO
+    pub const FieldDeposit: Balance = 100_000_000; // 0.1 TAO
+}
+
+impl pallet_registry::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type CanRegister = AllowIdentityReg;
+    type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
+
+    type MaxAdditionalFields = MaxAdditionalFields;
+    type InitialDeposit = InitialDeposit;
+    type FieldDeposit = FieldDeposit;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -683,6 +720,7 @@ construct_runtime!(
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
+        Registry: pallet_registry,
         AdminUtils: pallet_admin_utils
     }
 );
@@ -732,6 +770,7 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
+        [pallet_registry, Registry]
     );
 }
 
