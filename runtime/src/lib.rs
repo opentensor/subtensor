@@ -680,6 +680,11 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
 }
 
+impl pallet_governance::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -704,7 +709,8 @@ construct_runtime!(
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
-        Registry: pallet_registry
+        Registry: pallet_registry,
+        Governance: pallet_governance
     }
 );
 

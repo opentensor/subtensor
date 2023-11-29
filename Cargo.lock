@@ -4217,6 +4217,7 @@ dependencies = [
  "pallet-aura",
  "pallet-balances",
  "pallet-collective",
+ "pallet-governance",
  "pallet-grandpa",
  "pallet-insecure-randomness-collective-flip",
  "pallet-membership",
@@ -4496,6 +4497,22 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-governance"
+version = "4.0.0-dev"
+dependencies = [
+ "enumflags2",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
  "parity-scale-codec",
  "scale-info",
  "sp-core",
