@@ -550,11 +550,11 @@ impl<T: Config> Pallet<T> {
         if LiquidAlphaOn::<T>::get(netuid) {
             let alpha: Vec<I32F32> = consensus
                 .iter()
-                .map(|c: &I32F32| I32F32::from_num(1.0) - c)
+                .map(|c: &I32F32| I32F32::from_num(1.0).saturating_sub(c))
                 .collect();
             ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &alpha);
         } else {
-            let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num(bonds_moving_average);
+            let alpha: I32F32 = I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
             ema_bonds = mat_ema_sparse(&bonds_delta, &bonds, alpha);
         }
         inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
