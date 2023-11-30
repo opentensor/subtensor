@@ -423,18 +423,7 @@ impl<T: Config> Pallet<T> {
     pub fn set_rho(netuid: u16, rho: u16) {
         Rho::<T>::insert(netuid, rho);
     }
-    pub fn do_sudo_set_rho(origin: T::RuntimeOrigin, netuid: u16, rho: u16) -> DispatchResult {
-        ensure_root(origin)?;
 
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-        Self::set_rho(netuid, rho);
-        log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
-        Self::deposit_event(Event::RhoSet(netuid, rho));
-        Ok(())
-    }
 
     pub fn get_activity_cutoff(netuid: u16) -> u16 {
         ActivityCutoff::<T>::get(netuid)
@@ -546,20 +535,6 @@ impl<T: Config> Pallet<T> {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);
         let rao_recycled = curr_rao_recycled.saturating_add(inc_rao_recycled);
         Self::set_rao_recycled(netuid, rao_recycled);
-    }
-    pub fn do_set_rao_recycled(
-        origin: T::RuntimeOrigin,
-        netuid: u16,
-        rao_recycled: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-        Self::set_rao_recycled(netuid, rao_recycled);
-        Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
-        Ok(())
     }
 
     pub fn set_senate_required_stake_perc(required_percent: u64) {

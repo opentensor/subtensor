@@ -4,9 +4,10 @@ pub use pallet::*;
 
 use sp_runtime::{
 	traits::Member,
-	RuntimeAppPublic,
-	DispatchResult
+	RuntimeAppPublic
 };
+
+use frame_support::dispatch::DispatchError;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -14,6 +15,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::BoundedVec;
+	use frame_support::traits::Currency;
+	use frame_support::dispatch::DispatchResult;
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -36,7 +39,13 @@ pub mod pallet {
 		/// The maximum number of authorities that the pallet can hold.
 		type MaxAuthorities: Get<u32>;
 
-		type Subtensor: crate::SubtensorInterface;
+		type Currency: Currency<Self::AccountId> + Send + Sync;
+		type Subtensor: crate::SubtensorInterface
+		<
+			Self::AccountId, 
+			<<Self as pallet::Config>::Currency as Currency<<Self as frame_system::Config>::AccountId>>::Balance, 
+			Self::RuntimeOrigin
+		>;		
 	}
 
 	#[pallet::event]
@@ -46,7 +55,12 @@ pub mod pallet {
 
 	// Errors inform users that something went wrong.
 	#[pallet::error]
-	pub enum Error<T> {}
+	pub enum Error<T> 
+	{
+		NetworkDoesNotExist,
+		StorageValueOutOfRange,
+		MaxAllowedUIdsNotAllowed
+	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
 	// These functions materialize as "extrinsics", which are often compared to transactions.
@@ -172,10 +186,6 @@ pub mod pallet {
 				netuid,
 				weights_set_rate_limit
 			);
-			T::Subtensor::deposit_event(Event::WeightsSetRateLimitSet(
-				netuid,
-				weights_set_rate_limit,
-			));
 			Ok(())
 		}
 
@@ -584,89 +594,13 @@ pub mod pallet {
 			Ok(())
 		}
 
-		#[pallet::call_index(31)]
-        #[pallet::weight((Weight::from_ref_time(81_000_000)))]
-		pub fn do_sudo_registration(origin: OriginFor<T>, netuid: u16, hotkey: T::AccountId, coldkey: T::AccountId, stake: u64, balance: u64) -> DispatchResult 
-		{
-			ensure_root(origin)?;
-			ensure!(
-				netuid != T::Subtensor::get_root_netuid(),
-				Error::<T>::OperationNotPermittedonRootSubnet
-			);
-			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
-				Error::<T>::NetworkDoesNotExist
-			);
-			ensure!(
-				!Uids::<T>::contains_key(netuid, &hotkey),
-				Error::<T>::AlreadyRegistered
-			);
-	
-			T::Subtensor::create_account_if_non_existent(&coldkey, &hotkey);
-			ensure!(
-				T::Subtensor::coldkey_owns_hotkey(&coldkey, &hotkey),
-				Error::<T>::NonAssociatedColdKey
-			);
-			T::Subtensor::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
-	
-			let balance_to_be_added_as_balance = T::Subtensor::u64_to_balance(balance);
-			ensure!(
-				balance_to_be_added_as_balance.is_some(),
-				Error::<T>::CouldNotConvertToBalance
-			);
-			T::Subtensor::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
-	
-			let subnetwork_uid: u16;
-			let current_block_number: u64 = T::Subtensor::get_current_block_as_u64();
-			let current_subnetwork_n: u16 = T::Subtensor::get_subnetwork_n(netuid);
-			if current_subnetwork_n < T::Subtensor::get_max_allowed_uids(netuid) {
-				// --- 12.1.1 No replacement required, the uid appends the subnetwork.
-				// We increment the subnetwork count here but not below.
-				subnetwork_uid = current_subnetwork_n;
-	
-				// --- 12.1.2 Expand subnetwork with new account.
-				T::Subtensor::append_neuron(netuid, &hotkey, current_block_number);
-				log::info!("add new neuron account");
-			} else {
-				// --- 12.1.1 Replacement required.
-				// We take the neuron with the lowest pruning score here.
-				subnetwork_uid = T::Subtensor::get_neuron_to_prune(netuid);
-	
-				// --- 12.1.1 Replace the neuron account with the new info.
-				T::Subtensor::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-				log::info!("prune neuron");
-			}
-	
-			log::info!(
-				"NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
-				netuid,
-				subnetwork_uid,
-				hotkey
-			);
-			Ok(())
-		}
-
-		#[pallet::call_index(32)]
-        #[pallet::weight((Weight::from_ref_time(81_000_000)
-		.saturating_add(T::DbWeight::get().reads(21))
-		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_register(origin: OriginFor<T>, netuid: u16, hotkey: T::AccountId, coldkey: T::AccountId, stake: u64, balance: u64) -> DispatchResult 
-		{
-            Self::do_sudo_registration(origin, netuid, hotkey, coldkey, stake, balance)
-        }
-
 		#[pallet::call_index(33)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_total_issuance(origin: OriginFor<T>, total_issuance: u64) -> DispatchResult 
 		{
-            T::Subtensor::do_set_total_issuance(origin, total_issuance)
-        }
+            T::Subtensor::do_set_total_issuance(origin, total_issuance);
 
-        #[pallet::call_index(34)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64) -> DispatchResult 
-		{
-            T::Subtensor::do_set_rao_recycled(origin, netuid, rao_recycled)
+			Ok(())
         }
 
 		#[pallet::call_index(35)]
@@ -709,8 +643,7 @@ pub mod pallet {
         pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult 
 		{
             ensure_root(origin)?;
-
-            SubnetLimit::<T>::set(max_subnets);
+            T::Subtensor::set_subnet_limit(max_subnets);
 
             log::info!(
                 "SubnetLimit( max_subnets: {:?} ) ",
@@ -736,6 +669,19 @@ pub mod pallet {
 
             Ok(())
         }
+
+		#[pallet::call_index(39)]
+        #[pallet::weight(0)]
+		pub fn sudo_set_rao_recycled(origin: OriginFor<T>, netuid: u16, rao_recycled: u64) -> DispatchResult 
+		{
+			ensure_root(origin)?;
+			ensure!(
+				T::Subtensor::if_subnet_exist(netuid),
+				Error::<T>::NetworkDoesNotExist
+			);
+			T::Subtensor::set_rao_recycled(netuid, rao_recycled);
+			Ok(())
+		}
     }
 }
 
@@ -756,44 +702,67 @@ impl<A, M> AuraInterface<A, M> for () {
 
 ///////////////////////////////////////////
 
-pub trait SubtensorInterface 
+pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin>
 {
-	fn set_default_take(default_take: u16) -> DispatchResult;
-	fn set_tx_rate_limit(rate_limit: u64) -> DispatchResult;
+	fn set_default_take(default_take: u16);
+	fn set_tx_rate_limit(rate_limit: u64);
 
-	fn set_serving_rate_limit(netuid: u16, rate_limit: u64) -> DispatchResult;
+	fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
 
-	fn set_max_burn(netuid: u16, max_burn: u64) -> DispatchResult;
-	fn set_min_burn(netuid: u16, min_burn: u64) -> DispatchResult;
-	fn set_burn(netuid: u16, burn: u64) -> DispatchResult;
+	fn set_max_burn(netuid: u16, max_burn: u64);
+	fn set_min_burn(netuid: u16, min_burn: u64);
+	fn set_burn(netuid: u16, burn: u64);
 
-	fn set_max_difficulty(netuid: u16, max_diff: u64) -> DispatchResult;
-	fn set_min_difficulty(netuid: u16, min_diff: u64) -> DispatchResult;
-	fn set_difficulty(netuid: u16, diff: u64) -> DispatchResult;
+	fn set_max_difficulty(netuid: u16, max_diff: u64);
+	fn set_min_difficulty(netuid: u16, min_diff: u64);
+	fn set_difficulty(netuid: u16, diff: u64);
 
-	fn set_weights_rate_limit(netuid: u16, rate_limit: u64) -> DispatchResult;
+	fn set_weights_rate_limit(netuid: u16, rate_limit: u64);
 
-	fn set_weights_version_key(netuid: u16, version: u64) -> DispatchResult;
+	fn set_weights_version_key(netuid: u16, version: u64);
 
-	fn set_bonds_moving_average(netuid: u16, moving_average: u64) -> DispatchResult;
+	fn set_bonds_moving_average(netuid: u16, moving_average: u64);
 
-	fn set_max_allowed_validators(netuid: u16, max_validators: u16) -> DispatchResult;
+	fn set_max_allowed_validators(netuid: u16, max_validators: u16);
 
 	fn get_root_netuid() -> u16;
 	fn if_subnet_exist(netuid: u16) -> bool;
-	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &T::AccountId);
-	fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool;
-	fn increase_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &<T as frame_system::Config>::AccountId, increment: u64);
-	fn u64_to_balance(input: u64) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance>;
-	fn add_balance_to_coldkey_account(coldkey: &T::AccountId, amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance);
+	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId);
+	fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool;
+	fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, increment: u64);
+	fn u64_to_balance(input: u64) -> Option<Balance>;
+	fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance);
 	fn get_current_block_as_u64() -> u64;
 	fn get_subnetwork_n(netuid: u16) -> u16;
 	fn get_max_allowed_uids(netuid: u16) -> u16;
-	fn append_neuron(netuid: u16, new_hotkey: &T::AccountId, block_number: u64);
+	fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64);
 	fn get_neuron_to_prune(netuid: u16) -> u16;
-	fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &T::AccountId, block_number: u64);
-	fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) -> DispatchResult;
-	fn do_set_rao_recycled(origin: T::RuntimeOrigin, netuid: u16, rao_recycled: u64) -> DispatchResult;
+	fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64);
+	fn do_set_total_issuance(origin: RuntimeOrigin, total_issuance: u64);
 	fn set_network_immunity_period(net_immunity_period: u64);
 	fn set_network_min_lock(net_min_lock: u64);
+	fn set_rao_recycled(netuid: u16, rao_recycled: u64);
+	fn set_subnet_limit(limit: u16);
+	fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool;
+	fn set_lock_reduction_interval(interval: u64);
+	fn set_tempo(netuid: u16, tempo: u16);
+	fn set_subnet_owner_cut(subnet_owner_cut: u16);
+	fn set_network_rate_limit(limit: u64);
+	fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16);
+	fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64);
+	fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16);
+	fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool);
+	fn set_network_registration_allowed(netuid: u16, registration_allowed: bool);
+	fn set_activity_cutoff(netuid: u16, activity_cutoff: u16);
+	fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError>;
+	fn set_rho(netuid: u16, rho: u16);
+	fn set_kappa(netuid: u16, kappa: u16);
+	fn set_max_allowed_uids(netuid: u16, max_allowed: u16);
+	fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16);
+	fn set_immunity_period(netuid: u16, immunity_period: u16);
+	fn set_max_weight_limit(netuid: u16, max_weight_limit: u16);
+	fn set_scaling_law_power(netuid: u16, scaling_law_power: u16);
+	fn set_validator_prune_len(netuid: u16, validator_prune_len: u64);
+	fn set_adjustment_interval(netuid: u16, adjustment_interval: u16);
+	fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64);
 }
