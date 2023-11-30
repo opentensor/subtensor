@@ -1,4 +1,4 @@
-use crate as pallet_template;
+use crate as pallet_admin_utils;
 use frame_support::traits::{ConstU16, ConstU64};
 use sp_core::H256;
 use sp_runtime::{
@@ -13,7 +13,7 @@ frame_support::construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
-		This: pallet_admin_utils,
+		AdminUtils: pallet_admin_utils,
 		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
 	}
 );

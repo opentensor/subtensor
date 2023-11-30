@@ -7,6 +7,9 @@ use sp_runtime::{
 	RuntimeAppPublic
 };
 
+#[cfg(test)]
+mod tests;
+
 use frame_support::dispatch::DispatchError;
 
 #[frame_support::pallet]

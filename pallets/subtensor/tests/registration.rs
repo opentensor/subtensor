@@ -763,11 +763,10 @@ fn test_registration_invalid_difficulty() {
         //add network
         add_network(netuid, tempo, 0);
 
-        assert_ok!(SubtensorModule::sudo_set_difficulty(
-            <<Test as Config>::RuntimeOrigin>::root(),
+        SubtensorModule::set_difficulty(
             netuid,
             18_446_744_073_709_551_615u64
-        ));
+        );
 
         let result = SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
