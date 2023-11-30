@@ -14,8 +14,61 @@ frame_support::construct_runtime!(
 	{
 		System: frame_system,
 		TemplateModule: pallet_template,
+		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
 	}
 );
+
+#[allow(dead_code)]
+pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+
+impl pallet_subtensor::Config for Test 
+{
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type InitialIssuance = InitialIssuance;
+    type SudoRuntimeCall = TestRuntimeCall;
+    type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
+    type SenateMembers = ManageSenateMembers;
+    type TriumvirateInterface = TriumvirateVotes;
+
+    type InitialMinAllowedWeights = InitialMinAllowedWeights;
+    type InitialEmissionValue = InitialEmissionValue;
+    type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
+    type InitialTempo = InitialTempo;
+    type InitialDifficulty = InitialDifficulty;
+    type InitialAdjustmentInterval = InitialAdjustmentInterval;
+    type InitialAdjustmentAlpha = InitialAdjustmentAlpha;
+    type InitialTargetRegistrationsPerInterval = InitialTargetRegistrationsPerInterval;
+    type InitialRho = InitialRho;
+    type InitialKappa = InitialKappa;
+    type InitialMaxAllowedUids = InitialMaxAllowedUids;
+    type InitialValidatorPruneLen = InitialValidatorPruneLen;
+    type InitialScalingLawPower = InitialScalingLawPower;
+    type InitialImmunityPeriod = InitialImmunityPeriod;
+    type InitialActivityCutoff = InitialActivityCutoff;
+    type InitialMaxRegistrationsPerBlock = InitialMaxRegistrationsPerBlock;
+    type InitialPruningScore = InitialPruningScore;
+    type InitialBondsMovingAverage = InitialBondsMovingAverage;
+    type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
+    type InitialDefaultTake = InitialDefaultTake;
+    type InitialWeightsVersionKey = InitialWeightsVersionKey;
+    type InitialMaxDifficulty = InitialMaxDifficulty;
+    type InitialMinDifficulty = InitialMinDifficulty;
+    type InitialServingRateLimit = InitialServingRateLimit;
+    type InitialTxRateLimit = InitialTxRateLimit;
+    type InitialBurn = InitialBurn;
+    type InitialMaxBurn = InitialMaxBurn;
+    type InitialMinBurn = InitialMinBurn;
+    type InitialRAORecycledForRegistration = InitialRAORecycledForRegistration;
+    type InitialSenateRequiredStakePercentage = InitialSenateRequiredStakePercentage;
+    type InitialNetworkImmunityPeriod = InitialNetworkImmunityPeriod;
+    type InitialNetworkMinAllowedUids = InitialNetworkMinAllowedUids;
+    type InitialNetworkMinLockCost = InitialNetworkMinLockCost;
+    type InitialSubnetOwnerCut = InitialSubnetOwnerCut;
+    type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
+    type InitialSubnetLimit = InitialSubnetLimit;
+    type InitialNetworkRateLimit = InitialNetworkRateLimit;
+}
 
 impl frame_system::Config for Test {
 	type BaseCallFilter = frame_support::traits::Everything;
