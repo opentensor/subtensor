@@ -519,10 +519,8 @@ impl<T: Config> Pallet<T> {
         SubnetOwnerCut::<T>::set( subnet_owner_cut );
     }
 
-    pub fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) -> DispatchResult {
-        ensure_root(origin)?;
+    pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
-        Ok(())
     }
 
     pub fn get_rao_recycled(netuid: u16) -> u64 {
@@ -530,6 +528,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_rao_recycled(netuid: u16, rao_recycled: u64) {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
+        Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
     pub fn increase_rao_recycled(netuid: u16, inc_rao_recycled: u64) {
         let curr_rao_recycled = Self::get_rao_recycled(netuid);

@@ -4458,12 +4458,15 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-balances",
  "pallet-subtensor",
  "parity-scale-codec",
  "scale-info",
+ "sp-consensus-aura",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-tracing",
 ]
 
 [[package]]

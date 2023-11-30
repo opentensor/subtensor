@@ -823,9 +823,9 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
         SubtensorModule::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
     }
 
-	fn do_set_total_issuance(origin: RuntimeOrigin, total_issuance: u64)
+	fn set_total_issuance(total_issuance: u64)
     {
-        SubtensorModule::do_set_total_issuance(origin, total_issuance);
+        SubtensorModule::set_total_issuance(total_issuance);
     }
 
 	fn set_network_immunity_period(net_immunity_period: u64)
@@ -964,7 +964,7 @@ impl pallet_admin_utils::Config for Runtime {
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;
-    type Currency = Balances;
+    type Balance = Balance;
     type Subtensor = SubtensorInterface;
 }
 

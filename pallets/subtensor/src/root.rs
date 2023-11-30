@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_max_subnets(limit: u16)
     {
-        SubnetLimit::<T>::set(limit);
+        SubnetLimit::<T>::put(limit);
     }
 
     // Fetches the total count of subnet validators (those that set weights.)
