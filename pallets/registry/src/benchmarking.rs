@@ -5,6 +5,7 @@ use super::*;
 #[allow(unused)]
 use crate::Pallet as Registry;
 use frame_benchmarking::v2::*;
+use frame_benchmarking::v1::account;
 use frame_system::RawOrigin;
 
 use sp_runtime::traits::{StaticLookup, Bounded};
@@ -44,7 +45,7 @@ mod benchmarks {
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), Box::new(create_identity_info::<T>(0)));
+		_(RawOrigin::Signed(caller.clone()), account::<T::AccountId>("account", 0, 0u32), Box::new(create_identity_info::<T>(0)));
 
 		assert_last_event::<T>(Event::<T>::IdentitySet { who: caller }.into());
 	}
@@ -55,10 +56,12 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
 
-		Registry::<T>::set_identity(RawOrigin::Signed(caller.clone()).into(), Box::new(create_identity_info::<T>(0)));
+		let vali_account = account::<T::AccountId>("account", 0, 0u32);
+
+		Registry::<T>::set_identity(RawOrigin::Signed(caller.clone()).into(), vali_account.clone(), Box::new(create_identity_info::<T>(0)));
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()));
+		_(RawOrigin::Signed(caller.clone()), vali_account);
 
 		assert_last_event::<T>(Event::<T>::IdentityDissolved { who: caller }.into());
 	}
