@@ -14,7 +14,6 @@ pub use pallet::*;
 //use mock::{Test, new_test_ext};
 
 benchmarks! {
-
   // Add individual benchmarks here
   benchmark_register {
 	// Lets create a single network.
@@ -30,7 +29,7 @@ benchmarks! {
 	let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
 	Subtensor::<T>::init_new_network(netuid, tempo);
-	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+	Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into());
 
 	let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
 	let coldkey: T::AccountId = account("Test", 0, seed);
@@ -47,9 +46,9 @@ benchmarks! {
 	Subtensor::<T>::init_new_network(netuid, tempo);
 	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
-	   assert_ok!(Subtensor::<T>::do_sudo_set_max_registrations_per_block(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
-	  assert_ok!(Subtensor::<T>::do_sudo_set_target_registrations_per_interval(RawOrigin::Root.into(), netuid.try_into().unwrap(), 4096 ));
+	Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into() );
+	Subtensor::<T>::set_max_registrations_per_block( netuid.try_into().unwrap(), 4096 );
+	Subtensor::<T>::set_target_registrations_per_interval( netuid.try_into().unwrap(), 4096 );
 
 	let mut seed : u32 = 1;
 	let mut dests: Vec<u16> = vec![];
@@ -90,7 +89,7 @@ benchmarks! {
 	  Subtensor::<T>::set_burn(netuid, 1);
 	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+	Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into());
 	assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
 	let coldkey: T::AccountId = account("Test", 0, seed);
@@ -114,7 +113,7 @@ benchmarks! {
 	Subtensor::<T>::init_new_network(netuid, tempo);
 
 	Subtensor::<T>::set_burn(netuid, 1);
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+	Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into() );
 
 	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 	assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -142,7 +141,7 @@ benchmarks! {
 	Subtensor::<T>::increase_total_stake(1_000_000_000_000);
 
 	Subtensor::<T>::init_new_network(netuid, tempo);
-	  assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+	Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into() );
 
 	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 	assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -221,6 +220,7 @@ benchmarks! {
 
   }: serve_prometheus(RawOrigin::Signed( caller.clone() ), netuid, version, ip, port, ip_type)
 
+  /*
   benchmark_sudo_register {
 	let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
 	let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
@@ -444,7 +444,7 @@ benchmarks! {
 	Subtensor::<T>::init_new_network(netuid, tempo);
 
   }: sudo_set_max_registrations_per_block(RawOrigin::<AccountIdOf<T>>::Root, netuid, max_registrations_per_block)
-
+  */
   benchmark_burned_register {
 	let netuid: u16 = 1;
 	let seed : u32 = 1;
@@ -461,6 +461,7 @@ benchmarks! {
 
   }: burned_register(RawOrigin::Signed( coldkey.clone() ), netuid, hotkey)
 
+  /*
   benchmark_sudo_set_max_burn {
 	let netuid: u16 = 1;
 	let tempo: u16 = 1;
@@ -498,6 +499,7 @@ benchmarks! {
 	Subtensor::<T>::init_new_network(netuid, tempo);
 
   }: sudo_set_tempo(RawOrigin::<AccountIdOf<T>>::Root, netuid, tempo)
+  	*/
 
   benchmark_root_register {
 	let netuid: u16 = 1;
@@ -508,7 +510,7 @@ benchmarks! {
 	Subtensor::<T>::init_new_network(netuid, tempo);
 
 	Subtensor::<T>::set_burn(netuid, 1);
-	assert_ok!(Subtensor::<T>::do_sudo_set_network_registration_allowed( RawOrigin::Root.into(), netuid.try_into().unwrap(), true.into()));
+	Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into());
 
 	Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 	assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);

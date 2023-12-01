@@ -966,6 +966,7 @@ impl pallet_admin_utils::Config for Runtime {
     type Aura = AuraPalletIntrf;
     type Balance = Balance;
     type Subtensor = SubtensorInterface;
+    type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1043,6 +1044,7 @@ mod benches {
         [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
         [pallet_registry, Registry]
+        [pallet_admin_utils, AdminUtils]
     );
 }
 

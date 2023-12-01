@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+pub mod weights;
+pub use weights::WeightInfo;
 
 use sp_runtime::{
 	traits::Member,
@@ -8,6 +10,9 @@ use sp_runtime::{
 };
 
 use frame_support::dispatch::DispatchError;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -39,6 +44,9 @@ pub mod pallet {
 		/// The maximum number of authorities that the pallet can hold.
 		type MaxAuthorities: Get<u32>;
 
+		// Weight information for extrinsics in this pallet.
+		type WeightInfo: WeightInfo;
+
 		type Balance: Balance;
 		type Subtensor: crate::SubtensorInterface
 		<
@@ -68,11 +76,13 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::swap_authorities(new_authorities.len() as u32))]
 		pub fn swap_authorities(origin: OriginFor<T>, new_authorities: BoundedVec<T::AuthorityId, T::MaxAuthorities>) -> DispatchResult {
 			ensure_root(origin)?;
 
-			T::Aura::change_authorities(new_authorities);
+			T::Aura::change_authorities(new_authorities.clone());
+
+			log::info!("Aura authorities changed: {:?}", new_authorities);
 			
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
