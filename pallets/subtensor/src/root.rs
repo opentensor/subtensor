@@ -62,6 +62,7 @@ impl<T: Config> Pallet<T> {
     pub fn set_max_subnets(limit: u16)
     {
         SubnetLimit::<T>::put(limit);
+        Self::deposit_event(Event::SubnetLimitSet(limit));
     }
 
     // Fetches the total count of subnet validators (those that set weights.)
@@ -228,6 +229,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_network_rate_limit( limit: u64 ) {
         NetworkRateLimit::<T>::set(limit);
+        Self::deposit_event(Event::NetworkRateLimitSet(limit));
     }
 
     // Computes and sets emission values for the root network which determine the emission for all subnets.
@@ -954,9 +956,11 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
+        Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
     }
     pub fn set_network_min_lock(net_min_lock: u64) {
         NetworkMinLockCost::<T>::set(net_min_lock);
+        Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
     pub fn get_network_min_lock() -> u64 {
         NetworkMinLockCost::<T>::get()
@@ -972,6 +976,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
+        Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
     }
     pub fn get_lock_reduction_interval() -> u64 {
         NetworkLockReductionInterval::<T>::get()

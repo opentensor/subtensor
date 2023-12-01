@@ -20,6 +20,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     pub fn set_tempo(netuid: u16, tempo: u16) {
         Tempo::<T>::insert(netuid, tempo);
+        Self::deposit_event(Event::TempoSet(netuid, tempo));
     }
     pub fn set_last_adjustment_block(netuid: u16, last_adjustment_block: u64) {
         LastAdjustmentBlock::<T>::insert(netuid, last_adjustment_block);
@@ -290,7 +291,8 @@ impl<T: Config> Pallet<T> {
         DefaultTake::<T>::get()
     }
     pub fn set_default_take(default_take: u16) {
-        DefaultTake::<T>::put(default_take)
+        DefaultTake::<T>::put(default_take);
+        Self::deposit_event(Event::DefaultTakeSet(default_take));
     }
 
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
@@ -311,14 +313,16 @@ impl<T: Config> Pallet<T> {
         TxRateLimit::<T>::get()
     }
     pub fn set_tx_rate_limit(tx_rate_limit: u64) {
-        TxRateLimit::<T>::put(tx_rate_limit)
+        TxRateLimit::<T>::put(tx_rate_limit);
+        Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
         ServingRateLimit::<T>::get(netuid)
     }
     pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64) {
-        ServingRateLimit::<T>::insert(netuid, serving_rate_limit)
+        ServingRateLimit::<T>::insert(netuid, serving_rate_limit);
+        Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
     }
 
     pub fn get_min_difficulty(netuid: u16) -> u64 {
@@ -326,6 +330,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_min_difficulty(netuid: u16, min_difficulty: u64) {
         MinDifficulty::<T>::insert(netuid, min_difficulty);
+        Self::deposit_event(Event::MinDifficultySet(netuid, min_difficulty));
     }
 
     pub fn get_max_difficulty(netuid: u16) -> u64 {
@@ -333,6 +338,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_difficulty(netuid: u16, max_difficulty: u64) {
         MaxDifficulty::<T>::insert(netuid, max_difficulty);
+        Self::deposit_event(Event::MaxDifficultySet(netuid, max_difficulty));
     }
    
 
@@ -341,14 +347,18 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_weights_version_key(netuid: u16, weights_version_key: u64) {
         WeightsVersionKey::<T>::insert(netuid, weights_version_key);
+        Self::deposit_event(Event::WeightsVersionKeySet(netuid, weights_version_key));
     }
 
 
-    pub fn get_weights_set_rate_limit(netuid: u16) -> u64 {
+    pub fn get_weights_set_rate_limit(netuid: u16) -> u64 
+    {
         WeightsSetRateLimit::<T>::get(netuid)
     }
-    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
+    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) 
+    {
         WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
+        Self::deposit_event(Event::WeightsSetRateLimitSet(netuid, weights_set_rate_limit));
     }
 
     pub fn get_adjustment_interval(netuid: u16) -> u16 {
@@ -356,13 +366,15 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) {
         AdjustmentInterval::<T>::insert(netuid, adjustment_interval);
+        Self::deposit_event(Event::AdjustmentIntervalSet(netuid, adjustment_interval));
     }
 
     pub fn get_adjustment_alpha(netuid: u16) -> u64 {
         AdjustmentAlpha::<T>::get(netuid)
     }
     pub fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
-        AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha)
+        AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha);
+        Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
     }
 
     pub fn get_validator_prune_len(netuid: u16) -> u64 {
@@ -370,6 +382,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) {
         ValidatorPruneLen::<T>::insert(netuid, validator_prune_len);
+        Self::deposit_event(Event::ValidatorPruneLenSet(netuid, validator_prune_len));
     }
 
     pub fn get_scaling_law_power(netuid: u16) -> u16 {
@@ -377,6 +390,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_scaling_law_power(netuid: u16, scaling_law_power: u16) {
         ScalingLawPower::<T>::insert(netuid, scaling_law_power);
+        Self::deposit_event(Event::ScalingLawPowerSet(netuid, scaling_law_power));
     }
 
     pub fn get_max_weight_limit(netuid: u16) -> u16 {
@@ -384,6 +398,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_weight_limit(netuid: u16, max_weight_limit: u16) {
         MaxWeightsLimit::<T>::insert(netuid, max_weight_limit);
+        Self::deposit_event(Event::MaxWeightLimitSet(netuid, max_weight_limit));
     }
 
     pub fn get_immunity_period(netuid: u16) -> u16 {
@@ -391,6 +406,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_immunity_period(netuid: u16, immunity_period: u16) {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
+        Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
     }
 
 
@@ -399,6 +415,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16) {
         MinAllowedWeights::<T>::insert(netuid, min_allowed_weights);
+        Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
     }
 
 
@@ -407,6 +424,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_allowed_uids(netuid: u16, max_allowed: u16) {
         MaxAllowedUids::<T>::insert(netuid, max_allowed);
+        Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
     }
 
 
@@ -415,6 +433,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_kappa(netuid: u16, kappa: u16) {
         Kappa::<T>::insert(netuid, kappa);
+        Self::deposit_event(Event::KappaSet(netuid, kappa));
     }
 
     pub fn get_rho(netuid: u16) -> u16 {
@@ -430,6 +449,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) {
         ActivityCutoff::<T>::insert(netuid, activity_cutoff);
+        Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
     }
 
     // Registration Toggle utils
@@ -437,7 +457,8 @@ impl<T: Config> Pallet<T> {
         NetworkRegistrationAllowed::<T>::get(netuid)
     }
     pub fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) {
-        NetworkRegistrationAllowed::<T>::insert(netuid, registration_allowed)
+        NetworkRegistrationAllowed::<T>::insert(netuid, registration_allowed);
+        Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
     }
 
 
@@ -445,7 +466,8 @@ impl<T: Config> Pallet<T> {
         NetworkPowRegistrationAllowed::<T>::get(netuid)
     }
     pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
-        NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed)
+        NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed);
+        Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
     }
 
     pub fn get_target_registrations_per_interval(netuid: u16) -> u16 {
@@ -456,6 +478,7 @@ impl<T: Config> Pallet<T> {
         target_registrations_per_interval: u16,
     ) {
         TargetRegistrationsPerInterval::<T>::insert(netuid, target_registrations_per_interval);
+        Self::deposit_event(Event::RegistrationPerIntervalSet(netuid, target_registrations_per_interval));
     }
 
     pub fn get_burn_as_u64(netuid: u16) -> u64 {
@@ -470,6 +493,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_min_burn(netuid: u16, min_burn: u64) {
         MinBurn::<T>::insert(netuid, min_burn);
+        Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
     }
 
     pub fn get_max_burn_as_u64(netuid: u16) -> u64 {
@@ -477,6 +501,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_burn(netuid: u16, max_burn: u64) {
         MaxBurn::<T>::insert(netuid, max_burn);
+        Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
     }
 
     pub fn get_difficulty_as_u64(netuid: u16) -> u64 {
@@ -484,22 +509,23 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_difficulty(netuid: u16, difficulty: u64) {
         Difficulty::<T>::insert(netuid, difficulty);
+        Self::deposit_event(Event::DifficultySet(netuid, difficulty));
     }
-
 
     pub fn get_max_allowed_validators(netuid: u16) -> u16 {
         MaxAllowedValidators::<T>::get(netuid)
     }
     pub fn set_max_allowed_validators(netuid: u16, max_allowed_validators: u16) {
         MaxAllowedValidators::<T>::insert(netuid, max_allowed_validators);
+        Self::deposit_event(Event::MaxAllowedValidatorsSet(netuid, max_allowed_validators));
     }
-
 
     pub fn get_bonds_moving_average(netuid: u16) -> u64 {
         BondsMovingAverage::<T>::get(netuid)
     }
     pub fn set_bonds_moving_average(netuid: u16, bonds_moving_average: u64) {
         BondsMovingAverage::<T>::insert(netuid, bonds_moving_average);
+        Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
     }
 
     pub fn get_max_registrations_per_block(netuid: u16) -> u16 {
@@ -507,6 +533,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) {
         MaxRegistrationsPerBlock::<T>::insert(netuid, max_registrations_per_block);
+        Self::deposit_event(Event::MaxRegistrationsPerBlockSet(netuid, max_registrations_per_block));
     }
 
     pub fn get_subnet_owner( netuid:u16 ) -> T::AccountId {
@@ -517,6 +544,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_subnet_owner_cut( subnet_owner_cut: u16 ) {
         SubnetOwnerCut::<T>::set( subnet_owner_cut );
+        Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
     pub fn set_total_issuance(total_issuance: u64) {
