@@ -957,6 +957,11 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
     {
         return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
     }
+
+    fn init_new_network(netuid: u16, tempo: u16)
+    {
+        SubtensorModule::init_new_network(netuid, tempo);
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {
@@ -967,6 +972,7 @@ impl pallet_admin_utils::Config for Runtime {
     type Balance = Balance;
     type Subtensor = SubtensorInterface;
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
+    
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

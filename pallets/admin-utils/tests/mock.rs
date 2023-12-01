@@ -474,7 +474,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
     }
 
-
+    fn init_new_network(netuid: u16, tempo: u16)
+    {
+        SubtensorModule::init_new_network(netuid, tempo);
+    }
 }
 
 impl pallet_admin_utils::Config for Test {
@@ -484,6 +487,7 @@ impl pallet_admin_utils::Config for Test {
     type Aura = ();
     type Balance = Balance;
     type Subtensor = SubtensorIntrf;
+    type WeightInfo = /*pallet_admin_utils::weights::SubstrateWeight<Test>*/();
 }
 
 #[allow(dead_code)]

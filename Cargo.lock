@@ -4467,6 +4467,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-tracing",
+ "sp-weights",
 ]
 
 [[package]]

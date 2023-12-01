@@ -76,7 +76,7 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::swap_authorities(new_authorities.len() as u32))]
+		#[pallet::weight(0)]
 		pub fn swap_authorities(origin: OriginFor<T>, new_authorities: BoundedVec<T::AuthorityId, T::MaxAuthorities>) -> DispatchResult {
 			ensure_root(origin)?;
 
@@ -777,4 +777,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin>
 	fn set_validator_prune_len(netuid: u16, validator_prune_len: u64);
 	fn set_adjustment_interval(netuid: u16, adjustment_interval: u16);
 	fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64);
+	fn init_new_network(netuid: u16, tempo: u16);
 }
