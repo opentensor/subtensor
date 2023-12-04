@@ -1529,8 +1529,7 @@ pub mod pallet {
         #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(origin: OriginFor<T>, hotkey: T::AccountId, new_hotkey: T::AccountId) -> DispatchResultWithPostInfo {
-            //Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
-            Ok(().into())
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
