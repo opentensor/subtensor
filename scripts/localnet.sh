@@ -3,6 +3,7 @@
 : "${CHAIN:=local}"
 : "${BUILD_BINARY:=1}"
 : "${SPEC_PATH:=specs/}"
+: "${FEATURES:-pow-faucet}"
 
 FULL_PATH="$SPEC_PATH$CHAIN.json"
 
@@ -13,7 +14,7 @@ fi
 
 if [[ $BUILD_BINARY == "1" ]]; then
 	echo "*** Building substrate binary..."
-	cargo build --release 
+	cargo build --release --features="$FEATURES"
 	echo "*** Binary compiled"
 fi
 
