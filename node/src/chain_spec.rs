@@ -348,6 +348,7 @@ fn localnet_genesis(
 				(get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
 				(get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
 				(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
+				(Ss58Codec::from_ss58check(env!("BT_DEFAULT_TOKEN_WALLET")).unwrap(), 1_000_000_000_000_000)
 			]
 		},
 		aura: AuraConfig {
