@@ -115,6 +115,7 @@ impl system::Config for Test {
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
+    pub const InitialMaxWeightLimit: u16 = u16::MAX;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_ref_time(1024));
@@ -321,6 +322,7 @@ impl pallet_subtensor::Config for Test {
     type TriumvirateInterface = TriumvirateVotes;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
+    type InitialMaxWeightLimit = InitialMaxWeightLimit;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;

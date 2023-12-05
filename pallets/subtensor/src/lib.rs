@@ -109,6 +109,8 @@ pub mod pallet {
         type InitialIssuance: Get<u64>;
         #[pallet::constant] // Initial min allowed weights setting.
         type InitialMinAllowedWeights: Get<u16>;
+        #[pallet::constant] // Initial max weight limit
+        type InitialMaxWeightLimit: Get<u16>;
         #[pallet::constant] // Initial Emission Ratio.
         type InitialEmissionValue: Get<u16>;
         #[pallet::constant] // Initial max weight limit.
@@ -167,6 +169,8 @@ pub mod pallet {
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
+        #[pallet::constant]
+        type InitialRegistrationAllowed: Get<bool>;
         #[pallet::constant] // Initial network immunity period
         type InitialNetworkImmunityPeriod: Get<u64>;
         #[pallet::constant] // Initial minimum allowed network UIDs
@@ -353,7 +357,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
-        false
+        T::InitialRegistrationAllowed::get()
     }
     #[pallet::type_value]
     pub fn DefaultNetworkRegisteredAt<T: Config>() -> u64 {
@@ -497,7 +501,6 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
-
     // =================================
     // ==== Axon / Promo Endpoints =====
     // =================================
@@ -610,6 +613,10 @@ pub mod pallet {
         T::InitialMinAllowedWeights::get()
     }
     #[pallet::type_value]
+    pub fn DefaultMaxWeightLimit<T: Config>() -> u16 {
+        T::InitialMaxWeightLimit::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultMaxAllowedValidators<T: Config>() -> u16 {
         T::InitialMaxAllowedValidators::get()
     }
@@ -670,6 +677,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> min_allowed_weights
     pub type MinAllowedWeights<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMinAllowedWeights<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> max_weight_limit
+    pub type MaxWeightLimit<T> =
+        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxWeightLimit<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> max_allowed_validators
     pub type MaxAllowedValidators<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxAllowedValidators<T>>;

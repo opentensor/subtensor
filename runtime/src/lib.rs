@@ -594,36 +594,38 @@ impl pallet_registry::Config for Runtime {
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
     pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
-    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialMaxAllowedUids: u16 = 256;
     pub const SubtensorInitialIssuance: u64 = 0;
-    pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 1;
+    pub const SubtensorInitialMaxWeightLimit: u16 = u16::MAX; 
     pub const SubtensorInitialEmissionValue: u16 = 0;
     pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
-    pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 64;
     pub const SubtensorInitialTempo: u16 = 99;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
-    pub const SubtensorInitialAdjustmentInterval: u16 = 100;
-    pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
-    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
-    pub const SubtensorInitialImmunityPeriod: u16 = 4096;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 360;
+    pub const SubtensorInitialAdjustmentAlpha: u64 = 58000; // no weight to previous value.
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 1;
+    pub const SubtensorInitialImmunityPeriod: u16 = 5000;
     pub const SubtensorInitialActivityCutoff: u16 = 5000;
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
-    pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
-    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
+    pub const SubtensorInitialMinDifficulty: u64 = u64::MAX;
+    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX;
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 1; // 1 tao
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialRegistrationAllowed: bool = true;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
@@ -646,6 +648,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
     type InitialIssuance = SubtensorInitialIssuance;
     type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
+    type InitialMaxWeightLimit = SubtensorInitialMaxWeightLimit;
     type InitialEmissionValue = SubtensorInitialEmissionValue;
     type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
     type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
@@ -672,6 +675,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
+    type InitialRegistrationAllowed = SubtensorInitialRegistrationAllowed;
     type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
     type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
