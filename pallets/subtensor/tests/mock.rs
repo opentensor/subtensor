@@ -114,6 +114,8 @@ impl system::Config for Test {
 }
 
 parameter_types! {
+    pub const InitialNetworkRegistrationAllowed: bool = true;
+    pub const InitialRegistrationAllowed: bool = false;
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialMaxWeightLimit: u16 = u16::MAX;
     pub const InitialEmissionValue: u16 = 0;
@@ -321,6 +323,8 @@ impl pallet_subtensor::Config for Test {
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
 
+    type InitialNetworkRegistrationAllowed = InitialNetworkRegistrationAllowed;
+    type InitialRegistrationAllowed = InitialRegistrationAllowed;
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialMaxWeightLimit = InitialMaxWeightLimit;
     type InitialEmissionValue = InitialEmissionValue;
