@@ -359,9 +359,6 @@ impl<T: Config> Pallet<T>
         return Self::set_emission_values(&netuids, emission_u64);
     }
 
-    
-    
-
     // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
     // The lock cost is calculated using the formula:
     // lock_cost = (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block)
