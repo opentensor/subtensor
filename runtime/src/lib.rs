@@ -625,7 +625,8 @@ parameter_types! {
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorInitialRegistrationAllowed: bool = true;
+    pub const SubtensorInitialNetworkRegistrationAllowed: bool = true;
+    pub const SubtensorInitialRegistrationAllowed: bool = false;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
     pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
@@ -675,6 +676,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
+    type InitialNetworkRegistrationAllowed = SubtensorInitialNetworkRegistrationAllowed;
     type InitialRegistrationAllowed = SubtensorInitialRegistrationAllowed;
     type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
     type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;

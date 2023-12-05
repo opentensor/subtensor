@@ -170,6 +170,8 @@ pub mod pallet {
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
         #[pallet::constant]
+        type InitialNetworkRegistrationAllowed: Get<bool>;
+        #[pallet::constant]
         type InitialRegistrationAllowed: Get<bool>;
         #[pallet::constant] // Initial network immunity period
         type InitialNetworkImmunityPeriod: Get<u64>;
@@ -386,8 +388,13 @@ pub mod pallet {
         false
     }
     #[pallet::type_value]
+    pub fn DefaultNetworkRegistrationAllowed<T: Config>() -> bool 
+    {
+        return T::InitialNetworkRegistrationAllowed::get();
+    }
+    #[pallet::type_value]
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
-        T::InitialRegistrationAllowed::get()
+        /*T::InitialRegistrationAllowed::get()*/false
     }
     #[pallet::type_value]
     pub fn DefaultNetworkRegisteredAt<T: Config>() -> u64 {
@@ -448,9 +455,19 @@ pub mod pallet {
         ValueQuery,
         DefaultIsNetworkMember<T>,
     >;
+    //------------
+    #[pallet::storage]
+    pub type GlobalSubnetDefaultNetworkRegistrationAllowed<T> = 
+        StorageValue<_, bool, ValueQuery, DefaultNetworkRegistrationAllowed<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultNetworkRegistrationAllowed<T: Config>() -> bool
+    {
+        return GlobalSubnetDefaultNetworkRegistrationAllowed::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+        StorageMap<_, Identity, u16, bool, ValueQuery, SubnetDefaultNetworkRegistrationAllowed<T>>;
+    //------------
     #[pallet::storage] // --- MAP ( netuid ) --> network_pow_allowed
     pub type NetworkPowRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
@@ -699,12 +716,31 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> burn_registrations_this_interval
     pub type BurnRegistrationsThisInterval<T: Config> =
         StorageMap<_, Identity, u16, u16, ValueQuery>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalMaxAllowedUids<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMaxAllowedUids<T: Config>() -> u16
+    {
+        return GlobalMaxAllowedUids::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultMaxAllowedUids<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultImmunityPeriod<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultImmunityPeriod<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultImmunityPeriod<T: Config>() -> u16
+    {
+        return GlobalDefaultImmunityPeriod::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> immunity_period
     pub type ImmunityPeriod<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultImmunityPeriod<T>>;
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultImmunityPeriod<T>>;
+     //------------
     #[pallet::storage] // --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultActivityCutoff<T>>;
