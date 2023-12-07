@@ -21,6 +21,7 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+
 use frame_support::genesis_builder_helper::{build_config, create_default_config};
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -45,8 +46,6 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -152,7 +151,6 @@ parameter_types! {
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
 /// [`SoloChainDefaultConfig`](`struct@frame_system::config_preludes::SolochainDefaultConfig`),
 /// but overridden as needed.
-#[derive_impl(frame_system::config_preludes::SolochainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
 	/// The block type for the runtime.
 	type Block = Block;
@@ -260,6 +258,8 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
+		Codec: codec,
+		SubtensorModule: pallet_subtensor
 	}
 );
 
