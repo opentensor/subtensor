@@ -1,9 +1,15 @@
 [workspace]
 members = [
     "node",
-    "pallets/subtensor",
     "runtime",
 ]
+
+[workspace.package]
+version = "4.0.0-dev"
+authors = ["Bittensor Nucleus Team"]
+description = "A short description of my package"
+documentation = "https://bittensor.com"
+edition = "2021"
 
 [profile.release]
 panic = "unwind"
