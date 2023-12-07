@@ -47,6 +47,8 @@ pub struct SubnetHyperparams {
     max_burn: Compact<u64>,
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
+    serving_rate_limit: Compact<u64>,
+    max_validators: Compact<u16>
 }
 
 impl<T: Config> Pallet<T> {
@@ -145,6 +147,8 @@ impl<T: Config> Pallet<T> {
         let max_burn = Self::get_max_burn_as_u64(netuid);
         let bonds_moving_avg = Self::get_bonds_moving_average(netuid);
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
+        let serving_rate_limit = Self::get_serving_rate_limit(netuid);
+        let max_validators = Self::get_max_allowed_validators(netuid);
 
         return Some(SubnetHyperparams {
             rho: rho.into(),
@@ -164,7 +168,9 @@ impl<T: Config> Pallet<T> {
             min_burn: min_burn.into(),
             max_burn: max_burn.into(),
             bonds_moving_avg: bonds_moving_avg.into(),
-            max_regs_per_block: max_regs_per_block.into()
+            max_regs_per_block: max_regs_per_block.into(),
+            serving_rate_limit: serving_rate_limit.into(),
+            max_validators: max_validators.into()
         });
     }
 }
