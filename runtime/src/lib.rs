@@ -8,6 +8,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use codec::Encode;
 
+use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
@@ -590,14 +591,37 @@ impl pallet_registry::Config for Runtime {
     type FieldDeposit = FieldDeposit;
 }
 
+parameter_types! {
+    pub const MaxCommitFields: u32 = 1;
+    pub const CommitmentInitialDeposit: Balance = 0; // Free
+    pub const CommitmentFieldDeposit: Balance = 0; // Free
+    pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
+}
+
+pub struct AllowCommitments;
+impl CanCommit<AccountId> for AllowCommitments {
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    fn can_commit(netuid: u16, address: &AccountId) -> bool {
+        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_commit(_: u16, _: &AccountId) -> bool {
+        true
+    }
+}
+
 impl pallet_commitments::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
-    type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
+    type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
 
-    type MaxAdditionalFields = MaxAdditionalFields;
-    type InitialDeposit = InitialDeposit;
-    type FieldDeposit = FieldDeposit;
+    type CanCommit = AllowCommitments;
+
+    type MaxFields = MaxCommitFields;
+    type InitialDeposit = CommitmentInitialDeposit;
+    type FieldDeposit = CommitmentFieldDeposit;
+    type RateLimit = CommitmentRateLimit;
 }
 
 // Configure the pallet subtensor.
