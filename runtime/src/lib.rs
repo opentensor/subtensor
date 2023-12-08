@@ -590,6 +590,16 @@ impl pallet_registry::Config for Runtime {
     type FieldDeposit = FieldDeposit;
 }
 
+impl pallet_commitments::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
+
+    type MaxAdditionalFields = MaxAdditionalFields;
+    type InitialDeposit = InitialDeposit;
+    type FieldDeposit = FieldDeposit;
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -704,7 +714,8 @@ construct_runtime!(
         Multisig: pallet_multisig,
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
-        Registry: pallet_registry
+        Registry: pallet_registry,
+        Commitments: pallet_commitments
     }
 );
 
