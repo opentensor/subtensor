@@ -3,6 +3,7 @@ use crate::system::{ensure_root, ensure_signed_or_root};
 use sp_std::vec;
 use sp_std::vec::Vec;
 use frame_support::pallet_prelude::DispatchResult;
+use frame_support::pallet_prelude::DispatchError;
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {

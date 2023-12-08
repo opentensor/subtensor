@@ -6,10 +6,11 @@
 pub use pallet::*;
 
 use frame_system::{self as system, ensure_signed};
+use frame_support::traits::GenesisBuild;
 
 use frame_support::{
     dispatch,
-    dispatch::{/*DispatchError, */DispatchInfo, DispatchResult, PostDispatchInfo},
+    dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
     traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
 };
