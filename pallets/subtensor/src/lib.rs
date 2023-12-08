@@ -3,8 +3,8 @@
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
-pub use pallet::*;
 
+pub use crate::pallet::*;
 use frame_system::{self as system, ensure_signed};
 
 use frame_support::{
@@ -925,27 +925,15 @@ pub mod pallet {
     // ==================
     // ==== Genesis =====
     // ==================
-
     #[pallet::genesis_config]
-    #[cfg(feature = "std")]
+    #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         pub balances_issuance: u64,
     }
 
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self {
-                stakes: Default::default(),
-                balances_issuance: 0,
-            }
-        }
-    }
-
     #[pallet::genesis_build]
-    use frame_support::traits::GenesisBuild;
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
@@ -1117,14 +1105,14 @@ pub mod pallet {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::info!("Successfully ran block step.");
-                    return Weight::from_ref_time(110_634_229_000 as u64)
+                    return Weight::from_parts(110_634_229_000 as u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    return Weight::from_ref_time(110_634_229_000 as u64)
+                    return Weight::from_parts(110_634_229_000 as u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
@@ -1134,7 +1122,7 @@ pub mod pallet {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
             use crate::migration;
-            let mut weight = frame_support::weights::Weight::from_ref_time(0);
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
             // Hex encoded foundation coldkey
             let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
@@ -1214,7 +1202,7 @@ pub mod pallet {
         // 	* 'MaxWeightExceeded':
         // 		- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_ref_time(10_151_000_000)
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
@@ -1292,7 +1280,7 @@ pub mod pallet {
         //
         //
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_ref_time(65_000_000)
+        #[pallet::weight((Weight::from_parts(65_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(8))
 		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake(
@@ -1336,8 +1324,8 @@ pub mod pallet {
         //
         //
         #[pallet::call_index(3)]
-        #[pallet::weight((Weight::from_ref_time(63_000_000)
-		.saturating_add(Weight::from_proof_size(43991))
+        #[pallet::weight((Weight::from_parts(63_000_000, 0)
+		.saturating_add(Weight::from_parts(0, 43991))
 		.saturating_add(T::DbWeight::get().reads(14))
 		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake(
@@ -1400,7 +1388,7 @@ pub mod pallet {
         // 		- Attempting to set prometheus information withing the rate limit min.
         //
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_ref_time(19_000_000)
+        #[pallet::weight((Weight::from_parts(19_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -1428,7 +1416,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_ref_time(17_000_000)
+        #[pallet::weight((Weight::from_parts(17_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1490,7 +1478,7 @@ pub mod pallet {
         // 		- The seal is incorrect.
         //
         #[pallet::call_index(6)]
-        #[pallet::weight((Weight::from_ref_time(91_000_000)
+        #[pallet::weight((Weight::from_parts(91_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn register(
@@ -1506,7 +1494,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_ref_time(120_000_000)
+        #[pallet::weight((Weight::from_parts(120_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1514,7 +1502,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_ref_time(89_000_000)
+        #[pallet::weight((Weight::from_parts(89_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
@@ -1533,7 +1521,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_ref_time(81_000_000)
+        #[pallet::weight((Weight::from_parts(81_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(21))
 		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_register(
@@ -1564,14 +1552,14 @@ pub mod pallet {
         // 		- The value of the hyper parameter.
         //
         #[pallet::call_index(14)]
-        #[pallet::weight((Weight::from_ref_time(11_000_000)
+        #[pallet::weight((Weight::from_parts(11_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_default_take(origin: OriginFor<T>, default_take: u16) -> DispatchResult {
             Self::do_sudo_set_default_take(origin, default_take)
         }
 
         #[pallet::call_index(15)]
-        #[pallet::weight((Weight::from_ref_time(10_000_000)
+        #[pallet::weight((Weight::from_parts(10_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_serving_rate_limit(
             origin: OriginFor<T>,
@@ -1599,7 +1587,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(18)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_min_burn(
@@ -1611,7 +1599,7 @@ pub mod pallet {
         }
         
         #[pallet::call_index(20)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_max_difficulty(
@@ -1623,7 +1611,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(21)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_min_difficulty(
@@ -1635,7 +1623,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(22)]
-        #[pallet::weight((Weight::from_ref_time(15_000_000)
+        #[pallet::weight((Weight::from_parts(15_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_weights_set_rate_limit(
@@ -1647,7 +1635,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(23)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_weights_version_key(
@@ -1659,7 +1647,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(24)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_bonds_moving_average(
@@ -1671,7 +1659,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(25)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_max_allowed_validators(
@@ -1683,7 +1671,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(26)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_difficulty(
@@ -1695,7 +1683,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(27)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_adjustment_interval(
@@ -1707,7 +1695,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(28)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_target_registrations_per_interval(
@@ -1723,7 +1711,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(29)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_activity_cutoff(
@@ -1735,7 +1723,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(30)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_rho(origin: OriginFor<T>, netuid: u16, rho: u16) -> DispatchResult {
@@ -1743,7 +1731,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(31)]
-        #[pallet::weight((	Weight::from_ref_time(14_000_000)
+        #[pallet::weight((	Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: u16, kappa: u16) -> DispatchResult {
@@ -1751,7 +1739,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(32)]
-        #[pallet::weight((Weight::from_ref_time(18_000_000)
+        #[pallet::weight((Weight::from_parts(18_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_max_allowed_uids(
@@ -1763,7 +1751,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(33)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_min_allowed_weights(
@@ -1775,7 +1763,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(38)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_validator_prune_len(
@@ -1787,7 +1775,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(41)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_scaling_law_power(
@@ -1799,7 +1787,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(43)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_immunity_period(
@@ -1811,7 +1799,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(44)]
-        #[pallet::weight((Weight::from_ref_time(13_000_000)
+        #[pallet::weight((Weight::from_parts(13_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_max_weight_limit(
@@ -1823,7 +1811,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(45)]
-        #[pallet::weight((Weight::from_ref_time(15_000_000)
+        #[pallet::weight((Weight::from_parts(15_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_max_registrations_per_block(
@@ -1848,7 +1836,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(47)]
-        #[pallet::weight((Weight::from_ref_time(15_000_000)
+        #[pallet::weight((Weight::from_parts(15_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_tempo(origin: OriginFor<T>, netuid: u16, tempo: u16) -> DispatchResult {
@@ -1872,7 +1860,7 @@ pub mod pallet {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(51)]
-        #[pallet::weight((Weight::from_ref_time(0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Operational, Pays::No))]
         pub fn sudo(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1911,26 +1899,10 @@ pub mod pallet {
 
             return result;
         }
-
-        #[pallet::call_index(55)]
-        #[pallet::weight((Weight::from_ref_time(0)
-		.saturating_add(Weight::from_proof_size(0))
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
-        pub fn vote(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            proposal: T::Hash,
-            #[pallet::compact] index: u32,
-            approve: bool,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
-        }
-
+        
         // Sudo call for setting registration allowed
         #[pallet::call_index(49)]
-        #[pallet::weight((Weight::from_ref_time(4_000_000)
-		.saturating_add(Weight::from_proof_size(0))
+        #[pallet::weight((Weight::from_parts(4_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_registration_allowed(
             origin: OriginFor<T>,
@@ -1941,7 +1913,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(58)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(1))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_adjustment_alpha(
@@ -1953,7 +1925,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_ref_time(85_000_000)
+        #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
@@ -1961,7 +1933,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(60)]
-        #[pallet::weight((Weight::from_ref_time(91_000_000)
+        #[pallet::weight((Weight::from_parts(91_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn faucet(
@@ -1978,7 +1950,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_ref_time(70_000_000)
+        #[pallet::weight((Weight::from_parts(70_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(5))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
@@ -1986,21 +1958,21 @@ pub mod pallet {
         }
 
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_subnet_owner_cut(origin: OriginFor<T>, cut: u16) -> DispatchResult {
             Self::do_sudo_set_subnet_owner_cut(origin, cut)
         }
 
         #[pallet::call_index(64)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult {
             Self::do_sudo_set_network_rate_limit(origin, rate_limit)
         }
 
         #[pallet::call_index(65)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_immunity_period(origin: OriginFor<T>, immunity_period: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2019,7 +1991,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(66)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_min_lock_cost(origin: OriginFor<T>, lock_cost: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2038,7 +2010,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(67)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
             ensure_root(origin)?;
@@ -2057,7 +2029,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(68)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_lock_reduction_interval(origin: OriginFor<T>, interval: u64) -> DispatchResult {
             ensure_root(origin)?;
@@ -2076,7 +2048,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(69)]
-        #[pallet::weight((Weight::from_ref_time(14_000_000)
+        #[pallet::weight((Weight::from_parts(14_000_000, 0)
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult {
             Self::do_sudo_set_network_pow_registration_allowed(origin, netuid, registration_allowed)

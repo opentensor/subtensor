@@ -17,6 +17,7 @@
 
 use super::*;
 use crate::math::*;
+pub use crate::pallet::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use sp_std::vec;
 use sp_std::vec::Vec;
@@ -470,30 +471,6 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
-        // If we're full, we'll swap out the lowest stake member.
-        let members = T::SenateMembers::members();
-        if (members.len() as u32) == T::SenateMembers::max_members() {
-            let mut sorted_members = members.clone();
-            sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
-
-                b_stake.cmp(&a_stake)
-            });
-
-            if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
-
-                if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey)?;
-                    T::TriumvirateInterface::remove_votes(&last)?;
-                }
-            }
-        } else {
-            T::SenateMembers::add_member(&hotkey)?;
-        }
-
         // --- 13. Force all members on root to become a delegate.
         if !Self::hotkey_is_delegate(&hotkey) {
             Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
@@ -514,52 +491,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 16. Finish and return success.
         Ok(())
-    }
-
-    pub fn do_vote_root(
-        origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId,
-        proposal: T::Hash,
-        index: u32,
-        approve: bool,
-    ) -> DispatchResultWithPostInfo {
-        // --- 1. Ensure that the caller has signed with their coldkey.
-        let coldkey = ensure_signed(origin.clone())?;
-
-        // --- 2. Ensure that the calling coldkey owns the associated hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 3. Ensure that the calling hotkey is a member of the senate.
-        ensure!(
-            T::SenateMembers::is_member(&hotkey),
-            Error::<T>::NotSenateMember
-        );
-
-        // --- 4. Detects first vote of the member in the motion
-        let is_account_voting_first_time =
-            T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
-
-        // --- 5. Calculate extrinsic weight
-        let members = T::SenateMembers::members();
-        let member_count = members.len() as u32;
-        let vote_weight = Weight::from_parts(20_528_275, 4980)
-            .saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
-            .saturating_add(T::DbWeight::get().reads(2_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
-
-        Ok((
-            Some(vote_weight),
-            if is_account_voting_first_time {
-                Pays::No
-            } else {
-                Pays::Yes
-            },
-        )
-            .into())
     }
 
     // Facilitates user registration of a new subnetwork.

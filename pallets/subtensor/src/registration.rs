@@ -1,4 +1,5 @@
 use super::*;
+pub use crate::pallet::*;
 use sp_std::vec;
 use crate::system::ensure_root;
 use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
@@ -9,6 +10,7 @@ use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 use frame_support::storage::IterableStorageDoubleMap;
+use frame_system::pallet_prelude::HeaderFor;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
@@ -575,7 +577,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_block_hash_from_u64(block_number: u64) -> H256 {
-        let block_number: T::BlockNumber = TryInto::<T::BlockNumber>::try_into(block_number)
+        let block_number: <HeaderFor<T> as sp_runtime::traits::Header>::Number = TryInto::<<HeaderFor<T> as sp_runtime::traits::Header>::Number>::try_into(block_number)
             .ok()
             .expect("convert u64 to block number.");
         let block_hash_at_number: <T as frame_system::Config>::Hash =
