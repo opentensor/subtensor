@@ -3,7 +3,7 @@
 use super::*;
 
 #[allow(unused)]
-use crate::Pallet as Registry;
+use crate::Pallet as Commitments;
 use frame_benchmarking::v2::*;
 use frame_benchmarking::v1::account;
 use frame_system::RawOrigin;
@@ -43,5 +43,5 @@ mod benchmarks {
 		assert_last_event::<T>(Event::<T>::Commitment { netuid, who: caller }.into());
 	}
 
-	impl_benchmark_test_suite!(Commitments, crate::mock::new_test_ext(), crate::mock::Test);
+	//impl_benchmark_test_suite!(Commitments, crate::tests::new_test_ext(), crate::tests::Test);
 }

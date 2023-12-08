@@ -103,6 +103,7 @@ std = [
 	"pallet-multisig/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
+	"pallet-commitments/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -132,7 +133,8 @@ runtime-benchmarks = [
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks"
+	"pallet-registry/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

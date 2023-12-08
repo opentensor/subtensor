@@ -3,7 +3,7 @@ cargo build --release --features runtime-benchmarks
     --chain=local \
     --execution=wasm \
     --wasm-execution=compiled \
-    --pallet=pallet_registry \
+    --pallet=pallet_commitments \
     --extrinsic="*" \
-    --output=pallets/registry/src/weights.rs \
+    --output=pallets/commitments/src/weights.rs \
     --template=./.maintain/frame-weight-template.hbs

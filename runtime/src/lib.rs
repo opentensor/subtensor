@@ -789,6 +789,7 @@ mod benches {
         [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
         [pallet_registry, Registry]
+        [pallet_commitments, Commitments]
     );
 }
 
