@@ -6,11 +6,10 @@
 pub use pallet::*;
 
 use frame_system::{self as system, ensure_signed};
-use frame_support::traits::GenesisBuild;
 
 use frame_support::{
     dispatch,
-    dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
+    dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
     traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
 };
@@ -22,6 +21,7 @@ use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
+    DispatchError,
     transaction_validity::{TransactionValidity, TransactionValidityError},
 };
 use sp_std::marker::PhantomData;
@@ -944,6 +944,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
+    use frame_support::traits::GenesisBuild;
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
             // Set initial total issuance from balances
