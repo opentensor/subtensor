@@ -146,11 +146,9 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 		&config.chain_spec,
 	);
 
-	/*
-	let (grandpa_protocol_config, grandpa_notification_service) =
+	let grandpa_protocol_config =
 		sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
 	net_config.add_notification_protocol(grandpa_protocol_config);
-	*/
 
 	let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
 		backend.clone(),
