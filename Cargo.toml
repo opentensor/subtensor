@@ -3,6 +3,7 @@ members = [
     "node",
     "runtime",
 ]
+resolver = "2"
 
 [workspace.package]
 version = "4.0.0-dev"

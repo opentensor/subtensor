@@ -1,5 +1,5 @@
 [package]
-name = "node-template"
+name = "node-subtensor"
 version = "4.0.0-dev"
 description = "A fresh FRAME-based Substrate node, ready for hacking."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
@@ -14,7 +14,7 @@ build = "build.rs"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = "node-template"
+name = "node-subtensor"
 
 [dependencies]
 clap = { version = "4.4.10", features = ["derive"] }
@@ -42,7 +42,10 @@ sp-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", branch = "r
 sp-inherents = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 sp-keyring = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+
+# Feature pallets
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0", default-features = false }
+pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../pallets/subtensor" }
 
 # These dependencies are used for the node template's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -59,7 +62,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", branc
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 
 # Local Dependencies
-node-template-runtime = { path = "../runtime" }
+node-subtensor-runtime = { path = "../runtime" }
 
 # CLI-specific dependencies
 try-runtime-cli = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0", optional = true }
@@ -74,7 +77,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"node-template-runtime/runtime-benchmarks",
+	"node-subtensor-runtime/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
@@ -82,7 +85,7 @@ runtime-benchmarks = [
 # in the near future.
 try-runtime = [
 	"frame-system/try-runtime",
-	"node-template-runtime/try-runtime",
+	"node-subtensor-runtime/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",

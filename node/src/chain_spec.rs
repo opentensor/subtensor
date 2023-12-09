@@ -1,4 +1,4 @@
-use node_template_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY};
+use node_subtensor_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY};
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -34,6 +34,11 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 13116.into());
+
 	Ok(ChainSpec::builder(
 		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
 		None,
@@ -41,6 +46,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
+	.with_properties(properties)
 	.with_genesis_config_patch(testnet_genesis(
 		// Initial PoA authorities
 		vec![authority_keys_from_seed("Alice")],
@@ -59,6 +65,11 @@ pub fn development_config() -> Result<ChainSpec, String> {
 }
 
 pub fn local_testnet_config() -> Result<ChainSpec, String> {
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 13116.into());
+
 	Ok(ChainSpec::builder(
 		WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?,
 		None,
@@ -66,6 +77,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
+	.with_properties(properties)
 	.with_genesis_config_patch(testnet_genesis(
 		// Initial PoA authorities
 		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
@@ -93,6 +105,50 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	root_key: AccountId,
+	endowed_accounts: Vec<AccountId>,
+	_enable_println: bool,
+) -> serde_json::Value {
+	serde_json::json!({
+		"balances": {
+			// Configure endowed accounts with initial balance of 1 << 60.
+			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
+		},
+		"aura": {
+			"authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
+		},
+		"grandpa": {
+			"authorities": initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
+		},
+		"sudo": {
+			// Assign network admin rights.
+			"key": Some(root_key),
+		},
+	})
+}
+
+pub fn finney_config() -> Result<ChainSpec, String> {
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Production wasm not available".to_string())?,
+		None,
+	)
+	.with_name("Finney Mainnet")
+	.with_id("finney")
+	.with_chain_type(ChainType::Live)
+	.with_genesis_config_patch(finney_genesis(
+		// Initial PoA authorities
+		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
+		// Sudo account
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		// Pre-funded accounts
+		vec![],
+		false,
+	))
+	.build())
+}
+
+fn finney_genesis(	
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,

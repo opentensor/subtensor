@@ -4,7 +4,7 @@
 
 use crate::service::FullClient;
 
-use node_template_runtime as runtime;
+use node_subtensor_runtime as runtime;
 use runtime::{AccountId, Balance, BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
@@ -121,6 +121,7 @@ pub fn create_benchmark_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
+		pallet_subtensor::SubtensorSignedExtension::<runtime::Runtime>::new()
 	);
 
 	let raw_payload = runtime::SignedPayload::from_raw(
@@ -135,6 +136,7 @@ pub fn create_benchmark_extrinsic(
 			(),
 			(),
 			(),
+			()
 		),
 	);
 	let signature = raw_payload.using_encoded(|e| sender.sign(e));

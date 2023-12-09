@@ -4,7 +4,7 @@ version = "4.0.0-dev"
 description = "FRAME pallet for runtime logic of Subtensor Blockchain."
 authors = ["Bittensor Nucleus Team"]
 homepage = "https://bittensor.com"
-edition = "2021"
+edition.workspace = true
 license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
@@ -65,7 +65,7 @@ std = [
 	"sp-std/std",
 	"sp-version/std"
 ]
-
+runtime-benchmarks = ["frame-benchmarking/runtime-benchmarks"]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
@@ -73,3 +73,4 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime"
 ]
+pow-faucet = []

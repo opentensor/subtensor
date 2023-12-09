@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_system::EnsureNever;
 use pallet_grandpa::AuthorityId as GrandpaId;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -17,7 +18,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
-use frame_support::traits::GenesisBuild;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -42,7 +42,7 @@ pub use frame_support::{
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
-use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier};
+use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
@@ -248,23 +248,139 @@ impl pallet_balances::Config for Runtime {
 	type MaxHolds = ();
 }
 
+pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
+
+use frame_support::weights::{WeightToFeePolynomial, WeightToFeeCoefficient, WeightToFeeCoefficients};
+use sp_runtime::traits::Get;
+use smallvec::smallvec;
+
+impl<C> WeightToFeePolynomial for LinearWeightToFee<C>
+where
+    C: Get<Balance>,
+{
+    type Balance = Balance;
+
+    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+        let coefficient = WeightToFeeCoefficient {
+            coeff_integer: 0,
+            coeff_frac: Perbill::from_parts(1),
+            negative: false,
+            degree: 1,
+        };
+
+        smallvec!(coefficient)
+    }
+}
+
 parameter_types! {
-	pub FeeMultiplier: Multiplier = Multiplier::one();
+    // Used with LinearWeightToFee conversion.
+    pub const FeeWeightRatio: u64 = 1;
+    pub const TransactionByteFee: u128 = 1;
+    pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
-	type OperationalFeeMultiplier = ConstU8<5>;
-	type WeightToFee = IdentityFee<Balance>;
+    type RuntimeEvent = RuntimeEvent;
+
+    type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+    type WeightToFee = LinearWeightToFee<FeeWeightRatio>;
 	type LengthToFee = IdentityFee<Balance>;
-	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+    type FeeMultiplierUpdate = ();
+    type OperationalFeeMultiplier = ConstU8<1>;
 }
 
 impl pallet_sudo::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+// Configure the pallet subtensor.
+parameter_types! {
+    pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
+    pub const SubtensorInitialMaxAllowedUids: u16 = 4096;
+    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 1024;
+    pub const SubtensorInitialEmissionValue: u16 = 0;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
+    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 100;
+    pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 2;
+    pub const SubtensorInitialImmunityPeriod: u16 = 4096;
+    pub const SubtensorInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
+    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
+    pub const SubtensorInitialServingRateLimit: u64 = 50;
+    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
+}
+
+impl pallet_subtensor::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type SudoRuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type CouncilOrigin = EnsureNever<AccountId>;
+
+    type InitialRho = SubtensorInitialRho;
+    type InitialKappa = SubtensorInitialKappa;
+    type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
+    type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
+    type InitialIssuance = SubtensorInitialIssuance;
+    type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
+    type InitialEmissionValue = SubtensorInitialEmissionValue;
+    type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
+    type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
+    type InitialScalingLawPower = SubtensorInitialScalingLawPower;
+    type InitialTempo = SubtensorInitialTempo;
+    type InitialDifficulty = SubtensorInitialDifficulty;
+    type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;
+    type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
+    type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
+    type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
+    type InitialActivityCutoff = SubtensorInitialActivityCutoff;
+    type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
+    type InitialPruningScore = SubtensorInitialPruningScore;
+    type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
+    type InitialDefaultTake = SubtensorInitialDefaultTake;
+    type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
+    type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
+    type InitialMinDifficulty = SubtensorInitialMinDifficulty;
+    type InitialServingRateLimit = SubtensorInitialServingRateLimit;
+    type InitialBurn = SubtensorInitialBurn;
+    type InitialMaxBurn = SubtensorInitialMaxBurn;
+    type InitialMinBurn = SubtensorInitialMinBurn;
+    type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+    type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
+    type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
+    type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
+    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
+    type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
+    type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
+    type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
+    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
+    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -278,6 +394,7 @@ construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Sudo: pallet_sudo,
+		Subtensor: pallet_subtensor
 	}
 );
 
@@ -297,6 +414,7 @@ pub type SignedExtra = (
 	frame_system::CheckNonce<Runtime>,
 	frame_system::CheckWeight<Runtime>,
 	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+	pallet_subtensor::SubtensorSignedExtension<Runtime>,
 );
 
 /// All migrations of the runtime, aside from the ones declared in the pallets.
@@ -332,8 +450,11 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_sudo, Sudo]
+		[pallet_subtensor, Subtensor]
 	);
 }
+
+use codec::Encode;
 
 impl_runtime_apis! {
 	impl sp_api::Core<Block> for Runtime {
@@ -575,4 +696,115 @@ impl_runtime_apis! {
 			build_config::<RuntimeGenesisConfig>(config)
 		}
 	}
+
+	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
+        fn get_delegates() -> Vec<u8> {
+			
+            let result = Subtensor::get_delegates();
+            result.encode()
+        }
+
+        fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
+			
+            let _result = Subtensor::get_delegate(delegate_account_vec);
+            if _result.is_some() {
+                let result = _result.expect("Could not get DelegateInfo");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
+        fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
+			
+            let result = Subtensor::get_delegated(delegatee_account_vec);
+            result.encode()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
+        fn get_neurons_lite(netuid: u16) -> Vec<u8> {
+			
+            let result = Subtensor::get_neurons_lite(netuid);
+            result.encode()
+        }
+
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
+						
+            let _result = Subtensor::get_neuron_lite(netuid, uid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get NeuronInfoLite");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
+        fn get_neurons(netuid: u16) -> Vec<u8> {
+			
+            let result = Subtensor::get_neurons(netuid);
+            result.encode()
+        }
+
+        fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
+			
+            let _result = Subtensor::get_neuron(netuid, uid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get NeuronInfo");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+    }
+
+	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
+        fn get_subnet_info(netuid: u16) -> Vec<u8> {
+						
+            let _result = Subtensor::get_subnet_info(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetInfo");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+
+        fn get_subnets_info() -> Vec<u8> {
+						
+            let result = Subtensor::get_subnets_info();
+            result.encode()
+        }
+
+        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
+			
+            let _result = Subtensor::get_subnet_hyperparams(netuid);
+            if _result.is_some() {
+                let result = _result.expect("Could not get SubnetHyperparams");
+                result.encode()
+            } else {
+                vec![]
+            }
+        }
+    }
+
+	impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
+        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+			
+            let result = Subtensor::get_stake_info_for_coldkey( coldkey_account_vec );
+            result.encode()
+        }
+
+        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
+			
+            let result = Subtensor::get_stake_info_for_coldkeys( coldkey_account_vecs );
+            result.encode()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
+        fn get_network_registration_cost() -> u64 {
+            Subtensor::get_network_lock_cost()
+        }
+    }
 }
