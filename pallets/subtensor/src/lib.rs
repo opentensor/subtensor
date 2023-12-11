@@ -1519,21 +1519,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(8)]
-        #[pallet::weight((Weight::from_parts(81_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(21))
-		.saturating_add(T::DbWeight::get().writes(23)), DispatchClass::Operational, Pays::No))]
-        pub fn sudo_register(
-            origin: OriginFor<T>,
-            netuid: u16,
-            hotkey: T::AccountId,
-            coldkey: T::AccountId,
-            stake: u64,
-            balance: u64,
-        ) -> DispatchResult {
-            Self::do_sudo_registration(origin, netuid, hotkey, coldkey, stake, balance)
-        }
-
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
 
         // ==================================
