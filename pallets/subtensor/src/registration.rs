@@ -699,7 +699,9 @@ impl<T: Config> Pallet<T>
         let hotkey_bytes:               &[u8]                           = binding[1..].as_ref();
                                                                             // 0-31 = block_hash_bytes, 32-63 = hotkey_bytes
                                                                             
-        let full_bytes:                 [u8; 64]                        = std::array::from_fn(|i| if i < 32 { block_hash_bytes[i] } else { hotkey_bytes[i] } );
+        let full_bytes:                 &[u8; 64];
+        full_bytes[0]                                                   = block_hash_bytes[0..31];
+        full_bytes[32]                                                  = hotkey_bytes[0..31];
         let keccak_256_seal_hash_vec:   [u8; 32]                        = keccak_256(&full_bytes);
         let seal_hash:                  H256                            = H256::from_slice(&keccak_256_seal_hash_vec);
 

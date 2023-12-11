@@ -1668,22 +1668,6 @@ pub mod pallet
             return result;
         }
 
-        #[pallet::call_index(55)]
-        #[pallet::weight((Weight::from_ref_time(0)
-		.saturating_add(Weight::from_proof_size(0))
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
-        pub fn vote(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            proposal: T::Hash,
-            #[pallet::compact] index: u32,
-            approve: bool,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
-        }
-
-
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))

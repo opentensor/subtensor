@@ -387,7 +387,7 @@ impl<T: Config> Pallet<T>
     pub fn set_default_take(default_take: u16) 
     {
         DefaultTake::<T>::put(default_take);
-        
+
         Self::deposit_event(Event::DefaultTakeSet(default_take));
     }
 
@@ -736,7 +736,7 @@ impl<T: Config> Pallet<T>
         return SubnetOwnerCut::<T>::get();
     }
 
-    pub fn set_subnet_owner_cutsubnet_owner_cut: u16) 
+    pub fn set_subnet_owner_cut(subnet_owner_cut: u16) 
     {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
 
