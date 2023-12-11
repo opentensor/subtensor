@@ -9,7 +9,7 @@ use sp_runtime::{
 	RuntimeAppPublic
 };
 
-use frame_support::dispatch::DispatchError;
+use frame_support::pallet_prelude::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -220,7 +220,7 @@ pub mod pallet {
 
 		#[pallet::call_index(9)]
 		#[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1))
 				.saturating_add(T::DbWeight::get().reads(1)),
 			DispatchClass::Operational, 
@@ -409,8 +409,7 @@ pub mod pallet {
 
 		#[pallet::call_index(19)]
 		#[pallet::weight((
-			Weight::from_ref_time(4_000_000)
-				.saturating_add(Weight::from_proof_size(0))
+			Weight::from_parts(4_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -429,7 +428,7 @@ pub mod pallet {
 
 		#[pallet::call_index(20)]
 		#[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -585,7 +584,7 @@ pub mod pallet {
 
 		#[pallet::call_index(28)]
 		#[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -603,7 +602,7 @@ pub mod pallet {
 
 		#[pallet::call_index(29)]
 		#[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -646,7 +645,7 @@ pub mod pallet {
 
 		#[pallet::call_index(35)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -667,7 +666,7 @@ pub mod pallet {
 
         #[pallet::call_index(36)]
 		#[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -688,7 +687,7 @@ pub mod pallet {
 
         #[pallet::call_index(37)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
@@ -708,7 +707,7 @@ pub mod pallet {
 
         #[pallet::call_index(38)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No

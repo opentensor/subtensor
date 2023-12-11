@@ -43,6 +43,7 @@ sp-genesis-builder = { default-features = false, git = "https://github.com/parit
 
 # Pallets
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../pallets/subtensor" }
+pallet-admin-utils = { version = "4.0.0-dev", default-features = false, path = "../pallets/admin-utils" }
 pallet-aura = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 pallet-balances = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 pallet-grandpa = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
@@ -83,6 +84,8 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+	"pallet-subtensor/std",
+	"pallet-admin-utils/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
