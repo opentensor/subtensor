@@ -4,27 +4,80 @@
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
 
-pub use crate::pallet::*;
-use frame_system::{self as system, ensure_signed};
-
-use frame_support::{
-    dispatch,
-    dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
-    ensure,
-    traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
+pub use pallet::*;
+use
+{
+    frame_system::
+    {
+        self as system,
+        ensure_signed
+    },
+    frame_support::
+    {
+        dispatch,
+        dispatch::
+        {
+            DispatchInfo,
+            DispatchResult,
+            PostDispatchInfo
+        },
+        ensure,
+        traits::
+        {
+            Currency,
+            ExistenceRequirement,
+            IsSubType,
+            tokens::
+            {
+                WithdrawReasons
+            },
+        },
+        sp_runtime::
+        {
+            transaction_validity::
+            {
+                ValidTransaction
+            }
+        }
+    },
+    sp_std::
+    {
+        vec,
+        vec::
+        {
+            Vec
+        },
+        marker::
+        {
+            PhantomData
+        }
+    },
+    codec::
+    {
+        Decode,
+        Encode
+    },
+    scale_info::
+    {
+        TypeInfo
+    },
+    sp_runtime::
+    {
+        DispatchError,
+        traits::
+        {
+            DispatchInfoOf,
+            Dispatchable,
+            PostDispatchInfoOf,
+            SignedExtension
+        },
+        transaction_validity::
+        {
+            TransactionValidity,
+            TransactionValidityError
+        }
+    }
 };
-
-use sp_std::vec;
-use sp_std::vec::Vec;
-use codec::{Decode, Encode};
-use frame_support::sp_runtime::transaction_validity::ValidTransaction;
-use scale_info::TypeInfo;
-use sp_runtime::{
-    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
-    DispatchError,
-    transaction_validity::{TransactionValidity, TransactionValidityError},
-};
-use sp_std::marker::PhantomData;
 
 // ============================
 //	==== Benchmark Imports =====
@@ -36,7 +89,6 @@ mod benchmarks;
 //	==== Pallet Imports =====
 // =========================
 mod block_step;
-
 mod epoch;
 mod math;
 mod registration;
@@ -51,29 +103,60 @@ pub mod delegate_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
-
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 pub mod migration;
 
 #[frame_support::pallet]
-pub mod pallet {
-
-    use sp_std::vec;
-    use sp_std::vec::Vec;
-
-    use frame_support::{
-        dispatch::GetDispatchInfo,
-        pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        traits::{Currency, UnfilteredDispatchable},
-    };
-    use frame_system::pallet_prelude::*;
-    use sp_runtime::traits::TrailingZeroInput;
+pub mod pallet 
+{
+    #[cfg(feature = "std")]
+    use sp_std::prelude::Box;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
-    #[cfg(feature = "std")]
-    use sp_std::prelude::Box;
+
+    use
+    {
+        sp_std::
+        {
+            vec,
+            vec::
+            {
+                Vec
+            }
+        },
+        frame_support::
+        {
+            dispatch::
+            {
+                GetDispatchInfo
+            },
+            pallet_prelude::
+            {
+                *
+            },
+            traits::
+            {
+                Currency,
+                UnfilteredDispatchable
+            }
+        },
+        frame_system::
+        {
+            pallet_prelude::
+            {
+                *
+            }
+        },
+        sp_runtime::
+        {
+            traits::
+            {
+                TrailingZeroInput
+            }
+        }
+    };
 
     // Tracks version for migrations. Should be monotonic with respect to the
     // order of migrations. (i.e. always increasing)
@@ -86,7 +169,8 @@ pub mod pallet {
 
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config 
+    {
         // Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -186,7 +270,8 @@ pub mod pallet {
 
     // Senate requirements
     #[pallet::type_value]
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
+    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 
+    {
         T::InitialSenateRequiredStakePercentage::get()
     }
 

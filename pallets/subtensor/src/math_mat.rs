@@ -1,3 +1,5 @@
+// included by math.rs
+
 // Normalizes (sum to 1 except 0) each row (dim=0) of a matrix in-place.
 #[allow(dead_code)]
 pub fn inplace_row_normalize(x: &mut Vec<Vec<I32F32>>) 
