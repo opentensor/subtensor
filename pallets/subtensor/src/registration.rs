@@ -699,10 +699,8 @@ impl<T: Config> Pallet<T>
         let hotkey_bytes:               &[u8]                           = binding[1..].as_ref();
                                                                             // 0-31 = block_hash_bytes, 32-63 = hotkey_bytes
                                                                             
-        let full_bytes:                 &[u8; 64];
-        full_bytes[0]                                                   = block_hash_bytes[0..31];
-        full_bytes[32]                                                  = hotkey_bytes[0..31];
-        let keccak_256_seal_hash_vec:   [u8; 32]                        = keccak_256(&full_bytes);
+        let full_bytes                                                  = [&block_hash_bytes[0..31], &hotkey_bytes[0..31]].concat();
+        let keccak_256_seal_hash_vec:   [u8; 32]                        = keccak_256(full_bytes.as_slice());
         let seal_hash:                  H256                            = H256::from_slice(&keccak_256_seal_hash_vec);
 
         return seal_hash;
@@ -716,8 +714,17 @@ impl<T: Config> Pallet<T>
         let binding:                        H256        = Self::hash_block_and_hotkey(block_hash_bytes, hotkey);
         let block_and_hotkey_hash_bytes:    &[u8]       = binding.as_ref();
 
-        let full_bytes:                     [u8; 40]    = std::array::from_fn(|i| if i < 8 { nonce.byte(i) } else { block_and_hotkey_hash_bytes[i - 8] });
-        let sha256_seal_hash_vec:           [u8; 32]    = sha2_256(&full_bytes);
+        let nonce_bytes:                    &[u8]       = &[
+                                                            nonce.byte(0), nonce.byte(1), nonce.byte(2), nonce.byte(3), 
+                                                            nonce.byte(4), nonce.byte(5), nonce.byte(6), nonce.byte(7)
+                                                        ];
+
+        let full_bytes                                  = [
+                                                            &nonce_bytes[0..7],
+                                                            &block_and_hotkey_hash_bytes[0..31]
+                                                        ].concat();
+
+        let sha256_seal_hash_vec:           [u8; 32]    = sha2_256(full_bytes.as_slice());
         let keccak_256_seal_hash_vec:       [u8; 32]    = keccak_256(&sha256_seal_hash_vec);
         let seal_hash:                      H256        = H256::from_slice(&keccak_256_seal_hash_vec);
 
