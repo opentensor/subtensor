@@ -69,6 +69,7 @@ impl<T: Config> Pallet<T>
     pub fn set_tempo(netuid: u16, tempo: u16) 
     {
         Tempo::<T>::insert(netuid, tempo);
+        Self::deposit_event(Event::TempoSet(netuid, tempo));
     }
 
     pub fn set_last_adjustment_block(netuid: u16, last_adjustment_block: u64) 
@@ -382,6 +383,7 @@ impl<T: Config> Pallet<T>
     {
         return DefaultTake::<T>::get();
     }
+<<<<<<< HEAD
 
     pub fn set_default_take(default_take: u16) 
     {
@@ -396,6 +398,11 @@ impl<T: Config> Pallet<T>
 
         Self::deposit_event(Event::DefaultTakeSet(default_take));
         return Ok(());
+=======
+    pub fn set_default_take(default_take: u16) {
+        DefaultTake::<T>::put(default_take);
+        Self::deposit_event(Event::DefaultTakeSet(default_take));
+>>>>>>> origin/utils/admin-pallet
     }
 
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) 
@@ -418,43 +425,18 @@ impl<T: Config> Pallet<T>
     {
         TxRateLimit::<T>::get()
     }
-
-    pub fn set_tx_rate_limit(tx_rate_limit: u64) 
-    {
-        TxRateLimit::<T>::put(tx_rate_limit)
-    }
-
-    pub fn do_sudo_set_tx_rate_limit(origin: T::RuntimeOrigin, tx_rate_limit: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-        Self::set_tx_rate_limit(tx_rate_limit);
-        log::info!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit);
+    pub fn set_tx_rate_limit(tx_rate_limit: u64) {
+        TxRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
-        Ok(())
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 
     {
         return ServingRateLimit::<T>::get(netuid);
     }
-
-    pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64) 
-    {
+    pub fn set_serving_rate_limit(netuid: u16, serving_rate_limit: u64) {
         ServingRateLimit::<T>::insert(netuid, serving_rate_limit);
-    }
-
-    pub fn do_sudo_set_serving_rate_limit(origin: T::RuntimeOrigin, netuid: u16, serving_rate_limit: u64) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-        Self::set_serving_rate_limit(netuid, serving_rate_limit);
-        log::info!(
-            "ServingRateLimitSet( serving_rate_limit: {:?} ) ",
-            serving_rate_limit
-        );
-
         Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
-
-        return Ok(());
     }
 
     pub fn get_min_difficulty(netuid: u16) -> u64 
@@ -465,27 +447,7 @@ impl<T: Config> Pallet<T>
     pub fn set_min_difficulty(netuid: u16, min_difficulty: u64) 
     {
         MinDifficulty::<T>::insert(netuid, min_difficulty);
-    }
-
-    pub fn do_sudo_set_min_difficulty(origin: T::RuntimeOrigin, netuid: u16, min_difficulty: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_min_difficulty(netuid, min_difficulty);
-        log::info!(
-            "MinDifficultySet( netuid: {:?} min_difficulty: {:?} ) ",
-            netuid,
-            min_difficulty
-        );
-
         Self::deposit_event(Event::MinDifficultySet(netuid, min_difficulty));
-
-        return Ok(());
     }
 
     pub fn get_max_difficulty(netuid: u16) -> u64 
@@ -496,91 +458,28 @@ impl<T: Config> Pallet<T>
     pub fn set_max_difficulty(netuid: u16, max_difficulty: u64) 
     {
         MaxDifficulty::<T>::insert(netuid, max_difficulty);
-    }
-
-    pub fn do_sudo_set_max_difficulty(origin: T::RuntimeOrigin, netuid: u16, max_difficulty: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_max_difficulty(netuid, max_difficulty);
-        log::info!(
-            "MaxDifficultySet( netuid: {:?} max_difficulty: {:?} ) ",
-            netuid,
-            max_difficulty
-        );
-
         Self::deposit_event(Event::MaxDifficultySet(netuid, max_difficulty));
-
-        return Ok(());
     }
+   
 
     pub fn get_weights_version_key(netuid: u16) -> u64 
     {
         return WeightsVersionKey::<T>::get(netuid);
     }
-
-    pub fn set_weights_version_key(netuid: u16, weights_version_key: u64) 
-    {
-        return WeightsVersionKey::<T>::insert(netuid, weights_version_key);
-    }
-
-    pub fn do_sudo_set_weights_version_key(origin: T::RuntimeOrigin, netuid: u16, weights_version_key: u64) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_weights_version_key(netuid, weights_version_key);
-        log::info!(
-            "WeightsVersionKeySet( netuid: {:?} weights_version_key: {:?} ) ",
-            netuid,
-            weights_version_key
-        );
-
+    pub fn set_weights_version_key(netuid: u16, weights_version_key: u64) {
+        WeightsVersionKey::<T>::insert(netuid, weights_version_key);
         Self::deposit_event(Event::WeightsVersionKeySet(netuid, weights_version_key));
-
-        return Ok(());
     }
+
 
     pub fn get_weights_set_rate_limit(netuid: u16) -> u64 
     {
-        return WeightsSetRateLimit::<T>::get(netuid);
+        WeightsSetRateLimit::<T>::get(netuid)
     }
-
     pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) 
     {
         WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
-    }
-    
-    pub fn do_sudo_set_weights_set_rate_limit(origin: T::RuntimeOrigin, netuid: u16, weights_set_rate_limit: u64) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-        Self::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
-        log::info!(
-            "WeightsSetRateLimitSet( netuid: {:?} weights_set_rate_limit: {:?} ) ",
-            netuid,
-            weights_set_rate_limit
-        );
-
-        Self::deposit_event(Event::WeightsSetRateLimitSet(
-            netuid,
-            weights_set_rate_limit,
-        ));
-
-        return Ok(());
+        Self::deposit_event(Event::WeightsSetRateLimitSet(netuid, weights_set_rate_limit));
     }
 
     pub fn get_adjustment_interval(netuid: u16) -> u16 
@@ -591,56 +490,16 @@ impl<T: Config> Pallet<T>
     pub fn set_adjustment_interval(netuid: u16, adjustment_interval: u16) 
     {
         AdjustmentInterval::<T>::insert(netuid, adjustment_interval);
-    }
-
-    pub fn do_sudo_set_adjustment_interval(origin: T::RuntimeOrigin, netuid: u16, adjustment_interval: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_adjustment_interval(netuid, adjustment_interval);
-        log::info!(
-            "AdjustmentIntervalSet( netuid: {:?} adjustment_interval: {:?} ) ",
-            netuid,
-            adjustment_interval
-        );
-
         Self::deposit_event(Event::AdjustmentIntervalSet(netuid, adjustment_interval));
-
-        return Ok(());
     }
 
     pub fn get_adjustment_alpha(netuid: u16) -> u64 
     {
         return AdjustmentAlpha::<T>::get(netuid);
     }
-    
-    pub fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) 
-    {
-        AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha)
-    }
-
-    pub fn do_sudo_set_adjustment_alpha(origin: T::RuntimeOrigin, netuid: u16, adjustment_alpha: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_adjustment_alpha(netuid, adjustment_alpha);
-        log::info!(
-            "AdjustmentAlphaSet( adjustment_alpha: {:?} ) ",
-            adjustment_alpha
-        );
-
+    pub fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64) {
+        AdjustmentAlpha::<T>::insert(netuid, adjustment_alpha);
         Self::deposit_event(Event::AdjustmentAlphaSet(netuid, adjustment_alpha));
-
-        return Ok(());
     }
 
     pub fn get_validator_prune_len(netuid: u16) -> u64 
@@ -651,27 +510,7 @@ impl<T: Config> Pallet<T>
     pub fn set_validator_prune_len(netuid: u16, validator_prune_len: u64) 
     {
         ValidatorPruneLen::<T>::insert(netuid, validator_prune_len);
-    }
-
-    pub fn do_sudo_set_validator_prune_len(origin: T::RuntimeOrigin, netuid: u16, validator_prune_len: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_validator_prune_len(netuid, validator_prune_len);
-        log::info!(
-            "ValidatorPruneLenSet( netuid: {:?} validator_prune_len: {:?} ) ",
-            netuid,
-            validator_prune_len
-        );
-
         Self::deposit_event(Event::ValidatorPruneLenSet(netuid, validator_prune_len));
-
-        return Ok(());
     }
 
     pub fn get_scaling_law_power(netuid: u16) -> u16 
@@ -682,28 +521,7 @@ impl<T: Config> Pallet<T>
     pub fn set_scaling_law_power(netuid: u16, scaling_law_power: u16) 
     {
         ScalingLawPower::<T>::insert(netuid, scaling_law_power);
-    }
-
-    pub fn do_sudo_set_scaling_law_power(origin: T::RuntimeOrigin, netuid: u16, scaling_law_power: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        ensure!(scaling_law_power <= 100, Error::<T>::StorageValueOutOfRange); // The scaling law power must be between 0 and 100 => 0% and 100%
-        Self::set_scaling_law_power(netuid, scaling_law_power);
-        log::info!(
-            "ScalingLawPowerSet( netuid: {:?} scaling_law_power: {:?} ) ",
-            netuid,
-            scaling_law_power
-        );
-
         Self::deposit_event(Event::ScalingLawPowerSet(netuid, scaling_law_power));
-
-        return Ok(());
     }
 
     pub fn get_max_weight_limit(netuid: u16) -> u16 
@@ -714,27 +532,7 @@ impl<T: Config> Pallet<T>
     pub fn set_max_weight_limit(netuid: u16, max_weight_limit: u16) 
     {
         MaxWeightsLimit::<T>::insert(netuid, max_weight_limit);
-    }
-
-    pub fn do_sudo_set_max_weight_limit(origin: T::RuntimeOrigin, netuid: u16, max_weight_limit: u16) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_max_weight_limit(netuid, max_weight_limit);
-        log::info!(
-            "MaxWeightLimitSet( netuid: {:?} max_weight_limit: {:?} ) ",
-            netuid,
-            max_weight_limit
-        );
-
         Self::deposit_event(Event::MaxWeightLimitSet(netuid, max_weight_limit));
-
-        return Ok(());
     }
 
     pub fn get_immunity_period(netuid: u16) -> u16 
@@ -745,94 +543,31 @@ impl<T: Config> Pallet<T>
     pub fn set_immunity_period(netuid: u16, immunity_period: u16) 
     {
         ImmunityPeriod::<T>::insert(netuid, immunity_period);
-    }
-
-    pub fn do_sudo_set_immunity_period(origin: T::RuntimeOrigin, netuid: u16, immunity_period: u16) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_immunity_period(netuid, immunity_period);
-        log::info!(
-            "ImmunityPeriodSet( netuid: {:?} immunity_period: {:?} ) ",
-            netuid,
-            immunity_period
-        );
-
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
-
-        return Ok(());
     }
 
-    pub fn get_min_allowed_weights(netuid: u16) -> u16 
-    {
-        return MinAllowedWeights::<T>::get(netuid);
+
+    pub fn get_min_allowed_weights(netuid: u16) -> u16 {
+        MinAllowedWeights::<T>::get(netuid)
     }
 
     pub fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16) 
     {
         MinAllowedWeights::<T>::insert(netuid, min_allowed_weights);
-    }
-
-    pub fn do_sudo_set_min_allowed_weights(origin: T::RuntimeOrigin, netuid: u16, min_allowed_weights: u16) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_min_allowed_weights(netuid, min_allowed_weights);
-        log::info!(
-            "MinAllowedWeightSet( netuid: {:?} min_allowed_weights: {:?} ) ",
-            netuid,
-            min_allowed_weights
-        );
-
         Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
-
-        return Ok(());
     }
 
-    pub fn get_max_allowed_uids(netuid: u16) -> u16 
-    {
-        return MaxAllowedUids::<T>::get(netuid);
+
+    pub fn get_max_allowed_uids(netuid: u16) -> u16 {
+        MaxAllowedUids::<T>::get(netuid)
     }
 
     pub fn set_max_allowed_uids(netuid: u16, max_allowed: u16) 
     {
         MaxAllowedUids::<T>::insert(netuid, max_allowed);
+        Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
     }
 
-    pub fn do_sudo_set_max_allowed_uids(origin: T::RuntimeOrigin, netuid: u16, max_allowed_uids: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        ensure!(
-            Self::get_subnetwork_n(netuid) < max_allowed_uids,
-            Error::<T>::MaxAllowedUIdsNotAllowed
-        );
-
-        Self::set_max_allowed_uids(netuid, max_allowed_uids);
-        log::info!(
-            "MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ",
-            netuid,
-            max_allowed_uids
-        );
-
-        Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed_uids));
-
-        return Ok(());
-    }
 
     pub fn get_kappa(netuid: u16) -> u16 
     {
@@ -842,23 +577,7 @@ impl<T: Config> Pallet<T>
     pub fn set_kappa(netuid: u16, kappa: u16)
     {
         Kappa::<T>::insert(netuid, kappa);
-    }
-
-    pub fn do_sudo_set_kappa(origin: T::RuntimeOrigin, netuid: u16, kappa: u16) -> DispatchResult
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_kappa(netuid, kappa);
-        log::info!("KappaSet( netuid: {:?} kappa: {:?} ) ", netuid, kappa);
-
         Self::deposit_event(Event::KappaSet(netuid, kappa));
-
-        return Ok(());
     }
 
     pub fn get_rho(netuid: u16) -> u16 
@@ -871,23 +590,6 @@ impl<T: Config> Pallet<T>
         Rho::<T>::insert(netuid, rho);
     }
 
-    pub fn do_sudo_set_rho(origin: T::RuntimeOrigin, netuid: u16, rho: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_rho(netuid, rho);
-        log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
-
-        Self::deposit_event(Event::RhoSet(netuid, rho));
-
-        return Ok(());
-    }
-
     pub fn get_activity_cutoff(netuid: u16) -> u16 
     {
         return ActivityCutoff::<T>::get(netuid);
@@ -895,27 +597,7 @@ impl<T: Config> Pallet<T>
     pub fn set_activity_cutoff(netuid: u16, activity_cutoff: u16) 
     {
         ActivityCutoff::<T>::insert(netuid, activity_cutoff);
-    }
-
-    pub fn do_sudo_set_activity_cutoff(origin: T::RuntimeOrigin, netuid: u16, activity_cutoff: u16) -> DispatchResult 
-    {
-        Self::ensure_subnet_owner_or_root(origin, netuid)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_activity_cutoff(netuid, activity_cutoff);
-        log::info!(
-            "ActivityCutoffSet( netuid: {:?} activity_cutoff: {:?} ) ",
-            netuid,
-            activity_cutoff
-        );
-
         Self::deposit_event(Event::ActivityCutoffSet(netuid, activity_cutoff));
-
-        return Ok(());
     }
 
     // Registration Toggle utils
@@ -923,50 +605,18 @@ impl<T: Config> Pallet<T>
     {
         return NetworkRegistrationAllowed::<T>::get(netuid);
     }
-
-    pub fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) 
-    {
+    pub fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) {
         NetworkRegistrationAllowed::<T>::insert(netuid, registration_allowed);
-    }
-
-    pub fn do_sudo_set_network_registration_allowed(origin: T::RuntimeOrigin, netuid: u16, registration_allowed: bool) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        Self::set_network_registration_allowed(netuid, registration_allowed);
-        log::info!(
-            "NetworkRegistrationAllowed( registration_allowed: {:?} ) ",
-            registration_allowed
-        );
-
         Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
-
-        return Ok(());
     }
 
-    pub fn get_network_pow_registration_allowed(netuid: u16) -> bool 
-    {
-        return NetworkPowRegistrationAllowed::<T>::get(netuid);
-    }
 
-    pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) 
-    {
+    pub fn get_network_pow_registration_allowed(netuid: u16) -> bool {
+        NetworkPowRegistrationAllowed::<T>::get(netuid)
+    }
+    pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) {
         NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed);
-    }
-
-    pub fn do_sudo_set_network_pow_registration_allowed(origin: T::RuntimeOrigin, netuid: u16, registration_allowed: bool) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        Self::set_network_pow_registration_allowed(netuid, registration_allowed);
-        log::info!(
-            "NetworkPowRegistrationAllowed( registration_allowed: {:?} ) ",
-            registration_allowed
-        );
-
         Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
-
-        return Ok(());
     }
 
     pub fn get_target_registrations_per_interval(netuid: u16) -> u16 
@@ -977,30 +627,7 @@ impl<T: Config> Pallet<T>
     pub fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16) 
     {
         TargetRegistrationsPerInterval::<T>::insert(netuid, target_registrations_per_interval);
-    }
-
-    pub fn do_sudo_set_target_registrations_per_interval(origin: T::RuntimeOrigin, netuid: u16, target_registrations_per_interval: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
-        log::info!(
-            "RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
-            netuid,
-            target_registrations_per_interval
-        );
-
-        Self::deposit_event(Event::RegistrationPerIntervalSet(
-            netuid,
-            target_registrations_per_interval,
-        ));
-
-        return Ok(());
+        Self::deposit_event(Event::RegistrationPerIntervalSet(netuid, target_registrations_per_interval));
     }
 
     pub fn get_burn_as_u64(netuid: u16) -> u64 
@@ -1021,27 +648,7 @@ impl<T: Config> Pallet<T>
     pub fn set_min_burn(netuid: u16, min_burn: u64) 
     {
         MinBurn::<T>::insert(netuid, min_burn);
-    }
-
-    pub fn do_sudo_set_min_burn(origin: T::RuntimeOrigin, netuid: u16, min_burn: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_min_burn(netuid, min_burn);
-        log::info!(
-            "MinBurnSet( netuid: {:?} min_burn: {:?} ) ",
-            netuid,
-            min_burn
-        );
-
         Self::deposit_event(Event::MinBurnSet(netuid, min_burn));
-
-        return Ok(());
     }
 
     pub fn get_max_burn_as_u64(netuid: u16) -> u64 
@@ -1052,27 +659,7 @@ impl<T: Config> Pallet<T>
     pub fn set_max_burn(netuid: u16, max_burn: u64) 
     {
         MaxBurn::<T>::insert(netuid, max_burn);
-    }
-
-    pub fn do_sudo_set_max_burn(origin: T::RuntimeOrigin, netuid: u16, max_burn: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-        
-        Self::set_max_burn(netuid, max_burn);
-        log::info!(
-            "MaxBurnSet( netuid: {:?} max_burn: {:?} ) ",
-            netuid,
-            max_burn
-        );
-
         Self::deposit_event(Event::MaxBurnSet(netuid, max_burn));
-
-        return Ok(());
     }
 
     pub fn get_difficulty_as_u64(netuid: u16) -> u64 
@@ -1083,27 +670,7 @@ impl<T: Config> Pallet<T>
     pub fn set_difficulty(netuid: u16, difficulty: u64) 
     {
         Difficulty::<T>::insert(netuid, difficulty);
-    }
-    
-    pub fn do_sudo_set_difficulty(origin: T::RuntimeOrigin, netuid: u16, difficulty: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_difficulty(netuid, difficulty);
-        log::info!(
-            "DifficultySet( netuid: {:?} difficulty: {:?} ) ",
-            netuid,
-            difficulty
-        );
-
         Self::deposit_event(Event::DifficultySet(netuid, difficulty));
-
-        return Ok(());
     }
 
     pub fn get_max_allowed_validators(netuid: u16) -> u16 
@@ -1114,35 +681,7 @@ impl<T: Config> Pallet<T>
     pub fn set_max_allowed_validators(netuid: u16, max_allowed_validators: u16) 
     {
         MaxAllowedValidators::<T>::insert(netuid, max_allowed_validators);
-    }
-
-    pub fn do_sudo_set_max_allowed_validators(origin: T::RuntimeOrigin, netuid: u16, max_allowed_validators: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        ensure!(
-            max_allowed_validators <= Self::get_max_allowed_uids(netuid),
-            Error::<T>::StorageValueOutOfRange
-        );
-
-        Self::set_max_allowed_validators(netuid, max_allowed_validators);
-        log::info!(
-            "MaxAllowedValidatorsSet( netuid: {:?} max_allowed_validators: {:?} ) ",
-            netuid,
-            max_allowed_validators
-        );
-
-        Self::deposit_event(Event::MaxAllowedValidatorsSet(
-            netuid,
-            max_allowed_validators,
-        ));
-
-        return Ok(());
+        Self::deposit_event(Event::MaxAllowedValidatorsSet(netuid, max_allowed_validators));
     }
 
     pub fn get_bonds_moving_average(netuid: u16) -> u64 
@@ -1153,27 +692,7 @@ impl<T: Config> Pallet<T>
     pub fn set_bonds_moving_average(netuid: u16, bonds_moving_average: u64) 
     {
         BondsMovingAverage::<T>::insert(netuid, bonds_moving_average);
-    }
-
-    pub fn do_sudo_set_bonds_moving_average(origin: T::RuntimeOrigin, netuid: u16, bonds_moving_average: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_bonds_moving_average(netuid, bonds_moving_average);
-        log::info!(
-            "BondsMovingAverageSet( netuid: {:?} bonds_moving_average: {:?} ) ",
-            netuid,
-            bonds_moving_average
-        );
-
         Self::deposit_event(Event::BondsMovingAverageSet(netuid, bonds_moving_average));
-
-        return Ok(());
     }
 
     pub fn get_max_registrations_per_block(netuid: u16) -> u16 
@@ -1184,30 +703,7 @@ impl<T: Config> Pallet<T>
     pub fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) 
     {
         MaxRegistrationsPerBlock::<T>::insert(netuid, max_registrations_per_block);
-    }
-
-    pub fn do_sudo_set_max_registrations_per_block(origin: T::RuntimeOrigin, netuid: u16, max_registrations_per_block: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-        
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_max_registrations_per_block(netuid, max_registrations_per_block);
-        log::info!(
-            "MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ",
-            netuid,
-            max_registrations_per_block
-        );
-
-        Self::deposit_event(Event::MaxRegistrationsPerBlockSet(
-            netuid,
-            max_registrations_per_block,
-        ));
-
-        return Ok(());
+        Self::deposit_event(Event::MaxRegistrationsPerBlockSet(netuid, max_registrations_per_block));
     }
 
     pub fn get_subnet_owner(netuid: u16) -> T::AccountId 
@@ -1219,61 +715,13 @@ impl<T: Config> Pallet<T>
     {
         return SubnetOwnerCut::<T>::get();
     }
-
-    pub fn set_subnet_owner_cut(subnet_owner_cut: u16) 
-    {
-        SubnetOwnerCut::<T>::set(subnet_owner_cut);
+    pub fn set_subnet_owner_cut( subnet_owner_cut: u16 ) {
+        SubnetOwnerCut::<T>::set( subnet_owner_cut );
+        Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
-    pub fn do_sudo_set_subnet_owner_cut(origin: T::RuntimeOrigin, subnet_owner_cut: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        Self::set_subnet_owner_cut( subnet_owner_cut );
-        log::info!(
-            "SubnetOwnerCut( subnet_owner_cut: {:?} ) ",
-            subnet_owner_cut
-        );
-        
-        Self::deposit_event(Event::SubnetOwnerCutSet(
-            subnet_owner_cut,
-        ));
-
-        return Ok(());
-    }
-
-    pub fn do_sudo_set_network_rate_limit(origin: T::RuntimeOrigin, rate_limit: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        Self::set_network_rate_limit(rate_limit);
-        log::info!(
-            "NetworkRateLimit( rate_limit: {:?} ) ",
-            rate_limit
-        );
-
-        Self::deposit_event(Event::NetworkRateLimitSet(
-            rate_limit,
-        ));
-
-        return Ok(());
-    }
-
-    pub fn do_sudo_set_tempo(origin: T::RuntimeOrigin, netuid: u16, tempo: u16) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_tempo(netuid, tempo);
-        log::info!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
-
-        Self::deposit_event(Event::TempoSet(netuid, tempo));
-
-        return Ok(());
+    pub fn set_total_issuance(total_issuance: u64) {
+        TotalIssuance::<T>::put(total_issuance);
     }
 
     pub fn do_set_total_issuance(origin: T::RuntimeOrigin, total_issuance: u64) -> DispatchResult 
@@ -1292,27 +740,12 @@ impl<T: Config> Pallet<T>
     pub fn set_rao_recycled(netuid: u16, rao_recycled: u64) 
     {
         RAORecycledForRegistration::<T>::insert(netuid, rao_recycled);
+        Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
     }
 
     pub fn increase_rao_recycled(netuid: u16, inc_rao_recycled: u64) 
     {
         Self::set_rao_recycled(netuid, Self::get_rao_recycled(netuid).saturating_add(inc_rao_recycled));
-    }
-
-    pub fn do_set_rao_recycled(origin: T::RuntimeOrigin, netuid: u16, rao_recycled: u64) -> DispatchResult 
-    {
-        ensure_root(origin)?;
-        
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        Self::set_rao_recycled(netuid, rao_recycled);
-
-        Self::deposit_event(Event::RAORecycledForRegistrationSet(netuid, rao_recycled));
-
-        return Ok(());
     }
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool 

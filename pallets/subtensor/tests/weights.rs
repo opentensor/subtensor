@@ -174,11 +174,7 @@ fn test_weights_err_setting_weights_too_fast() {
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        assert_ok!(SubtensorModule::sudo_set_weights_set_rate_limit(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            netuid,
-            10
-        ));
+        SubtensorModule::set_weights_set_rate_limit(netuid, 10);
         assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 10);
 
         let weights_keys: Vec<u16> = vec![1, 2];
