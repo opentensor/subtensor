@@ -70,7 +70,7 @@ fn test_sudo_set_min_difficulty() {
         let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -103,7 +103,7 @@ fn test_sudo_set_max_difficulty() {
         let init_value: u64 = SubtensorModule::get_max_difficulty(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -208,7 +208,7 @@ fn test_sudo_set_adjustment_interval() {
         let init_value: u16 = SubtensorModule::get_adjustment_interval(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -241,7 +241,7 @@ fn test_sudo_set_adjustment_alpha() {
         let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -295,7 +295,7 @@ fn test_sudo_validator_prune_len() {
         let init_value: u64 = SubtensorModule::get_validator_prune_len(netuid);
         assert_eq!(
             AdminUtils::sudo_set_validator_prune_len(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -328,7 +328,7 @@ fn test_sudo_set_scaling_law_power() {
         let init_value: u16 = SubtensorModule::get_scaling_law_power(netuid);
         assert_eq!(
             AdminUtils::sudo_set_scaling_law_power(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -549,7 +549,7 @@ fn test_sudo_set_kappa() {
         let init_value: u16 = SubtensorModule::get_kappa(netuid);
         assert_eq!(
             AdminUtils::sudo_set_kappa(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -582,7 +582,7 @@ fn test_sudo_set_rho() {
         let init_value: u16 = SubtensorModule::get_rho(netuid);
         assert_eq!(
             AdminUtils::sudo_set_rho(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -648,7 +648,7 @@ fn test_sudo_set_target_registrations_per_interval() {
         let init_value: u16 = SubtensorModule::get_target_registrations_per_interval(netuid);
         assert_eq!(
             AdminUtils::sudo_set_target_registrations_per_interval(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
@@ -759,7 +759,7 @@ fn test_sudo_set_bonds_moving_average() {
         let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),
