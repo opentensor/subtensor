@@ -881,18 +881,18 @@ impl<T: Config> Pallet<T>
 
         // --- 6. Set all default values **explicitly**.
         {
-            Self::set_network_registration_allowed(netuid, true);
-            Self::set_max_allowed_uids(netuid, 256);
-            Self::set_max_allowed_validators(netuid, 64);
-            Self::set_min_allowed_weights(netuid, 1);
-            Self::set_max_weight_limit(netuid, u16::MAX);
-            Self::set_adjustment_interval(netuid, 360);
-            Self::set_target_registrations_per_interval(netuid, 1);
-            Self::set_adjustment_alpha(netuid, 58000);
-            Self::set_immunity_period(netuid, 5000);
-            Self::set_min_burn(netuid, 1);
-            Self::set_min_difficulty(netuid, u64::MAX);
-            Self::set_max_difficulty(netuid, u64::MAX);
+            Self::set_network_registration_allowed(netuid, NetworkRegistrationAllowed::<T>::get(netuid));
+            Self::set_max_allowed_uids(netuid, MaxAllowedUids::<T>::get(netuid));
+            Self::set_max_allowed_validators(netuid, MaxAllowedValidators::<T>::get(netuid));
+            Self::set_min_allowed_weights(netuid, MinAllowedWeights::<T>::get(netuid));
+            Self::set_max_weight_limit(netuid, MaxWeightLimit::<T>::get(netuid));
+            Self::set_adjustment_interval(netuid, AdjustmentInterval::<T>::get(netuid));
+            Self::set_target_registrations_per_interval(netuid, TargetRegistrationsPerInterval::<T>::get(netuid));
+            Self::set_adjustment_alpha(netuid, AdjustmentAlpha::<T>::get(netuid));
+            Self::set_immunity_period(netuid, ImmunityPeriod::<T>::get(netuid));
+            Self::set_min_burn(netuid, MinBurn::<T>::get(netuid));
+            Self::set_min_difficulty(netuid, MinDifficulty::<T>::get(netuid));
+            Self::set_max_difficulty(netuid, MaxDifficulty::<T>::get(netuid));
         }
 
         // 7. Make network parameters explicit.

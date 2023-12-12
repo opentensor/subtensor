@@ -192,6 +192,8 @@ pub mod pallet
         type InitialIssuance: Get<u64>;
         #[pallet::constant] // Initial min allowed weights setting.
         type InitialMinAllowedWeights: Get<u16>;
+        #[pallet::constant] // Initial max weight limit
+        type InitialMaxWeightLimit: Get<u16>;
         #[pallet::constant] // Initial Emission Ratio.
         type InitialEmissionValue: Get<u16>;
         #[pallet::constant] // Initial max weight limit.
@@ -250,6 +252,10 @@ pub mod pallet
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
+        #[pallet::constant]
+        type InitialNetworkRegistrationAllowed: Get<bool>;
+        #[pallet::constant]
+        type InitialRegistrationAllowed: Get<bool>;
         #[pallet::constant] // Initial network immunity period
         type InitialNetworkImmunityPeriod: Get<u64>;
         #[pallet::constant] // Initial minimum allowed network UIDs
@@ -389,16 +395,46 @@ pub mod pallet
     pub type Burn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBurn<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> Difficulty
     pub type Difficulty<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultDifficulty<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> MinBurn
-    pub type MinBurn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMinBurn<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultMinBurn<T> = 
+        StorageValue<_, u64, ValueQuery, DefaultMinBurn<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMinBurn<T: Config>() -> u64
+    {
+        return GlobalDefaultMinBurn::<T>::get();
+    }
+    #[pallet::storage]
+    pub type MinBurn<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, SubnetDefaultMinBurn<T>>;
+   //------------
     #[pallet::storage] // --- MAP ( netuid ) --> MaxBurn
     pub type MaxBurn<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMaxBurn<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultMinDifficulty<T> = 
+        StorageValue<_, u64, ValueQuery, DefaultMinDifficulty<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMinDifficulty<T: Config>() -> u64
+    {
+        return GlobalDefaultMinDifficulty::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> MinDifficulty
     pub type MinDifficulty<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMinDifficulty<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> MaxDifficulty
-    pub type MaxDifficulty<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultMaxDifficulty<T>>;
+        StorageMap<_, Identity, u16, u64, ValueQuery, SubnetDefaultMinDifficulty<T>>;
+   //------------
+   #[pallet::storage]
+   pub type GlobalDefaultMaxDifficulty<T> = 
+       StorageValue<_, u64, ValueQuery, DefaultMaxDifficulty<T>>;
+   #[pallet::type_value]
+   pub fn SubnetDefaultMaxDifficulty<T: Config>() -> u64
+   {
+       return GlobalDefaultMaxDifficulty::<T>::get();
+   }
+   #[pallet::storage] // --- MAP ( netuid ) --> MinDifficulty
+   pub type MaxDifficulty<T> =
+       StorageMap<_, Identity, u16, u64, ValueQuery, SubnetDefaultMaxDifficulty<T>>;
+    //------------
     #[pallet::storage] // --- MAP ( netuid ) -->  Block at last adjustment.
     pub type LastAdjustmentBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastAdjustmentBlock<T>>;
@@ -436,8 +472,13 @@ pub mod pallet
         false
     }
     #[pallet::type_value]
+    pub fn DefaultNetworkRegistrationAllowed<T: Config>() -> bool 
+    {
+        return T::InitialNetworkRegistrationAllowed::get();
+    }
+    #[pallet::type_value]
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
-        false
+        /*T::InitialRegistrationAllowed::get()*/false
     }
     #[pallet::type_value]
     pub fn DefaultNetworkRegisteredAt<T: Config>() -> u64 {
@@ -498,18 +539,38 @@ pub mod pallet
         ValueQuery,
         DefaultIsNetworkMember<T>,
     >;
+    //------------
+    #[pallet::storage]
+    pub type GlobalSubnetDefaultNetworkRegistrationAllowed<T> = 
+        StorageValue<_, bool, ValueQuery, DefaultNetworkRegistrationAllowed<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultNetworkRegistrationAllowed<T: Config>() -> bool
+    {
+        return GlobalSubnetDefaultNetworkRegistrationAllowed::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> network_registration_allowed
     pub type NetworkRegistrationAllowed<T: Config> =
-        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
+        StorageMap<_, Identity, u16, bool, ValueQuery, SubnetDefaultNetworkRegistrationAllowed<T>>;
+    //------------
     #[pallet::storage] // --- MAP ( netuid ) --> network_pow_allowed
     pub type NetworkPowRegistrationAllowed<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultRegistrationAllowed<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> block_created
     pub type NetworkRegisteredAt<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkRegisteredAt<T>>;
-    #[pallet::storage] // ITEM( network_immunity_period )
-    pub type NetworkImmunityPeriod<T> =
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultNetworkImmunityPeriod<T> = 
         StorageValue<_, u64, ValueQuery, DefaultNetworkImmunityPeriod<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultNetworkImmunityPeriod<T: Config>() -> u64
+    {
+        return GlobalDefaultNetworkImmunityPeriod::<T>::get();
+    }
+    #[pallet::storage]
+    pub type NetworkImmunityPeriod<T> =
+        StorageValue<_, u64, ValueQuery, SubnetDefaultNetworkImmunityPeriod<T>>;
+     //------------
     #[pallet::storage] // ITEM( network_last_registered_block )
     pub type NetworkLastRegistered<T> =
         StorageValue<_, u64, ValueQuery, DefaultNetworkLastRegistered<T>>;
@@ -581,7 +642,6 @@ pub mod pallet
     #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
-
     // =================================
     // ==== Axon / Promo Endpoints =====
     // =================================
@@ -694,6 +754,10 @@ pub mod pallet
         T::InitialMinAllowedWeights::get()
     }
     #[pallet::type_value]
+    pub fn DefaultMaxWeightLimit<T: Config>() -> u16 {
+        T::InitialMaxWeightLimit::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultMaxAllowedValidators<T: Config>() -> u16 {
         T::InitialMaxAllowedValidators::get()
     }
@@ -736,12 +800,31 @@ pub mod pallet
     #[pallet::storage] // --- MAP ( netuid ) --> burn_registrations_this_interval
     pub type BurnRegistrationsThisInterval<T: Config> =
         StorageMap<_, Identity, u16, u16, ValueQuery>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalMaxAllowedUids<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMaxAllowedUids<T: Config>() -> u16
+    {
+        return GlobalMaxAllowedUids::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> max_allowed_uids
     pub type MaxAllowedUids<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxAllowedUids<T>>;
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultMaxAllowedUids<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultImmunityPeriod<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultImmunityPeriod<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultImmunityPeriod<T: Config>() -> u16
+    {
+        return GlobalDefaultImmunityPeriod::<T>::get();
+    }
     #[pallet::storage] // --- MAP ( netuid ) --> immunity_period
     pub type ImmunityPeriod<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultImmunityPeriod<T>>;
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultImmunityPeriod<T>>;
+     //------------
     #[pallet::storage] // --- MAP ( netuid ) --> activity_cutoff
     pub type ActivityCutoff<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultActivityCutoff<T>>;
@@ -751,15 +834,55 @@ pub mod pallet
     #[pallet::storage] // --- MAP ( netuid ) --> weights_version_key
     pub type WeightsVersionKey<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightsVersionKey<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> min_allowed_weights
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultMinAllowedWeights<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultMinAllowedWeights<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMinAllowedWeights<T: Config>() -> u16
+    {
+        return GlobalDefaultMinAllowedWeights::<T>::get();
+    }
+    #[pallet::storage]
     pub type MinAllowedWeights<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMinAllowedWeights<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> max_allowed_validators
-    pub type MaxAllowedValidators<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultMaxAllowedValidators<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> adjustment_interval
-    pub type AdjustmentInterval<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAdjustmentInterval<T>>;
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultMinAllowedWeights<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultMaxWeightLimit<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultMaxWeightLimit<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMaxWeightLimit<T: Config>() -> u16
+    {
+        return GlobalDefaultMaxWeightLimit::<T>::get();
+    }
+    #[pallet::storage]
+    pub type MaxWeightLimit<T> = 
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultMaxWeightLimit<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultMaxAllowedValidators<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultMaxAllowedValidators<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultMaxAllowedValidators<T: Config>() -> u16
+    {
+        return GlobalDefaultMaxAllowedValidators::<T>::get();
+    }
+    #[pallet::storage]
+    pub type MaxAllowedValidators<T> = 
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultMaxAllowedValidators<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultAdjustmentInterval<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultAdjustmentInterval<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultAdjustmentInterval<T: Config>() -> u16
+    {
+        return GlobalDefaultAdjustmentInterval::<T>::get();
+    }
+    #[pallet::storage]
+    pub type AdjustmentInterval<T> = 
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultAdjustmentInterval<T>>;
+    //------------
     #[pallet::storage] // --- MAP ( netuid ) --> bonds_moving_average
     pub type BondsMovingAverage<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBondsMovingAverage<T>>;
@@ -772,9 +895,19 @@ pub mod pallet
     #[pallet::storage] // --- MAP ( netuid ) --> scaling_law_power
     pub type ScalingLawPower<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> target_registrations_this_interval
-    pub type TargetRegistrationsPerInterval<T> =
-        StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T>>;
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultTargetRegistrationsPerInterval<T> = 
+        StorageValue<_, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultTargetRegistrationsPerInterval<T: Config>() -> u16
+    {
+        return GlobalDefaultTargetRegistrationsPerInterval::<T>::get();
+    }
+    #[pallet::storage]
+    pub type TargetRegistrationsPerInterval<T> = 
+        StorageMap<_, Identity, u16, u16, ValueQuery, SubnetDefaultTargetRegistrationsPerInterval<T>>;
+    //------------
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> block_at_registration
     pub type BlockAtRegistration<T: Config> = StorageDoubleMap<
         _,
@@ -786,10 +919,19 @@ pub mod pallet
         ValueQuery,
         DefaultBlockAtRegistration<T>,
     >;
-    #[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
-    pub type AdjustmentAlpha<T: Config> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
-
+    //------------
+    #[pallet::storage]
+    pub type GlobalDefaultAdjustmentAlpha<T> = 
+        StorageValue<_, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
+    #[pallet::type_value]
+    pub fn SubnetDefaultAdjustmentAlpha<T: Config>() -> u64
+    {
+        return GlobalDefaultAdjustmentAlpha::<T>::get();
+    }
+    #[pallet::storage]
+    pub type AdjustmentAlpha<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, SubnetDefaultAdjustmentAlpha<T>>;
+    //------------
     // =======================================
     // ==== Subnetwork Consensus Storage  ====
     // =======================================
