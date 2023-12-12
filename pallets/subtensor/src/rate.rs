@@ -50,4 +50,15 @@ impl<T: Config> Pallet<T>
         Self::deposit_event(Event::ServingRateLimitSet(netuid, serving_rate_limit));
     }
 
+    pub fn get_network_rate_limit() -> u64 
+    {
+        return NetworkRateLimit::<T>::get()
+    }
+
+    pub fn set_network_rate_limit(limit: u64) 
+    {
+        NetworkRateLimit::<T>::set(limit);
+
+        Self::deposit_event(Event::NetworkRateLimitSet(limit));
+    }
 }

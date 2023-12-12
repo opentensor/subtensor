@@ -207,4 +207,19 @@ impl<T: Config> Pallet<T>
         MaxAllowedUids::<T>::insert(netuid, max_allowed);
         Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
     }
+
+    // Returns a list of subnet netuid equal to total networks.
+    //
+    //
+    // This iterates through all the networks and returns a list of netuids.
+    //
+    // # Returns:
+    // * 'Vec<u16>': Netuids of added subnets.
+    //
+    pub fn get_all_subnet_netuids() -> Vec<u16> 
+    {
+        return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+            .map(|(netuid, _)| netuid)
+            .collect();
+    }
 }

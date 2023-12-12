@@ -962,4 +962,159 @@ impl<T: Config> Pallet<T>
 
         Self::deposit_event(Event::MaxRegistrationsPerBlockSet(netuid, max_registrations_per_block));
     }
+
+        // Registers a user's hotkey to the root network.
+    //
+    // This function is responsible for registering the hotkey of a user.
+    // The root key with the least stake if pruned in the event of a filled network.
+    //
+    // # Arguments:
+    // * 'origin': Represents the origin of the call.
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'DispatchResult': A result type indicating success or failure of the registration.
+    //
+    pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult 
+    {
+        // --- 0. Get the unique identifier (UID) for the root network.
+        let root_netuid:            u16;
+        let current_block_number:   u64;
+        {
+            root_netuid             = Self::get_root_netuid();
+            current_block_number    = Self::get_current_block_as_u64();
+
+            ensure!(
+                Self::if_subnet_exist(root_netuid),
+                Error::<T>::NetworkDoesNotExist
+            );
+        }
+
+        // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
+        let coldkey: T::AccountId;
+        {
+            coldkey = ensure_signed(origin)?;
+
+            log::info!(
+                "do_root_register( coldkey: {:?}, hotkey: {:?} )",
+                coldkey,
+                hotkey
+            );
+        }
+
+        // --- 2. Ensure that the number of registrations in this block doesn't exceed the allowed limit.
+        {
+            ensure!(
+                Self::get_registrations_this_block(root_netuid) < Self::get_max_registrations_per_block(root_netuid),
+                Error::<T>::TooManyRegistrationsThisBlock
+            );
+        }
+
+        // --- 3. Ensure that the number of registrations in this interval doesn't exceed thrice the target limit.
+        {
+            ensure!(
+                Self::get_registrations_this_interval(root_netuid) < Self::get_target_registrations_per_interval(root_netuid) * 3,
+                Error::<T>::TooManyRegistrationsThisInterval
+            );
+        }
+
+        // --- 4. Check if the hotkey is already registered. If so, error out.
+        {
+            ensure!(
+                !Uids::<T>::contains_key(root_netuid, &hotkey),
+                Error::<T>::AlreadyRegistered
+            );
+        }
+
+        // --- 6. Create a network account for the user if it doesn't exist.
+        {
+            Self::create_account_if_non_existent(&coldkey, &hotkey);
+        }
+
+        // --- 7. Fetch the current size of the subnetwork.
+        // Declare a variable to hold the root UID.
+        let subnetwork_uid:                 u16;
+        let current_num_root_validators:    u16;
+        {
+            current_num_root_validators = Self::get_num_root_validators();        
+        }
+
+        // --- 8. Check if the root net is below its allowed size.
+        // max allowed is senate size.
+        if current_num_root_validators < Self::get_max_root_validators() 
+        {
+            // --- 8.1.1 We can append to the subnetwork as it's not full.
+            subnetwork_uid = current_num_root_validators;
+
+            // --- 8.1.2 Add the new account and make them a member of the Senate.
+            Self::append_neuron(root_netuid, &hotkey, current_block_number);
+            log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
+        } 
+        else 
+        {
+            // --- 9.1.1 The network is full. Perform replacement.
+            // Find the neuron with the lowest stake value to replace.
+            let mut lowest_stake: u64 = u64::MAX;
+            let mut lowest_uid: u16 = 0;
+
+            // Iterate over all keys in the root network to find the neuron with the lowest stake.
+            for (uid_i, hotkey_i) in <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(root_netuid)
+            {
+                let stake_i: u64 = Self::get_total_stake_for_hotkey(&hotkey_i);
+                if stake_i < lowest_stake 
+                {
+                    lowest_stake = stake_i;
+                    lowest_uid = uid_i;
+                }
+            }
+            subnetwork_uid = lowest_uid;
+            let replaced_hotkey: T::AccountId = Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid).unwrap();
+
+            // --- 9.1.2 The new account has a higher stake than the one being replaced.
+            ensure!(
+                lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
+                Error::<T>::StakeTooLowForRoot
+            );
+
+            // --- 9.1.3 The new account has a higher stake than the one being replaced.
+            // Replace the neuron account with new information.
+            Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
+
+            log::info!(
+                "replace neuron: {:?} with {:?} on uid {:?}",
+                replaced_hotkey,
+                hotkey,
+                subnetwork_uid
+            );
+        }
+
+        // --- 10. Force all members on root to become a delegate.
+        {
+            if !Self::hotkey_is_delegate(&hotkey) 
+            {
+                Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
+            }
+        }
+
+        // --- 11. Update the registration counters for both the block and interval.
+        {
+            RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
+            RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
+        }
+
+        // --- 12. Log and announce the successful registration.
+        {
+            log::info!(
+                "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
+                root_netuid,
+                subnetwork_uid,
+                hotkey
+            );
+            
+            Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
+        }
+
+        // --- 16. Finish and return success.
+        return Ok(());
+    }
 }

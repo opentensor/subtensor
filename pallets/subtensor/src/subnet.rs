@@ -5,6 +5,25 @@ use
 
 impl<T: Config> Pallet<T> 
 {
+    // Fetches the total count of subnet validators (those that set weights.)
+    //
+    // This function retrieves the total number of subnet validators.
+    //
+    // # Returns:
+    // * 'u16': The total number of validators
+    //
+    pub fn get_max_subnets() -> u16 
+    {
+        return SubnetLimit::<T>::get();
+    }
+
+    pub fn set_max_subnets(limit: u16)
+    {
+        SubnetLimit::<T>::put(limit);
+
+        Self::deposit_event(Event::SubnetLimitSet(limit));
+    }
+
     pub fn set_tempo(netuid: u16, tempo: u16) 
     {
         Tempo::<T>::insert(netuid, tempo);
@@ -395,8 +414,297 @@ impl<T: Config> Pallet<T>
         Self::set_rao_recycled(netuid, Self::get_rao_recycled(netuid).saturating_add(inc_rao_recycled));
     }
 
+    pub fn get_network_registered_block(netuid: u16) -> u64 
+    {
+        NetworkRegisteredAt::<T>::get(netuid)
+    }
+
+    pub fn get_network_immunity_period() -> u64 
+    {
+        NetworkImmunityPeriod::<T>::get()
+    }
+
+    pub fn set_network_immunity_period(net_immunity_period: u64) 
+    {
+        NetworkImmunityPeriod::<T>::set(net_immunity_period);
+
+        Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
+    }
+
+    pub fn set_network_min_lock(net_min_lock: u64) 
+    {
+        NetworkMinLockCost::<T>::set(net_min_lock);
+
+        Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
+    }
+
+    pub fn get_network_min_lock() -> u64 
+    {
+        NetworkMinLockCost::<T>::get()
+    }
+
+    pub fn set_network_last_lock(net_last_lock: u64) 
+    {
+        NetworkLastLockCost::<T>::set(net_last_lock);
+    }
+
+    pub fn get_network_last_lock() -> u64 
+    {
+        NetworkLastLockCost::<T>::get()
+    }
+
+    pub fn get_network_last_lock_block() -> u64 
+    {
+        NetworkLastRegistered::<T>::get()
+    }
+
+    pub fn set_lock_reduction_interval(interval: u64) 
+    {
+        NetworkLockReductionInterval::<T>::set(interval);
+
+        Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
+    }
+
+    pub fn get_lock_reduction_interval() -> u64 
+    {
+        NetworkLockReductionInterval::<T>::get()
+    }
+
     pub fn is_subnet_owner(address: &T::AccountId) -> bool 
     {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
+    }
+    
+    // Returns true if the subnetwork exists.
+    //
+    // This function checks if a subnetwork with the given UID exists.
+    //
+    // # Returns:
+    // * 'bool': Whether the subnet exists.
+    //
+    pub fn if_subnet_exist(netuid: u16) -> bool 
+    {
+        return NetworksAdded::<T>::get(netuid);
+    }
+
+
+    // Sets initial and custom parameters for a new network.
+    pub fn init_new_network(netuid: u16, tempo: u16) 
+    {
+        // --- 1. Set network to 0 size.
+        {
+            SubnetworkN::<T>::insert(netuid, 0);
+        }
+
+        // --- 2. Set this network uid to alive.
+        {
+            NetworksAdded::<T>::insert(netuid, true);
+        }
+
+        // --- 3. Fill tempo memory item.
+        {
+            Tempo::<T>::insert(netuid, tempo);
+        }
+
+        // --- 4 Fill modality item.
+        {
+            NetworkModality::<T>::insert(netuid, 0);
+        }
+
+        // --- 5. Increase total network count.
+        {
+            TotalNetworks::<T>::mutate(|n| *n += 1);
+        }
+
+        // --- 6. Set all default values **explicitly**.
+        {
+            Self::set_network_registration_allowed(netuid, NetworkRegistrationAllowed::<T>::get(netuid));
+            Self::set_max_allowed_uids(netuid, MaxAllowedUids::<T>::get(netuid));
+            Self::set_max_allowed_validators(netuid, MaxAllowedValidators::<T>::get(netuid));
+            Self::set_min_allowed_weights(netuid, MinAllowedWeights::<T>::get(netuid));
+            Self::set_max_weight_limit(netuid, MaxWeightLimit::<T>::get(netuid));
+            Self::set_adjustment_interval(netuid, AdjustmentInterval::<T>::get(netuid));
+            Self::set_target_registrations_per_interval(netuid, TargetRegistrationsPerInterval::<T>::get(netuid));
+            Self::set_adjustment_alpha(netuid, AdjustmentAlpha::<T>::get(netuid));
+            Self::set_immunity_period(netuid, ImmunityPeriod::<T>::get(netuid));
+            Self::set_min_burn(netuid, MinBurn::<T>::get(netuid));
+            Self::set_min_difficulty(netuid, MinDifficulty::<T>::get(netuid));
+            Self::set_max_difficulty(netuid, MaxDifficulty::<T>::get(netuid));
+        }
+
+        // 7. Make network parameters explicit.
+        {
+            if !Tempo::<T>::contains_key(netuid) 
+            {
+                Tempo::<T>::insert(netuid, Tempo::<T>::get(netuid));
+            }
+
+            if !Kappa::<T>::contains_key(netuid) 
+            {
+                Kappa::<T>::insert(netuid, Kappa::<T>::get(netuid));
+            }
+
+            if !Difficulty::<T>::contains_key(netuid) 
+            {
+                Difficulty::<T>::insert(netuid, Difficulty::<T>::get(netuid));
+            }
+
+            if !MaxAllowedUids::<T>::contains_key(netuid) 
+            {
+                MaxAllowedUids::<T>::insert(netuid, MaxAllowedUids::<T>::get(netuid));
+            }
+
+            if !ImmunityPeriod::<T>::contains_key(netuid) 
+            {
+                ImmunityPeriod::<T>::insert(netuid, ImmunityPeriod::<T>::get(netuid));
+            }
+
+            if !ActivityCutoff::<T>::contains_key(netuid) 
+            {
+                ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
+            }
+
+            if !EmissionValues::<T>::contains_key(netuid) 
+            {
+                EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
+            }
+
+            if !MaxWeightsLimit::<T>::contains_key(netuid) 
+            {
+                MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
+            }
+            
+            if !MinAllowedWeights::<T>::contains_key(netuid) 
+            {
+                MinAllowedWeights::<T>::insert(netuid, MinAllowedWeights::<T>::get(netuid));
+            }
+
+            if !RegistrationsThisInterval::<T>::contains_key(netuid) 
+            {
+                RegistrationsThisInterval::<T>::insert(
+                    netuid,
+                    RegistrationsThisInterval::<T>::get(netuid),
+                );
+            }
+
+            if !POWRegistrationsThisInterval::<T>::contains_key(netuid) 
+            {
+                POWRegistrationsThisInterval::<T>::insert(
+                    netuid,
+                    POWRegistrationsThisInterval::<T>::get(netuid),
+                );
+            }
+
+            if !BurnRegistrationsThisInterval::<T>::contains_key(netuid) 
+            {
+                BurnRegistrationsThisInterval::<T>::insert(
+                    netuid,
+                    BurnRegistrationsThisInterval::<T>::get(netuid),
+                );
+            }
+        }
+    }
+
+    // Removes a network (identified by netuid) and all associated parameters.
+    //
+    // This function is responsible for cleaning up all the data associated with a network.
+    // It ensures that all the storage values related to the network are removed, and any
+    // reserved balance is returned to the network owner.
+    //
+    // # Args:
+    // 	* 'netuid': ('u16'): The unique identifier of the network to be removed.
+    //
+    // # Note:
+    // This function does not emit any events, nor does it raise any errors. It silently
+    // returns if any internal checks fail.
+    //
+    pub fn remove_network(netuid: u16) 
+    {
+        // --- 1. Return balance to subnet owner.
+        let owner_coldkey: T::AccountId;
+        let reserved_amount_as_bal;
+        {
+            owner_coldkey = SubnetOwner::<T>::get(netuid);
+            let reserved_amount = Self::get_subnet_locked_balance(netuid);
+
+            // Ensure that we can convert this u64 to a balance.
+            reserved_amount_as_bal = Self::u64_to_balance(reserved_amount);
+            if !reserved_amount_as_bal.is_some() 
+            {
+                return;
+            }
+        }
+
+        // --- 2. Remove network count.
+        {
+            SubnetworkN::<T>::remove(netuid);
+        }
+
+        // --- 3. Remove network modality storage.
+        {
+            NetworkModality::<T>::remove(netuid);
+        }
+
+        // --- 4. Remove netuid from added networks.
+        {
+            NetworksAdded::<T>::remove(netuid);
+        }
+
+        // --- 6. Decrement the network counter.
+        {
+            TotalNetworks::<T>::mutate(|n| *n -= 1);
+        }
+
+        // --- 7. Remove various network-related storages.
+        {
+            NetworkRegisteredAt::<T>::remove(netuid);
+        }
+
+        // --- 8. Remove incentive mechanism memory.
+        {
+            let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
+            let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
+            let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
+            let _ = Weights::<T>::clear_prefix(netuid, u32::max_value(), None);
+        }
+
+        // --- 9. Remove various network-related parameters.
+        {
+            Rank::<T>::remove(netuid);
+            Trust::<T>::remove(netuid);
+            Active::<T>::remove(netuid);
+            Emission::<T>::remove(netuid);
+            Incentive::<T>::remove(netuid);
+            Consensus::<T>::remove(netuid);
+            Dividends::<T>::remove(netuid);
+            PruningScores::<T>::remove(netuid);
+            LastUpdate::<T>::remove(netuid);
+            ValidatorPermit::<T>::remove(netuid);
+            ValidatorTrust::<T>::remove(netuid);
+        }
+
+        // --- 10. Erase network parameters.
+        {
+            Tempo::<T>::remove(netuid);
+            Kappa::<T>::remove(netuid);
+            Difficulty::<T>::remove(netuid);
+            MaxAllowedUids::<T>::remove(netuid);
+            ImmunityPeriod::<T>::remove(netuid);
+            ActivityCutoff::<T>::remove(netuid);
+            EmissionValues::<T>::remove(netuid);
+            MaxWeightsLimit::<T>::remove(netuid);
+            MinAllowedWeights::<T>::remove(netuid);
+            RegistrationsThisInterval::<T>::remove(netuid);
+            POWRegistrationsThisInterval::<T>::remove(netuid);
+            BurnRegistrationsThisInterval::<T>::remove(netuid);
+        }
+
+        // --- 11. Add the balance back to the owner.
+        {
+            Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
+            Self::set_subnet_locked_balance(netuid, 0);
+
+            SubnetOwner::<T>::remove(netuid);
+        }
     }
 }
