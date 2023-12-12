@@ -173,24 +173,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn sudo_set_validator_prune_len()
-	{
-		T::Subtensor::init_new_network(1u16/*netuid*/, 1u16/*tempo*/);
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, 1u16/*netuid*/, 10u64/*prune_len*/)/*sudo_set_validator_prune_len*/;
-	}
-
-	#[benchmark]
-	fn sudo_set_scaling_law_power()
-	{
-		T::Subtensor::init_new_network(1u16/*netuid*/, 1u16/*tempo*/);
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, 1u16/*netuid*/, 100u16/*scaling_law_power*/)/*sudo_set_scaling_law_power*/;
-	}
-
-	#[benchmark]
 	fn sudo_set_immunity_period()
 	{
 		T::Subtensor::init_new_network(1u16/*netuid*/, 1u16/*tempo*/);
