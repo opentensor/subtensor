@@ -56,24 +56,26 @@ pub struct SubnetInfo<T: Config>
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams 
 {
-    rho:                        Compact<u16>,
-    kappa:                      Compact<u16>,
-    immunity_period:            Compact<u16>,
-    min_allowed_weights:        Compact<u16>,
-    max_weights_limit:          Compact<u16>,
-    tempo:                      Compact<u16>,
-    min_difficulty:             Compact<u64>,
-    max_difficulty:             Compact<u64>,
-    weights_version:            Compact<u64>,
-    weights_rate_limit:         Compact<u64>,
-    adjustment_interval:        Compact<u16>,
-    activity_cutoff:            Compact<u16>,
-    registration_allowed:       bool,
-    target_regs_per_interval:   Compact<u16>,
-    min_burn:                   Compact<u64>,
-    max_burn:                   Compact<u64>,
-    bonds_moving_avg:           Compact<u64>,
-    max_regs_per_block:         Compact<u16>,
+    rho: Compact<u16>,
+    kappa: Compact<u16>,
+    immunity_period: Compact<u16>,
+    min_allowed_weights: Compact<u16>,
+    max_weights_limit: Compact<u16>,
+    tempo: Compact<u16>,
+    min_difficulty: Compact<u64>,
+    max_difficulty: Compact<u64>,
+    weights_version: Compact<u64>,
+    weights_rate_limit: Compact<u64>,
+    adjustment_interval: Compact<u16>,
+    activity_cutoff: Compact<u16>,
+    registration_allowed: bool,
+    target_regs_per_interval: Compact<u16>,
+    min_burn: Compact<u64>,
+    max_burn: Compact<u64>,
+    bonds_moving_avg: Compact<u64>,
+    max_regs_per_block: Compact<u16>,
+    serving_rate_limit: Compact<u64>,
+    max_validators: Compact<u16>
 }
 
 impl<T: Config> Pallet<T> {
@@ -158,7 +160,8 @@ impl<T: Config> Pallet<T> {
         return subnets_info;
     }
 
-    pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+    pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> 
+    {
         if !Self::if_subnet_exist(netuid) 
         {
             return None;
@@ -183,6 +186,8 @@ impl<T: Config> Pallet<T> {
         let max_burn:                   u64     = Self::get_max_burn_as_u64(netuid);
         let bonds_moving_avg:           u64     = Self::get_bonds_moving_average(netuid);
         let max_regs_per_block:         u16     = Self::get_max_registrations_per_block(netuid);
+        let serving_rate_limit:         u64     = Self::get_serving_rate_limit(netuid);
+        let max_validators:             u16     = Self::get_max_allowed_validators(netuid);
 
         return Some(SubnetHyperparams 
         {
@@ -203,7 +208,9 @@ impl<T: Config> Pallet<T> {
             min_burn:                   min_burn.into(),
             max_burn:                   max_burn.into(),
             bonds_moving_avg:           bonds_moving_avg.into(),
-            max_regs_per_block:         max_regs_per_block.into()
+            max_regs_per_block:         max_regs_per_block.into(),
+            serving_rate_limit:         serving_rate_limit.into(),
+            max_validators:             max_validators.into()
         });
     }
 }
