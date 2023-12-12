@@ -78,7 +78,8 @@ pub struct SubnetHyperparams
     max_validators:             Compact<u16>
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config> Pallet<T> 
+{
     pub fn get_subnet_info(netuid: u16) -> Option<SubnetInfo<T>> 
     {
         if !Self::if_subnet_exist(netuid) 
