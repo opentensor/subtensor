@@ -914,4 +914,52 @@ impl<T: Config> Pallet<T>
 
         return Ok(Some(weight).into());
     }
+
+    pub fn get_network_registration_allowed(netuid: u16) -> bool 
+    {
+        return NetworkRegistrationAllowed::<T>::get(netuid);
+    }
+
+    pub fn set_network_registration_allowed(netuid: u16, registration_allowed: bool) 
+    {
+        NetworkRegistrationAllowed::<T>::insert(netuid, registration_allowed);
+
+        Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
+    }
+
+    pub fn get_network_pow_registration_allowed(netuid: u16) -> bool 
+    {
+        return NetworkPowRegistrationAllowed::<T>::get(netuid);
+    }
+
+    pub fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool) 
+    {
+        NetworkPowRegistrationAllowed::<T>::insert(netuid, registration_allowed);
+
+        Self::deposit_event(Event::PowRegistrationAllowed(netuid, registration_allowed));
+    }
+
+    pub fn get_target_registrations_per_interval(netuid: u16) -> u16 
+    {
+        return TargetRegistrationsPerInterval::<T>::get(netuid);
+    }
+
+    pub fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16) 
+    {
+        TargetRegistrationsPerInterval::<T>::insert(netuid, target_registrations_per_interval);
+
+        Self::deposit_event(Event::RegistrationPerIntervalSet(netuid, target_registrations_per_interval));
+    }
+
+    pub fn get_max_registrations_per_block(netuid: u16) -> u16 
+    {
+        return MaxRegistrationsPerBlock::<T>::get(netuid);
+    }
+
+    pub fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) 
+    {
+        MaxRegistrationsPerBlock::<T>::insert(netuid, max_registrations_per_block);
+
+        Self::deposit_event(Event::MaxRegistrationsPerBlockSet(netuid, max_registrations_per_block));
+    }
 }

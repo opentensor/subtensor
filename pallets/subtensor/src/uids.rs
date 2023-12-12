@@ -196,4 +196,15 @@ impl<T: Config> Pallet<T>
 
         return false;
     }
+
+    pub fn get_max_allowed_uids(netuid: u16) -> u16 
+    {
+        MaxAllowedUids::<T>::get(netuid)
+    }
+
+    pub fn set_max_allowed_uids(netuid: u16, max_allowed: u16) 
+    {
+        MaxAllowedUids::<T>::insert(netuid, max_allowed);
+        Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
+    }
 }

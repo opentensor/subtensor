@@ -440,4 +440,52 @@ impl<T: Config> Pallet<T>
         // we should expect at most subnetwork_n uids.
         return uids.len() <= subnetwork_n as usize;
     }
+
+    pub fn get_weights_version_key(netuid: u16) -> u64 
+    {
+        return WeightsVersionKey::<T>::get(netuid);
+    }
+
+    pub fn set_weights_version_key(netuid: u16, weights_version_key: u64) 
+    {
+        WeightsVersionKey::<T>::insert(netuid, weights_version_key);
+
+        Self::deposit_event(Event::WeightsVersionKeySet(netuid, weights_version_key));
+    }
+
+    pub fn get_weights_set_rate_limit(netuid: u16) -> u64 
+    {
+        WeightsSetRateLimit::<T>::get(netuid)
+    }
+
+    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) 
+    {
+        WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
+
+        Self::deposit_event(Event::WeightsSetRateLimitSet(netuid, weights_set_rate_limit));
+    }
+
+    pub fn get_max_weight_limit(netuid: u16) -> u16 
+    {
+        return MaxWeightsLimit::<T>::get(netuid);
+    }
+
+    pub fn set_max_weight_limit(netuid: u16, max_weight_limit: u16) 
+    {
+        MaxWeightsLimit::<T>::insert(netuid, max_weight_limit);
+
+        Self::deposit_event(Event::MaxWeightLimitSet(netuid, max_weight_limit));
+    }
+
+    pub fn get_min_allowed_weights(netuid: u16) -> u16 
+    {
+        return MinAllowedWeights::<T>::get(netuid);
+    }
+
+    pub fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16) 
+    {
+        MinAllowedWeights::<T>::insert(netuid, min_allowed_weights);
+
+        Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
+    }
 }
