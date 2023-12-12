@@ -56,26 +56,26 @@ pub struct SubnetInfo<T: Config>
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams 
 {
-    rho: Compact<u16>,
-    kappa: Compact<u16>,
-    immunity_period: Compact<u16>,
-    min_allowed_weights: Compact<u16>,
-    max_weights_limit: Compact<u16>,
-    tempo: Compact<u16>,
-    min_difficulty: Compact<u64>,
-    max_difficulty: Compact<u64>,
-    weights_version: Compact<u64>,
-    weights_rate_limit: Compact<u64>,
-    adjustment_interval: Compact<u16>,
-    activity_cutoff: Compact<u16>,
-    registration_allowed: bool,
-    target_regs_per_interval: Compact<u16>,
-    min_burn: Compact<u64>,
-    max_burn: Compact<u64>,
-    bonds_moving_avg: Compact<u64>,
-    max_regs_per_block: Compact<u16>,
-    serving_rate_limit: Compact<u64>,
-    max_validators: Compact<u16>
+    rho:                        Compact<u16>,
+    kappa:                      Compact<u16>,
+    immunity_period:            Compact<u16>,
+    min_allowed_weights:        Compact<u16>,
+    max_weights_limit:          Compact<u16>,
+    tempo:                      Compact<u16>,
+    min_difficulty:             Compact<u64>,
+    max_difficulty:             Compact<u64>,
+    weights_version:            Compact<u64>,
+    weights_rate_limit:         Compact<u64>,
+    adjustment_interval:        Compact<u16>,
+    activity_cutoff:            Compact<u16>,
+    registration_allowed:       bool,
+    target_regs_per_interval:   Compact<u16>,
+    min_burn:                   Compact<u64>,
+    max_burn:                   Compact<u64>,
+    bonds_moving_avg:           Compact<u64>,
+    max_regs_per_block:         Compact<u16>,
+    serving_rate_limit:         Compact<u64>,
+    max_validators:             Compact<u16>
 }
 
 impl<T: Config> Pallet<T> {
