@@ -87,4 +87,52 @@ impl<T: Config> Pallet<T>
             .ok()
             .expect("blockchain will not exceed 2^64 blocks; QED.");
     }
+
+    // util funcs
+    pub fn u64_to_balance(input: u64) -> Option<<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance> 
+    {
+        return input.try_into().ok();
+    }
+
+    // Returns the coldkey owning this hotkey. This function should only be called for active accounts.
+    //
+    pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId 
+    {
+        return Owner::<T>::get(hotkey);
+    }
+
+    // Returns true if the hotkey account has been created.
+    //
+    pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool 
+    {
+        return Owner::<T>::contains_key(hotkey);
+    }
+
+    // Return true if the passed coldkey owns the hotkey.
+    //
+    pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool 
+    {
+        if Self::hotkey_account_exists(hotkey) 
+        {
+            return Owner::<T>::get(hotkey) == *coldkey;
+        } 
+        else 
+        {
+            return false;
+        }
+    }
+
+    // Returns true if the passed hotkey allow delegative staking.
+    //
+    pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool 
+    {
+        return Delegates::<T>::contains_key(hotkey);
+    }
+
+    // Sets the hotkey as a delegate with take.
+    //
+    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) 
+    {
+        Delegates::<T>::insert(hotkey, take);
+    }
 }
