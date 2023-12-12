@@ -203,7 +203,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_adjustment_interval())]
 		pub fn sudo_set_adjustment_interval(origin: OriginFor<T>, netuid: u16, adjustment_interval: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -228,7 +228,7 @@ pub mod pallet {
 		))]
 		pub fn sudo_set_adjustment_alpha(origin: OriginFor<T>, netuid: u16, adjustment_alpha: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -238,44 +238,6 @@ pub mod pallet {
 			log::info!(
 				"AdjustmentAlphaSet( adjustment_alpha: {:?} ) ",
 				adjustment_alpha
-			);
-			Ok(())
-		}
-
-		#[pallet::call_index(10)]
-		#[pallet::weight(T::WeightInfo::sudo_set_validator_prune_len())]
-		pub fn sudo_set_validator_prune_len(origin: OriginFor<T>, netuid: u16, validator_prune_len: u64) -> DispatchResult {
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
-	
-			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
-				Error::<T>::NetworkDoesNotExist
-			);
-			T::Subtensor::set_validator_prune_len(netuid, validator_prune_len);
-			log::info!(
-				"ValidatorPruneLenSet( netuid: {:?} validator_prune_len: {:?} ) ",
-				netuid,
-				validator_prune_len
-			);
-			Ok(())
-		}
-
-		#[pallet::call_index(11)]
-		#[pallet::weight(T::WeightInfo::sudo_set_scaling_law_power())]
-		pub fn sudo_set_scaling_law_power(origin: OriginFor<T>, netuid: u16, scaling_law_power: u16) -> DispatchResult 
-		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
-
-			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
-				Error::<T>::NetworkDoesNotExist
-			);
-			ensure!(scaling_law_power <= 100, Error::<T>::StorageValueOutOfRange); // The scaling law power must be between 0 and 100 => 0% and 100%
-			T::Subtensor::set_scaling_law_power(netuid, scaling_law_power);
-			log::info!(
-				"ScalingLawPowerSet( netuid: {:?} scaling_law_power: {:?} ) ",
-				netuid,
-				scaling_law_power
 			);
 			Ok(())
 		}
@@ -362,7 +324,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_kappa())]
 		pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: u16, kappa: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -377,7 +339,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_rho())]
 		pub fn sudo_set_rho(origin: OriginFor<T>, netuid: u16, rho: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -450,7 +412,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_target_registrations_per_interval())]
 		pub fn sudo_set_target_registrations_per_interval(origin: OriginFor<T>, netuid: u16, target_registrations_per_interval: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -549,7 +511,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_bonds_moving_average())]
 		pub fn sudo_set_bonds_moving_average(origin: OriginFor<T>, netuid: u16, bonds_moving_average: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -568,7 +530,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_max_registrations_per_block())]
 		pub fn sudo_set_max_registrations_per_block(origin: OriginFor<T>, netuid: u16, max_registrations_per_block: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			ensure_root(origin)?;
 			
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
