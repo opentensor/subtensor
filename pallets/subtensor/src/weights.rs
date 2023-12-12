@@ -29,6 +29,13 @@ use
     frame_support::
     {
         IterableStorageDoubleMap
+    },
+    substrate_fixed::
+    {
+        types::
+        {
+            I32F32
+        }
     }
 };
 
@@ -552,6 +559,41 @@ impl<T: Config> Pallet<T>
         }
 
         // --- 5. Return the filled weights matrix.
+        return weights;
+    }
+
+    // Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
+    pub fn get_weights_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> 
+    { 
+        let n:              usize                   = Self::get_subnetwork_n(netuid) as usize; 
+        let mut weights:    Vec<Vec<(u16, I32F32)>> = vec![vec![]; n]; 
+        for (uid_i, weights_i) in <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)> >>::iter_prefix(netuid)
+        {
+            for (uid_j, weight_ij) in weights_i.iter() 
+            { 
+                weights[uid_i as usize].push(( 
+                    *uid_j, 
+                    I32F32::from_num( *weight_ij )
+                ));
+            }
+       }
+            
+        return weights;
+    } 
+    
+    // Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
+    pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> 
+    {
+        let n:              usize               = Self::get_subnetwork_n(netuid) as usize; 
+        let mut weights:    Vec<Vec<I32F32>>    = vec![vec![I32F32::from_num(0.0); n]; n]; 
+        for (uid_i, weights_i) in <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid) 
+        {
+            for (uid_j, weight_ij) in weights_i.iter() 
+            { 
+                weights[uid_i as usize][*uid_j as usize] = I32F32::from_num(*weight_ij);
+            }
+        }
+            
         return weights;
     }
 }

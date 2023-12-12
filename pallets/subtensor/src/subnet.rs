@@ -1,3 +1,11 @@
+use crate::
+{
+    math::       
+    {
+        *
+    }
+};
+
 impl<T: Config> Pallet<T> 
 {
     // Fetches the total count of subnet validators (those that set weights.)
@@ -701,5 +709,79 @@ impl<T: Config> Pallet<T>
 
             SubnetOwner::<T>::remove(netuid);
         }
+    }
+
+    pub fn get_float_rho(netuid: u16) -> I32F32 
+    { 
+        return I32F32::from_num(Self::get_rho(netuid));
+    }
+
+    pub fn get_float_kappa(netuid: u16) -> I32F32 
+    { 
+        return I32F32::from_num(Self::get_kappa(netuid)) / I32F32::from_num(u16::MAX);
+    }
+
+    pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> 
+    {
+        let n:              usize       = Self::get_subnetwork_n(netuid) as usize; 
+        let mut stake_64:   Vec<I64F64> = vec![I64F64::from_num(0.0); n]; 
+        for neuron_uid in 0..n 
+        {
+            stake_64[neuron_uid] = I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(netuid, neuron_uid as u16));
+        }
+
+        inplace_normalize_64(&mut stake_64);
+        
+        return vec_fixed64_to_fixed32(stake_64);
+    }
+
+    pub fn get_block_at_registration(netuid: u16) -> Vec<u64> 
+    { 
+        let n:                          usize       = Self::get_subnetwork_n(netuid) as usize;
+        let mut block_at_registration:  Vec<u64>    = vec![0; n];
+        for neuron_uid in 0..n 
+        {
+            if Keys::<T>::contains_key(netuid, neuron_uid as u16)
+            {
+                block_at_registration[neuron_uid] = Self::get_neuron_block_at_registration(netuid, neuron_uid as u16);
+            }
+        }
+
+        return block_at_registration;
+    }
+
+    // Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
+    pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> 
+    { 
+        let n:          usize                   = Self::get_subnetwork_n(netuid) as usize; 
+        let mut bonds:  Vec<Vec<(u16, I32F32)>> = vec![vec![]; n]; 
+        for (uid_i, bonds_i) in <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+        {
+            for (uid_j, bonds_ij) in bonds_i.iter() 
+            { 
+                bonds[uid_i as usize].push((
+                    *uid_j, 
+                    I32F32::from_num(*bonds_ij) 
+                ));
+            }
+        }
+
+        return bonds;
+    } 
+
+    // Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
+    pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> 
+    { 
+        let n:          usize               = Self::get_subnetwork_n(netuid) as usize; 
+        let mut bonds:  Vec<Vec<I32F32>>    = vec![vec![ I32F32::from_num(0.0); n]; n]; 
+        for (uid_i, bonds_i) in <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid) 
+        {
+            for (uid_j, bonds_ij) in bonds_i.iter() 
+            {
+                bonds[uid_i as usize][*uid_j as usize] = I32F32::from_num(*bonds_ij);
+            }
+        }
+        
+        return bonds;
     }
 }
