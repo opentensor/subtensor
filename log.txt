@@ -1,0 +1,30 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Checking anyhow v1.0.75
+    Checking rustix v0.36.17
+    Checking thiserror v1.0.50
+error[E0554]: `#![feature]` may not be used on the stable release channel
+   --> /home/marcus/.cargo/registry/src/index.crates.io-6f17d22bba15001f/anyhow-1.0.75/src/lib.rs:214:32
+    |
+214 | #![cfg_attr(backtrace, feature(error_generic_member_access))]
+    |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0554]: `#![feature]` may not be used on the stable release channel
+   --> /home/marcus/.cargo/registry/src/index.crates.io-6f17d22bba15001f/thiserror-1.0.50/src/lib.rs:238:50
+    |
+238 | #![cfg_attr(error_generic_member_access, feature(error_generic_member_access))]
+    |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For more information about this error, try `rustc --explain E0554`.
+error: could not compile `thiserror` (lib) due to previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `anyhow` (lib) due to previous error
+error[E0554]: `#![feature]` may not be used on the stable release channel
+  --> /home/marcus/.cargo/registry/src/index.crates.io-6f17d22bba15001f/rustix-0.36.17/src/lib.rs:99:26
+   |
+99 | #![cfg_attr(rustc_attrs, feature(rustc_attrs))]
+   |                          ^^^^^^^^^^^^^^^^^^^^
+
+error: could not compile `rustix` (lib) due to previous error

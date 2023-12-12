@@ -29,7 +29,7 @@ serde_bytes = { version = "0.11.8", default-features = false, features = ["alloc
 serde_with = { version = "=2.0.0", default-features = false, features=["macros"] }
 sp-runtime = { version = "24.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.4.0" }
-log = { version = "0.4.14", default-features = false }
+log = { version = "0.4.20", default-features = false }
 substrate-fixed = { git = 'https://github.com/encointer/substrate-fixed.git', tag = "v0.5.9" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.4.0" }
 pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.4.0" }
@@ -46,7 +46,7 @@ sp-version = { git = "https://github.com/paritytech/polkadot-sdk", default-featu
 # Substrate
 sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
 parity-util-mem = { version = "0.11.0", features = ['primitive-types'] }
-rand = "0.8"
+rand = "0.8.5"
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
 
 [features]
