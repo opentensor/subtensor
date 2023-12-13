@@ -619,13 +619,13 @@ parameter_types! {
     pub const SubtensorInitialServingRateLimit: u64 = 50;
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
     pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
     pub const SubtensorInitialMinAllowedUids: u16 = 128;
-    pub const SubtensorInitialMinLockCost: u64 = 100_000_000_000; // 100 TAO
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
