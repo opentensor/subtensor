@@ -275,23 +275,16 @@ pub mod pallet
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-    include!("subnet_defaults.rs");
+    include!("subnet_storage.rs");
 
     // ============================
     // ==== Staking + Accounts ====
     // ============================
     #[pallet::type_value]
-    pub fn DefaultDefaultTake<T: Config>() -> u16 {
-        T::InitialDefaultTake::get()
-    }
-    #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
     }
-    #[pallet::type_value]
-    pub fn DefaultBlockEmission<T: Config>() -> u64 {
-        1_000_000_000
-    }
+
     #[pallet::type_value]
     pub fn DefaultAllowsDelegation<T: Config>() -> bool {
         false
@@ -304,13 +297,6 @@ pub mod pallet
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
-
-    #[pallet::storage] // --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( default_take )
-    pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
-    #[pallet::storage] // --- ITEM ( global_block_emission )
-    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
@@ -322,9 +308,7 @@ pub mod pallet
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
-    pub type Delegates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
+
     #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
