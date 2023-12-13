@@ -38,7 +38,7 @@ pub enum Data {
 	/// No data here.
 	None,
 	/// The data is stored directly.
-	Raw(BoundedVec<u8, ConstU32<64>>),
+	Raw(BoundedVec<u8, ConstU32<128>>),
 	/// Only the Blake2 hash of the data is stored. The preimage of the hash may be retrieved
 	/// through some hash-lookup service.
 	BlakeTwo256([u8; 32]),
@@ -64,17 +64,17 @@ impl Decode for Data {
 		let b = input.read_byte()?;
 		Ok(match b {
 			0 => Data::None,
-			n @ 1..=65 => {
+			n @ 1..=129 => {
 				let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
 					.try_into()
 					.expect("bound checked in match arm condition; qed");
 				input.read(&mut r[..])?;
 				Data::Raw(r)
 			},
-			66 => Data::BlakeTwo256(<[u8; 32]>::decode(input)?),
-			67 => Data::Sha256(<[u8; 32]>::decode(input)?),
-			68 => Data::Keccak256(<[u8; 32]>::decode(input)?),
-			69 => Data::ShaThree256(<[u8; 32]>::decode(input)?),
+			130 => Data::BlakeTwo256(<[u8; 32]>::decode(input)?),
+			131 => Data::Sha256(<[u8; 32]>::decode(input)?),
+			132 => Data::Keccak256(<[u8; 32]>::decode(input)?),
+			133 => Data::ShaThree256(<[u8; 32]>::decode(input)?),
 			_ => return Err(codec::Error::from("invalid leading byte")),
 		})
 	}
@@ -85,15 +85,15 @@ impl Encode for Data {
 		match self {
 			Data::None => vec![0u8; 1],
 			Data::Raw(ref x) => {
-				let l = x.len().min(64);
+				let l = x.len().min(128);
 				let mut r = vec![l as u8 + 1; l + 1];
 				r[1..].copy_from_slice(&x[..l as usize]);
 				r
 			},
-			Data::BlakeTwo256(ref h) => once(66u8).chain(h.iter().cloned()).collect(),
-			Data::Sha256(ref h) => once(67u8).chain(h.iter().cloned()).collect(),
-			Data::Keccak256(ref h) => once(68u8).chain(h.iter().cloned()).collect(),
-			Data::ShaThree256(ref h) => once(69u8).chain(h.iter().cloned()).collect(),
+			Data::BlakeTwo256(ref h) => once(130).chain(h.iter().cloned()).collect(),
+			Data::Sha256(ref h) => once(131).chain(h.iter().cloned()).collect(),
+			Data::Keccak256(ref h) => once(132).chain(h.iter().cloned()).collect(),
+			Data::ShaThree256(ref h) => once(133).chain(h.iter().cloned()).collect(),
 		}
 	}
 }
@@ -185,21 +185,85 @@ impl TypeInfo for Data {
 			(62, 61),
 			(63, 62),
 			(64, 63),
-			(65, 64)
+			(65, 64),
+			(66, 65),
+			(67, 66),
+			(68, 67),
+			(69, 68),
+			(70, 69),
+			(71, 70),
+			(72, 71),
+			(73, 72),
+			(74, 73),
+			(75, 74),
+			(76, 75),
+			(77, 76),
+			(78, 77),
+			(79, 78),
+			(80, 79),
+			(81, 80),
+			(82, 81),
+			(83, 82),
+			(84, 83),
+			(85, 84),
+			(86, 85),
+			(87, 86),
+			(88, 87),
+			(89, 88),
+			(90, 89),
+			(91, 90),
+			(92, 91),
+			(93, 92),
+			(94, 93),
+			(95, 94),
+			(96, 95),
+			(97, 96),
+			(98, 97),
+			(99, 98),
+			(100, 99),
+			(101, 100),
+			(102, 101),
+			(103, 102),
+			(104, 103),
+			(105, 104),
+			(106, 105),
+			(107, 106),
+			(108, 107),
+			(109, 108),
+			(110, 109),
+			(111, 110),
+			(112, 111),
+			(113, 112),
+			(114, 113),
+			(115, 114),
+			(116, 115),
+			(117, 116),
+			(118, 117),
+			(119, 118),
+			(120, 119),
+			(121, 120),
+			(122, 121),
+			(123, 122),
+			(124, 123),
+			(125, 124),
+			(126, 125),
+			(127, 126),
+			(128, 127),
+			(129, 128)
 		);
 
 		let variants = variants
 			.variant("BlakeTwo256", |v| {
-				v.index(66).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(130).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			})
 			.variant("Sha256", |v| {
-				v.index(67).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(131).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			})
 			.variant("Keccak256", |v| {
-				v.index(68).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(132).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			})
 			.variant("ShaThree256", |v| {
-				v.index(69).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
+				v.index(133).fields(Fields::unnamed().field(|f| f.ty::<[u8; 32]>()))
 			});
 
 		Type::builder().path(Path::new("Data", module_path!())).variant(variants)
@@ -219,7 +283,7 @@ impl Default for Data {
 #[cfg_attr(test, derive(frame_support::DefaultNoBound))]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct CommitmentInfo<FieldLimit: Get<u32>> {
-	pub fields: BoundedVec<(Data, Data), FieldLimit>,
+	pub fields: BoundedVec<Data, FieldLimit>,
 }
 
 /// Information concerning the identity of the controller of an account.
@@ -325,7 +389,7 @@ mod tests {
 		];
 
 		// A Raw instance for all possible sizes of the Raw data
-		for n in 0..64 {
+		for n in 0..128 {
 			data.push(Data::Raw(vec![0u8; n as usize].try_into().unwrap()))
 		}
 
