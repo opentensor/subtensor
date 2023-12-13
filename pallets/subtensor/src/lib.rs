@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
+#![feature(concat_idents)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -248,8 +249,6 @@ pub mod pallet
         type InitialServingRateLimit: Get<u64>;
         #[pallet::constant] // Initial transaction rate limit.
         type InitialTxRateLimit: Get<u64>;
-        #[pallet::constant] // Initial percentage of total stake required to join senate.
-        type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
         type InitialAdjustmentAlpha: Get<u64>;
         #[pallet::constant]
@@ -270,20 +269,13 @@ pub mod pallet
         type InitialSubnetLimit: Get<u16>;
         #[pallet::constant] // Initial network creation rate limit
         type InitialNetworkRateLimit: Get<u64>;
+        #[pallet::constant]
+        type InitialSenateRequiredStakePercentage: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-    // Senate requirements
-    #[pallet::type_value]
-    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 
-    {
-        T::InitialSenateRequiredStakePercentage::get()
-    }
-
-    #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type SenateRequiredStakePercentage<T> =
-        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
+    include!("subnet_defaults.rs");
 
     // ============================
     // ==== Staking + Accounts ====
