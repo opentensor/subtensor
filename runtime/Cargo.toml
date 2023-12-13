@@ -48,6 +48,8 @@ sp-version = { version = "5.0.0", default-features = false, git = "https://githu
 # Temporary sudo
 pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
+pallet-admin-utils = { version = "4.0.0-dev", default-features = false, path = "../pallets/admin-utils" }
+
 # Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
 pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -114,7 +116,8 @@ std = [
 	"substrate-wasm-builder",
 	"pallet-collective/std",
 	"pallet-membership/std",
-	"pallet-registry/std"
+	"pallet-registry/std",
+	"pallet-admin-utils/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -129,7 +132,8 @@ runtime-benchmarks = [
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
-	"pallet-registry/runtime-benchmarks"
+	"pallet-registry/runtime-benchmarks",
+	"pallet-admin-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
