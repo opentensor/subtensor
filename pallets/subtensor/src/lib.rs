@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
-#![feature(concat_idents)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -108,6 +107,46 @@ pub mod subnet_info;
 extern crate alloc;
 pub mod migration;
 
+macro_rules! GenerateStorageValue
+{
+    ($a:ty, $b:ident, $c:stmt) =>
+    {
+        paste::paste!
+        {
+            pub struct [<Default $b>]
+            {
+            }
+
+            impl [<Default $b>]
+            {
+                pub fn Get<T: Config>() -> $a
+                {
+                    $c
+                }
+            }
+
+            pub type $b<T> = StorageValue<T, $a, ValueQuery, [<Default $b>]>;
+        }
+    }
+}
+
+macro_rules! GenerateStorageMap
+{
+    ($a:ty, $b:ty, $c:ident, $d:stmt) =>
+    {
+        paste::paste!
+        {
+            pub fn [<Default $c>]() -> $a
+            {
+                $d
+            }
+
+            #[pallet::storage]
+            pub type $c<T> = StorageMap<T, Blake2_128Concat, $b, $a, ValueQuery, [<Default $c>]>;
+        }
+    }
+}
+
 #[frame_support::pallet]
 pub mod pallet 
 {
@@ -119,6 +158,10 @@ pub mod pallet
 
     use
     {
+        sp_core::
+        {
+            paste
+        },
         sp_std::
         {
             vec,
@@ -275,16 +318,22 @@ pub mod pallet
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-    include!("subnet_storage.rs");
-
+    GenerateStorageValue!(              u64,            SenateRequiredStakePercentage,          T::InitialSenateRequiredStakePercentage::get());
     // ============================
     // ==== Staking + Accounts ====
     // ============================
     #[pallet::type_value]
+    pub fn DefaultDefaultTake<T: Config>() -> u16 {
+        T::InitialDefaultTake::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
     }
-
+    #[pallet::type_value]
+    pub fn DefaultBlockEmission<T: Config>() -> u64 {
+        1_000_000_000
+    }
     #[pallet::type_value]
     pub fn DefaultAllowsDelegation<T: Config>() -> bool {
         false
@@ -297,6 +346,13 @@ pub mod pallet
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
+
+    #[pallet::storage] // --- ITEM ( total_stake )
+    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( default_take )
+    pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
+    #[pallet::storage] // --- ITEM ( global_block_emission )
+    pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
@@ -308,6 +364,8 @@ pub mod pallet
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+    
+    GenerateStorageMap!(u16, <T as frame_system::Config>::AccountId, Delegates, T::InitialDefaultTake::get());
 
     #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
