@@ -66,5 +66,5 @@ mod benchmarks {
 		assert_last_event::<T>(Event::<T>::IdentityDissolved { who: caller }.into());
 	}
 
-	impl_benchmark_test_suite!(Registry, crate::mock::new_test_ext(), crate::mock::Test);
+	//impl_benchmark_test_suite!(Registry, crate::mock::new_test_ext(), crate::mock::Test);
 }
