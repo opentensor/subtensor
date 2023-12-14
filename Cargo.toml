@@ -3,6 +3,7 @@ members = [
     "integration-tests",
     "node",
     "pallets/subtensor",
+    "pallets/commitments",
     "runtime",
 ]
 
