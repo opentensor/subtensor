@@ -307,11 +307,17 @@ impl<T: Config> Pallet<T> {
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
         );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
-        );
+        let stake = Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement);
+        if (stake == 0) {
+            Stake::<T>::remove(hotkey, coldkey);
+        }
+        else {
+            Stake::<T>::insert(
+                hotkey,
+                coldkey,
+                stake,
+            );
+        }
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(decrement));
     }
