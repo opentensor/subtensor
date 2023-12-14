@@ -2,6 +2,7 @@
 members = [
     "node",
     "runtime",
+    "pallets/registry"
 ]
 resolver = "2"
 
