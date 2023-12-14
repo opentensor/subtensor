@@ -137,7 +137,7 @@ runtime-benchmarks = [
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks",
-	"pallet-commitments/runtime-benchmarks"
+	"pallet-commitments/runtime-benchmarks",
 	"pallet-admin-utils/runtime-benchmarks"
 ]
 try-runtime = [
