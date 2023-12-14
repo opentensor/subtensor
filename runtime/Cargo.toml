@@ -63,6 +63,9 @@ subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subte
 frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 frame-system-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 
+# Metadata commitment pallet
+pallet-commitments = { version = "4.0.0-dev", default-features = false, path = "../pallets/commitments" }
+
 [build-dependencies]
 substrate-wasm-builder = { optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
 
@@ -84,10 +87,19 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
+<<<<<<< HEAD
 	"pallet-subtensor/std",
 	"pallet-admin-utils/std",
 	"scale-info/std",
 	"serde_json/std",
+=======
+	"pallet-utility/std",
+	"pallet-sudo/std",
+	"pallet-multisig/std",
+	"pallet-scheduler/std",
+	"pallet-preimage/std",
+	"pallet-commitments/std",
+>>>>>>> metadata/commitment
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -115,7 +127,15 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
+<<<<<<< HEAD
 	"sp-runtime/runtime-benchmarks",
+=======
+	"pallet-collective/runtime-benchmarks",
+	"pallet-membership/runtime-benchmarks",
+	"pallet-registry/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks"
+	"pallet-admin-utils/runtime-benchmarks"
+>>>>>>> metadata/commitment
 ]
 
 try-runtime = [
