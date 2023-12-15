@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 139,
+    spec_version: 140,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -303,6 +303,39 @@ impl pallet_sudo::Config for Runtime
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub const MaxCommitFields: u32 = 1;
+    pub const CommitmentInitialDeposit: Balance = 0; // Free
+    pub const CommitmentFieldDeposit: Balance = 0; // Free
+    pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
+}
+
+pub struct AllowCommitments;
+impl CanCommit<AccountId> for AllowCommitments {
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    fn can_commit(netuid: u16, address: &AccountId) -> bool {
+        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn can_commit(_: u16, _: &AccountId) -> bool {
+        true
+    }
+}
+
+impl pallet_commitments::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
+
+    type CanCommit = AllowCommitments;
+
+    type MaxFields = MaxCommitFields;
+    type InitialDeposit = CommitmentInitialDeposit;
+    type FieldDeposit = CommitmentFieldDeposit;
+    type RateLimit = CommitmentRateLimit;
 }
 
 parameter_types! {
@@ -760,15 +793,16 @@ pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckEra<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_system::CheckWeight<Runtime>,
-	pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-	pallet_subtensor::SubtensorSignedExtension<Runtime>,
+    frame_system::CheckNonZeroSender<Runtime>,
+    frame_system::CheckSpecVersion<Runtime>,
+    frame_system::CheckTxVersion<Runtime>,
+    frame_system::CheckGenesis<Runtime>,
+    frame_system::CheckEra<Runtime>,
+    frame_system::CheckNonce<Runtime>,
+    frame_system::CheckWeight<Runtime>,
+    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+    pallet_subtensor::SubtensorSignedExtension<Runtime>,
+    pallet_commitments::CommitmentsSignedExtension<Runtime>
 );
 
 /// All migrations of the runtime, aside from the ones declared in the pallets.
