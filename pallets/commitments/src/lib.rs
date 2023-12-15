@@ -161,3 +161,149 @@ pub trait CanCommit<AccountId> {
 impl<A> CanCommit<A> for () {
 	fn can_commit(_: u16, _: &A) -> bool {false}
 }
+
+/************************************************************
+    CallType definition
+************************************************************/
+#[derive(Debug, PartialEq)]
+pub enum CallType {
+    SetCommitment,
+    Other,
+}
+impl Default for CallType {
+    fn default() -> Self {
+        CallType::Other
+    }
+}
+
+use {
+	frame_support::{
+		pallet_prelude::{
+			Encode,
+			Decode,
+			TypeInfo,
+			PhantomData
+		},
+		dispatch::{
+			Dispatchable,
+			DispatchInfo,
+			PostDispatchInfo,
+			DispatchResult
+		},
+		traits::IsSubType
+	},
+	sp_runtime::{
+		traits::{
+			SignedExtension,
+			DispatchInfoOf,
+			PostDispatchInfoOf
+		},
+		transaction_validity::{
+			TransactionValidity,
+			TransactionValidityError,
+			ValidTransaction
+		}
+	}
+};
+
+#[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
+pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+impl<T: Config + Send + Sync + TypeInfo> CommitmentsSignedExtension<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+    pub fn new() -> Self {
+        Self(Default::default())
+    }
+
+    pub fn get_priority_vanilla() -> u64 {
+        // Return high priority so that every extrinsic except set_weights function will
+        // have a higher priority than the set_weights call
+        return u64::max_value();
+    }
+
+    pub fn u64_to_balance(
+        input: u64,
+    ) -> Option<
+        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+    > {
+        input.try_into().ok()
+    }
+}
+
+impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CommitmentsSignedExtension<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+        write!(f, "SignedExtension")
+    }
+}
+
+impl<T: Config + Send + Sync + TypeInfo> SignedExtension for CommitmentsSignedExtension<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+    const IDENTIFIER: &'static str = "CommitmentsSignedExtension";
+
+    type AccountId = T::AccountId;
+    type Call = T::RuntimeCall;
+    type AdditionalSigned = ();
+    type Pre = (CallType, u64, Self::AccountId);
+
+    fn additional_signed(&self) -> Result<Self::AdditionalSigned, TransactionValidityError> {
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        _: &Self::AccountId,
+        call: &Self::Call,
+        _info: &DispatchInfoOf<Self::Call>,
+        _len: usize,
+    ) -> TransactionValidity {
+        match call.is_sub_type() {
+            _ => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
+        }
+    }
+
+    // NOTE: Add later when we put in a pre and post dispatch step.
+    fn pre_dispatch(
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        _info: &DispatchInfoOf<Self::Call>,
+        _len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        match call.is_sub_type() {
+            Some(Call::set_commitment { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::SetCommitment, transaction_fee, who.clone()))
+            }
+            _ => {
+                let transaction_fee = 0;
+                Ok((CallType::Other, transaction_fee, who.clone()))
+            }
+        }
+    }
+
+    fn post_dispatch(
+        maybe_pre: Option<Self::Pre>,
+        _info: &DispatchInfoOf<Self::Call>,
+        _post_info: &PostDispatchInfoOf<Self::Call>,
+        _len: usize,
+        _result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
+            match call_type {
+                _ => {
+                    ()
+                }
+            }
+        }
+        Ok(())
+    }
+}

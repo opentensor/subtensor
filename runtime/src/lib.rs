@@ -1056,6 +1056,7 @@ pub type SignedExtra = (
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
+    pallet_commitments::CommitmentsSignedExtension<Runtime>
 );
 
 // Unchecked extrinsic type as expected by this runtime.
