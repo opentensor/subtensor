@@ -4172,6 +4172,7 @@ dependencies = [
  "jsonrpsee",
  "memmap2",
  "node-subtensor-runtime",
+ "pallet-commitments",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
