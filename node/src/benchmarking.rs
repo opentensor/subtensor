@@ -126,7 +126,8 @@ pub fn create_benchmark_extrinsic(
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
-		pallet_subtensor::SubtensorSignedExtension::<runtime::Runtime>::new()
+		pallet_subtensor::SubtensorSignedExtension::<runtime::Runtime>::new(),
+		pallet_commitments::CommitmentsSignedExtension::<runtime::Runtime>::new()
 	);
 
 	let raw_payload = runtime::SignedPayload::from_raw(
@@ -138,6 +139,7 @@ pub fn create_benchmark_extrinsic(
 			runtime::VERSION.transaction_version,
 			genesis_hash,
 			best_hash,
+			(),
 			(),
 			(),
 			(),
