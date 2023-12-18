@@ -110,7 +110,7 @@ impl<T: Config> Pallet<T>
 
         if total_stake > U64F64::from_num(0)
         {
-            return_per_1000 = emissions_per_day *  U64F64::from_num(820_000_000_000) / total_stake;
+            return_per_1000 = emissions_per_day *  U64F64::from_num(820_000_000_000u64) / total_stake;
         }
         
         return DelegateInfo 

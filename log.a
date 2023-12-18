@@ -1,0 +1,1560 @@
+warning: unused import: `super::*`
+  --> pallets/commitments/src/types.rs:18:5
+   |
+18 | use super::*;
+   |     ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused imports: `BitFlags`, `bitflags`
+  --> pallets/commitments/src/types.rs:20:18
+   |
+20 | use enumflags2::{bitflags, BitFlags};
+   |                  ^^^^^^^^  ^^^^^^^^
+
+warning: unused imports: `TypeParameter`, `meta_type`
+  --> pallets/commitments/src/types.rs:27:2
+   |
+27 |     meta_type, Path, Type, TypeInfo, TypeParameter,
+   |     ^^^^^^^^^                        ^^^^^^^^^^^^^
+
+warning: unused import: `Block`
+  --> pallets/commitments/src/types.rs:29:51
+   |
+29 | use sp_runtime::{traits::{Zero, AppendZerosInput, Block, AtLeast32BitUnsigned}, RuntimeDebug};
+   |                                                   ^^^^^
+
+warning: method `total_deposit` is never used
+   --> pallets/commitments/src/types.rs:318:16
+    |
+312 | / impl<
+313 | |         Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
+314 | |         MaxFields: Get<u32>,
+315 | |         Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug
+316 | |     > Registration<Balance, MaxFields, Block>
+    | |_____________________________________________- method in this implementation
+317 |   {
+318 |       pub(crate) fn total_deposit(&self) -> Balance {
+    |                     ^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `pallet-commitments` (lib) generated 5 warnings (run `cargo fix --lib -p pallet-commitments` to apply 3 suggestions)
+warning: unused import: `super::*`
+  --> pallets/registry/src/types.rs:18:5
+   |
+18 | use super::*;
+   |     ^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: method `fields` is never used
+   --> pallets/registry/src/types.rs:321:16
+    |
+320 | impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
+    | --------------------------------------------------- method in this implementation
+321 |     pub(crate) fn fields(&self) -> IdentityFields {
+    |                   ^^^^^^
+    |
+    = note: `#[warn(dead_code)]` on by default
+
+warning: `pallet-registry` (lib) generated 2 warnings (run `cargo fix --lib -p pallet-registry` to apply 1 suggestion)
+warning: unused imports: `DispatchError`, `DispatchResult`, `Vec`, `vec`
+  --> pallets/subtensor/src/lib.rs:21:13
+   |
+21 |             DispatchResult,
+   |             ^^^^^^^^^^^^^^
+...
+45 |         vec,
+   |         ^^^
+...
+48 |             Vec
+   |             ^^^
+...
+66 |         DispatchError,
+   |         ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unnecessary parentheses around `if` condition
+   --> pallets/subtensor/src/block_step.rs:406:12
+    |
+406 |         if (stake == 0) 
+    |            ^          ^
+    |
+    = note: `#[warn(unused_parens)]` on by default
+help: remove these parentheses
+    |
+406 -         if (stake == 0) 
+406 +         if stake == 0 
+    |
+
+warning: unused imports: `*`, `WeightToFee`, `ensure_root`
+  --> pallets/subtensor/src/registration.rs:11:13
+   |
+11 |             *
+   |             ^
+...
+16 |         ensure_root
+   |         ^^^^^^^^^^^
+...
+35 |             WeightToFee
+   |             ^^^^^^^^^^^
+
+warning: unused imports: `*`, `DispatchResultWithPostInfo`, `I32F32`, `Pays`, `Weight`
+  --> pallets/subtensor/src/root.rs:32:13
+   |
+32 |             *
+   |             ^
+...
+39 |             DispatchResultWithPostInfo,
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^
+40 |             Pays
+   |             ^^^^
+...
+53 |             Weight
+   |             ^^^^^^
+...
+68 |             I32F32,
+   |             ^^^^^^
+
+warning: unused imports: `Vec`, `vec`
+  --> pallets/subtensor/src/serving.rs:9:9
+   |
+9  |         vec,
+   |         ^^^
+...
+12 |             Vec
+   |             ^^^
+
+warning: unused import: `*`
+ --> pallets/subtensor/src/subnet.rs:5:9
+  |
+5 |         *
+  |         ^
+
+warning: unused import: `{
+         
+         }`
+ --> pallets/subtensor/src/token.rs:2:1
+  |
+2 | / {
+3 | |
+4 | | };
+  | |_^
+
+warning: unused import: `vec`
+ --> pallets/subtensor/src/delegate_info.rs:9:9
+  |
+9 |         vec,
+  |         ^^^
+
+warning: unused import: `vec`
+  --> pallets/subtensor/src/subnet_info.rs:21:9
+   |
+21 |         vec,
+   |         ^^^
+
+warning: unused import: `sp_std::vec`
+ --> pallets/subtensor/src/migration.rs:2:5
+  |
+2 | use sp_std::vec;
+  |     ^^^^^^^^^^^
+
+warning: unused import: `paste`
+   --> pallets/subtensor/src/lib.rs:123:13
+    |
+123 |             paste
+    |             ^^^^^
+
+warning: use of deprecated constant `pallet::warnings::UncheckedWeightWitness_0::_w`: 
+                 It is deprecated to not check weight witness data.
+                 Please instead ensure that all witness data for weight calculation is checked before usage.
+         
+                 For more info see:
+                     <https://github.com/paritytech/polkadot-sdk/pull/1818>
+    --> pallets/subtensor/src/lib.rs:1804:13
+     |
+1804 |             _weight: Weight,
+     |             ^^^^^^^
+     |
+     = note: `#[warn(deprecated)]` on by default
+
+warning: unused import: `Get`
+  --> pallets/subtensor/src/root.rs:49:13
+   |
+49 |             Get
+   |             ^^^
+
+warning: unused import: `IterableStorageMap`
+  --> pallets/subtensor/src/root.rs:45:13
+   |
+45 |             IterableStorageMap
+   |             ^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `IterableStorageMap`
+  --> pallets/subtensor/src/utils.rs:25:9
+   |
+25 |         IterableStorageMap,
+   |         ^^^^^^^^^^^^^^^^^^
+
+warning: unused variable: `difficulty`
+   --> pallets/subtensor/src/subnet_info.rs:173:13
+    |
+173 |         let difficulty:                 u64     = Self::get_difficulty_as_u64(netuid);
+    |             ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_difficulty`
+    |
+    = note: `#[warn(unused_variables)]` on by default
+
+warning: unused implementer of `frame_support::traits::Imbalance` that must be used
+ --> pallets/subtensor/src/balance.rs:5:9
+  |
+5 |         T::Currency::deposit_creating(&coldkey, amount); // Infallibe
+  |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_must_use)]` on by default
+
+warning: `pallet-subtensor` (lib) generated 17 warnings (run `cargo fix --lib -p pallet-subtensor` to apply 12 suggestions)
+warning: associated function `deposit_event` is never used
+  --> pallets/admin-utils/src/lib.rs:60:43
+   |
+60 |     #[pallet::generate_deposit(pub(super) fn deposit_event)]
+   |                                              ^^^^^^^^^^^^^ associated function in this implementation
+   |
+   = note: `#[warn(dead_code)]` on by default
+
+warning: `pallet-admin-utils` (lib) generated 1 warning
+    Checking node-subtensor-runtime v4.0.0-dev (/home/marcus/subtensor/runtime)
+error: no rules expected the token `your_tt_return`
+   --> runtime/src/lib.rs:447:1
+    |
+447 | / construct_runtime!(
+448 | |     pub struct Runtime
+449 | |     {
+450 | |         System: frame_system,
+...   |
+460 | |     }
+461 | | );
+    | |_^ no rules expected this token in macro call
+    |
+   ::: /home/marcus/.cargo/registry/src/index.crates.io-6f17d22bba15001f/tt-call-1.0.9/src/lib.rs:500:13
+    |
+500 |               $input:ident = [{ $($tokens:tt)* }]
+    |               ------------
+    |
+note: while trying to match `frame_support`
+   --> /home/marcus/subtensor/pallets/commitments/src/lib.rs:23:1
+    |
+23  | #[frame_support::pallet]
+    | ^^^^^^^^^^^^^^^^^^^^^^^^
+    = note: captured metavariables except for `:tt`, `:ident` and `:lifetime` cannot be compared to other tokens
+    = note: see <https://doc.rust-lang.org/nightly/reference/macros-by-example.html#forwarding-a-matched-fragment> for more information
+    = note: this error originates in the macro `frame_support::__private::tt_call` which comes from the expansion of the attribute macro `frame_support::pallet` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0412]: cannot find type `Aura` in this scope
+  --> runtime/src/lib.rs:97:14
+   |
+97 |             pub aura: Aura,
+   |                       ^^^^ not found in this scope
+
+error[E0412]: cannot find type `Grandpa` in this scope
+  --> runtime/src/lib.rs:98:17
+   |
+98 |             pub grandpa: Grandpa,
+   |                          ^^^^^^^ help: a type alias with a similar name exists: `GrandpaId`
+   |
+  ::: /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/consensus/grandpa/src/lib.rs:54:1
+   |
+54 | pub type AuthorityId = app::Public;
+   | -------------------- similarly named type alias `GrandpaId` defined here
+
+error[E0412]: cannot find type `Aura` in this scope
+  --> runtime/src/lib.rs:97:14
+   |
+97 |             pub aura: Aura,
+   |                       ^^^^ not found in this scope
+   |
+help: you might be missing a type parameter
+  --> /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/runtime/src/traits.rs:1995:19
+   |
+199|         pub struct $name<Aura> {
+   |                         ++++++
+
+error[E0412]: cannot find type `Grandpa` in this scope
+  --> runtime/src/lib.rs:98:17
+   |
+98 |             pub grandpa: Grandpa,
+   |                          ^^^^^^^
+   |
+  ::: /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/consensus/grandpa/src/lib.rs:54:1
+   |
+54 | pub type AuthorityId = app::Public;
+   | -------------------- similarly named type alias `GrandpaId` defined here
+   |
+help: a type alias with a similar name exists
+   |
+98 |             pub grandpa: GrandpaId,
+   |                          ~~~~~~~~~
+help: you might be missing a type parameter
+  --> /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/runtime/src/traits.rs:1995:19
+   |
+199|         pub struct $name<Grandpa> {
+   |                         +++++++++
+
+error[E0412]: cannot find type `Aura` in this scope
+  --> runtime/src/lib.rs:97:14
+   |
+97 |             pub aura: Aura,
+   |                       ^^^^ not found in this scope
+   |
+help: you might be missing a type parameter
+  --> /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/runtime/src/traits.rs:1992:32
+   |
+199|             $crate::scale_info::TypeInfo<Aura>,
+   |                                         ++++++
+
+error[E0412]: cannot find type `Grandpa` in this scope
+  --> runtime/src/lib.rs:98:17
+   |
+98 |             pub grandpa: Grandpa,
+   |                          ^^^^^^^
+   |
+  ::: /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/consensus/grandpa/src/lib.rs:54:1
+   |
+54 | pub type AuthorityId = app::Public;
+   | -------------------- similarly named type alias `GrandpaId` defined here
+   |
+help: a type alias with a similar name exists
+   |
+98 |             pub grandpa: GrandpaId,
+   |                          ~~~~~~~~~
+help: you might be missing a type parameter
+  --> /home/marcus/.cargo/git/checkouts/polkadot-sdk-cff69157b985ed76/fcfdb98/substrate/primitives/runtime/src/traits.rs:1992:32
+   |
+199|             $crate::scale_info::TypeInfo<Grandpa>,
+   |                                         +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:161:31
+    |
+161 | impl frame_system::Config for Runtime {
+    |                               ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:171:24
+    |
+171 |     type RuntimeCall = RuntimeCall;
+    |                        ^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+171 |     type RuntimeCall = Self::RuntimeCall;
+    |                        ++++++
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:179:25
+    |
+179 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+179 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `RuntimeOrigin` in this scope
+   --> runtime/src/lib.rs:181:26
+    |
+181 |     type RuntimeOrigin = RuntimeOrigin;
+    |                          ^^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+181 |     type RuntimeOrigin = Self::RuntimeOrigin;
+    |                          ++++++
+
+error[E0412]: cannot find type `PalletInfo` in this scope
+   --> runtime/src/lib.rs:189:23
+    |
+189 |     type PalletInfo = PalletInfo;
+    |                       ^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+189 |     type PalletInfo = Self::PalletInfo;
+    |                       ++++++
+help: consider importing this trait
+    |
+9   + use frame_support::traits::PalletInfo;
+    |
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:208:30
+    |
+208 | impl pallet_aura::Config for Runtime {
+    |                              ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:218:33
+    |
+218 | impl pallet_grandpa::Config for Runtime {
+    |                                 ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:219:22
+    |
+219 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+219 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:230:35
+    |
+230 | impl pallet_timestamp::Config for Runtime {
+    |                                   ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Aura` in this scope
+   --> runtime/src/lib.rs:233:24
+    |
+233 |     type OnTimestampSet = Aura;
+    |                           ^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:241:34
+    |
+241 | impl pallet_balances::Config for Runtime {
+    |                                  ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:248:22
+    |
+248 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+248 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `System` in this scope
+   --> runtime/src/lib.rs:251:22
+    |
+251 |     type AccountStore = System;
+    |                         ^^^^^^ not found in this scope
+    |
+help: consider importing one of these items
+    |
+9   + use codec::alloc::alloc::System;
+    |
+9   + use sp_std::alloc::System;
+    |
+9   + use std::alloc::System;
+    |
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:252:62
+    |
+252 |     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+    |                                                                 ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+241 | impl<Runtime> pallet_balances::Config for Runtime {
+    |     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:291:45
+    |
+291 | impl pallet_transaction_payment::Config for Runtime {
+    |                                             ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:292:25
+    |
+292 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+292 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `Balances` in this scope
+   --> runtime/src/lib.rs:294:48
+    |
+71  | pub type Balance = u128;
+    | ------------------------ similarly named type alias `Balance` defined here
+...
+294 |     type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+    |                                                ^^^^^^^^
+    |
+help: a type alias with a similar name exists
+    |
+294 |     type OnChargeTransaction = CurrencyAdapter<Balance, ()>;
+    |                                                ~~~~~~~
+help: you might be missing a type parameter
+    |
+291 | impl<Balances> pallet_transaction_payment::Config for Runtime {
+    |     ++++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:301:30
+    |
+301 | impl pallet_sudo::Config for Runtime 
+    |                              ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:303:22
+    |
+303 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+303 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:304:21
+    |
+304 |     type RuntimeCall = RuntimeCall;
+    |                        ^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+304 |     type RuntimeCall = Self::RuntimeCall;
+    |                        ++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:305:58
+    |
+305 |     type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
+    |                                                             ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+301 | impl<Runtime> pallet_sudo::Config for Runtime 
+    |     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:328:37
+    |
+328 | impl pallet_commitments::Config for Runtime {
+    |                                     ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:329:25
+    |
+329 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+329 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:331:68
+    |
+331 |     type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
+    |                                                                    ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+328 | impl<Runtime> pallet_commitments::Config for Runtime {
+    |     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:386:35
+    |
+386 | impl pallet_subtensor::Config for Runtime {
+    |                                   ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:387:25
+    |
+387 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+387 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:388:28
+    |
+388 |     type SudoRuntimeCall = RuntimeCall;
+    |                            ^^^^^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Balances` in this scope
+   --> runtime/src/lib.rs:389:21
+    |
+71  | pub type Balance = u128;
+    | ------------------------ similarly named type alias `Balance` defined here
+...
+389 |     type Currency = Balances;
+    |                     ^^^^^^^^ help: a type alias with a similar name exists: `Balance`
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:465:81
+    |
+465 | impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<Runtime> as frame_support::traits::Currency<AccountId>>::...
+    |                                                                                 ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+465 | impl<Runtime> pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<Runtime> as frame_support::traits::Currency<AccountId>>::Balance, RuntimeOrigin> for SubtensorInterface
+    |     +++++++++
+
+error[E0412]: cannot find type `RuntimeOrigin` in this scope
+   --> runtime/src/lib.rs:465:147
+    |
+465 | ...support::traits::Currency<AccountId>>::Balance, RuntimeOrigin> for SubtensorInterface
+    |                                                    ^^^^^^^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+465 | impl<RuntimeOrigin> pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<Runtime> as frame_support::traits::Currency<AccountId>>::Balance, RuntimeOrigin> for SubtensorInterface
+    |     +++++++++++++++
+
+error[E0412]: cannot find type `RuntimeOrigin` in this scope
+   --> runtime/src/lib.rs:667:39
+    |
+667 |     fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError>
+    |                                       ^^^^^^^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:738:37
+    |
+738 | impl pallet_admin_utils::Config for Runtime 
+    |                                     ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeEvent` in this scope
+   --> runtime/src/lib.rs:740:25
+    |
+740 |     type RuntimeEvent = RuntimeEvent;
+    |                         ^^^^^^^^^^^^
+    |
+help: you might have meant to use the associated type
+    |
+740 |     type RuntimeEvent = Self::RuntimeEvent;
+    |                         ++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:746:68
+    |
+746 |     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
+    |                                                                    ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+738 | impl<Runtime> pallet_admin_utils::Config for Runtime 
+    |     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:757:38
+    |
+757 |     frame_system::CheckNonZeroSender<Runtime>,
+    |                                      ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:758:36
+    |
+758 |     frame_system::CheckSpecVersion<Runtime>,
+    |                                    ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:759:34
+    |
+759 |     frame_system::CheckTxVersion<Runtime>,
+    |                                  ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:760:32
+    |
+760 |     frame_system::CheckGenesis<Runtime>,
+    |                                ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:761:28
+    |
+761 |     frame_system::CheckEra<Runtime>,
+    |                            ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:762:30
+    |
+762 |     frame_system::CheckNonce<Runtime>,
+    |                              ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:763:31
+    |
+763 |     frame_system::CheckWeight<Runtime>,
+    |                               ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:764:58
+    |
+764 |     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+    |                                                          ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:765:48
+    |
+765 |     pallet_subtensor::SubtensorSignedExtension<Runtime>,
+    |                                                ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:766:52
+    |
+766 |     pallet_commitments::CommitmentsSignedExtension<Runtime>
+    |                                                    ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+756 | pub type SignedExtra<Runtime> = (
+    |                     +++++++++
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:777:39
+    |
+777 |     generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+    |                                          ^^^^^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+776 | pub type UncheckedExtrinsic<RuntimeCall> =
+    |                            +++++++++++++
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:779:49
+    |
+779 | pub type SignedPayload = generic::SignedPayload<RuntimeCall, SignedExtra>;
+    |                                                 ^^^^^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+779 | pub type SignedPayload<RuntimeCall> = generic::SignedPayload<RuntimeCall, SignedExtra>;
+    |                       +++++++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:782:2
+    |
+782 |     Runtime,
+    |     ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+781 | pub type Executive<Runtime> = frame_executive::Executive<
+    |                   +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:784:29
+    |
+784 |     frame_system::ChainContext<Runtime>,
+    |                                ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+781 | pub type Executive<Runtime> = frame_executive::Executive<
+    |                   +++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:785:2
+    |
+785 |     Runtime,
+    |     ^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+781 | pub type Executive<Runtime> = frame_executive::Executive<
+    |                   +++++++++
+
+error[E0412]: cannot find type `AllPalletsWithSystem` in this scope
+   --> runtime/src/lib.rs:786:2
+    |
+786 |     AllPalletsWithSystem,
+    |     ^^^^^^^^^^^^^^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+781 | pub type Executive<AllPalletsWithSystem> = frame_executive::Executive<
+    |                   ++++++++++++++++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:809:31
+    |
+809 |     impl sp_api::Core<Block> for Runtime {
+    |                                  ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:823:35
+    |
+823 |     impl sp_api::Metadata<Block> for Runtime {
+    |                                      ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:837:49
+    |
+837 |     impl sp_block_builder::BlockBuilder<Block> for Runtime {
+    |                                                    ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:858:75
+    |
+858 |     impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
+    |                                                                              ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:868:49
+    |
+868 |     impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
+    |                                                    ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:874:53
+    |
+874 |     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+    |                                                        ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:884:42
+    |
+884 |     impl sp_session::SessionKeys<Block> for Runtime {
+    |                                             ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:896:51
+    |
+896 |     impl sp_consensus_grandpa::GrandpaApi<Block> for Runtime {
+    |                                                      ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:926:82
+    |
+926 |     impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+    |                                                                                     ^^^^^^^ not found in this scope
+
+error[E0433]: failed to resolve: use of undeclared type `System`
+   --> runtime/src/lib.rs:928:4
+    |
+928 |             System::account_nonce(account)
+    |             ^^^^^^ use of undeclared type `System`
+    |
+help: consider importing one of these items
+    |
+9   + use codec::alloc::alloc::System;
+    |
+9   + use sp_std::alloc::System;
+    |
+9   + use std::alloc::System;
+    |
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:932:93
+    |
+932 |     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
+    |                                                                                                ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:953:93
+    |
+953 |     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+    |                                                                                                ^^^^^^^^^^^ not found in this scope
+    |
+help: you might be missing a type parameter
+    |
+953 |     impl<RuntimeCall> pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+    |         +++++++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+   --> runtime/src/lib.rs:954:7
+    |
+954 |         for Runtime
+    |             ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:957:10
+    |
+957 |             call: RuntimeCall,
+    |                   ^^^^^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:963:10
+    |
+963 |             call: RuntimeCall,
+    |                   ^^^^^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+    --> runtime/src/lib.rs:1039:53
+     |
+1039 |     impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+     |                                                        ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeGenesisConfig` in this scope
+    --> runtime/src/lib.rs:1041:28
+     |
+1041 |             create_default_config::<RuntimeGenesisConfig>()
+     |                                     ^^^^^^^^^^^^^^^^^^^^ not found in this scope
+     |
+help: you might be missing a type parameter
+     |
+1039 |     impl<RuntimeGenesisConfig> sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+     |         ++++++++++++++++++++++
+
+error[E0412]: cannot find type `RuntimeGenesisConfig` in this scope
+    --> runtime/src/lib.rs:1045:19
+     |
+1045 |             build_config::<RuntimeGenesisConfig>(config)
+     |                            ^^^^^^^^^^^^^^^^^^^^ not found in this scope
+     |
+help: you might be missing a type parameter
+     |
+1039 |     impl<RuntimeGenesisConfig> sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+     |         ++++++++++++++++++++++
+
+error[E0412]: cannot find type `Runtime` in this scope
+    --> runtime/src/lib.rs:1049:75
+     |
+1049 |     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
+     |                                                                              ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+    --> runtime/src/lib.rs:1074:76
+     |
+1074 |     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
+     |                                                                            ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+    --> runtime/src/lib.rs:1110:73
+     |
+1110 |     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
+     |                                                                            ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+    --> runtime/src/lib.rs:1143:72
+     |
+1143 |     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime 
+     |                                                                           ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `Runtime` in this scope
+    --> runtime/src/lib.rs:1158:84
+     |
+1158 |     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime 
+     |                                                                                    ^^^^^^^ not found in this scope
+
+error[E0412]: cannot find type `RuntimeCall` in this scope
+   --> runtime/src/lib.rs:953:93
+    |
+953 |     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+    |                                                                                                ^^^^^^^^^^^ not found in this scope
+
+warning: unused imports: `AuthorityList as GrandpaAuthorityList`, `fg_primitives`
+  --> runtime/src/lib.rs:13:5
+   |
+13 |     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+   |     ^^^^^^^^^^^^^                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` on by default
+
+warning: unused import: `DispatchResult`
+  --> runtime/src/lib.rs:16:37
+   |
+16 | use frame_support::pallet_prelude::{DispatchResult, DispatchError};
+   |                                     ^^^^^^^^^^^^^^
+
+warning: unused imports: `EnsureRoot`, `RawOrigin`
+  --> runtime/src/lib.rs:17:33
+   |
+17 | use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
+   |                                 ^^^^^^^^^^  ^^^^^^^^^
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:312:9
+    |
+312 |         Subtensor::is_hotkey_registered_on_network(netuid, address)
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Aura`
+   --> runtime/src/lib.rs:442:9
+    |
+442 |         Aura::change_authorities(new);
+    |         ^^^^ use of undeclared type `Aura`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:469:9
+    |
+469 |         Subtensor::set_default_take(default_take);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:474:9
+    |
+474 |         Subtensor::set_tx_rate_limit(rate_limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:479:9
+    |
+479 |         Subtensor::set_serving_rate_limit(netuid, rate_limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:484:9
+    |
+484 |         Subtensor::set_max_burn(netuid, max_burn);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:489:9
+    |
+489 |         Subtensor::set_min_burn(netuid, min_burn);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:494:9
+    |
+494 |         Subtensor::set_burn(netuid, burn);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:499:9
+    |
+499 |         Subtensor::set_max_difficulty(netuid, max_diff);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:504:9
+    |
+504 |         Subtensor::set_min_difficulty(netuid, min_diff);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:509:9
+    |
+509 |         Subtensor::set_difficulty(netuid, diff);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:514:9
+    |
+514 |         Subtensor::set_weights_set_rate_limit(netuid, rate_limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:519:9
+    |
+519 |         Subtensor::set_weights_version_key(netuid, version);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:524:9
+    |
+524 |         Subtensor::set_bonds_moving_average(netuid, moving_average);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:529:9
+    |
+529 |         Subtensor::set_max_allowed_validators(netuid, max_validators);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:534:16
+    |
+534 |         return Subtensor::get_root_netuid();
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:539:16
+    |
+539 |         return Subtensor::if_subnet_exist(netuid);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:544:16
+    |
+544 |         return Subtensor::create_account_if_non_existent(coldkey, hotkey);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:549:16
+    |
+549 |         return Subtensor::coldkey_owns_hotkey(coldkey, hotkey);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:554:9
+    |
+554 |         Subtensor::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:559:16
+    |
+559 |         return Subtensor::u64_to_balance(input);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:564:9
+    |
+564 |         Subtensor::add_balance_to_coldkey_account(coldkey, amount);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:569:16
+    |
+569 |         return Subtensor::get_current_block_as_u64();
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:574:16
+    |
+574 |         return Subtensor::get_subnetwork_n(netuid);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:579:16
+    |
+579 |         return Subtensor::get_max_allowed_uids(netuid);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:584:16
+    |
+584 |         return Subtensor::append_neuron(netuid, new_hotkey, block_number);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:589:16
+    |
+589 |         return Subtensor::get_neuron_to_prune(netuid);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:594:9
+    |
+594 |         Subtensor::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:599:9
+    |
+599 |         Subtensor::set_total_issuance(total_issuance);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:604:9
+    |
+604 |         Subtensor::set_network_immunity_period(net_immunity_period);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:609:9
+    |
+609 |         Subtensor::set_network_min_lock(net_min_lock);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:614:9
+    |
+614 |         Subtensor::set_max_subnets(limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:619:9
+    |
+619 |         Subtensor::set_lock_reduction_interval(interval);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:624:9
+    |
+624 |         Subtensor::set_tempo(netuid, tempo);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:629:9
+    |
+629 |         Subtensor::set_subnet_owner_cut(subnet_owner_cut);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:634:9
+    |
+634 |         Subtensor::set_network_rate_limit(limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:639:9
+    |
+639 |         Subtensor::set_max_registrations_per_block(netuid, max_registrations_per_block);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:644:9
+    |
+644 |         Subtensor::set_adjustment_alpha(netuid, adjustment_alpha);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:649:9
+    |
+649 |         Subtensor::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:654:9
+    |
+654 |         Subtensor::set_network_pow_registration_allowed(netuid, registration_allowed);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:659:9
+    |
+659 |         Subtensor::set_network_pow_registration_allowed(netuid, registration_allowed);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:664:9
+    |
+664 |         Subtensor::set_activity_cutoff(netuid, activity_cutoff);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:669:16
+    |
+669 |         return Subtensor::ensure_subnet_owner_or_root(o, netuid);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:674:9
+    |
+674 |         Subtensor::set_rho(netuid, rho);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:679:9
+    |
+679 |         Subtensor::set_kappa(netuid, kappa);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:684:9
+    |
+684 |         Subtensor::set_max_allowed_uids(netuid, max_allowed);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:689:9
+    |
+689 |         Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:694:9
+    |
+694 |         Subtensor::set_immunity_period(netuid, immunity_period);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:699:9
+    |
+699 |         Subtensor::set_max_weight_limit(netuid, max_weight_limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:704:9
+    |
+704 |         Subtensor::set_scaling_law_power(netuid, scaling_law_power);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:709:9
+    |
+709 |         Subtensor::set_validator_prune_len(netuid, validator_prune_len);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:714:9
+    |
+714 |         Subtensor::set_adjustment_interval(netuid, adjustment_interval);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:719:9
+    |
+719 |         Subtensor::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:724:9
+    |
+724 |         Subtensor::set_rao_recycled(netuid, rao_recycled);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:729:16
+    |
+729 |         return Subtensor::is_hotkey_registered_on_network(netuid, hotkey);
+    |                ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+   --> runtime/src/lib.rs:734:9
+    |
+734 |         Subtensor::init_new_network(netuid, tempo);
+    |         ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Runtime`
+   --> runtime/src/lib.rs:825:24
+    |
+825 |             OpaqueMetadata::new(Runtime::metadata().into())
+    |                                 ^^^^^^^ use of undeclared type `Runtime`
+
+error[E0433]: failed to resolve: use of undeclared type `Runtime`
+   --> runtime/src/lib.rs:829:4
+    |
+829 |             Runtime::metadata_at_version(version)
+    |             ^^^^^^^ use of undeclared type `Runtime`
+
+error[E0433]: failed to resolve: use of undeclared type `Runtime`
+   --> runtime/src/lib.rs:833:4
+    |
+833 |             Runtime::metadata_versions()
+    |             ^^^^^^^ use of undeclared type `Runtime`
+
+error[E0433]: failed to resolve: use of undeclared type `Aura`
+   --> runtime/src/lib.rs:876:49
+    |
+876 |             sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
+    |                                                          ^^^^ use of undeclared type `Aura`
+
+error[E0433]: failed to resolve: use of undeclared type `Aura`
+   --> runtime/src/lib.rs:880:4
+    |
+880 |             Aura::authorities().into_inner()
+    |             ^^^^ use of undeclared type `Aura`
+
+error[E0433]: failed to resolve: use of undeclared type `Grandpa`
+   --> runtime/src/lib.rs:898:4
+    |
+898 |             Grandpa::grandpa_authorities()
+    |             ^^^^^^^
+    |             |
+    |             use of undeclared type `Grandpa`
+    |             help: a type alias with a similar name exists: `GrandpaId`
+
+error[E0433]: failed to resolve: use of undeclared type `Grandpa`
+   --> runtime/src/lib.rs:902:4
+    |
+902 |             Grandpa::current_set_id()
+    |             ^^^^^^^
+    |             |
+    |             use of undeclared type `Grandpa`
+    |             help: a type alias with a similar name exists: `GrandpaId`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:937:4
+    |
+937 |             TransactionPayment::query_info(uxt, len)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:943:4
+    |
+943 |             TransactionPayment::query_fee_details(uxt, len)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:946:4
+    |
+946 |             TransactionPayment::weight_to_fee(weight)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:949:4
+    |
+949 |             TransactionPayment::length_to_fee(length)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:960:4
+    |
+960 |             TransactionPayment::query_call_info(call, len)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:966:4
+    |
+966 |             TransactionPayment::query_call_fee_details(call, len)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:969:4
+    |
+969 |             TransactionPayment::weight_to_fee(weight)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `TransactionPayment`
+   --> runtime/src/lib.rs:972:4
+    |
+972 |             TransactionPayment::length_to_fee(length)
+    |             ^^^^^^^^^^^^^^^^^^
+    |             |
+    |             use of undeclared type `TransactionPayment`
+    |             help: a struct with a similar name exists: `TransactionByteFee`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1052:26
+     |
+1052 |             let result = Subtensor::get_delegates();
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1058:27
+     |
+1058 |             let _result = Subtensor::get_delegate(delegate_account_vec);
+     |                           ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1069:26
+     |
+1069 |             let result = Subtensor::get_delegated(delegatee_account_vec);
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1077:26
+     |
+1077 |             let result = Subtensor::get_neurons_lite(netuid);
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1083:27
+     |
+1083 |             let _result = Subtensor::get_neuron_lite(netuid, uid);
+     |                           ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1094:26
+     |
+1094 |             let result = Subtensor::get_neurons(netuid);
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1100:27
+     |
+1100 |             let _result = Subtensor::get_neuron(netuid, uid);
+     |                           ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1113:27
+     |
+1113 |             let _result = Subtensor::get_subnet_info(netuid);
+     |                           ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1124:26
+     |
+1124 |             let result = Subtensor::get_subnets_info();
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1130:27
+     |
+1130 |             let _result = Subtensor::get_subnet_hyperparams(netuid);
+     |                           ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1147:26
+     |
+1147 |             let result = Subtensor::get_stake_info_for_coldkey( coldkey_account_vec );
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1153:26
+     |
+1153 |             let result = Subtensor::get_stake_info_for_coldkeys( coldkey_account_vecs );
+     |                          ^^^^^^^^^ use of undeclared type `Subtensor`
+
+error[E0433]: failed to resolve: use of undeclared type `Subtensor`
+    --> runtime/src/lib.rs:1162:13
+     |
+1162 |             Subtensor::get_network_lock_cost()
+     |             ^^^^^^^^^ use of undeclared type `Subtensor`
+
+Some errors have detailed explanations: E0412, E0433.
+For more information about an error, try `rustc --explain E0412`.
+warning: `node-subtensor-runtime` (lib) generated 3 warnings
+error: could not compile `node-subtensor-runtime` (lib) due to 165 previous errors; 3 warnings emitted

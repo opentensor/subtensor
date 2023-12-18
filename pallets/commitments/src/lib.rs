@@ -185,7 +185,6 @@ use {
 			PhantomData
 		},
 		dispatch::{
-			Dispatchable,
 			DispatchInfo,
 			PostDispatchInfo,
 			DispatchResult
@@ -196,7 +195,8 @@ use {
 		traits::{
 			SignedExtension,
 			DispatchInfoOf,
-			PostDispatchInfoOf
+			PostDispatchInfoOf,
+			Dispatchable
 		},
 		transaction_validity::{
 			TransactionValidity,

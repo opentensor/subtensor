@@ -305,18 +305,11 @@ impl pallet_sudo::Config for Runtime
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-    pub const MaxCommitFields: u32 = 1;
-    pub const CommitmentInitialDeposit: Balance = 0; // Free
-    pub const CommitmentFieldDeposit: Balance = 0; // Free
-    pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
-}
-
 pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn can_commit(netuid: u16, address: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
+        Subtensor::is_hotkey_registered_on_network(netuid, address)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -325,37 +318,11 @@ impl CanCommit<AccountId> for AllowCommitments {
     }
 }
 
-impl pallet_commitments::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type WeightInfo = pallet_commitments::weights::SubstrateWeight<Runtime>;
-
-    type CanCommit = AllowCommitments;
-
-    type MaxFields = MaxCommitFields;
-    type InitialDeposit = CommitmentInitialDeposit;
-    type FieldDeposit = CommitmentFieldDeposit;
-    type RateLimit = CommitmentRateLimit;
-}
-
 parameter_types! {
     pub const MaxCommitFields: u32 = 1;
     pub const CommitmentInitialDeposit: Balance = 0; // Free
     pub const CommitmentFieldDeposit: Balance = 0; // Free
     pub const CommitmentRateLimit: BlockNumber = 100; // Allow commitment every 100 blocks
-}
-
-pub struct AllowCommitments;
-impl CanCommit<AccountId> for AllowCommitments {
-    #[cfg(not(feature = "runtime-benchmarks"))]
-    fn can_commit(netuid: u16, address: &AccountId) -> bool {
-        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
-    }
-
-    #[cfg(feature = "runtime-benchmarks")]
-    fn can_commit(_: u16, _: &AccountId) -> bool {
-        true
-    }
 }
 
 impl pallet_commitments::Config for Runtime {
@@ -488,14 +455,8 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment,
         Subtensor: pallet_subtensor,
         Sudo: pallet_sudo,
+        Commitments: pallet_commitments,
         AdminUtils: pallet_admin_utils
-        RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
-        Utility: pallet_utility,
-        Multisig: pallet_multisig,
-        Preimage: pallet_preimage,
-        Scheduler: pallet_scheduler,
-        Registry: pallet_registry,
-        Commitments: pallet_commitments
     }
 );
 

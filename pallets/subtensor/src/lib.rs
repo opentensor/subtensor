@@ -107,46 +107,6 @@ pub mod subnet_info;
 extern crate alloc;
 pub mod migration;
 
-macro_rules! GenerateStorageValue
-{
-    ($a:ty, $b:ident, $c:stmt) =>
-    {
-        paste::paste!
-        {
-            pub struct [<Default $b>]
-            {
-            }
-
-            impl [<Default $b>]
-            {
-                pub fn Get<T: Config>() -> $a
-                {
-                    $c
-                }
-            }
-
-            pub type $b<T> = StorageValue<T, $a, ValueQuery, [<Default $b>]>;
-        }
-    }
-}
-
-macro_rules! GenerateStorageMap
-{
-    ($a:ty, $b:ty, $c:ident, $d:stmt) =>
-    {
-        paste::paste!
-        {
-            pub fn [<Default $c>]() -> $a
-            {
-                $d
-            }
-
-            #[pallet::storage]
-            pub type $c<T> = StorageMap<T, Blake2_128Concat, $b, $a, ValueQuery, [<Default $c>]>;
-        }
-    }
-}
-
 #[frame_support::pallet]
 pub mod pallet 
 {
@@ -318,7 +278,16 @@ pub mod pallet
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-    GenerateStorageValue!(              u64,            SenateRequiredStakePercentage,          T::InitialSenateRequiredStakePercentage::get());
+    // Senate requirements
+    #[pallet::type_value]
+    pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
+        T::InitialSenateRequiredStakePercentage::get()
+    }
+    
+    #[pallet::storage] // --- ITEM ( tx_rate_limit )
+    pub(super) type SenateRequiredStakePercentage<T> =
+        StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
+
     // ============================
     // ==== Staking + Accounts ====
     // ============================
@@ -364,8 +333,9 @@ pub mod pallet
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-    
-    GenerateStorageMap!(u16, <T as frame_system::Config>::AccountId, Delegates, T::InitialDefaultTake::get());
+    #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
+    pub type Delegates<T: Config> =            
+        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
 
     #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
