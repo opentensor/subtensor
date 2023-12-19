@@ -919,7 +919,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
 
     fn set_network_registration_allowed(netuid: u16, registration_allowed: bool)
     {
-        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
+        SubtensorModule::set_network_registration_allowed(netuid, registration_allowed);
     }
 
     fn set_activity_cutoff(netuid: u16, activity_cutoff: u16)

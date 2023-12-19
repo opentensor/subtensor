@@ -106,7 +106,8 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight((
 			T::WeightInfo::set_commitment(), 
-			DispatchClass::Operational
+			DispatchClass::Operational,
+			Pays::No
 		))]
 		pub fn set_commitment(origin: OriginFor<T>, netuid: u16, info: Box<CommitmentInfo<T::MaxFields>>) -> DispatchResult {
 			let who = ensure_signed(origin)?;
