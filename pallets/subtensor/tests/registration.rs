@@ -24,7 +24,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         let work: Vec<u8> = vec![0; 32];
         let hotkey: U256 = U256::from(0);
         let coldkey: U256 = U256::from(0);
-        let call = RuntimeCall::SubtensorModule(SubtensorCall::register {
+        let call = RuntimeCall::Subtensor(SubtensorCall::register {
             netuid,
             block_number,
             nonce,
@@ -35,7 +35,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(91000000),
+                weight: frame_support::weights::Weight::from_parts(91000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -46,7 +46,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
 #[test]
 fn test_registration_difficulty() {
     new_test_ext().execute_with(|| {
-        assert_eq!(SubtensorModule::get_difficulty(1).as_u64(), 10000);
+        assert_eq!(Subtensor::get_difficulty(1).as_u64(), 10000);
     });
 }
 
@@ -59,13 +59,13 @@ fn test_registration_invalid_seal_hotkey() {
         let hotkey_account_id_1: U256 = U256::from(1);
         let hotkey_account_id_2: U256 = U256::from(2);
         let coldkey_account_id: U256 = U256::from(667); // Neighbour of the beast, har har
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
             &hotkey_account_id_1,
         );
-        let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce2, work2): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -75,7 +75,7 @@ fn test_registration_invalid_seal_hotkey() {
         //add network
         add_network(netuid, tempo, 0);
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
             netuid,
             block_number,
@@ -84,7 +84,7 @@ fn test_registration_invalid_seal_hotkey() {
             hotkey_account_id_1,
             coldkey_account_id
         ));
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
             netuid,
             block_number,
@@ -105,7 +105,7 @@ fn test_registration_ok() {
         let tempo: u16 = 13;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             129123813,
@@ -116,7 +116,7 @@ fn test_registration_ok() {
         add_network(netuid, tempo, 0);
 
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -127,27 +127,27 @@ fn test_registration_ok() {
         ));
 
         // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid), 1);
 
         //check if hotkey is added to the Hotkeys
         assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
+            Subtensor::get_owning_coldkey_for_hotkey(&hotkey_account_id),
             coldkey_account_id
         );
 
         // Check if the neuron has added to the Keys
         let neuron_uid =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
 
-        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_ok());
+        assert!(Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_ok());
         // Check if neuron has added to Uids
         let neuro_uid =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
         assert_eq!(neuro_uid, neuron_uid);
 
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            Subtensor::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
             0
         );
     });
@@ -166,39 +166,39 @@ fn test_burned_registration_ok() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
                                                   //add network
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Subtensor::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             hotkey_account_id
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
+            Subtensor::get_coldkey_balance(&coldkey_account_id) as u64,
             10000 - burn_cost
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid), 1);
         //check if hotkey is added to the Hotkeys
         assert_eq!(
-            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
+            Subtensor::get_owning_coldkey_for_hotkey(&hotkey_account_id),
             coldkey_account_id
         );
         // Check if the neuron has added to the Keys
         let neuron_uid =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
-        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_ok());
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
+        assert!(Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_ok());
         // Check if neuron has added to Uids
         let neuro_uid =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
         assert_eq!(neuro_uid, neuron_uid);
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            Subtensor::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
             0
         );
     });
@@ -213,9 +213,9 @@ fn test_burn_adjustment() {
         let adjustment_interval = 1;
         let target_registrations_per_interval = 1;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_burn(netuid, burn_cost);
-        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
-        SubtensorModule::set_target_registrations_per_interval(
+        Subtensor::set_burn(netuid, burn_cost);
+        Subtensor::set_adjustment_interval(netuid, adjustment_interval);
+        Subtensor::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
         );
@@ -223,8 +223,8 @@ fn test_burn_adjustment() {
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
         let coldkey_account_id_1 = U256::from(1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_1, 10000);
-        assert_ok!(SubtensorModule::burned_register(
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id_1, 10000);
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
             netuid,
             hotkey_account_id_1
@@ -233,8 +233,8 @@ fn test_burn_adjustment() {
         // Register key 2.
         let hotkey_account_id_2 = U256::from(2);
         let coldkey_account_id_2 = U256::from(2);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id_2, 10000);
-        assert_ok!(SubtensorModule::burned_register(
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id_2, 10000);
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_2),
             netuid,
             hotkey_account_id_2
@@ -245,7 +245,7 @@ fn test_burn_adjustment() {
         step_block(1);
 
         // Check the adjusted burn.
-        assert_eq!(SubtensorModule::get_burn_as_u64(netuid), 1500);
+        assert_eq!(Subtensor::get_burn_as_u64(netuid), 1500);
     });
 }
 
@@ -256,81 +256,81 @@ fn test_registration_too_many_registrations_per_block() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_max_registrations_per_block(netuid, 10);
-        SubtensorModule::set_target_registrations_per_interval(netuid, 10);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 10);
+        Subtensor::set_max_registrations_per_block(netuid, 10);
+        Subtensor::set_target_registrations_per_interval(netuid, 10);
+        assert_eq!(Subtensor::get_max_registrations_per_block(netuid), 10);
 
         let block_number: u64 = 0;
-        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce0, work0): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             3942084,
             &U256::from(0),
         );
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce1, work1): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             11231312312,
             &U256::from(1),
         );
-        let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce2, work2): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             212312414,
             &U256::from(2),
         );
-        let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce3, work3): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             21813123,
             &U256::from(3),
         );
-        let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce4, work4): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             148141209,
             &U256::from(4),
         );
-        let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce5, work5): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             1245235534,
             &U256::from(5),
         );
-        let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce6, work6): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             256234,
             &U256::from(6),
         );
-        let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce7, work7): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             6923424,
             &U256::from(7),
         );
-        let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce8, work8): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             124242,
             &U256::from(8),
         );
-        let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce9, work9): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             153453,
             &U256::from(9),
         );
-        let (nonce10, work10): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce10, work10): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             345923888,
             &U256::from(10),
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+        assert_eq!(Subtensor::get_difficulty_as_u64(netuid), 10000);
 
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
             netuid,
             block_number,
@@ -339,8 +339,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(0),
             U256::from(0)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 1);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 1);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
             netuid,
             block_number,
@@ -349,8 +349,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(1),
             U256::from(1)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 2);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 2);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(2)),
             netuid,
             block_number,
@@ -359,8 +359,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(2),
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 3);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 3);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(3)),
             netuid,
             block_number,
@@ -369,8 +369,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(3),
             U256::from(3)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 4);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(4)),
             netuid,
             block_number,
@@ -379,8 +379,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(4),
             U256::from(4)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 5);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 5);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(5)),
             netuid,
             block_number,
@@ -389,8 +389,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(5),
             U256::from(5)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 6);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 6);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(6)),
             netuid,
             block_number,
@@ -399,8 +399,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(6),
             U256::from(6)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 7);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 7);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(7)),
             netuid,
             block_number,
@@ -409,8 +409,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(7),
             U256::from(7)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 8);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 8);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(8)),
             netuid,
             block_number,
@@ -419,8 +419,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(8),
             U256::from(8)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 9);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 9);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(9)),
             netuid,
             block_number,
@@ -429,8 +429,8 @@ fn test_registration_too_many_registrations_per_block() {
             U256::from(9),
             U256::from(9)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 10);
-        let result = SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_block(netuid), 10);
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(10)),
             netuid,
             block_number,
@@ -452,81 +452,81 @@ fn test_registration_too_many_registrations_per_interval() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_max_registrations_per_block(netuid, 11);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 11);
-        SubtensorModule::set_target_registrations_per_interval(netuid, 3);
+        Subtensor::set_max_registrations_per_block(netuid, 11);
+        assert_eq!(Subtensor::get_max_registrations_per_block(netuid), 11);
+        Subtensor::set_target_registrations_per_interval(netuid, 3);
         assert_eq!(
-            SubtensorModule::get_target_registrations_per_interval(netuid),
+            Subtensor::get_target_registrations_per_interval(netuid),
             3
         );
         // Then the max is 3 * 3 = 9
 
         let block_number: u64 = 0;
-        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce0, work0): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             3942084,
             &U256::from(0),
         );
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce1, work1): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             11231312312,
             &U256::from(1),
         );
-        let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce2, work2): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             212312414,
             &U256::from(2),
         );
-        let (nonce3, work3): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce3, work3): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             21813123,
             &U256::from(3),
         );
-        let (nonce4, work4): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce4, work4): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             148141209,
             &U256::from(4),
         );
-        let (nonce5, work5): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce5, work5): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             1245235534,
             &U256::from(5),
         );
-        let (nonce6, work6): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce6, work6): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             256234,
             &U256::from(6),
         );
-        let (nonce7, work7): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce7, work7): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             6923424,
             &U256::from(7),
         );
-        let (nonce8, work8): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce8, work8): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             124242,
             &U256::from(8),
         );
-        let (nonce9, work9): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce9, work9): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             153453,
             &U256::from(9),
         );
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+        assert_eq!(Subtensor::get_difficulty_as_u64(netuid), 10000);
 
         // Subscribe and check extrinsic output
         // Try 10 registrations, this is less than the max per block, but more than the max per interval
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
             netuid,
             block_number,
@@ -535,8 +535,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(0),
             U256::from(0)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 1);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 1);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
             netuid,
             block_number,
@@ -545,8 +545,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(1),
             U256::from(1)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 2);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 2);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(2)),
             netuid,
             block_number,
@@ -555,8 +555,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(2),
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 3);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(3)),
             netuid,
             block_number,
@@ -565,8 +565,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(3),
             U256::from(3)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 4);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 4);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(4)),
             netuid,
             block_number,
@@ -575,8 +575,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(4),
             U256::from(4)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 5);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 5);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(5)),
             netuid,
             block_number,
@@ -585,8 +585,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(5),
             U256::from(5)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 6);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 6);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(6)),
             netuid,
             block_number,
@@ -595,8 +595,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(6),
             U256::from(6)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 7);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 7);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(7)),
             netuid,
             block_number,
@@ -605,8 +605,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(7),
             U256::from(7)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 8);
-        assert_ok!(SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 8);
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(8)),
             netuid,
             block_number,
@@ -615,8 +615,8 @@ fn test_registration_too_many_registrations_per_interval() {
             U256::from(8),
             U256::from(8)
         ));
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 9);
-        let result = SubtensorModule::register(
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 9);
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(9)),
             netuid,
             block_number,
@@ -645,7 +645,7 @@ fn test_registration_already_active_hotkey() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -655,7 +655,7 @@ fn test_registration_already_active_hotkey() {
         //add network
         add_network(netuid, tempo, 0);
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -668,13 +668,13 @@ fn test_registration_already_active_hotkey() {
         let block_number: u64 = 0;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
             &hotkey_account_id,
         );
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -696,12 +696,12 @@ fn test_registration_invalid_seal() {
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
         let (nonce, work): (u64, Vec<u8>) =
-            SubtensorModule::create_work_for_block_number(netuid, 1, 0, &hotkey_account_id);
+            Subtensor::create_work_for_block_number(netuid, 1, 0, &hotkey_account_id);
 
         //add network
         add_network(netuid, tempo, 0);
 
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -722,7 +722,7 @@ fn test_registration_invalid_block_number() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -732,7 +732,7 @@ fn test_registration_invalid_block_number() {
         //add network
         add_network(netuid, tempo, 0);
 
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -753,7 +753,7 @@ fn test_registration_invalid_difficulty() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -763,12 +763,12 @@ fn test_registration_invalid_difficulty() {
         //add network
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_difficulty(
+        Subtensor::set_difficulty(
             netuid,
             18_446_744_073_709_551_615u64
         );
 
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -788,7 +788,7 @@ fn test_registration_failed_no_signature() {
         let netuid: u16 = 1;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -796,7 +796,7 @@ fn test_registration_failed_no_signature() {
         );
 
         // Subscribe and check extrinsic output
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::none(),
             netuid,
             block_number,
@@ -817,18 +817,18 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
         log::info!("add netweork");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
-        SubtensorModule::set_immunity_period(netuid, 2);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 0), 100);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
-        assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
+        Subtensor::set_pruning_score_for_uid(netuid, 0, 100);
+        Subtensor::set_pruning_score_for_uid(netuid, 1, 110);
+        Subtensor::set_immunity_period(netuid, 2);
+        assert_eq!(Subtensor::get_pruning_score_for_uid(netuid, 0), 100);
+        assert_eq!(Subtensor::get_pruning_score_for_uid(netuid, 1), 110);
+        assert_eq!(Subtensor::get_immunity_period(netuid), 2);
+        assert_eq!(Subtensor::get_current_block_as_u64(), 0);
         assert_eq!(
-            SubtensorModule::get_neuron_block_at_registration(netuid, 0),
+            Subtensor::get_neuron_block_at_registration(netuid, 0),
             0
         );
-        assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);
+        assert_eq!(Subtensor::get_neuron_to_prune(0), 0);
     });
 }
 
@@ -840,20 +840,20 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
         log::info!("add netweork");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
-        SubtensorModule::set_pruning_score_for_uid(netuid, 1, 110);
-        SubtensorModule::set_immunity_period(netuid, 2);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 0), 100);
-        assert_eq!(SubtensorModule::get_pruning_score_for_uid(netuid, 1), 110);
-        assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
-        assert_eq!(SubtensorModule::get_current_block_as_u64(), 0);
+        Subtensor::set_pruning_score_for_uid(netuid, 0, 100);
+        Subtensor::set_pruning_score_for_uid(netuid, 1, 110);
+        Subtensor::set_immunity_period(netuid, 2);
+        assert_eq!(Subtensor::get_pruning_score_for_uid(netuid, 0), 100);
+        assert_eq!(Subtensor::get_pruning_score_for_uid(netuid, 1), 110);
+        assert_eq!(Subtensor::get_immunity_period(netuid), 2);
+        assert_eq!(Subtensor::get_current_block_as_u64(), 0);
         assert_eq!(
-            SubtensorModule::get_neuron_block_at_registration(netuid, 0),
+            Subtensor::get_neuron_block_at_registration(netuid, 0),
             0
         );
         step_block(3);
-        assert_eq!(SubtensorModule::get_current_block_as_u64(), 3);
-        assert_eq!(SubtensorModule::get_neuron_to_prune(0), 0);
+        assert_eq!(Subtensor::get_current_block_as_u64(), 3);
+        assert_eq!(Subtensor::get_neuron_to_prune(0), 0);
     });
 }
 
@@ -865,7 +865,7 @@ fn test_registration_pruning() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
-        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce0, work0): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             3942084,
@@ -875,7 +875,7 @@ fn test_registration_pruning() {
         //add network
         add_network(netuid, tempo, 0);
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -886,19 +886,19 @@ fn test_registration_pruning() {
         ));
         //
         let neuron_uid =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
-        SubtensorModule::set_pruning_score_for_uid(netuid, neuron_uid, 2);
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).unwrap();
+        Subtensor::set_pruning_score_for_uid(netuid, neuron_uid, 2);
         //
         let hotkey_account_id1 = U256::from(2);
         let coldkey_account_id1 = U256::from(668);
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce1, work1): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             11231312312,
             &hotkey_account_id1,
         );
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id1),
             netuid,
             block_number,
@@ -909,19 +909,19 @@ fn test_registration_pruning() {
         ));
         //
         let neuron_uid1 =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id1).unwrap();
-        SubtensorModule::set_pruning_score_for_uid(netuid, neuron_uid1, 3);
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id1).unwrap();
+        Subtensor::set_pruning_score_for_uid(netuid, neuron_uid1, 3);
         //
         let hotkey_account_id2 = U256::from(3);
         let coldkey_account_id2 = U256::from(669);
-        let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce2, work2): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             212312414,
             &hotkey_account_id2,
         );
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id2),
             netuid,
             block_number,
@@ -941,7 +941,7 @@ fn test_registration_get_neuron_metadata() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let coldkey_account_id = U256::from(667);
-        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce0, work0): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             3942084,
@@ -950,7 +950,7 @@ fn test_registration_get_neuron_metadata() {
 
         add_network(netuid, tempo, 0);
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -960,9 +960,9 @@ fn test_registration_get_neuron_metadata() {
             coldkey_account_id
         ));
         //
-        //let neuron_id = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
-        // let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).unwrap();
-        let neuron: AxonInfoOf = SubtensorModule::get_axon_info(netuid, &hotkey_account_id);
+        //let neuron_id = Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
+        // let neuron_uid = Subtensor::get_uid_for_net_and_hotkey( netuid, &hotkey_account_id ).unwrap();
+        let neuron: AxonInfoOf = Subtensor::get_axon_info(netuid, &hotkey_account_id);
         assert_eq!(neuron.ip, 0);
         assert_eq!(neuron.version, 0);
         assert_eq!(neuron.port, 0);
@@ -978,19 +978,19 @@ fn test_registration_add_network_size() {
         let hotkey_account_id = U256::from(1);
         let hotkey_account_id1 = U256::from(2);
         let hotkey_account_id2 = U256::from(3);
-        let (nonce0, work0): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce0, work0): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             3942084,
             &hotkey_account_id,
         );
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce1, work1): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid2,
             block_number,
             11231312312,
             &hotkey_account_id1,
         );
-        let (nonce2, work2): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce2, work2): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid2,
             block_number,
             21813123,
@@ -999,12 +999,12 @@ fn test_registration_add_network_size() {
         let coldkey_account_id = U256::from(667);
 
         add_network(netuid, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid), 0);
 
         add_network(netuid2, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 0);
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -1013,10 +1013,10 @@ fn test_registration_add_network_size() {
             hotkey_account_id,
             coldkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 1);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid), 1);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid), 1);
 
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id1),
             netuid2,
             block_number,
@@ -1025,7 +1025,7 @@ fn test_registration_add_network_size() {
             hotkey_account_id1,
             coldkey_account_id
         ));
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id2),
             netuid2,
             block_number,
@@ -1034,8 +1034,8 @@ fn test_registration_add_network_size() {
             hotkey_account_id2,
             coldkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid2), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 2);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid2), 2);
     });
 }
 
@@ -1055,37 +1055,37 @@ fn test_burn_registration_increase_recycled_rao() {
         );
 
         add_network(netuid, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid), 0);
 
         add_network(netuid2, 13, 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 0);
 
         run_to_block(1);
 
-        let burn_amount = SubtensorModule::get_burn_as_u64(netuid);
-        assert_ok!(SubtensorModule::burned_register(
+        let burn_amount = Subtensor::get_burn_as_u64(netuid);
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             hotkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+        assert_eq!(Subtensor::get_rao_recycled(netuid), burn_amount);
 
         run_to_block(2);
 
-        let burn_amount2 = SubtensorModule::get_burn_as_u64(netuid2);
-        assert_ok!(SubtensorModule::burned_register(
+        let burn_amount2 = Subtensor::get_burn_as_u64(netuid2);
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid2,
             hotkey_account_id
         ));
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(2)),
             netuid2,
             U256::from(2)
         ));
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid2), burn_amount2 * 2);
+        assert_eq!(Subtensor::get_rao_recycled(netuid2), burn_amount2 * 2);
         // Validate netuid is not affected.
-        assert_eq!(SubtensorModule::get_rao_recycled(netuid), burn_amount);
+        assert_eq!(Subtensor::get_rao_recycled(netuid), burn_amount);
     });
 }
 
@@ -1118,37 +1118,37 @@ fn test_full_pass_through() {
         add_network(netuid2, tempo2, 0);
 
         // Check their tempo.
-        assert_eq!(SubtensorModule::get_tempo(netuid0), tempo0);
-        assert_eq!(SubtensorModule::get_tempo(netuid1), tempo1);
-        assert_eq!(SubtensorModule::get_tempo(netuid2), tempo2);
+        assert_eq!(Subtensor::get_tempo(netuid0), tempo0);
+        assert_eq!(Subtensor::get_tempo(netuid1), tempo1);
+        assert_eq!(Subtensor::get_tempo(netuid2), tempo2);
 
         // Check their emission value.
-        assert_eq!(SubtensorModule::get_emission_value(netuid0), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid1), 0);
-        assert_eq!(SubtensorModule::get_emission_value(netuid2), 0);
+        assert_eq!(Subtensor::get_emission_value(netuid0), 0);
+        assert_eq!(Subtensor::get_emission_value(netuid1), 0);
+        assert_eq!(Subtensor::get_emission_value(netuid2), 0);
 
         // Set their max allowed uids.
-        SubtensorModule::set_max_allowed_uids(netuid0, 2);
-        SubtensorModule::set_max_allowed_uids(netuid1, 2);
-        SubtensorModule::set_max_allowed_uids(netuid2, 2);
+        Subtensor::set_max_allowed_uids(netuid0, 2);
+        Subtensor::set_max_allowed_uids(netuid1, 2);
+        Subtensor::set_max_allowed_uids(netuid2, 2);
 
         // Check their max allowed.
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid0), 2);
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid0), 2);
-        assert_eq!(SubtensorModule::get_max_allowed_uids(netuid0), 2);
+        assert_eq!(Subtensor::get_max_allowed_uids(netuid0), 2);
+        assert_eq!(Subtensor::get_max_allowed_uids(netuid0), 2);
+        assert_eq!(Subtensor::get_max_allowed_uids(netuid0), 2);
 
         // Set the max registration per block.
-        SubtensorModule::set_max_registrations_per_block(netuid0, 3);
-        SubtensorModule::set_max_registrations_per_block(netuid1, 3);
-        SubtensorModule::set_max_registrations_per_block(netuid2, 3);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid0), 3);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid1), 3);
-        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid2), 3);
+        Subtensor::set_max_registrations_per_block(netuid0, 3);
+        Subtensor::set_max_registrations_per_block(netuid1, 3);
+        Subtensor::set_max_registrations_per_block(netuid2, 3);
+        assert_eq!(Subtensor::get_max_registrations_per_block(netuid0), 3);
+        assert_eq!(Subtensor::get_max_registrations_per_block(netuid1), 3);
+        assert_eq!(Subtensor::get_max_registrations_per_block(netuid2), 3);
 
         // Check that no one has registered yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 0);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid0), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid1), 0);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 0);
 
         // Registered the keys to all networks.
         register_ok_neuron(netuid0, hotkey0, coldkey0, 39420842);
@@ -1163,93 +1163,93 @@ fn test_full_pass_through() {
         // n1 [ h0, h1 ]
         // n2 [ h0, h1 ]
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
             hotkey0
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
             hotkey0
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
             hotkey0
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 1).unwrap(),
             hotkey1
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 1).unwrap(),
             hotkey1
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 1).unwrap(),
             hotkey1
         );
 
         // Check registered networks.
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid0 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid1 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid2 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid0 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid1 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid2 ) );
-        // assert!( !SubtensorModule::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid0 ) );
-        // assert!( !SubtensorModule::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid1 ) );
-        // assert!( !SubtensorModule::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid2 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid0 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid1 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid2 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid0 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid1 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid2 ) );
+        // assert!( !Subtensor::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid0 ) );
+        // assert!( !Subtensor::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid1 ) );
+        // assert!( !Subtensor::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid2 ) );
 
         // Check the number of registrations.
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid0), 2);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid1), 2);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid2), 2);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid0), 2);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid1), 2);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid2), 2);
 
         // Get the number of uids in each network.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid0), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid1), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 2);
 
         // Check the uids exist.
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid0, 0));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid1, 0));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid2, 0));
+        assert!(Subtensor::is_uid_exist_on_network(netuid0, 0));
+        assert!(Subtensor::is_uid_exist_on_network(netuid1, 0));
+        assert!(Subtensor::is_uid_exist_on_network(netuid2, 0));
 
         // Check the other exists.
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid0, 1));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid1, 1));
-        assert!(SubtensorModule::is_uid_exist_on_network(netuid2, 1));
+        assert!(Subtensor::is_uid_exist_on_network(netuid0, 1));
+        assert!(Subtensor::is_uid_exist_on_network(netuid1, 1));
+        assert!(Subtensor::is_uid_exist_on_network(netuid2, 1));
 
         // Get the hotkey under each uid.
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
             hotkey0
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
             hotkey0
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
             hotkey0
         );
 
         // Get the hotkey under the other uid.
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 1).unwrap(),
             hotkey1
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 1).unwrap(),
             hotkey1
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 1).unwrap(),
             hotkey1
         );
 
         // Check for replacement.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid0), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid1), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 2);
 
         // Register the 3rd hotkey.
         register_ok_neuron(netuid0, hotkey2, coldkey2, 59420842);
@@ -1257,67 +1257,67 @@ fn test_full_pass_through() {
         register_ok_neuron(netuid2, hotkey2, coldkey2, 451232207);
 
         // Check for replacement.
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid0), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid1), 2);
-        assert_eq!(SubtensorModule::get_subnetwork_n(netuid2), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid0), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid1), 2);
+        assert_eq!(Subtensor::get_subnetwork_n(netuid2), 2);
 
         // Check uids.
         // n0 [ h0, h1 ]
         // n1 [ h0, h1 ]
         // n2 [ h0, h1 ]
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
             hotkey2
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
             hotkey2
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
             hotkey2
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 1).unwrap(),
             hotkey1
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 1).unwrap(),
             hotkey1
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 1).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 1).unwrap(),
             hotkey1
         );
 
         // Check registered networks.
         // hotkey0 has been deregistered.
-        // assert!( !SubtensorModule::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid0 ) );
-        // assert!( !SubtensorModule::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid1 ) );
-        // assert!( !SubtensorModule::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid2 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid0 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid1 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid2 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid0 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid1 ) );
-        // assert!( SubtensorModule::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid2 ) );
+        // assert!( !Subtensor::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid0 ) );
+        // assert!( !Subtensor::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid1 ) );
+        // assert!( !Subtensor::get_registered_networks_for_hotkey( &hotkey0 ).contains( &netuid2 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid0 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid1 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey1 ).contains( &netuid2 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid0 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid1 ) );
+        // assert!( Subtensor::get_registered_networks_for_hotkey( &hotkey2 ).contains( &netuid2 ) );
 
         // Check the registration counters.
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid0), 3);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid1), 3);
-        assert_eq!(SubtensorModule::get_registrations_this_interval(netuid2), 3);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid0), 3);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid1), 3);
+        assert_eq!(Subtensor::get_registrations_this_interval(netuid2), 3);
 
         // Check the hotkeys are expected.
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid0, 0).unwrap(),
             hotkey2
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid1, 0).unwrap(),
             hotkey2
         );
         assert_eq!(
-            SubtensorModule::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
+            Subtensor::get_hotkey_for_net_and_uid(netuid2, 0).unwrap(),
             hotkey2
         );
     });
@@ -1337,17 +1337,17 @@ fn test_full_pass_through() {
 //         let coldkeys: Vec<U256> = (0..=10).map(|x| U256::from(x)).collect();
 
 //         // Add a connection requirement between the A and B. A requires B.
-//         SubtensorModule::add_connection_requirement(netuid_a, netuid_b, u16::MAX);
-//         SubtensorModule::set_max_registrations_per_block(netuid_a, 10); // Enough for the below tests.
-//         SubtensorModule::set_max_registrations_per_block(netuid_b, 10); // Enough for the below tests.
-//         SubtensorModule::set_max_allowed_uids(netuid_a, 10); // Enough for the below tests.
-//         SubtensorModule::set_max_allowed_uids(netuid_b, 10); // Enough for the below tests.
+//         Subtensor::add_connection_requirement(netuid_a, netuid_b, u16::MAX);
+//         Subtensor::set_max_registrations_per_block(netuid_a, 10); // Enough for the below tests.
+//         Subtensor::set_max_registrations_per_block(netuid_b, 10); // Enough for the below tests.
+//         Subtensor::set_max_allowed_uids(netuid_a, 10); // Enough for the below tests.
+//         Subtensor::set_max_allowed_uids(netuid_b, 10); // Enough for the below tests.
 
 //         // Attempt registration on A fails because the hotkey is not registered on network B.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 3942084, &U256::from(0));
+//             Subtensor::create_work_for_block_number(netuid_a, 0, 3942084, &U256::from(0));
 //         assert_eq!(
-//             SubtensorModule::register(
+//             Subtensor::register(
 //                 <<Test as Config>::RuntimeOrigin>::signed(hotkeys[0]),
 //                 netuid_a,
 //                 0,
@@ -1361,8 +1361,8 @@ fn test_full_pass_through() {
 
 //         // Attempt registration on B passes because there is no exterior requirement.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 5942084, &U256::from(0));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_b, 0, 5942084, &U256::from(0));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[0]),
 //             netuid_b,
 //             0,
@@ -1374,8 +1374,8 @@ fn test_full_pass_through() {
 
 //         // Attempt registration on A passes because this key is in the top 100 of keys on network B.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 6942084, &U256::from(0));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_a, 0, 6942084, &U256::from(0));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[0]),
 //             netuid_a,
 //             0,
@@ -1387,9 +1387,9 @@ fn test_full_pass_through() {
 
 //         // Lets attempt the key registration on A. Fails because we are not in B.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 634242084, &U256::from(1));
+//             Subtensor::create_work_for_block_number(netuid_a, 0, 634242084, &U256::from(1));
 //         assert_eq!(
-//             SubtensorModule::register(
+//             Subtensor::register(
 //                 <<Test as Config>::RuntimeOrigin>::signed(hotkeys[1]),
 //                 netuid_a,
 //                 0,
@@ -1403,8 +1403,8 @@ fn test_full_pass_through() {
 
 //         // Lets register the next key on B. Passes, np.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 7942084, &U256::from(1));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_b, 0, 7942084, &U256::from(1));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[1]),
 //             netuid_b,
 //             0,
@@ -1415,12 +1415,12 @@ fn test_full_pass_through() {
 //         ));
 
 //         // Lets make the connection requirement harder. Top 0th percentile.
-//         SubtensorModule::add_connection_requirement(netuid_a, netuid_b, 0);
+//         Subtensor::add_connection_requirement(netuid_a, netuid_b, 0);
 
 //         // Attempted registration passes because the prunning score for hotkey_1 is the top keys on network B.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 8942084, &U256::from(1));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_a, 0, 8942084, &U256::from(1));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[1]),
 //             netuid_a,
 //             0,
@@ -1432,8 +1432,8 @@ fn test_full_pass_through() {
 
 //         // Lets register key 3 with lower prunning score.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 9942084, &U256::from(2));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_b, 0, 9942084, &U256::from(2));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[2]),
 //             netuid_b,
 //             0,
@@ -1442,26 +1442,26 @@ fn test_full_pass_through() {
 //             hotkeys[2],
 //             coldkeys[2]
 //         ));
-//         SubtensorModule::set_pruning_score_for_uid(
+//         Subtensor::set_pruning_score_for_uid(
 //             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[2]).unwrap(),
+//             Subtensor::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[2]).unwrap(),
 //             0,
 //         ); // Set prunning score to 0.
-//         SubtensorModule::set_pruning_score_for_uid(
+//         Subtensor::set_pruning_score_for_uid(
 //             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[1]).unwrap(),
+//             Subtensor::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[1]).unwrap(),
 //             0,
 //         ); // Set prunning score to 0.
-//         SubtensorModule::set_pruning_score_for_uid(
+//         Subtensor::set_pruning_score_for_uid(
 //             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[0]).unwrap(),
+//             Subtensor::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[0]).unwrap(),
 //             0,
 //         ); // Set prunning score to 0.
 
 //         // Lets register key 4 with higher prunining score.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 10142084, &U256::from(3));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_b, 0, 10142084, &U256::from(3));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[3]),
 //             netuid_b,
 //             0,
@@ -1470,17 +1470,17 @@ fn test_full_pass_through() {
 //             hotkeys[3],
 //             coldkeys[3]
 //         ));
-//         SubtensorModule::set_pruning_score_for_uid(
+//         Subtensor::set_pruning_score_for_uid(
 //             netuid_b,
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[3]).unwrap(),
+//             Subtensor::get_uid_for_net_and_hotkey(netuid_b, &hotkeys[3]).unwrap(),
 //             1,
 //         ); // Set prunning score to 1.
 
 //         // Attempted register of key 3 fails because of bad prunning score on B.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_a, 0, 11142084, &U256::from(2));
+//             Subtensor::create_work_for_block_number(netuid_a, 0, 11142084, &U256::from(2));
 //         assert_eq!(
-//             SubtensorModule::register(
+//             Subtensor::register(
 //                 <<Test as Config>::RuntimeOrigin>::signed(hotkeys[2]),
 //                 netuid_a,
 //                 0,
@@ -1494,8 +1494,8 @@ fn test_full_pass_through() {
 
 //         // Attempt to register key 4 passes because of best prunning score on B.
 //         let (nonce, work): (u64, Vec<u8>) =
-//             SubtensorModule::create_work_for_block_number(netuid_b, 0, 12142084, &U256::from(3));
-//         assert_ok!(SubtensorModule::register(
+//             Subtensor::create_work_for_block_number(netuid_b, 0, 12142084, &U256::from(3));
+//         assert_ok!(Subtensor::register(
 //             <<Test as Config>::RuntimeOrigin>::signed(hotkeys[3]),
 //             netuid_a,
 //             0,
@@ -1516,7 +1516,7 @@ fn test_registration_origin_hotkey_mismatch() {
         let hotkey_account_id_1: U256 = U256::from(1);
         let hotkey_account_id_2: U256 = U256::from(2);
         let coldkey_account_id: U256 = U256::from(668);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -1526,7 +1526,7 @@ fn test_registration_origin_hotkey_mismatch() {
         //add network
         add_network(netuid, tempo, 0);
 
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id_1),
             netuid,
             block_number,
@@ -1547,7 +1547,7 @@ fn test_registration_disabled() {
         let tempo: u16 = 13;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id: U256 = U256::from(668);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             0,
@@ -1556,10 +1556,10 @@ fn test_registration_disabled() {
 
         //add network
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_network_registration_allowed(netuid, false);
-        SubtensorModule::set_network_pow_registration_allowed(netuid, false);
+        Subtensor::set_network_registration_allowed(netuid, false);
+        Subtensor::set_network_pow_registration_allowed(netuid, false);
 
-        let result = SubtensorModule::register(
+        let result = Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -1582,23 +1582,23 @@ fn test_hotkey_swap_ok() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); 
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Subtensor::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 10_000_000_000);
 
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             hotkey_account_id
         ));
 
         let new_hotkey = U256::from(1337);
-        assert_ok!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey));
-        assert_ne!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey), coldkey_account_id);
+        assert_ok!(Subtensor::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey));
+        assert_ne!(Subtensor::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
+        assert_eq!(Subtensor::get_owning_coldkey_for_hotkey(&new_hotkey), coldkey_account_id);
     });
 }
 
@@ -1613,21 +1613,21 @@ fn test_hotkey_swap_not_owner() {
         let coldkey_account_id = U256::from(2);
         let not_owner_coldkey = U256::from(3);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Subtensor::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             hotkey_account_id
         ));
 
         let new_hotkey = U256::from(4);
-        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey), hotkey_account_id, new_hotkey), Error::<Test>::NonAssociatedColdKey);
+        assert_err!(Subtensor::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey), hotkey_account_id, new_hotkey), Error::<Test>::NonAssociatedColdKey);
     });
 }
 
@@ -1641,20 +1641,20 @@ fn test_hotkey_swap_same_key() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(2);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Subtensor::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
 
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             hotkey_account_id
         ));
 
-        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, hotkey_account_id), Error::<Test>::AlreadyRegistered);
+        assert_err!(Subtensor::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, hotkey_account_id), Error::<Test>::AlreadyRegistered);
     });
 }
 
@@ -1668,26 +1668,26 @@ fn test_hotkey_swap_registered_key() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(2);
 
-        SubtensorModule::set_burn(netuid, burn_cost);
+        Subtensor::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
 
         // Give it some $$$ in his coldkey balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 100_000_000_000);
 
         // Subscribe and check extrinsic output
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             hotkey_account_id
         ));
 
         let new_hotkey = U256::from(3);
-        assert_ok!(SubtensorModule::burned_register(
+        assert_ok!(Subtensor::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             new_hotkey
         ));
 
-        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey), Error::<Test>::AlreadyRegistered);
+        assert_err!(Subtensor::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey), Error::<Test>::AlreadyRegistered);
     });
 }

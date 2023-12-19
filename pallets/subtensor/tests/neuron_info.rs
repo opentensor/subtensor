@@ -9,7 +9,7 @@ fn test_get_neuron_none() {
         let netuid: u16 = 1;
         let uid: u16 = 42;
 
-        let neuron = SubtensorModule::get_neuron(netuid, uid);
+        let neuron = Subtensor::get_neuron(netuid, uid);
         assert_eq!(neuron, None);
     });
 }
@@ -30,7 +30,7 @@ fn test_get_neuron_some() {
         add_network(netuid, tempo, modality);
         register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
 
-        let neuron = SubtensorModule::get_neuron(netuid, uid);
+        let neuron = Subtensor::get_neuron(netuid, uid);
         assert_ne!(neuron, None);
     });
 }
@@ -56,7 +56,7 @@ fn test_get_neurons_list() {
             register_ok_neuron(netuid, hotkey, coldkey, nonce);
         }
 
-        let neurons = SubtensorModule::get_neurons(netuid);
+        let neurons = Subtensor::get_neurons(netuid);
         assert_eq!(neurons.len(), neuron_count as usize);
     });
 }
@@ -67,7 +67,7 @@ fn test_get_neurons_empty() {
         let netuid: u16 = 1;
 
         let neuron_count = 0;
-        let neurons = SubtensorModule::get_neurons(netuid);
+        let neurons = Subtensor::get_neurons(netuid);
         assert_eq!(neurons.len(), neuron_count as usize);
     });
 }

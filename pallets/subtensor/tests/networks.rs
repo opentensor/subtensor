@@ -28,7 +28,7 @@
 //         let netuid: u16 = 1;
 //         let modality = 0;
 //         let tempo: u16 = 13;
-//         let call = RuntimeCall::SubtensorModule(SubtensorCall::sudo_add_network {
+//         let call = RuntimeCall::Subtensor(SubtensorCall::sudo_add_network {
 //             netuid,
 //             tempo,
 //             modality,
@@ -50,9 +50,9 @@
 //         let modality = 0;
 //         let tempo: u16 = 13;
 //         add_network(10, tempo, modality);
-//         assert_eq!(SubtensorModule::get_number_of_subnets(), 1);
+//         assert_eq!(Subtensor::get_number_of_subnets(), 1);
 //         add_network(20, tempo, modality);
-//         assert_eq!(SubtensorModule::get_number_of_subnets(), 2);
+//         assert_eq!(Subtensor::get_number_of_subnets(), 2);
 //     });
 // }
 
@@ -61,9 +61,9 @@
 //     new_test_ext().execute_with(|| {
 //         let modality = 0;
 //         let tempo: u16 = 13;
-//         assert_eq!(SubtensorModule::get_tempo(1), 0);
+//         assert_eq!(Subtensor::get_tempo(1), 0);
 //         add_network(1, tempo, modality);
-//         assert_eq!(SubtensorModule::get_tempo(1), 13);
+//         assert_eq!(Subtensor::get_tempo(1), 13);
 //     });
 // }
 
@@ -75,13 +75,13 @@
 //         let tempo: u16 = 13;
 //         add_network(netuid, tempo, 0);
 //         register_ok_neuron(1, U256::from(55), U256::from(66), 0);
-//         SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weight);
-//         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 2);
-//         assert_ok!(SubtensorModule::do_remove_network(
+//         Subtensor::set_min_allowed_weights(netuid, min_allowed_weight);
+//         assert_eq!(Subtensor::get_min_allowed_weights(netuid), 2);
+//         assert_ok!(Subtensor::do_remove_network(
 //             <<Test as Config>::RuntimeOrigin>::root(),
 //             netuid
 //         ));
-//         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 0);
+//         assert_eq!(Subtensor::get_min_allowed_weights(netuid), 0);
 //     });
 // }
 
@@ -93,21 +93,21 @@
 //         add_network(netuid, tempo, 0);
 //         register_ok_neuron(1, U256::from(55), U256::from(66), 0);
 //         let neuron_id;
-//         match SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)) {
+//         match Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(55)) {
 //             Ok(k) => neuron_id = k,
 //             Err(e) => panic!("Error: {:?}", e),
 //         }
-//         assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_ok());
+//         assert!(Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_ok());
 //         assert_eq!(neuron_id, 0);
 //         register_ok_neuron(1, U256::from(56), U256::from(67), 300000);
 //         let neuron_uid =
-//             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(56)).unwrap();
+//             Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(56)).unwrap();
 //         assert_eq!(neuron_uid, 1);
-//         assert_ok!(SubtensorModule::do_remove_network(
+//         assert_ok!(Subtensor::do_remove_network(
 //             <<Test as Config>::RuntimeOrigin>::root(),
 //             netuid
 //         ));
-//         assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_err());
+//         assert!(Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(55)).is_err());
 //     });
 // }
 
@@ -119,17 +119,17 @@
 //         let tempo: u16 = 13;
 //         add_network(netuid, tempo, 0);
 //         register_ok_neuron(1, U256::from(55), U256::from(66), 0);
-//         assert_ok!(SubtensorModule::sudo_set_difficulty(
+//         assert_ok!(Subtensor::sudo_set_difficulty(
 //             <<Test as Config>::RuntimeOrigin>::root(),
 //             netuid,
 //             difficulty
 //         ));
-//         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), difficulty);
-//         assert_ok!(SubtensorModule::do_remove_network(
+//         assert_eq!(Subtensor::get_difficulty_as_u64(netuid), difficulty);
+//         assert_ok!(Subtensor::do_remove_network(
 //             <<Test as Config>::RuntimeOrigin>::root(),
 //             netuid
 //         ));
-//         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
+//         assert_eq!(Subtensor::get_difficulty_as_u64(netuid), 10000);
 //     });
 // }
 
@@ -141,12 +141,12 @@
 //         add_network(netuid, tempo, 0);
 //         register_ok_neuron(1, U256::from(55), U256::from(66), 0);
 //         register_ok_neuron(1, U256::from(77), U256::from(88), 65536);
-//         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 2);
-//         assert_ok!(SubtensorModule::do_remove_network(
+//         assert_eq!(Subtensor::get_subnetwork_n(netuid), 2);
+//         assert_ok!(Subtensor::do_remove_network(
 //             <<Test as Config>::RuntimeOrigin>::root(),
 //             netuid
 //         ));
-//         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
+//         assert_eq!(Subtensor::get_subnetwork_n(netuid), 0);
 //     });
 // }
 
@@ -156,11 +156,11 @@
 //         let netuid: u16 = 1;
 //         let tempo: u16 = 13;
 //         add_network(netuid, tempo, 0);
-//         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), 0);
-//         assert_eq!(SubtensorModule::get_emission_value(netuid), 0);
-//         assert_eq!(SubtensorModule::get_max_weight_limit(netuid), u16::MAX);
-//         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000);
-//         assert_eq!(SubtensorModule::get_immunity_period(netuid), 2);
+//         assert_eq!(Subtensor::get_min_allowed_weights(netuid), 0);
+//         assert_eq!(Subtensor::get_emission_value(netuid), 0);
+//         assert_eq!(Subtensor::get_max_weight_limit(netuid), u16::MAX);
+//         assert_eq!(Subtensor::get_difficulty_as_u64(netuid), 10000);
+//         assert_eq!(Subtensor::get_immunity_period(netuid), 2);
 //     });
 // }
 
@@ -170,7 +170,7 @@
 //     new_test_ext().execute_with(|| {
 //         let netuids: Vec<u16> = vec![1, 2];
 //         let emission: Vec<u64> = vec![100000000, 900000000];
-//         let call = RuntimeCall::SubtensorModule(SubtensorCall::sudo_set_emission_values {
+//         let call = RuntimeCall::Subtensor(SubtensorCall::sudo_set_emission_values {
 //             netuids,
 //             emission,
 //         });
@@ -192,7 +192,7 @@
 //         let emission: Vec<u64> = vec![100000000, 900000000];
 //         add_network(1, 0, 0);
 //         add_network(2, 0, 0);
-//         assert_ok!(SubtensorModule::sudo_set_emission_values(
+//         assert_ok!(Subtensor::sudo_set_emission_values(
 //             <<Test as Config>::RuntimeOrigin>::root(),
 //             netuids,
 //             emission
@@ -208,7 +208,7 @@
 //         add_network(1, 0, 0);
 //         add_network(2, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -225,7 +225,7 @@
 //         let emission: Vec<u64> = vec![100000000, 900000000];
 //         add_network(1, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -243,7 +243,7 @@
 //         add_network(1, 0, 0);
 //         add_network(3, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -258,7 +258,7 @@
 //     new_test_ext().execute_with(|| {
 //         let netuid: u16 = 1;
 //         assert_eq!(
-//             SubtensorModule::sudo_set_difficulty(
+//             Subtensor::sudo_set_difficulty(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuid,
 //                 120000
@@ -273,7 +273,7 @@
 //     new_test_ext().execute_with(|| {
 //         let netuid: u16 = 1;
 //         assert_eq!(
-//             SubtensorModule::sudo_set_difficulty(
+//             Subtensor::sudo_set_difficulty(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuid,
 //                 120000
@@ -295,7 +295,7 @@
 //         add_network(1, 0, 0);
 //         add_network(2, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -315,7 +315,7 @@
 //         add_network(1, 0, 0);
 //         add_network(2, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -337,7 +337,7 @@
 //         add_network(1, 0, 0);
 //         add_network(2, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -359,7 +359,7 @@
 //         add_network(1, 0, 0);
 //         add_network(2, 0, 0);
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -380,7 +380,7 @@
 //         add_network(2, 0, 0);
 //         // We only add 2 networks, so this should fail
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission
@@ -410,7 +410,7 @@
 //         // but if we cast to u16 during length comparison,
 //         // the length will be 2 and the check will pass
 //         assert_eq!(
-//             SubtensorModule::sudo_set_emission_values(
+//             Subtensor::sudo_set_emission_values(
 //                 <<Test as Config>::RuntimeOrigin>::root(),
 //                 netuids,
 //                 emission

@@ -20,7 +20,7 @@ fn test_replace_neuron() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             111111,
@@ -35,7 +35,7 @@ fn test_replace_neuron() {
         add_network(netuid, tempo, 0);
 
         // Register a neuron.
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -46,11 +46,11 @@ fn test_replace_neuron() {
         ));
 
         // Get UID
-        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
+        let neuron_uid = Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         assert_ok!(neuron_uid);
 
         // Replace the neuron.
-        SubtensorModule::replace_neuron(
+        Subtensor::replace_neuron(
             netuid,
             neuron_uid.unwrap(),
             &new_hotkey_account_id,
@@ -58,20 +58,20 @@ fn test_replace_neuron() {
         );
 
         // Check old hotkey is not registered on any network.
-        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
-        assert!(!SubtensorModule::is_hotkey_registered_on_any_network(
+        assert!(Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
+        assert!(!Subtensor::is_hotkey_registered_on_any_network(
             &hotkey_account_id
         ));
 
-        let curr_hotkey = SubtensorModule::get_hotkey_for_net_and_uid(netuid, neuron_uid.unwrap());
+        let curr_hotkey = Subtensor::get_hotkey_for_net_and_uid(netuid, neuron_uid.unwrap());
         assert_ok!(curr_hotkey);
         assert_ne!(curr_hotkey.unwrap(), hotkey_account_id);
 
         // Check new hotkey is registered on the network.
         assert!(
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &new_hotkey_account_id).is_ok()
+            Subtensor::get_uid_for_net_and_hotkey(netuid, &new_hotkey_account_id).is_ok()
         );
-        assert!(SubtensorModule::is_hotkey_registered_on_any_network(
+        assert!(Subtensor::is_hotkey_registered_on_any_network(
             &new_hotkey_account_id
         ));
         assert_eq!(curr_hotkey.unwrap(), new_hotkey_account_id);
@@ -88,13 +88,13 @@ fn test_replace_neuron_multiple_subnets() {
         let hotkey_account_id = U256::from(1);
         let new_hotkey_account_id = U256::from(2);
 
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             111111,
             &hotkey_account_id,
         );
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce1, work1): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid1,
             block_number,
             111111 * 5,
@@ -110,7 +110,7 @@ fn test_replace_neuron_multiple_subnets() {
         add_network(netuid1, tempo, 0);
 
         // Register a neuron on both networks.
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -119,7 +119,7 @@ fn test_replace_neuron_multiple_subnets() {
             hotkey_account_id,
             coldkey_account_id
         ));
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid1,
             block_number,
@@ -130,25 +130,25 @@ fn test_replace_neuron_multiple_subnets() {
         ));
 
         // Get UID
-        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
+        let neuron_uid = Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         assert_ok!(neuron_uid);
 
         // Verify neuron is registered on both networks.
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
+        assert!(Subtensor::is_hotkey_registered_on_network(
             netuid,
             &hotkey_account_id
         ));
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
+        assert!(Subtensor::is_hotkey_registered_on_network(
             netuid1,
             &hotkey_account_id
         ));
-        assert!(SubtensorModule::is_hotkey_registered_on_any_network(
+        assert!(Subtensor::is_hotkey_registered_on_any_network(
             &hotkey_account_id
         ));
 
         // Replace the neuron.
         // Only replace on ONE network.
-        SubtensorModule::replace_neuron(
+        Subtensor::replace_neuron(
             netuid,
             neuron_uid.unwrap(),
             &new_hotkey_account_id,
@@ -156,13 +156,13 @@ fn test_replace_neuron_multiple_subnets() {
         );
 
         // Check old hotkey is not registered on netuid network.
-        assert!(SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
+        assert!(Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id).is_err());
 
         // Verify still registered on netuid1 network.
-        assert!(SubtensorModule::is_hotkey_registered_on_any_network(
+        assert!(Subtensor::is_hotkey_registered_on_any_network(
             &hotkey_account_id
         ));
-        assert!(SubtensorModule::is_hotkey_registered_on_network(
+        assert!(Subtensor::is_hotkey_registered_on_network(
             netuid1,
             &hotkey_account_id
         ));
@@ -180,13 +180,13 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         let hotkey_account_id = U256::from(1);
         let new_hotkey_account_id = U256::from(2);
 
-        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid,
             block_number,
             111111,
             &hotkey_account_id,
         );
-        let (nonce1, work1): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        let (nonce1, work1): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
             netuid1,
             block_number,
             111111 * 5,
@@ -204,7 +204,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         add_network(netuid1, tempo, 0);
 
         // Register a neuron on both networks.
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid,
             block_number,
@@ -213,7 +213,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             hotkey_account_id,
             coldkey_account_id
         ));
-        assert_ok!(SubtensorModule::register(
+        assert_ok!(Subtensor::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
             netuid1,
             block_number,
@@ -224,21 +224,21 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         ));
 
         // Get UID
-        let neuron_uid = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
+        let neuron_uid = Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id);
         assert_ok!(neuron_uid);
 
         // Stake on neuron with multiple coldkeys.
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        Subtensor::increase_stake_on_coldkey_hotkey_account(
             &coldkey_account_id,
             &hotkey_account_id,
             stake_amount,
         );
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        Subtensor::increase_stake_on_coldkey_hotkey_account(
             &coldkey_account1_id,
             &hotkey_account_id,
             stake_amount + 1,
         );
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        Subtensor::increase_stake_on_coldkey_hotkey_account(
             &coldkey_account2_id,
             &hotkey_account_id,
             stake_amount + 2,
@@ -246,21 +246,21 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check stake on neuron
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
                 &hotkey_account_id
             ),
             stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
                 &hotkey_account_id
             ),
             stake_amount + 1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
                 &hotkey_account_id
             ),
@@ -269,12 +269,12 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check total stake on neuron
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            Subtensor::get_total_stake_for_hotkey(&hotkey_account_id),
             (stake_amount * 3) + (1 + 2)
         );
 
         // Replace the neuron.
-        SubtensorModule::replace_neuron(
+        Subtensor::replace_neuron(
             netuid,
             neuron_uid.unwrap(),
             &new_hotkey_account_id,
@@ -282,27 +282,27 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         );
 
         // The stakes should still be on the neuron. It is still registered on one network.
-        assert!(SubtensorModule::is_hotkey_registered_on_any_network(
+        assert!(Subtensor::is_hotkey_registered_on_any_network(
             &hotkey_account_id
         ));
 
         // Check the stake is still on the coldkey accounts.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
                 &hotkey_account_id
             ),
             stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
                 &hotkey_account_id
             ),
             stake_amount + 1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
                 &hotkey_account_id
             ),
@@ -311,12 +311,12 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check total stake on neuron
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            Subtensor::get_total_stake_for_hotkey(&hotkey_account_id),
             (stake_amount * 3) + (1 + 2)
         );
 
         // replace on second network
-        SubtensorModule::replace_neuron(
+        Subtensor::replace_neuron(
             netuid1,
             neuron_uid.unwrap(),
             &new_hotkey_account_id,
@@ -324,13 +324,13 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         );
 
         // The neuron should be unregistered now.
-        assert!(!SubtensorModule::is_hotkey_registered_on_any_network(
+        assert!(!Subtensor::is_hotkey_registered_on_any_network(
             &hotkey_account_id
         ));
 
         // Check the stake is now on the free balance of the coldkey accounts.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
                 &hotkey_account_id
             ),
@@ -339,7 +339,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(Balances::free_balance(&coldkey_account_id), stake_amount);
 
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
                 &hotkey_account_id
             ),
@@ -351,7 +351,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         );
 
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            Subtensor::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
                 &hotkey_account_id
             ),
@@ -364,7 +364,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check total stake on neuron
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            Subtensor::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
     });

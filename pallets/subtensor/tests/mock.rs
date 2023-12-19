@@ -1,4 +1,5 @@
-use frame_support::traits::{Hash, StorageMapShim};
+use frame_support::traits::{StorageMapShim};
+use sp_runtime::{traits::Hash, BuildStorage};
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
@@ -14,25 +15,16 @@ use sp_runtime::{
     DispatchResult,
 };
 
-use pallet_collective::MemberCount;
-
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+        Subtensor: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
     }
 );
@@ -76,7 +68,6 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ();
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
@@ -84,6 +75,11 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
+    type RuntimeHoldReason = ();
+    type RuntimeFreezeReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 impl system::Config for Test {
@@ -93,13 +89,10 @@ impl system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = U256;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -111,6 +104,9 @@ impl system::Config for Test {
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Nonce = u64;
+    type Block = Block;
+
 }
 
 parameter_types! {
@@ -120,7 +116,7 @@ parameter_types! {
     pub const InitialMaxWeightLimit: u16 = u16::MAX;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_ref_time(1024));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -165,163 +161,12 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
 }
 
-// Configure collective pallet for council
-parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 100;
-    pub const CouncilMaxProposals: u32 = 10;
-    pub const CouncilMaxMembers: u32 = 3;
-}
-
-// Configure collective pallet for Senate
-parameter_types! {
-    pub const SenateMaxMembers: u32 = 12;
-}
-
-use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
-    fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
-    }
-}
-
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
-    }
-}
-
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
-pub struct ManageSenateMembers;
-impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResult {
-        SenateMembers::add_member(RawOrigin::Root.into(), *account)
-    }
-
-    fn remove_member(account: &AccountId) -> DispatchResult {
-        SenateMembers::remove_member(RawOrigin::Root.into(), *account)
-    }
-
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
-        SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
-    }
-
-    fn is_member(account: &AccountId) -> bool {
-        Senate::is_member(account)
-    }
-
-    fn members() -> Vec<AccountId> {
-        Senate::members()
-    }
-
-    fn max_members() -> u32 {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct GetSenateMemberCount;
-impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-    fn get_count() -> MemberCount {
-        Senate::members().len() as u32
-    }
-}
-impl Get<MemberCount> for GetSenateMemberCount {
-    fn get() -> MemberCount {
-        SenateMaxMembers::get()
-    }
-}
-
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
-    }
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: u32,
-        approve: bool,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
-    }
-}
-
-// We call pallet_collective TriumvirateCollective
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = GetSenateMemberCount;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
-    type GetVotingMembers = GetSenateMemberCount;
-}
-
-// We call council members Triumvirate
-type TriumvirateMembership = pallet_membership::Instance1;
-impl pallet_membership::Config<TriumvirateMembership> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
-    type MaxMembers = CouncilMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
-// This is a dummy collective instance for managing senate members
-// Probably not the best solution, but fastest implementation
-type SenateCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<SenateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = SenateMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = ();
-    type CanVote = ();
-    type GetVotingMembers = ();
-}
-
-// We call our top K delegates membership Senate
-type SenateMembership = pallet_membership::Instance2;
-impl pallet_membership::Config<SenateMembership> for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AddOrigin = EnsureRoot<AccountId>;
-    type RemoveOrigin = EnsureRoot<AccountId>;
-    type SwapOrigin = EnsureRoot<AccountId>;
-    type ResetOrigin = EnsureRoot<AccountId>;
-    type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Senate;
-    type MembershipChanged = Senate;
-    type MaxMembers = SenateMaxMembers;
-    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
-    type SenateMembers = ManageSenateMembers;
-    type TriumvirateInterface = TriumvirateVotes;
 
     type InitialNetworkRegistrationAllowed = InitialNetworkRegistrationAllowed;
     type InitialRegistrationAllowed = InitialRegistrationAllowed;
@@ -381,20 +226,23 @@ impl pallet_utility::Config for Test {
 #[allow(dead_code)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
+    frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
         .unwrap()
         .into()
 }
 
+use frame_support::pallet_prelude::BuildGenesisConfig;
+
 #[allow(dead_code)]
 pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    let mut t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
+    let mut t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
         .unwrap();
 
-    pallet_balances::GenesisConfig::<Test> {
+    pallet_balances::GenesisConfig::<Test> 
+    {
         balances: balances
             .iter()
             .map(|(a, b)| (*a, *b as u64))
@@ -409,22 +257,22 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 #[allow(dead_code)]
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
-        SubtensorModule::on_finalize(System::block_number());
+        Subtensor::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        SubtensorModule::on_initialize(System::block_number());
+        Subtensor::on_initialize(System::block_number());
     }
 }
 
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
-        SubtensorModule::on_finalize(System::block_number());
+        Subtensor::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        SubtensorModule::on_initialize(System::block_number());
+        Subtensor::on_initialize(System::block_number());
     }
 }
 
@@ -435,14 +283,14 @@ pub fn register_ok_neuron(
     coldkey_account_id: U256,
     start_nonce: u64,
 ) {
-    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+    let block_number: u64 = Subtensor::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
         netuid,
         block_number,
         start_nonce,
         &hotkey_account_id,
     );
-    let result = SubtensorModule::register(
+    let result = Subtensor::register(
         <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
         netuid,
         block_number,
@@ -462,7 +310,7 @@ pub fn register_ok_neuron(
 
 #[allow(dead_code)]
 pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+    Subtensor::init_new_network(netuid, tempo);
+    Subtensor::set_network_registration_allowed(netuid, true);
+    Subtensor::set_network_pow_registration_allowed(netuid, true);
 }

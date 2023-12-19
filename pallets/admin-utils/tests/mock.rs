@@ -19,10 +19,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
 		System: frame_system,
         Balances: pallet_balances,
@@ -119,8 +116,6 @@ impl pallet_subtensor::Config for Test
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
-    type SenateMembers = ();
-    type TriumvirateInterface = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
