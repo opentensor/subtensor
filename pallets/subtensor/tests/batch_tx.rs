@@ -18,11 +18,11 @@ fn test_batch_txs() {
         assert_ok!(Utility::batch(
             <<Test as Config>::RuntimeOrigin>::signed(alice),
             vec![
-                RuntimeCall::Balances(BalanceCall::transfer {
+                RuntimeCall::Balances(BalanceCall::transfer_keep_alive {
                     dest: bob,
                     value: 1_000_000_000
                 }),
-                RuntimeCall::Balances(BalanceCall::transfer {
+                RuntimeCall::Balances(BalanceCall::transfer_keep_alive {
                     dest: charlie,
                     value: 1_000_000_000
                 })

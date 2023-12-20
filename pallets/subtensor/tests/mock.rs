@@ -8,7 +8,7 @@ use frame_support::{
 use frame_system as system;
 use frame_system::Config;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
-use sp_core::{Get, H256, U256};
+use sp_core::{Get, H256, U256, ConstU64};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -65,7 +65,7 @@ impl pallet_balances::Config for Test {
     type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
+    type ExistentialDeposit = ConstU64<1>;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test>,
         AccountId,
