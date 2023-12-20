@@ -62,7 +62,7 @@ A subnet validator $i$ bonds with server $j$, where the instant bond value is th
 $$\Delta B_{ij} = S_i \cdot \widetilde{W_{ij}} \left/ \left( \sum_k S_k \cdot \widetilde{W_{kj}} \right) \right.\tag{5}$$
 Validators can speculate on server utility by discovering and bonding to promising new servers, but to reward such exploration we use an exponential moving average (EMA) bond over time.
 Instant bond $\Delta B_{ij}$ at current timestep becomes an EMA observation.
-We sum typical $\alpha=10\%$ of the instant bond with remaining $90\%$ of previous EMA bond, to bond over time and reward early discovery while preventing abrupt changes and its exploitation potential.
+We sum typical $\alpha=10$% of the instant bond with remaining $90$% of previous EMA bond, to bond over time and reward early discovery while preventing abrupt changes and its exploitation potential.
 $$B_{ij}^{(t)} = \alpha\cdot\Delta B_{ij} + (1-\alpha)\cdot B_{ij}^{(t-1)}\tag{6}$$
 
 
