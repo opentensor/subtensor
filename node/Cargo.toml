@@ -47,6 +47,7 @@ sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/sub
 sp-keyring = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+pallet-commitments = {path="../pallets/commitments"}
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
