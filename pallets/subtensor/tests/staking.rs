@@ -47,7 +47,7 @@ fn test_add_stake_ok_no_emission() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Give it some $$$ in his coldkey balance
-        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, 10000 + 1);
 
         // Check we have zero staked before transfer
         assert_eq!(
@@ -72,7 +72,7 @@ fn test_add_stake_ok_no_emission() {
         );
 
         // Check if balance has  decreased
-        assert_eq!(Subtensor::get_coldkey_balance(&coldkey_account_id), 0);
+        assert_eq!(Subtensor::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
         assert_eq!(Subtensor::get_total_stake(), 10000);
@@ -837,7 +837,7 @@ fn test_add_balance_to_coldkey_account_ok() {
 fn test_remove_balance_from_coldkey_account_ok() {
     new_test_ext().execute_with(|| {
         let coldkey_account_id = U256::from(434324); // Random
-        let ammount = 10000; // Arbitrary
+        let ammount = 10000 + 1; // Arbitrary
                              // Put some $$ on the bank
         Subtensor::add_balance_to_coldkey_account(&coldkey_account_id, ammount);
         assert_eq!(
@@ -846,7 +846,7 @@ fn test_remove_balance_from_coldkey_account_ok() {
         );
         // Should be able to withdraw without hassle
         let result =
-            Subtensor::remove_balance_from_coldkey_account(&coldkey_account_id, ammount);
+            Subtensor::remove_balance_from_coldkey_account(&coldkey_account_id, ammount - 1);
         assert_eq!(result, true);
     });
 }

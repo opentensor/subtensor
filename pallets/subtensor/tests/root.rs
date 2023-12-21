@@ -98,7 +98,7 @@ fn test_root_register_stake_based_pruning_works() {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
             // Add balance
-            Subtensor::add_balance_to_coldkey_account(&cold, 1000 + (i as u64));
+            Subtensor::add_balance_to_coldkey_account(&cold, 1_000_000_000_000 + (i as u64) + 1);
             // Register
             assert_ok!(Subtensor::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
@@ -109,7 +109,7 @@ fn test_root_register_stake_based_pruning_works() {
             assert_ok!(Subtensor::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
-                1000 + (i as u64)
+                1_000_000_000_000 + (i as u64)
             ));
             // Check succesfull registration.
             assert!(Subtensor::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());

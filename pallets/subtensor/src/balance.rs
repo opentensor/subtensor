@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T>
             ExistenceRequirement::KeepAlive,
         ) {
             Ok(_result) => true,
-            Err(_error) => false,
+            Err(_error) => { log::info!("{:?}", _error); false },
         };
     }
 }
