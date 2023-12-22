@@ -87,6 +87,7 @@ fn test_root_register_stake_based_pruning_works() {
 
         // Set params to allow all registrations to subnet.
         Subtensor::set_burn(other_netuid, 0);
+        Subtensor::set_max_allowed_uids(1, 128);
         Subtensor::set_max_registrations_per_block(other_netuid, 256);
         Subtensor::set_target_registrations_per_interval(other_netuid, 256);
 
