@@ -4,6 +4,8 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_core::crypto::Ss58Codec;
+use std::env;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -103,7 +105,122 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	.build())
 }
 
-/// Configure initial storage state for FRAME modules.
+pub fn localnet_config() -> Result<ChainSpec, String> {
+	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+
+	// Give front-ends necessary data to present to users
+	let mut properties = sc_service::Properties::new();
+	properties.insert("tokenSymbol".into(), "TAO".into());
+	properties.insert("tokenDecimals".into(), 9.into());
+	properties.insert("ss58Format".into(), 13116.into());
+
+	Ok(ChainSpec::from_genesis(
+		// Name
+		"Bittensor",
+		// ID
+		"bittensor",
+		ChainType::Development,
+		move || {
+			localnet_genesis(
+				wasm_binary,
+				// Initial PoA authorities (Validators)
+				// aura | grandpa
+				vec![
+					// Keys for debug
+					authority_keys_from_seed("Alice"), 
+					authority_keys_from_seed("Bob"),
+				], 
+				// Pre-funded accounts
+				true,
+			)
+		},
+		// Bootnodes
+		vec![],
+		// Telemetry
+		None,
+		// Protocol ID
+		Some("bittensor"),
+		None,
+		// Properties
+		Some(properties),
+		// Extensions
+		None,
+	))
+}
+
+use
+{
+	frame_system::
+	{
+		GenesisConfig
+	},
+	node_subtensor_runtime::
+	{
+		SystemConfig,
+		BalancesConfig,
+		GrandpaConfig,
+		SudoConfig,
+		AuraConfig
+	}
+};
+
+fn localnet_genesis(
+    wasm_binary: &[u8],
+    initial_authorities: Vec<(AuraId, GrandpaId)>,
+    _enable_println: bool,
+) -> serde_json::Value {
+    let mut balances = vec![
+        (get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
+    ];
+
+    // Check if the environment variable is set
+    if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
+        if let Ok(decoded_wallet) = Ss58Codec::from_ss58check(&bt_wallet) {
+            balances.push((decoded_wallet, 1_000_000_000_000_000));
+        } else {
+            eprintln!("Invalid format for BT_DEFAULT_TOKEN_WALLET.");
+        }
+    }
+
+	serde_json::json!({
+		"balances": 
+		{
+			"balances":
+			{
+				
+			}
+		}
+	})
+
+    GenesisConfig {
+        system: SystemConfig {
+            // Add Wasm runtime to storage.
+            code: wasm_binary.to_vec(),
+        },
+        balances: BalancesConfig {
+            balances,
+        },
+        aura: AuraConfig {
+            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+        },
+        grandpa: GrandpaConfig {
+            authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+        },
+        sudo: SudoConfig {
+            key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+        },
+        transaction_payment: Default::default(),
+        subtensor_module: Default::default()
+    }
+}
+
+
+// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
 	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,

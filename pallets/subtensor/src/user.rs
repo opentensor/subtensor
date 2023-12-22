@@ -27,7 +27,7 @@ impl<T: Config> Pallet<T>
             let last_lock_block:    u64 = Self::get_network_last_lock_block();
 
             ensure!(
-                current_block - last_lock_block >= Self::get_network_rate_limit(), 
+                current_block.saturating_sub(last_lock_block) >= Self::get_network_rate_limit(),
                 Error::<T>::TxRateLimitExceeded
             );
         }
