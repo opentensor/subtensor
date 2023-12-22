@@ -99,7 +99,7 @@ parameter_types! {
     pub const InitialMinDifficulty: u64 = 1;
     pub const InitialMaxDifficulty: u64 = u64::MAX;
     pub const InitialRAORecycledForRegistration: u64 = 0;
-    pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
+    pub const InitialSenateRequiredStakePercentage: u64 = 0; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
     pub const InitialNetworkMinAllowedUids: u16 = 128;
     pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;

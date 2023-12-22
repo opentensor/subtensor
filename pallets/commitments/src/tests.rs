@@ -49,9 +49,9 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ();
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
-        AccountId,
         pallet_balances::AccountData<Balance>,
+        AccountId,
+        
     >;
     type MaxLocks = ();
     type WeightInfo = ();
