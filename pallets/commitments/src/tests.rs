@@ -46,20 +46,26 @@ impl pallet_balances::Config for Test {
     type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
+    type ExistentialDeposit = ConstU64<1>;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test>,
-        pallet_balances::AccountData<Balance>,
         AccountId,
-        
+        pallet_balances::AccountData<Balance>,
     >;
     type MaxLocks = ();
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
+	type RuntimeHoldReason = ();
+	type RuntimeFreezeReason = ();
+	type FreezeIdentifier = ();
+	type MaxHolds = ();
+	type MaxFreezes = ();
 }
 
 impl frame_system::Config for Test {
+	type Nonce = u64;
+	type Block = frame_system::mocking::MockBlock<Test>;
 	type BaseCallFilter = frame_support::traits::Everything;
 	type BlockWeights = ();
 	type BlockLength = ();
@@ -80,9 +86,6 @@ impl frame_system::Config for Test {
 	type SystemWeightInfo = ();
 	type SS58Prefix = ConstU16<42>;
 	type OnSetCode = ();
-    type Index = u32;
-    type BlockNumber = u64;
-    type Header = sp_runtime::generic::Header<Self::BlockNumber, BlakeTwo256>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
@@ -98,6 +101,11 @@ impl pallet_commitments::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+pub fn new_test_ext() -> sp_io::TestExternalities 
+{
+	sp_tracing::try_init_simple();
+    frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap()
+        .into()
 }

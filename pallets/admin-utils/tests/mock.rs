@@ -3,7 +3,7 @@ use frame_support::{
     traits::{Everything, StorageMapShim, Hooks},
     weights
 };
-use sp_core::H256;
+use sp_core::{H256, ConstU64};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, ConstU32},
     testing::Header,
@@ -64,7 +64,7 @@ parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_ref_time(1024));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -107,6 +107,9 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
+    pub const InitialMaxWeightLimit: u16 = u16::MAX;
+    pub const InitialNetworkRegistrationAllowed: bool = true;
+    pub const InitialRegistrationAllowed: bool = false;
 }
 
 impl pallet_subtensor::Config for Test 
@@ -154,22 +157,24 @@ impl pallet_subtensor::Config for Test
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
+    type InitialMaxWeightLimit = InitialMaxWeightLimit;
+    type InitialNetworkRegistrationAllowed = InitialNetworkRegistrationAllowed;
+    type InitialRegistrationAllowed = InitialRegistrationAllowed;
 }
 
 impl system::Config for Test {
+    type Nonce = u64;
+    type Block = Block;
     type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = U256;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -187,10 +192,9 @@ impl pallet_balances::Config for Test {
     type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
+    type ExistentialDeposit = ConstU64<1>;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
@@ -198,6 +202,11 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
+    type RuntimeHoldReason = ();
+    type RuntimeFreezeReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 pub struct SubtensorIntrf;
