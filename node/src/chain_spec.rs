@@ -114,39 +114,27 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
 	properties.insert("tokenDecimals".into(), 9.into());
 	properties.insert("ss58Format".into(), 13116.into());
 
-	Ok(ChainSpec::from_genesis(
-		// Name
-		"Bittensor",
-		// ID
-		"bittensor",
-		ChainType::Development,
-		move || {
-			localnet_genesis(
-				wasm_binary,
-				// Initial PoA authorities (Validators)
-				// aura | grandpa
-				vec![
-					// Keys for debug
-					authority_keys_from_seed("Alice"), 
-					authority_keys_from_seed("Bob"),
-				], 
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				true
-			)
-		},
-		// Bootnodes
-		vec![],
-		// Telemetry
+	Ok(ChainSpec::builder(
+		WASM_BINARY.ok_or_else(|| "Production wasm not available".to_string())?,
 		None,
-		// Protocol ID
-		Some("bittensor"),
-		None,
-		// Properties
-		Some(properties),
-		// Extensions
-		None,
-		wasm_binary
+	)
+	.with_name("Finney Mainnet")
+	.with_id("finney")
+	.with_chain_type(ChainType::Live)
+	.with_properties(properties)
+	.with_genesis_config_patch(localnet_genesis(
+		wasm_binary,
+		// Initial PoA authorities (Validators)
+		// aura | grandpa
+		vec![
+			// Keys for debug
+			authority_keys_from_seed("Alice"), 
+			authority_keys_from_seed("Bob"),
+		], 
+		get_account_id_from_seed::<sr25519::Public>("Alice"),
+		true
 	))
+	.build())
 }
 
 fn localnet_genesis(
@@ -155,7 +143,7 @@ fn localnet_genesis(
 	root_key: AccountId,
     _enable_println: bool,
 ) -> serde_json::Value {
-    let mut balances = vec![
+    let mut balances: Vec<(AccountId, u64)> = vec![
         (get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
         (get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
         (get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
@@ -189,28 +177,6 @@ fn localnet_genesis(
 			"key": Some(root_key),
 		},
 	})
-
-	/*
-    GenesisConfig {
-        system: SystemConfig {
-            // Add Wasm runtime to storage.
-            code: wasm_binary.to_vec(),
-        },
-        balances: BalancesConfig {
-            balances,
-        },
-        aura: AuraConfig {
-            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-        },
-        grandpa: GrandpaConfig {
-            authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
-        },
-        sudo: SudoConfig {
-            key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-        },
-        transaction_payment: Default::default(),
-        subtensor_module: Default::default()
-    }*/
 }
 
 
