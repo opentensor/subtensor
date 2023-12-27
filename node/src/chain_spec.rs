@@ -130,8 +130,8 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
 					authority_keys_from_seed("Alice"), 
 					authority_keys_from_seed("Bob"),
 				], 
-				// Pre-funded accounts
-				true,
+				get_account_id_from_seed::<sr25519::Public>("Alice"),
+				true
 			)
 		},
 		// Bootnodes
@@ -145,28 +145,14 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
 		Some(properties),
 		// Extensions
 		None,
+		wasm_binary
 	))
 }
-
-use
-{
-	frame_system::
-	{
-		GenesisConfig
-	},
-	node_subtensor_runtime::
-	{
-		SystemConfig,
-		BalancesConfig,
-		GrandpaConfig,
-		SudoConfig,
-		AuraConfig
-	}
-};
 
 fn localnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
+	root_key: AccountId,
     _enable_println: bool,
 ) -> serde_json::Value {
     let mut balances = vec![
@@ -190,13 +176,21 @@ fn localnet_genesis(
 	serde_json::json!({
 		"balances": 
 		{
-			"balances":
-			{
-				
-			}
-		}
+			"balances": balances.iter().collect::<Vec<_>>(),
+		},
+		"aura": {
+			"authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
+		},
+		"grandpa": {
+			"authorities": initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
+		},
+		"sudo": {
+			// Assign network admin rights.
+			"key": Some(root_key),
+		},
 	})
 
+	/*
     GenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
@@ -216,7 +210,7 @@ fn localnet_genesis(
         },
         transaction_payment: Default::default(),
         subtensor_module: Default::default()
-    }
+    }*/
 }
 
 
