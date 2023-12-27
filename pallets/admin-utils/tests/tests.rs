@@ -651,6 +651,8 @@ fn test_sudo_set_max_allowed_validators() {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
         add_network(netuid, 10, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, to_be_set);
+        
         let init_value: u16 = SubtensorModule::get_max_allowed_validators(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(

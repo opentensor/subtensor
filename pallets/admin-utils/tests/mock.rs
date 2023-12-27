@@ -494,12 +494,14 @@ impl pallet_admin_utils::Config for Test {
     type WeightInfo = /*pallet_admin_utils::weights::SubstrateWeight<Test>*/();
 }
 
+use sp_runtime::BuildStorage;
+
 #[allow(dead_code)]
 pub fn new_test_ext() -> sp_io::TestExternalities 
 {
     sp_tracing::try_init_simple();
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
+    <frame_system::GenesisConfig<Test> as BuildStorage>::
+        build_storage(&frame_system::GenesisConfig::<Test>::default())
         .unwrap()
         .into()
 }

@@ -626,6 +626,7 @@ fn test_check_length_to_few_weights() {
         add_network(netuid, 1, 0);
         Subtensor::set_target_registrations_per_interval(netuid, 100);
         Subtensor::set_max_registrations_per_block(netuid, 100);
+        Subtensor::set_max_allowed_uids(netuid, min_allowed_weights);
         // register morw than min allowed
         register_ok_neuron(1, U256::from(1), U256::from(1), 300_000);
         register_ok_neuron(1, U256::from(2), U256::from(2), 300_001);
@@ -638,6 +639,8 @@ fn test_check_length_to_few_weights() {
 
         let uids: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
         let weights: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
+        log::info!("uids len: {:?} weights len: {:?} max uids: {:?}", uids.len(), weights.len(), Subtensor::get_max_allowed_uids(netuid));
+
         let uid: u16 = uids[0].clone();
 
         let expected = false;
