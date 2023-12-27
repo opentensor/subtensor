@@ -403,7 +403,7 @@ impl<T: Config> Pallet<T>
         );
 
         let stake = Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement);
-        if (stake == 0) 
+        if stake == 0 
         {
             Stake::<T>::remove(hotkey, coldkey);
         }
