@@ -79,7 +79,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
 
     // Set the root network as added.
     NetworksAdded::<T>::insert(root_netuid, true);
-    
+
     // Increment the number of total networks.
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
@@ -125,7 +125,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 3 {:?}", onchain_version);
-        
+
         let netuid = 3;
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
@@ -209,7 +209,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(21) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 21 {:?}", onchain_version);
-        
+
         let netuid = 21;
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
@@ -409,6 +409,66 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
         weight
     } else {
         info!(target: LOG_TARGET_1, "Migration to v2 already done!");
+        Weight::zero()
+    }
+}
+
+const LOG_TARGET_STAKE: &str = "removezerostakevalues";
+
+pub fn migration_remove_zero_stake_values<T: Config>() -> Weight {
+    let new_storage_version = 6;
+
+    // Check storage version
+    let mut weight = T::DbWeight::get().reads(1);
+
+    // Grab current version
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+    // Only runs if we haven't already updated version past above new_storage_version.
+    if onchain_version < new_storage_version {
+        info!(target: LOG_TARGET_STAKE, ">>> Removing zero values for stake-related mappings {:?}", onchain_version);
+
+        // We iterate over TotalColdkeyStake and remove any zero amounts
+        let total_coldkey_stake = TotalColdkeyStake::<T>::iter().collect::<Vec<_>>();
+        for (coldkey, amount) in total_coldkey_stake {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            if amount == 0 {
+                TotalColdkeyStake::<T>::remove(coldkey);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+        }
+
+        // We iterate over TotalHotkeyStake and remove any zero amounts
+        let total_hotkey_stake = TotalHotkeyStake::<T>::iter().collect::<Vec<_>>();
+        for (hotkey, amount) in total_hotkey_stake {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            if amount == 0 {
+                TotalHotkeyStake::<T>::remove(hotkey);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+        }
+
+        // We iterate over Stake and remove any zero amounts
+        let stake = Stake::<T>::iter().collect::<Vec<_>>();
+        for (hotkey, coldkey, amount) in stake {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            if amount == 0 {
+                Stake::<T>::remove(hotkey, coldkey);
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+        }
+
+        // Update storage version.
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
+                                                                     // One write to storage version
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_STAKE, "Migration to v6 already done!");
         Weight::zero()
     }
 }
