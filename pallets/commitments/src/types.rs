@@ -15,19 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use codec::{Decode, Encode, MaxEncodedLen, Codec};
-use enumflags2::{bitflags, BitFlags};
 use frame_support::{
 	traits::{ConstU32, Get},
 	BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::{
-	build::{Fields, Variants},
-	meta_type, Path, Type, TypeInfo, TypeParameter,
+	build::{Fields, Variants}, Path, Type, TypeInfo,
 };
-use sp_runtime::{traits::{Zero, AppendZerosInput, Block, AtLeast32BitUnsigned}, RuntimeDebug};
-use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+use sp_runtime::{traits::{AppendZerosInput, AtLeast32BitUnsigned}, RuntimeDebug};
+use sp_std::{fmt::Debug, iter::once, prelude::*};
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -307,17 +304,6 @@ pub struct Registration<
 
 	/// Information on the identity.
 	pub info: CommitmentInfo<MaxFields>,
-}
-
-impl<
-		Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
-		MaxFields: Get<u32>,
-		Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug
-	> Registration<Balance, MaxFields, Block>
-{
-	pub(crate) fn total_deposit(&self) -> Balance {
-		self.deposit
-	}
 }
 
 impl<

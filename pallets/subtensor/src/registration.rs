@@ -4,17 +4,6 @@ use
     {
         *
     },
-    crate::
-    {
-        pallet::
-        {
-            *
-        }
-    },
-    system::
-    {
-        ensure_root
-    },
     frame_system::
     {
         ensure_signed,
@@ -29,10 +18,6 @@ use
         {
             DispatchResult,
             DispatchResultWithPostInfo
-        },
-        weights::
-        {
-            WeightToFee
         },
         storage::
         {

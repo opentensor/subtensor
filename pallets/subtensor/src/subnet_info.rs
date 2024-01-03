@@ -18,7 +18,6 @@ use
     },
     sp_std::
     {
-        vec,
         vec::
         {
             Vec
@@ -170,7 +169,7 @@ impl<T: Config> Pallet<T>
 
         let rho:                        u16     = Self::get_rho(netuid);
         let kappa:                      u16     = Self::get_kappa(netuid);
-        let difficulty:                 u64     = Self::get_difficulty_as_u64(netuid);
+        let _difficulty:                 u64     = Self::get_difficulty_as_u64(netuid);
         let immunity_period:            u16     = Self::get_immunity_period(netuid);
         let min_allowed_weights:        u16     = Self::get_min_allowed_weights(netuid);
         let max_weights_limit:          u16     = Self::get_max_weight_limit(netuid);

@@ -18,7 +18,6 @@ use
         dispatch::
         {
             DispatchInfo,
-            DispatchResult,
             PostDispatchInfo
         },
         ensure,
@@ -42,11 +41,6 @@ use
     },
     sp_std::
     {
-        vec,
-        vec::
-        {
-            Vec
-        },
         marker::
         {
             PhantomData
@@ -63,7 +57,6 @@ use
     },
     sp_runtime::
     {
-        DispatchError,
         traits::
         {
             DispatchInfoOf,
@@ -118,10 +111,6 @@ pub mod pallet
 
     use
     {
-        sp_core::
-        {
-            paste
-        },
         sp_std::
         {
             vec,

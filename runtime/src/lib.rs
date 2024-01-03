@@ -10,11 +10,11 @@ use codec::Encode;
 
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
-    fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
+    AuthorityId as GrandpaId,
 };
 
-use frame_support::pallet_prelude::{DispatchResult, DispatchError};
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
+use frame_support::pallet_prelude::{DispatchError};
+use frame_system::{EnsureNever};
 
 //use pallet_registry::CanRegisterIdentity;
 use sp_api::impl_runtime_apis;

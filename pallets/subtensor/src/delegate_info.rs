@@ -6,7 +6,6 @@ use
     },
     sp_std::
     {
-        vec,
         vec::
         {
             Vec

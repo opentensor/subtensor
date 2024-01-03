@@ -1,5 +1,4 @@
 use super::*;
-use sp_std::vec;
 use sp_std::vec::Vec;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},

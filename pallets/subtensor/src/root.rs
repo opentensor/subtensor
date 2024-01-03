@@ -27,31 +27,13 @@ use
         {
             *
         },
-        pallet::
-        {
-            *
-        }
     },
     frame_support::
     {
-        dispatch::
-        {
-            DispatchResultWithPostInfo,
-            Pays
-        },
         storage::
         {
             IterableStorageDoubleMap,
-            IterableStorageMap
         },
-        traits::
-        {
-            Get
-        },
-        weights::
-        {
-            Weight
-        }
     },
     sp_std::
     {
@@ -65,7 +47,6 @@ use
     {
         types::
         {
-            I32F32,
             I64F64
         }
     }

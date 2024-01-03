@@ -22,7 +22,6 @@ use
     },
     frame_support::
     {
-        IterableStorageMap,
         IterableStorageDoubleMap,
         pallet_prelude::
         {

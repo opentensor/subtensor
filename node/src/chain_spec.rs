@@ -105,43 +105,12 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	.build())
 }
 
-pub fn localnet_config() -> Result<ChainSpec, String> {
-	let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
-
-	// Give front-ends necessary data to present to users
-	let mut properties = sc_service::Properties::new();
-	properties.insert("tokenSymbol".into(), "TAO".into());
-	properties.insert("tokenDecimals".into(), 9.into());
-	properties.insert("ss58Format".into(), 13116.into());
-
-	Ok(ChainSpec::builder(
-		WASM_BINARY.ok_or_else(|| "Production wasm not available".to_string())?,
-		None,
-	)
-	.with_name("Finney Mainnet")
-	.with_id("finney")
-	.with_chain_type(ChainType::Live)
-	.with_properties(properties)
-	.with_genesis_config_patch(localnet_genesis(
-		wasm_binary,
-		// Initial PoA authorities (Validators)
-		// aura | grandpa
-		vec![
-			// Keys for debug
-			authority_keys_from_seed("Alice"), 
-			authority_keys_from_seed("Bob"),
-		], 
-		get_account_id_from_seed::<sr25519::Public>("Alice"),
-		true
-	))
-	.build())
-}
-
-fn localnet_genesis(
-    wasm_binary: &[u8],
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
+// Configure initial storage state for FRAME modules.
+fn testnet_genesis(
+	initial_authorities: Vec<(AuraId, GrandpaId)>,
 	root_key: AccountId,
-    _enable_println: bool,
+	_endowed_accounts: Vec<AccountId>,
+	_enable_println: bool,
 ) -> serde_json::Value {
     let mut balances: Vec<(AccountId, u64)> = vec![
         (get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
@@ -165,32 +134,6 @@ fn localnet_genesis(
 		"balances": 
 		{
 			"balances": balances.iter().collect::<Vec<_>>(),
-		},
-		"aura": {
-			"authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
-		},
-		"grandpa": {
-			"authorities": initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
-		},
-		"sudo": {
-			// Assign network admin rights.
-			"key": Some(root_key),
-		},
-	})
-}
-
-
-// Configure initial storage state for FRAME modules.
-fn testnet_genesis(
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	root_key: AccountId,
-	endowed_accounts: Vec<AccountId>,
-	_enable_println: bool,
-) -> serde_json::Value {
-	serde_json::json!({
-		"balances": {
-			// Configure endowed accounts with initial balance of 1 << 60.
-			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
 		"aura": {
 			"authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
