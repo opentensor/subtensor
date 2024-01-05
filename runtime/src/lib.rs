@@ -799,9 +799,9 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_subtensor, Subtensor]
         [pallet_timestamp, Timestamp]
-        [pallet_registry, Registry]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
+        [pallet_subtensor, Subtensor]
     );
 }
 

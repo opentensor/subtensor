@@ -7,6 +7,7 @@ use crate::Pallet as Commitments;
 use frame_benchmarking::v2::*;
 use frame_benchmarking::v1::account;
 use frame_system::RawOrigin;
+use sp_std::vec;
 
 use sp_runtime::traits::{StaticLookup, Bounded};
 use frame_support::traits::Get;

@@ -8,6 +8,7 @@ use frame_benchmarking::v2::*;
 use frame_benchmarking::v1::account;
 use frame_system::RawOrigin;
 use frame_support::BoundedVec;
+use scale_info::prelude::vec;
 
 #[benchmarks]
 mod benchmarks {
