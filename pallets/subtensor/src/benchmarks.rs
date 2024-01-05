@@ -71,6 +71,175 @@ mod benchmark
     }*/
 
     #[benchmark]
+    fn set_weights()
+    {
+        Subtensor::<T>::init_new_network(1, 1);
+        Subtensor::<T>::set_max_allowed_uids(1, 4096);
+        Subtensor::<T>::set_network_registration_allowed(1, true);
+        Subtensor::<T>::set_max_registrations_per_block(1, 4096);
+        Subtensor::<T>::set_target_registrations_per_interval(1, 4096);
+
+        let mut seed:     u32           = 1;
+        let mut dests:    Vec<u16>      = vec![];
+        let mut weights:  Vec<u16>      = vec![];
+        let signer:       T::AccountId  = account("Alice", 0, seed);
+
+        for id in 0..4096 as u16 
+        {
+            let hotkey:   T::AccountId = account("Alice", 0, seed);
+            let coldkey:  T::AccountId = account("Test", 0, seed);
+            seed = seed + 1;
+
+            Subtensor::<T>::set_burn(1, 1);
+            Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(1_000_000).unwrap());
+
+            assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), 1, hotkey.clone()));
+
+            let uid = Subtensor::<T>::get_uid_for_net_and_hotkey(1, &hotkey.clone()).unwrap();
+            Subtensor::<T>::set_validator_permit_for_uid(1, uid.clone(), true);
+
+            dests.push(id.clone());
+            weights.push(id.clone());
+        }
+
+        #[extrinsic_call  ]
+        _(RawOrigin::Signed(signer.clone()), 1, dests, weights, 1);
+    }
+
+    #[benchmark]
+    fn become_delegate()
+    {
+        let caller:         T::AccountId  = whitelisted_caller::<AccountIdOf<T>>();
+        let caller_origin                 = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+    
+        Subtensor::<T>::init_new_network(1, 1);
+        Subtensor::<T>::set_burn(1, 1);
+        Subtensor::<T>::set_max_allowed_uids(1, 4096);
+    
+        Subtensor::<T>::set_network_registration_allowed(1, true);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
+    
+        let coldkey:  T::AccountId = account("Test", 0, 1);
+        let hotkey:   T::AccountId = account("Alice", 0, 1);
+    
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(1_000_000_000).unwrap());
+        assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), 1, hotkey.clone()));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone());
+    }
+
+    #[benchmark]
+    fn add_stake()
+    {
+        let caller:       T::AccountId  = whitelisted_caller::<AccountIdOf<T>>();
+        let caller_origin               = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+
+        Subtensor::<T>::init_new_network(1, 1);
+    
+        Subtensor::<T>::set_burn(1, 1);
+        Subtensor::<T>::set_network_registration_allowed(1, true);
+    
+        Subtensor::<T>::set_max_allowed_uids(1, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
+    
+        let coldkey:  T::AccountId = account("Test", 0, 1);
+        let hotkey:   T::AccountId = account("Alice", 0, 1);
+    
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(1_000_000_000).unwrap());
+        assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), 1, hotkey.clone()));
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hotkey, 1);
+    }
+
+    #[benchmark]
+    fn serve_axon()
+    {
+        Subtensor::<T>::init_new_network(1, 1);
+        Subtensor::<T>::set_serving_rate_limit(1, 0);
+        Subtensor::<T>::set_max_allowed_uids(1, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
+
+        let caller:         T::AccountId    = whitelisted_caller::<AccountIdOf<T>>();
+        let caller_origin                   = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+
+        Subtensor::<T>::set_burn(1, 1);
+        Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), Subtensor::<T>::u64_to_balance(1_000_000).unwrap());
+        assert_ok!(Subtensor::<T>::do_burned_registration(caller_origin.clone(), 1, caller.clone()));
+        
+        let version:        u32             = 2;
+        let ip:             u128            = 1676056785;
+        let port:           u16             = 128;
+        let ip_type:        u8              = 4;
+        let protocol:       u8              = 0;
+        let placeholder1:   u8              = 0;
+        let placeholder2:   u8              = 0;
+
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), 1, version, ip, port, ip_type, protocol, placeholder1, placeholder2);
+    }
+
+    #[benchmark]
+    fn remove_stake()
+    {
+        let caller:       T::AccountId  = whitelisted_caller::<AccountIdOf<T>>();
+        let caller_origin               = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+
+        // Set our total stake to 1000 TAO
+	      Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+
+	      Subtensor::<T>::init_new_network(1, 1);
+	      Subtensor::<T>::set_network_registration_allowed(1, true);
+        Subtensor::<T>::set_burn(1, 1);
+	      Subtensor::<T>::set_max_allowed_uids(1, 4096 );
+  	    assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
+
+	      let coldkey:  T::AccountId  = account("Test", 0, 1);
+	      let hotkey:   T::AccountId  = account("Alice", 0, 1);
+	      let wallet_bal              = Subtensor::<T>::u64_to_balance(1_000_000).unwrap();
+  	    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
+
+	      assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), 1, hotkey.clone()));
+	      assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
+
+	      // Stake 10% of our current total staked TAO
+	      let u64_staked_amt = 100_000_000_000;
+	      let amount_to_be_staked = Subtensor::<T>::u64_to_balance(u64_staked_amt);
+	      Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked.unwrap());
+
+	      assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
+	      let amount_unstaked: u64 = u64_staked_amt - 1;
+    
+        #[extrinsic_call]
+        _(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), amount_unstaked);
+    }
+
+    #[benchmark]
+    fn serve_prometheus()
+    {
+        Subtensor::<T>::init_new_network(1, 1);
+        Subtensor::<T>::set_max_allowed_uids(1, 4096);
+        assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
+
+        let caller:         T::AccountId    = whitelisted_caller::<AccountIdOf<T>>();
+        let caller_origin                   = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
+
+        Subtensor::<T>::set_burn(1, 1);
+        Subtensor::<T>::add_balance_to_coldkey_account(&caller.clone(), Subtensor::<T>::u64_to_balance(1_000_000).unwrap());
+        assert_ok!(Subtensor::<T>::do_burned_registration(caller_origin.clone(), 1, caller.clone()));
+        Subtensor::<T>::set_serving_rate_limit(1, 0);
+
+        let version:    u32     = 2;
+        let ip:         u128    = 1676056785;
+        let port:       u16     = 128;
+        let ip_type:    u8      = 4;
+    
+        #[extrinsic_call]
+        _(RawOrigin::Signed(caller.clone()), 1, version, ip, port, ip_type);
+    }
+
+    #[benchmark]
     fn burned_register()
     {
         Subtensor::<T>::init_new_network(1, 1);
@@ -148,9 +317,9 @@ mod benchmark
         Subtensor::<T>::set_max_registrations_per_block(1, 256);
 
         let seed:       u32             = 1;
-	    let coldkey:    T::AccountId    = account("Alice", 0, seed);
-	    let old_hotkey: T::AccountId    = account("Bob", 0, seed);
-	    let new_hotkey: T::AccountId    = account("Charlie", 0, seed);
+	      let coldkey:    T::AccountId    = account("Alice", 0, seed);
+	      let old_hotkey: T::AccountId    = account("Bob", 0, seed);
+	      let new_hotkey: T::AccountId    = account("Charlie", 0, seed);
 
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(10_000_000_000).unwrap());
         assert_ok!(
