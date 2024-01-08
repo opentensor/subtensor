@@ -103,6 +103,7 @@ pub mod delegate_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
+pub mod extrinsic_weights;
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 pub mod migration;
@@ -159,6 +160,13 @@ pub mod pallet
             {
                 TrailingZeroInput
             }
+        },
+        crate::
+        {
+            extrinsic_weights::
+            {
+                WeightInfo
+            }
         }
     };
 
@@ -188,6 +196,8 @@ pub mod pallet
 
         // --- Currency type that will be used to place deposits on neurons
         type Currency: Currency<Self::AccountId> + Send + Sync;
+
+        type WeightInfo: WeightInfo;
 
         // =================================
         // ==== Initial Value Constants ====
@@ -1514,9 +1524,7 @@ pub mod pallet
         //
         //
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(65_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(8))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight(T::WeightInfo::add_stake())]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1558,10 +1566,7 @@ pub mod pallet
         //
         //
         #[pallet::call_index(3)]
-        #[pallet::weight((Weight::from_parts(63_000_000, 0)
-		.saturating_add(Weight::from_parts(0, 43991))
-		.saturating_add(T::DbWeight::get().reads(14))
-		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight(T::WeightInfo::remove_stake())]
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1622,9 +1627,7 @@ pub mod pallet
         // 		- Attempting to set prometheus information withing the rate limit min.
         //
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(19_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(2))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight(T::WeightInfo::serve_axon())]
         pub fn serve_axon(
             origin: OriginFor<T>,
             netuid: u16,
@@ -1650,9 +1653,7 @@ pub mod pallet
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(17_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(2))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight(T::WeightInfo::serve_prometheus())]
         pub fn serve_prometheus(
             origin: OriginFor<T>,
             netuid: u16,
@@ -1728,17 +1729,13 @@ pub mod pallet
         }
 
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_parts(120_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(23))
-		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight(T::WeightInfo::root_register())]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
         }
 
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_parts(89_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(27))
-		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight(T::WeightInfo::burned_register())]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: u16,
@@ -1818,9 +1815,7 @@ pub mod pallet
         }
 
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_parts(85_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
-		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight(T::WeightInfo::register_network())]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
             Self::user_add_network(origin)
         }
@@ -1843,9 +1838,7 @@ pub mod pallet
         }
 
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_parts(70_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(5))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight(T::WeightInfo::dissolve_network())]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
         }

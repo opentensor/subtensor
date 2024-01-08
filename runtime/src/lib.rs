@@ -388,6 +388,7 @@ impl pallet_subtensor::Config for Runtime {
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureNever<AccountId>;
+    type WeightInfo = pallet_subtensor::extrinsic_weights::SubstrateWeight<Runtime>;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
