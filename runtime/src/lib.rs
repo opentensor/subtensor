@@ -388,6 +388,7 @@ impl pallet_subtensor::Config for Runtime {
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
     type CouncilOrigin = EnsureNever<AccountId>;
+    type WeightInfo = pallet_subtensor::extrinsic_weights::SubstrateWeight<Runtime>;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
@@ -799,9 +800,9 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_subtensor, Subtensor]
         [pallet_timestamp, Timestamp]
-        [pallet_registry, Registry]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
+        [pallet_subtensor, Subtensor]
     );
 }
 

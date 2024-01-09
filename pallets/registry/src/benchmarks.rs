@@ -7,6 +7,7 @@ use crate::Pallet as Registry;
 use frame_benchmarking::v2::*;
 use frame_benchmarking::v1::account;
 use frame_system::RawOrigin;
+use sp_std::vec;
 
 use sp_runtime::traits::{StaticLookup, Bounded};
 use frame_support::traits::Get;
@@ -35,7 +36,7 @@ fn create_identity_info<T: Config>(num_fields: u32) -> IdentityInfo<T::MaxAdditi
 }
 
 #[benchmarks]
-mod benchmarks {
+mod benchmarks_ {
 	use super::*;
 
 	#[benchmark]
