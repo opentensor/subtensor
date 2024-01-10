@@ -89,10 +89,23 @@ impl<T: Config> Pallet<T>
         log::trace!( "hotkeys: {:?}", &hotkeys );
 
         // Access network stake as normalized vector.
+        
+        /*
         let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in hotkeys.iter() 
         {
             stake_64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
+        }
+        inplace_normalize_64(&mut stake_64);
+
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
+        log::trace!("S:\n{:?}\n", &stake);
+        */
+
+        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        for (uid_i, hotkey) in hotkeys.iter() 
+        {
+            stake_64[*uid_i as usize] = I64F64::from_num(Self::get_subnet_total_stake_for_hotkey(netuid, hotkey));
         }
         inplace_normalize_64(&mut stake_64);
 
@@ -411,7 +424,7 @@ impl<T: Config> Pallet<T>
         let mut stake_64: Vec<I64F64> = vec![ I64F64::from_num(0.0); n as usize ];
         for (uid_i, hotkey) in hotkeys.iter() 
         {
-            stake_64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
+            stake_64[*uid_i as usize] = I64F64::from_num(Self::get_subnet_total_stake_for_hotkey(netuid, hotkey));
         }
         inplace_normalize_64(&mut stake_64);
 

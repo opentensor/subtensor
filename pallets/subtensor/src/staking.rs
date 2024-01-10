@@ -12,6 +12,13 @@ use
         {
             IterableStorageDoubleMap
         }
+    },
+    substrate_fixed::
+    {
+        types::
+        {
+            I64F64
+        } 
     }
 };
 
@@ -678,6 +685,24 @@ impl<T: Config> Pallet<T>
         for netuid in 0..32_u16
         {
             stake = stake + Self::get_subnet_total_stake_for_coldkey(netuid + 1, coldkey);
+        }
+
+        return stake;
+    }
+
+    pub fn get_stake_map_for_subnet(netuid: u16) -> Vec<(T::AccountId, T::AccountId, u64)>
+    {
+        let mut stake: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
+        for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
+        {
+            if subnetid == netuid
+            {
+                stake.push((
+                    delegate_coldkey.clone(),
+                    hotkey.clone(),
+                    Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, &hotkey)
+                ));
+            }
         }
 
         return stake;
