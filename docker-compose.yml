@@ -1,9 +1,18 @@
-version: "3.2"
+version: '3.8'
+
+volumes:
+  mainnet-lite-volume:
+  mainnet-archive-volume:
+  testnet-lite-volume:
+  testnet-archive-volume:
 
 services:
-  node-subtensor:
-    container_name: node-subtensor
-    image: opentensor/subtensor:latest
+  common: &common
+    #image: opentensor/subtensor:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: subtensor
     cpu_count: 4
     mem_limit: 40000000000
     memswap_limit: 80000000000
@@ -17,15 +26,75 @@ services:
       - "9933"
     environment:
       - CARGO_HOME=/var/www/node-subtensor/.cargo
+
+  mainnet-lite:
+    <<: *common
+    container_name: subtensor-mainnet-lite
+    volumes:
+      - mainnet-lite-volume:/tmp/blockchain
     command:
       - /bin/bash
       - -c
       - |
-        ./node-subtensor \
+        node-subtensor \
           --base-path /tmp/blockchain \
-          --chain ./raw_spec.json \
+          --chain /subtensor/raw_spec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
           --sync warp
+
+  mainnet-archive:
+    <<: *common
+    container_name: subtensor-mainnet-archive
+    volumes:
+      - mainnet-archive-volume:/tmp/blockchain
+    command:
+      - /bin/bash
+      - -c
+      - |
+        node-subtensor \
+          --base-path /tmp/blockchain \
+          --chain /subtensor/raw_spec.json \
+          --rpc-external --rpc-cors all \
+          --ws-external --no-mdns \
+          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --bootnodes /dns/bootnode.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
+          --pruning=archive
+
+  testnet-lite:
+    <<: *common
+    container_name: subtensor-testnet-lite
+    volumes:
+      - testnet-lite-volume:/tmp/blockchain
+    command:
+      - /bin/bash
+      - -c
+      - |
+        node-subtensor \
+          --base-path /tmp/blockchain \
+          --chain /subtensor/raw_testspec.json \
+          --rpc-external --rpc-cors all \
+          --ws-external --no-mdns \
+          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWQawexXodtsPEymJUX1X2eKzjNq6s8MvzEWtKwJ6mLmzy \
+          --sync warp
+
+  testnet-archive:
+    <<: *common
+    container_name: subtensor-testnet-archive
+    volumes:
+      - testnet-archive-volume:/tmp/blockchain
+    command:
+      - /bin/bash
+      - -c
+      - |
+        node-subtensor \
+          --base-path /tmp/blockchain \
+          --chain /subtensor/raw_testspec.json \
+          --rpc-external --rpc-cors all \
+          --ws-external --no-mdns \
+          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWQawexXodtsPEymJUX1X2eKzjNq6s8MvzEWtKwJ6mLmzy \
+          --pruning=archive
