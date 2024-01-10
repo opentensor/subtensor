@@ -705,6 +705,8 @@ impl<T: Config> Pallet<T>
             }
         }
 
+        log::error!("{:?}", stake.len());
+
         return stake;
     }
 
