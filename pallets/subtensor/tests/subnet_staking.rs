@@ -23,7 +23,7 @@ fn test_add_subnet_stake_ok_no_emission()
         //add network
         add_network(netuid, tempo, 0);
 
-        // Register neuron
+        // Register neuronget_total_stake
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Give it some $$$ in his coldkey balance
@@ -57,5 +57,6 @@ fn test_add_subnet_stake_ok_no_emission()
 
         // Check if total stake has increased accordingly.
         assert_eq!(Subtensor::get_subnet_total_stake(netuid), 10000);
+        assert_eq!(Subtensor::get_combined_subnet_stake_for_coldkey(&coldkey_account_id), 10000);
     });
 }

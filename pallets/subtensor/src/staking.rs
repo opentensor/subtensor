@@ -1,3 +1,5 @@
+use frame_support::IterableStorageNMap;
+
 use
 {
     super::
@@ -668,6 +670,61 @@ impl<T: Config> Pallet<T>
         }
 
         return stake;
+    }
+
+    pub fn get_combined_subnet_stake_for_coldkey(coldkey: &T::AccountId) -> u64
+    {
+        let mut stake: u64 = 0;
+        for netuid in 0..32_u16
+        {
+            stake = stake + Self::get_subnet_total_stake_for_coldkey(netuid + 1, coldkey);
+        }
+
+        return stake;
+    }
+
+    pub fn remove_all_subnet_stake(netuid: u16)
+    {
+        let mut stake_to_remove: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
+
+        for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
+        {
+            if subnetid == netuid
+            {
+                stake_to_remove.push((
+                    delegate_coldkey.clone(), 
+                    hotkey.clone(), 
+                    Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, &hotkey)
+                ));
+            }
+        }
+
+        for (coldkey, hotkey, stake) in stake_to_remove
+        {
+            Self::dec_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake);
+        }
+    }
+
+    pub fn remove_all_subnet_stake_for_hotkey(netuid: u16, hotkey: &T::AccountId)
+    {
+        let mut stake_to_remove: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
+
+        for (subnetid, delegate_coldkey, s_hotkey) in SubnetStake::<T>::iter_keys()
+        {
+            if subnetid == netuid && s_hotkey == *hotkey
+            {
+                stake_to_remove.push((
+                    delegate_coldkey.clone(), 
+                    hotkey.clone(), 
+                    Self::get_subnet_stake_for_coldkey_hotkey(subnetid, &delegate_coldkey, &hotkey)
+                ));
+            }
+        }
+
+        for (coldkey, hotkey, stake) in stake_to_remove
+        {
+            Self::dec_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake);
+        }
     }
 
     pub fn do_add_subnet_stake(origin: T::RuntimeOrigin, hotkey: T::AccountId, netuid: u16, stake_to_be_added: u64) -> dispatch::DispatchResult
