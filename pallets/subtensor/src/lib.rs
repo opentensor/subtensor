@@ -628,6 +628,10 @@ pub mod pallet
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultSubnetTotalStake<T: Config>() -> u64 {
+        0
+    }
 
     #[pallet::storage] // --- MAP ( netuid ) --> tempo
     pub type Tempo<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTempo<T>>;
@@ -649,6 +653,36 @@ pub mod pallet
     #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
+
+    #[pallet::storage]
+    pub type SubnetStake<T: Config> =
+        StorageNMap<
+            _, 
+            (
+                NMapKey<Identity, u16>,                     // subnet
+                NMapKey<Blake2_128Concat, T::AccountId>,    // cold
+                NMapKey<Blake2_128Concat, T::AccountId>     // hot
+            ),
+            u64,
+            ValueQuery
+        >;
+
+    #[pallet::storage]
+    pub type TotalSubnetStake<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetTotalStake<T>>;
+
+    #[pallet::storage] // --- MAP ( netuid, coldkey ) -> total_hotkey_stake
+    pub(super) type TotalSubnetHotkeyStake<T: Config> =
+        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u64, OptionQuery>;
+
+    #[pallet::storage] // --- MAP ( netuid, coldkey ) -> total_coldkey_stake
+    pub(super) type TotalSubnetColdkeyStake<T: Config> =
+        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u64, OptionQuery>;
+
+        /*  #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
+    pub(super) type Axons<T: Config> =
+        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>; */
+    
     // =================================
     // ==== Axon / Promo Endpoints =====
     // =================================

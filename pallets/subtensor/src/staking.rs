@@ -165,7 +165,7 @@ impl<T: Config> Pallet<T>
         }
 
         // --- 2. We convert the stake u64 into a balancer.
-        let stake_as_balance ;
+        let stake_as_balance;
         {
             stake_as_balance = Self::u64_to_balance(stake_to_be_added);
 
@@ -527,6 +527,126 @@ impl<T: Config> Pallet<T>
                     stake_i_as_balance.unwrap(),
                 );
             }
+        }
+    }
+
+    pub fn get_subnet_total_stake(netuid: u16) -> u64
+    {
+        return TotalSubnetStake::<T>::try_get(netuid).unwrap_or(0);
+    }
+
+    pub fn inc_subnet_total_stake(netuid: u16, amount: u64)
+    {
+        TotalSubnetStake::<T>::insert(
+            netuid, 
+            Self::get_subnet_total_stake(netuid) + amount
+        );
+    }
+
+    pub fn dec_subnet_total_stake(netuid: u16, amount: u64)
+    {
+        TotalSubnetStake::<T>::insert(
+            netuid, 
+            Self::get_subnet_total_stake(netuid) - amount
+        );
+    }
+
+    pub fn get_subnet_total_stake_for_coldkey(netuid: u16, coldkey: &T::AccountId) -> u64
+    {
+        return TotalSubnetColdkeyStake::<T>::try_get(netuid, coldkey).unwrap_or(0);
+    }
+
+    pub fn inc_subnet_total_stake_for_coldkey(netuid: u16, coldkey: &T::AccountId, amount: u64)
+    {
+        TotalSubnetColdkeyStake::<T>::insert(
+            netuid, 
+            coldkey,
+            Self::get_subnet_total_stake_for_coldkey(netuid, coldkey) + amount
+        )
+    }
+
+    pub fn dec_subnet_total_stake_for_coldkey(netuid: u16, coldkey: &T::AccountId, amount: u64)
+    {
+        let new_stake: u64 = Self::get_subnet_total_stake_for_coldkey(netuid, coldkey) - amount;
+        if new_stake == 0
+        {
+            TotalSubnetColdkeyStake::<T>::remove(netuid, coldkey);
+        }
+        else
+        {
+            TotalSubnetColdkeyStake::<T>::insert(
+                netuid, 
+                coldkey,
+                new_stake
+            )
+        }
+    }
+
+    pub fn get_subnet_total_stake_for_hotkey(netuid: u16, hotkey: &T::AccountId) -> u64
+    {
+        return TotalSubnetHotkeyStake::<T>::try_get(netuid, hotkey).unwrap_or(0);
+    }
+
+    pub fn inc_subnet_total_stake_for_hotkey(netuid: u16, hotkey: &T::AccountId, amount: u64)
+    {
+        TotalSubnetHotkeyStake::<T>::insert(
+            netuid, 
+            hotkey,
+            Self::get_subnet_total_stake_for_hotkey(netuid, hotkey) + amount
+        )
+    }
+
+    pub fn dec_subnet_total_stake_for_hotkey(netuid: u16, hotkey: &T::AccountId, amount: u64)
+    {
+        let new_stake: u64 = Self::get_subnet_total_stake_for_hotkey(netuid, hotkey) - amount;
+        if new_stake == 0
+        {
+            TotalSubnetHotkeyStake::<T>::remove(netuid, hotkey);
+        }
+        else
+        {
+            TotalSubnetHotkeyStake::<T>::insert(
+                netuid, 
+                hotkey,
+                new_stake
+            );
+        }
+    }
+
+    pub fn get_subnet_stake_for_coldkey_hotkey(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64
+    {
+        return SubnetStake::<T>::try_get((netuid, coldkey, hotkey)).unwrap_or(0);
+    }
+
+    pub fn inc_subnet_stake_for_coldkey_hotkey(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId, amount: u64)
+    {
+        Self::inc_subnet_total_stake(netuid, amount);
+        Self::inc_subnet_total_stake_for_coldkey(netuid, coldkey, amount);
+        Self::inc_subnet_total_stake_for_hotkey(netuid, hotkey, amount);
+
+        SubnetStake::<T>::insert(
+            (netuid, coldkey, hotkey),
+            Self::get_subnet_stake_for_coldkey_hotkey(netuid, coldkey, hotkey) + amount
+        );
+    }
+
+    pub fn dec_subnet_stake_for_coldkey_hotkey(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId, amount: u64)
+    {
+        Self::dec_subnet_total_stake(netuid, amount);
+        Self::dec_subnet_total_stake_for_coldkey(netuid, coldkey, amount);
+        Self::dec_subnet_total_stake_for_hotkey(netuid, hotkey, amount);
+
+        let new_stake: u64 = Self::get_subnet_stake_for_coldkey_hotkey(netuid, coldkey, hotkey) - amount;
+        if new_stake == 0
+        {
+            SubnetStake::<T>::remove((netuid, coldkey, hotkey));
+        }
+        else
+        {
+            SubnetStake::<T>::insert(
+                (netuid, coldkey, hotkey),
+                new_stake  
+            );
         }
     }
 }
