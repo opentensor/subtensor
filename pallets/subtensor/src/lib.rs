@@ -1601,6 +1601,105 @@ pub mod pallet
             Self::do_remove_stake(origin, hotkey, amount_unstaked)
         }
 
+        // --- Adds stake to a hotkey. The call is made from the
+        // coldkey account linked in the hotkey.
+        // Only the associated coldkey is allowed to make staking and
+        // unstaking requests. This protects the neuron against
+        // attacks on its hotkey running in production code.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        //  * 'netuid': (u16):
+        //      - The subnet to stake to
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The associated hotkey account.
+        //
+        // 	* 'amount_staked' (u64):
+        // 		- The amount of stake to be added to the hotkey staking account.
+        //
+        // # Event:
+        // 	* StakeAdded;
+        // 		- On the successfully adding stake to a global account.
+        //
+        // # Raises:
+        // 	* 'CouldNotConvertToBalance':
+        // 		- Unable to convert the passed stake value to a balance.
+        //
+        // 	* 'NotEnoughBalanceToStake':
+        // 		- Not enough balance on the coldkey to add onto the global account.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- The calling coldkey is not associated with this hotkey.
+        //
+        // 	* 'BalanceWithdrawalError':
+        // 		- Errors stemming from transaction pallet.
+        //
+        //  * 'NetworkDoesNotExist':
+        //      - Errors if the subnet does not exist
+        //
+        //
+        #[pallet::call_index(102)]
+        #[pallet::weight(T::WeightInfo::add_stake())]
+        pub fn add_subnet_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            Self::do_add_subnet_stake(origin, hotkey, netuid, amount_staked)
+        }
+
+        // ---- Remove stake from the staking account. The call must be made
+        // from the coldkey account attached to the neuron metadata. Only this key
+        // has permission to make staking and unstaking requests.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The associated hotkey account.
+        //
+        //  * 'netuid' (u16):
+        //      - The subnet to remove stake from
+        //
+        // 	* 'amount_unstaked' (u64):
+        // 		- The amount of stake to be added to the hotkey staking account.
+        //
+        // # Event:
+        // 	* StakeRemoved;
+        // 		- On the successfully removing stake from the hotkey account.
+        //
+        // # Raises:
+        // 	* 'NotRegistered':
+        // 		- Thrown if the account we are attempting to unstake from is non existent.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        //
+        // 	* 'NotEnoughStaketoWithdraw':
+        // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        //
+        // 	* 'CouldNotConvertToBalance':
+        // 		- Thrown if we could not convert this amount to a balance.
+        //
+        //  * 'NetworkDoesNotExist':
+        //      - Errors if the subnet does not exist
+        //
+        #[pallet::call_index(103)]
+        #[pallet::weight(T::WeightInfo::remove_stake())]
+        pub fn remove_subnet_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_unstaked: u64,
+        ) -> DispatchResult {
+            Self::do_remove_subnet_stake(origin, hotkey, netuid, amount_unstaked)
+        }
+
         // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
         // already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         //

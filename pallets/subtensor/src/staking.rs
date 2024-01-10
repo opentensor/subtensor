@@ -650,7 +650,22 @@ impl<T: Config> Pallet<T>
         }
     }
 
-    pub fn add_subnet_stake(origin: T::RuntimeOrigin, hotkey: T::AccountId, netuid: u16, stake_to_be_added: u64) -> dispatch::DispatchResult
+    pub fn get_staking_map_for_coldkey(coldkey: &T::AccountId) -> Vec<(u16, u64)>
+    {
+        let mut stake: Vec<(u16, u64)> = vec![];
+        for netuid in 0..32_u16
+        {
+            let subnet_stake: u64 = Self::get_subnet_total_stake_for_coldkey(netuid + 1, coldkey);
+            if subnet_stake > 0
+            {
+                stake.push((netuid + 1, subnet_stake));
+            }
+        }
+
+        return stake;
+    }
+
+    pub fn do_add_subnet_stake(origin: T::RuntimeOrigin, hotkey: T::AccountId, netuid: u16, stake_to_be_added: u64) -> dispatch::DispatchResult
     {
         // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey: T::AccountId;
@@ -730,7 +745,9 @@ impl<T: Config> Pallet<T>
 
         // --- 8. If we reach here, add the balance to the hotkey.
         {
+            log::info!("staking map before add: {:?}", Self::get_staking_map_for_coldkey(&coldkey));
             Self::inc_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake_to_be_added);
+            log::info!("staking map after add: {:?}", Self::get_staking_map_for_coldkey(&coldkey));
 
             // Set last block for rate limiting
             Self::set_last_tx_block(&coldkey, block);
@@ -754,7 +771,7 @@ impl<T: Config> Pallet<T>
     }
 
 
-    pub fn remove_subnet_stake(origin: T::RuntimeOrigin, hotkey: T::AccountId, netuid: u16, stake_to_be_removed: u64) -> dispatch::DispatchResult 
+    pub fn do_remove_subnet_stake(origin: T::RuntimeOrigin, hotkey: T::AccountId, netuid: u16, stake_to_be_removed: u64) -> dispatch::DispatchResult 
     {
         // --- 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey: T::AccountId;
@@ -832,7 +849,9 @@ impl<T: Config> Pallet<T>
 
         // --- 7. We remove the balance from the hotkey.
         {
+            log::info!("staking map before dec: {:?}", Self::get_staking_map_for_coldkey(&coldkey));
             Self::dec_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake_to_be_removed);
+            log::info!("staking map after dec: {:?}", Self::get_staking_map_for_coldkey(&coldkey));
         }
 
         // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
