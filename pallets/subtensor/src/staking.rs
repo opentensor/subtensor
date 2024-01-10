@@ -617,7 +617,7 @@ impl<T: Config> Pallet<T>
     {
         return SubnetStake::<T>::try_get((netuid, coldkey, hotkey)).unwrap_or(0);
     }
-
+    
     pub fn inc_subnet_stake_for_coldkey_hotkey(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId, amount: u64)
     {
         Self::inc_subnet_total_stake(netuid, amount);
@@ -648,6 +648,11 @@ impl<T: Config> Pallet<T>
                 new_stake  
             );
         }
+    }
+
+    pub fn does_coldkey_hotkey_have_enough_subnet_stake(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId, stake: u64) -> bool
+    {
+        return Self::get_subnet_stake_for_coldkey_hotkey(netuid, coldkey, hotkey) >= stake;
     }
 
     pub fn get_staking_map_for_coldkey(coldkey: &T::AccountId) -> Vec<(u16, u64)>
@@ -820,7 +825,7 @@ impl<T: Config> Pallet<T>
         // --- 4. Ensure that the hotkey has enough stake to withdraw.
         {
             ensure!(
-                Self::has_enough_stake(&coldkey, &hotkey, stake_to_be_removed),
+                Self::does_coldkey_hotkey_have_enough_subnet_stake(netuid, &coldkey, &hotkey, stake_to_be_removed),
                 Error::<T>::NotEnoughStaketoWithdraw
             );
         }

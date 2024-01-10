@@ -167,6 +167,7 @@ impl pallet_subtensor::Config for Test {
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
+    type WeightInfo = ();
 
     type InitialNetworkRegistrationAllowed = InitialNetworkRegistrationAllowed;
     type InitialRegistrationAllowed = InitialRegistrationAllowed;
