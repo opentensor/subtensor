@@ -1079,6 +1079,8 @@ pub mod pallet
         NetworkRemoved(u16),    // --- Event created when a network is removed.
         StakeAdded(T::AccountId, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
         StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
+        SubnetStakeAdded(u16, T::AccountId, u64), // --- Event created when subnet stake has been transfered from the a coldkey account onto the hotkey staking account.
+        SubnetStakeRemoved(u16, T::AccountId, u64), // --- Event created when subnet stake has been removed from the a hotkey staking account onto the coldkey account.
         WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
         NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
         BulkNeuronsRegistered(u16, u16), // --- Event created when multiple uids have been concurrently registered.
