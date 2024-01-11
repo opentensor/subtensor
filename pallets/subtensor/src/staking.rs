@@ -787,6 +787,10 @@ impl<T: Config> Pallet<T>
                 Self::deposit_event(Event::SubnetStakeRemoved(netuid, coldkey, stake));
             }
         }
+
+        TotalSubnetStake::<T>::remove(netuid);
+        let _ = TotalSubnetHotkeyStake::<T>::clear_prefix(netuid, 0, None);
+        let _ = TotalSubnetColdkeyStake::<T>::clear_prefix(netuid, 0, None);
     }
 
     pub fn remove_all_subnet_stake_for_hotkey(netuid: u16, hotkey: &T::AccountId)

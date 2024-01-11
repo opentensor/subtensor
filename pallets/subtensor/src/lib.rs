@@ -679,10 +679,6 @@ pub mod pallet
     pub(super) type TotalSubnetColdkeyStake<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u64, OptionQuery>;
 
-        /*  #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
-    pub(super) type Axons<T: Config> =
-        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>; */
-    
     // =================================
     // ==== Axon / Promo Endpoints =====
     // =================================
