@@ -356,15 +356,6 @@ impl<T: Config> Pallet<T>
                 stake_proportion
             );
 
-            log::error!(
-                "{:?} {:?} {:?} {:?} {:?}", 
-                stake_i, 
-                stake_proportion, 
-                total_hotkey_stake, 
-                validator_emission_minus_take,
-                remaining_validator_emission
-            );
-
             remaining_validator_emission -= stake_proportion;
         }
 
