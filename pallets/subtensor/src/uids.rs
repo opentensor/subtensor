@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T>
             if !hotkey_is_registered_on_any_network 
             {
                 // If not, unstake all coldkeys under this hotkey.
-                Self::unstake_all_coldkeys_from_hotkey_account(&old_hotkey.clone());
+                Self::unstake_all_coldkeys_from_hotkey_account(netuid, &old_hotkey.clone());
             }
         }   
 
@@ -145,7 +145,7 @@ impl<T: Config> Pallet<T>
     pub fn get_stake_for_uid_and_subnetwork( netuid: u16, neuron_uid: u16) -> u64 { 
         if Self::is_uid_exist_on_network( netuid, neuron_uid) 
         {
-            return Self::get_total_stake_for_hotkey(&Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap());
+            return Self::get_subnet_total_stake_for_hotkey(netuid, &Self::get_hotkey_for_net_and_uid( netuid, neuron_uid ).unwrap());
         } 
         else 
         {

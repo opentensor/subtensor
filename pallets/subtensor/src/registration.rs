@@ -793,12 +793,25 @@ impl<T: Config> Pallet<T>
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) 
+        for i in 0..32_u16
         {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
+            {
+                let stake = SubnetStake::<T>::try_get((i + 1, &coldkey, &old_hotkey));
+                if stake.is_ok()
+                {
+                    SubnetStake::<T>::remove((i + 1, &coldkey, &old_hotkey));
+                    SubnetStake::<T>::insert((i + 1, coldkey.clone(), new_hotkey.clone()), stake.unwrap());
+                }
+            }
 
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
+            {
+                let stake = TotalSubnetHotkeyStake::<T>::try_get(i + 1, &old_hotkey);
+                if stake.is_ok()
+                {
+                    TotalSubnetHotkeyStake::<T>::remove(i + 1, &old_hotkey);
+                    TotalSubnetHotkeyStake::<T>::insert(i + 1, new_hotkey.clone(), stake.unwrap());
+                }
+            }
         }
 
         if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) 
@@ -1045,7 +1058,7 @@ impl<T: Config> Pallet<T>
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
             for (uid_i, hotkey_i) in <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(root_netuid)
             {
-                let stake_i: u64 = Self::get_total_stake_for_hotkey(&hotkey_i);
+                let stake_i: u64 = Self::get_subnet_total_stake_for_hotkey(uid_i, &hotkey_i);
                 if stake_i < lowest_stake 
                 {
                     lowest_stake = stake_i;
@@ -1057,7 +1070,7 @@ impl<T: Config> Pallet<T>
 
             // --- 9.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
+                lowest_stake < Self::get_subnet_total_stake_for_hotkey(subnetwork_uid, &hotkey),
                 Error::<T>::StakeTooLowForRoot
             );
 

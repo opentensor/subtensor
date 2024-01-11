@@ -671,7 +671,7 @@ pub mod pallet
     pub type TotalSubnetStake<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetTotalStake<T>>;
 
-    #[pallet::storage] // --- MAP ( netuid, coldkey ) -> total_hotkey_stake
+    #[pallet::storage] // --- MAP ( netuid, hotkey ) -> total_hotkey_stake
     pub(super) type TotalSubnetHotkeyStake<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u64, OptionQuery>;
 
@@ -1297,16 +1297,17 @@ pub mod pallet
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
-                    TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
-                    TotalColdkeyStake::<T>::insert(
+                    TotalSubnetHotkeyStake::<T>::insert(netuid, hotkey.clone(), stake);
+                    TotalSubnetColdkeyStake::<T>::insert(
+                        netuid,
                         coldkey.clone(),
-                        TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake),
+                        stake,
                     );
 
                     // Update total issuance value
                     TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 
-                    Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
+                    SubnetStake::<T>::insert((netuid, hotkey.clone(), coldkey.clone()), stake);
 
                     next_uid += 1;
                 }
@@ -1942,9 +1943,7 @@ pub mod pallet
         }
 
         #[pallet::call_index(60)]
-        #[pallet::weight((Weight::from_parts(91_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(27))
-		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn faucet(
             origin: OriginFor<T>,
             block_number: u64,

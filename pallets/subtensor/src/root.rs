@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T>
             stake_i64 = vec![I64F64::from_num(0.0); n as usize];
             for (uid_i, hotkey) in hotkeys.iter() 
             {
-                stake_i64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
+                stake_i64[*uid_i as usize] = I64F64::from_num(Self::get_subnet_total_stake_for_hotkey(*uid_i, hotkey));
             }
 
             inplace_normalize_64(&mut stake_i64);

@@ -196,9 +196,9 @@ impl<T: Config> Pallet<T> {
         let last_update:        u64             = Self::get_last_update_for_uid( netuid, uid as u16 );
         let validator_permit:   bool            = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-        let stake: Vec<(T::AccountId, Compact<u64>)> = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
+        /*let stake: Vec<(T::AccountId, Compact<u64>)> = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
             .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
+            .collect();*/
 
         return Some(NeuronInfoLite
         {
@@ -209,7 +209,7 @@ impl<T: Config> Pallet<T> {
             active,
             axon_info,
             prometheus_info,
-            stake,
+            stake:              vec![],
             rank:               rank.into(),
             emission:           emission.into(),
             incentive:          incentive.into(),

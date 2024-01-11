@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T>
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> 
     {
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
-        for (nominator, stake) 
+        /*for (nominator, stake) 
             in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>
             ::iter_prefix(delegate.clone()) 
         {
@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T>
 
             // Only add nominators with stake
             nominators.push(( nominator.clone(), stake.into() ));
-        }
+        }*/
 
         let registrations:          Vec<u16>            = Self::get_registered_networks_for_hotkey(&delegate.clone());
         let mut validator_permits:  Vec<Compact<u16>>   = Vec::<Compact<u16>>::new();
@@ -104,9 +104,15 @@ impl<T: Config> Pallet<T>
 
         let owner: T::AccountId                     = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
         let take:                   Compact<u16>    = <Delegates<T>>::get(delegate.clone()).into();
-        let total_stake:            U64F64          = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
+        let mut total_stake_:       u64             = 0;
         let mut return_per_1000:    U64F64          = U64F64::from_num(0);
 
+        for i in 0..32_u16
+        {
+            total_stake_ = total_stake_ + Self::get_subnet_total_stake_for_hotkey(i + 1, &delegate.clone());
+        }
+
+        let total_stake = U64F64::from_num(total_stake_);
         if total_stake > U64F64::from_num(0)
         {
             return_per_1000 = emissions_per_day *  U64F64::from_num(820_000_000_000u64) / total_stake;
@@ -171,7 +177,7 @@ impl<T: Config> Pallet<T>
         let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
         for delegate in < Delegates<T> as IterableStorageMap<T::AccountId, u16> >::iter_keys().into_iter() 
         {
-            let staked_to_this_delegatee = Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone());
+            let staked_to_this_delegatee = /*Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone())*/0; // !!TODO: rewrite
             if staked_to_this_delegatee == 0 
             {
                 continue; // No stake to this delegate

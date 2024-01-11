@@ -55,7 +55,7 @@ impl<T: Config> Pallet<T>
         {
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
 
-            for (hotkey, coldkey, stake) in <Stake<T>>::iter() 
+            /*for (hotkey, coldkey, stake) in <Stake<T>>::iter() 
             {
                 if coldkey == coldkey_ 
                 {
@@ -66,7 +66,7 @@ impl<T: Config> Pallet<T>
                         stake: stake.into(),
                     });
                 }
-            }
+            }*/
 
             stake_info.push((coldkey_, stake_info_for_coldkey));
         }

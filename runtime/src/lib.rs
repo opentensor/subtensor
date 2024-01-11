@@ -550,10 +550,12 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
         return Subtensor::coldkey_owns_hotkey(coldkey, hotkey);
     }
 
-	fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, increment: u64)
+	/*
+    fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, increment: u64)
     {
         Subtensor::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
     }
+    */
 
 	fn u64_to_balance(input: u64) -> Option<Balance>
     {
