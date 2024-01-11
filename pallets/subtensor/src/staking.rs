@@ -718,23 +718,71 @@ impl<T: Config> Pallet<T>
 
     pub fn remove_all_subnet_stake(netuid: u16)
     {
-        let mut stake_to_remove: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
-
-        for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
         {
-            if subnetid == netuid
+            let mut stake_to_remove: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
+
+            for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
             {
-                stake_to_remove.push((
-                    delegate_coldkey.clone(), 
-                    hotkey.clone(), 
-                    Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, &hotkey)
-                ));
+                if subnetid == netuid
+                {
+                    stake_to_remove.push((
+                        delegate_coldkey.clone(), 
+                        hotkey.clone(), 
+                        Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, &hotkey)
+                    ));
+                }
+            }
+
+            for (coldkey, hotkey, stake) in stake_to_remove
+            {
+                Self::dec_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake);
+
+                Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance(stake).unwrap());
             }
         }
 
-        for (coldkey, hotkey, stake) in stake_to_remove
         {
-            Self::dec_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake);
+            let mut stake_to_remove: Vec<(T::AccountId, u64)> = vec![];
+
+            for (subnetid, hotkey) in TotalSubnetHotkeyStake::<T>::iter_keys()
+            {
+                if subnetid == netuid
+                {
+                    stake_to_remove.push((
+                        hotkey.clone(),
+                        Self::get_subnet_total_stake_for_hotkey(netuid, &hotkey)
+                    ));
+                }
+            }
+
+            for (hotkey, stake) in stake_to_remove
+            {
+                Self::dec_subnet_total_stake_for_hotkey(netuid, &hotkey, stake);
+
+                Self::add_balance_to_coldkey_account(&Self::get_owning_coldkey_for_hotkey(&hotkey), Self::u64_to_balance(stake).unwrap());
+            }
+        }
+
+        {
+            let mut stake_to_remove: Vec<(T::AccountId, u64)> = vec![];
+
+            for (subnetid, coldkey) in TotalSubnetColdkeyStake::<T>::iter_keys()
+            {
+                if subnetid == netuid
+                {
+                    stake_to_remove.push((
+                        coldkey.clone(),
+                        Self::get_subnet_total_stake_for_coldkey(netuid, &coldkey)
+                    ));
+                }
+            }
+
+            for (coldkey, stake) in stake_to_remove
+            {
+                Self::dec_subnet_total_stake_for_coldkey(netuid, &coldkey, stake);
+
+                Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance(stake).unwrap());
+            }
         }
     }
 
