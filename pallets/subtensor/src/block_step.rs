@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T>
             }
 
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_i: u64 = Self::get_subnet_total_stake_for_coldkey(netuid, &delegate_coldkey);
+            let stake_i: u64 = Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, hotkey);
 
             let stake_proportion: u64 = Self::calculate_stake_proportional_emission(
                 stake_i,
@@ -354,6 +354,15 @@ impl<T: Config> Pallet<T>
                 delegate_coldkey,
                 hotkey,
                 stake_proportion
+            );
+
+            log::error!(
+                "{:?} {:?} {:?} {:?} {:?}", 
+                stake_i, 
+                stake_proportion, 
+                total_hotkey_stake, 
+                validator_emission_minus_take,
+                remaining_validator_emission
             );
 
             remaining_validator_emission -= stake_proportion;

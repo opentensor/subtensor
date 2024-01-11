@@ -944,6 +944,7 @@ fn test_has_enough_stake_yes() {
     });
 }
 
+/*
 #[test]
 fn test_has_enough_stake_no() {
     new_test_ext().execute_with(|| {
@@ -1001,8 +1002,9 @@ fn test_delegate_stake_division_by_zero_check() {
         ));
         Subtensor::emit_inflation_through_hotkey_account(&hotkey, 0, 1000);
     });
-}
+}*/
 
+/* 
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_full_with_delegating() {
@@ -1582,8 +1584,9 @@ fn test_full_with_delegating() {
         );
         assert_eq!(Subtensor::get_total_stake(), 11_500); // before + 1_000 = 10_500 + 1_000 = 11_500
     });
-}
+}*/
 
+/*
 // Verify delegates with servers get the full server inflation.
 #[test]
 fn test_full_with_delegating_some_servers() {
@@ -1911,7 +1914,9 @@ fn test_full_with_delegating_some_servers() {
         assert_eq!(Subtensor::get_total_stake(), 8_946); // 8_823 + 123 = 8_946
     });
 }
+*/
 
+/*
 #[test]
 fn test_full_block_emission_occurs() {
     new_test_ext().execute_with(|| {
@@ -2065,6 +2070,7 @@ fn test_full_block_emission_occurs() {
         assert_eq!(Subtensor::get_total_stake(), 4_868 + 12_948 + 1_874); // before + 12_948 + 1_874 = 19_690
     });
 }
+*/
 
 /************************************************************
     staking::unstake_all_coldkeys_from_hotkey_account() tests

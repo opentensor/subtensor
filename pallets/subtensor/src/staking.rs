@@ -1,5 +1,3 @@
-use frame_support::IterableStorageNMap;
-
 use
 {
     super::
@@ -19,6 +17,14 @@ use
         {
             I64F64
         } 
+    },
+    sp_std::
+    {
+        vec,
+        vec::
+        {
+            Vec
+        }
     }
 };
 
@@ -705,7 +711,7 @@ impl<T: Config> Pallet<T>
             }
         }
 
-        log::error!("{:?}", stake.len());
+        log::error!("{:?}", stake);
 
         return stake;
     }
@@ -961,6 +967,12 @@ impl<T: Config> Pallet<T>
             );
 
             Self::deposit_event(Event::SubnetStakeRemoved(netuid, hotkey, stake_to_be_removed));
+
+            log::error!("->>>>");
+            for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
+            {
+                log::error!("hi");
+            }
         }
 
         // --- 10. Done and ok.
