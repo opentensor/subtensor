@@ -736,8 +736,9 @@ impl<T: Config> Pallet<T>
             for (coldkey, hotkey, stake) in stake_to_remove
             {
                 Self::dec_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake);
-
                 Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance(stake).unwrap());
+
+                Self::deposit_event(Event::SubnetStakeRemoved(netuid, hotkey, stake));
             }
         }
 
@@ -758,8 +759,9 @@ impl<T: Config> Pallet<T>
             for (hotkey, stake) in stake_to_remove
             {
                 Self::dec_subnet_total_stake_for_hotkey(netuid, &hotkey, stake);
-
                 Self::add_balance_to_coldkey_account(&Self::get_owning_coldkey_for_hotkey(&hotkey), Self::u64_to_balance(stake).unwrap());
+
+                Self::deposit_event(Event::SubnetStakeRemoved(netuid, hotkey, stake));
             }
         }
 
@@ -780,8 +782,9 @@ impl<T: Config> Pallet<T>
             for (coldkey, stake) in stake_to_remove
             {
                 Self::dec_subnet_total_stake_for_coldkey(netuid, &coldkey, stake);
-
                 Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance(stake).unwrap());
+
+                Self::deposit_event(Event::SubnetStakeRemoved(netuid, coldkey, stake));
             }
         }
     }
