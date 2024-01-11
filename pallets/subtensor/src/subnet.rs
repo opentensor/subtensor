@@ -695,7 +695,12 @@ impl<T: Config> Pallet<T>
             BurnRegistrationsThisInterval::<T>::remove(netuid);
         }
 
-        // --- 11. Add the balance back to the owner.
+        // --- 11. Remove all subnet stake
+        {
+            Self::remove_all_subnet_stake(netuid);
+        }
+
+        // --- 12. Add the balance back to the owner.
         {
             Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
             Self::set_subnet_locked_balance(netuid, 0);
