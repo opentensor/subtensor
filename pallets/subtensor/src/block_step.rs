@@ -380,7 +380,7 @@ impl<T: Config> Pallet<T>
             );
         }
 
-        log::debug!("stakemap: {:?}", Self::get_stake_map_for_subnet(netuid));
+        log::info!("stakemap: {:?}", Self::get_stake_map_for_subnet(netuid));
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
