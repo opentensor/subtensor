@@ -306,8 +306,9 @@ impl<T: Config> Pallet<T>
         // coldkey - hotkey account as normal.
             if !Self::hotkey_is_delegate(hotkey)
             {
-                Self::inc_subnet_total_stake_for_hotkey(
+                Self::inc_subnet_stake_for_coldkey_hotkey(
                     netuid,
+                    &Self::get_owning_coldkey_for_hotkey(&hotkey),
                     &hotkey, 
                     server_emission + validator_emission
                 );
@@ -362,8 +363,9 @@ impl<T: Config> Pallet<T>
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
         {
-            Self::inc_subnet_total_stake_for_hotkey(
+            Self::inc_subnet_stake_for_coldkey_hotkey(
                 netuid,
+                &Self::get_owning_coldkey_for_hotkey(&hotkey),
                 &hotkey,
                 delegate_take + remaining_validator_emission,
             );
@@ -373,8 +375,9 @@ impl<T: Config> Pallet<T>
             // Also emit the server_emission to the hotkey
             // The server emission is distributed in-full to the delegate owner.
             // We do this after 4. for the same reason as above.
-            Self::inc_subnet_total_stake_for_hotkey(
+            Self::inc_subnet_stake_for_coldkey_hotkey(
                 netuid,
+                &Self::get_owning_coldkey_for_hotkey(&hotkey),
                 &hotkey, 
                 server_emission
             );

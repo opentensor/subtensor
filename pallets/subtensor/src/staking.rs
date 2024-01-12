@@ -253,6 +253,8 @@ impl<T: Config> Pallet<T>
     
     pub fn inc_subnet_stake_for_coldkey_hotkey(netuid: u16, coldkey: &T::AccountId, hotkey: &T::AccountId, amount: u64)
     {
+        Self::create_account_if_non_existent(coldkey, hotkey);
+
         Self::inc_subnet_total_stake(netuid, amount);
         Self::inc_subnet_total_stake_for_coldkey(netuid, coldkey, amount);
         Self::inc_subnet_total_stake_for_hotkey(netuid, hotkey, amount);
