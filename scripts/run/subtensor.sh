@@ -8,6 +8,7 @@ function run_command()
 {
     F_NETWORK=$1
     F_NODE_TYPE=$2
+    F_BIN_PATH=$3
 
     # Different command options by network and node type
     MAINNET_BOOTNODE='--bootnodes /dns/bootnode.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC'
@@ -32,14 +33,14 @@ function run_command()
         SPECIFIC_OPTIONS=$TESTNET_LITE_OPTIONS 
     fi
 
-    if [ ! -f ./target/release/node-subtensor ]; then
-        echo 'Binary ./target/release/node-subtensor does not exist'
-        echo 'Please ensure you have compiled the binary first'
+    if [ ! -f $F_BIN_PATH ]; then
+        echo "Binary '$F_BIN_PATH' does not exist. You can use -p or --bin-path to specify a different location."
+        echo "Please ensure you have compiled the binary first."
         exit 1
     fi
 
     # Command to run subtensor
-    ./target/release/node-subtensor \
+    $F_BIN_PATH \
         --base-path /tmp/blockchain \
         --chain ./raw_spec.json \
         --rpc-external --rpc-cors all \
@@ -54,6 +55,7 @@ EXEC_TYPE="docker"
 NETWORK="mainnet"
 NODE_TYPE="lite"
 BUILD=""
+BIN_PATH="./target/release/node-subtensor"
 
 # Getting arguments from user
 while [[ $# -gt 0 ]]; do
@@ -78,6 +80,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     -t|--node-type)
       NODE_TYPE="$2"
+      shift
+      shift
+      ;;
+    -p|--bin-path)
+      BIN_PATH="$2"
       shift
       shift
       ;;
@@ -116,6 +123,6 @@ case $EXEC_TYPE in
         docker compose up $BUILD --detach $NETWORK-$NODE_TYPE
     ;;
     binary)
-        run_command $NETWORK $NODE_TYPE
+        run_command $NETWORK $NODE_TYPE $BIN_PATH
     ;;
 esac
