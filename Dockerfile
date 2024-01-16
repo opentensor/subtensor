@@ -19,10 +19,12 @@ LABEL ai.opentensor.image.authors="operations@opentensor.ai" \
 ENV RUST_BACKTRACE 1
 
 # Necessary libraries for Rust execution
-RUN apt-get update && apt-get install -y curl build-essential protobuf-compiler clang git
+RUN apt-get update && \
+    apt-get install -y curl build-essential protobuf-compiler clang git && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install cargo and Rust
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
+RUN set -o pipefail && curl https://sh.rustup.rs -sSf | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 
 RUN mkdir -p /subtensor && \
@@ -55,7 +57,9 @@ RUN cargo build --release --features runtime-benchmarks --locked
 EXPOSE 30333 9933 9944
 
 
-FROM builder AS subtensor
+FROM $BASE_IMAGE AS subtensor
 
 COPY --from=builder /subtensor/snapshot.json /
+COPY --from=builder /subtensor/raw_spec.json /
+COPY --from=builder /subtensor/raw_testspec.json /
 COPY --from=builder /subtensor/target/release/node-subtensor /usr/local/bin

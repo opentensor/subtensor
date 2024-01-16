@@ -16,10 +16,10 @@
 git clone https://github.com/opentensor/subtensor.git
 cd subtensor
 # to run a lite node on the mainnet:
-docker compose up -d mainnet-lite # to run a lite node on the mainnet
-# or mainnet archive node: docker compose up -d mainnet-archive
-# or testnet lite node:    docker compose up -d testnet-lite
-# or testnet archive node: docker compose up -d testnet-archive
+sudo ./scripts/run/subtensor.sh -e docker --network mainnet --node-type lite
+# or mainnet archive node: sudo ./scripts/run/subtensor.sh -e docker --network mainnet --node-type archive
+# or testnet lite node:    sudo ./scripts/run/subtensor.sh -e docker --network testnet --node-type lite
+# or testnet archive node: sudo ./scripts/run/subtensor.sh -e docker --network testnet --node-type archive
 ```
 
 ## Compiling your own binary
@@ -52,27 +52,22 @@ cargo build --release --features runtime-benchmarks
 ```
 
 ### Running the node
-#### Lite node
+#### Mainnet / Lite node
 ```bash
-./target/release/node-subtensor \
-  --base-path /tmp/blockchain \
-  --chain ./raw_spec.json \
-  --rpc-external --rpc-cors all \
-  --ws-external --no-mdns \
-  --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
-  --bootnodes /dns/bootnode.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
-  --sync warp
+sudo ./scripts/run/subtensor.sh -e binary --network mainnet --node-type lite
 ``` 
 
-#### Archive node
+#### Mainnet / Archive node
 ```bash
+sudo ./scripts/run/subtensor.sh -e docker --network mainnet --node-type archive
+```
 
-./target/release/node-subtensor \
-  --base-path /tmp/blockchain \
-  --chain ./raw_spec.json \
-  --rpc-external --rpc-cors all \
-  --ws-external --no-mdns \
-  --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
-  --bootnodes /dns/bootnode.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
-  --pruning=archive
-``` 
+#### Testnet / Lite node
+```bash
+sudo ./scripts/run/subtensor.sh -e docker --network testnet --node-type lite
+```
+
+#### Testnet / Archive node
+```bash
+sudo ./scripts/run/subtensor.sh -e docker --network testnet --node-type archive
+```

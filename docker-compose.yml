@@ -8,7 +8,7 @@ volumes:
 
 services:
   common: &common
-    #image: opentensor/subtensor:latest
+    image: opentensor/subtensor:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -38,7 +38,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain /subtensor/raw_spec.json \
+          --chain raw_spec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
@@ -56,7 +56,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain /subtensor/raw_spec.json \
+          --chain raw_spec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
@@ -74,7 +74,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain /subtensor/raw_testspec.json \
+          --chain raw_testspec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
@@ -92,7 +92,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain /subtensor/raw_testspec.json \
+          --chain raw_testspec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
