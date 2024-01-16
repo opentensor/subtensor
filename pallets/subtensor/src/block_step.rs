@@ -43,8 +43,12 @@ impl<T: Config> Pallet<T>
         }
 
         // --- 2. Calculate per-subnet emissions
+        let root_netuid:                u16 = Self::get_root_netuid();
+        let blocks_until_next_epoch:    u64 = Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
+        if blocks_until_next_epoch == 0
         {
-            match Self::root_epoch(block_number) {
+            match Self::root_epoch(block_number) 
+            {
                 Ok(_) => {
                     ()
                 }
