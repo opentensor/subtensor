@@ -53,6 +53,7 @@ function run_command()
 EXEC_TYPE="docker"
 NETWORK="mainnet"
 NODE_TYPE="lite"
+BUILD=""
 
 # Getting arguments from user
 while [[ $# -gt 0 ]]; do
@@ -65,6 +66,10 @@ while [[ $# -gt 0 ]]; do
       EXEC_TYPE="$2"
       shift # past argument
       shift # past value
+      ;;
+    -b|--build)
+      BUILD="--build"
+      shift # past argument
       ;;
     -n|--network)
       NETWORK="$2"
@@ -107,7 +112,8 @@ fi
 case $EXEC_TYPE in
     docker)
         docker compose down --remove-orphans
-        docker compose up --build $NETWORK-$NODE_TYPE
+        echo "Running docker compose up $BUILD --detach $NETWORK-$NODE_TYPE"
+        docker compose up $BUILD --detach $NETWORK-$NODE_TYPE
     ;;
     binary)
         run_command $NETWORK $NODE_TYPE
