@@ -115,7 +115,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        Subtensor::get_total_stake_for_hotkey(&(U256::from(uid)))
+        Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(uid)))
     );
     log::info!("rank: {:?}", Subtensor::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -559,7 +559,7 @@ fn test_1_graph() {
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         Subtensor::set_max_allowed_uids(netuid, 1);
         Subtensor::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        Subtensor::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount);
+        Subtensor::inc_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey, stake_amount);
         Subtensor::append_neuron(netuid, &hotkey, 0);
         assert_eq!(Subtensor::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -576,7 +576,7 @@ fn test_1_graph() {
         assert_eq!( Subtensor::get_subnet_emission_value( netuid ), 1_000_000_000 );
         Subtensor::epoch( netuid, 1_000_000_000 );
         assert_eq!(
-            Subtensor::get_total_stake_for_hotkey(&hotkey),
+            Subtensor::get_subnet_total_stake_for_hotkey(netuid, &hotkey),
             stake_amount
         );
         assert_eq!(Subtensor::get_rank_for_uid(netuid, uid), 0);
@@ -607,7 +607,8 @@ fn test_10_graph() {
                 stake_amount,
                 Subtensor::get_subnetwork_n(netuid),
             );
-            Subtensor::increase_stake_on_coldkey_hotkey_account(
+            Subtensor::inc_subnet_stake_for_coldkey_hotkey(
+                netuid,
                 &coldkey,
                 &hotkey,
                 stake_amount,
@@ -640,7 +641,7 @@ fn test_10_graph() {
         // Check return values.
         for i in 0..n {
             assert_eq!(
-                Subtensor::get_total_stake_for_hotkey(&(U256::from(i))),
+                Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(i))),
                 1
             );
             assert_eq!(Subtensor::get_rank_for_uid(netuid, i as u16), 0);
@@ -695,7 +696,7 @@ fn test_512_graph() {
                 let bonds = Subtensor::get_bonds(netuid);
                 for uid in validators {
                     assert_eq!(
-                        Subtensor::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(uid))),
                         max_stake_per_validator
                     );
                     assert_eq!(Subtensor::get_rank_for_uid(netuid, uid), 0);
@@ -710,7 +711,7 @@ fn test_512_graph() {
                 }
                 for uid in servers {
                     assert_eq!(
-                        Subtensor::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(uid))),
                         0
                     );
                     assert_eq!(Subtensor::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
@@ -866,11 +867,11 @@ fn test_4096_graph() {
                     0,
                     true,
                 );
-                assert_eq!(Subtensor::get_total_stake(), 21_000_000_000_000_000);
+                assert_eq!(Subtensor::get_subnet_total_stake(netuid), 21_000_000_000_000_000);
                 let bonds = Subtensor::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        Subtensor::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(*uid as u64))),
                         max_stake_per_validator
                     );
                     assert_eq!(Subtensor::get_rank_for_uid(netuid, *uid), 0);
@@ -887,7 +888,7 @@ fn test_4096_graph() {
                 }
                 for uid in &servers {
                     assert_eq!(
-                        Subtensor::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(*uid as u64))),
                         0
                     );
                     assert_eq!(Subtensor::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
@@ -936,7 +937,7 @@ fn test_16384_graph_sparse() {
         let bonds = Subtensor::get_bonds(netuid);
         for uid in validators {
             assert_eq!(
-                Subtensor::get_total_stake_for_hotkey(&(U256::from(uid))),
+                Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(uid))),
                 1
             );
             assert_eq!(Subtensor::get_rank_for_uid(netuid, uid), 0);
@@ -953,7 +954,7 @@ fn test_16384_graph_sparse() {
         }
         for uid in servers {
             assert_eq!(
-                Subtensor::get_total_stake_for_hotkey(&(U256::from(uid))),
+                Subtensor::get_subnet_total_stake_for_hotkey(netuid, &(U256::from(uid))),
                 0
             );
             assert_eq!(Subtensor::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4
@@ -993,7 +994,7 @@ fn test_bonds() {
 			Subtensor::add_balance_to_coldkey_account( &U256::from(key), max_stake );
 			let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(Subtensor::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			Subtensor::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), stakes[key as usize] );
+			Subtensor::inc_subnet_stake_for_coldkey_hotkey( netuid, &U256::from(key), &U256::from(key), stakes[key as usize] );
 		}
 		assert_eq!(Subtensor::get_max_allowed_uids(netuid), n);
 		assert_eq!(Subtensor::get_subnetwork_n(netuid), n);
@@ -1299,7 +1300,8 @@ fn test_active_stake() {
                 U256::from(key),
                 U256::from(key)
             ));
-            Subtensor::increase_stake_on_coldkey_hotkey_account(
+            Subtensor::inc_subnet_stake_for_coldkey_hotkey(
+                netuid,
                 &U256::from(key),
                 &U256::from(key),
                 stake,
@@ -1507,7 +1509,8 @@ fn test_outdated_weights() {
                 U256::from(key),
                 U256::from(key)
             ));
-            Subtensor::increase_stake_on_coldkey_hotkey_account(
+            Subtensor::inc_subnet_stake_for_coldkey_hotkey(
+                netuid,
                 &U256::from(key),
                 &U256::from(key),
                 stake,
@@ -1691,7 +1694,8 @@ fn test_zero_weights() {
         }
         for validator in 0..(n / 2) as u64 {
             Subtensor::add_balance_to_coldkey_account(&U256::from(validator), stake);
-            Subtensor::increase_stake_on_coldkey_hotkey_account(
+            Subtensor::inc_subnet_stake_for_coldkey_hotkey(
+                netuid,
                 &U256::from(validator),
                 &U256::from(validator),
                 stake,
@@ -1910,7 +1914,8 @@ fn test_validator_permits() {
                             U256::from(key),
                             U256::from(key)
                         ));
-                        Subtensor::increase_stake_on_coldkey_hotkey_account(
+                        Subtensor::inc_subnet_stake_for_coldkey_hotkey(
+                            netuid,
                             &U256::from(key),
                             &U256::from(key),
                             stake[key as usize],
@@ -1947,7 +1952,8 @@ fn test_validator_permits() {
                             &(U256::from(*server as u64)),
                             2 * network_n as u64,
                         );
-                        Subtensor::increase_stake_on_coldkey_hotkey_account(
+                        Subtensor::inc_subnet_stake_for_coldkey_hotkey(
+                            netuid,
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
                             2 * network_n as u64,

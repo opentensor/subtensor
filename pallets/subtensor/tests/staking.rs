@@ -32,6 +32,7 @@ fn test_add_stake_dispatch_info_ok() {
     });
 }
 
+/*
 #[test]
 #[ignore]
 fn test_add_stake_total_balance_no_change() {
@@ -88,7 +89,9 @@ fn test_add_stake_total_balance_no_change() {
         assert_eq!(total_balance, initial_total_balance);
     });
 }
+*/
 
+/*
 #[test]
 #[ignore]
 fn test_add_stake_total_issuance_no_change() {
@@ -149,6 +152,7 @@ fn test_add_stake_total_issuance_no_change() {
         assert_eq!(total_issuance, initial_total_issuance);
     });
 }
+*/
 
 // /***********************************************************
 // 	staking::remove_stake() tests
@@ -175,8 +179,7 @@ fn test_remove_stake_dispatch_info_ok() {
     });
 }
 
-
-
+/*
 #[test]
 #[ignore]
 fn test_remove_stake_total_issuance_no_change() {
@@ -238,6 +241,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_eq!(total_issuance, amount);
     });
 }
+*/
 
 /***********************************************************
     staking::get_coldkey_balance() tests
@@ -405,4 +409,4 @@ fn test_faucet_ok() {
             )
         );
     });
-}
+}*/

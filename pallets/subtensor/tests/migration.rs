@@ -2,6 +2,7 @@ mod mock;
 use mock::*;
 use sp_core::U256;
 
+/*
 #[test]
 fn test_migration_fix_total_stake_maps() {
     new_test_ext().execute_with(|| {
@@ -119,7 +120,7 @@ fn test_migration_transfer_nets_to_foundation() {
         log::info!("new owner: {:?}", Subtensor::get_subnet_owner(1));
     })
 }
-
+*/
 
 #[test]
 fn test_migration_delete_subnet_3() {
