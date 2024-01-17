@@ -83,7 +83,7 @@ fn test_root_register_stake_based_pruning_works() {
         // Add two networks.
         let root_netuid: u16 = 0;
         let other_netuid: u16 = 1;
-        add_network(other_netuid, 0, 0);
+        add_network(other_netuid, 1, 0);
 
         // Set params to allow all registrations to subnet.
         Subtensor::set_burn(other_netuid, 0);
@@ -171,6 +171,8 @@ fn test_root_set_weights() {
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 13, 0);
         Subtensor::set_max_registrations_per_block(root_netuid, n as u16);
         Subtensor::set_target_registrations_per_interval(root_netuid, n as u16);
         Subtensor::set_max_allowed_uids(root_netuid, n as u16);
@@ -185,9 +187,10 @@ fn test_root_set_weights() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
             ));
-            assert_ok!(Subtensor::add_stake(
+            assert_ok!(Subtensor::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                netuid,
                 1000
             ));
         }
@@ -265,6 +268,8 @@ fn test_root_set_weights_out_of_order_netuids() {
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
+        let netuid: u16 = 1;
+        add_network(netuid, 13, 0);
         Subtensor::set_max_registrations_per_block(root_netuid, n as u16);
         Subtensor::set_target_registrations_per_interval(root_netuid, n as u16);
         Subtensor::set_max_allowed_uids(root_netuid, n as u16);
@@ -279,9 +284,10 @@ fn test_root_set_weights_out_of_order_netuids() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
             ));
-            assert_ok!(Subtensor::add_stake(
+            assert_ok!(Subtensor::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                netuid,
                 1000
             ));
         }
