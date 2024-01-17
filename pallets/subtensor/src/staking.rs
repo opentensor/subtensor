@@ -316,6 +316,17 @@ impl<T: Config> Pallet<T>
         return stake;
     }
 
+    pub fn get_combined_subnet_stake_for_hotkey(hotkey: &T::AccountId) -> u64
+    {
+        let mut stake: u64 = 0;
+        for netuid in 0..32_u16
+        {
+            stake = stake + Self::get_subnet_total_stake_for_hotkey(netuid + 1, hotkey);
+        }
+
+        return stake;
+    }
+
     pub fn get_stake_map_for_subnet(netuid: u16) -> Vec<(T::AccountId, T::AccountId, u64)>
     {
         let mut stake: Vec<(T::AccountId, T::AccountId, u64)> = vec![];

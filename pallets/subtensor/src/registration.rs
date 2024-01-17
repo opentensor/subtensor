@@ -1058,7 +1058,7 @@ impl<T: Config> Pallet<T>
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
             for (uid_i, hotkey_i) in <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(root_netuid)
             {
-                let stake_i: u64 = Self::get_subnet_total_stake_for_hotkey(uid_i, &hotkey_i);
+                let stake_i: u64 = Self::get_combined_subnet_stake_for_hotkey(&hotkey_i);
                 if stake_i < lowest_stake 
                 {
                     lowest_stake = stake_i;
@@ -1070,7 +1070,7 @@ impl<T: Config> Pallet<T>
 
             // --- 9.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_subnet_total_stake_for_hotkey(subnetwork_uid, &hotkey),
+                lowest_stake < Self::get_combined_subnet_stake_for_hotkey(&hotkey),
                 Error::<T>::StakeTooLowForRoot
             );
 
