@@ -47,7 +47,7 @@ impl<T: Config> Pallet<T>
             old_hotkey = Keys::<T>::get(netuid, uid_to_replace);
         }
 
-        // 3. Remove previous set memberships.
+        // 2. Remove previous set memberships.
         {
             Uids::<T>::remove(netuid, old_hotkey.clone()); 
             IsNetworkMember::<T>::remove(old_hotkey.clone(), netuid);
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T>
             Self::unstake_all_coldkeys_from_hotkey_account(netuid, &old_hotkey);
         }   
 
-        // 4. Create new set memberships.
+        // 3. Create new set memberships.
         {
             Self::set_active_for_uid(netuid, uid_to_replace, true); // Set to active by default.
 

@@ -27,6 +27,7 @@ use scale_info::{
 };
 use sp_runtime::{traits::{Zero, AppendZerosInput}, RuntimeDebug};
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+use sp_std::vec;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
