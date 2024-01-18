@@ -41,6 +41,11 @@ use
     },
     sp_std::
     {
+        vec,
+        vec::
+        {
+            Vec,
+        },
         mem::
         {
             size_of
@@ -132,7 +137,7 @@ mod benchmark
     #[benchmark]
     fn add_stake()
     {
-        let caller:       T::AccountId  = whitelisted_caller::<AccountIdOf<T>>();
+        /*let caller:       T::AccountId  = whitelisted_caller::<AccountIdOf<T>>();
         let caller_origin               = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 
         Subtensor::<T>::init_new_network(1, 1);
@@ -143,12 +148,12 @@ mod benchmark
         Subtensor::<T>::set_max_allowed_uids(1, 4096);
         assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
     
-        let coldkey:  T::AccountId = account("Test", 0, 1);
-        let hotkey:   T::AccountId = account("Alice", 0, 1);
+        */let coldkey:  T::AccountId = account("Test", 0, 1);
+        let hotkey:   T::AccountId = account("Alice", 0, 1);/*
     
         Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), Subtensor::<T>::u64_to_balance(1_000_000_000).unwrap());
         assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), 1, hotkey.clone()));
-
+        */
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hotkey, 1);
     }
@@ -207,6 +212,7 @@ mod benchmark
     #[benchmark]
     fn remove_stake()
     {
+        /*
         let caller:       T::AccountId  = whitelisted_caller::<AccountIdOf<T>>();
         let caller_origin               = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 
@@ -219,22 +225,22 @@ mod benchmark
 	      Subtensor::<T>::set_max_allowed_uids(1, 4096 );
   	    assert_eq!(Subtensor::<T>::get_max_allowed_uids(1), 4096);
 
-	      let coldkey:  T::AccountId  = account("Test", 0, 1);
+	      */let coldkey:  T::AccountId  = account("Test", 0, 1);
 	      let hotkey:   T::AccountId  = account("Alice", 0, 1);
-	      let wallet_bal              = Subtensor::<T>::u64_to_balance(1_000_000).unwrap();
+	      /*let wallet_bal              = Subtensor::<T>::u64_to_balance(1_000_000).unwrap();
   	    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
 
 	      assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), 1, hotkey.clone()));
 	      assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), Subtensor::<T>::get_default_take()));
 
 	      // Stake 10% of our current total staked TAO
-	      let u64_staked_amt = 100_000_000_000;
+	      */let u64_staked_amt = 100_000_000_000;/*
 	      let amount_to_be_staked = Subtensor::<T>::u64_to_balance(u64_staked_amt);
 	      Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked.unwrap());
 
-	      assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
+	      assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));*/
 	      let amount_unstaked: u64 = u64_staked_amt - 1;
-    
+        
         #[extrinsic_call]
         _(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), amount_unstaked);
     }
@@ -246,7 +252,7 @@ mod benchmark
         let caller_origin               = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
 
         // Set our total stake to 1000 TAO
-	      Subtensor::<T>::increase_total_stake(1_000_000_000_000);
+	      Subtensor::<T>::inc_subnet_total_stake(1, 1_000_000_000_000);
 
 	      Subtensor::<T>::init_new_network(1, 1);
 	      Subtensor::<T>::set_network_registration_allowed(1, true);

@@ -6,6 +6,8 @@ use
     },
     frame_support::
     {
+        StorageDoubleMap,
+        StorageNMap,
         storage::
         {
             IterableStorageDoubleMap
@@ -420,8 +422,16 @@ impl<T: Config> Pallet<T>
         */
 
         TotalSubnetStake::<T>::remove(netuid);
-        let _ = TotalSubnetHotkeyStake::<T>::clear_prefix(netuid, 0, None);
-        let _ = TotalSubnetColdkeyStake::<T>::clear_prefix(netuid, 0, None);
+
+        while TotalSubnetHotkeyStake::<T>::contains_prefix(netuid)
+        {
+            let _ = TotalSubnetHotkeyStake::<T>::clear_prefix(netuid, u32::MAX, None);
+        }
+
+        while TotalSubnetColdkeyStake::<T>::contains_prefix(netuid)
+        {
+            let _ = TotalSubnetColdkeyStake::<T>::clear_prefix(netuid, u32::MAX, None);
+        }
     }
 
     pub fn remove_all_subnet_stake_for_hotkey(netuid: u16, hotkey: &T::AccountId)
@@ -460,8 +470,7 @@ impl<T: Config> Pallet<T>
                 Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance(stake).unwrap());
 
                 Self::deposit_event(Event::SubnetStakeRemoved(netuid, coldkey, stake));
-            }
-            
+            }   
         }
     }
 
