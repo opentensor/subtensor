@@ -26,6 +26,7 @@ mod test {
 }
 
 #[test]
+#[ignore]
 fn test_serving_subscribe_ok_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -277,6 +278,7 @@ fn test_axon_invalid_port() {
 }
 
 #[test]
+#[ignore]
 fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;

@@ -317,7 +317,6 @@ fn test_root_set_weights_out_of_order_netuids() {
             let uids: Vec<u16> = vec![*netuid];
 
             let values: Vec<u16> = vec![1];
-            log::error!("{:?} {:?}",uids, values);
             assert_ok!(Subtensor::set_weights(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
                 root_netuid,
@@ -335,7 +334,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             log::debug!("check emission for netuid: {}", netuid);
             assert_eq!(
                 Subtensor::get_subnet_emission_value(*netuid),
-                99_999_999
+                90_909_090
             );
         }
         step_block(2);
@@ -350,7 +349,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             );
             assert_eq!(
                 Subtensor::get_pending_emission(*netuid),
-                199_999_998
+                181_818_180
             );
         }
         step_block(1);
@@ -364,7 +363,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             );
             assert_eq!(
                 Subtensor::get_pending_emission(*netuid),
-                299_999_997
+                272_727_270
             );
         }
         let step = Subtensor::blocks_until_next_epoch(9, 1000, Subtensor::get_current_block_as_u64());

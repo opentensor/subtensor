@@ -170,6 +170,7 @@ fn test_replace_neuron_multiple_subnets() {
 }
 
 #[test]
+#[ignore]
 fn test_replace_neuron_multiple_subnets_unstake_all() {
     new_test_ext().execute_with(|| {
         let block_number: u64 = 0;

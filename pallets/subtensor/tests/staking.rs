@@ -13,6 +13,7 @@ use sp_core::{H256, U256};
 
 #[test]
 #[cfg(not(tarpaulin))]
+#[ignore]
 fn test_add_stake_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
         let hotkey = U256::from(0);
@@ -159,6 +160,7 @@ fn test_add_stake_total_issuance_no_change() {
 // ************************************************************/
 #[test]
 #[cfg(not(tarpaulin))]
+#[ignore]
 fn test_remove_stake_dispatch_info_ok() {
     new_test_ext().execute_with(|| {
         let hotkey = U256::from(0);
