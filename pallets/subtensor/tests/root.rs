@@ -270,10 +270,10 @@ fn test_root_set_weights_out_of_order_netuids() {
         let root_netuid: u16 = 0;
         let netuid: u16 = 1;
         add_network(netuid, 13, 0);
-        Subtensor::set_max_registrations_per_block(root_netuid, n as u16);
-        Subtensor::set_target_registrations_per_interval(root_netuid, n as u16);
-        Subtensor::set_max_allowed_uids(root_netuid, n as u16);
-        for i in 0..n {
+        Subtensor::set_max_registrations_per_block(root_netuid, n as u16 + 1);
+        Subtensor::set_target_registrations_per_interval(root_netuid, n as u16 + 1);
+        Subtensor::set_max_allowed_uids(root_netuid, n as u16 + 1);
+        for i in 0..n+1 {
             let hotkey_account_id: U256 = U256::from(i);
             let coldkey_account_id: U256 = U256::from(i);
             Subtensor::add_balance_to_coldkey_account(
@@ -304,7 +304,7 @@ fn test_root_set_weights_out_of_order_netuids() {
                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
                 ));
             } else {
-                add_network(netuid as u16 * 10, 1000, 0)
+                add_network(netuid as u16 * 2 + 8, 1000, 0)
             }
         }
 
@@ -317,6 +317,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             let uids: Vec<u16> = vec![*netuid];
 
             let values: Vec<u16> = vec![1];
+            log::error!("{:?} {:?}",uids, values);
             assert_ok!(Subtensor::set_weights(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
                 root_netuid,
