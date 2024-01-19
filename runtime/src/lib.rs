@@ -6,7 +6,8 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::Encode;
+use codec::{Encode, Decode, MaxEncodedLen};
+use scale_info::TypeInfo;
 
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
@@ -27,7 +28,7 @@ use sp_runtime::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    ApplyExtrinsicResult, MultiSignature, RuntimeDebug,
 };
 
 use sp_std::cmp::Ordering;
@@ -1008,6 +1009,81 @@ impl pallet_admin_utils::Config for Runtime {
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
     
 }
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	RuntimeDebug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub enum ProxyType {
+	Any,
+    Staking,
+}
+
+impl Default for ProxyType {
+	fn default() -> Self {
+		Self::Any
+	}
+}
+
+impl frame_support::traits::InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
+		match self {
+			ProxyType::Any => true,
+            ProxyType::Staking => {
+                matches!(
+					c,
+					RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {..}) |
+                    RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {..})
+				)
+            }
+        }
+    }
+
+    fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			_ => false,
+		}
+	}
+}
+
+parameter_types! {
+    // One storage item; Balance is 4 Bytes.
+    pub const ProxyDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (8 as Balance) * 100 * 10_000;
+    // Additional storage item size of 33 bytes (`AccountId` + `ProxyType`).
+    pub const ProxyDepositFactor: Balance = (33 as Balance) * 100 * 10_000;
+    // One storage item; Balance is 4 Bytes.
+    pub const AnnouncementDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (8 as Balance) * 100 * 10_000;
+    // Additional storage item size of 64 bytes (`AccountId`, `Hash` and `BlockNumber`).
+    pub const AnnouncementDepositFactor: Balance = (64 as Balance) * 100 * 10_000;
+    pub const MaxPending: u32 = 32;
+    pub const MaxProxies: u32 = 32;
+}
+
+impl pallet_proxy::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type AnnouncementDepositBase = AnnouncementDepositBase;
+    type AnnouncementDepositFactor = AnnouncementDepositFactor;
+    type CallHasher = BlakeTwo256;
+    type Currency = Balances;
+    type MaxPending = MaxPending;
+    type MaxProxies = MaxProxies;
+    type ProxyDepositBase = ProxyDepositBase;
+    type ProxyDepositFactor = ProxyDepositFactor;
+    type ProxyType = ProxyType;
+    type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+}
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1035,7 +1111,8 @@ construct_runtime!(
         Scheduler: pallet_scheduler,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils
+        AdminUtils: pallet_admin_utils,
+        Proxy: pallet_proxy,
     }
 );
 
