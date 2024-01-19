@@ -59,6 +59,12 @@ impl<T: Config> Pallet<T> {
         SubnetLimit::<T>::get()
     }
 
+    pub fn set_max_subnets(limit: u16)
+    {
+        SubnetLimit::<T>::put(limit);
+        Self::deposit_event(Event::SubnetLimitSet(limit));
+    }
+
     // Fetches the total count of subnet validators (those that set weights.)
     //
     // This function retrieves the total number of subnet validators.
@@ -102,18 +108,6 @@ impl<T: Config> Pallet<T> {
     //
     pub fn if_subnet_exist(netuid: u16) -> bool {
         return NetworksAdded::<T>::get(netuid);
-    }
-
-    // Returns true if the subnetwork allows registration.
-    //
-    //
-    // This function checks if a subnetwork allows registrations.
-    //
-    // # Returns:
-    // * 'bool': Whether the subnet allows registrations.
-    //
-    pub fn if_subnet_allows_registration(netuid: u16) -> bool {
-        return NetworkRegistrationAllowed::<T>::get(netuid);
     }
 
     // Returns a list of subnet netuid equal to total networks.
@@ -235,6 +229,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_network_rate_limit( limit: u64 ) {
         NetworkRateLimit::<T>::set(limit);
+        Self::deposit_event(Event::NetworkRateLimitSet(limit));
     }
 
     // Computes and sets emission values for the root network which determine the emission for all subnets.
@@ -595,7 +590,7 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block - last_lock_block >= Self::get_network_rate_limit(), 
+            current_block.saturating_sub(last_lock_block) >= Self::get_network_rate_limit(), 
             Error::<T>::TxRateLimitExceeded
         );
 
@@ -615,7 +610,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
             log::debug!("subnet count: {:?}\nmax subnets: {:?}", Self::get_num_subnets(), Self::get_max_subnets());
-            if Self::get_num_subnets() - 1 < Self::get_max_subnets() { // We subtract one because we don't want root subnet to count towards total
+            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() { // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid += 1;
@@ -909,59 +904,47 @@ impl<T: Config> Pallet<T> {
     }
 
     // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
-    // It iterates over all the networks and finds the one with the minimum emission value that is not in the immunity period.
-    // If all networks are in the immunity period, it returns the one with the minimum emission value.
+    // It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
     //
     // # Returns:
     // 	* 'u16':
     // 		- The uid of the network to be pruned.
     //
     pub fn get_subnet_to_prune() -> u16 {
-        let mut min_score = 1;
-        let mut min_score_in_immunity_period = u64::MAX;
-        let mut uid_with_min_score = 1;
-        let mut uid_with_min_score_in_immunity_period: u16 = 1;
+        let mut netuids: Vec<u16> = vec![];
+        let current_block = Self::get_current_block_as_u64();
 
-        // Iterate over all networks
-        for netuid in 1..TotalNetworks::<T>::get() - 1 { // Don't count root netuid
-            let emission_value: u64 = Self::get_emission_value(netuid);
-            let block_at_registration: u64 = Self::get_network_registered_block(netuid);
-            let current_block: u64 = Self::get_current_block_as_u64();
-            let immunity_period: u64 = Self::get_network_immunity_period();
+        // Even if we don't have a root subnet, this still works
+        for netuid in NetworksAdded::<T>::iter_keys_from(NetworksAdded::<T>::hashed_key_for(0)) {
+            if current_block.saturating_sub(Self::get_network_registered_block(netuid)) < Self::get_network_immunity_period() {
+                continue
+            }
 
-            // Check if the network is in the immunity period
-            if min_score == emission_value {
-                if current_block.saturating_sub(block_at_registration) < immunity_period {
-                    //neuron is in immunity period
-                    if min_score_in_immunity_period > emission_value {
-                        min_score_in_immunity_period = emission_value;
-                        uid_with_min_score_in_immunity_period = netuid;
-                    }
-                } else {
-                    min_score = emission_value;
-                    uid_with_min_score = netuid;
-                }
-            }
-            // Find min emission value.
-            else if min_score > emission_value {
-                if current_block.saturating_sub(block_at_registration) < immunity_period {
-                    // network is in immunity period
-                    if min_score_in_immunity_period > emission_value {
-                        min_score_in_immunity_period = emission_value;
-                        uid_with_min_score_in_immunity_period = netuid;
-                    }
-                } else {
-                    min_score = emission_value;
-                    uid_with_min_score = netuid;
-                }
-            }
+            // This iterator seems to return them in order anyways, so no need to sort by key
+            netuids.push(netuid);
         }
-        // If all networks are in the immunity period, return the one with the minimum emission value.
-        if min_score == 1 {
-            // all networks are in immunity period
-            return 0;
-        } else {
-            return uid_with_min_score;
+
+        // Now we sort by emission, and then by subnet creation time.
+        netuids.sort_by(|a, b| {
+            use sp_std::cmp::Ordering;
+
+            match Self::get_emission_value(*b).cmp(&Self::get_emission_value(*a)) {
+                Ordering::Equal => {
+                    if Self::get_network_registered_block(*b) < Self::get_network_registered_block(*a) {
+                        Ordering::Less
+                    } else {
+                        Ordering::Equal
+                    }
+                },
+                v => v
+            }
+        });
+
+        log::info!("{:?}", netuids);
+
+        match netuids.last() {
+            Some(netuid) => *netuid,
+            None => 0
         }
     }
 
@@ -973,9 +956,11 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_network_immunity_period(net_immunity_period: u64) {
         NetworkImmunityPeriod::<T>::set(net_immunity_period);
+        Self::deposit_event(Event::NetworkImmunityPeriodSet(net_immunity_period));
     }
     pub fn set_network_min_lock(net_min_lock: u64) {
         NetworkMinLockCost::<T>::set(net_min_lock);
+        Self::deposit_event(Event::NetworkMinLockCostSet(net_min_lock));
     }
     pub fn get_network_min_lock() -> u64 {
         NetworkMinLockCost::<T>::get()
@@ -991,6 +976,7 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_lock_reduction_interval(interval: u64) {
         NetworkLockReductionInterval::<T>::set(interval);
+        Self::deposit_event(Event::NetworkLockCostReductionIntervalSet(interval));
     }
     pub fn get_lock_reduction_interval() -> u64 {
         NetworkLockReductionInterval::<T>::get()

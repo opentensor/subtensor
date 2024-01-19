@@ -1,83 +1,17 @@
 use super::*;
 use crate::system::ensure_root;
-use frame_support::pallet_prelude::DispatchResult;
+use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
 use frame_system::ensure_signed;
-use sp_core::{H256, U256};
+use sp_core::{H256, U256, Get};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use frame_support::storage::IterableStorageDoubleMap;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
-    pub fn do_sudo_registration(
-        origin: T::RuntimeOrigin,
-        netuid: u16,
-        hotkey: T::AccountId,
-        coldkey: T::AccountId,
-        stake: u64,
-        balance: u64,
-    ) -> DispatchResult {
-        ensure_root(origin)?;
-        ensure!(
-            netuid != Self::get_root_netuid(),
-            Error::<T>::OperationNotPermittedonRootSubnet
-        );
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-        ensure!(
-            !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::AlreadyRegistered
-        );
-
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
-
-        let balance_to_be_added_as_balance = Self::u64_to_balance(balance);
-        ensure!(
-            balance_to_be_added_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
-
-        let subnetwork_uid: u16;
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
-            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
-            // We increment the subnetwork count here but not below.
-            subnetwork_uid = current_subnetwork_n;
-
-            // --- 12.1.2 Expand subnetwork with new account.
-            Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
-        } else {
-            // --- 12.1.1 Replacement required.
-            // We take the neuron with the lowest pruning score here.
-            subnetwork_uid = Self::get_neuron_to_prune(netuid);
-
-            // --- 12.1.1 Replace the neuron account with the new info.
-            Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
-        }
-
-        log::info!(
-            "NeuronRegistered( netuid:{:?} uid:{:?} hotkey:{:?}  ) ",
-            netuid,
-            subnetwork_uid,
-            hotkey
-        );
-        Self::deposit_event(Event::NeuronRegistered(netuid, subnetwork_uid, hotkey));
-        Ok(())
-    }
-
     // ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
     //
     // # Args:
@@ -131,7 +65,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::if_subnet_allows_registration(netuid),
+            Self::get_network_registration_allowed(netuid),
             Error::<T>::RegistrationDisabled
         );
 
@@ -317,7 +251,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
-            Self::if_subnet_allows_registration(netuid),
+            Self::get_network_pow_registration_allowed(netuid),
             Error::<T>::RegistrationDisabled
         );
 
@@ -761,5 +695,133 @@ impl<T: Config> Pallet<T> {
         }
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         return (nonce, vec_work);
+    }
+
+    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResultWithPostInfo {
+        let coldkey = ensure_signed(origin)?;
+
+        let mut weight = T::DbWeight::get().reads_writes(2, 0);
+        ensure!(Self::coldkey_owns_hotkey(&coldkey, old_hotkey), Error::<T>::NonAssociatedColdKey);
+
+        let block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            Error::<T>::TxRateLimitExceeded
+        );
+
+        weight.saturating_accrue(T::DbWeight::get().reads(2));
+
+        ensure!(old_hotkey != new_hotkey, Error::<T>::AlreadyRegistered);
+        ensure!(!Self::is_hotkey_registered_on_any_network(new_hotkey), Error::<T>::AlreadyRegistered);  
+
+        weight.saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
+
+        let swap_cost = 1_000_000_000u64;
+        let swap_cost_as_balance = Self::u64_to_balance(swap_cost).unwrap();
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
+            Error::<T>::NotEnoughBalance
+        );
+        ensure!(
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)
+                == true,
+            Error::<T>::BalanceWithdrawalError
+        );
+        Self::burn_tokens(swap_cost);
+
+        Owner::<T>::remove(old_hotkey);
+        Owner::<T>::insert(new_hotkey, coldkey.clone());
+        weight.saturating_accrue(T::DbWeight::get().writes(2));
+
+        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
+            TotalHotkeyStake::<T>::remove(old_hotkey);
+            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
+
+            weight.saturating_accrue(T::DbWeight::get().writes(2));
+        }
+
+        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
+            Delegates::<T>::remove(old_hotkey);
+            Delegates::<T>::insert(new_hotkey, delegate_take);
+
+            weight.saturating_accrue(T::DbWeight::get().writes(2));
+        }
+
+        if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
+            LastTxBlock::<T>::remove(old_hotkey);
+            LastTxBlock::<T>::insert(new_hotkey, last_tx);
+
+            weight.saturating_accrue(T::DbWeight::get().writes(2));
+        }
+
+        let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
+        for (coldkey, stake_amount) in Stake::<T>::iter_prefix(old_hotkey) {
+            coldkey_stake.push((coldkey.clone(), stake_amount));
+        }
+
+        let _ = Stake::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
+        weight.saturating_accrue(T::DbWeight::get().writes(coldkey_stake.len() as u64));
+
+        for (coldkey, stake_amount) in coldkey_stake {
+            Stake::<T>::insert(new_hotkey, coldkey, stake_amount);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
+
+        let mut netuid_is_member: Vec<u16> = vec![];
+        for netuid in <IsNetworkMember<T> as IterableStorageDoubleMap<T::AccountId, u16, bool>>::iter_key_prefix(old_hotkey) {
+            netuid_is_member.push(netuid);
+        }
+
+        let _ = IsNetworkMember::<T>::clear_prefix(old_hotkey, netuid_is_member.len() as u32, None);
+        weight.saturating_accrue(T::DbWeight::get().writes(netuid_is_member.len() as u64));
+
+        for netuid in netuid_is_member.iter() {
+            IsNetworkMember::<T>::insert(new_hotkey, netuid, true);
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        }
+
+        for netuid in netuid_is_member.iter() {
+            if let Ok(axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
+                Axons::<T>::remove(netuid, old_hotkey);
+                Axons::<T>::insert(netuid, new_hotkey, axon_info);
+
+                weight.saturating_accrue(T::DbWeight::get().writes(2));
+            }
+        }
+
+        for netuid in netuid_is_member.iter() {
+            if let Ok(uid) = Uids::<T>::try_get(netuid, old_hotkey) {
+                Uids::<T>::remove(netuid, old_hotkey);
+                Uids::<T>::insert(netuid, new_hotkey, uid);
+
+                weight.saturating_accrue(T::DbWeight::get().writes(2));
+
+                Keys::<T>::insert(netuid, uid, new_hotkey);
+
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+                LoadedEmission::<T>::mutate(netuid, |emission_exists| {
+                    match emission_exists {
+                        Some(emissions) => {
+                            if let Some(emission) = emissions.get_mut(uid as usize) {
+                                let (_, se, ve) = emission;
+                                *emission = (new_hotkey.clone(), *se, *ve);
+    
+                            }
+                        }
+                        None => {}
+                    }
+                });
+
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+        }
+
+        Self::set_last_tx_block(&coldkey, block);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        Self::deposit_event(Event::HotkeySwapped{coldkey, old_hotkey: old_hotkey.clone(), new_hotkey: new_hotkey.clone()});
+
+        Ok(Some(weight).into())
     }
 }

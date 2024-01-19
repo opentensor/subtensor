@@ -184,11 +184,10 @@ fn init_run_epochs(
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
     // === Issue validator permits
-    assert_ok!(SubtensorModule::sudo_set_max_allowed_validators(
-        <<Test as Config>::RuntimeOrigin>::root(),
+    SubtensorModule::set_max_allowed_validators(
         netuid,
         validators.len() as u16
-    ));
+    );
     assert_eq!(
         SubtensorModule::get_max_allowed_validators(netuid),
         validators.len() as u16
@@ -999,7 +998,7 @@ fn test_bonds() {
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
 		// === Issue validator permits
-		assert_ok!( SubtensorModule::sudo_set_max_allowed_validators(<<Test as Config>::RuntimeOrigin>::root(), netuid, n) );
+		SubtensorModule::set_max_allowed_validators(netuid, n);
 		assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), n);
 		SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
 		run_to_block( 1 ); // run to next block to ensure weights are set on nodes after their registration block
@@ -1309,11 +1308,10 @@ fn test_active_stake() {
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
         // === Issue validator permits
-        assert_ok!(SubtensorModule::sudo_set_max_allowed_validators(
-            <<Test as Config>::RuntimeOrigin>::root(),
+        SubtensorModule::set_max_allowed_validators(
             netuid,
             n
-        ));
+        );
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -1517,11 +1515,10 @@ fn test_outdated_weights() {
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
         // === Issue validator permits
-        assert_ok!(SubtensorModule::sudo_set_max_allowed_validators(
-            <<Test as Config>::RuntimeOrigin>::root(),
+        SubtensorModule::set_max_allowed_validators(
             netuid,
             n
-        ));
+        );
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         run_to_block(1);
@@ -1921,11 +1918,10 @@ fn test_validator_permits() {
                     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), network_n as u16);
 
                     // === Issue validator permits
-                    assert_ok!(SubtensorModule::sudo_set_max_allowed_validators(
-                        <<Test as Config>::RuntimeOrigin>::root(),
+                    SubtensorModule::set_max_allowed_validators(
                         netuid,
                         validators_n as u16
-                    ));
+                    );
                     assert_eq!(
                         SubtensorModule::get_max_allowed_validators(netuid),
                         validators_n as u16

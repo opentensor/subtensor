@@ -48,6 +48,8 @@ sp-version = { version = "5.0.0", default-features = false, git = "https://githu
 # Temporary sudo
 pallet-sudo = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
+pallet-admin-utils = { version = "4.0.0-dev", default-features = false, path = "../pallets/admin-utils" }
+
 # Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
 pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -66,6 +68,12 @@ pallet-transaction-payment-rpc-runtime-api = { version = "4.0.0-dev", default-fe
 # Used for runtime benchmarking
 frame-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", optional = true, branch = "polkadot-v0.9.39" }
 frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", optional = true, branch = "polkadot-v0.9.39" }
+
+# Identity registry pallet for registering project info
+pallet-registry = { version = "4.0.0-dev", default-features = false, path = "../pallets/registry" }
+
+# Metadata commitment pallet
+pallet-commitments = { version = "4.0.0-dev", default-features = false, path = "../pallets/commitments" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", optional = true, branch = "polkadot-v0.9.39" }
@@ -97,6 +105,7 @@ std = [
 	"pallet-multisig/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
+	"pallet-commitments/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -111,6 +120,8 @@ std = [
 	"substrate-wasm-builder",
 	"pallet-collective/std",
 	"pallet-membership/std",
+	"pallet-registry/std",
+	"pallet-admin-utils/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -125,6 +136,9 @@ runtime-benchmarks = [
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
+	"pallet-registry/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks",
+	"pallet-admin-utils/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",

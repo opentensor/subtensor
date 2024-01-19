@@ -275,6 +275,7 @@ fn test_burn_adjustment_case_a() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
+        SubtensorModule::set_min_difficulty(netuid, start_diff);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
@@ -538,6 +539,7 @@ fn test_burn_adjustment_case_d() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
+        SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
@@ -620,6 +622,7 @@ fn test_burn_adjustment_case_e() {
         SubtensorModule::set_max_registrations_per_block(netuid, 10);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
+        SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
@@ -693,6 +696,7 @@ fn test_burn_adjustment_case_f() {
         SubtensorModule::set_max_registrations_per_block(netuid, 10);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
+        SubtensorModule::set_min_difficulty(netuid, start_diff);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
@@ -765,6 +769,7 @@ fn test_burn_adjustment_case_e_zero_registrations() {
         SubtensorModule::set_max_registrations_per_block(netuid, 10);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
+        SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
         SubtensorModule::set_target_registrations_per_interval(
             netuid,

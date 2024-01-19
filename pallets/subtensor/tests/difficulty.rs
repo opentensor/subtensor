@@ -11,6 +11,7 @@ fn test_registration_difficulty_adjustment() {
         let tempo: u16 = 1;
         let modality: u16 = 1;
         add_network(netuid, tempo, modality);
+        SubtensorModule::set_min_difficulty(netuid, 10000);
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 10000); // Check initial difficulty.
         assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 0); // Last adjustment block starts at 0.
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // No registrations this block.

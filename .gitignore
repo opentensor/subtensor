@@ -32,3 +32,6 @@ specs/*.json
 
 # Git merge/rebase artifacts
 *.orig
+
+# VSCode configuration
+.vscode

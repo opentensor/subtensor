@@ -8,6 +8,7 @@ use sp_core::{sr25519, Pair, Public, bounded_vec};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use sp_core::crypto::Ss58Codec;
+use std::env;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -330,58 +331,68 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
 }
 
 fn localnet_genesis(
-	wasm_binary: &[u8],
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
-	_enable_println: bool,
+    wasm_binary: &[u8],
+    initial_authorities: Vec<(AuraId, GrandpaId)>,
+    _enable_println: bool,
 ) -> GenesisConfig {
-	GenesisConfig {
-		system: SystemConfig {
-			// Add Wasm runtime to storage.
-			code: wasm_binary.to_vec(),
-		},
-		balances: BalancesConfig {
-			// Configure sudo balance
-			balances: vec![ 
-				(get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
-				(get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
-				(get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
-				(get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
-				(get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
-				(get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
-			]
-		},
-		aura: AuraConfig {
-			authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-		},
-		grandpa: GrandpaConfig {
-			authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
-		},
-		sudo: SudoConfig {
-			key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-		},
-		transaction_payment: Default::default(),
-		subtensor_module: Default::default(),
-		triumvirate: TriumvirateConfig {
-			members: Default::default(),
-			phantom: Default::default(),
-		},
-		triumvirate_members: TriumvirateMembersConfig {
-			members: bounded_vec![
-				get_account_id_from_seed::<sr25519::Public>("Alice"),
-				get_account_id_from_seed::<sr25519::Public>("Bob"),
-				get_account_id_from_seed::<sr25519::Public>("Charlie"),
-			],
-			phantom: Default::default()
-		},
-		senate_members: SenateMembersConfig {
-			members: bounded_vec![
-				get_account_id_from_seed::<sr25519::Public>("Dave"),
-				get_account_id_from_seed::<sr25519::Public>("Eve"),
-				get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-			],
-			phantom: Default::default()
-		}
-	}
+    let mut balances = vec![
+        (get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
+    ];
+
+    // Check if the environment variable is set
+    if let Ok(bt_wallet) = env::var("BT_DEFAULT_TOKEN_WALLET") {
+        if let Ok(decoded_wallet) = Ss58Codec::from_ss58check(&bt_wallet) {
+            balances.push((decoded_wallet, 1_000_000_000_000_000));
+        } else {
+            eprintln!("Invalid format for BT_DEFAULT_TOKEN_WALLET.");
+        }
+    }
+
+    GenesisConfig {
+        system: SystemConfig {
+            // Add Wasm runtime to storage.
+            code: wasm_binary.to_vec(),
+        },
+        balances: BalancesConfig {
+            balances,
+        },
+        aura: AuraConfig {
+            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+        },
+        grandpa: GrandpaConfig {
+            authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
+        },
+        sudo: SudoConfig {
+            key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
+        },
+        transaction_payment: Default::default(),
+        subtensor_module: Default::default(),
+        triumvirate: TriumvirateConfig {
+            members: Default::default(),
+            phantom: Default::default(),
+        },
+        triumvirate_members: TriumvirateMembersConfig {
+            members: bounded_vec![
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                get_account_id_from_seed::<sr25519::Public>("Bob"),
+                get_account_id_from_seed::<sr25519::Public>("Charlie"),
+            ],
+            phantom: Default::default()
+        },
+        senate_members: SenateMembersConfig {
+            members: bounded_vec![
+                get_account_id_from_seed::<sr25519::Public>("Dave"),
+                get_account_id_from_seed::<sr25519::Public>("Eve"),
+                get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+            ],
+            phantom: Default::default()
+        }
+    }
 }
 
 
