@@ -471,3 +471,64 @@ pub fn migration_remove_zero_stake_values<T: Config>() -> Weight {
         Weight::zero()
     }
 }
+
+const LOG_TARGET_DEPRECATED_STAKE: &str = "removedeprecatedstakevalues";
+pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
+{
+    let new_storage_version = 7;
+    // Check storage version
+    let mut weight = T::DbWeight::get().reads(1);
+    // Grab current version
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    if onchain_version < new_storage_version 
+    {
+        for (coldkey, hotkey, mut stake) in Stake::<T>::drain()
+        {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+            let hk_stake = TotalHotkeyStake::<T>::try_get(hotkey.clone());
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            if hk_stake.is_ok()
+            {
+                let adj_stake: u64 = stake - hk_stake.unwrap();
+                if adj_stake > 0
+                {
+                    stake += adj_stake;
+                }
+                
+                TotalHotkeyStake::<T>::remove(hotkey.clone());
+                weight.saturating_accrue(T::DbWeight::get().writes(1));
+            }
+
+            Pallet::<T>::add_balance_to_coldkey_account(
+                &coldkey, 
+                Pallet::<T>::u64_to_balance(stake).unwrap()
+            );
+        }
+
+        for (hotkey, stake) in TotalHotkeyStake::<T>::drain()
+        {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+            weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+            Pallet::<T>::add_balance_to_coldkey_account(
+                &Pallet::<T>::get_owning_coldkey_for_hotkey(&hotkey), 
+                Pallet::<T>::u64_to_balance(stake).unwrap()
+            );
+        }
+
+        // Update storage version.
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
+                                                                     // One write to storage version
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        return weight;
+    }
+    else 
+    {
+        info!(target: LOG_TARGET_STAKE, "Migration to v7 already done!");
+
+        return Weight::zero();
+    }
+}
