@@ -307,6 +307,17 @@ impl<T: Config> Pallet<T>
         return stake;
     }
 
+    pub fn get_combined_subnet_stake() -> u64
+    {
+        let mut stake: u64 = 0;
+        for netuid in 0..32_u16
+        {
+            stake = stake + Self::get_subnet_total_stake(netuid);
+        }
+
+        return stake;
+    }
+
     pub fn get_combined_subnet_stake_for_coldkey(coldkey: &T::AccountId) -> u64
     {
         let mut stake: u64 = 0;

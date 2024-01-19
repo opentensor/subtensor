@@ -520,7 +520,7 @@ fn test_network_pruning() {
         }
 
         // All stake values.
-        //assert_eq!(Subtensor::get_total_issuance(), 10000);
+        assert_eq!(Subtensor::get_combined_subnet_stake(), 10000);
 
         step_block(1);
         assert_ok!(Subtensor::root_epoch(1_000_000_000));
@@ -530,7 +530,7 @@ fn test_network_pruning() {
         assert_eq!(Subtensor::get_subnet_emission_value(3), 176_432_500);
         assert_eq!(Subtensor::get_subnet_emission_value(4), 77_181_559);
         assert_eq!(Subtensor::get_subnet_emission_value(5), 5_857_251);
-        //assert_eq!(Subtensor::get_total_issuance(), 10000);
+        assert_eq!(Subtensor::get_combined_subnet_stake(), 10000);
         step_block(1);
         assert_eq!(Subtensor::get_pending_emission(0), 0); // root network gets no pending emission.
         assert_eq!(Subtensor::get_pending_emission(1), 246_922_263);
@@ -539,7 +539,7 @@ fn test_network_pruning() {
         assert_eq!(Subtensor::get_pending_emission(4), 0); // This network has been drained.
         assert_eq!(Subtensor::get_pending_emission(5), 5_857_251);
         step_block(1);
-        //assert_eq!(Subtensor::get_total_issuance(), 585_930_498);
+        assert_eq!(Subtensor::get_combined_subnet_stake(), (585_930_498+10000) / 2);
     });
 }
 

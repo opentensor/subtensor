@@ -162,7 +162,9 @@ impl<T: Config> Pallet<T>
                 total_emitted += *server_amount + *validator_amount;
             }
             LoadedEmission::<T>::remove(netuid);
-            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(total_emitted));
+            TotalIssuance::<T>::put(
+                TotalIssuance::<T>::get().saturating_add(total_emitted)
+            );
         }
     }
 
