@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T>
         let mut stake: u64 = 0;
         for netuid in 0..32_u16
         {
-            stake = stake + Self::get_subnet_total_stake(netuid);
+            stake = stake + Self::get_subnet_total_stake(netuid + 1);
         }
 
         return stake;
