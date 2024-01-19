@@ -536,7 +536,7 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
     }
     else 
     {
-        info!(target: LOG_TARGET_STAKE, "Migration to v7 already done!");
+        info!(target: LOG_TARGET_DEPRECATED_STAKE, "Migration to v7 already done!");
 
         return Weight::zero();
     }
