@@ -509,10 +509,10 @@ fn test_network_pruning() {
                 (i as u16) + 1,
                 hot
             ));
-            /*assert_eq!(
-                Subtensor::get_total_issuance(),
+            assert_eq!(
+                Subtensor::get_combined_subnet_stake(),
                 1_000 * ((i as u64) + 1)
-            );*/
+            );
             assert_eq!(
                 Subtensor::get_subnetwork_n(root_netuid),
                 (i as u16) + 1
