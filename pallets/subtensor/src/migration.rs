@@ -519,6 +519,15 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
             );
         }
 
+        while
+        {
+            let removed = TotalColdkeyStake::<T>::clear(u32::MAX, None).backend;
+            weight.saturating_accrue(T::DbWeight::get().reads(removed as u64));
+            weight.saturating_accrue(T::DbWeight::get().writes(removed as u64));
+
+            removed > 0
+        } {}
+
         // Update storage version.
         StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
                                                                      // One write to storage version
