@@ -95,7 +95,7 @@ fn test_subnet_dividends_with_run_to_block() {
         assert_eq!(Subtensor::get_subnetwork_n(netuid), 3);
 
         // Run a couple of blocks to check if emission works
-        run_to_block(2);
+        run_to_block(1000);
 
         // Check if the stake is equal to the inital stake + transfer
         assert_eq!(

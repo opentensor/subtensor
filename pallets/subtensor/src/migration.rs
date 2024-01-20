@@ -484,8 +484,8 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
     {
         for (coldkey, hotkey, mut stake) in Stake::<T>::drain()
         {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
+            weight.saturating_accrue(T::DbWeight::get().reads(1));  // for
+            weight.saturating_accrue(T::DbWeight::get().writes(1)); // drain
 
             let hk_stake = TotalHotkeyStake::<T>::try_get(hotkey.clone());
             weight.saturating_accrue(T::DbWeight::get().reads(1));
@@ -510,8 +510,8 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
 
         for (hotkey, stake) in TotalHotkeyStake::<T>::drain()
         {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
+            weight.saturating_accrue(T::DbWeight::get().reads(2 + 1)); // for + owner + balance
+            weight.saturating_accrue(T::DbWeight::get().writes(1));    // balance
 
             Pallet::<T>::add_balance_to_coldkey_account(
                 &Pallet::<T>::get_owning_coldkey_for_hotkey(&hotkey), 
@@ -522,11 +522,14 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
         while
         {
             let removed = TotalColdkeyStake::<T>::clear(u32::MAX, None).backend;
-            weight.saturating_accrue(T::DbWeight::get().reads(removed as u64));
-            weight.saturating_accrue(T::DbWeight::get().writes(removed as u64));
+            weight.saturating_accrue(T::DbWeight::get().reads(removed as u64));  // key
+            weight.saturating_accrue(T::DbWeight::get().writes(removed as u64)); // val
 
             removed > 0
         } {}
+
+        TotalStake::<T>::put(0);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // Update storage version.
         StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
