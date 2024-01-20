@@ -36,6 +36,7 @@ use
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> 
 {
+    netuid:     Compact<u16>,
     hotkey:     T::AccountId,
     coldkey:    T::AccountId,
     stake:      Compact<u64>,
@@ -55,18 +56,19 @@ impl<T: Config> Pallet<T>
         {
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
 
-            /*for (hotkey, coldkey, stake) in <Stake<T>>::iter() 
+            for (netuid, hotkey, coldkey) in SubnetStake::<T>::iter_keys() 
             {
                 if coldkey == coldkey_ 
                 {
                     stake_info_for_coldkey.push(StakeInfo 
                     {
-                        hotkey,
-                        coldkey,
-                        stake: stake.into(),
+                        netuid: netuid.into(),
+                        hotkey: hotkey.clone(),
+                        coldkey: coldkey.clone(),
+                        stake: Self::get_subnet_stake_for_coldkey_hotkey(netuid, &coldkey, &hotkey).into(),
                     });
                 }
-            }*/
+            }
 
             stake_info.push((coldkey_, stake_info_for_coldkey));
         }
