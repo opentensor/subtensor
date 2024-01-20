@@ -135,9 +135,17 @@ impl<T: Config> Pallet<T> {
             .filter_map(|(i, b)| if *b > 0 { Some((i.into(), b.into())) } else { None })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         
-        let stake: Vec<(T::AccountId, Compact<u64>)>    = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
+        let mut stake: Vec<(T::AccountId, Compact<u64>)> = vec![];
+        for (_netuid, _coldkey, _hotkey) in SubnetStake::<T>::iter_keys()
+        {
+            if _netuid == netuid && _hotkey == hotkey
+            {
+                stake.push((
+                    _coldkey.clone(),
+                    Self::get_subnet_stake_for_coldkey_hotkey(netuid, &_coldkey, &_hotkey).into()
+                ));
+            }
+        }
 
         return Some(NeuronInfo 
         {
@@ -197,9 +205,17 @@ impl<T: Config> Pallet<T> {
         let last_update:        u64             = Self::get_last_update_for_uid( netuid, uid as u16 );
         let validator_permit:   bool            = Self::get_validator_permit_for_uid( netuid, uid as u16 );
 
-        /*let stake: Vec<(T::AccountId, Compact<u64>)> = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();*/
+        let mut stake: Vec<(T::AccountId, Compact<u64>)> = vec![];
+        for (_netuid, _coldkey, _hotkey) in SubnetStake::<T>::iter_keys()
+        {
+            if _netuid == netuid && _hotkey == hotkey
+            {
+                stake.push((
+                    _coldkey.clone(),
+                    Self::get_subnet_stake_for_coldkey_hotkey(netuid, &_coldkey, &_hotkey).into()
+                ));
+            }
+        }
 
         return Some(NeuronInfoLite
         {
@@ -210,7 +226,7 @@ impl<T: Config> Pallet<T> {
             active,
             axon_info,
             prometheus_info,
-            stake:              vec![],
+            stake,
             rank:               rank.into(),
             emission:           emission.into(),
             incentive:          incentive.into(),
