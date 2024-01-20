@@ -490,13 +490,9 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
             let hk_stake = TotalHotkeyStake::<T>::try_get(hotkey.clone());
             weight.saturating_accrue(T::DbWeight::get().reads(1));
 
-            if hk_stake.is_ok()
+            if hk_stake.is_ok() && hk_stake.unwrap() > stake
             {
-                let adj_stake: u64 = stake - hk_stake.unwrap();
-                if adj_stake > 0
-                {
-                    stake += adj_stake;
-                }
+                stake += (hk_stake.unwrap() - stake);
                 
                 TotalHotkeyStake::<T>::remove(hotkey.clone());
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
