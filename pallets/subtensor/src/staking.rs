@@ -302,13 +302,13 @@ impl<T: Config> Pallet<T>
 
     pub fn get_staking_map_for_coldkey(coldkey: &T::AccountId) -> Vec<(u16, u64)>
     {
-        let mut stake: Vec<(u16, u64)> = vec![];
+        let mut stake: Vec<(u16, u64)> = Vec::with_capacity(32);
         for netuid in 0..32_u16
         {
             let subnet_stake: u64 = Self::get_subnet_total_stake_for_coldkey(netuid + 1, coldkey);
             if subnet_stake > 0
             {
-                stake.push((netuid + 1, subnet_stake));
+                stake[netuid as usize] = (netuid + 1, subnet_stake);
             }
         }
 
@@ -350,16 +350,16 @@ impl<T: Config> Pallet<T>
 
     pub fn get_stake_map_for_subnet(netuid: u16) -> Vec<(T::AccountId, T::AccountId, u64)>
     {
-        let mut stake: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
+        let mut stake: Vec<(T::AccountId, T::AccountId, u64)> = Vec::with_capacity(32);
         for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
         {
             if subnetid == netuid
             {
-                stake.push((
+                stake[netuid as usize] = (
                     delegate_coldkey.clone(),
                     hotkey.clone(),
                     Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, &hotkey)
-                ));
+                );
             }
         }
 
