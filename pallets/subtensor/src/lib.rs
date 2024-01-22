@@ -1401,7 +1401,9 @@ pub mod pallet
                 .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(hex))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
-                .saturating_add(migration::migration_remove_zero_stake_values::<T>());
+                .saturating_add(migration::migration_remove_zero_stake_values::<T>())
+                .saturating_add(migration::migration_remove_deprecated_stake_values::<T>())
+                .saturating_add(migration::migration_recount_total_issuance::<T>());
 
             return weight;
         }
