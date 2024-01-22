@@ -78,7 +78,7 @@ services:
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
-          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWQawexXodtsPEymJUX1X2eKzjNq6s8MvzEWtKwJ6mLmzy \
+          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWQawexXodtsPEymJUX1X2eKzjNq6s8MvzEWtKwJ6mLmzy \
           --sync warp
 
   testnet-archive:
@@ -96,5 +96,5 @@ services:
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
-          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/ws/p2p/12D3KooWQawexXodtsPEymJUX1X2eKzjNq6s8MvzEWtKwJ6mLmzy \
+          --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWQawexXodtsPEymJUX1X2eKzjNq6s8MvzEWtKwJ6mLmzy \
           --pruning=archive
