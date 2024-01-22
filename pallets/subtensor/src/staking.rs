@@ -4,6 +4,13 @@ use
     {
         *
     },
+    crate::
+    {
+        math::
+        {
+            *
+        }
+    },
     frame_support::
     {
         StorageDoubleMap,
@@ -17,6 +24,7 @@ use
     {
         types::
         {
+            I32F32,
             I64F64
         } 
     },
@@ -356,6 +364,32 @@ impl<T: Config> Pallet<T>
         }
 
         return stake;
+    }
+
+    pub fn get_stake_map() -> Vec<u64>
+    {
+        let mut stake_map: Vec<u64> = Vec::with_capacity(32);
+        for netuid in 0..32_u16
+        {
+            stake_map[netuid as usize] = Self::get_subnet_total_stake(netuid + 1);
+        }
+
+        return stake_map;
+    }
+
+    pub fn get_normalized_stake_map() -> Vec<I32F32>
+    {
+        let mut stake_map: Vec<I32F32> = Vec::with_capacity(32);
+        for netuid in 0..32_u16
+        {
+            stake_map[netuid as usize] = I32F32::from_num(
+                Self::get_subnet_total_stake(netuid + 1)
+            );
+        }
+
+        inplace_normalize(&mut stake_map);
+
+        return stake_map;
     }
 
     pub fn remove_all_subnet_stake(netuid: u16)
