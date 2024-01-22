@@ -389,6 +389,7 @@ impl pallet_subtensor::Config for Runtime {
     type Currency = Balances;
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = pallet_subtensor::extrinsic_weights::SubstrateWeight<Runtime>;
+    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
@@ -735,6 +736,15 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
     fn init_new_network(netuid: u16, tempo: u16)
     {
         Subtensor::init_new_network(netuid, tempo);
+    }
+}
+
+pub struct SubtensorSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+{
+    fn total_issuance() -> Balance
+    {
+        return Balances::total_issuance();
     }
 }
 

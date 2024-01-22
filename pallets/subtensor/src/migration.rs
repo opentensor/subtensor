@@ -540,3 +540,40 @@ pub fn migration_remove_deprecated_stake_values<T: Config>() -> Weight
         return Weight::zero();
     }
 }
+
+use sp_runtime::SaturatedConversion;
+const LOG_TARGET_RECOUNT_TOTAL_ISSUANCE: &str = "recounttotalissuance";
+pub fn migration_recount_total_issuance<T: Config>() -> Weight
+{
+    let new_storage_version = 8;
+    // Check storage version
+    let mut weight = T::DbWeight::get().reads(1);
+    // Grab current version
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    if onchain_version < new_storage_version 
+    {
+        let mut total: u64 = <T as Config>::SubstrateBalances::total_issuance().saturated_into::<u64>();
+        for (netuid, amount) in SubnetLocked::<T>::iter()
+        {
+            weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+            total += amount;
+        }
+
+        TotalIssuance::<T>::put(total);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        weight.saturating_accrue(T::DbWeight::get().reads(1));
+
+        // Update storage version.
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
+                                                                     // One write to storage version
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+        return weight;
+    }
+    else 
+    {
+        info!(target: LOG_TARGET_RECOUNT_TOTAL_ISSUANCE, "Migration to v8 already done!");
+
+        return Weight::zero();
+    }
+}

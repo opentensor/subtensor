@@ -188,6 +188,8 @@ pub mod pallet
 
         type WeightInfo: WeightInfo;
 
+        type SubstrateBalances: crate::SubstrateBalancesInterface<<<Self as Config>::Currency as Currency<<Self as frame_system::Config>::AccountId>>::Balance>;
+
         // =================================
         // ==== Initial Value Constants ====
         // =================================
@@ -2163,3 +2165,8 @@ where
         Ok(())
     }
 }
+
+pub trait SubstrateBalancesInterface<Balance>
+{
+    fn total_issuance() -> Balance;
+} 
