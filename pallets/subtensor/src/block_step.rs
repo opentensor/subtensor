@@ -25,7 +25,8 @@ use
         {
             I110F18,
             I64F64,
-            I96F32
+            I96F32,
+            I32F32
         }
     }
 };
@@ -40,6 +41,11 @@ impl<T: Config> Pallet<T>
         // --- 1. Adjust difficulties.
         {
             Self::adjust_registration_terms_for_networks();
+        }
+
+        // --- 2. Calculate emissions per subnet
+        {
+            Self::calc_subnet_emissions(block_number);
         }
 
         // --- 3. Drains emission tuples ( hotkey, amount ).
@@ -107,6 +113,23 @@ impl<T: Config> Pallet<T>
         }
 
         return to_sink_via_blocks_until_epoch;
+    }
+
+    pub fn calc_subnet_emissions(block_number: u64) -> Result<(), &'static str> 
+    {
+        let block_emission:     I32F32      = I32F32::from_num(Self::get_block_emission());
+        let stake_map:          Vec<I32F32> = Self::get_normalized_stake_map();
+        let subnets:            Vec<u16>    = Self::get_all_subnet_netuids();
+        let mut emissions:      Vec<u64>    = vec![0; subnets.len()];
+
+        for (index, netuid) in subnets.iter().enumerate()
+        {
+            emissions[index] = stake_map[*netuid as usize].saturating_mul(
+                block_emission
+            ).to_num::<u64>();
+        }
+
+        return Self::set_emission_values(&subnets, emissions);
     }
 
     pub fn has_loaded_emission_tuples(netuid: u16) -> bool
