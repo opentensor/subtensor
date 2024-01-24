@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T>
             ).to_num::<u64>();
         }
 
-        log::error!("{:?} {:?}", subnets, emissions);
+        log::debug!("subnet emissions {:?} {:?}", subnets, emissions);
 
         return Self::set_emission_values(&subnets, emissions);
     }
@@ -386,7 +386,7 @@ impl<T: Config> Pallet<T>
             );
         }
 
-        log::info!("stakemap: {:?}", Self::get_stake_map_for_subnet(netuid));
+        log::debug!("stakemap_{:?} {:?}", netuid, Self::get_stake_map_for_subnet(netuid));
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
