@@ -43,17 +43,12 @@ impl<T: Config> Pallet<T>
             Self::adjust_registration_terms_for_networks();
         }
 
-        // --- 2. Calculate emissions per subnet
-        {
-            Self::calc_subnet_emissions(block_number);
-        }
-
-        // --- 3. Drains emission tuples ( hotkey, amount ).
+        // --- 2. Drains emission tuples ( hotkey, amount ).
         {
             Self::drain_emission(block_number);
         }
 
-        // --- 4. Generates emission tuples from epoch functions.
+        // --- 3. Generates emission tuples from epoch functions.
         {
             Self::generate_emission(block_number);
         }
@@ -115,7 +110,7 @@ impl<T: Config> Pallet<T>
         return to_sink_via_blocks_until_epoch;
     }
 
-    pub fn calc_subnet_emissions(block_number: u64) -> Result<(), &'static str> 
+    pub fn calc_subnet_emissions() -> Result<(), &'static str> 
     {
         let block_emission:     I32F32      = I32F32::from_num(Self::get_block_emission());
         let stake_map:          Vec<I32F32> = Self::get_normalized_stake_map();

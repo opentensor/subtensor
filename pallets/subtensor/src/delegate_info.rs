@@ -107,7 +107,7 @@ impl<T: Config> Pallet<T>
         let mut total_stake_:       u64             = 0;
         let mut return_per_1000:    U64F64          = U64F64::from_num(0);
 
-        for i in 0..32_u16
+        for i in 0..Self::get_max_subnets() as u16
         {
             total_stake_ = total_stake_ + Self::get_subnet_total_stake_for_hotkey(i + 1, &delegate.clone());
         }
