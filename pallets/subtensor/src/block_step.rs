@@ -117,12 +117,14 @@ impl<T: Config> Pallet<T>
         let subnets:            Vec<u16>    = Self::get_all_subnet_netuids();
         let mut emissions:      Vec<u64>    = vec![0; subnets.len()];
 
-        for (index, netuid) in subnets.iter().enumerate()
+        for (index, netuid) in subnets.iter().enumerate().skip(1)
         {
-            emissions[index] = stake_map[*netuid as usize].saturating_mul(
+            emissions[index] = stake_map[(*netuid as usize) - 1].saturating_mul(
                 block_emission
             ).to_num::<u64>();
         }
+
+        log::error!("{:?} {:?}", subnets, emissions);
 
         return Self::set_emission_values(&subnets, emissions);
     }

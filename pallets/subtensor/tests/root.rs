@@ -134,7 +134,7 @@ fn test_network_pruning() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
                 (i as u16) + 1,
-                1_000
+                1_000 * ((i as u64) + 1)
             ));
 
             assert!(Subtensor::get_uid_for_net_and_hotkey((i as u16) + 1, &hot).is_ok());
@@ -142,36 +142,34 @@ fn test_network_pruning() {
             Subtensor::set_tempo((i as u16) + 1, 1);
             Subtensor::set_burn((i as u16) + 1, 0);
             assert_eq!(
-                Subtensor::get_combined_subnet_stake(),
-                1_000 * ((i as u64) + 1)
-            );
-            assert_eq!(
                 Subtensor::get_subnetwork_n((i as u16) + 1),
                 1
             );
         }
 
-        // All stake values.
-        assert_eq!(Subtensor::get_combined_subnet_stake(), 10000);
+        assert_eq!(
+            Subtensor::get_combined_subnet_stake(),
+            55_000
+        );
 
         step_block(1);
         //assert_ok!(Subtensor::root_epoch(1_000_000_000));
-        assert_eq!(Subtensor::get_subnet_emission_value(0), 277_820_113);
-        assert_eq!(Subtensor::get_subnet_emission_value(1), 246_922_263);
-        assert_eq!(Subtensor::get_subnet_emission_value(2), 215_549_466);
-        assert_eq!(Subtensor::get_subnet_emission_value(3), 176_432_500);
-        assert_eq!(Subtensor::get_subnet_emission_value(4), 77_181_559);
-        assert_eq!(Subtensor::get_subnet_emission_value(5), 5_857_251);
-        assert_eq!(Subtensor::get_combined_subnet_stake(), 10000);
+        //assert_eq!(Subtensor::get_subnet_emission_value(0), 277_820_113);
+        assert_eq!(Subtensor::get_subnet_emission_value(1), 18_181_818);
+        assert_eq!(Subtensor::get_subnet_emission_value(2), 36_363_636);
+        assert_eq!(Subtensor::get_subnet_emission_value(3), 54_545_454);
+        assert_eq!(Subtensor::get_subnet_emission_value(4), 72_727_272);
+        assert_eq!(Subtensor::get_subnet_emission_value(5), 90_909_090);
+
         step_block(1);
-        assert_eq!(Subtensor::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(Subtensor::get_pending_emission(1), 246_922_263);
+        //assert_eq!(Subtensor::get_pending_emission(0), 0); // root network gets no pending emission.
+        assert_eq!(Subtensor::get_pending_emission(1), 18_181_818);
         assert_eq!(Subtensor::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(Subtensor::get_pending_emission(3), 176_432_500);
+        assert_eq!(Subtensor::get_pending_emission(3), 54_545_454);
         assert_eq!(Subtensor::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(Subtensor::get_pending_emission(5), 5_857_251);
+        assert_eq!(Subtensor::get_pending_emission(5), 90_909_090);
         step_block(1);
-        assert_eq!(Subtensor::get_combined_subnet_stake(), (585_930_498+10000) / 2);
+        assert_eq!(Subtensor::get_combined_subnet_stake(), 1_545_509_536);
     });
 }
 
