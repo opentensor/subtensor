@@ -564,8 +564,9 @@ impl<T: Config> Pallet<T>
 
         // 4. Ensure that the hotkey account exists this is only possible through registration
         {
+            let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey);
             ensure!(
-                Self::hotkey_account_exists(&hotkey),
+                uid.is_ok(),
                 Error::<T>::NotRegistered
             );
         }
