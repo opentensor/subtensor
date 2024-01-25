@@ -538,7 +538,7 @@ impl<T: Config> Pallet<T>
         // --- 1.5. Check if subnet exists
         {
             ensure!(
-                Self::if_subnet_exist(netuid),
+                netuid != 0 && Self::if_subnet_exist(netuid),
                 Error::<T>::NetworkDoesNotExist
             );
         }
@@ -653,7 +653,7 @@ impl<T: Config> Pallet<T>
         // --- 1.5. Check if subnet exists
         {
             ensure!(
-                Self::if_subnet_exist(netuid),
+                netuid != 0 && Self::if_subnet_exist(netuid),
                 Error::<T>::NetworkDoesNotExist
             );
 
