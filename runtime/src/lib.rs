@@ -531,11 +531,6 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
         Subtensor::set_max_allowed_validators(netuid, max_validators);
     }
 
-	fn get_root_netuid() -> u16
-    {
-        return Subtensor::get_root_netuid();
-    }
-
 	fn if_subnet_exist(netuid: u16) -> bool
     {
         return Subtensor::if_subnet_exist(netuid);

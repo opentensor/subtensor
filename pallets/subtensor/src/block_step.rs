@@ -42,22 +42,6 @@ impl<T: Config> Pallet<T>
             Self::adjust_registration_terms_for_networks();
         }
 
-        // --- 2. Calculate per-subnet emissions
-        let root_netuid:                u16 = Self::get_root_netuid();
-        let blocks_until_next_epoch:    u64 = Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
-        if blocks_until_next_epoch == 0
-        {
-            match Self::root_epoch(block_number) 
-            {
-                Ok(_) => {
-                    ()
-                }
-                Err(e) => {
-                    log::error!("Error while running root epoch: {:?}", e);
-                }
-            }
-        }
-
         // --- 3. Drains emission tuples ( hotkey, amount ).
         {
             Self::drain_emission(block_number);
@@ -177,13 +161,6 @@ impl<T: Config> Pallet<T>
         // --- 1. Iterate across each network and add pending emission into stash.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter()
         {
-            // Skip the root network.
-            if netuid == Self::get_root_netuid()
-            {
-                // Root emission is burned.
-                continue;
-            }
-
             // --- 2. Queue the emission due to this network.
             let new_queued_emission = Self::get_subnet_emission_value(netuid);
             log::debug!(
