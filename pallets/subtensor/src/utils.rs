@@ -92,9 +92,19 @@ impl<T: Config> Pallet<T>
         TotalIssuance::<T>::get()
     }
 
-    pub fn get_block_emission() -> u64 
+    pub fn get_block_emission() -> u64
     {
-        BlockEmission::<T>::get()
+        let mut reward:         u64 = 1_000_000_000;
+        let mut total_issuance: u64 = Self::get_total_issuance();
+        let mut half:           u64 = 21_000_000_000_000_000 / 2;
+        while total_issuance >= half
+        {
+            total_issuance  -= half;
+            half            /= 2;
+            reward          /= 2;
+        }
+        
+        return reward;
     }
 
     pub fn get_current_block_as_u64() -> u64 
