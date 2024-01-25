@@ -118,10 +118,15 @@ impl<T: Config> Pallet<T>
         let subnets:            Vec<u16>    = Self::get_all_subnet_netuids();
         let mut emissions:      Vec<u64>    = vec![0; subnets.len()];
 
-        for (index, netuid) in subnets.iter().enumerate().skip(1)
+        for (index, netuid) in subnets.iter().enumerate()
         {
+            if *netuid == 0 // skip non-existant root network
+            {
+                continue;
+            }
+
             emissions[index] = stake_map[(*netuid as usize) - 1].saturating_mul(
-                block_emission
+                block_emission // % of all stake * block reward
             ).to_num::<u64>();
         }
 
