@@ -161,6 +161,15 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
 }
 
+pub struct SubtensorSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+{
+    fn total_issuance() -> Balance
+    {
+        return Balances::total_issuance();
+    }
+}
+
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -168,6 +177,7 @@ impl pallet_subtensor::Config for Test {
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type WeightInfo = ();
+    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
 
     type InitialNetworkRegistrationAllowed = InitialNetworkRegistrationAllowed;
     type InitialRegistrationAllowed = InitialRegistrationAllowed;

@@ -1187,6 +1187,7 @@ pub mod pallet
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        ErrorCalculatingEmissions
     }
 
     // ==================
@@ -1857,7 +1858,8 @@ pub mod pallet
         #[pallet::call_index(62)]
         #[pallet::weight(T::WeightInfo::root_register())]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_root_register(origin, hotkey)
+            //Self::do_root_register(origin, hotkey)
+            Ok(())
         }
 
         #[pallet::call_index(7)]

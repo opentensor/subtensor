@@ -302,8 +302,8 @@ impl<T: Config> Pallet<T>
 
     pub fn get_staking_map_for_coldkey(coldkey: &T::AccountId) -> Vec<(u16, u64)>
     {
-        let mut stake: Vec<(u16, u64)> = Vec::with_capacity(32);
-        for netuid in 0..32_u16
+        let mut stake: Vec<(u16, u64)> = vec![(0, 0); Self::get_max_subnets() as usize];
+        for netuid in 0..Self::get_max_subnets() as u16
         {
             let subnet_stake: u64 = Self::get_subnet_total_stake_for_coldkey(netuid + 1, coldkey);
             if subnet_stake > 0
@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T>
     pub fn get_combined_subnet_stake() -> u64
     {
         let mut stake: u64 = 0;
-        for netuid in 0..32_u16
+        for netuid in 0..Self::get_max_subnets() as u16
         {
             stake = stake + Self::get_subnet_total_stake(netuid + 1);
         }
@@ -329,7 +329,7 @@ impl<T: Config> Pallet<T>
     pub fn get_combined_subnet_stake_for_coldkey(coldkey: &T::AccountId) -> u64
     {
         let mut stake: u64 = 0;
-        for netuid in 0..32_u16
+        for netuid in 0..Self::get_max_subnets() as u16
         {
             stake = stake + Self::get_subnet_total_stake_for_coldkey(netuid + 1, coldkey);
         }
@@ -340,7 +340,7 @@ impl<T: Config> Pallet<T>
     pub fn get_combined_subnet_stake_for_hotkey(hotkey: &T::AccountId) -> u64
     {
         let mut stake: u64 = 0;
-        for netuid in 0..32_u16
+        for netuid in 0..Self::get_max_subnets() as u16
         {
             stake = stake + Self::get_subnet_total_stake_for_hotkey(netuid + 1, hotkey);
         }
@@ -350,16 +350,16 @@ impl<T: Config> Pallet<T>
 
     pub fn get_stake_map_for_subnet(netuid: u16) -> Vec<(T::AccountId, T::AccountId, u64)>
     {
-        let mut stake: Vec<(T::AccountId, T::AccountId, u64)> = Vec::with_capacity(32);
+        let mut stake: Vec<(T::AccountId, T::AccountId, u64)> = vec![];
         for (subnetid, delegate_coldkey, hotkey) in SubnetStake::<T>::iter_keys()
         {
             if subnetid == netuid
             {
-                stake[netuid as usize] = (
+                stake.push((
                     delegate_coldkey.clone(),
                     hotkey.clone(),
                     Self::get_subnet_stake_for_coldkey_hotkey(netuid, &delegate_coldkey, &hotkey)
-                );
+                ));
             }
         }
 
@@ -368,8 +368,8 @@ impl<T: Config> Pallet<T>
 
     pub fn get_stake_map() -> Vec<u64>
     {
-        let mut stake_map: Vec<u64> = Vec::with_capacity(32);
-        for netuid in 0..32_u16
+        let mut stake_map: Vec<u64> = vec![0; Self::get_max_subnets() as usize];
+        for netuid in 0..Self::get_max_subnets() as u16
         {
             stake_map[netuid as usize] = Self::get_subnet_total_stake(netuid + 1);
         }
@@ -379,8 +379,8 @@ impl<T: Config> Pallet<T>
 
     pub fn get_normalized_stake_map() -> Vec<I32F32>
     {
-        let mut stake_map: Vec<I32F32> = Vec::with_capacity(32);
-        for netuid in 0..32_u16
+        let mut stake_map: Vec<I32F32> = vec![I32F32::from_num(0.0); Self::get_max_subnets() as usize];
+        for netuid in 0..Self::get_max_subnets() as u16
         {
             stake_map[netuid as usize] = I32F32::from_num(
                 Self::get_subnet_total_stake(netuid + 1)
@@ -538,7 +538,7 @@ impl<T: Config> Pallet<T>
         // --- 1.5. Check if subnet exists
         {
             ensure!(
-                Self::if_subnet_exist(netuid),
+                netuid != 0 && Self::if_subnet_exist(netuid),
                 Error::<T>::NetworkDoesNotExist
             );
         }
@@ -564,8 +564,9 @@ impl<T: Config> Pallet<T>
 
         // 4. Ensure that the hotkey account exists this is only possible through registration
         {
+            let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey);
             ensure!(
-                Self::hotkey_account_exists(&hotkey),
+                uid.is_ok(),
                 Error::<T>::NotRegistered
             );
         }
@@ -619,7 +620,15 @@ impl<T: Config> Pallet<T>
             Self::deposit_event(Event::SubnetStakeAdded(netuid, hotkey, stake_to_be_added));
         }
         
-        // --- 10. Ok and return.
+        // --- 10. Recalculate emission values
+        {
+            ensure!(
+                Self::calc_subnet_emissions().is_ok(),
+                Error::<T>::ErrorCalculatingEmissions
+            );
+        }
+
+        // --- 11. Ok and return.
 
         return Ok(());
     }
@@ -644,7 +653,7 @@ impl<T: Config> Pallet<T>
         // --- 1.5. Check if subnet exists
         {
             ensure!(
-                Self::if_subnet_exist(netuid),
+                netuid != 0 && Self::if_subnet_exist(netuid),
                 Error::<T>::NetworkDoesNotExist
             );
 
@@ -728,7 +737,15 @@ impl<T: Config> Pallet<T>
             Self::deposit_event(Event::SubnetStakeRemoved(netuid, hotkey, stake_to_be_removed));
         }
 
-        // --- 10. Done and ok.
+        // --- 10. Recalculate emission values
+        {
+            ensure!(
+                Self::calc_subnet_emissions().is_ok(),
+                Error::<T>::ErrorCalculatingEmissions
+            );
+        }
+
+        // --- 11. Done and ok.
         return Ok(());
     }
 

@@ -784,7 +784,7 @@ impl<T: Config> Pallet<T>
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
-        for i in 0..32_u16
+        for i in 0..Self::get_max_subnets() as u16
         {
             {
                 let stake = SubnetStake::<T>::try_get((i + 1, &coldkey, &old_hotkey));

@@ -6,6 +6,7 @@ use
     },
     sp_std::
     {
+        vec,
         vec::
         {
             Vec
@@ -25,7 +26,8 @@ use
         {
             I110F18,
             I64F64,
-            I96F32
+            I96F32,
+            I32F32
         }
     }
 };
@@ -42,12 +44,12 @@ impl<T: Config> Pallet<T>
             Self::adjust_registration_terms_for_networks();
         }
 
-        // --- 3. Drains emission tuples ( hotkey, amount ).
+        // --- 2. Drains emission tuples ( hotkey, amount ).
         {
             Self::drain_emission(block_number);
         }
 
-        // --- 4. Generates emission tuples from epoch functions.
+        // --- 3. Generates emission tuples from epoch functions.
         {
             Self::generate_emission(block_number);
         }
@@ -107,6 +109,25 @@ impl<T: Config> Pallet<T>
         }
 
         return to_sink_via_blocks_until_epoch;
+    }
+
+    pub fn calc_subnet_emissions() -> Result<(), &'static str> 
+    {
+        let block_emission:     I32F32      = I32F32::from_num(Self::get_block_emission());
+        let stake_map:          Vec<I32F32> = Self::get_normalized_stake_map();
+        let subnets:            Vec<u16>    = Self::get_all_subnet_netuids();
+        let mut emissions:      Vec<u64>    = vec![0; subnets.len()];
+
+        for (index, netuid) in subnets.iter().enumerate().skip(1)
+        {
+            emissions[index] = stake_map[(*netuid as usize) - 1].saturating_mul(
+                block_emission
+            ).to_num::<u64>();
+        }
+
+        log::debug!("subnet emissions {:?} {:?}", subnets, emissions);
+
+        return Self::set_emission_values(&subnets, emissions);
     }
 
     pub fn has_loaded_emission_tuples(netuid: u16) -> bool
@@ -366,7 +387,7 @@ impl<T: Config> Pallet<T>
             );
         }
 
-        log::info!("stakemap: {:?}", Self::get_stake_map_for_subnet(netuid));
+        log::debug!("stakemap_{:?} {:?}", netuid, Self::get_stake_map_for_subnet(netuid));
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
