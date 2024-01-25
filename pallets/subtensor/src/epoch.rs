@@ -388,7 +388,7 @@ impl<T: Config> Pallet<T>
     pub fn epoch( netuid: u16, rao_emission: u64 ) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n( netuid );
-        log::trace!( "n: {:?}", n );
+        log::trace!( "n: {:?} rao_emission: {:?}", n, rao_emission );
 
         // ======================
         // == Active & updated ==

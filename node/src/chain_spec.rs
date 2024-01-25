@@ -113,12 +113,12 @@ fn testnet_genesis(
 	_enable_println: bool,
 ) -> serde_json::Value {
     let mut balances: Vec<(AccountId, u64)> = vec![
-        (get_account_id_from_seed::<sr25519::Public>("Alice"), 1000000000000),
-        (get_account_id_from_seed::<sr25519::Public>("Bob"), 1000000000000),
-        (get_account_id_from_seed::<sr25519::Public>("Charlie"), 1000000000000),
-        (get_account_id_from_seed::<sr25519::Public>("Dave"), 2000000000),
-        (get_account_id_from_seed::<sr25519::Public>("Eve"), 2000000000),
-        (get_account_id_from_seed::<sr25519::Public>("Ferdie"), 2000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Alice"), 4000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Bob"), 4000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Charlie"), 4000000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Dave"), 8000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Eve"), 8000000000),
+        (get_account_id_from_seed::<sr25519::Public>("Ferdie"), 8000000000),
     ];
 
     // Check if the environment variable is set
