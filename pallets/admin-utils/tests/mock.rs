@@ -112,6 +112,15 @@ parameter_types! {
     pub const InitialRegistrationAllowed: bool = false;
 }
 
+pub struct SubtensorSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+{
+    fn total_issuance() -> Balance
+    {
+        return Balances::total_issuance();
+    }
+}
+
 impl pallet_subtensor::Config for Test 
 {
     type RuntimeEvent = RuntimeEvent;
@@ -120,7 +129,7 @@ impl pallet_subtensor::Config for Test
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = ();
-    type SubstrateBalances = ();
+    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
