@@ -120,6 +120,7 @@ impl pallet_subtensor::Config for Test
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = ();
+    type SubstrateBalances = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
