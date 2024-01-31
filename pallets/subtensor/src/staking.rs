@@ -519,6 +519,31 @@ impl<T: Config> Pallet<T>
         }
     }
 
+    pub fn get_last_staking_tx_block(netuid: u16, coldkey: &T::AccountId) -> u64
+    {
+        return LastStakingTxBlock::<T>::try_get(netuid, coldkey).unwrap_or(0);
+    }
+
+    pub fn exceeds_staking_tx_rate_limit(netuid: u16, coldkey: &T::AccountId, block: u64) -> bool
+    {
+        let delta: u64 = block - Self::get_last_staking_tx_block(netuid, &coldkey);
+
+        return delta >= Self::get_tempo(netuid) as u64;
+    }
+
+    pub fn check_and_set_staking_rate_limit(netuid: u16, coldkey: &T::AccountId) -> bool
+    {
+        let block: u64 = Self::get_current_block_as_u64();
+        if Self::exceeds_staking_tx_rate_limit(netuid, &coldkey, block)
+        {
+            return false;
+        }
+
+        LastStakingTxBlock::<T>::insert(netuid, coldkey, block);
+
+        return true;
+    }
+
     pub fn do_add_subnet_stake(origin: T::RuntimeOrigin, hotkey: T::AccountId, netuid: u16, stake_to_be_added: u64) -> dispatch::DispatchResult
     {
         // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
@@ -587,6 +612,11 @@ impl<T: Config> Pallet<T>
             ensure!(
                 !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
                 Error::<T>::TxRateLimitExceeded
+            );
+
+            ensure!(
+                Self::check_and_set_staking_rate_limit(netuid, &coldkey),
+                Error::<T>::StakingTxRateLimitExceeded
             );
         }
 
@@ -707,6 +737,11 @@ impl<T: Config> Pallet<T>
             ensure!(
                 !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
                 Error::<T>::TxRateLimitExceeded
+            );
+
+            ensure!(
+                Self::check_and_set_staking_rate_limit(netuid, &coldkey),
+                Error::<T>::StakingTxRateLimitExceeded
             );
         }
 

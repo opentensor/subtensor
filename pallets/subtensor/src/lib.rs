@@ -727,6 +727,10 @@ pub mod pallet
     pub(super) type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
+    #[pallet::storage] // --- MAP ( netuid, key ) --> last_staking_tx_block
+    pub(super) type LastStakingTxBlock<T: Config> =
+        StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+
     #[pallet::type_value]
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
@@ -1170,6 +1174,7 @@ pub mod pallet
         MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
         TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
         TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
+        StakingTxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for staking transactions.
         RegistrationDisabled, // --- Thrown when registration is disabled
         TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
         BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
