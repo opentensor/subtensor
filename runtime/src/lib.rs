@@ -235,6 +235,15 @@ impl pallet_timestamp::Config for Runtime {
 	type WeightInfo = ();
 }
 
+pub struct BalancesMigrationV2ToV3Impl;
+impl frame_system::migrations::V2ToV3 for BalancesMigrationV2ToV3Impl
+{
+    type Pallet         = Balances;
+    type AccountId      = AccountId;
+    type Nonce          = u32;
+    type AccountData    = pallet_balances::AccountData<Balance>;
+}
+
 /// Existential deposit.
 pub const EXISTENTIAL_DEPOSIT: u64 = 500;
 
@@ -390,6 +399,7 @@ impl pallet_subtensor::Config for Runtime {
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = pallet_subtensor::extrinsic_weights::SubstrateWeight<Runtime>;
     type SubstrateBalances = SubtensorSubstrateBalancesInterf;
+    type BalancesMigrationV2ToV3 = BalancesMigrationV2ToV3Impl;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;

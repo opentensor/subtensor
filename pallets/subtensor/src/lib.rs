@@ -189,6 +189,7 @@ pub mod pallet
         type WeightInfo: WeightInfo;
 
         type SubstrateBalances: crate::SubstrateBalancesInterface<<<Self as Config>::Currency as Currency<<Self as frame_system::Config>::AccountId>>::Balance>;
+        type BalancesMigrationV2ToV3: frame_system::migrations::V2ToV3;
 
         // =================================
         // ==== Initial Value Constants ====
@@ -1395,6 +1396,10 @@ pub mod pallet
 
             // Hex encoded foundation coldkey
             let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
+
+            weight = weight
+                .saturating_add(frame_system::migrations::migrate_from_single_to_triple_ref_count::<T::BalancesMigrationV2ToV3, T>());
+
             weight = weight
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
