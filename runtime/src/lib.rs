@@ -399,6 +399,7 @@ impl pallet_subtensor::Config for Runtime {
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = pallet_subtensor::extrinsic_weights::SubstrateWeight<Runtime>;
     type SubstrateBalances = SubtensorSubstrateBalancesInterf;
+    type BalancesMigrationV2ToV3 = BalancesMigrationV2ToV3Impl;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
