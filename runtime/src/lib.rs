@@ -55,7 +55,7 @@ use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-
+use frame_support::traits::OnRuntimeUpgrade;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -112,11 +112,11 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 141,
+    spec_version: 142,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 1,
-    state_version: 1,
+    transaction_version: 2,
+    state_version: 2,
 };
 
 /// This determines the average expected block time that we are targeting.
@@ -784,11 +784,23 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>
 );
 
+pub struct PalletMigrations;
+impl OnRuntimeUpgrade for PalletMigrations {
+    fn on_runtime_upgrade() -> Weight {
+        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
+        weight = weight
+            .saturating_add(frame_system::migrations::migrate_from_single_to_triple_ref_count::<BalancesMigrationV2ToV3Impl, Runtime>());
+
+        weight
+    }
+}
+
 /// All migrations of the runtime, aside from the ones declared in the pallets.
 ///
 /// This can be a tuple of types, each implementing `OnRuntimeUpgrade`.
 #[allow(unused_parens)]
-type Migrations = ();
+type Migrations = (PalletMigrations);
 
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
