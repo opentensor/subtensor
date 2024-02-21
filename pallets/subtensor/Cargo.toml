@@ -16,38 +16,38 @@ targets = ["x86_64-unknown-linux-gnu"]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",
 ] }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
-pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+sp-core = { git = "https://github.com/opentensor/polkadot-sdk", default-features = false, branch = "tensordot-v1.4.0" }
+pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-frame-system = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-io = { version = "23.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+frame-benchmarking = { version = "4.0.0-dev", default-features = false, optional = true, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+frame-system = { version = "4.0.0-dev", default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-io = { version = "23.0.0", default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 serde = { version = "1.0.132", default-features = false, features = ["derive"] }
 serde-tuple-vec-map = { version = "1.0.1", default-features = false }
 serde_bytes = { version = "0.11.8", default-features = false, features = ["alloc"] }
 serde_with = { version = "=2.0.0", default-features = false, features=["macros"] }
-sp-runtime = { version = "24.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.4.0" }
+sp-runtime = { version = "24.0.0", default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-std = { git = "https://github.com/opentensor/polkadot-sdk.git", default-features = false, branch = "tensordot-v1.4.0" }
 log = { version = "0.4.20", default-features = false }
 substrate-fixed = { git = 'https://github.com/encointer/substrate-fixed.git', tag = "v0.5.9" }
-pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.4.0" }
-pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", default-features = false, branch = "release-polkadot-v1.4.0" }
+pallet-transaction-payment = { git = "https://github.com/opentensor/polkadot-sdk.git", default-features = false, branch = "tensordot-v1.4.0" }
+pallet-utility = { git = "https://github.com/opentensor/polkadot-sdk.git", default-features = false, branch = "tensordot-v1.4.0" }
 ndarray = { version = "0.15.0", default-features = false }
 hex = { version = "0.4", default-features = false }
-frame-try-runtime = { default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-try-runtime-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.4.0", optional = true }
+frame-try-runtime = { default-features = false, optional = true, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+try-runtime-cli = { git = "https://github.com/opentensor/polkadot-sdk.git", branch = "tensordot-v1.4.0", optional = true }
 
 hex-literal = "0.4.1"
 
 [dev-dependencies]
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0", features = ["std"] }
-sp-version = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
+pallet-balances = { git = "https://github.com/opentensor/polkadot-sdk", default-features = false, branch = "tensordot-v1.4.0", features = ["std"] }
+sp-version = { git = "https://github.com/opentensor/polkadot-sdk", default-features = false, branch = "tensordot-v1.4.0" }
 # Substrate
-sp-tracing = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
+sp-tracing = { git = "https://github.com/opentensor/polkadot-sdk", default-features = false, branch = "tensordot-v1.4.0" }
 parity-util-mem = { version = "0.11.0", features = ['primitive-types'] }
 rand = "0.8.5"
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
+sp-core = { git = "https://github.com/opentensor/polkadot-sdk", default-features = false, branch = "tensordot-v1.4.0" }
 paste = "1.0.14"
 
 [features]
