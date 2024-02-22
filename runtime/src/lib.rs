@@ -112,7 +112,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 141,
+    spec_version: 142,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -349,47 +349,47 @@ impl pallet_commitments::Config for Runtime {
 
 // Configure the pallet subtensor.
 parameter_types! {
-    pub const SubtensorModuleInitialRho: u16 = 10;
-    pub const SubtensorModuleInitialKappa: u16 = 32_767; // 0.5 = 65535/2
-    pub const SubtensorModuleInitialMaxAllowedUids: u16 = 256;
-    pub const SubtensorModuleInitialIssuance: u64 = 0;
-    pub const SubtensorModuleInitialMinAllowedWeights: u16 = 1;
-    pub const SubtensorModuleInitialMaxWeightLimit: u16 = u16::MAX; 
-    pub const SubtensorModuleInitialEmissionValue: u16 = 0;
-    pub const SubtensorModuleInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
-    pub const SubtensorModuleInitialValidatorPruneLen: u64 = 1;
-    pub const SubtensorModuleInitialScalingLawPower: u16 = 50; // 0.5
-    pub const SubtensorModuleInitialMaxAllowedValidators: u16 = 64;
-    pub const SubtensorModuleInitialTempo: u16 = 99;
-    pub const SubtensorModuleInitialDifficulty: u64 = 10_000_000;
-    pub const SubtensorModuleInitialAdjustmentInterval: u16 = 360;
-    pub const SubtensorModuleInitialAdjustmentAlpha: u64 = 58000; // no weight to previous value.
-    pub const SubtensorModuleInitialTargetRegistrationsPerInterval: u16 = 1;
-    pub const SubtensorModuleInitialImmunityPeriod: u16 = 5000;
-    pub const SubtensorModuleInitialActivityCutoff: u16 = 5000;
-    pub const SubtensorModuleInitialMaxRegistrationsPerBlock: u16 = 1;
-    pub const SubtensorModuleInitialPruningScore : u16 = u16::MAX;
-    pub const SubtensorModuleInitialBondsMovingAverage: u64 = 900_000;
-    pub const SubtensorModuleInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const SubtensorModuleInitialWeightsVersionKey: u64 = 0;
-    pub const SubtensorModuleInitialMinDifficulty: u64 = u64::MAX;
-    pub const SubtensorModuleInitialMaxDifficulty: u64 = u64::MAX;
-    pub const SubtensorModuleInitialServingRateLimit: u64 = 50;
-    pub const SubtensorModuleInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorModuleInitialMinBurn: u64 = 1; // 1 tao
-    pub const SubtensorModuleInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
-    pub const SubtensorModuleInitialTxRateLimit: u64 = 1000;
-    pub const SubtensorModuleInitialRAORecycledForRegistration: u64 = 0; // 0 rao
-    pub const SubtensorModuleInitialSenateRequiredStakePercentage: u64 = 0; // 1 percent of total stake
-    pub const SubtensorModuleInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorModuleInitialNetworkRegistrationAllowed: bool = true;
-    pub const SubtensorModuleInitialRegistrationAllowed: bool = false;
-    pub const SubtensorModuleInitialMinAllowedUids: u16 = 128;
-    pub const SubtensorModuleInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
-    pub const SubtensorModuleInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorModuleInitialSubnetLimit: u16 = 12;
-    pub const SubtensorModuleInitialNetworkLockReductionInterval: u64 = 14 * 7200;
-    pub const SubtensorModuleInitialNetworkRateLimit: u64 = 1 * 7200;
+    pub const SubtensorInitialRho: u16 = 10;
+    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
+    pub const SubtensorInitialMaxAllowedUids: u16 = 256;
+    pub const SubtensorInitialIssuance: u64 = 0;
+    pub const SubtensorInitialMinAllowedWeights: u16 = 1;
+    pub const SubtensorInitialMaxWeightLimit: u16 = u16::MAX; 
+    pub const SubtensorInitialEmissionValue: u16 = 0;
+    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorInitialMaxAllowedValidators: u16 = 64;
+    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialDifficulty: u64 = 10_000_000;
+    pub const SubtensorInitialAdjustmentInterval: u16 = 360;
+    pub const SubtensorInitialAdjustmentAlpha: u64 = 58000; // no weight to previous value.
+    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 1;
+    pub const SubtensorInitialImmunityPeriod: u16 = 5000;
+    pub const SubtensorInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
+    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorInitialMinDifficulty: u64 = u64::MAX;
+    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX;
+    pub const SubtensorInitialServingRateLimit: u64 = 50;
+    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorInitialMinBurn: u64 = 1; // 1 tao
+    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 0; // 1 percent of total stake
+    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorInitialNetworkRegistrationAllowed: bool = true;
+    pub const SubtensorInitialRegistrationAllowed: bool = false;
+    pub const SubtensorInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorInitialSubnetLimit: u16 = 12;
+    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -401,47 +401,47 @@ impl pallet_subtensor::Config for Runtime {
     type SubstrateBalances = SubtensorModuleSubstrateBalancesInterf;
     type BalancesMigrationV2ToV3 = BalancesMigrationV2ToV3Impl;
 
-    type InitialRho = SubtensorModuleInitialRho;
-    type InitialKappa = SubtensorModuleInitialKappa;
-    type InitialMaxAllowedUids = SubtensorModuleInitialMaxAllowedUids;
-    type InitialBondsMovingAverage = SubtensorModuleInitialBondsMovingAverage;
-    type InitialIssuance = SubtensorModuleInitialIssuance;
-    type InitialMinAllowedWeights = SubtensorModuleInitialMinAllowedWeights;
-    type InitialMaxWeightLimit = SubtensorModuleInitialMaxWeightLimit;
-    type InitialEmissionValue = SubtensorModuleInitialEmissionValue;
-    type InitialMaxWeightsLimit = SubtensorModuleInitialMaxWeightsLimit;
-    type InitialValidatorPruneLen = SubtensorModuleInitialValidatorPruneLen;
-    type InitialScalingLawPower = SubtensorModuleInitialScalingLawPower;
-    type InitialTempo = SubtensorModuleInitialTempo;
-    type InitialDifficulty = SubtensorModuleInitialDifficulty;
-    type InitialAdjustmentInterval = SubtensorModuleInitialAdjustmentInterval;
-    type InitialAdjustmentAlpha = SubtensorModuleInitialAdjustmentAlpha;
-    type InitialTargetRegistrationsPerInterval = SubtensorModuleInitialTargetRegistrationsPerInterval;
-    type InitialImmunityPeriod = SubtensorModuleInitialImmunityPeriod;
-    type InitialActivityCutoff = SubtensorModuleInitialActivityCutoff;
-    type InitialMaxRegistrationsPerBlock = SubtensorModuleInitialMaxRegistrationsPerBlock;
-    type InitialPruningScore = SubtensorModuleInitialPruningScore;
-    type InitialMaxAllowedValidators = SubtensorModuleInitialMaxAllowedValidators;
-    type InitialDefaultTake = SubtensorModuleInitialDefaultTake;
-    type InitialWeightsVersionKey = SubtensorModuleInitialWeightsVersionKey;
-    type InitialMaxDifficulty = SubtensorModuleInitialMaxDifficulty;
-    type InitialMinDifficulty = SubtensorModuleInitialMinDifficulty;
-    type InitialServingRateLimit = SubtensorModuleInitialServingRateLimit;
-    type InitialBurn = SubtensorModuleInitialBurn;
-    type InitialMaxBurn = SubtensorModuleInitialMaxBurn;
-    type InitialMinBurn = SubtensorModuleInitialMinBurn;
-    type InitialTxRateLimit = SubtensorModuleInitialTxRateLimit;
-    type InitialRAORecycledForRegistration = SubtensorModuleInitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = SubtensorModuleInitialSenateRequiredStakePercentage;
-    type InitialNetworkImmunityPeriod = SubtensorModuleInitialNetworkImmunity;
-    type InitialNetworkRegistrationAllowed = SubtensorModuleInitialNetworkRegistrationAllowed;
-    type InitialRegistrationAllowed = SubtensorModuleInitialRegistrationAllowed;
-    type InitialNetworkMinAllowedUids = SubtensorModuleInitialMinAllowedUids;
-    type InitialNetworkMinLockCost = SubtensorModuleInitialMinLockCost;
-    type InitialNetworkLockReductionInterval = SubtensorModuleInitialNetworkLockReductionInterval;
-    type InitialSubnetOwnerCut = SubtensorModuleInitialSubnetOwnerCut;
-    type InitialSubnetLimit = SubtensorModuleInitialSubnetLimit;
-    type InitialNetworkRateLimit = SubtensorModuleInitialNetworkRateLimit;
+    type InitialRho = SubtensorInitialRho;
+    type InitialKappa = SubtensorInitialKappa;
+    type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
+    type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
+    type InitialIssuance = SubtensorInitialIssuance;
+    type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
+    type InitialMaxWeightLimit = SubtensorInitialMaxWeightLimit;
+    type InitialEmissionValue = SubtensorInitialEmissionValue;
+    type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
+    type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
+    type InitialScalingLawPower = SubtensorInitialScalingLawPower;
+    type InitialTempo = SubtensorInitialTempo;
+    type InitialDifficulty = SubtensorInitialDifficulty;
+    type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;
+    type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
+    type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
+    type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
+    type InitialActivityCutoff = SubtensorInitialActivityCutoff;
+    type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
+    type InitialPruningScore = SubtensorInitialPruningScore;
+    type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
+    type InitialDefaultTake = SubtensorInitialDefaultTake;
+    type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
+    type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
+    type InitialMinDifficulty = SubtensorInitialMinDifficulty;
+    type InitialServingRateLimit = SubtensorInitialServingRateLimit;
+    type InitialBurn = SubtensorInitialBurn;
+    type InitialMaxBurn = SubtensorInitialMaxBurn;
+    type InitialMinBurn = SubtensorInitialMinBurn;
+    type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+    type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
+    type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
+    type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
+    type InitialNetworkRegistrationAllowed = SubtensorInitialNetworkRegistrationAllowed;
+    type InitialRegistrationAllowed = SubtensorInitialRegistrationAllowed;
+    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
+    type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
+    type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
+    type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
+    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
+    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
 }
 
 use sp_runtime::BoundedVec;

@@ -1397,8 +1397,8 @@ pub mod pallet
             // Hex encoded foundation coldkey
             let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
 
-            weight = weight
-                .saturating_add(frame_system::migrations::migrate_from_single_to_triple_ref_count::<T::BalancesMigrationV2ToV3, T>());
+            //weight = weight
+            //    .saturating_add(frame_system::migrations::migrate_from_single_to_triple_ref_count::<T::BalancesMigrationV2ToV3, T>());
 
             weight = weight
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
@@ -1408,8 +1408,8 @@ pub mod pallet
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
                 .saturating_add(migration::migration_remove_zero_stake_values::<T>())
-                .saturating_add(migration::migration_remove_deprecated_stake_values::<T>())
-                .saturating_add(migration::migration_recount_total_issuance::<T>());
+                .saturating_add(migration::migration_remove_deprecated_stake_values::<T>());
+                //.saturating_add(migration::migration_recount_total_issuance::<T>());
 
             return weight;
         }
