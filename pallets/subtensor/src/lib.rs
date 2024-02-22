@@ -1975,7 +1975,7 @@ pub mod pallet
         }
     }
 
-    // ---- Subtensor helper functions.
+    // ---- SubtensorModule helper functions.
     impl<T: Config> Pallet<T> {
         // --- Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
@@ -2012,9 +2012,9 @@ impl Default for CallType {
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
-pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+pub struct SubtensorModuleSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
-impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo> SubtensorModuleSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
@@ -2044,18 +2044,18 @@ where
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedExtension<T> {
+impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorModuleSignedExtension<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
-        write!(f, "SubtensorSignedExtension")
+        write!(f, "SubtensorModuleSignedExtension")
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorModuleSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
 {
-    const IDENTIFIER: &'static str = "SubtensorSignedExtension";
+    const IDENTIFIER: &'static str = "SubtensorModuleSignedExtension";
 
     type AccountId = T::AccountId;
     type Call = T::RuntimeCall;

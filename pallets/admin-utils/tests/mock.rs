@@ -24,15 +24,15 @@ frame_support::construct_runtime!(
 		System: frame_system,
         Balances: pallet_balances,
 		AdminUtils: pallet_admin_utils,
-		SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
+		SubtensorModuleModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
 	}
 );
 
 #[allow(dead_code)]
-pub type SubtensorCall = pallet_subtensor::Call<Test>;
+pub type SubtensorModuleCall = pallet_subtensor::Call<Test>;
 
 #[allow(dead_code)]
-pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+pub type SubtensorModuleEvent = pallet_subtensor::Event<Test>;
 
 #[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
@@ -112,8 +112,8 @@ parameter_types! {
     pub const InitialRegistrationAllowed: bool = false;
 }
 
-pub struct SubtensorSubstrateBalancesInterf;
-impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+pub struct SubtensorModuleSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorModuleSubstrateBalancesInterf
 {
     fn total_issuance() -> Balance
     {
@@ -129,7 +129,7 @@ impl pallet_subtensor::Config for Test
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = ();
-    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
+    type SubstrateBalances = SubtensorModuleSubstrateBalancesInterf;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
@@ -220,275 +220,275 @@ impl pallet_balances::Config for Test {
     type MaxFreezes = ();
 }
 
-pub struct SubtensorIntrf;
+pub struct SubtensorModuleIntrf;
 
-impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> for SubtensorIntrf
+impl pallet_admin_utils::SubtensorModuleInterface<AccountId, Balance, RuntimeOrigin> for SubtensorModuleIntrf
 {
     fn set_default_take(default_take: u16)
     {
-        SubtensorModule::set_default_take(default_take);
+        SubtensorModuleModule::set_default_take(default_take);
     }
 
 	fn set_tx_rate_limit(rate_limit: u64)
     {
-        SubtensorModule::set_tx_rate_limit(rate_limit);
+        SubtensorModuleModule::set_tx_rate_limit(rate_limit);
     }
 
 	fn set_serving_rate_limit(netuid: u16, rate_limit: u64)
     {
-        SubtensorModule::set_serving_rate_limit(netuid, rate_limit);
+        SubtensorModuleModule::set_serving_rate_limit(netuid, rate_limit);
     }
 
 	fn set_max_burn(netuid: u16, max_burn: u64)
     {
-        SubtensorModule::set_max_burn(netuid, max_burn);
+        SubtensorModuleModule::set_max_burn(netuid, max_burn);
     }
 
 	fn set_min_burn(netuid: u16, min_burn: u64)
     {
-        SubtensorModule::set_min_burn(netuid, min_burn);
+        SubtensorModuleModule::set_min_burn(netuid, min_burn);
     }
 
 	fn set_burn(netuid: u16, burn: u64)
     {
-        SubtensorModule::set_burn(netuid, burn);
+        SubtensorModuleModule::set_burn(netuid, burn);
     }
 
 	fn set_max_difficulty(netuid: u16, max_diff: u64)
     {
-        SubtensorModule::set_max_difficulty(netuid, max_diff);
+        SubtensorModuleModule::set_max_difficulty(netuid, max_diff);
     }
 
 	fn set_min_difficulty(netuid: u16, min_diff: u64)
     {
-        SubtensorModule::set_min_difficulty(netuid, min_diff);
+        SubtensorModuleModule::set_min_difficulty(netuid, min_diff);
     }
 
 	fn set_difficulty(netuid: u16, diff: u64)
     {
-        SubtensorModule::set_difficulty(netuid, diff);
+        SubtensorModuleModule::set_difficulty(netuid, diff);
     }
 
 	fn set_weights_rate_limit(netuid: u16, rate_limit: u64)
     {
-        SubtensorModule::set_weights_set_rate_limit(netuid, rate_limit);
+        SubtensorModuleModule::set_weights_set_rate_limit(netuid, rate_limit);
     }
 
 	fn set_weights_version_key(netuid: u16, version: u64)
     {
-        SubtensorModule::set_weights_version_key(netuid, version);
+        SubtensorModuleModule::set_weights_version_key(netuid, version);
     }
 
 	fn set_bonds_moving_average(netuid: u16, moving_average: u64)
     {
-        SubtensorModule::set_bonds_moving_average(netuid, moving_average);
+        SubtensorModuleModule::set_bonds_moving_average(netuid, moving_average);
     }
 
 	fn set_max_allowed_validators(netuid: u16, max_validators: u16)
     {
-        SubtensorModule::set_max_allowed_validators(netuid, max_validators);
+        SubtensorModuleModule::set_max_allowed_validators(netuid, max_validators);
     }
 
 	fn if_subnet_exist(netuid: u16) -> bool
     {
-        return SubtensorModule::if_subnet_exist(netuid);
+        return SubtensorModuleModule::if_subnet_exist(netuid);
     }
 
 	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId)
     {
-        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
+        return SubtensorModuleModule::create_account_if_non_existent(coldkey, hotkey);
     }
 
 	fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool
     {
-        return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
+        return SubtensorModuleModule::coldkey_owns_hotkey(coldkey, hotkey);
     }
 
 	/*
     fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, increment: u64)
     {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
+        SubtensorModuleModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
     }
     */
 
 	fn u64_to_balance(input: u64) -> Option<Balance>
     {
-        return SubtensorModule::u64_to_balance(input);
+        return SubtensorModuleModule::u64_to_balance(input);
     }
 
 	fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance)
     {
-        SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
+        SubtensorModuleModule::add_balance_to_coldkey_account(coldkey, amount);
     }
 
 	fn get_current_block_as_u64() -> u64
     {
-        return SubtensorModule::get_current_block_as_u64();
+        return SubtensorModuleModule::get_current_block_as_u64();
     }
 
 	fn get_subnetwork_n(netuid: u16) -> u16
     {
-        return SubtensorModule::get_subnetwork_n(netuid);
+        return SubtensorModuleModule::get_subnetwork_n(netuid);
     }
 
 	fn get_max_allowed_uids(netuid: u16) -> u16
     {
-        return SubtensorModule::get_max_allowed_uids(netuid);
+        return SubtensorModuleModule::get_max_allowed_uids(netuid);
     }
 
 	fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64)
     {
-        return SubtensorModule::append_neuron(netuid, new_hotkey, block_number);
+        return SubtensorModuleModule::append_neuron(netuid, new_hotkey, block_number);
     }
 
 	fn get_neuron_to_prune(netuid: u16) -> u16
     {
-        return SubtensorModule::get_neuron_to_prune(netuid);
+        return SubtensorModuleModule::get_neuron_to_prune(netuid);
     }
 
 	fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64)
     {
-        SubtensorModule::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
+        SubtensorModuleModule::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
     }
 
 	fn set_total_issuance(total_issuance: u64)
     {
-        SubtensorModule::set_total_issuance(total_issuance);
+        SubtensorModuleModule::set_total_issuance(total_issuance);
     }
 
 	fn set_network_immunity_period(net_immunity_period: u64)
     {
-        SubtensorModule::set_network_immunity_period(net_immunity_period);
+        SubtensorModuleModule::set_network_immunity_period(net_immunity_period);
     }
 
 	fn set_network_min_lock(net_min_lock: u64)
     {
-        SubtensorModule::set_network_min_lock(net_min_lock);
+        SubtensorModuleModule::set_network_min_lock(net_min_lock);
     }
 
     fn set_subnet_limit(limit: u16)
     {
-        SubtensorModule::set_max_subnets(limit);
+        SubtensorModuleModule::set_max_subnets(limit);
     }
 
     fn set_lock_reduction_interval(interval: u64)
     {
-        SubtensorModule::set_lock_reduction_interval(interval);
+        SubtensorModuleModule::set_lock_reduction_interval(interval);
     }
 
     fn set_tempo(netuid: u16, tempo: u16)
     {
-        SubtensorModule::set_tempo(netuid, tempo);
+        SubtensorModuleModule::set_tempo(netuid, tempo);
     }
 
     fn set_subnet_owner_cut(subnet_owner_cut: u16)
     {
-        SubtensorModule::set_subnet_owner_cut(subnet_owner_cut);
+        SubtensorModuleModule::set_subnet_owner_cut(subnet_owner_cut);
     }
 
     fn set_network_rate_limit(limit: u64)
     {
-        SubtensorModule::set_network_rate_limit(limit);
+        SubtensorModuleModule::set_network_rate_limit(limit);
     }
 
     fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16)
     {
-        SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
+        SubtensorModuleModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
     }
 
     fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64)
     {
-        SubtensorModule::set_adjustment_alpha(netuid, adjustment_alpha);
+        SubtensorModuleModule::set_adjustment_alpha(netuid, adjustment_alpha);
     }
 
     fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16)
     {
-        SubtensorModule::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
+        SubtensorModuleModule::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
     }
 
     fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool)
     {
-        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
+        SubtensorModuleModule::set_network_pow_registration_allowed(netuid, registration_allowed);
     }
 
     fn set_network_registration_allowed(netuid: u16, registration_allowed: bool)
     {
-        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
+        SubtensorModuleModule::set_network_pow_registration_allowed(netuid, registration_allowed);
     }
 
     fn set_activity_cutoff(netuid: u16, activity_cutoff: u16)
     {
-        SubtensorModule::set_activity_cutoff(netuid, activity_cutoff);
+        SubtensorModuleModule::set_activity_cutoff(netuid, activity_cutoff);
     }
 
     fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError>
     {
-        return SubtensorModule::ensure_subnet_owner_or_root(o, netuid);
+        return SubtensorModuleModule::ensure_subnet_owner_or_root(o, netuid);
     }
 
     fn set_rho(netuid: u16, rho: u16)
     {
-        SubtensorModule::set_rho(netuid, rho);
+        SubtensorModuleModule::set_rho(netuid, rho);
     }
 
     fn set_kappa(netuid: u16, kappa: u16)
     {
-        SubtensorModule::set_kappa(netuid, kappa);
+        SubtensorModuleModule::set_kappa(netuid, kappa);
     }
 
     fn set_max_allowed_uids(netuid: u16, max_allowed: u16)
     {
-        SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
+        SubtensorModuleModule::set_max_allowed_uids(netuid, max_allowed);
     }
 
     fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16)
     {
-        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
+        SubtensorModuleModule::set_min_allowed_weights(netuid, min_allowed_weights);
     }
 
     fn set_immunity_period(netuid: u16, immunity_period: u16)
     {
-        SubtensorModule::set_immunity_period(netuid, immunity_period);
+        SubtensorModuleModule::set_immunity_period(netuid, immunity_period);
     }
 
     fn set_max_weight_limit(netuid: u16, max_weight_limit: u16)
     {
-        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
+        SubtensorModuleModule::set_max_weight_limit(netuid, max_weight_limit);
     }
 
     fn set_scaling_law_power(netuid: u16, scaling_law_power: u16)
     {
-        SubtensorModule::set_scaling_law_power(netuid, scaling_law_power);
+        SubtensorModuleModule::set_scaling_law_power(netuid, scaling_law_power);
     }
 
     fn set_validator_prune_len(netuid: u16, validator_prune_len: u64)
     {
-        SubtensorModule::set_validator_prune_len(netuid, validator_prune_len);
+        SubtensorModuleModule::set_validator_prune_len(netuid, validator_prune_len);
     }
 
     fn set_adjustment_interval(netuid: u16, adjustment_interval: u16)
     {
-        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModuleModule::set_adjustment_interval(netuid, adjustment_interval);
     }
 
     fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64)
     {
-        SubtensorModule::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
+        SubtensorModuleModule::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
     }
 
     fn set_rao_recycled(netuid: u16, rao_recycled: u64)
     {
-        SubtensorModule::set_rao_recycled(netuid, rao_recycled);
+        SubtensorModuleModule::set_rao_recycled(netuid, rao_recycled);
     }
 
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool
     {
-        return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
+        return SubtensorModuleModule::is_hotkey_registered_on_network(netuid, hotkey);
     }
 
     fn init_new_network(netuid: u16, tempo: u16)
     {
-        SubtensorModule::init_new_network(netuid, tempo);
+        SubtensorModuleModule::init_new_network(netuid, tempo);
     }
 }
 
@@ -498,7 +498,7 @@ impl pallet_admin_utils::Config for Test {
     type MaxAuthorities = ConstU32<32>;
     type Aura = ();
     type Balance = Balance;
-    type Subtensor = SubtensorIntrf;
+    type SubtensorModule = SubtensorModuleIntrf;
     type WeightInfo = /*pallet_admin_utils::weights::SubstrateWeight<Test>*/();
 }
 
@@ -517,10 +517,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
-        SubtensorModule::on_finalize(System::block_number());
+        SubtensorModuleModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        SubtensorModule::on_initialize(System::block_number());
+        SubtensorModuleModule::on_initialize(System::block_number());
     }
 }

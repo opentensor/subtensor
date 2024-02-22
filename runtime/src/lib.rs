@@ -318,7 +318,7 @@ pub struct AllowCommitments;
 impl CanCommit<AccountId> for AllowCommitments {
     #[cfg(not(feature = "runtime-benchmarks"))]
     fn can_commit(netuid: u16, address: &AccountId) -> bool {
-        Subtensor::is_hotkey_registered_on_network(netuid, address)
+        SubtensorModule::is_hotkey_registered_on_network(netuid, address)
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -349,47 +349,47 @@ impl pallet_commitments::Config for Runtime {
 
 // Configure the pallet subtensor.
 parameter_types! {
-    pub const SubtensorInitialRho: u16 = 10;
-    pub const SubtensorInitialKappa: u16 = 32_767; // 0.5 = 65535/2
-    pub const SubtensorInitialMaxAllowedUids: u16 = 256;
-    pub const SubtensorInitialIssuance: u64 = 0;
-    pub const SubtensorInitialMinAllowedWeights: u16 = 1;
-    pub const SubtensorInitialMaxWeightLimit: u16 = u16::MAX; 
-    pub const SubtensorInitialEmissionValue: u16 = 0;
-    pub const SubtensorInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
-    pub const SubtensorInitialValidatorPruneLen: u64 = 1;
-    pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
-    pub const SubtensorInitialMaxAllowedValidators: u16 = 64;
-    pub const SubtensorInitialTempo: u16 = 99;
-    pub const SubtensorInitialDifficulty: u64 = 10_000_000;
-    pub const SubtensorInitialAdjustmentInterval: u16 = 360;
-    pub const SubtensorInitialAdjustmentAlpha: u64 = 58000; // no weight to previous value.
-    pub const SubtensorInitialTargetRegistrationsPerInterval: u16 = 1;
-    pub const SubtensorInitialImmunityPeriod: u16 = 5000;
-    pub const SubtensorInitialActivityCutoff: u16 = 5000;
-    pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
-    pub const SubtensorInitialPruningScore : u16 = u16::MAX;
-    pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
-    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const SubtensorInitialWeightsVersionKey: u64 = 0;
-    pub const SubtensorInitialMinDifficulty: u64 = u64::MAX;
-    pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX;
-    pub const SubtensorInitialServingRateLimit: u64 = 50;
-    pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
-    pub const SubtensorInitialMinBurn: u64 = 1; // 1 tao
-    pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
-    pub const SubtensorInitialTxRateLimit: u64 = 1000;
-    pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
-    pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 0; // 1 percent of total stake
-    pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
-    pub const SubtensorInitialNetworkRegistrationAllowed: bool = true;
-    pub const SubtensorInitialRegistrationAllowed: bool = false;
-    pub const SubtensorInitialMinAllowedUids: u16 = 128;
-    pub const SubtensorInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
-    pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
-    pub const SubtensorInitialSubnetLimit: u16 = 12;
-    pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
-    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
+    pub const SubtensorModuleInitialRho: u16 = 10;
+    pub const SubtensorModuleInitialKappa: u16 = 32_767; // 0.5 = 65535/2
+    pub const SubtensorModuleInitialMaxAllowedUids: u16 = 256;
+    pub const SubtensorModuleInitialIssuance: u64 = 0;
+    pub const SubtensorModuleInitialMinAllowedWeights: u16 = 1;
+    pub const SubtensorModuleInitialMaxWeightLimit: u16 = u16::MAX; 
+    pub const SubtensorModuleInitialEmissionValue: u16 = 0;
+    pub const SubtensorModuleInitialMaxWeightsLimit: u16 = 1000; // 1000/2^16 = 0.015
+    pub const SubtensorModuleInitialValidatorPruneLen: u64 = 1;
+    pub const SubtensorModuleInitialScalingLawPower: u16 = 50; // 0.5
+    pub const SubtensorModuleInitialMaxAllowedValidators: u16 = 64;
+    pub const SubtensorModuleInitialTempo: u16 = 99;
+    pub const SubtensorModuleInitialDifficulty: u64 = 10_000_000;
+    pub const SubtensorModuleInitialAdjustmentInterval: u16 = 360;
+    pub const SubtensorModuleInitialAdjustmentAlpha: u64 = 58000; // no weight to previous value.
+    pub const SubtensorModuleInitialTargetRegistrationsPerInterval: u16 = 1;
+    pub const SubtensorModuleInitialImmunityPeriod: u16 = 5000;
+    pub const SubtensorModuleInitialActivityCutoff: u16 = 5000;
+    pub const SubtensorModuleInitialMaxRegistrationsPerBlock: u16 = 1;
+    pub const SubtensorModuleInitialPruningScore : u16 = u16::MAX;
+    pub const SubtensorModuleInitialBondsMovingAverage: u64 = 900_000;
+    pub const SubtensorModuleInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorModuleInitialWeightsVersionKey: u64 = 0;
+    pub const SubtensorModuleInitialMinDifficulty: u64 = u64::MAX;
+    pub const SubtensorModuleInitialMaxDifficulty: u64 = u64::MAX;
+    pub const SubtensorModuleInitialServingRateLimit: u64 = 50;
+    pub const SubtensorModuleInitialBurn: u64 = 1_000_000_000; // 1 tao
+    pub const SubtensorModuleInitialMinBurn: u64 = 1; // 1 tao
+    pub const SubtensorModuleInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
+    pub const SubtensorModuleInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorModuleInitialRAORecycledForRegistration: u64 = 0; // 0 rao
+    pub const SubtensorModuleInitialSenateRequiredStakePercentage: u64 = 0; // 1 percent of total stake
+    pub const SubtensorModuleInitialNetworkImmunity: u64 = 7 * 7200;
+    pub const SubtensorModuleInitialNetworkRegistrationAllowed: bool = true;
+    pub const SubtensorModuleInitialRegistrationAllowed: bool = false;
+    pub const SubtensorModuleInitialMinAllowedUids: u16 = 128;
+    pub const SubtensorModuleInitialMinLockCost: u64 = 1_000_000_000_000; // 1000 TAO
+    pub const SubtensorModuleInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
+    pub const SubtensorModuleInitialSubnetLimit: u16 = 12;
+    pub const SubtensorModuleInitialNetworkLockReductionInterval: u64 = 14 * 7200;
+    pub const SubtensorModuleInitialNetworkRateLimit: u64 = 1 * 7200;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -398,50 +398,50 @@ impl pallet_subtensor::Config for Runtime {
     type Currency = Balances;
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = pallet_subtensor::extrinsic_weights::SubstrateWeight<Runtime>;
-    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
+    type SubstrateBalances = SubtensorModuleSubstrateBalancesInterf;
     type BalancesMigrationV2ToV3 = BalancesMigrationV2ToV3Impl;
 
-    type InitialRho = SubtensorInitialRho;
-    type InitialKappa = SubtensorInitialKappa;
-    type InitialMaxAllowedUids = SubtensorInitialMaxAllowedUids;
-    type InitialBondsMovingAverage = SubtensorInitialBondsMovingAverage;
-    type InitialIssuance = SubtensorInitialIssuance;
-    type InitialMinAllowedWeights = SubtensorInitialMinAllowedWeights;
-    type InitialMaxWeightLimit = SubtensorInitialMaxWeightLimit;
-    type InitialEmissionValue = SubtensorInitialEmissionValue;
-    type InitialMaxWeightsLimit = SubtensorInitialMaxWeightsLimit;
-    type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
-    type InitialScalingLawPower = SubtensorInitialScalingLawPower;
-    type InitialTempo = SubtensorInitialTempo;
-    type InitialDifficulty = SubtensorInitialDifficulty;
-    type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;
-    type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
-    type InitialTargetRegistrationsPerInterval = SubtensorInitialTargetRegistrationsPerInterval;
-    type InitialImmunityPeriod = SubtensorInitialImmunityPeriod;
-    type InitialActivityCutoff = SubtensorInitialActivityCutoff;
-    type InitialMaxRegistrationsPerBlock = SubtensorInitialMaxRegistrationsPerBlock;
-    type InitialPruningScore = SubtensorInitialPruningScore;
-    type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
-    type InitialDefaultTake = SubtensorInitialDefaultTake;
-    type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
-    type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
-    type InitialMinDifficulty = SubtensorInitialMinDifficulty;
-    type InitialServingRateLimit = SubtensorInitialServingRateLimit;
-    type InitialBurn = SubtensorInitialBurn;
-    type InitialMaxBurn = SubtensorInitialMaxBurn;
-    type InitialMinBurn = SubtensorInitialMinBurn;
-    type InitialTxRateLimit = SubtensorInitialTxRateLimit;
-    type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
-    type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
-    type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
-    type InitialNetworkRegistrationAllowed = SubtensorInitialNetworkRegistrationAllowed;
-    type InitialRegistrationAllowed = SubtensorInitialRegistrationAllowed;
-    type InitialNetworkMinAllowedUids = SubtensorInitialMinAllowedUids;
-    type InitialNetworkMinLockCost = SubtensorInitialMinLockCost;
-    type InitialNetworkLockReductionInterval = SubtensorInitialNetworkLockReductionInterval;
-    type InitialSubnetOwnerCut = SubtensorInitialSubnetOwnerCut;
-    type InitialSubnetLimit = SubtensorInitialSubnetLimit;
-    type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
+    type InitialRho = SubtensorModuleInitialRho;
+    type InitialKappa = SubtensorModuleInitialKappa;
+    type InitialMaxAllowedUids = SubtensorModuleInitialMaxAllowedUids;
+    type InitialBondsMovingAverage = SubtensorModuleInitialBondsMovingAverage;
+    type InitialIssuance = SubtensorModuleInitialIssuance;
+    type InitialMinAllowedWeights = SubtensorModuleInitialMinAllowedWeights;
+    type InitialMaxWeightLimit = SubtensorModuleInitialMaxWeightLimit;
+    type InitialEmissionValue = SubtensorModuleInitialEmissionValue;
+    type InitialMaxWeightsLimit = SubtensorModuleInitialMaxWeightsLimit;
+    type InitialValidatorPruneLen = SubtensorModuleInitialValidatorPruneLen;
+    type InitialScalingLawPower = SubtensorModuleInitialScalingLawPower;
+    type InitialTempo = SubtensorModuleInitialTempo;
+    type InitialDifficulty = SubtensorModuleInitialDifficulty;
+    type InitialAdjustmentInterval = SubtensorModuleInitialAdjustmentInterval;
+    type InitialAdjustmentAlpha = SubtensorModuleInitialAdjustmentAlpha;
+    type InitialTargetRegistrationsPerInterval = SubtensorModuleInitialTargetRegistrationsPerInterval;
+    type InitialImmunityPeriod = SubtensorModuleInitialImmunityPeriod;
+    type InitialActivityCutoff = SubtensorModuleInitialActivityCutoff;
+    type InitialMaxRegistrationsPerBlock = SubtensorModuleInitialMaxRegistrationsPerBlock;
+    type InitialPruningScore = SubtensorModuleInitialPruningScore;
+    type InitialMaxAllowedValidators = SubtensorModuleInitialMaxAllowedValidators;
+    type InitialDefaultTake = SubtensorModuleInitialDefaultTake;
+    type InitialWeightsVersionKey = SubtensorModuleInitialWeightsVersionKey;
+    type InitialMaxDifficulty = SubtensorModuleInitialMaxDifficulty;
+    type InitialMinDifficulty = SubtensorModuleInitialMinDifficulty;
+    type InitialServingRateLimit = SubtensorModuleInitialServingRateLimit;
+    type InitialBurn = SubtensorModuleInitialBurn;
+    type InitialMaxBurn = SubtensorModuleInitialMaxBurn;
+    type InitialMinBurn = SubtensorModuleInitialMinBurn;
+    type InitialTxRateLimit = SubtensorModuleInitialTxRateLimit;
+    type InitialRAORecycledForRegistration = SubtensorModuleInitialRAORecycledForRegistration;
+    type InitialSenateRequiredStakePercentage = SubtensorModuleInitialSenateRequiredStakePercentage;
+    type InitialNetworkImmunityPeriod = SubtensorModuleInitialNetworkImmunity;
+    type InitialNetworkRegistrationAllowed = SubtensorModuleInitialNetworkRegistrationAllowed;
+    type InitialRegistrationAllowed = SubtensorModuleInitialRegistrationAllowed;
+    type InitialNetworkMinAllowedUids = SubtensorModuleInitialMinAllowedUids;
+    type InitialNetworkMinLockCost = SubtensorModuleInitialMinLockCost;
+    type InitialNetworkLockReductionInterval = SubtensorModuleInitialNetworkLockReductionInterval;
+    type InitialSubnetOwnerCut = SubtensorModuleInitialSubnetOwnerCut;
+    type InitialSubnetLimit = SubtensorModuleInitialSubnetLimit;
+    type InitialNetworkRateLimit = SubtensorModuleInitialNetworkRateLimit;
 }
 
 use sp_runtime::BoundedVec;
@@ -465,287 +465,287 @@ construct_runtime!(
         Grandpa: pallet_grandpa,
         Balances: pallet_balances,
         TransactionPayment: pallet_transaction_payment,
-        Subtensor: pallet_subtensor,
+        SubtensorModule: pallet_subtensor,
         Sudo: pallet_sudo,
         Commitments: pallet_commitments,
         AdminUtils: pallet_admin_utils
     }
 );
 
-pub struct SubtensorInterface;
+pub struct SubtensorModuleInterface;
 
-impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<Runtime> as frame_support::traits::Currency<AccountId>>::Balance, RuntimeOrigin> for SubtensorInterface
+impl pallet_admin_utils::SubtensorModuleInterface<AccountId, <pallet_balances::Pallet<Runtime> as frame_support::traits::Currency<AccountId>>::Balance, RuntimeOrigin> for SubtensorModuleInterface
 {
     fn set_default_take(default_take: u16)
     {
-        Subtensor::set_default_take(default_take);
+        SubtensorModule::set_default_take(default_take);
     }
 
 	fn set_tx_rate_limit(rate_limit: u64)
     {
-        Subtensor::set_tx_rate_limit(rate_limit);
+        SubtensorModule::set_tx_rate_limit(rate_limit);
     }
 
 	fn set_serving_rate_limit(netuid: u16, rate_limit: u64)
     {
-        Subtensor::set_serving_rate_limit(netuid, rate_limit);
+        SubtensorModule::set_serving_rate_limit(netuid, rate_limit);
     }
 
 	fn set_max_burn(netuid: u16, max_burn: u64)
     {
-        Subtensor::set_max_burn(netuid, max_burn);
+        SubtensorModule::set_max_burn(netuid, max_burn);
     }
 
 	fn set_min_burn(netuid: u16, min_burn: u64)
     {
-        Subtensor::set_min_burn(netuid, min_burn);
+        SubtensorModule::set_min_burn(netuid, min_burn);
     }
 
 	fn set_burn(netuid: u16, burn: u64)
     {
-        Subtensor::set_burn(netuid, burn);
+        SubtensorModule::set_burn(netuid, burn);
     }
 
 	fn set_max_difficulty(netuid: u16, max_diff: u64)
     {
-        Subtensor::set_max_difficulty(netuid, max_diff);
+        SubtensorModule::set_max_difficulty(netuid, max_diff);
     }
 
 	fn set_min_difficulty(netuid: u16, min_diff: u64)
     {
-        Subtensor::set_min_difficulty(netuid, min_diff);
+        SubtensorModule::set_min_difficulty(netuid, min_diff);
     }
 
 	fn set_difficulty(netuid: u16, diff: u64)
     {
-        Subtensor::set_difficulty(netuid, diff);
+        SubtensorModule::set_difficulty(netuid, diff);
     }
 
 	fn set_weights_rate_limit(netuid: u16, rate_limit: u64)
     {
-        Subtensor::set_weights_set_rate_limit(netuid, rate_limit);
+        SubtensorModule::set_weights_set_rate_limit(netuid, rate_limit);
     }
 
 	fn set_weights_version_key(netuid: u16, version: u64)
     {
-        Subtensor::set_weights_version_key(netuid, version);
+        SubtensorModule::set_weights_version_key(netuid, version);
     }
 
 	fn set_bonds_moving_average(netuid: u16, moving_average: u64)
     {
-        Subtensor::set_bonds_moving_average(netuid, moving_average);
+        SubtensorModule::set_bonds_moving_average(netuid, moving_average);
     }
 
 	fn set_max_allowed_validators(netuid: u16, max_validators: u16)
     {
-        Subtensor::set_max_allowed_validators(netuid, max_validators);
+        SubtensorModule::set_max_allowed_validators(netuid, max_validators);
     }
 
 	fn if_subnet_exist(netuid: u16) -> bool
     {
-        return Subtensor::if_subnet_exist(netuid);
+        return SubtensorModule::if_subnet_exist(netuid);
     }
 
 	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId)
     {
-        return Subtensor::create_account_if_non_existent(coldkey, hotkey);
+        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
     }
 
 	fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool
     {
-        return Subtensor::coldkey_owns_hotkey(coldkey, hotkey);
+        return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
     }
 
 	/*
     fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, increment: u64)
     {
-        Subtensor::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
     }
     */
 
 	fn u64_to_balance(input: u64) -> Option<Balance>
     {
-        return Subtensor::u64_to_balance(input);
+        return SubtensorModule::u64_to_balance(input);
     }
 
 	fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance)
     {
-        Subtensor::add_balance_to_coldkey_account(coldkey, amount);
+        SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
     }
 
 	fn get_current_block_as_u64() -> u64
     {
-        return Subtensor::get_current_block_as_u64();
+        return SubtensorModule::get_current_block_as_u64();
     }
 
 	fn get_subnetwork_n(netuid: u16) -> u16
     {
-        return Subtensor::get_subnetwork_n(netuid);
+        return SubtensorModule::get_subnetwork_n(netuid);
     }
 
 	fn get_max_allowed_uids(netuid: u16) -> u16
     {
-        return Subtensor::get_max_allowed_uids(netuid);
+        return SubtensorModule::get_max_allowed_uids(netuid);
     }
 
 	fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64)
     {
-        return Subtensor::append_neuron(netuid, new_hotkey, block_number);
+        return SubtensorModule::append_neuron(netuid, new_hotkey, block_number);
     }
 
 	fn get_neuron_to_prune(netuid: u16) -> u16
     {
-        return Subtensor::get_neuron_to_prune(netuid);
+        return SubtensorModule::get_neuron_to_prune(netuid);
     }
 
 	fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64)
     {
-        Subtensor::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
+        SubtensorModule::replace_neuron(netuid, uid_to_replace, new_hotkey, block_number);
     }
 
 	fn set_total_issuance(total_issuance: u64)
     {
-        Subtensor::set_total_issuance(total_issuance);
+        SubtensorModule::set_total_issuance(total_issuance);
     }
 
 	fn set_network_immunity_period(net_immunity_period: u64)
     {
-        Subtensor::set_network_immunity_period(net_immunity_period);
+        SubtensorModule::set_network_immunity_period(net_immunity_period);
     }
 
 	fn set_network_min_lock(net_min_lock: u64)
     {
-        Subtensor::set_network_min_lock(net_min_lock);
+        SubtensorModule::set_network_min_lock(net_min_lock);
     }
 
     fn set_subnet_limit(limit: u16)
     {
-        Subtensor::set_max_subnets(limit);
+        SubtensorModule::set_max_subnets(limit);
     }
 
     fn set_lock_reduction_interval(interval: u64)
     {
-        Subtensor::set_lock_reduction_interval(interval);
+        SubtensorModule::set_lock_reduction_interval(interval);
     }
 
     fn set_tempo(netuid: u16, tempo: u16)
     {
-        Subtensor::set_tempo(netuid, tempo);
+        SubtensorModule::set_tempo(netuid, tempo);
     }
 
     fn set_subnet_owner_cut(subnet_owner_cut: u16)
     {
-        Subtensor::set_subnet_owner_cut(subnet_owner_cut);
+        SubtensorModule::set_subnet_owner_cut(subnet_owner_cut);
     }
 
     fn set_network_rate_limit(limit: u64)
     {
-        Subtensor::set_network_rate_limit(limit);
+        SubtensorModule::set_network_rate_limit(limit);
     }
 
     fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16)
     {
-        Subtensor::set_max_registrations_per_block(netuid, max_registrations_per_block);
+        SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
     }
 
     fn set_adjustment_alpha(netuid: u16, adjustment_alpha: u64)
     {
-        Subtensor::set_adjustment_alpha(netuid, adjustment_alpha);
+        SubtensorModule::set_adjustment_alpha(netuid, adjustment_alpha);
     }
 
     fn set_target_registrations_per_interval(netuid: u16, target_registrations_per_interval: u16)
     {
-        Subtensor::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
+        SubtensorModule::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
     }
 
     fn set_network_pow_registration_allowed(netuid: u16, registration_allowed: bool)
     {
-        Subtensor::set_network_pow_registration_allowed(netuid, registration_allowed);
+        SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
     }
 
     fn set_network_registration_allowed(netuid: u16, registration_allowed: bool)
     {
-        Subtensor::set_network_registration_allowed(netuid, registration_allowed);
+        SubtensorModule::set_network_registration_allowed(netuid, registration_allowed);
     }
 
     fn set_activity_cutoff(netuid: u16, activity_cutoff: u16)
     {
-        Subtensor::set_activity_cutoff(netuid, activity_cutoff);
+        SubtensorModule::set_activity_cutoff(netuid, activity_cutoff);
     }
 
     fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError>
     {
-        return Subtensor::ensure_subnet_owner_or_root(o, netuid);
+        return SubtensorModule::ensure_subnet_owner_or_root(o, netuid);
     }
 
     fn set_rho(netuid: u16, rho: u16)
     {
-        Subtensor::set_rho(netuid, rho);
+        SubtensorModule::set_rho(netuid, rho);
     }
 
     fn set_kappa(netuid: u16, kappa: u16)
     {
-        Subtensor::set_kappa(netuid, kappa);
+        SubtensorModule::set_kappa(netuid, kappa);
     }
 
     fn set_max_allowed_uids(netuid: u16, max_allowed: u16)
     {
-        Subtensor::set_max_allowed_uids(netuid, max_allowed);
+        SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
     }
 
     fn set_min_allowed_weights(netuid: u16, min_allowed_weights: u16)
     {
-        Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
+        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
     }
 
     fn set_immunity_period(netuid: u16, immunity_period: u16)
     {
-        Subtensor::set_immunity_period(netuid, immunity_period);
+        SubtensorModule::set_immunity_period(netuid, immunity_period);
     }
 
     fn set_max_weight_limit(netuid: u16, max_weight_limit: u16)
     {
-        Subtensor::set_max_weight_limit(netuid, max_weight_limit);
+        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
     }
 
     fn set_scaling_law_power(netuid: u16, scaling_law_power: u16)
     {
-        Subtensor::set_scaling_law_power(netuid, scaling_law_power);
+        SubtensorModule::set_scaling_law_power(netuid, scaling_law_power);
     }
 
     fn set_validator_prune_len(netuid: u16, validator_prune_len: u64)
     {
-        Subtensor::set_validator_prune_len(netuid, validator_prune_len);
+        SubtensorModule::set_validator_prune_len(netuid, validator_prune_len);
     }
 
     fn set_adjustment_interval(netuid: u16, adjustment_interval: u16)
     {
-        Subtensor::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
     }
 
     fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64)
     {
-        Subtensor::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
+        SubtensorModule::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
     }
 
     fn set_rao_recycled(netuid: u16, rao_recycled: u64)
     {
-        Subtensor::set_rao_recycled(netuid, rao_recycled);
+        SubtensorModule::set_rao_recycled(netuid, rao_recycled);
     }
 
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool
     {
-        return Subtensor::is_hotkey_registered_on_network(netuid, hotkey);
+        return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
     }
 
     fn init_new_network(netuid: u16, tempo: u16)
     {
-        Subtensor::init_new_network(netuid, tempo);
+        SubtensorModule::init_new_network(netuid, tempo);
     }
 }
 
-pub struct SubtensorSubstrateBalancesInterf;
-impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+pub struct SubtensorModuleSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorModuleSubstrateBalancesInterf
 {
     fn total_issuance() -> Balance
     {
@@ -760,7 +760,7 @@ impl pallet_admin_utils::Config for Runtime
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;
     type Balance = Balance;
-    type Subtensor = SubtensorInterface;
+    type SubtensorModule = SubtensorModuleInterface;
     type WeightInfo = pallet_admin_utils::weights::SubstrateWeight<Runtime>;
 }
 
@@ -780,7 +780,7 @@ pub type SignedExtra = (
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
-    pallet_subtensor::SubtensorSignedExtension<Runtime>,
+    pallet_subtensor::SubtensorModuleSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>
 );
 
@@ -815,11 +815,11 @@ mod benches {
         [frame_benchmarking, BaselineBench::<Runtime>]
         [frame_system, SystemBench::<Runtime>]
         [pallet_balances, Balances]
-        [pallet_subtensor, Subtensor]
+        [pallet_subtensor, SubtensorModule]
         [pallet_timestamp, Timestamp]
         [pallet_commitments, Commitments]
         [pallet_admin_utils, AdminUtils]
-        [pallet_subtensor, Subtensor]
+        [pallet_subtensor, SubtensorModule]
     );
 }
 
@@ -1067,13 +1067,13 @@ impl_runtime_apis! {
 	impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
         fn get_delegates() -> Vec<u8> {
 			
-            let result = Subtensor::get_delegates();
+            let result = SubtensorModule::get_delegates();
             result.encode()
         }
 
         fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
 			
-            let _result = Subtensor::get_delegate(delegate_account_vec);
+            let _result = SubtensorModule::get_delegate(delegate_account_vec);
             if _result.is_some() {
                 let result = _result.expect("Could not get DelegateInfo");
                 result.encode()
@@ -1084,7 +1084,7 @@ impl_runtime_apis! {
 
         fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
 			
-            let result = Subtensor::get_delegated(delegatee_account_vec);
+            let result = SubtensorModule::get_delegated(delegatee_account_vec);
             result.encode()
         }
     }
@@ -1092,13 +1092,13 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::NeuronInfoRuntimeApi<Block> for Runtime {
         fn get_neurons_lite(netuid: u16) -> Vec<u8> {
 			
-            let result = Subtensor::get_neurons_lite(netuid);
+            let result = SubtensorModule::get_neurons_lite(netuid);
             result.encode()
         }
 
         fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
 						
-            let _result = Subtensor::get_neuron_lite(netuid, uid);
+            let _result = SubtensorModule::get_neuron_lite(netuid, uid);
             if _result.is_some() {
                 let result = _result.expect("Could not get NeuronInfoLite");
                 result.encode()
@@ -1109,13 +1109,13 @@ impl_runtime_apis! {
 
         fn get_neurons(netuid: u16) -> Vec<u8> {
 			
-            let result = Subtensor::get_neurons(netuid);
+            let result = SubtensorModule::get_neurons(netuid);
             result.encode()
         }
 
         fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
 			
-            let _result = Subtensor::get_neuron(netuid, uid);
+            let _result = SubtensorModule::get_neuron(netuid, uid);
             if _result.is_some() {
                 let result = _result.expect("Could not get NeuronInfo");
                 result.encode()
@@ -1128,7 +1128,7 @@ impl_runtime_apis! {
 	impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
         fn get_subnet_info(netuid: u16) -> Vec<u8> {
 						
-            let _result = Subtensor::get_subnet_info(netuid);
+            let _result = SubtensorModule::get_subnet_info(netuid);
             if _result.is_some() {
                 let result = _result.expect("Could not get SubnetInfo");
                 result.encode()
@@ -1139,13 +1139,13 @@ impl_runtime_apis! {
 
         fn get_subnets_info() -> Vec<u8> {
 						
-            let result = Subtensor::get_subnets_info();
+            let result = SubtensorModule::get_subnets_info();
             result.encode()
         }
 
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> 
         {
-            let _result = Subtensor::get_subnet_hyperparams(netuid);
+            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
             if _result.is_some() 
             {
                 let result = _result.expect("Could not get SubnetHyperparams");
@@ -1162,13 +1162,13 @@ impl_runtime_apis! {
     {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> 
         {	
-            let result = Subtensor::get_stake_info_for_coldkey( coldkey_account_vec );
+            let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }
 
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> 
         {	
-            let result = Subtensor::get_stake_info_for_coldkeys( coldkey_account_vecs );
+            let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
             result.encode()
         }
     }
@@ -1177,7 +1177,7 @@ impl_runtime_apis! {
     {
         fn get_network_registration_cost() -> u64 
         {
-            Subtensor::get_network_lock_cost()
+            SubtensorModule::get_network_lock_cost()
         }
     }
 }

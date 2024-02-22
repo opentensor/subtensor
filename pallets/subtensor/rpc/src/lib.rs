@@ -1,4 +1,4 @@
-//! RPC interface for the custom Subtensor rpc methods
+//! RPC interface for the custom SubtensorModule rpc methods
 
 use jsonrpsee::{
     core::RpcResult,
@@ -17,7 +17,7 @@ pub use subtensor_custom_rpc_runtime_api::{
 };
 
 #[rpc(client, server)]
-pub trait SubtensorCustomApi<BlockHash> {
+pub trait SubtensorModuleCustomApi<BlockHash> {
     #[method(name = "delegateInfo_getDelegates")]
     fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getDelegate")]
@@ -53,13 +53,13 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
 }
 
-pub struct SubtensorCustom<C, P> {
+pub struct SubtensorModuleCustom<C, P> {
     /// Shared reference to the client.
     client: Arc<C>,
     _marker: std::marker::PhantomData<P>,
 }
 
-impl<C, P> SubtensorCustom<C, P> {
+impl<C, P> SubtensorModuleCustom<C, P> {
     /// Creates a new instance of the TransactionPayment Rpc helper.
     pub fn new(client: Arc<C>) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl From<Error> for i32 {
     }
 }
 
-impl<C, Block> SubtensorCustomApiServer<<Block as BlockT>::Hash> for SubtensorCustom<C, Block>
+impl<C, Block> SubtensorModuleCustomApiServer<<Block as BlockT>::Hash> for SubtensorModuleCustom<C, Block>
 where
     Block: BlockT,
     C: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,

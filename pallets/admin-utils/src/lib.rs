@@ -48,7 +48,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		type Balance: Balance;
-		type Subtensor: crate::SubtensorInterface
+		type SubtensorModule: crate::SubtensorModuleInterface
 		<
 			Self::AccountId, 
 			Self::Balance, 
@@ -93,7 +93,7 @@ pub mod pallet {
 		pub fn sudo_set_default_take(origin: OriginFor<T>, default_take: u16) -> DispatchResult
 		{
 			ensure_root(origin)?;
-			T::Subtensor::set_default_take(default_take);
+			T::SubtensorModule::set_default_take(default_take);
 			log::info!("DefaultTakeSet( default_take: {:?} ) ", default_take);
 			Ok(())
 		}
@@ -103,7 +103,7 @@ pub mod pallet {
 		pub fn sudo_set_tx_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult 
 		{
 			ensure_root(origin)?;
-			T::Subtensor::set_tx_rate_limit(tx_rate_limit);
+			T::SubtensorModule::set_tx_rate_limit(tx_rate_limit);
 			log::info!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit);
 			Ok(())
 		}
@@ -112,9 +112,9 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_serving_rate_limit())]
 		pub fn sudo_set_serving_rate_limit(origin: OriginFor<T>, netuid: u16, serving_rate_limit: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
-			T::Subtensor::set_serving_rate_limit(netuid, serving_rate_limit);
+			T::SubtensorModule::set_serving_rate_limit(netuid, serving_rate_limit);
 			log::info!(
 				"ServingRateLimitSet( serving_rate_limit: {:?} ) ",
 				serving_rate_limit
@@ -126,13 +126,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_min_difficulty())]
 		pub fn sudo_set_min_difficulty(origin: OriginFor<T>, netuid: u16, min_difficulty: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_min_difficulty(netuid, min_difficulty);
+			T::SubtensorModule::set_min_difficulty(netuid, min_difficulty);
 			log::info!(
 				"MinDifficultySet( netuid: {:?} min_difficulty: {:?} ) ",
 				netuid,
@@ -145,13 +145,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_max_difficulty())]
 		pub fn sudo_set_max_difficulty(origin: OriginFor<T>, netuid: u16, max_difficulty: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_max_difficulty(netuid, max_difficulty);
+			T::SubtensorModule::set_max_difficulty(netuid, max_difficulty);
 			log::info!(
 				"MaxDifficultySet( netuid: {:?} max_difficulty: {:?} ) ",
 				netuid,
@@ -165,13 +165,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_weights_version_key())]
 		pub fn sudo_set_weights_version_key(origin: OriginFor<T>, netuid: u16, weights_version_key: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_weights_version_key(netuid, weights_version_key);
+			T::SubtensorModule::set_weights_version_key(netuid, weights_version_key);
 			log::info!(
 				"WeightsVersionKeySet( netuid: {:?} weights_version_key: {:?} ) ",
 				netuid,
@@ -184,13 +184,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_weights_set_rate_limit())]
 		pub fn sudo_set_weights_set_rate_limit(origin: OriginFor<T>, netuid: u16, weights_set_rate_limit: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
+			T::SubtensorModule::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
 			log::info!(
 				"WeightsSetRateLimitSet( netuid: {:?} weights_set_rate_limit: {:?} ) ",
 				netuid,
@@ -206,10 +206,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_adjustment_interval(netuid, adjustment_interval);
+			T::SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
 			log::info!(
 				"AdjustmentIntervalSet( netuid: {:?} adjustment_interval: {:?} ) ",
 				netuid,
@@ -231,10 +231,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_adjustment_alpha(netuid, adjustment_alpha);
+			T::SubtensorModule::set_adjustment_alpha(netuid, adjustment_alpha);
 			log::info!(
 				"AdjustmentAlphaSet( adjustment_alpha: {:?} ) ",
 				adjustment_alpha
@@ -245,13 +245,13 @@ pub mod pallet {
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::sudo_set_max_weight_limit())]
 		pub fn sudo_set_max_weight_limit(origin: OriginFor<T>, netuid: u16, max_weight_limit: u16) -> DispatchResult {
-		   T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+		   T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_max_weight_limit(netuid, max_weight_limit);
+			T::SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
 			log::info!(
 				"MaxWeightLimitSet( netuid: {:?} max_weight_limit: {:?} ) ",
 				netuid,
@@ -264,13 +264,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_immunity_period())]
 		pub fn sudo_set_immunity_period(origin: OriginFor<T>, netuid: u16, immunity_period: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
 	
-			T::Subtensor::set_immunity_period(netuid, immunity_period);
+			T::SubtensorModule::set_immunity_period(netuid, immunity_period);
 			log::info!(
 				"ImmunityPeriodSet( netuid: {:?} immunity_period: {:?} ) ",
 				netuid,
@@ -283,13 +283,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_min_allowed_weights())]
 		pub fn sudo_set_min_allowed_weights(origin: OriginFor<T>, netuid: u16, min_allowed_weights: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
+			T::SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 			log::info!(
 				"MinAllowedWeightSet( netuid: {:?} min_allowed_weights: {:?} ) ",
 				netuid,
@@ -304,14 +304,14 @@ pub mod pallet {
 		{
 			ensure_root(origin)?;
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
 			ensure!(
-				T::Subtensor::get_subnetwork_n(netuid) < max_allowed_uids,
+				T::SubtensorModule::get_subnetwork_n(netuid) < max_allowed_uids,
 				Error::<T>::MaxAllowedUIdsNotAllowed
 			);
-			T::Subtensor::set_max_allowed_uids(netuid, max_allowed_uids);
+			T::SubtensorModule::set_max_allowed_uids(netuid, max_allowed_uids);
 			log::info!(
 				"MaxAllowedUidsSet( netuid: {:?} max_allowed_uids: {:?} ) ",
 				netuid,
@@ -327,10 +327,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_kappa(netuid, kappa);
+			T::SubtensorModule::set_kappa(netuid, kappa);
 			log::info!("KappaSet( netuid: {:?} kappa: {:?} ) ", netuid, kappa);
 			Ok(())
 		}
@@ -342,10 +342,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_rho(netuid, rho);
+			T::SubtensorModule::set_rho(netuid, rho);
 			log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
 			Ok(())
 		}
@@ -354,13 +354,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_activity_cutoff())]
 		pub fn sudo_set_activity_cutoff(origin: OriginFor<T>, netuid: u16, activity_cutoff: u16) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_activity_cutoff(netuid, activity_cutoff);
+			T::SubtensorModule::set_activity_cutoff(netuid, activity_cutoff);
 			log::info!(
 				"ActivityCutoffSet( netuid: {:?} activity_cutoff: {:?} ) ",
 				netuid,
@@ -378,9 +378,9 @@ pub mod pallet {
 		))]
 		pub fn sudo_set_network_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
-			T::Subtensor::set_network_registration_allowed(netuid, registration_allowed);
+			T::SubtensorModule::set_network_registration_allowed(netuid, registration_allowed);
 			log::info!(
 				"NetworkRegistrationAllowed( registration_allowed: {:?} ) ",
 				registration_allowed
@@ -397,9 +397,9 @@ pub mod pallet {
 		))]
 		pub fn sudo_set_network_pow_registration_allowed(origin: OriginFor<T>, netuid: u16, registration_allowed: bool) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
-			T::Subtensor::set_network_pow_registration_allowed(netuid, registration_allowed);
+			T::SubtensorModule::set_network_pow_registration_allowed(netuid, registration_allowed);
 			log::info!(
 				"NetworkPowRegistrationAllowed( registration_allowed: {:?} ) ",
 				registration_allowed
@@ -414,10 +414,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
+			T::SubtensorModule::set_target_registrations_per_interval(netuid, target_registrations_per_interval);
 			log::info!(
 				"RegistrationPerIntervalSet( netuid: {:?} target_registrations_per_interval: {:?} ) ",
 				netuid,
@@ -430,13 +430,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_min_burn())]
 		pub fn sudo_set_min_burn(origin: OriginFor<T>, netuid: u16, min_burn: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_min_burn(netuid, min_burn);
+			T::SubtensorModule::set_min_burn(netuid, min_burn);
 			log::info!(
 				"MinBurnSet( netuid: {:?} min_burn: {:?} ) ",
 				netuid,
@@ -449,13 +449,13 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_max_burn())]
 		pub fn sudo_set_max_burn(origin: OriginFor<T>, netuid: u16, max_burn: u64) -> DispatchResult 
 		{
-			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+			T::SubtensorModule::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_max_burn(netuid, max_burn);
+			T::SubtensorModule::set_max_burn(netuid, max_burn);
 			log::info!(
 				"MaxBurnSet( netuid: {:?} max_burn: {:?} ) ",
 				netuid,
@@ -470,10 +470,10 @@ pub mod pallet {
 		{
 			ensure_root(origin)?;
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_difficulty(netuid, difficulty);
+			T::SubtensorModule::set_difficulty(netuid, difficulty);
 			log::info!(
 				"DifficultySet( netuid: {:?} difficulty: {:?} ) ",
 				netuid,
@@ -488,16 +488,16 @@ pub mod pallet {
 		{
 			ensure_root(origin)?;
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
 			ensure!(
-				max_allowed_validators <= T::Subtensor::get_max_allowed_uids(netuid),
+				max_allowed_validators <= T::SubtensorModule::get_max_allowed_uids(netuid),
 				Error::<T>::StorageValueOutOfRange
 			);
 	
 	
-			T::Subtensor::set_max_allowed_validators(netuid, max_allowed_validators);
+			T::SubtensorModule::set_max_allowed_validators(netuid, max_allowed_validators);
 			log::info!(
 				"MaxAllowedValidatorsSet( netuid: {:?} max_allowed_validators: {:?} ) ",
 				netuid,
@@ -513,10 +513,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 	
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_bonds_moving_average(netuid, bonds_moving_average);
+			T::SubtensorModule::set_bonds_moving_average(netuid, bonds_moving_average);
 			log::info!(
 				"BondsMovingAverageSet( netuid: {:?} bonds_moving_average: {:?} ) ",
 				netuid,
@@ -532,10 +532,10 @@ pub mod pallet {
 			ensure_root(origin)?;
 			
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_max_registrations_per_block(netuid, max_registrations_per_block);
+			T::SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 			log::info!(
 				"MaxRegistrationsPerBlock( netuid: {:?} max_registrations_per_block: {:?} ) ",
 				netuid,
@@ -554,7 +554,7 @@ pub mod pallet {
 		pub fn sudo_set_subnet_owner_cut(origin: OriginFor<T>, subnet_owner_cut: u16) -> DispatchResult 
 		{
 			ensure_root(origin)?;
-			T::Subtensor::set_subnet_owner_cut( subnet_owner_cut );
+			T::SubtensorModule::set_subnet_owner_cut( subnet_owner_cut );
 			log::info!(
 				"SubnetOwnerCut( subnet_owner_cut: {:?} ) ",
 				subnet_owner_cut
@@ -572,7 +572,7 @@ pub mod pallet {
 		pub fn sudo_set_network_rate_limit(origin: OriginFor<T>, rate_limit: u64) -> DispatchResult 
 		{
 			ensure_root(origin)?;
-			T::Subtensor::set_network_rate_limit( rate_limit );
+			T::SubtensorModule::set_network_rate_limit( rate_limit );
 			log::info!(
 				"NetworkRateLimit( rate_limit: {:?} ) ",
 				rate_limit
@@ -586,10 +586,10 @@ pub mod pallet {
 		{
 			ensure_root(origin)?;
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_tempo(netuid, tempo);
+			T::SubtensorModule::set_tempo(netuid, tempo);
 			log::info!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
 			Ok(())
 		}
@@ -600,7 +600,7 @@ pub mod pallet {
 		{
 			ensure_root(origin)?;
 
-            T::Subtensor::set_total_issuance(total_issuance);
+            T::SubtensorModule::set_total_issuance(total_issuance);
 
 			Ok(())
         }
@@ -616,7 +616,7 @@ pub mod pallet {
 		{
             ensure_root(origin)?;
 
-            T::Subtensor::set_network_immunity_period( immunity_period );
+            T::SubtensorModule::set_network_immunity_period( immunity_period );
 
             log::info!(
                 "NetworkImmunityPeriod( period: {:?} ) ",
@@ -637,7 +637,7 @@ pub mod pallet {
 		{
             ensure_root(origin)?;
 
-            T::Subtensor::set_network_min_lock( lock_cost );
+            T::SubtensorModule::set_network_min_lock( lock_cost );
 
             log::info!(
                 "NetworkMinLockCost( lock_cost: {:?} ) ",
@@ -657,7 +657,7 @@ pub mod pallet {
         pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult 
 		{
             ensure_root(origin)?;
-            T::Subtensor::set_subnet_limit(max_subnets);
+            T::SubtensorModule::set_subnet_limit(max_subnets);
 
             log::info!(
                 "SubnetLimit( max_subnets: {:?} ) ",
@@ -678,7 +678,7 @@ pub mod pallet {
 		{
             ensure_root(origin)?;
 
-            T::Subtensor::set_lock_reduction_interval(interval);
+            T::SubtensorModule::set_lock_reduction_interval(interval);
 
             log::info!(
                 "NetworkLockReductionInterval( interval: {:?} ) ",
@@ -694,10 +694,10 @@ pub mod pallet {
 		{
 			ensure_root(origin)?;
 			ensure!(
-				T::Subtensor::if_subnet_exist(netuid),
+				T::SubtensorModule::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
 			);
-			T::Subtensor::set_rao_recycled(netuid, rao_recycled);
+			T::SubtensorModule::set_rao_recycled(netuid, rao_recycled);
 			Ok(())
 		}
     }
@@ -720,7 +720,7 @@ impl<A, M> AuraInterface<A, M> for () {
 
 ///////////////////////////////////////////
 
-pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin>
+pub trait SubtensorModuleInterface<AccountId, Balance, RuntimeOrigin>
 {
 	fn set_default_take(default_take: u16);
 	fn set_tx_rate_limit(rate_limit: u64);

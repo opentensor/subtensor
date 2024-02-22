@@ -24,16 +24,16 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Subtensor: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
     }
 );
 
 #[allow(dead_code)]
-pub type SubtensorCall = pallet_subtensor::Call<Test>;
+pub type SubtensorModuleCall = pallet_subtensor::Call<Test>;
 
 #[allow(dead_code)]
-pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+pub type SubtensorModuleEvent = pallet_subtensor::Event<Test>;
 
 #[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
@@ -161,8 +161,8 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
 }
 
-pub struct SubtensorSubstrateBalancesInterf;
-impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+pub struct SubtensorModuleSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorModuleSubstrateBalancesInterf
 {
     fn total_issuance() -> Balance
     {
@@ -177,7 +177,7 @@ impl pallet_subtensor::Config for Test {
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type WeightInfo = ();
-    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
+    type SubstrateBalances = SubtensorModuleSubstrateBalancesInterf;
 
     type InitialNetworkRegistrationAllowed = InitialNetworkRegistrationAllowed;
     type InitialRegistrationAllowed = InitialRegistrationAllowed;
@@ -268,22 +268,22 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 #[allow(dead_code)]
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
-        Subtensor::on_finalize(System::block_number());
+        SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        Subtensor::on_initialize(System::block_number());
+        SubtensorModule::on_initialize(System::block_number());
     }
 }
 
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
-        Subtensor::on_finalize(System::block_number());
+        SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
-        Subtensor::on_initialize(System::block_number());
+        SubtensorModule::on_initialize(System::block_number());
     }
 }
 
@@ -294,14 +294,14 @@ pub fn register_ok_neuron(
     coldkey_account_id: U256,
     start_nonce: u64,
 ) {
-    let block_number: u64 = Subtensor::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::create_work_for_block_number(
+    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
         netuid,
         block_number,
         start_nonce,
         &hotkey_account_id,
     );
-    let result = Subtensor::register(
+    let result = SubtensorModule::register(
         <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
         netuid,
         block_number,
@@ -321,7 +321,7 @@ pub fn register_ok_neuron(
 
 #[allow(dead_code)]
 pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
-    Subtensor::init_new_network(netuid, tempo);
-    Subtensor::set_network_registration_allowed(netuid, true);
-    Subtensor::set_network_pow_registration_allowed(netuid, true);
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }

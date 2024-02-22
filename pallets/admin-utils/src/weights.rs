@@ -80,8 +80,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
-	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule DefaultTake (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
 	fn sudo_set_default_take() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
@@ -90,8 +90,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(27_199_000, 655)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule ServingRateLimit (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ServingRateLimit (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ServingRateLimit (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ServingRateLimit (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_serving_rate_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
@@ -100,10 +100,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(28_290_000, 655)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxDifficulty (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxDifficulty (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxDifficulty (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxDifficulty (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_difficulty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -113,10 +113,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MinDifficulty (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MinDifficulty (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MinDifficulty (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MinDifficulty (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_min_difficulty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -126,10 +126,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule WeightsSetRateLimit (r:0 w:1)
-	/// Proof Skipped: SubtensorModule WeightsSetRateLimit (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule WeightsSetRateLimit (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule WeightsSetRateLimit (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_weights_set_rate_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -139,10 +139,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule WeightsVersionKey (r:0 w:1)
-	/// Proof Skipped: SubtensorModule WeightsVersionKey (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule WeightsVersionKey (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule WeightsVersionKey (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_weights_version_key() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -152,10 +152,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule BondsMovingAverage (r:0 w:1)
-	/// Proof Skipped: SubtensorModule BondsMovingAverage (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule BondsMovingAverage (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule BondsMovingAverage (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_bonds_moving_average() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -165,12 +165,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxAllowedUids (r:1 w:0)
-	/// Proof Skipped: SubtensorModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxAllowedValidators (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxAllowedValidators (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxAllowedUids (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxAllowedValidators (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxAllowedValidators (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_allowed_validators() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1154`
@@ -180,10 +180,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Difficulty (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Difficulty (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Difficulty (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Difficulty (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_difficulty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -193,10 +193,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule AdjustmentInterval (r:0 w:1)
-	/// Proof Skipped: SubtensorModule AdjustmentInterval (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule AdjustmentInterval (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule AdjustmentInterval (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_adjustment_interval() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -206,10 +206,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule TargetRegistrationsPerInterval (r:0 w:1)
-	/// Proof Skipped: SubtensorModule TargetRegistrationsPerInterval (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule TargetRegistrationsPerInterval (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule TargetRegistrationsPerInterval (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_target_registrations_per_interval() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -219,10 +219,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ActivityCutoff (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ActivityCutoff (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ActivityCutoff (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ActivityCutoff (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_activity_cutoff() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -232,10 +232,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Rho (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Rho (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Rho (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Rho (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_rho() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `903`
@@ -245,10 +245,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Kappa (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Kappa (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Kappa (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Kappa (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_kappa() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -258,12 +258,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule SubnetworkN (r:1 w:0)
-	/// Proof Skipped: SubtensorModule SubnetworkN (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxAllowedUids (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule SubnetworkN (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule SubnetworkN (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxAllowedUids (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_allowed_uids() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1117`
@@ -273,10 +273,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MinAllowedWeights (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MinAllowedWeights (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MinAllowedWeights (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MinAllowedWeights (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_min_allowed_weights() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -286,10 +286,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ValidatorPruneLen (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ValidatorPruneLen (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ValidatorPruneLen (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ValidatorPruneLen (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_validator_prune_len() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -299,10 +299,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ScalingLawPower (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ScalingLawPower (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ScalingLawPower (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ScalingLawPower (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_scaling_law_power() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -312,10 +312,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ImmunityPeriod (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ImmunityPeriod (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ImmunityPeriod (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ImmunityPeriod (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_immunity_period() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -325,10 +325,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxWeightsLimit (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxWeightsLimit (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxWeightsLimit (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxWeightsLimit (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_weight_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -338,10 +338,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxRegistrationsPerBlock (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxRegistrationsPerBlock (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxRegistrationsPerBlock (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxRegistrationsPerBlock (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_registrations_per_block() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -351,10 +351,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxBurn (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxBurn (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxBurn (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxBurn (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_burn() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -364,10 +364,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MinBurn (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MinBurn (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MinBurn (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MinBurn (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_min_burn() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -377,8 +377,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworkPowRegistrationAllowed (r:0 w:1)
-	/// Proof Skipped: SubtensorModule NetworkPowRegistrationAllowed (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworkPowRegistrationAllowed (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule NetworkPowRegistrationAllowed (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_network_registration_allowed() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
@@ -387,10 +387,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(34_599_000, 655)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Tempo (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Tempo (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Tempo (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Tempo (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_tempo() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -420,8 +420,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
-	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule DefaultTake (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
 	fn sudo_set_default_take() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
@@ -430,8 +430,8 @@ impl WeightInfo for () {
 		Weight::from_parts(27_199_000, 655)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule ServingRateLimit (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ServingRateLimit (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ServingRateLimit (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ServingRateLimit (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_serving_rate_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
@@ -440,10 +440,10 @@ impl WeightInfo for () {
 		Weight::from_parts(28_290_000, 655)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxDifficulty (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxDifficulty (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxDifficulty (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxDifficulty (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_difficulty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -453,10 +453,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MinDifficulty (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MinDifficulty (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MinDifficulty (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MinDifficulty (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_min_difficulty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -466,10 +466,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule WeightsSetRateLimit (r:0 w:1)
-	/// Proof Skipped: SubtensorModule WeightsSetRateLimit (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule WeightsSetRateLimit (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule WeightsSetRateLimit (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_weights_set_rate_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -479,10 +479,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule WeightsVersionKey (r:0 w:1)
-	/// Proof Skipped: SubtensorModule WeightsVersionKey (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule WeightsVersionKey (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule WeightsVersionKey (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_weights_version_key() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -492,10 +492,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule BondsMovingAverage (r:0 w:1)
-	/// Proof Skipped: SubtensorModule BondsMovingAverage (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule BondsMovingAverage (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule BondsMovingAverage (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_bonds_moving_average() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -505,12 +505,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxAllowedUids (r:1 w:0)
-	/// Proof Skipped: SubtensorModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxAllowedValidators (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxAllowedValidators (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxAllowedUids (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxAllowedValidators (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxAllowedValidators (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_allowed_validators() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1154`
@@ -520,10 +520,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Difficulty (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Difficulty (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Difficulty (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Difficulty (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_difficulty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -533,10 +533,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule AdjustmentInterval (r:0 w:1)
-	/// Proof Skipped: SubtensorModule AdjustmentInterval (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule AdjustmentInterval (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule AdjustmentInterval (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_adjustment_interval() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -546,10 +546,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule TargetRegistrationsPerInterval (r:0 w:1)
-	/// Proof Skipped: SubtensorModule TargetRegistrationsPerInterval (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule TargetRegistrationsPerInterval (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule TargetRegistrationsPerInterval (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_target_registrations_per_interval() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -559,10 +559,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ActivityCutoff (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ActivityCutoff (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ActivityCutoff (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ActivityCutoff (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_activity_cutoff() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -572,10 +572,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Rho (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Rho (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Rho (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Rho (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_rho() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `903`
@@ -585,10 +585,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Kappa (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Kappa (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Kappa (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Kappa (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_kappa() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -598,12 +598,12 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule SubnetworkN (r:1 w:0)
-	/// Proof Skipped: SubtensorModule SubnetworkN (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxAllowedUids (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule SubnetworkN (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule SubnetworkN (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxAllowedUids (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxAllowedUids (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_allowed_uids() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1117`
@@ -613,10 +613,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MinAllowedWeights (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MinAllowedWeights (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MinAllowedWeights (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MinAllowedWeights (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_min_allowed_weights() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -626,10 +626,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ValidatorPruneLen (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ValidatorPruneLen (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ValidatorPruneLen (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ValidatorPruneLen (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_validator_prune_len() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -639,10 +639,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ScalingLawPower (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ScalingLawPower (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ScalingLawPower (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ScalingLawPower (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_scaling_law_power() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -652,10 +652,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule ImmunityPeriod (r:0 w:1)
-	/// Proof Skipped: SubtensorModule ImmunityPeriod (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule ImmunityPeriod (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule ImmunityPeriod (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_immunity_period() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -665,10 +665,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxWeightsLimit (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxWeightsLimit (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxWeightsLimit (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxWeightsLimit (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_weight_limit() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -678,10 +678,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxRegistrationsPerBlock (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxRegistrationsPerBlock (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxRegistrationsPerBlock (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxRegistrationsPerBlock (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_registrations_per_block() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -691,10 +691,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MaxBurn (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MaxBurn (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MaxBurn (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MaxBurn (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_max_burn() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -704,10 +704,10 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule MinBurn (r:0 w:1)
-	/// Proof Skipped: SubtensorModule MinBurn (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule MinBurn (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule MinBurn (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_min_burn() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
@@ -717,8 +717,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworkPowRegistrationAllowed (r:0 w:1)
-	/// Proof Skipped: SubtensorModule NetworkPowRegistrationAllowed (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworkPowRegistrationAllowed (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule NetworkPowRegistrationAllowed (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_network_registration_allowed() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
@@ -727,10 +727,10 @@ impl WeightInfo for () {
 		Weight::from_parts(34_599_000, 655)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
-	/// Storage: SubtensorModule NetworksAdded (r:1 w:0)
-	/// Proof Skipped: SubtensorModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
-	/// Storage: SubtensorModule Tempo (r:0 w:1)
-	/// Proof Skipped: SubtensorModule Tempo (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule NetworksAdded (r:1 w:0)
+	/// Proof Skipped: SubtensorModuleModule NetworksAdded (max_values: None, max_size: None, mode: Measured)
+	/// Storage: SubtensorModuleModule Tempo (r:0 w:1)
+	/// Proof Skipped: SubtensorModuleModule Tempo (max_values: None, max_size: None, mode: Measured)
 	fn sudo_set_tempo() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1111`
