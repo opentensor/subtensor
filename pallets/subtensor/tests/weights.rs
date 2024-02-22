@@ -23,7 +23,7 @@ fn test_set_weights_dispatch_info_ok() {
         let weights = vec![1, 1];
         let netuid: u16 = 1;
         let version_key: u64 = 0;
-        let call = RuntimeCall::Subtensor(SubtensorCall::set_weights {
+        let call = RuntimeCall::SubtensorModule(SubtensorModuleCall::set_weights {
             netuid,
             dests,
             weights,
@@ -44,16 +44,16 @@ fn test_weights_err_no_validator_permit() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-        Subtensor::set_min_allowed_weights(netuid, 0);
-        Subtensor::set_max_allowed_uids(netuid, 3);
-        Subtensor::set_max_weight_limit(netuid, u16::MAX);
+        SubtensorModule::set_min_allowed_weights(netuid, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, 3);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
         register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             netuid,
             weights_keys,
@@ -65,10 +65,10 @@ fn test_weights_err_no_validator_permit() {
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
         let neuron_uid: u16 =
-            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        let result = Subtensor::set_weights(
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             netuid,
             weights_keys,
@@ -94,14 +94,14 @@ fn test_weights_version_key() {
 
         let weights_keys: Vec<u16> = vec![0];
         let weight_values: Vec<u16> = vec![1];
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid0,
             weights_keys.clone(),
             weight_values.clone(),
             0
         ));
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid1,
             weights_keys.clone(),
@@ -112,18 +112,18 @@ fn test_weights_version_key() {
         // Set version keys.
         let key0: u64 = 12312;
         let key1: u64 = 20313;
-        Subtensor::set_weights_version_key(netuid0, key0);
-        Subtensor::set_weights_version_key(netuid1, key1);
+        SubtensorModule::set_weights_version_key(netuid0, key0);
+        SubtensorModule::set_weights_version_key(netuid1, key1);
 
         // Setting works with version key.
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid0,
             weights_keys.clone(),
             weight_values.clone(),
             key0
         ));
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid1,
             weights_keys.clone(),
@@ -132,7 +132,7 @@ fn test_weights_version_key() {
         ));
 
         // validator:20313 >= network:12312 (accepted: validator newer)
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid0,
             weights_keys.clone(),
@@ -143,7 +143,7 @@ fn test_weights_version_key() {
         // Setting fails with incorrect keys.
         // validator:12312 < network:20313 (rejected: validator not updated)
         assert_eq!(
-            Subtensor::set_weights(
+            SubtensorModule::set_weights(
                 RuntimeOrigin::signed(hotkey),
                 netuid1,
                 weights_keys.clone(),
@@ -163,26 +163,26 @@ fn test_weights_err_setting_weights_too_fast() {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
-        Subtensor::set_min_allowed_weights(netuid, 0);
-        Subtensor::set_max_allowed_uids(netuid, 3);
-        Subtensor::set_max_weight_limit(netuid, u16::MAX);
+        SubtensorModule::set_min_allowed_weights(netuid, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, 3);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
         register_ok_neuron(netuid, hotkey_account_id, U256::from(66), 0);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
         register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
 
         let neuron_uid: u16 =
-            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        Subtensor::set_weights_set_rate_limit(netuid, 10);
-        assert_eq!(Subtensor::get_weights_set_rate_limit(netuid), 10);
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 10);
+        assert_eq!(SubtensorModule::get_weights_set_rate_limit(netuid), 10);
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
 
         // Note that LastUpdate has default 0 for new uids, but if they have actually set weights on block 0
         // then they are allowed to set weights again once more without a wait restriction, to accommodate the default.
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             netuid,
             weights_keys.clone(),
@@ -193,7 +193,7 @@ fn test_weights_err_setting_weights_too_fast() {
         run_to_block(1);
 
         for i in 1..100 {
-            let result = Subtensor::set_weights(
+            let result = SubtensorModule::set_weights(
                 RuntimeOrigin::signed(hotkey_account_id),
                 netuid,
                 weights_keys.clone(),
@@ -220,12 +220,12 @@ fn test_weights_err_weights_vec_not_equal_size() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(1, hotkey_account_id, U256::from(66), 0);
         let neuron_uid: u16 =
-            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
         let weights_keys: Vec<u16> = vec![1, 2, 3, 4, 5, 6];
         let weight_values: Vec<u16> = vec![1, 2, 3, 4, 5]; // Uneven sizes
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             1,
             weights_keys,
@@ -245,36 +245,36 @@ fn test_weights_err_has_duplicate_ids() {
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
 
-        Subtensor::set_max_allowed_uids(netuid, 100); // Allow many registrations per block.
-        Subtensor::set_max_registrations_per_block(netuid, 100); // Allow many registrations per block.
-        Subtensor::set_target_registrations_per_interval(netuid, 100); // Allow many registrations per block.
+        SubtensorModule::set_max_allowed_uids(netuid, 100); // Allow many registrations per block.
+        SubtensorModule::set_max_registrations_per_block(netuid, 100); // Allow many registrations per block.
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100); // Allow many registrations per block.
         // uid 0
         register_ok_neuron(netuid, hotkey_account_id, U256::from(77), 0);
         let neuron_uid: u16 =
-            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
 
         // uid 1
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 100_000);
-        Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
+        SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
 
         // uid 2
         register_ok_neuron(netuid, U256::from(2), U256::from(1), 200_000);
-        Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(2))
+        SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(2))
             .expect("Not registered.");
 
         // uid 3
         register_ok_neuron(netuid, U256::from(3), U256::from(1), 300_000);
-        Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(3))
+        SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(3))
             .expect("Not registered.");
 
-        assert_eq!(Subtensor::get_subnetwork_n(netuid), 4);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
 
         let weights_keys: Vec<u16> = vec![1, 1, 1]; // Contains duplicates
         let weight_values: Vec<u16> = vec![1, 2, 3];
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             netuid,
             weights_keys,
@@ -296,19 +296,19 @@ fn test_weights_err_max_weight_limit() {
         add_network(netuid, tempo, 0);
 
         // Set params.
-        Subtensor::set_max_allowed_uids(netuid, 5);
-        Subtensor::set_target_registrations_per_interval(netuid, 5);
-        Subtensor::set_max_weight_limit(netuid, u16::MAX / 5);
-        Subtensor::set_min_allowed_weights(netuid, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, 5);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 5);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX / 5);
+        SubtensorModule::set_min_allowed_weights(netuid, 0);
 
         // Add 5 accounts.
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 0, 0);
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 55555);
-        let neuron_uid: u16 = Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(0))
+        let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(0))
             .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        assert_eq!(Subtensor::get_subnetwork_n(netuid), 1);
-        assert!(Subtensor::is_hotkey_registered_on_network(
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(0)
         ));
@@ -316,51 +316,51 @@ fn test_weights_err_max_weight_limit() {
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 1, 1);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
-        assert!(Subtensor::is_hotkey_registered_on_network(
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(1)
         ));
-        assert_eq!(Subtensor::get_subnetwork_n(netuid), 2);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 2);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 2, 2);
         register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
-        assert!(Subtensor::is_hotkey_registered_on_network(
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(2)
         ));
-        assert_eq!(Subtensor::get_subnetwork_n(netuid), 3);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 3);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 3, 3);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 95555);
-        assert!(Subtensor::is_hotkey_registered_on_network(
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(3)
         ));
-        assert_eq!(Subtensor::get_subnetwork_n(netuid), 4);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 4);
         step_block(1);
 
         println!("+Registering: net:{:?}, cold:{:?}, hot:{:?}", netuid, 4, 4);
         register_ok_neuron(netuid, U256::from(4), U256::from(4), 35555);
-        assert!(Subtensor::is_hotkey_registered_on_network(
+        assert!(SubtensorModule::is_hotkey_registered_on_network(
             netuid,
             &U256::from(4)
         ));
-        assert_eq!(Subtensor::get_subnetwork_n(netuid), 5);
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 5);
         step_block(1);
 
         // Non self-weight fails.
         let uids: Vec<u16> = vec![1, 2, 3, 4];
         let values: Vec<u16> = vec![u16::MAX / 4, u16::MAX / 4, u16::MAX / 54, u16::MAX / 4];
         let result =
-            Subtensor::set_weights(RuntimeOrigin::signed(U256::from(0)), 1, uids, values, 0);
+            SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(0)), 1, uids, values, 0);
         assert_eq!(result, Err(Error::<Test>::MaxWeightExceeded.into()));
 
         // Self-weight is a success.
         let uids: Vec<u16> = vec![0]; // Self.
         let values: Vec<u16> = vec![u16::MAX]; // normalizes to u32::MAX
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(0)),
             1,
             uids,
@@ -376,7 +376,7 @@ fn test_no_signature() {
     new_test_ext().execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
-        let result = Subtensor::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
+        let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin.into()));
     });
 }
@@ -391,13 +391,13 @@ fn test_set_weights_err_not_active() {
 
         // Register one neuron. Should have uid 0
         register_ok_neuron(1, U256::from(666), U256::from(2), 100000);
-        Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(666))
+        SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(666))
             .expect("Not registered.");
 
         let weights_keys: Vec<u16> = vec![0]; // Uid 0 is valid.
         let weight_values: Vec<u16> = vec![1];
         // This hotkey is NOT registered.
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(1)),
             1,
             weights_keys,
@@ -418,12 +418,12 @@ fn test_set_weights_err_invalid_uid() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(1, hotkey_account_id, U256::from(66), 0);
         let neuron_uid: u16 =
-            Subtensor::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
+            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
                 .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             1,
             weight_keys,
@@ -444,18 +444,18 @@ fn test_set_weight_not_enough_values() {
         add_network(netuid, tempo, 0);
 
         register_ok_neuron(1, account_id, U256::from(2), 100000);
-        let neuron_uid: u16 = Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
+        let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        Subtensor::set_max_weight_limit(netuid, u16::MAX );
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX );
 
         register_ok_neuron(1, U256::from(3), U256::from(4), 300000);
-        Subtensor::set_min_allowed_weights(netuid, 2);
+        SubtensorModule::set_min_allowed_weights(netuid, 2);
 
         // Should fail because we are only setting a single value and its not the self weight.
         let weight_keys: Vec<u16> = vec![1]; // not weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(account_id),
             1,
             weight_keys,
@@ -467,7 +467,7 @@ fn test_set_weight_not_enough_values() {
         // Shouldnt fail because we setting a single value but it is the self weight.
         let weight_keys: Vec<u16> = vec![0]; // self weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(account_id),
             1,
             weight_keys,
@@ -478,8 +478,8 @@ fn test_set_weight_not_enough_values() {
         // Should pass because we are setting enough values.
         let weight_keys: Vec<u16> = vec![0, 1]; // self weight.
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
-        Subtensor::set_min_allowed_weights(netuid, 1);
-        assert_ok!(Subtensor::set_weights(
+        SubtensorModule::set_min_allowed_weights(netuid, 1);
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(account_id),
             1,
             weight_keys,
@@ -498,18 +498,18 @@ fn test_set_weight_too_many_uids() {
         add_network(netuid, tempo, 0);
 
         register_ok_neuron(1, U256::from(1), U256::from(2), 100_000);
-        let neuron_uid: u16 = Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
+        let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
 
         register_ok_neuron(1, U256::from(3), U256::from(4), 300_000);
-        Subtensor::set_min_allowed_weights(1, 2);
-        Subtensor::set_max_weight_limit(netuid, u16::MAX);
+        SubtensorModule::set_min_allowed_weights(1, 2);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // Should fail because we are setting more weights than there are neurons.
         let weight_keys: Vec<u16> = vec![0, 1, 2, 3, 4]; // more uids than neurons in subnet.
         let weight_values: Vec<u16> = vec![88, 102, 303, 1212, 11]; // random value.
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(1)),
             1,
             weight_keys,
@@ -521,7 +521,7 @@ fn test_set_weight_too_many_uids() {
         // Shouldnt fail because we are setting less weights than there are neurons.
         let weight_keys: Vec<u16> = vec![0, 1]; // Only on neurons that exist.
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
-        assert_ok!(Subtensor::set_weights(
+        assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(1)),
             1,
             weight_keys,
@@ -540,13 +540,13 @@ fn test_set_weights_sum_larger_than_u16_max() {
         add_network(netuid, tempo, 0);
 
         register_ok_neuron(1, U256::from(1), U256::from(2), 100_000);
-        let neuron_uid: u16 = Subtensor::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
+        let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
-        Subtensor::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        Subtensor::set_max_weight_limit(netuid, u16::MAX);
+        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         register_ok_neuron(1, U256::from(3), U256::from(4), 300_000);
-        Subtensor::set_min_allowed_weights(1, 2);
+        SubtensorModule::set_min_allowed_weights(1, 2);
 
         // Shouldn't fail because we are setting the right number of weights.
         let weight_keys: Vec<u16> = vec![0, 1];
@@ -554,7 +554,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
         // sum of weights is larger than u16 max.
         assert!(weight_values.iter().map(|x| *x as u64).sum::<u64>() > (u16::MAX as u64));
 
-        let result = Subtensor::set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(1)),
             1,
             weight_keys,
@@ -564,7 +564,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
         assert_ok!(result);
 
         // Get max-upscaled unnormalized weights.
-        let all_weights: Vec<Vec<I32F32>> = Subtensor::get_weights(netuid);
+        let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid);
         let weights_set: &Vec<I32F32> = &all_weights[neuron_uid as usize];
         assert_eq!(weights_set[0], I32F32::from_num(u16::MAX));
         assert_eq!(weights_set[1], I32F32::from_num(u16::MAX));
@@ -580,14 +580,14 @@ fn test_check_length_allows_singleton() {
         let max_allowed: u16 = 1;
         let min_allowed_weights = max_allowed;
 
-        Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
+        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
         let uid: u16 = uids[0].clone();
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
 
         let expected = true;
-        let result = Subtensor::check_length(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
 
         assert_eq!(expected, result, "Failed get expected result");
     });
@@ -602,14 +602,14 @@ fn test_check_length_weights_length_exceeds_min_allowed() {
         let max_allowed: u16 = 3;
         let min_allowed_weights = max_allowed;
 
-        Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
+        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
         let uid: u16 = uids[0].clone();
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
 
         let expected = true;
-        let result = Subtensor::check_length(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
 
         assert_eq!(expected, result, "Failed get expected result");
     });
@@ -624,9 +624,9 @@ fn test_check_length_to_few_weights() {
         let min_allowed_weights = 3;
 
         add_network(netuid, 1, 0);
-        Subtensor::set_target_registrations_per_interval(netuid, 100);
-        Subtensor::set_max_registrations_per_block(netuid, 100);
-        Subtensor::set_max_allowed_uids(netuid, min_allowed_weights);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 100);
+        SubtensorModule::set_max_registrations_per_block(netuid, 100);
+        SubtensorModule::set_max_allowed_uids(netuid, min_allowed_weights);
         // register morw than min allowed
         register_ok_neuron(1, U256::from(1), U256::from(1), 300_000);
         register_ok_neuron(1, U256::from(2), U256::from(2), 300_001);
@@ -635,16 +635,16 @@ fn test_check_length_to_few_weights() {
         register_ok_neuron(1, U256::from(5), U256::from(5), 300_004);
         register_ok_neuron(1, U256::from(6), U256::from(6), 300_005);
         register_ok_neuron(1, U256::from(7), U256::from(7), 300_006);
-        Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
+        SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 
         let uids: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
         let weights: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
-        log::info!("uids len: {:?} weights len: {:?} max uids: {:?}", uids.len(), weights.len(), Subtensor::get_max_allowed_uids(netuid));
+        log::info!("uids len: {:?} weights len: {:?} max uids: {:?}", uids.len(), weights.len(), SubtensorModule::get_max_allowed_uids(netuid));
 
         let uid: u16 = uids[0].clone();
 
         let expected = false;
-        let result = Subtensor::check_length(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
 
         assert_eq!(expected, result, "Failed get expected result");
     });
@@ -659,7 +659,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_is_zero() {
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_| 0));
 
         let expected = weights.clone();
-        let result = Subtensor::normalize_weights(weights);
+        let result = SubtensorModule::normalize_weights(weights);
 
         assert_eq!(
             expected, result,
@@ -677,7 +677,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_not_zero() {
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|weight| weight));
 
         let expected = weights.clone();
-        let result = Subtensor::normalize_weights(weights);
+        let result = SubtensorModule::normalize_weights(weights);
 
         assert_eq!(expected.len(), result.len(), "Length of weights changed?!");
     });
@@ -695,7 +695,7 @@ fn test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit() {
         let weights: Vec<u16> = vec![0];
 
         let expected = true;
-        let result = Subtensor::max_weight_limited(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::max_weight_limited(netuid, uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -716,7 +716,7 @@ fn test_max_weight_limited_when_weight_limit_is_u16_max() {
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_id| u16::MAX));
 
         let expected = true;
-        let result = Subtensor::max_weight_limited(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::max_weight_limited(netuid, uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -737,10 +737,10 @@ fn test_max_weight_limited_when_max_weight_is_within_limit() {
         let uid: u16 = uids[0].clone();
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit - id));
 
-        Subtensor::set_max_weight_limit(netuid, max_weight_limit);
+        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
 
         let expected = true;
-        let result = Subtensor::max_weight_limited(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::max_weight_limited(netuid, uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -761,10 +761,10 @@ fn test_max_weight_limited_when_guard_checks_are_not_triggered() {
         let uid: u16 = uids[0].clone();
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit + id));
 
-        Subtensor::set_max_weight_limit(netuid, max_weight_limit);
+        SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
 
         let expected = false;
-        let result = Subtensor::max_weight_limited(netuid, uid, &uids, &weights);
+        let result = SubtensorModule::max_weight_limited(netuid, uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -784,7 +784,7 @@ fn test_is_self_weight_weights_length_not_one() {
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
 
         let expected = false;
-        let result = Subtensor::is_self_weight(uid, &uids, &weights);
+        let result = SubtensorModule::is_self_weight(uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -804,7 +804,7 @@ fn test_is_self_weight_uid_not_in_uids() {
         let weights: Vec<u16> = vec![0];
 
         let expected = false;
-        let result = Subtensor::is_self_weight(uid, &uids, &weights);
+        let result = SubtensorModule::is_self_weight(uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -825,7 +825,7 @@ fn test_is_self_weight_uid_in_uids() {
         let weights: Vec<u16> = vec![0];
 
         let expected = true;
-        let result = Subtensor::is_self_weight(uid, &uids, &weights);
+        let result = SubtensorModule::is_self_weight(uid, &uids, &weights);
 
         assert_eq!(
             expected, result,
@@ -851,15 +851,15 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 65555);
         register_ok_neuron(netuid, U256::from(5), U256::from(5), 75555);
-        let max_allowed: u16 = Subtensor::get_subnetwork_n(netuid);
+        let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
 
-        Subtensor::set_max_allowed_uids(netuid, max_allowed);
-        Subtensor::set_max_registrations_per_block(netuid, max_registrations_per_block);
+        SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
+        SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|uid| uid));
 
         let expected = true;
-        let result = Subtensor::check_len_uids_within_allowed(netuid, &uids);
+        let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
         assert_eq!(
             expected, result,
             "netuid network length and uids length incompatible"
@@ -884,15 +884,15 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(3), 65555);
         register_ok_neuron(netuid, U256::from(5), U256::from(5), 75555);
-        let max_allowed: u16 = Subtensor::get_subnetwork_n(netuid);
+        let max_allowed: u16 = SubtensorModule::get_subnetwork_n(netuid);
 
-        Subtensor::set_max_allowed_uids(netuid, max_allowed);
-        Subtensor::set_max_registrations_per_block(netuid, max_registrations_per_block);
+        SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
+        SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
         let uids: Vec<u16> = Vec::from_iter((0..(max_allowed + 1)).map(|uid| uid));
 
         let expected = false;
-        let result = Subtensor::check_len_uids_within_allowed(netuid, &uids);
+        let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
         assert_eq!(
             expected, result,
             "Failed to detect incompatible uids for network"

@@ -20,55 +20,55 @@ smallvec = "1.6.1"
 serde_json = { version = "1.0.108", default-features = false, features = ["alloc"] }
 
 # FRAME
-frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-frame-try-runtime = { default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-frame-executive = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+frame-support = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+frame-system = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+frame-try-runtime = { default-features = false, optional = true, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+frame-executive = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 
 # Substrate
-sp-api = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-block-builder = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-consensus-aura = { default-features = false, features = ["serde"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-consensus-grandpa = { default-features = false, features = ["serde"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-core = { default-features = false, features = ["serde"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-inherents = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-offchain = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-runtime = { default-features = false, features = ["serde"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-session = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-storage = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-transaction-pool = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-version = { default-features = false, features = ["serde"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-sp-genesis-builder = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+sp-api = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-block-builder = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-consensus-aura = { default-features = false, features = ["serde"], git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-consensus-grandpa = { default-features = false, features = ["serde"], git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-core = { default-features = false, features = ["serde"], git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-inherents = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-offchain = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-runtime = { default-features = false, features = ["serde"], git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-session = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-std = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-storage = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-transaction-pool = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-version = { default-features = false, features = ["serde"], git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+sp-genesis-builder = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 
 # Pallets
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../pallets/subtensor" }
 pallet-registry = { version = "4.0.0-dev", default-features = false, path = "../pallets/registry" }
 pallet-admin-utils = { version = "4.0.0-dev", default-features = false, path = "../pallets/admin-utils" }
-pallet-aura = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-pallet-balances = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-pallet-grandpa = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-pallet-sudo = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-pallet-transaction-payment = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+pallet-aura = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+pallet-balances = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+pallet-grandpa = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+pallet-sudo = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+pallet-timestamp = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+pallet-transaction-payment = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 
 # Debugging
-try-runtime-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "release-polkadot-v1.4.0", optional = true }
+try-runtime-cli = { git = "https://github.com/opentensor/polkadot-sdk.git", branch = "tensordot-v1.4.0", optional = true }
 
 # RPC
-frame-system-rpc-runtime-api = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-pallet-transaction-payment-rpc-runtime-api = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+frame-system-rpc-runtime-api = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+pallet-transaction-payment-rpc-runtime-api = { default-features = false, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
 
 # Benchmarking
-frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
-frame-system-benchmarking = { default-features = false, optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+frame-benchmarking = { default-features = false, optional = true, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
+frame-system-benchmarking = { default-features = false, optional = true, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 
 # Metadata commitment pallet
 pallet-commitments = { version = "4.0.0-dev", default-features = false, path = "../pallets/commitments" }
 
 [build-dependencies]
-substrate-wasm-builder = { optional = true, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0" }
+substrate-wasm-builder = { optional = true, git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0" }
 
 [features]
 default = ["std"]

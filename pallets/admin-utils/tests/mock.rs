@@ -29,10 +29,10 @@ frame_support::construct_runtime!(
 );
 
 #[allow(dead_code)]
-pub type SubtensorCall = pallet_subtensor::Call<Test>;
+pub type SubtensorModuleCall = pallet_subtensor::Call<Test>;
 
 #[allow(dead_code)]
-pub type SubtensorEvent = pallet_subtensor::Event<Test>;
+pub type SubtensorModuleEvent = pallet_subtensor::Event<Test>;
 
 #[allow(dead_code)]
 pub type BalanceCall = pallet_balances::Call<Test>;
@@ -112,8 +112,8 @@ parameter_types! {
     pub const InitialRegistrationAllowed: bool = false;
 }
 
-pub struct SubtensorSubstrateBalancesInterf;
-impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorSubstrateBalancesInterf
+pub struct SubtensorModuleSubstrateBalancesInterf;
+impl pallet_subtensor::SubstrateBalancesInterface<Balance> for SubtensorModuleSubstrateBalancesInterf
 {
     fn total_issuance() -> Balance
     {
@@ -129,7 +129,7 @@ impl pallet_subtensor::Config for Test
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type WeightInfo = ();
-    type SubstrateBalances = SubtensorSubstrateBalancesInterf;
+    type SubstrateBalances = SubtensorModuleSubstrateBalancesInterf;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
@@ -220,9 +220,9 @@ impl pallet_balances::Config for Test {
     type MaxFreezes = ();
 }
 
-pub struct SubtensorIntrf;
+pub struct SubtensorModuleIntrf;
 
-impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> for SubtensorIntrf
+impl pallet_admin_utils::SubtensorModuleInterface<AccountId, Balance, RuntimeOrigin> for SubtensorModuleIntrf
 {
     fn set_default_take(default_take: u16)
     {
@@ -498,7 +498,7 @@ impl pallet_admin_utils::Config for Test {
     type MaxAuthorities = ConstU32<32>;
     type Aura = ();
     type Balance = Balance;
-    type Subtensor = SubtensorIntrf;
+    type SubtensorModule = SubtensorModuleIntrf;
     type WeightInfo = /*pallet_admin_utils::weights::SubstrateWeight<Test>*/();
 }
 

@@ -9,8 +9,8 @@ license = "MIT"
 publish = false
 
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.4.0", default-features = false }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.4.0" }
+sp-api = { git = "https://github.com/opentensor/polkadot-sdk", branch = "tensordot-v1.4.0", default-features = false }
+frame-support = { git = "https://github.com/opentensor/polkadot-sdk", default-features = false, branch = "tensordot-v1.4.0" }
 serde = { version = "1.0.132", features = ["derive"], default-features = false }
 
 # local 
