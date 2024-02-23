@@ -178,7 +178,7 @@ impl<T: Config> Pallet<T> {
     //
     // # Returns:
     // A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
-    // 'j' with according to the preferences of key. 'j' within the root network.
+    // 'j' with according to the preferences of key. Validator 'i' within the root network.
     //
     pub fn get_root_weights() -> Vec<Vec<I64F64>> {
         // --- 0. The number of validators on the root network.
@@ -853,7 +853,9 @@ impl<T: Config> Pallet<T> {
         // --- 11. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
         Self::set_subnet_locked_balance(netuid, 0);
-        SubnetOwner::<T>::remove(netuid);
+
+        // --- 12. Set its weight to 0 from all validators
+        Weights::<T>::remove(0, netuid);
     }
 
     // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
