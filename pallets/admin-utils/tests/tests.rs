@@ -786,6 +786,88 @@ fn test_sudo_set_rao_recycled() {
 }
 
 #[test]
+fn test_sudo_set_liquid_alpha() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 10, 0);
+        let init_value: bool = SubtensorModule::get_liquid_alpha(netuid);
+
+        // Need to run from genesis block
+        run_to_block(1);
+
+        assert_eq!(
+            AdminUtils::sudo_set_liquid_alpha(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                netuid
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(
+            AdminUtils::sudo_set_liquid_alpha(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid + 1,
+            ),
+            Err(Error::<Test>::NetworkDoesNotExist.into())
+        );
+        assert_eq!(SubtensorModule::get_liquid_alpha(netuid), init_value);
+
+        // Verify no events emitted matching the expected event
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|r| r.event
+                    == RuntimeEvent::SubtensorModule(Event::LiquidAlphaSet(
+                        netuid
+                    )))
+                .count(),
+            0
+        );
+
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid
+        ));
+        assert_eq!(SubtensorModule::get_liquid_alpha(netuid), true);
+
+        // Verify event emitted with correct values
+        assert_eq!(
+            System::events()
+                .last()
+                .expect(
+                    format!(
+                        "Expected there to be events: {:?}",
+                        System::events().to_vec()
+                    )
+                    .as_str()
+                )
+                .event,
+            RuntimeEvent::SubtensorModule(Event::LiquidAlphaSet(netuid))
+        );
+
+        assert_ok!(AdminUtils::sudo_unset_liquid_alpha(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid
+        ));
+        assert_eq!(SubtensorModule::get_liquid_alpha(netuid), false);
+
+        // Verify event emitted with correct values
+        assert_eq!(
+            System::events()
+                .last()
+                .expect(
+                    format!(
+                        "Expected there to be events: {:?}",
+                        System::events().to_vec()
+                    )
+                    .as_str()
+                )
+                .event,
+            RuntimeEvent::SubtensorModule(Event::LiquidAlphaUnSet(netuid))
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_subnet_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;

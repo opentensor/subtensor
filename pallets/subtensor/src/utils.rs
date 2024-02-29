@@ -564,6 +564,18 @@ impl<T: Config> Pallet<T> {
         Self::set_rao_recycled(netuid, rao_recycled);
     }
 
+    pub fn get_liquid_alpha(netuid: u16) -> bool {
+        LiquidAlphaOn::<T>::get(netuid)
+    }
+    pub fn set_liquid_alpha( netuid: u16 ) {
+        LiquidAlphaOn::<T>::set(netuid, true);
+        Self::deposit_event(Event::LiquidAlphaSet(netuid));
+    }
+    pub fn unset_liquid_alpha( netuid: u16 ) {
+        LiquidAlphaOn::<T>::set(netuid, false);
+        Self::deposit_event(Event::LiquidAlphaUnSet(netuid));
+    }
+
     pub fn set_senate_required_stake_perc(required_percent: u64) {
         SenateRequiredStakePercentage::<T>::put(required_percent);
     }

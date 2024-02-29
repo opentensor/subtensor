@@ -701,6 +701,32 @@ pub mod pallet {
 			T::Subtensor::set_rao_recycled(netuid, rao_recycled);
 			Ok(())
 		}
+
+		#[pallet::call_index(40)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_liquid_alpha( origin: OriginFor<T>, netuid: u16 ) -> DispatchResult 
+		{
+			ensure_root(origin)?;
+			ensure!(
+				T::Subtensor::if_subnet_exist(netuid),
+				Error::<T>::NetworkDoesNotExist
+			);
+			T::Subtensor::set_liquid_alpha(netuid);
+			Ok(())
+		}
+
+		#[pallet::call_index(41)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_unset_liquid_alpha( origin: OriginFor<T>, netuid: u16 ) -> DispatchResult 
+		{
+			ensure_root(origin)?;
+			ensure!(
+				T::Subtensor::if_subnet_exist(netuid),
+				Error::<T>::NetworkDoesNotExist
+			);
+			T::Subtensor::unset_liquid_alpha(netuid);
+			Ok(())
+		}
     }
 }
 
@@ -761,6 +787,8 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin>
 	fn set_network_immunity_period(net_immunity_period: u64);
 	fn set_network_min_lock(net_min_lock: u64);
 	fn set_rao_recycled(netuid: u16, rao_recycled: u64);
+	fn set_liquid_alpha(netuid: u16);
+	fn unset_liquid_alpha(netuid: u16);
 	fn set_subnet_limit(limit: u16);
 	fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool;
 	fn set_lock_reduction_interval(interval: u64);

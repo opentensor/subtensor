@@ -641,7 +641,14 @@ pub mod pallet {
     pub fn DefaultAdjustmentAlpha<T: Config>() -> u64 {
         T::InitialAdjustmentAlpha::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultLiquidAlphaOn<T: Config>() -> bool {
+        false
+    }
 
+    #[pallet::storage] // --- MAP ( netuid ) --> network uses liquid alpha
+    pub type LiquidAlphaOn<T: Config> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultLiquidAlphaOn<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> Rho
     pub type Rho<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultRho<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> Kappa
@@ -854,6 +861,8 @@ pub mod pallet {
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),             // --- Event created when setting tempo on a network
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
+        LiquidAlphaSet(u16), // Event created when liquid alpha has been set on this netuid
+        LiquidAlphaUnSet(u16), // Event created when liquid alpha has been set on this netuid
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.

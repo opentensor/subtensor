@@ -987,6 +987,16 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
         SubtensorModule::set_rao_recycled(netuid, rao_recycled);
     }
 
+    fn set_liquid_alpha(netuid: u16)
+    {
+        SubtensorModule::set_liquid_alpha(netuid);
+    }
+
+    fn unset_liquid_alpha(netuid: u16)
+    {
+        SubtensorModule::unset_liquid_alpha(netuid);
+    }
+
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool
     {
         return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
