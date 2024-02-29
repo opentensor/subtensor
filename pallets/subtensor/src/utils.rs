@@ -575,6 +575,13 @@ impl<T: Config> Pallet<T> {
         LiquidAlphaOn::<T>::set(netuid, false);
         Self::deposit_event(Event::LiquidAlphaUnSet(netuid));
     }
+    pub fn set_weights_min_stake( min_stake: u64 ) {
+        WeightsMinStake::<T>::put( min_stake );
+        Self::deposit_event(Event::WeightsMinStake(min_stake));
+    }
+    pub fn get_weights_min_stake( ) -> u64 {
+        WeightsMinStake::<T>::get()
+    }
 
     pub fn set_senate_required_stake_perc(required_percent: u64) {
         SenateRequiredStakePercentage::<T>::put(required_percent);

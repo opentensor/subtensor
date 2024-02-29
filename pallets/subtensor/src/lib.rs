@@ -646,7 +646,13 @@ pub mod pallet {
     pub fn DefaultLiquidAlphaOn<T: Config>() -> bool {
         false
     }
+    #[pallet::type_value]
+    pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
+        1000000000000
+    }
 
+    #[pallet::storage] // ITEM( weights_min_stake ) 
+    pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> network uses liquid alpha
     pub type LiquidAlphaOn<T: Config> =
         StorageMap<_, Identity, u16, bool, ValueQuery, DefaultLiquidAlphaOn<T>>;
@@ -864,6 +870,7 @@ pub mod pallet {
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
         LiquidAlphaSet(u16), // Event created when liquid alpha has been set on this netuid
         LiquidAlphaUnSet(u16), // Event created when liquid alpha has been set on this netuid
+        WeightsMinStake(u64),
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
@@ -1677,10 +1684,9 @@ pub mod pallet {
         }
 
         // --- Is the caller allowed to set weights
-        pub fn get_allowed_set_weights(hotkey: &T::AccountId) -> bool {
-            let stake = Self::get_total_stake_for_hotkey(&hotkey);
+        pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            if stake <= 20_000_000_000_000 { 
+            if Self::get_total_stake_for_hotkey(&hotkey) <= Self::get_weights_min_stake() { 
                 return false; 
             } else {
                 return true;
@@ -1731,8 +1737,8 @@ where
         return Pallet::<T>::get_priority_set_weights(who, netuid);
     }
 
-    pub fn get_allowed_set_weights( who: &T::AccountId ) -> bool {
-        return Pallet::<T>::get_allowed_set_weights(who);
+    pub fn check_weights_min_stake( who: &T::AccountId ) -> bool {
+        return Pallet::<T>::check_weights_min_stake(who);
     }
 
     pub fn u64_to_balance(
@@ -1775,7 +1781,7 @@ where
     ) -> TransactionValidity {
         match call.is_sub_type() {
             Some(Call::set_weights { netuid, .. }) => {
-                if Self::get_allowed_set_weights( who ) {
+                if Self::check_weights_min_stake( who ) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
                         priority: priority,

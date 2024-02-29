@@ -727,6 +727,16 @@ pub mod pallet {
 			T::Subtensor::unset_liquid_alpha(netuid);
 			Ok(())
 		}
+
+		#[pallet::call_index(42)]
+		#[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+		pub fn sudo_set_weights_min_stake( origin: OriginFor<T>, min_stake: u64 ) -> DispatchResult 
+		{
+			ensure_root(origin)?;
+			T::Subtensor::set_weights_min_stake(min_stake);
+			Ok(())
+		}
+
     }
 }
 
@@ -813,4 +823,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin>
 	fn set_adjustment_interval(netuid: u16, adjustment_interval: u16);
 	fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64);
 	fn init_new_network(netuid: u16, tempo: u16);
+	fn set_weights_min_stake(min_stake: u64);
 }
