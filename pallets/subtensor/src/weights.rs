@@ -110,13 +110,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotRegistered
         );
 
-        // --- 6. Ensure version_key is up-to-date.
+        // --- 6. Check to see if the hotkey has enought stake to set weights.
+        ensure!(
+            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
+            Error::<T>::NotEnoughStaketoWithdraw
+        );
+
+        // --- 7. Ensure version_key is up-to-date.
         ensure!(
             Self::check_version_key(netuid, version_key),
             Error::<T>::IncorrectNetworkVersionKey
         );
 
-        // --- 7. Get the neuron uid of associated hotkey on network netuid.
+        // --- 8. Get the neuron uid of associated hotkey on network netuid.
         let neuron_uid;
         let net_neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey);
         ensure!(
@@ -128,14 +134,14 @@ impl<T: Config> Pallet<T> {
 
         neuron_uid = net_neuron_uid.unwrap();
 
-        // --- 8. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
+        // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::check_rate_limit(netuid, neuron_uid, current_block),
             Error::<T>::SettingWeightsTooFast
         );
 
-        // --- 9. Check that the neuron uid is an allowed validator permitted to set non-self weights.
+        // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         if netuid != Self::get_root_netuid() {
             ensure!(
                 Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
@@ -143,10 +149,10 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 10. Ensure the passed uids contain no duplicates.
+        // --- 11. Ensure the passed uids contain no duplicates.
         ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
 
-        // --- 11. Ensure that the passed uids are valid for the network.
+        // --- 12. Ensure that the passed uids are valid for the network.
         if netuid != Self::get_root_netuid() {
             ensure!(
                 !Self::contains_invalid_uids(netuid, &uids),
@@ -154,34 +160,34 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 12. Ensure that the weights have the required length.
+        // --- 13. Ensure that the weights have the required length.
         ensure!(
             Self::check_length(netuid, neuron_uid, &uids, &values),
             Error::<T>::NotSettingEnoughWeights
         );
 
-        // --- 13. Max-upscale the weights.
+        // --- 14. Max-upscale the weights.
         let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16(&values);
 
-        // --- 14. Ensure the weights are max weight limited
+        // --- 15. Ensure the weights are max weight limited
         ensure!(
             Self::max_weight_limited(netuid, neuron_uid, &uids, &max_upscaled_weights),
             Error::<T>::MaxWeightExceeded
         );
 
-        // --- 15. Zip weights for sinking to storage map.
+        // --- 16. Zip weights for sinking to storage map.
         let mut zipped_weights: Vec<(u16, u16)> = vec![];
         for (uid, val) in uids.iter().zip(max_upscaled_weights.iter()) {
             zipped_weights.push((*uid, *val))
         }
 
-        // --- 16. Set weights under netuid, uid double map entry.
+        // --- 17. Set weights under netuid, uid double map entry.
         Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
 
-        // --- 17. Set the activity for the weights on this network.
+        // --- 18. Set the activity for the weights on this network.
         Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
 
-        // --- 18. Emit the tracking event.
+        // --- 19. Emit the tracking event.
         log::info!(
             "WeightsSet( netuid:{:?}, neuron_uid:{:?} )",
             netuid,
@@ -189,7 +195,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::WeightsSet(netuid, neuron_uid));
 
-        // --- 19. Return ok.
+        // --- 20. Return ok.
         Ok(())
     }
 

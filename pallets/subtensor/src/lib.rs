@@ -1692,6 +1692,25 @@ pub mod pallet {
                 return false;
             } 
         }
+
+        pub fn checked_allowed_register( netuid: u16 ) -> bool {
+            if netuid == Self::get_root_netuid() {
+                return false
+            }
+            if !Self::if_subnet_exist(netuid) {
+                return false
+            }
+            if !Self::get_network_registration_allowed(netuid) {
+                return false
+            }
+            if Self::get_registrations_this_block(netuid) >= Self::get_max_registrations_per_block(netuid) {
+                return false
+            }
+            if Self::get_registrations_this_interval(netuid) >= Self::get_target_registrations_per_interval(netuid) * 3 {
+                return false
+            }
+            return true
+        }
     }
 }
 
@@ -1739,6 +1758,10 @@ where
 
     pub fn check_weights_min_stake( who: &T::AccountId ) -> bool {
         return Pallet::<T>::check_weights_min_stake(who);
+    }
+
+    pub fn checked_allowed_register( netuid: u16 ) -> bool {
+        return Pallet::<T>::checked_allowed_register( netuid );
     }
 
     pub fn u64_to_balance(
@@ -1800,10 +1823,30 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-            Some(Call::register { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::register { netuid, .. }) => {
+                if Self::checked_allowed_register( *netuid ){
+                    let priority: u64 = Self::get_priority_vanilla();
+                    Ok(ValidTransaction {
+                        priority: priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    return Err(InvalidTransaction::Call.into());
+                }
+            },
+            Some(Call::burned_register { netuid, ..}) => {
+                if Self::checked_allowed_register( *netuid ){
+                    let priority: u64 = Self::get_priority_vanilla();
+                    Ok(ValidTransaction {
+                        priority: priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    return Err(InvalidTransaction::Call.into());
+                }
+            }
             Some(Call::register_network { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
