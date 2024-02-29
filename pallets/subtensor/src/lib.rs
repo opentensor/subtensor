@@ -16,6 +16,7 @@ use frame_support::{
 
 use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -1665,12 +1666,25 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if Uids::<T>::contains_key(netuid, &hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
+                let stake = Self::get_total_stake_for_hotkey(&hotkey);
+                if stake <= 20_000_000_000_000_000 { return 0; } // Blacklist weights transactions for low stake peers.
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
                 return default_priority + u32::max_value() as u64;
             }
             return 0;
+        }
+
+        // --- Is the caller allowed to set weights
+        pub fn get_allowed_set_weights(hotkey: &T::AccountId) -> bool {
+            let stake = Self::get_total_stake_for_hotkey(&hotkey);
+            // Blacklist weights transactions for low stake peers.
+            if stake <= 20_000_000_000_000 { 
+                return false; 
+            } else {
+                return true;
+            } 
         }
     }
 }
@@ -1714,9 +1728,11 @@ where
     }
 
     pub fn get_priority_set_weights(who: &T::AccountId, netuid: u16) -> u64 {
-        // Return the non vanilla priority for a set weights call.
-
         return Pallet::<T>::get_priority_set_weights(who, netuid);
+    }
+
+    pub fn get_allowed_set_weights( who: &T::AccountId ) -> bool {
+        return Pallet::<T>::get_allowed_set_weights(who);
     }
 
     pub fn u64_to_balance(
@@ -1759,12 +1775,16 @@ where
     ) -> TransactionValidity {
         match call.is_sub_type() {
             Some(Call::set_weights { netuid, .. }) => {
-                let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                Ok(ValidTransaction {
-                    priority: priority,
-                    longevity: 1,
-                    ..Default::default()
-                })
+                if Self::get_allowed_set_weights( who ) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority: priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    return Err(InvalidTransaction::Call.into());
+                }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
