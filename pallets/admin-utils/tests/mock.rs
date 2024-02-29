@@ -479,11 +479,6 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::unset_liquid_alpha(netuid);
     }
 
-    fn set_weights_min_stake(min_stake: u64) 
-    {
-        SubtensorModule::set_weights_min_stake(min_stake);
-    }
-
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool
     {
         return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);

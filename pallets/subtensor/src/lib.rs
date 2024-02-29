@@ -648,7 +648,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
-        1000000000000
+        0
     }
 
     #[pallet::storage] // ITEM( weights_min_stake ) 
@@ -1686,10 +1686,10 @@ pub mod pallet {
         // --- Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            if Self::get_total_stake_for_hotkey(&hotkey) <= Self::get_weights_min_stake() { 
-                return false; 
+            if Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake() { 
+                return true; 
             } else {
-                return true;
+                return false;
             } 
         }
     }

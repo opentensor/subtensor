@@ -698,7 +698,7 @@ fn test_sudo_set_weights_min_stake() {
             Err(DispatchError::BadOrigin.into())
         );
         assert_eq!(
-            SubtensorModule::get_weights_min_stake(netuid),
+            SubtensorModule::get_weights_min_stake(),
             init_value
         );
         assert_ok!(AdminUtils::sudo_set_weights_min_stake(
@@ -706,7 +706,7 @@ fn test_sudo_set_weights_min_stake() {
             to_be_set
         ));
         assert_eq!(
-            SubtensorModule::get_weights_min_stake(netuid),
+            SubtensorModule::get_weights_min_stake(),
             to_be_set
         );
     });
