@@ -625,6 +625,7 @@ impl<T: Config> Pallet<T> {
 
                 Self::remove_network(netuid_to_prune);
                 log::debug!("remove_network: {:?}", netuid_to_prune,);
+                Self::deposit_event(Event::NetworkRemoved(netuid_to_prune));
                 netuid_to_prune
             }
         };
@@ -821,7 +822,27 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
-        let _ = Weights::<T>::clear_prefix(netuid, u32::max_value(), None);
+      
+        // --- 3. Iterate over stored weights and fill the matrix.
+        for (uid_i, weights_i) in
+        <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
+            Self::get_root_netuid(),
+        )
+        {
+            // Create a new vector to hold modified weights.
+            let mut modified_weights = Vec::new();
+            // Iterate over each weight entry in `weights_i` to potentially update it.
+            for (subnet_id, weight) in weights_i.iter() {
+                if subnet_id == &netuid {
+                    // If the condition matches, modify the weight as needed and push it to the new vector.
+                    modified_weights.push((*subnet_id, 0)); // Set weight to 0 for the matching subnet_id.
+                } else {
+                    // For all other entries, just copy them to the new vector.
+                    modified_weights.push((*subnet_id, *weight));
+                }
+            }
+            Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
+        }
 
         // --- 9. Remove various network-related parameters.
         Rank::<T>::remove(netuid);
@@ -853,9 +874,7 @@ impl<T: Config> Pallet<T> {
         // --- 11. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
         Self::set_subnet_locked_balance(netuid, 0);
-
-        // --- 12. Set its weight to 0 from all validators
-        Weights::<T>::remove(0, netuid);
+        SubnetOwner::<T>::remove(netuid);
     }
 
     // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
