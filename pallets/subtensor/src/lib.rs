@@ -886,6 +886,7 @@ pub mod pallet {
         NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
         NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
         NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
+        NotEnoughStakeToSetWeights, // ---- Thrown when the caller requests to set weights but has less than WeightsMinStake
         NotEnoughBalanceToStake, //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
         BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         NoValidatorPermit, // ---- Thrown when the caller attempts to set non-self weights without being a permitted validator.
