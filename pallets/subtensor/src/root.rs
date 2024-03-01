@@ -823,7 +823,7 @@ impl<T: Config> Pallet<T> {
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
       
-        // --- 3. Iterate over stored weights and fill the matrix.
+        // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
         <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
             Self::get_root_netuid(),
@@ -844,7 +844,7 @@ impl<T: Config> Pallet<T> {
             Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
         }
 
-        // --- 9. Remove various network-related parameters.
+        // --- 10. Remove various network-related parameters.
         Rank::<T>::remove(netuid);
         Trust::<T>::remove(netuid);
         Active::<T>::remove(netuid);
@@ -857,7 +857,7 @@ impl<T: Config> Pallet<T> {
         ValidatorPermit::<T>::remove(netuid);
         ValidatorTrust::<T>::remove(netuid);
 
-        // --- 10. Erase network parameters.
+        // --- 11. Erase network parameters.
         Tempo::<T>::remove(netuid);
         Kappa::<T>::remove(netuid);
         Difficulty::<T>::remove(netuid);
@@ -871,7 +871,7 @@ impl<T: Config> Pallet<T> {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        // --- 11. Add the balance back to the owner.
+        // --- 12. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
