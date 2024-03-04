@@ -961,7 +961,7 @@ impl<T: Config> Pallet<T> {
             }
         });
 
-        log::info!("{:?}", netuids);
+        log::info!("Netuids Order: {:?}", netuids);
 
         match netuids.last() {
             Some(netuid) => *netuid,
