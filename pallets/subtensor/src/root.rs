@@ -830,15 +830,12 @@ impl<T: Config> Pallet<T> {
         )
         {
             // Create a new vector to hold modified weights.
-            let mut modified_weights = Vec::new();
-            // Iterate over each weight entry in `weights_i` to potentially update it.
-            for (subnet_id, weight) in weights_i.iter() {
+            let mut modified_weights = weights_i.clone();
+            // Iterate over each weight entry to potentially update it.
+            for (subnet_id, weight) in modified_weights.iter_mut() {
                 if subnet_id == &netuid {
-                    // If the condition matches, modify the weight as needed and push it to the new vector.
-                    modified_weights.push((*subnet_id, 0)); // Set weight to 0 for the matching subnet_id.
-                } else {
-                    // For all other entries, just copy them to the new vector.
-                    modified_weights.push((*subnet_id, *weight));
+                    // If the condition matches, modify the weight
+                    *weight = 0; // Set weight to 0 for the matching subnet_id.
                 }
             }
             Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
