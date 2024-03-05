@@ -1687,21 +1687,21 @@ pub mod pallet {
 
         pub fn checked_allowed_register( netuid: u16 ) -> bool {
             if netuid == Self::get_root_netuid() {
-                return false
+                return false;
             }
             if !Self::if_subnet_exist(netuid) {
-                return false
+                return false;
             }
             if !Self::get_network_registration_allowed(netuid) {
-                return false
+                return false;
             }
             if Self::get_registrations_this_block(netuid) >= Self::get_max_registrations_per_block(netuid) {
-                return false
+                return false;
             }
             if Self::get_registrations_this_interval(netuid) >= Self::get_target_registrations_per_interval(netuid) * 3 {
-                return false
+                return false;
             }
-            return true
+            true
         }
     }
 }
@@ -1749,7 +1749,7 @@ where
     }
 
     pub fn check_weights_min_stake( who: &T::AccountId ) -> bool {
-        return Pallet::<T>::check_weights_min_stake(who);
+        Pallet::<T>::check_weights_min_stake(who)
     }
 
     pub fn u64_to_balance(
