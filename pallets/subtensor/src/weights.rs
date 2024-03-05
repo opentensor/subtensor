@@ -181,15 +181,22 @@ impl<T: Config> Pallet<T> {
         // --- 17. Set the activity for the weights on this network.
         Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
 
-        // --- 18. Emit the tracking event.
+        // --- 18. Set the activity for the minors on this network.
+        for &uid in uids.iter() {
+            // Ensure we don't redo the update for neuron_uid
+            if uid != neuron_uid {
+                Self::set_last_update_for_uid(netuid, uid, current_block);
+            }
+        }
+        // --- 19. Emit the tracking event.
         log::info!(
-            "WeightsSet( netuid:{:?}, neuron_uid:{:?} )",
+            "WeightsSet( netuid:{:?}, neuron_uids:{:?} )",
             netuid,
-            neuron_uid
+            uids
         );
         Self::deposit_event(Event::WeightsSet(netuid, neuron_uid));
 
-        // --- 19. Return ok.
+        // --- 20. Return ok.
         Ok(())
     }
 
