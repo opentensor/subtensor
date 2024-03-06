@@ -79,6 +79,56 @@ fn test_weights_err_no_validator_permit() {
     });
 }
 
+
+// To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
+#[test]
+#[cfg(not(tarpaulin))]
+fn test_set_weights_min_stake_failed() {
+    new_test_ext().execute_with(|| {
+        let dests = vec![0];
+        let weights = vec![1];
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(0);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 2143124);
+        SubtensorModule::set_weights_min_stake(20_000_000_000_000);
+
+        // Check the signed extension function.
+        assert_eq!( SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
+        assert_eq!( SubtensorModule::check_weights_min_stake(&hotkey), false);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
+        assert_eq!( SubtensorModule::check_weights_min_stake(&hotkey), false);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
+        assert_eq!( SubtensorModule::check_weights_min_stake(&hotkey), true);
+
+        // Check that it fails at the pallet level.
+        SubtensorModule::set_weights_min_stake(100_000_000_000_000);
+        assert_eq!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                dests.clone(),
+                weights.clone(),
+                version_key,
+            ),
+            Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
+        );
+        // Now passes
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
+        assert_ok!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                dests.clone(),
+                weights.clone(),
+                version_key,
+            ),
+        );
+    });
+}
+
 // Test ensures that a uid can only set weights if it has the valid weights set version key.
 #[test]
 fn test_weights_version_key() {
