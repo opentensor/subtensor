@@ -625,6 +625,7 @@ impl<T: Config> Pallet<T> {
 
                 Self::remove_network(netuid_to_prune);
                 log::debug!("remove_network: {:?}", netuid_to_prune,);
+                Self::deposit_event(Event::NetworkRemoved(netuid));
                 netuid_to_prune
             }
         };
