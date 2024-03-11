@@ -40,6 +40,7 @@ pub struct SubnetHyperparams {
     weights_version: Compact<u64>,
     weights_rate_limit: Compact<u64>,
     adjustment_interval: Compact<u16>,
+    adjustment_alpha: Compact<u64>,
     activity_cutoff: Compact<u16>,
     registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
@@ -140,6 +141,7 @@ impl<T: Config> Pallet<T> {
         let weights_version = Self::get_weights_version_key(netuid);
         let weights_rate_limit = Self::get_weights_set_rate_limit(netuid);
         let adjustment_interval = Self::get_adjustment_interval(netuid);
+        let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let activity_cutoff = Self::get_activity_cutoff(netuid);
         let registration_allowed = Self::get_network_registration_allowed(netuid);
         let target_regs_per_interval = Self::get_target_registrations_per_interval(netuid);
@@ -162,6 +164,7 @@ impl<T: Config> Pallet<T> {
             weights_version: weights_version.into(),
             weights_rate_limit: weights_rate_limit.into(),
             adjustment_interval: adjustment_interval.into(),
+            adjustment_alpha: adjustment_alpha.into(),
             activity_cutoff: activity_cutoff.into(),
             registration_allowed,
             target_regs_per_interval: target_regs_per_interval.into(),
