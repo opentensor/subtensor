@@ -6,152 +6,165 @@ mod tests;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
-pub mod weights;
 pub mod types;
+pub mod weights;
 
 pub use pallet::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
-use sp_std::boxed::Box;
 use frame_support::traits::Currency;
 use sp_runtime::traits::Zero;
+use sp_std::boxed::Box;
 
 type BalanceOf<T> =
-	<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use super::*;
-	use frame_support::{pallet_prelude::*, traits::ReservableCurrency};
-	use frame_system::pallet_prelude::{*, BlockNumberFor};
+    use super::*;
+    use frame_support::{pallet_prelude::*, traits::ReservableCurrency};
+    use frame_system::pallet_prelude::{BlockNumberFor, *};
 
-	#[pallet::pallet]
-	#[pallet::without_storage_info]
-	pub struct Pallet<T>(_);
+    #[pallet::pallet]
+    #[pallet::without_storage_info]
+    pub struct Pallet<T>(_);
 
-	// Configure the pallet by specifying the parameters and types on which it depends.
-	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		// Because this pallet emits events, it depends on the runtime's definition of an event.
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+    // Configure the pallet by specifying the parameters and types on which it depends.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		// Currency type that will be used to place deposits on neurons
-		type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
+        // Currency type that will be used to place deposits on neurons
+        type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
-		// Weight information for extrinsics in this pallet.
-		type WeightInfo: WeightInfo;
+        // Weight information for extrinsics in this pallet.
+        type WeightInfo: WeightInfo;
 
-		/// Interface to access-limit metadata commitments
-		type CanCommit: CanCommit<Self::AccountId>;
+        /// Interface to access-limit metadata commitments
+        type CanCommit: CanCommit<Self::AccountId>;
 
-		#[pallet::constant]
-		type MaxFields: Get<u32>;
+        #[pallet::constant]
+        type MaxFields: Get<u32>;
 
-		/// The amount held on deposit for a registered identity
-		#[pallet::constant]
-		type InitialDeposit: Get<BalanceOf<Self>>;
+        /// The amount held on deposit for a registered identity
+        #[pallet::constant]
+        type InitialDeposit: Get<BalanceOf<Self>>;
 
-		/// The amount held on deposit per additional field for a registered identity.
-		#[pallet::constant]
-		type FieldDeposit: Get<BalanceOf<Self>>;
+        /// The amount held on deposit per additional field for a registered identity.
+        #[pallet::constant]
+        type FieldDeposit: Get<BalanceOf<Self>>;
 
-		#[pallet::constant]
-		type RateLimit: Get<BlockNumberFor<Self>>;
-	}
+        #[pallet::constant]
+        type RateLimit: Get<BlockNumberFor<Self>>;
+    }
 
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		Commitment{netuid: u16, who: T::AccountId}
-	}
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        Commitment { netuid: u16, who: T::AccountId },
+    }
 
-	#[pallet::error]
-	pub enum Error<T> {
-		/// Account passed too many additional fields to their commitment
-		TooManyFields,
-		/// Account isn't allow to make commitments to the chain
-		CannotCommit,
-		/// Account is trying to commit data too fast
-		RateLimitExceeded
-	}
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Account passed too many additional fields to their commitment
+        TooManyFields,
+        /// Account isn't allow to make commitments to the chain
+        CannotCommit,
+        /// Account is trying to commit data too fast
+        RateLimitExceeded,
+    }
 
-	/// Identity data by account
-	#[pallet::storage]
-	#[pallet::getter(fn commitment_of)]
-	pub(super) type CommitmentOf<T: Config> = StorageDoubleMap<
-		_,
-		Identity,
-		u16,
-		Twox64Concat,
-		T::AccountId,
-		Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
-		OptionQuery,
-	>;
+    /// Identity data by account
+    #[pallet::storage]
+    #[pallet::getter(fn commitment_of)]
+    pub(super) type CommitmentOf<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        Registration<BalanceOf<T>, T::MaxFields, BlockNumberFor<T>>,
+        OptionQuery,
+    >;
 
-	#[pallet::storage]
-	#[pallet::getter(fn last_commitment)]
-	pub(super) type LastCommitment<T: Config> = StorageDoubleMap<
-		_,
-		Identity,
-		u16,
-		Twox64Concat,
-		T::AccountId,
-		BlockNumberFor<T>,
-		OptionQuery,
-	>;
+    #[pallet::storage]
+    #[pallet::getter(fn last_commitment)]
+    pub(super) type LastCommitment<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        BlockNumberFor<T>,
+        OptionQuery,
+    >;
 
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		#[pallet::call_index(0)]
-		#[pallet::weight((
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight((
 			T::WeightInfo::set_commitment(), 
 			DispatchClass::Operational,
 			Pays::No
 		))]
-		pub fn set_commitment(origin: OriginFor<T>, netuid: u16, info: Box<CommitmentInfo<T::MaxFields>>) -> DispatchResult {
-			let who = ensure_signed(origin)?;
-			ensure!(T::CanCommit::can_commit(netuid, &who), Error::<T>::CannotCommit);
-			
-			let extra_fields = info.fields.len() as u32;
-			ensure!(extra_fields <= T::MaxFields::get(), Error::<T>::TooManyFields);
+        pub fn set_commitment(
+            origin: OriginFor<T>,
+            netuid: u16,
+            info: Box<CommitmentInfo<T::MaxFields>>,
+        ) -> DispatchResult {
+            let who = ensure_signed(origin)?;
+            ensure!(
+                T::CanCommit::can_commit(netuid, &who),
+                Error::<T>::CannotCommit
+            );
 
-			let cur_block = <frame_system::Pallet<T>>::block_number();
-			if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
-				ensure!(cur_block >= last_commit + T::RateLimit::get(), Error::<T>::RateLimitExceeded);
-			}
+            let extra_fields = info.fields.len() as u32;
+            ensure!(
+                extra_fields <= T::MaxFields::get(),
+                Error::<T>::TooManyFields
+            );
 
-			let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
-			let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
-				Some(mut id) => {
-					id.info = *info;
-					id.block = cur_block;
-					id
-				},
-				None => Registration {
-					info: *info,
-					block: cur_block,
-					deposit: Zero::zero(),
-				},
-			};
+            let cur_block = <frame_system::Pallet<T>>::block_number();
+            if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
+                ensure!(
+                    cur_block >= last_commit + T::RateLimit::get(),
+                    Error::<T>::RateLimitExceeded
+                );
+            }
 
-			let old_deposit = id.deposit;
-			id.deposit = T::InitialDeposit::get() + fd;
-			if id.deposit > old_deposit {
-				T::Currency::reserve(&who, id.deposit - old_deposit)?;
-			}
-			if old_deposit > id.deposit {
-				let err_amount = T::Currency::unreserve(&who, old_deposit - id.deposit);
-				debug_assert!(err_amount.is_zero());
-			}
+            let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
+            let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
+                Some(mut id) => {
+                    id.info = *info;
+                    id.block = cur_block;
+                    id
+                }
+                None => Registration {
+                    info: *info,
+                    block: cur_block,
+                    deposit: Zero::zero(),
+                },
+            };
 
-			<CommitmentOf<T>>::insert(netuid, &who, id);
-			<LastCommitment<T>>::insert(netuid, &who, cur_block);
-			Self::deposit_event(Event::Commitment { netuid, who });
+            let old_deposit = id.deposit;
+            id.deposit = T::InitialDeposit::get() + fd;
+            if id.deposit > old_deposit {
+                T::Currency::reserve(&who, id.deposit - old_deposit)?;
+            }
+            if old_deposit > id.deposit {
+                let err_amount = T::Currency::unreserve(&who, old_deposit - id.deposit);
+                debug_assert!(err_amount.is_zero());
+            }
 
-			Ok(().into())
-		}
-	}
+            <CommitmentOf<T>>::insert(netuid, &who, id);
+            <LastCommitment<T>>::insert(netuid, &who, cur_block);
+            Self::deposit_event(Event::Commitment { netuid, who });
+
+            Ok(().into())
+        }
+    }
 }
 
 // Interfaces to interact with other pallets
@@ -160,7 +173,9 @@ pub trait CanCommit<AccountId> {
 }
 
 impl<A> CanCommit<A> for () {
-	fn can_commit(_: u16, _: &A) -> bool {false}
+    fn can_commit(_: u16, _: &A) -> bool {
+        false
+    }
 }
 
 /************************************************************
@@ -178,33 +193,15 @@ impl Default for CallType {
 }
 
 use {
-	frame_support::{
-		pallet_prelude::{
-			Encode,
-			Decode,
-			TypeInfo,
-			PhantomData
-		},
-		dispatch::{
-			Dispatchable,
-			DispatchInfo,
-			PostDispatchInfo,
-			DispatchResult
-		},
-		traits::IsSubType
-	},
-	sp_runtime::{
-		traits::{
-			SignedExtension,
-			DispatchInfoOf,
-			PostDispatchInfoOf
-		},
-		transaction_validity::{
-			TransactionValidity,
-			TransactionValidityError,
-			ValidTransaction
-		}
-	}
+    frame_support::{
+        dispatch::{DispatchInfo, DispatchResult, Dispatchable, PostDispatchInfo},
+        pallet_prelude::{Decode, Encode, PhantomData, TypeInfo},
+        traits::IsSubType,
+    },
+    sp_runtime::{
+        traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
+        transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
+    },
 };
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
@@ -300,9 +297,7 @@ where
     ) -> Result<(), TransactionValidityError> {
         if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
             match call_type {
-                _ => {
-                    ()
-                }
+                _ => (),
             }
         }
         Ok(())
