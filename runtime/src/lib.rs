@@ -14,7 +14,7 @@ use pallet_grandpa::{
 };
 
 use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureNever, EnsureRoot, RawOrigin};
 
 use pallet_registry::CanRegisterIdentity;
 use smallvec::smallvec;
@@ -188,7 +188,7 @@ impl frame_system::Config for Runtime {
     // The index type for storing how many extrinsics an account has signed.
     type Index = Index;
     // The index type for blocks.
-    type BlockNumber = BlockNumber;
+    type BlockNumber = Get<BlockNumberFor<Self>>;
     // The type for hashing blocks and tries.
     type Hash = Hash;
     // The hashing algorithm used.

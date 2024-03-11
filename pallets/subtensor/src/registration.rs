@@ -1,13 +1,14 @@
 use super::*;
 use crate::system::ensure_root;
 use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
+use frame_support::storage::IterableStorageDoubleMap;
 use frame_system::ensure_signed;
-use sp_core::{H256, U256, Get};
+use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::MultiAddress;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use frame_support::storage::IterableStorageDoubleMap;
+use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
 
@@ -507,7 +508,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_block_hash_from_u64(block_number: u64) -> H256 {
-        let block_number: T::BlockNumber = TryInto::<T::BlockNumber>::try_into(block_number)
+        let block_number: BlockNumberFor<T> = TryInto::<BlockNumberFor<T>>::try_into(block_number)
             .ok()
             .expect("convert u64 to block number.");
         let block_hash_at_number: <T as frame_system::Config>::Hash =
@@ -697,11 +698,18 @@ impl<T: Config> Pallet<T> {
         return (nonce, vec_work);
     }
 
-    pub fn do_swap_hotkey(origin: T::RuntimeOrigin, old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> DispatchResultWithPostInfo {
+    pub fn do_swap_hotkey(
+        origin: T::RuntimeOrigin,
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) -> DispatchResultWithPostInfo {
         let coldkey = ensure_signed(origin)?;
 
         let mut weight = T::DbWeight::get().reads_writes(2, 0);
-        ensure!(Self::coldkey_owns_hotkey(&coldkey, old_hotkey), Error::<T>::NonAssociatedColdKey);
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
 
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -712,9 +720,13 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
         ensure!(old_hotkey != new_hotkey, Error::<T>::AlreadyRegistered);
-        ensure!(!Self::is_hotkey_registered_on_any_network(new_hotkey), Error::<T>::AlreadyRegistered);  
+        ensure!(
+            !Self::is_hotkey_registered_on_any_network(new_hotkey),
+            Error::<T>::AlreadyRegistered
+        );
 
-        weight.saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
+        weight
+            .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = 1_000_000_000u64;
         let swap_cost_as_balance = Self::u64_to_balance(swap_cost).unwrap();
@@ -723,8 +735,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalance
         );
         ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)
-                == true,
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance) == true,
             Error::<T>::BalanceWithdrawalError
         );
         Self::burn_tokens(swap_cost);
@@ -800,17 +811,14 @@ impl<T: Config> Pallet<T> {
 
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-                LoadedEmission::<T>::mutate(netuid, |emission_exists| {
-                    match emission_exists {
-                        Some(emissions) => {
-                            if let Some(emission) = emissions.get_mut(uid as usize) {
-                                let (_, se, ve) = emission;
-                                *emission = (new_hotkey.clone(), *se, *ve);
-    
-                            }
+                LoadedEmission::<T>::mutate(netuid, |emission_exists| match emission_exists {
+                    Some(emissions) => {
+                        if let Some(emission) = emissions.get_mut(uid as usize) {
+                            let (_, se, ve) = emission;
+                            *emission = (new_hotkey.clone(), *se, *ve);
                         }
-                        None => {}
                     }
+                    None => {}
                 });
 
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
@@ -820,7 +828,11 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        Self::deposit_event(Event::HotkeySwapped{coldkey, old_hotkey: old_hotkey.clone(), new_hotkey: new_hotkey.clone()});
+        Self::deposit_event(Event::HotkeySwapped {
+            coldkey,
+            old_hotkey: old_hotkey.clone(),
+            new_hotkey: new_hotkey.clone(),
+        });
 
         Ok(Some(weight).into())
     }
