@@ -185,14 +185,10 @@ impl frame_system::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     // The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = AccountIdLookup<AccountId, ()>;
-    // The index type for blocks.
-    type BlockNumber = Get<BlockNumberFor<Self>>;
     // The type for hashing blocks and tries.
     type Hash = Hash;
     // The hashing algorithm used.
     type Hashing = BlakeTwo256;
-    // The header type.
-    type Header = generic::Header<BlockNumber, BlakeTwo256>;
     // The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     // The ubiquitous origin type.
