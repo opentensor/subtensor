@@ -610,7 +610,7 @@ pub mod pallet {
 					.max(T::WeightInfo::close_early_disapproved(m, p2))
 					.max(T::WeightInfo::close_approved(b, m, p2))
 					.max(T::WeightInfo::close_disapproved(m, p2))
-					.saturating_add(p1.into())
+					.saturating_add(Weight::from_parts(p1.0, 0))
 			},
 			DispatchClass::Operational
 		))]
@@ -623,7 +623,7 @@ pub mod pallet {
             #[pallet::compact] proposal_weight_bound: OldWeight,
             #[pallet::compact] length_bound: u32,
         ) -> DispatchResultWithPostInfo {
-            let proposal_weight_bound: Weight = proposal_weight_bound.into();
+            let proposal_weight_bound: Weight = Weight::from_parts(proposal_weight_bound.0, 0);
             let _ = ensure_signed(origin)?;
 
             Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
