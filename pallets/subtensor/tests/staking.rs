@@ -24,7 +24,7 @@ fn test_add_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(65000000),
+                weight: frame_support::weights::Weight::from_parts(65000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -349,7 +349,7 @@ fn test_remove_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(63000000)
+                weight: frame_support::weights::Weight::from_parts(63000000, 0)
                     .add_proof_size(43991),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
@@ -2237,13 +2237,11 @@ fn test_faucet_ok() {
         ));
 
         #[cfg(not(feature = "pow-faucet"))]
-        assert_ok!(
-            SubtensorModule::do_faucet(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                0,
-                nonce,
-                vec_work
-            )
-        );
+        assert_ok!(SubtensorModule::do_faucet(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            0,
+            nonce,
+            vec_work
+        ));
     });
 }

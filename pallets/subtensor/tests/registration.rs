@@ -1,9 +1,9 @@
 use frame_support::traits::Currency;
 
 use crate::mock::*;
-use frame_support::{assert_ok, assert_err};
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::{AxonInfoOf, Error};
 use sp_core::U256;
@@ -35,7 +35,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(91000000),
+                weight: frame_support::weights::Weight::from_parts(91000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -764,10 +764,7 @@ fn test_registration_invalid_difficulty() {
         //add network
         add_network(netuid, tempo, 0);
 
-        SubtensorModule::set_difficulty(
-            netuid,
-            18_446_744_073_709_551_615u64
-        );
+        SubtensorModule::set_difficulty(netuid, 18_446_744_073_709_551_615u64);
 
         let result = SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -1581,7 +1578,7 @@ fn test_hotkey_swap_ok() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
-        let coldkey_account_id = U256::from(667); 
+        let coldkey_account_id = U256::from(667);
 
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
@@ -1597,9 +1594,19 @@ fn test_hotkey_swap_ok() {
         ));
 
         let new_hotkey = U256::from(1337);
-        assert_ok!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey));
-        assert_ne!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id), coldkey_account_id);
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey), coldkey_account_id);
+        assert_ok!(SubtensorModule::swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            new_hotkey
+        ));
+        assert_ne!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
+            coldkey_account_id
+        );
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkey),
+            coldkey_account_id
+        );
     });
 }
 
@@ -1628,7 +1635,14 @@ fn test_hotkey_swap_not_owner() {
         ));
 
         let new_hotkey = U256::from(4);
-        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey), hotkey_account_id, new_hotkey), Error::<Test>::NonAssociatedColdKey);
+        assert_err!(
+            SubtensorModule::swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(not_owner_coldkey),
+                hotkey_account_id,
+                new_hotkey
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
     });
 }
 
@@ -1655,7 +1669,14 @@ fn test_hotkey_swap_same_key() {
             hotkey_account_id
         ));
 
-        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, hotkey_account_id), Error::<Test>::AlreadyRegistered);
+        assert_err!(
+            SubtensorModule::swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                hotkey_account_id
+            ),
+            Error::<Test>::AlreadyRegistered
+        );
     });
 }
 
@@ -1689,6 +1710,13 @@ fn test_hotkey_swap_registered_key() {
             new_hotkey
         ));
 
-        assert_err!(SubtensorModule::swap_hotkey(<<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id), hotkey_account_id, new_hotkey), Error::<Test>::AlreadyRegistered);
+        assert_err!(
+            SubtensorModule::swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                new_hotkey
+            ),
+            Error::<Test>::AlreadyRegistered
+        );
     });
 }
