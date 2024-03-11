@@ -553,7 +553,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
+            .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
 
         Ok((
             Some(vote_weight),

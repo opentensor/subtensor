@@ -1359,7 +1359,7 @@ pub mod pallet {
         //
         #[pallet::call_index(3)]
         #[pallet::weight((Weight::from_parts(63_000_000, 0)
-		.saturating_add(Weight::from_proof_size(43991))
+		.saturating_add(Weight::from_parts(0, 43991))
 		.saturating_add(T::DbWeight::get().reads(14))
 		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake(
@@ -1623,7 +1623,7 @@ pub mod pallet {
 
         #[pallet::call_index(55)]
         #[pallet::weight((Weight::from_parts(0, 0)
-		.saturating_add(Weight::from_proof_size(0))
+		.saturating_add(Weight::from_parts(0, 0))
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
         pub fn vote(

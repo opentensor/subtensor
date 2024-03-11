@@ -372,7 +372,7 @@ pub mod pallet {
 		#[pallet::call_index(19)]
 		#[pallet::weight((
 			Weight::from_parts(4_000_000, 0)
-				.saturating_add(Weight::from_proof_size(0))
+				.saturating_add(Weight::from_parts(0, 0))
 				.saturating_add(T::DbWeight::get().writes(1)), 
 			DispatchClass::Operational, 
 			Pays::No
