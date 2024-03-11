@@ -235,7 +235,7 @@ pub mod pallet {
 			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1))
 				.saturating_add(T::DbWeight::get().reads(1)),
-			DispatchClass::Operational, 
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_adjustment_alpha(
@@ -402,8 +402,8 @@ pub mod pallet {
         #[pallet::weight((
 			Weight::from_parts(4_000_000, 0)
 				.saturating_add(Weight::from_parts(0, 0))
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_network_registration_allowed(
@@ -424,8 +424,8 @@ pub mod pallet {
         #[pallet::call_index(20)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_network_pow_registration_allowed(
@@ -606,8 +606,8 @@ pub mod pallet {
         #[pallet::call_index(28)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_subnet_owner_cut(
@@ -626,8 +626,8 @@ pub mod pallet {
         #[pallet::call_index(29)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_network_rate_limit(
@@ -669,8 +669,8 @@ pub mod pallet {
         #[pallet::call_index(35)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_network_immunity_period(
@@ -689,8 +689,8 @@ pub mod pallet {
         #[pallet::call_index(36)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_network_min_lock_cost(
@@ -709,8 +709,8 @@ pub mod pallet {
         #[pallet::call_index(37)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_subnet_limit(origin: OriginFor<T>, max_subnets: u16) -> DispatchResult {
@@ -725,8 +725,8 @@ pub mod pallet {
         #[pallet::call_index(38)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
-				.saturating_add(T::DbWeight::get().writes(1)), 
-			DispatchClass::Operational, 
+				.saturating_add(T::DbWeight::get().writes(1)),
+			DispatchClass::Operational,
 			Pays::No
 		))]
         pub fn sudo_set_lock_reduction_interval(

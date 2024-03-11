@@ -105,7 +105,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight((
-			T::WeightInfo::set_commitment(), 
+			T::WeightInfo::set_commitment(),
 			DispatchClass::Operational,
 			Pays::No
 		))]
