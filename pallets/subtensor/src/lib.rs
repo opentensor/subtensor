@@ -861,7 +861,7 @@ pub mod pallet {
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),             // --- Event created when setting tempo on a network
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
-        WeightsMinStake(u64),
+        WeightsMinStake(u64),           // --- Event created when min stake is set for validators to set weights.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
