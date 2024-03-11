@@ -861,7 +861,7 @@ pub mod pallet {
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),             // --- Event created when setting tempo on a network
         RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
-        WeightsMinStake(u64),
+        WeightsMinStake(u64),           // --- Event created when min stake is set for validators to set weights.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
         Faucet(T::AccountId, u64), // Event created when the facuet it called on the test net.
@@ -1666,7 +1666,6 @@ pub mod pallet {
             if Uids::<T>::contains_key(netuid, &hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
                 let stake = Self::get_total_stake_for_hotkey(&hotkey);
-                if stake <= 20_000_000_000_000_000 { return 0; } // Blacklist weights transactions for low stake peers.
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
