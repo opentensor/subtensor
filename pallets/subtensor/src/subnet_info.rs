@@ -50,6 +50,7 @@ pub struct SubnetHyperparams {
     serving_rate_limit: Compact<u64>,
     max_validators: Compact<u16>,
     adjustment_alpha: Compact<u64>,
+    difficulty: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -151,6 +152,7 @@ impl<T: Config> Pallet<T> {
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
+        let difficulty = Self::get_difficulty_as_u64(netuid);
 
 
         return Some(SubnetHyperparams {
@@ -174,7 +176,8 @@ impl<T: Config> Pallet<T> {
             max_regs_per_block: max_regs_per_block.into(),
             serving_rate_limit: serving_rate_limit.into(),
             max_validators: max_validators.into(),
-            adjustment_alpha: adjustment_alpha.into()
+            adjustment_alpha: adjustment_alpha.into(),
+            difficulty: difficulty.into()
         });
     }
 }
