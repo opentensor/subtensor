@@ -11,7 +11,9 @@ use frame_support::{
     dispatch,
     dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
-    traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
+    traits::{
+        tokens::WithdrawReasons, BuildGenesisConfig, Currency, ExistenceRequirement, IsSubType,
+    },
 };
 
 use codec::{Decode, Encode};
@@ -961,7 +963,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             use crate::MemberManagement;
 

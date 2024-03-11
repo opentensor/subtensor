@@ -42,7 +42,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
-use frame_support::traits::GenesisBuild;
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{traits::Hash, RuntimeDebug};
@@ -249,7 +248,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+    impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             use sp_std::collections::btree_set::BTreeSet;
             let members_set: BTreeSet<_> = self.members.iter().collect();
