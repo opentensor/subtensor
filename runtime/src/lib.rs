@@ -40,8 +40,8 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
     construct_runtime, parameter_types,
     traits::{
-        ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, PrivilegeCmp, Randomness,
-        StorageInfo,
+        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, PrivilegeCmp,
+        Randomness, StorageInfo,
     },
     weights::{
         constants::{
@@ -224,26 +224,20 @@ impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<32>;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
-    type KeyOwnerProofSystem = ();
-
     type KeyOwnerProof =
         <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-
-    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        GrandpaId,
-    )>>::IdentificationTuple;
-
-    type HandleEquivocation = ();
 
     type WeightInfo = ();
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
+
+    type EquivocationReportSystem = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
