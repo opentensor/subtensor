@@ -85,6 +85,8 @@ pub type Hash = sp_core::H256;
 // Member type for membership
 type MemberCount = u32;
 
+pub type Nonce = u32;
+
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
 // of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -216,6 +218,8 @@ impl frame_system::Config for Runtime {
     // The set code logic, just the default since we're not a parachain.
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Nonce = Nonce;
+    type Block = Block;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -230,8 +234,7 @@ impl pallet_aura::Config for Runtime {
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+    type KeyOwnerProof = sp_core::Void;
 
     type WeightInfo = ();
     type MaxAuthorities = ConstU32<32>;
