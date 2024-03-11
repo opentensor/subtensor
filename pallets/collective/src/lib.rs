@@ -201,7 +201,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The time-out for council motions.
-        type MotionDuration: Get<Self::BlockNumber>;
+        type MotionDuration: Get<BlockNumberFor<Self>>;
 
         /// Maximum number of proposals allowed to be active in parallel.
         type MaxProposals: Get<ProposalIndex>;
@@ -283,7 +283,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn voting)]
     pub type Voting<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Identity, T::Hash, Votes<T::AccountId, T::BlockNumber>, OptionQuery>;
+        StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
 
     /// Proposals so far.
     #[pallet::storage]
@@ -520,7 +520,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             proposal: Box<<T as Config<I>>::Proposal>,
             #[pallet::compact] length_bound: u32,
-            duration: T::BlockNumber,
+            duration: BlockNumberFor<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
             ensure!(T::CanPropose::can_propose(&who), Error::<T, I>::NotMember);
@@ -703,6 +703,8 @@ pub mod pallet {
     }
 }
 
+use frame_system::pallet_prelude::BlockNumberFor;
+
 /// Return the weight of a dispatch call result as an `Option`.
 ///
 /// Will return the weight regardless of what the state of the result is.
@@ -753,7 +755,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         threshold: MemberCount,
         proposal: Box<<T as Config<I>>::Proposal>,
         length_bound: MemberCount,
-        duration: T::BlockNumber,
+        duration: BlockNumberFor<T>,
     ) -> Result<(u32, u32), DispatchError> {
         let proposal_len = proposal.encoded_size();
         ensure!(
