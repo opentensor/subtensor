@@ -1,6 +1,6 @@
-use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use sp_runtime::traits::CheckedAdd;
+use sp_std::vec::Vec;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
 

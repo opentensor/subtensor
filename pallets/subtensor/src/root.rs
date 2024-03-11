@@ -18,11 +18,11 @@
 use super::*;
 use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
-use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use sp_std::vec::Vec;
 use substrate_fixed::types::{I32F32, I64F64};
 
 impl<T: Config> Pallet<T> {

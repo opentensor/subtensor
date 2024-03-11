@@ -59,9 +59,9 @@ pub mod pallet {
 
     use frame_support::{
         dispatch::GetDispatchInfo,
-        inherent::Vec,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         sp_std::vec,
+        sp_std::vec::Vec,
         traits::{Currency, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
@@ -1910,7 +1910,7 @@ where
     }
 }
 
-use frame_support::{inherent::Vec, sp_std::vec};
+use frame_support::{sp_std::vec, sp_std::vec::Vec};
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {

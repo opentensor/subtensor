@@ -1,17 +1,20 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
-use frame_support::inherent::Vec;
 use frame_support::pallet_prelude::DispatchResult;
 use sp_core::U256;
+use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
-    pub fn ensure_subnet_owner_or_root(o: T::RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
+    pub fn ensure_subnet_owner_or_root(
+        o: T::RuntimeOrigin,
+        netuid: u16,
+    ) -> Result<(), DispatchError> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
             Ok(Some(_)) => Err(DispatchError::BadOrigin.into()),
             Ok(None) => Ok(()),
-            Err(x) => Err(x.into())
+            Err(x) => Err(x.into()),
         }
     }
 
@@ -133,8 +136,8 @@ impl<T: Config> Pallet<T> {
             ValidatorPermit::<T>::insert(netuid, updated_validator_permit);
         }
     }
-    pub fn set_weights_min_stake( min_stake: u64 ) {
-        WeightsMinStake::<T>::put( min_stake );
+    pub fn set_weights_min_stake(min_stake: u64) {
+        WeightsMinStake::<T>::put(min_stake);
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
 
@@ -226,7 +229,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
     }
-    pub fn get_weights_min_stake( ) -> u64 {
+    pub fn get_weights_min_stake() -> u64 {
         WeightsMinStake::<T>::get()
     }
 
@@ -310,7 +313,6 @@ impl<T: Config> Pallet<T> {
         SubnetLocked::<T>::get(netuid)
     }
 
-
     // ========================
     // ========= Sudo =========
     // ========================
@@ -347,7 +349,6 @@ impl<T: Config> Pallet<T> {
         MaxDifficulty::<T>::insert(netuid, max_difficulty);
         Self::deposit_event(Event::MaxDifficultySet(netuid, max_difficulty));
     }
-   
 
     pub fn get_weights_version_key(netuid: u16) -> u64 {
         WeightsVersionKey::<T>::get(netuid)
@@ -357,15 +358,15 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::WeightsVersionKeySet(netuid, weights_version_key));
     }
 
-
-    pub fn get_weights_set_rate_limit(netuid: u16) -> u64 
-    {
+    pub fn get_weights_set_rate_limit(netuid: u16) -> u64 {
         WeightsSetRateLimit::<T>::get(netuid)
     }
-    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) 
-    {
+    pub fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64) {
         WeightsSetRateLimit::<T>::insert(netuid, weights_set_rate_limit);
-        Self::deposit_event(Event::WeightsSetRateLimitSet(netuid, weights_set_rate_limit));
+        Self::deposit_event(Event::WeightsSetRateLimitSet(
+            netuid,
+            weights_set_rate_limit,
+        ));
     }
 
     pub fn get_adjustment_interval(netuid: u16) -> u16 {
@@ -416,7 +417,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::ImmunityPeriodSet(netuid, immunity_period));
     }
 
-
     pub fn get_min_allowed_weights(netuid: u16) -> u16 {
         MinAllowedWeights::<T>::get(netuid)
     }
@@ -425,7 +425,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::MinAllowedWeightSet(netuid, min_allowed_weights));
     }
 
-
     pub fn get_max_allowed_uids(netuid: u16) -> u16 {
         MaxAllowedUids::<T>::get(netuid)
     }
@@ -433,7 +432,6 @@ impl<T: Config> Pallet<T> {
         MaxAllowedUids::<T>::insert(netuid, max_allowed);
         Self::deposit_event(Event::MaxAllowedUidsSet(netuid, max_allowed));
     }
-
 
     pub fn get_kappa(netuid: u16) -> u16 {
         Kappa::<T>::get(netuid)
@@ -449,7 +447,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_rho(netuid: u16, rho: u16) {
         Rho::<T>::insert(netuid, rho);
     }
-
 
     pub fn get_activity_cutoff(netuid: u16) -> u16 {
         ActivityCutoff::<T>::get(netuid)
@@ -468,7 +465,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::RegistrationAllowed(netuid, registration_allowed));
     }
 
-
     pub fn get_network_pow_registration_allowed(netuid: u16) -> bool {
         NetworkPowRegistrationAllowed::<T>::get(netuid)
     }
@@ -485,7 +481,10 @@ impl<T: Config> Pallet<T> {
         target_registrations_per_interval: u16,
     ) {
         TargetRegistrationsPerInterval::<T>::insert(netuid, target_registrations_per_interval);
-        Self::deposit_event(Event::RegistrationPerIntervalSet(netuid, target_registrations_per_interval));
+        Self::deposit_event(Event::RegistrationPerIntervalSet(
+            netuid,
+            target_registrations_per_interval,
+        ));
     }
 
     pub fn get_burn_as_u64(netuid: u16) -> u64 {
@@ -524,7 +523,10 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_allowed_validators(netuid: u16, max_allowed_validators: u16) {
         MaxAllowedValidators::<T>::insert(netuid, max_allowed_validators);
-        Self::deposit_event(Event::MaxAllowedValidatorsSet(netuid, max_allowed_validators));
+        Self::deposit_event(Event::MaxAllowedValidatorsSet(
+            netuid,
+            max_allowed_validators,
+        ));
     }
 
     pub fn get_bonds_moving_average(netuid: u16) -> u64 {
@@ -540,17 +542,20 @@ impl<T: Config> Pallet<T> {
     }
     pub fn set_max_registrations_per_block(netuid: u16, max_registrations_per_block: u16) {
         MaxRegistrationsPerBlock::<T>::insert(netuid, max_registrations_per_block);
-        Self::deposit_event(Event::MaxRegistrationsPerBlockSet(netuid, max_registrations_per_block));
+        Self::deposit_event(Event::MaxRegistrationsPerBlockSet(
+            netuid,
+            max_registrations_per_block,
+        ));
     }
 
-    pub fn get_subnet_owner( netuid:u16 ) -> T::AccountId {
-        SubnetOwner::<T>::get( netuid )
+    pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
+        SubnetOwner::<T>::get(netuid)
     }
     pub fn get_subnet_owner_cut() -> u16 {
-        SubnetOwnerCut::<T>::get( )
+        SubnetOwnerCut::<T>::get()
     }
-    pub fn set_subnet_owner_cut( subnet_owner_cut: u16 ) {
-        SubnetOwnerCut::<T>::set( subnet_owner_cut );
+    pub fn set_subnet_owner_cut(subnet_owner_cut: u16) {
+        SubnetOwnerCut::<T>::set(subnet_owner_cut);
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
@@ -575,8 +580,8 @@ impl<T: Config> Pallet<T> {
         SenateRequiredStakePercentage::<T>::put(required_percent);
     }
 
-    pub fn is_senate_member( hotkey: &T::AccountId ) -> bool {
-        T::SenateMembers::is_member( hotkey )
+    pub fn is_senate_member(hotkey: &T::AccountId) -> bool {
+        T::SenateMembers::is_member(hotkey)
     }
 
     pub fn do_set_senate_required_stake_perc(
