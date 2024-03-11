@@ -254,6 +254,17 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey and coldkey.
+    pub type SubnetStake<T: Config> = StorageNMap<
+        _, 
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>,    // hot
+            NMapKey<Blake2_128Concat, T::AccountId>     // cold
+            NMapKey<Identity, u16>,                     // subnet
+        ),
+        u64,
+        ValueQuery
+    >;
 
     // =====================================
     // ==== Difficulty / Registrations =====
