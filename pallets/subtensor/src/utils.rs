@@ -133,6 +133,10 @@ impl<T: Config> Pallet<T> {
             ValidatorPermit::<T>::insert(netuid, updated_validator_permit);
         }
     }
+    pub fn set_weights_min_stake( min_stake: u64 ) {
+        WeightsMinStake::<T>::put( min_stake );
+        Self::deposit_event(Event::WeightsMinStake(min_stake));
+    }
 
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
@@ -221,6 +225,9 @@ impl<T: Config> Pallet<T> {
         } else {
             return false;
         }
+    }
+    pub fn get_weights_min_stake( ) -> u64 {
+        WeightsMinStake::<T>::get()
     }
 
     // ============================

@@ -684,6 +684,34 @@ fn test_sudo_set_max_allowed_validators() {
     });
 }
 
+
+#[test]
+fn test_sudo_set_weights_min_stake() {
+    new_test_ext().execute_with(|| {
+        let to_be_set: u64 = 10;
+        let init_value: u64 = SubtensorModule::get_weights_min_stake();
+        assert_eq!(
+            AdminUtils::sudo_set_weights_min_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_weights_min_stake(),
+            init_value
+        );
+        assert_ok!(AdminUtils::sudo_set_weights_min_stake(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(
+            SubtensorModule::get_weights_min_stake(),
+            to_be_set
+        );
+    });
+}
+
 #[test]
 fn test_sudo_set_bonds_moving_average() {
     new_test_ext().execute_with(|| {

@@ -121,7 +121,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 141,
+    spec_version: 142,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -995,6 +995,11 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, <pallet_balances::Pallet<
     fn init_new_network(netuid: u16, tempo: u16)
     {
         SubtensorModule::init_new_network(netuid, tempo);
+    }
+    
+    fn set_weights_min_stake(min_stake: u64)
+    {
+        SubtensorModule::set_weights_min_stake(min_stake);
     }
 }
 
