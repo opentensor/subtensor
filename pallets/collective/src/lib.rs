@@ -42,6 +42,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
+use frame_support::traits::GenesisBuild;
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::{traits::Hash, RuntimeDebug};
