@@ -185,8 +185,6 @@ impl frame_system::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     // The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = AccountIdLookup<AccountId, ()>;
-    // The index type for storing how many extrinsics an account has signed.
-    type Index = Index;
     // The index type for blocks.
     type BlockNumber = Get<BlockNumberFor<Self>>;
     // The type for hashing blocks and tries.
