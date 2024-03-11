@@ -725,7 +725,7 @@ impl<T: Config> Pallet<T> {
         Self::set_max_weight_limit(netuid, u16::MAX);
         Self::set_adjustment_interval(netuid, 360);
         Self::set_target_registrations_per_interval(netuid, 1);
-        Self::set_adjustment_alpha(netuid, 58000);
+        Self::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // 18_446_744_073_709_551_615 * 0.97 = 17_893_341_751_498_265_066
         Self::set_immunity_period(netuid, 5000);
         Self::set_min_burn(netuid, 1);
         Self::set_min_difficulty(netuid, u64::MAX);

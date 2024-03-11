@@ -621,7 +621,7 @@ fn test_sudo_set_difficulty() {
         let init_value: u64 = SubtensorModule::get_difficulty_as_u64(netuid);
         assert_eq!(
             AdminUtils::sudo_set_difficulty(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
                 to_be_set
             ),

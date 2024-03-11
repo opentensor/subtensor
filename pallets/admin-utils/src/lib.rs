@@ -228,7 +228,7 @@ pub mod pallet {
 		))]
 		pub fn sudo_set_adjustment_alpha(origin: OriginFor<T>, netuid: u16, adjustment_alpha: u64) -> DispatchResult 
 		{
-			ensure_root(origin)?;
+			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
 
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -324,7 +324,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_kappa())]
 		pub fn sudo_set_kappa(origin: OriginFor<T>, netuid: u16, kappa: u16) -> DispatchResult 
 		{
-			ensure_root(origin)?;
+			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -339,7 +339,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_rho())]
 		pub fn sudo_set_rho(origin: OriginFor<T>, netuid: u16, rho: u16) -> DispatchResult 
 		{
-			ensure_root(origin)?;
+			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
@@ -469,7 +469,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_difficulty())]
 		pub fn sudo_set_difficulty(origin: OriginFor<T>, netuid: u16, difficulty: u64) -> DispatchResult 
 		{
-			ensure_root(origin)?;
+			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
 				Error::<T>::NetworkDoesNotExist
@@ -511,7 +511,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::sudo_set_bonds_moving_average())]
 		pub fn sudo_set_bonds_moving_average(origin: OriginFor<T>, netuid: u16, bonds_moving_average: u64) -> DispatchResult 
 		{
-			ensure_root(origin)?;
+			T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
 	
 			ensure!(
 				T::Subtensor::if_subnet_exist(netuid),
