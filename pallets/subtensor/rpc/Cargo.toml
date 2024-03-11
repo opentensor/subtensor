@@ -14,10 +14,10 @@ jsonrpsee = { version = "0.16.2", features = ["client-core", "server", "macros"]
 serde = { version = "1.0.132", features = ["derive"], default-features = false }
 
 # Substrate packages
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 
 # local packages
 
