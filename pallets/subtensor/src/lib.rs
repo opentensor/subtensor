@@ -1137,14 +1137,14 @@ pub mod pallet {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::info!("Successfully ran block step.");
-                    return Weight::from_ref_time(110_634_229_000 as u64)
+                    return Weight::from_parts(110_634_229_000 as u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    return Weight::from_ref_time(110_634_229_000 as u64)
+                    return Weight::from_parts(110_634_229_000 as u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
