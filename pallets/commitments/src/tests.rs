@@ -50,12 +50,8 @@ impl pallet_balances::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ();
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
+    type AccountStore =
+        StorageMapShim<pallet_balances::Account<Test>, frame_system::Provider<Test>, AccountId>;
     type MaxLocks = ();
     type WeightInfo = ();
     type MaxReserves = ();
