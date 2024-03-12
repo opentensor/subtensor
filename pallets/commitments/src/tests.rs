@@ -84,10 +84,9 @@ impl frame_system::Config for Test {
     type SystemWeightInfo = ();
     type SS58Prefix = ConstU16<42>;
     type OnSetCode = ();
-    type Index = u32;
-    type BlockNumber = u64;
-    type Header = sp_runtime::generic::Header<Self::BlockNumber, BlakeTwo256>;
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Block = Block;
+    type Nonce = u64;
 }
 
 impl pallet_commitments::Config for Test {
