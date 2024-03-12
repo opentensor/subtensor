@@ -444,13 +444,15 @@ impl pallet_admin_utils::Config for Test {
     type WeightInfo = ();
 }
 
-#[allow(dead_code)]
+// Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
+    let t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }
 
 #[allow(dead_code)]

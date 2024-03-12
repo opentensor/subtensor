@@ -363,25 +363,21 @@ impl pallet_utility::Config for Test {
 }
 
 // Build genesis storage according to the mock runtime.
-//pub fn new_test_ext() -> sp_io::TestExternalities {
-//	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
-//}
-
-// Build genesis storage according to the mock runtime.
-#[allow(dead_code)]
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
+    let t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }
 
 #[allow(dead_code)]
 pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    let mut t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
+    let mut t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
         .unwrap();
 
     pallet_balances::GenesisConfig::<Test> {
