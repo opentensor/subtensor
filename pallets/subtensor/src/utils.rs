@@ -294,6 +294,9 @@ impl<T: Config> Pallet<T> {
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
+    pub fn mint_tokens(amount: u64 ){
+        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
+    }
     pub fn get_default_take() -> u16 {
         DefaultTake::<T>::get()
     }

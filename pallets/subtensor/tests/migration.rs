@@ -1,6 +1,8 @@
 mod mock;
 use mock::*;
 use sp_core::U256;
+use frame_system::Config;
+use frame_support::assert_ok;
 
 #[test]
 fn test_migration_fix_total_stake_maps() {
@@ -97,6 +99,82 @@ fn test_migration_fix_total_stake_maps() {
             pallet_subtensor::Stake::<Test>::iter_key_prefix(hk2).count(),
             2
         ); // 2 stake entries for hk2
+    })
+}
+
+#[test]
+// To run this test with cargo, use the following command:
+// cargo test --package pallet-subtensor --test migration test_migration5_total_issuance
+fn test_migration5_total_issuance() {
+    new_test_ext().execute_with(|| {
+        // Run the migration to check total issuance.
+        let test: bool = true;
+
+        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
+        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+
+        SubtensorModule::add_balance_to_coldkey_account( &U256::from(1), 10000 );
+        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
+
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(1), &U256::from(1), 30000 );
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000);
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000 + 30000);
+    })
+}
+
+#[test]
+// To run this test with cargo, use the following command:
+// cargo test --package pallet-subtensor --test migration test_total_issuance_global
+fn test_total_issuance_global() {
+    new_test_ext().execute_with(|| {
+
+        // Initialize network unique identifier and keys for testing.
+        let netuid: u16 = 1; // Network unique identifier set to 1 for testing.
+        let coldkey = U256::from(0); // Coldkey initialized to 0, representing an account's public key for non-transactional operations.
+        let hotkey = U256::from(0); // Hotkey initialized to 0, representing an account's public key for transactional operations.
+        add_network(netuid, 1, 0); // Add a new network with the given netuid, tempo (1), and initial block number (0).
+        SubtensorModule::set_max_allowed_uids(netuid, 1); // Set the maximum allowed unique identifiers for the network to 1.
+
+        // Test the migration's effect on total issuance after adding balance to a coldkey account.
+        let hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
+        let coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
+        assert_eq!(SubtensorModule::get_total_issuance(), 0); // Ensure the total issuance starts at 0 before the migration.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 20000); // Add a balance of 20000 to the coldkey account.
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
+        assert_eq!(SubtensorModule::get_total_issuance(), 20000); // Verify the total issuance is updated to 20000 after migration.
+
+        // Test the effect of burning on total issuance.
+        SubtensorModule::set_burn(netuid, 10000); // Set the burn amount to 10000 for the network.
+        assert_eq!(SubtensorModule::get_total_issuance(), 20000); // Confirm the total issuance remains 20000 before burning.
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+            netuid,
+            hotkey
+        )); // Execute the burn operation, reducing the total issuance.
+        assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1); // Ensure the subnetwork count increases to 1 after burning
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Verify the total issuance is reduced to 10000 after burning.
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Verify the total issuance is updated to 10000 nothing changes
+
+        // Test staking functionality and its effect on total issuance.
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Same
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 10000); // Stake an additional 10000 to the coldkey-hotkey account. This is i
+        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Same
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Fix issuance
+        assert_eq!(SubtensorModule::get_total_issuance(), 20000); // New
+
+        // Set emission values for the network and verify.
+        SubtensorModule::set_emission_values(&vec![1], vec![1_000_000_000]); // Set the emission value for the network to 1_000_000_000.
+        assert_eq!( SubtensorModule::get_subnet_emission_value( netuid ), 1_000_000_000 ); // Verify the emission value is set correctly for the network.
+        run_to_block(2); // Advance to block number 2 to trigger the emission through the subnet.
+        assert_eq!(SubtensorModule::get_total_issuance(), 1000020000); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Test migration does not change amount.
+        assert_eq!(SubtensorModule::get_total_issuance(), 1000020000); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
+
     })
 }
 

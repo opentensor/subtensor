@@ -19,7 +19,7 @@ impl<T: Config> Pallet<T> {
                 ()
             }
             Err(e) => {
-                log::error!("Error while running root epoch: {:?}", e);
+                log::trace!("Error while running root epoch: {:?}", e);
             }
         }
         // --- 3. Drains emission tuples ( hotkey, amount ).
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
             }
 
             // --- 2. Queue the emission due to this network.
-            let new_queued_emission = Self::get_subnet_emission_value(netuid);
+            let new_queued_emission: u64 = Self::get_subnet_emission_value(netuid);
             log::debug!(
                 "generate_emission for netuid: {:?} with tempo: {:?} and emission: {:?}",
                 netuid,
@@ -148,9 +148,9 @@ impl<T: Config> Pallet<T> {
                     &Self::get_subnet_owner(netuid),
                     Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
                 );
-                TotalIssuance::<T>::put(
-                    TotalIssuance::<T>::get().saturating_add(cut.to_num::<u64>()),
-                );
+
+                // We are minting tokens here for the owner.
+                Self::mint_tokens( cut.to_num::<u64>() );
             }
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
@@ -292,7 +292,6 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(increment));
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -313,7 +312,6 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(decrement));
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
