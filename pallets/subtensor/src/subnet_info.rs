@@ -49,7 +49,7 @@ pub struct SubnetHyperparams {
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
     serving_rate_limit: Compact<u64>,
-    max_validators: Compact<u16>
+    max_validators: Compact<u16>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -173,7 +173,7 @@ impl<T: Config> Pallet<T> {
             bonds_moving_avg: bonds_moving_avg.into(),
             max_regs_per_block: max_regs_per_block.into(),
             serving_rate_limit: serving_rate_limit.into(),
-            max_validators: max_validators.into()
+            max_validators: max_validators.into(),
         });
     }
 }

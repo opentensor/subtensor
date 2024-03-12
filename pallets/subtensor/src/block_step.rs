@@ -15,9 +15,7 @@ impl<T: Config> Pallet<T> {
         Self::adjust_registration_terms_for_networks();
         // --- 2. Calculate per-subnet emissions
         match Self::root_epoch(block_number) {
-            Ok(_) => {
-                ()
-            }
+            Ok(_) => (),
             Err(e) => {
                 log::error!("Error while running root epoch: {:?}", e);
             }
@@ -135,12 +133,8 @@ impl<T: Config> Pallet<T> {
             let mut remaining = I96F32::from_num(new_queued_emission);
             if subnet_has_owner {
                 let cut = remaining
-                    .saturating_mul(
-                        I96F32::from_num(Self::get_subnet_owner_cut())
-                    )
-                    .saturating_div(
-                        I96F32::from_num(u16::MAX)
-                    );
+                    .saturating_mul(I96F32::from_num(Self::get_subnet_owner_cut()))
+                    .saturating_div(I96F32::from_num(u16::MAX));
 
                 remaining = remaining.saturating_sub(cut);
 
