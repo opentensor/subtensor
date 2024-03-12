@@ -177,12 +177,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         &config.chain_spec,
     );
 
-    config
-        .network
-        .extra_sets
-        .push(sc_consensus_grandpa::grandpa_peers_set_config(
-            grandpa_protocol_name.clone(),
-        ));
+    net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
+        grandpa_protocol_name.clone(),
+    ));
     let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
         grandpa_link.shared_authority_set().clone(),
