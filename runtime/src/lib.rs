@@ -273,6 +273,11 @@ impl pallet_balances::Config for Runtime {
     type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+
+    type RuntimeHoldReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
