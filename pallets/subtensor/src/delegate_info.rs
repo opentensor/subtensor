@@ -61,7 +61,7 @@ impl<T: Config> Pallet<T> {
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
         
         if total_stake > U64F64::from_num(0) {
-            return_per_1000 = ( emissions_per_day *  U64F64::from_num(0.82)) / (total_stake /  U64F64::from_num(1000));
+            return_per_1000 = emissions_per_day *  U64F64::from_num(820_000_000_000) / total_stake;
         }
         
         return DelegateInfo {
