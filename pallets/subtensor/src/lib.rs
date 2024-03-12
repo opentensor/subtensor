@@ -1127,7 +1127,7 @@ pub mod pallet {
         // ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
         //
         // # Args:
-        // 	* 'n': (T::BlockNumber):
+        // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             let block_step_result = Self::block_step();
