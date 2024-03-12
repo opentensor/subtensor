@@ -1,7 +1,7 @@
 use node_subtensor_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SenateMembersConfig,
-    Signature, SubtensorModuleConfig, SudoConfig, SystemConfig, TriumvirateConfig,
-    TriumvirateMembersConfig, WASM_BINARY,
+    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, RuntimeGenesisConfig,
+    SenateMembersConfig, Signature, SubtensorModuleConfig, SudoConfig, SystemConfig,
+    TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -414,7 +414,7 @@ fn localnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     _enable_println: bool,
-) -> GenesisConfig {
+) -> RuntimeGenesisConfig {
     let mut balances = vec![
         (
             get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -451,10 +451,11 @@ fn localnet_genesis(
         }
     }
 
-    GenesisConfig {
+    RuntimeGenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
+            ..Default::default()
         },
         balances: BalancesConfig { balances },
         aura: AuraConfig {
@@ -465,6 +466,7 @@ fn localnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
