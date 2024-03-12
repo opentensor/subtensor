@@ -52,10 +52,6 @@ impl SubstrateCli for Cli {
             )?),
         })
     }
-
-    fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        &node_subtensor_runtime::VERSION
-    }
 }
 
 // Parse and run command line arguments
