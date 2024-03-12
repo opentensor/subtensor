@@ -61,7 +61,6 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
         let max_allowed_validators = Self::get_max_allowed_validators(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
@@ -74,6 +73,9 @@ impl<T: Config> Pallet<T> {
         let network_modality = <NetworkModality<T>>::get(netuid);
         let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+        let adjustment_alpha: Compact<u64> = Self::get_adjustment_alpha(netuid).into();
+        let difficulty: Compact<u64> = Self::get_difficulty(netuid).into();
+        let bonds_moving_avg: Compact<u64> = Self::get_bonds_moving_average(netuid).into();
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -84,7 +86,6 @@ impl<T: Config> Pallet<T> {
         return Some(SubnetInfo {
             rho: rho.into(),
             kappa: kappa.into(),
-            difficulty: difficulty.into(),
             immunity_period: immunity_period.into(),
             netuid: netuid.into(),
             max_allowed_validators: max_allowed_validators.into(),
@@ -99,6 +100,10 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
+            difficulty: difficulty.into(),
+            adjustment_alpha: adjustment_alpha.into(),
+            bonds_moving_avg: bonds_moving_avg.into(),
+
             owner: Self::get_subnet_owner(netuid).into(),
         });
     }
@@ -132,7 +137,6 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
         let max_weights_limit = Self::get_max_weight_limit(netuid);
