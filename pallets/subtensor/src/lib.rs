@@ -11,9 +11,7 @@ use frame_support::{
     dispatch,
     dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
-    traits::{
-        tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType,
-    },
+    traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
 };
 
 use codec::{Decode, Encode};
@@ -963,8 +961,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            
-
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
