@@ -102,8 +102,6 @@ jobs:
 
       - name: cargo fmt
         run: cargo fmt --check
-      - name: cargo check
-        run: cargo check --workspace
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
       - name: Run tests
         # timeout-minutes: 30
