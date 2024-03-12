@@ -11,7 +11,7 @@ use sp_core::{Get, H256, U256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    DispatchResult,
+    BuildStorage, DispatchResult,
 };
 
 use pallet_collective::MemberCount;
