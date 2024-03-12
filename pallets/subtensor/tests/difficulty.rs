@@ -17,7 +17,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // No registrations this block.
         SubtensorModule::set_adjustment_alpha(netuid, 58000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 2);
-        SubtensorModule::set_adjustment_interval(netuid,100);
+        SubtensorModule::set_adjustment_interval(netuid, 100);
         assert_eq!(
             SubtensorModule::get_network_registration_allowed(netuid),
             true

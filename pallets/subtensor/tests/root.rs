@@ -193,7 +193,10 @@ fn test_root_set_weights() {
         }
 
         log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
-        log::info!("current subnet count: {:?}", SubtensorModule::get_num_subnets());
+        log::info!(
+            "current subnet count: {:?}",
+            SubtensorModule::get_num_subnets()
+        );
 
         // Lets create n networks
         for netuid in 1..n {
@@ -252,7 +255,11 @@ fn test_root_set_weights() {
                 299_999_997
             );
         }
-        let step = SubtensorModule::blocks_until_next_epoch(10, 1000, SubtensorModule::get_current_block_as_u64());
+        let step = SubtensorModule::blocks_until_next_epoch(
+            10,
+            1000,
+            SubtensorModule::get_current_block_as_u64(),
+        );
         step_block(step as u16);
         assert_eq!(SubtensorModule::get_pending_emission(10), 0);
     });
@@ -287,7 +294,10 @@ fn test_root_set_weights_out_of_order_netuids() {
         }
 
         log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
-        log::info!("current subnet count: {:?}", SubtensorModule::get_num_subnets());
+        log::info!(
+            "current subnet count: {:?}",
+            SubtensorModule::get_num_subnets()
+        );
 
         // Lets create n networks
         for netuid in 1..n {
@@ -303,7 +313,10 @@ fn test_root_set_weights_out_of_order_netuids() {
         }
 
         log::info!("netuids: {:?}", SubtensorModule::get_all_subnet_netuids());
-        log::info!("root network count: {:?}", SubtensorModule::get_subnetwork_n(0));
+        log::info!(
+            "root network count: {:?}",
+            SubtensorModule::get_subnetwork_n(0)
+        );
 
         let subnets = SubtensorModule::get_all_subnet_netuids();
         // Set weights into diagonal matrix.
@@ -334,33 +347,35 @@ fn test_root_set_weights_out_of_order_netuids() {
         step_block(2);
         // Check that the pending emission values have been set.
         for netuid in subnets.iter() {
-            if *netuid == 0 { continue }
+            if *netuid == 0 {
+                continue;
+            }
 
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
                 SubtensorModule::get_pending_emission(*netuid)
             );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(*netuid),
-                199_999_998
-            );
+            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 199_999_998);
         }
         step_block(1);
         for netuid in subnets.iter() {
-            if *netuid == 0 { continue }
-            
+            if *netuid == 0 {
+                continue;
+            }
+
             log::debug!(
                 "check pending emission for netuid {} has pending {}",
                 netuid,
                 SubtensorModule::get_pending_emission(*netuid)
             );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(*netuid),
-                299_999_997
-            );
+            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 299_999_997);
         }
-        let step = SubtensorModule::blocks_until_next_epoch(9, 1000, SubtensorModule::get_current_block_as_u64());
+        let step = SubtensorModule::blocks_until_next_epoch(
+            9,
+            1000,
+            SubtensorModule::get_current_block_as_u64(),
+        );
         step_block(step as u16);
         assert_eq!(SubtensorModule::get_pending_emission(9), 0);
     });
@@ -575,7 +590,6 @@ fn test_network_prune_results() {
     });
 }
 
-
 #[test]
 fn test_weights_after_network_pruning() {
     new_test_ext().execute_with(|| {
@@ -595,7 +609,6 @@ fn test_weights_after_network_pruning() {
         assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
 
         for i in 0..n {
-
             // Register a validator
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
@@ -606,7 +619,7 @@ fn test_weights_after_network_pruning() {
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(cold)
             ));
-            
+
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
             assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
             step_block(3);
@@ -625,9 +638,9 @@ fn test_weights_after_network_pruning() {
             hot,
             1_000
         ));
-        
+
         // Let's give these subnets some weights
-        let uids: Vec<u16> = (0..(n as u16)+1).collect();
+        let uids: Vec<u16> = (0..(n as u16) + 1).collect();
         let values: Vec<u16> = vec![4u16, 2u16, 6u16];
         log::info!("uids set: {:?}", uids);
         log::info!("values set: {:?}", values);
@@ -640,7 +653,10 @@ fn test_weights_after_network_pruning() {
             0
         ));
 
-        log::info!("Root network weights before extra network registration: {:?}", SubtensorModule::get_root_weights()); 
+        log::info!(
+            "Root network weights before extra network registration: {:?}",
+            SubtensorModule::get_root_weights()
+        );
         log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
         let i = (n as u16) + 1;
         let hot: U256 = U256::from(i);
@@ -659,17 +675,23 @@ fn test_weights_after_network_pruning() {
         // We expect subnet 1 to be deregistered as it is oldest and has lowest emissions
         assert_eq!(latest_weights[0][1], 21845);
 
-        assert_ok!(SubtensorModule::register_network( 
+        assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(cold)
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.
         assert!(!SubtensorModule::if_subnet_exist((i as u16) + 1));
-        
-        log::info!("Root network weights: {:?}", SubtensorModule::get_root_weights()); 
-        
+
+        log::info!(
+            "Root network weights: {:?}",
+            SubtensorModule::get_root_weights()
+        );
+
         let latest_weights = SubtensorModule::get_root_weights();
-        log::info!("Weights after register network: {:?}", SubtensorModule::get_root_weights());
+        log::info!(
+            "Weights after register network: {:?}",
+            SubtensorModule::get_root_weights()
+        );
 
         // Subnet 0 should be kicked, and thus its weight should be 0
         assert_eq!(latest_weights[0][1], 0);

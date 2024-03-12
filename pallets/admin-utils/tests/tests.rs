@@ -1,16 +1,15 @@
 use frame_support::assert_ok;
-use frame_system::Config;
 use frame_support::sp_runtime::DispatchError;
-use pallet_subtensor::Event;
+use frame_system::Config;
 use pallet_admin_utils::Error;
+use pallet_subtensor::Event;
 use sp_core::U256;
 
 mod mock;
 use mock::*;
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16, modality: u16) 
-{
+pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
@@ -684,7 +683,6 @@ fn test_sudo_set_max_allowed_validators() {
     });
 }
 
-
 #[test]
 fn test_sudo_set_weights_min_stake() {
     new_test_ext().execute_with(|| {
@@ -697,18 +695,12 @@ fn test_sudo_set_weights_min_stake() {
             ),
             Err(DispatchError::BadOrigin.into())
         );
-        assert_eq!(
-            SubtensorModule::get_weights_min_stake(),
-            init_value
-        );
+        assert_eq!(SubtensorModule::get_weights_min_stake(), init_value);
         assert_ok!(AdminUtils::sudo_set_weights_min_stake(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_weights_min_stake(),
-            to_be_set
-        );
+        assert_eq!(SubtensorModule::get_weights_min_stake(), to_be_set);
     });
 }
 
@@ -828,18 +820,12 @@ fn test_sudo_set_subnet_limit() {
             ),
             Err(DispatchError::BadOrigin.into())
         );
-        assert_eq!(
-            SubtensorModule::get_max_subnets(),
-            init_value
-        );
+        assert_eq!(SubtensorModule::get_max_subnets(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_max_subnets(),
-            to_be_set
-        );
+        assert_eq!(SubtensorModule::get_max_subnets(), to_be_set);
     });
 }
 
@@ -858,18 +844,12 @@ fn test_sudo_set_network_lock_reduction_interval() {
             ),
             Err(DispatchError::BadOrigin.into())
         );
-        assert_eq!(
-            SubtensorModule::get_lock_reduction_interval(),
-            init_value
-        );
+        assert_eq!(SubtensorModule::get_lock_reduction_interval(), init_value);
         assert_ok!(AdminUtils::sudo_set_lock_reduction_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(
-            SubtensorModule::get_lock_reduction_interval(),
-            to_be_set
-        );
+        assert_eq!(SubtensorModule::get_lock_reduction_interval(), to_be_set);
     });
 }
 

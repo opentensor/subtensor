@@ -20,7 +20,6 @@
 // }
 
 // /*TO DO SAM: write test for LatuUpdate after it is set */
-
 // // --- add network tests ----
 // #[test]
 // fn test_add_network_dispatch_info_ok() {
