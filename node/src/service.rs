@@ -260,7 +260,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         let proposer_factory = sc_basic_authorship::ProposerFactory::new(
             task_manager.spawn_handle(),
             client.clone(),
-            transaction_pool,
+            transaction_pool.clone(),
             prometheus_registry.as_ref(),
             telemetry.as_ref().map(|x| x.handle()),
         );
