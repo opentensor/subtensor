@@ -506,11 +506,12 @@ fn testnet_genesis(
     _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
     _balances: Vec<(AccountId, u64)>,
     _balances_issuance: u64,
-) -> GenesisConfig {
-    GenesisConfig {
+) -> RuntimeGenesisConfig {
+    RuntimeGenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
+            ..Default::default()
         },
         balances: BalancesConfig {
             // Configure sudo balance
@@ -528,6 +529,7 @@ fn testnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(
