@@ -59,12 +59,6 @@ pub fn new_partial(
     >,
     ServiceError,
 > {
-    if config.keystore_remote.is_some() {
-        return Err(ServiceError::Other(
-            "Remote Keystores are not supported.".into(),
-        ));
-    }
-
     let telemetry = config
         .telemetry_endpoints
         .clone()
