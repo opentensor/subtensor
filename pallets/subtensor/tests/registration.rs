@@ -215,7 +215,7 @@ fn test_burn_adjustment() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
-        SubtensorModule::set_adjustment_alpha(netuid, 17_893_341_751_498_265_066); // Set to old value.
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
