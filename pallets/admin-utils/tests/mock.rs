@@ -167,13 +167,10 @@ impl system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = U256;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -185,6 +182,8 @@ impl system::Config for Test {
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Block = Block;
+    type Nonce = u64;
 }
 
 impl pallet_balances::Config for Test {
