@@ -4188,6 +4188,8 @@ dependencies = [
  "sc-consensus-grandpa",
  "sc-executor",
  "sc-keystore",
+ "sc-network",
+ "sc-offchain",
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
@@ -6516,6 +6518,40 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-offchain"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0#948fbd2fd1233dc26dbb9f9bbc1d2cca2c03945d"
+dependencies = [
+ "array-bytes",
+ "bytes",
+ "fnv",
+ "futures",
+ "futures-timer",
+ "hyper",
+ "hyper-rustls",
+ "libp2p",
+ "log",
+ "num_cpus",
+ "once_cell",
+ "parity-scale-codec",
+ "parking_lot 0.12.1",
+ "rand 0.8.5",
+ "sc-client-api",
+ "sc-network",
+ "sc-network-common",
+ "sc-transaction-pool-api",
+ "sc-utils",
+ "sp-api",
+ "sp-core",
+ "sp-externalities",
+ "sp-keystore",
+ "sp-offchain",
+ "sp-runtime",
+ "threadpool",
+ "tracing",
+]
+
+[[package]]
 name = "sc-proposer-metrics"
 version = "0.10.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v1.0.0#948fbd2fd1233dc26dbb9f9bbc1d2cca2c03945d"
@@ -8341,6 +8377,15 @@ checksum = "8b9ef9bad013ada3808854ceac7b46812a6465ba368859a37e2100283d2d719c"
 dependencies = [
  "cfg-if",
  "once_cell",
+]
+
+[[package]]
+name = "threadpool"
+version = "1.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d050e60b33d41c19108b32cea32164033a9013fe3b46cbd4457559bfbf77afaa"
+dependencies = [
+ "num_cpus",
 ]
 
 [[package]]

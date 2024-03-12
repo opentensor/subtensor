@@ -8,6 +8,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
 use sc_telemetry::{Telemetry, TelemetryWorker};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
 
@@ -182,6 +183,9 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
             }
         };
     }
+
+    let mut net_config = sc_network::config::FullNetworkConfiguration::new(&config.network);
+
     let grandpa_protocol_name = sc_consensus_grandpa::protocol_standard_name(
         &client
             .block_hash(0)
@@ -203,9 +207,10 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         Vec::default(),
     ));
 
-    let (network, system_rpc_tx, tx_handler_controller, network_starter) =
+    let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
+            net_config: net_config,
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
@@ -215,11 +220,23 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         })?;
 
     if config.offchain_worker.enabled {
-        sc_service::build_offchain_workers(
-            &config,
-            task_manager.spawn_handle(),
-            client.clone(),
-            network.clone(),
+        task_manager.spawn_handle().spawn(
+            "offchain-workers-runner",
+            "offchain-worker",
+            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+                runtime_api_provider: client.clone(),
+                is_validator: config.role.is_authority(),
+                keystore: Some(keystore_container.keystore()),
+                offchain_db: backend.offchain_storage(),
+                transaction_pool: Some(OffchainTransactionPoolFactory::new(
+                    transaction_pool.clone(),
+                )),
+                network_provider: network.clone(),
+                enable_http_requests: true,
+                custom_extensions: |_| vec![],
+            })
+            .run(client.clone(), task_manager.spawn_handle())
+            .boxed(),
         );
     }
 
@@ -341,6 +358,8 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
             prometheus_registry,
             shared_voter_state: SharedVoterState::empty(),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
+            offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
+            sync: Arc::new(sync_service),
         };
 
         // the GRANDPA voter task is considered infallible, i.e.
