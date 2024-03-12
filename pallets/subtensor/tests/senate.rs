@@ -9,6 +9,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
+use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
 use pallet_subtensor::migration;
