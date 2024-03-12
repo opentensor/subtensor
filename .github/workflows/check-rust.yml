@@ -100,6 +100,8 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
+      - name: cargo fmt
+        run: cargo fmt --check
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
       - name: Run tests
         # timeout-minutes: 30
