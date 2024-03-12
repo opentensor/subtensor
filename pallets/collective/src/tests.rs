@@ -299,7 +299,7 @@ fn close_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -372,7 +372,7 @@ fn proposal_weight_limit_works_on_approve() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -415,7 +415,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -449,7 +449,7 @@ fn close_with_prime_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -511,7 +511,7 @@ fn close_with_voting_prime_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -577,7 +577,7 @@ fn close_with_no_prime_but_majority_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -673,7 +673,7 @@ fn removal_of_old_voters_votes_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -708,7 +708,7 @@ fn removal_of_old_voters_votes_works() {
             RuntimeOrigin::signed(2),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -749,7 +749,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -789,7 +789,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             RuntimeOrigin::signed(2),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -835,7 +835,7 @@ fn propose_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -876,7 +876,7 @@ fn limit_active_proposals() {
                 RuntimeOrigin::signed(1),
                 Box::new(proposal.clone()),
                 proposal_len,
-                TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+                TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                     .ok()
                     .expect("convert u64 to block number.")
             ));
@@ -888,7 +888,7 @@ fn limit_active_proposals() {
                 RuntimeOrigin::signed(1),
                 Box::new(proposal.clone()),
                 proposal_len,
-                TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+                TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                     .ok()
                     .expect("convert u64 to block number.")
             ),
@@ -910,7 +910,7 @@ fn correct_validate_and_get_proposal() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             length,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -955,7 +955,7 @@ fn motions_ignoring_non_collective_proposals_works() {
                 RuntimeOrigin::signed(42),
                 Box::new(proposal.clone()),
                 proposal_len,
-                TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+                TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                     .ok()
                     .expect("convert u64 to block number.")
             ),
@@ -974,7 +974,7 @@ fn motions_ignoring_non_collective_votes_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -996,7 +996,7 @@ fn motions_ignoring_bad_index_collective_vote_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1018,7 +1018,7 @@ fn motions_vote_after_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1107,7 +1107,7 @@ fn motions_all_first_vote_free_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1183,7 +1183,7 @@ fn motions_reproposing_disapproved_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1203,7 +1203,7 @@ fn motions_reproposing_disapproved_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1227,7 +1227,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1285,7 +1285,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1360,7 +1360,7 @@ fn motions_disapproval_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1421,7 +1421,7 @@ fn motions_approval_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1486,7 +1486,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1556,7 +1556,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -1602,7 +1602,7 @@ fn disapprove_proposal_works() {
             RuntimeOrigin::signed(1),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(3u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));

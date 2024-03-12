@@ -194,7 +194,7 @@ fn test_senate_vote_works() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -271,7 +271,7 @@ fn test_senate_vote_not_member() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -432,7 +432,7 @@ fn test_senate_leave_vote_removal() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
