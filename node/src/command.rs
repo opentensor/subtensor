@@ -14,7 +14,7 @@ pub use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
 pub use sp_keyring::Sr25519Keyring;
 
 use node_subtensor_runtime::Block;
-use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
+use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {

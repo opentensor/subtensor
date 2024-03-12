@@ -161,7 +161,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         backend,
         mut task_manager,
         import_queue,
-        mut keystore_container,
+        keystore_container,
         select_chain,
         transaction_pool,
         other: (block_import, grandpa_link, mut telemetry),
