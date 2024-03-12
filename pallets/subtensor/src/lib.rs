@@ -12,7 +12,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
     traits::{
-        tokens::WithdrawReasons, BuildGenesisConfig, Currency, ExistenceRequirement, IsSubType,
+        tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType,
     },
 };
 
@@ -963,7 +963,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            use crate::MemberManagement;
+            
 
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
