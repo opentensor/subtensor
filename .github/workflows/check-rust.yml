@@ -48,7 +48,7 @@ env:
 jobs:
   check:
     name: Tests targeting ${{ matrix.rust-target }} for OS ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    runs-on: SubtensorCI
 
     ##
     # Define multiple targets for builds and tests
