@@ -808,11 +808,11 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
 
     fn get_root_netuid() -> u16;
     fn if_subnet_exist(netuid: u16) -> bool;
-    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId);
+    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16 );
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool;
     fn increase_stake_on_coldkey_hotkey_account(
         coldkey: &AccountId,
-        hotkey: &AccountId,
+        hotkey: &AccountId, netuid: u16,
         increment: u64,
     );
     fn u64_to_balance(input: u64) -> Option<Balance>;

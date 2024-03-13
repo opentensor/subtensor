@@ -108,7 +108,7 @@ impl<T: Config> Pallet<T> {
         Self::burn_tokens(actual_burn_amount);
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(
@@ -300,7 +300,7 @@ impl<T: Config> Pallet<T> {
         // );
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(

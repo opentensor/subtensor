@@ -103,8 +103,8 @@ fn test_senate_join_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -172,8 +172,8 @@ fn test_senate_vote_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -342,8 +342,8 @@ fn test_senate_leave_works() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -412,8 +412,8 @@ fn test_senate_leave_vote_removal() {
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -550,8 +550,8 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            stake_amount - 1 // Need to account for ED
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            stake_amount
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),

@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
+use frame_support::storage::IterableStorageNMap;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
@@ -96,6 +97,7 @@ impl<T: Config> Pallet<T> {
             for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {
                 Self::emit_inflation_through_hotkey_account(
                     &hotkey,
+                    netuid,
                     *server_amount,
                     *validator_amount,
                 );
@@ -208,13 +210,14 @@ impl<T: Config> Pallet<T> {
     //
     pub fn emit_inflation_through_hotkey_account(
         hotkey: &T::AccountId,
+        netuid: u16,
         server_emission: u64,
         validator_emission: u64,
     ) {
         // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the
         // coldkey - hotkey account as normal.
         if !Self::hotkey_is_delegate(hotkey) {
-            Self::increase_stake_on_hotkey_account(&hotkey, server_emission + validator_emission);
+            Self::increase_stake_on_hotkey_account(&hotkey, netuid, server_emission + validator_emission);
             return;
         }
         // Then this is a delegate, we distribute validator_emission, then server_emission.
@@ -228,8 +231,8 @@ impl<T: Config> Pallet<T> {
         let mut remaining_validator_emission: u64 = validator_emission_minus_take;
 
         // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
-        for (owning_coldkey_i, stake_i) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
+        for (owning_coldkey_i, netuid, stake_i) in
+            <SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId>>::iter_prefix(
                 hotkey,
             )
         {
@@ -242,12 +245,14 @@ impl<T: Config> Pallet<T> {
             Self::increase_stake_on_coldkey_hotkey_account(
                 &owning_coldkey_i,
                 &hotkey,
+                netuid,
                 stake_proportion,
             );
             log::debug!(
-                "owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ",
+                "owning_coldkey_i: {:?}, hotkey: {:?}, netuid: {:?} emission: +{:?} ",
                 owning_coldkey_i,
                 hotkey,
+                netuid,
                 stake_proportion
             );
             remaining_validator_emission -= stake_proportion;
@@ -257,54 +262,14 @@ impl<T: Config> Pallet<T> {
         // the delegate and effect calculation in 4.
         Self::increase_stake_on_hotkey_account(
             &hotkey,
+            netuid,
             delegate_take + remaining_validator_emission,
         );
         log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take);
         // Also emit the server_emission to the hotkey
         // The server emission is distributed in-full to the delegate owner.
         // We do this after 4. for the same reason as above.
-        Self::increase_stake_on_hotkey_account(&hotkey, server_emission);
-    }
-
-    // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    // This function should be called rather than set_stake under account.
-    //
-    pub fn block_step_increase_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        increment: u64,
-    ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| old.saturating_add(increment));
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-    }
-
-    // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    //
-    pub fn block_step_decrease_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        decrement: u64,
-    ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| old.saturating_sub(decrement));
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+        Self::increase_stake_on_hotkey_account(&hotkey, netuid, server_emission);
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.

@@ -1,4 +1,8 @@
 use super::*;
+use substrate_fixed::types::{U64F64};
+use frame_support::IterableStorageDoubleMap;
+use frame_support::IterableStorageNMap;
+use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
@@ -23,14 +27,8 @@ impl<T: Config> Pallet<T> {
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
 
-        for (nominator, stake) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                delegate.clone(),
-            )
-        {
-            if stake == 0 {
-                continue;
-            }
+        for ( nominator, _, stake ) in < SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId, u16, u64> >::iter_prefix( delegate.clone() ) {
+            if stake == 0 { continue; }
             // Only add nominators with stake
             nominators.push((nominator.clone(), stake.into()));
         }

@@ -20,13 +20,13 @@ fn test_migration_fix_total_stake_maps() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk1, 100);
         total_stake_amount += 100;
 
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck2, &hk1, 10_101);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck2, &hk1, netuid, 10_101);
         total_stake_amount += 10_101;
 
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck3, &hk2, 100_000_000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck3, &hk2, netuid, 100_000_000);
         total_stake_amount += 100_000_000;
 
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk2, 1_123_000_000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk2, netuid, 1_123_000_000);
         total_stake_amount += 1_123_000_000;
 
         // Check that the total stake is correct

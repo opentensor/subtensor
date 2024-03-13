@@ -102,7 +102,7 @@ fn test_dividends_with_run_to_block() {
         register_ok_neuron(netuid, neuron_dest_hotkey_id, coldkey_account_id, 12323);
 
         // Add some stake to the hotkey account, so we can test for emission before the transfer takes place
-        SubtensorModule::increase_stake_on_hotkey_account(&neuron_src_hotkey_id, initial_stake);
+        SubtensorModule::increase_stake_on_hotkey_account(&neuron_src_hotkey_id, netuid, initial_stake);
 
         // Check if the initial stake has arrived
         assert_eq!(
@@ -601,7 +601,7 @@ fn test_remove_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, netuid, amount);
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
@@ -647,7 +647,7 @@ fn test_remove_stake_amount_zero() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, netuid, amount);
 
         // Do the magic
         assert_noop!(
@@ -757,7 +757,7 @@ fn test_remove_stake_total_balance_no_change() {
         assert_eq!(initial_total_balance, 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, netuid, amount);
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_stake(
@@ -815,7 +815,7 @@ fn test_remove_stake_total_issuance_no_change() {
         assert_eq!(inital_total_issuance, 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, netuid, amount);
 
         let total_issuance_after_stake = Balances::total_issuance();
 
@@ -895,7 +895,7 @@ fn test_add_stake_to_hotkey_account_ok() {
         // There is not stake in the system at first, so result should be 0;
         assert_eq!(SubtensorModule::get_total_stake(), 0);
 
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, netuid, amount);
 
         // The stake that is now in the account, should equal the amount
         assert_eq!(
@@ -927,7 +927,7 @@ fn test_remove_stake_from_hotkey_account() {
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
         // Add some stake that can be removed
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, netuid, amount);
 
         // Prelimiary checks
         assert_eq!(SubtensorModule::get_total_stake(), amount);
@@ -937,7 +937,7 @@ fn test_remove_stake_from_hotkey_account() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, netuid, amount);
 
         // The stake on the hotkey account should be 0
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
@@ -977,7 +977,7 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
             Err(e) => panic!("Error: {:?}", e),
         }
         //Add some stake that can be removed
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, neutid, amount);
 
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
@@ -989,7 +989,7 @@ fn test_remove_stake_from_hotkey_account_registered_in_various_networks() {
         );
 
         // Remove stake
-        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, amount);
+        SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, netuid, amount);
         //
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
@@ -1146,13 +1146,13 @@ fn test_has_enough_stake_yes() {
         let start_nonce: u64 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, netuid, intial_amount);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
             10000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id, netuid),
             10000
         );
         assert_eq!(
@@ -1173,7 +1173,7 @@ fn test_has_enough_stake_no() {
         let start_nonce: u64 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, intial_amount);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, netuid, intial_amount);
         assert_eq!(
             SubtensorModule::has_enough_stake(&coldkey_id, &hotkey_id, 5000),
             false
@@ -1187,10 +1187,11 @@ fn test_non_existent_account() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &U256::from(0),
             &(U256::from(0)),
+            netuid,
             10,
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&U256::from(0), &U256::from(0)),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&U256::from(0), &U256::from(0), netuid),
             10
         );
         assert_eq!(
@@ -1366,19 +1367,19 @@ fn test_full_with_delegating() {
 
         // We stake and all is ok.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -1392,19 +1393,19 @@ fn test_full_with_delegating() {
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             100
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             100
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 100);
@@ -1490,19 +1491,19 @@ fn test_full_with_delegating() {
 
         // This add stake works for delegates.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             200
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             200
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -1516,19 +1517,19 @@ fn test_full_with_delegating() {
             300
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             200
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
             200
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             300
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             200
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 500);
@@ -1541,19 +1542,19 @@ fn test_full_with_delegating() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 1000);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1000);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             601
         ); // 200 + 1000 x ( 200 / 500 ) = 200 + 400 = 600 ~= 601
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
             700
         ); // 200 + 1000 x ( 200 / 400 ) = 200 + 500 = 700
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             899
         ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             700
         ); // 200 + 1000 x ( 200 / 400 ) = 300 + 600 = 700
         assert_eq!(SubtensorModule::get_total_stake(), 2900); // 600 + 700 + 900 + 700 = 2900
@@ -1616,19 +1617,19 @@ fn test_full_with_delegating() {
 
         // All the amounts have been decreased.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid ),
             501
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid ),
             600
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid ),
             799
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid ),
             600
         );
 
@@ -1655,7 +1656,7 @@ fn test_full_with_delegating() {
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid ),
             900
         );
         assert_eq!(
@@ -1765,38 +1766,38 @@ fn test_full_with_delegating() {
             1000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey3, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey3, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3, netuid ),
             1000
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 4000);
         assert_eq!(SubtensorModule::get_total_stake(), 10_500);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, 0, 1000);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey3, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey3, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3, netuid ),
             2000
         );
         assert_eq!(SubtensorModule::get_total_stake(), 11_500); // before + 1_000 = 10_500 + 1_000 = 11_500
@@ -1858,19 +1859,19 @@ fn test_full_with_delegating_some_servers() {
 
         // We stake and all is ok.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -1884,7 +1885,7 @@ fn test_full_with_delegating_some_servers() {
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             100
         );
         assert_eq!(
@@ -1925,19 +1926,19 @@ fn test_full_with_delegating_some_servers() {
 
         // This add stake works for delegates.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             200
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid ),
             200
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -1951,19 +1952,19 @@ fn test_full_with_delegating_some_servers() {
             300
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             200
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid ),
             200
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid ),
             300
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid ),
             200
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 500);
@@ -1975,21 +1976,21 @@ fn test_full_with_delegating_some_servers() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 200, 1_000); // 1_200 total emission.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 123, 2_000); // 2_123 total emission.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             801
         ); // 200 + (200 + 1000 x ( 200 / 500 )) = 200 + (200 + 400) = 800 ~= 801
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid ),
             899
         ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 1_700); // initial + server emission + validator emission = 799 + 899 = 1_698
 
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid ),
             1_200
         ); // 200 + (0 + 2000 x ( 200 / 400 )) = 200 + (1000) = 1_200
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid ),
             1_323
         ); // 200 + (123 + 2000 x ( 200 / 400 )) = 200 + (1_200) = 1_323
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 2_523); // 400 + 2_123
@@ -2000,19 +2001,19 @@ fn test_full_with_delegating_some_servers() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 350, 0);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 150, 0);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             1_151
         ); // + 350 = 1_151
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid ),
             1_200
         ); // No change.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid ),
             899
         ); // No change.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid ),
             1_473
         ); // 1_323 + 150 = 1_473
         assert_eq!(SubtensorModule::get_total_stake(), 4_723); // 4_223 + 500 = 4_823
@@ -2033,7 +2034,7 @@ fn test_full_with_delegating_some_servers() {
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid ),
             900
         );
         assert_eq!(
@@ -2079,15 +2080,15 @@ fn test_full_with_delegating_some_servers() {
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey2, netuid ),
             1000
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid ),
             1000
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 3_000);
@@ -2098,15 +2099,15 @@ fn test_full_with_delegating_some_servers() {
         // We will emit 1000 validator emission, which should be distributed in-part to the nominators.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 100, 1000);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid ),
             1_768
         ); // 1000 + 100 + 500 + 500 * (1000/3000) = 100 + 1500 + 166.6666666667 ~= 1,768.6666666667
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey2, netuid ),
             1_166
         ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey, netuid ),
             1_166
         ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
         assert_eq!(SubtensorModule::get_total_stake(), 8_823); // 7_723 + 1_100 = 8_823
@@ -2117,15 +2118,15 @@ fn test_full_with_delegating_some_servers() {
         // We will emit *0* validator emission.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 123, 0);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid ),
             1_891
         ); // 1_768 + 123 = 1_891
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey, netuid ),
             1_166
         ); // No change.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid ),
             1_166
         ); // No change.
         assert_eq!(SubtensorModule::get_total_stake(), 8_946); // 8_823 + 123 = 8_946
@@ -2186,19 +2187,19 @@ fn test_full_block_emission_occurs() {
 
         // We stake and all is ok.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             0
         );
         assert_ok!(SubtensorModule::add_stake(
@@ -2212,19 +2213,19 @@ fn test_full_block_emission_occurs() {
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             100
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid ),
             100
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 100);
@@ -2322,16 +2323,19 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey1_id,
             &hotkey_id,
+            netuid,
             amount + 2,
         );
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey2_id,
             &hotkey_id,
+            netuid,
             amount + 3,
         );
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey3_id,
             &hotkey_id,
+            netuid,
             amount + 4,
         );
 
@@ -2355,19 +2359,19 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
 
         // Vefify stake for all coldkeys is 0
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id, netuid ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id, netuid ),
             0
         );
 
@@ -2402,7 +2406,7 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
         }
 
         //Add some stake that can be removed
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, amount);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0_id, &hotkey_id, netuid, amount);
 
         // Verify free balance is 0 for coldkey
         assert_eq!(Balances::free_balance(coldkey0_id), 0);
@@ -2421,7 +2425,7 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
 
         // Vefify stake for single coldkey is 0
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id),
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id, netuid ),
             0
         );
 

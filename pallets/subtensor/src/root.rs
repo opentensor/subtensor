@@ -474,7 +474,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Create a network account for the user if it doesn't exist.
-        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::create_account_if_non_existent(&coldkey, &hotkey, root_netuid);
 
         // --- 7. Fetch the current size of the subnetwork.
         let current_num_root_validators: u16 = Self::get_num_root_validators();
