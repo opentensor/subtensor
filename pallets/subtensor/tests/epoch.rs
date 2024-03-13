@@ -178,6 +178,7 @@ fn init_run_epochs(
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &U256::from(key),
             &U256::from(key),
+            netuid,
             stake as u64,
         );
     }
@@ -558,7 +559,7 @@ fn test_1_graph() {
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_amount);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, stake_amount);
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -609,6 +610,7 @@ fn test_10_graph() {
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
+                netuid,
                 stake_amount,
             );
             SubtensorModule::append_neuron(netuid, &hotkey, 0);
@@ -992,7 +994,7 @@ fn test_bonds() {
 			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), stakes[key as usize] );
+			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
 		}
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1301,6 +1303,7 @@ fn test_active_stake() {
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                 &U256::from(key),
                 &U256::from(key),
+                netuid,
                 stake,
             );
         }
@@ -1509,6 +1512,7 @@ fn test_outdated_weights() {
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                 &U256::from(key),
                 &U256::from(key),
+                netuid,
                 stake,
             );
         }
@@ -1693,6 +1697,7 @@ fn test_zero_weights() {
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                 &U256::from(validator),
                 &U256::from(validator),
+                netuid,
                 stake,
             );
         }
@@ -1912,6 +1917,7 @@ fn test_validator_permits() {
                         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                             &U256::from(key),
                             &U256::from(key),
+                            network_n,
                             stake[key as usize],
                         );
                     }
@@ -1949,6 +1955,7 @@ fn test_validator_permits() {
                         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
+                            network_n,
                             2 * network_n as u64,
                         );
                     }

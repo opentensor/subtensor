@@ -284,9 +284,9 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         return SubtensorModule::if_subnet_exist(netuid);
     }
 
-	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId)
+	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16 )
     {
-        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
+        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey, netuid);
     }
 
 	fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool
@@ -294,9 +294,9 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
     }
 
-	fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, increment: u64)
+	fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, netuid: u16, increment: u64)
     {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid, increment);
     }
 
 	fn u64_to_balance(input: u64) -> Option<Balance>

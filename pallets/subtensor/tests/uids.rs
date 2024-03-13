@@ -231,16 +231,19 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey_account_id,
             &hotkey_account_id,
+            netuid,
             stake_amount,
         );
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey_account1_id,
             &hotkey_account_id,
+            netuid,
             stake_amount + 1,
         );
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &coldkey_account2_id,
             &hotkey_account_id,
+            netuid,
             stake_amount + 2,
         );
 
@@ -248,21 +251,24 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             stake_amount
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             stake_amount + 1
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             stake_amount + 2
         );
@@ -290,21 +296,24 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             stake_amount
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             stake_amount + 1
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             stake_amount + 2
         );
@@ -332,7 +341,8 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             0
         );
@@ -341,7 +351,8 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             0
         );
@@ -353,7 +364,8 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
-                &hotkey_account_id
+                &hotkey_account_id,
+                netuid,
             ),
             0
         );

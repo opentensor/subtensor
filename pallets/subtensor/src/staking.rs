@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::storage::IterableStorageNMap;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -95,6 +96,9 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The associated hotkey account.
     //
+    // 	* 'netuid' (u16):
+    // 		- The netuid to stake into.
+    //
     // 	* 'stake_to_be_added' (u64):
     // 		- The amount of stake to be added to the hotkey staking account.
     //
@@ -121,68 +125,77 @@ impl<T: Config> Pallet<T> {
     pub fn do_add_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        netuid: u16,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
         // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_add_stake( origin:{:?} hotkey:{:?}, stake_to_be_added:{:?} )",
+            "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             coldkey,
             hotkey,
+            netuid,
             stake_to_be_added
         );
 
-        // --- 2. We convert the stake u64 into a balancer.
+        // --- 2. Ensure that the netuid exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // --- 3. We convert the stake u64 into a balance.
         let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
         ensure!(
             stake_as_balance.is_some(),
             Error::<T>::CouldNotConvertToBalance
         );
 
-        // --- 3. Ensure the callers coldkey has enough stake to perform the transaction.
+        // --- 4. Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
+        // --- 5. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 6. Ensure we don't exceed tx rate limit
+        // --- 7. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 7. Ensure the remove operation from the coldkey is a success.
+        // --- 8. Ensure the remove operation from the coldkey is a success.
         ensure!(
             Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()) == true,
             Error::<T>::BalanceWithdrawalError
         );
 
-        // --- 8. If we reach here, add the balance to the hotkey.
-        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_added);
+        // --- 9. If we reach here, add the balance to the hotkey.
+        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, stake_to_be_added);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 9. Emit the staking event.
+        // --- 10. Emit the staking event.
         log::info!(
-            "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
+            "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             hotkey,
+            netuid,
             stake_to_be_added
         );
-        Self::deposit_event(Event::StakeAdded(hotkey, stake_to_be_added));
+        Self::deposit_event(Event::StakeAdded(hotkey, netuid, stake_to_be_added));
 
         // --- 10. Ok and return.
         Ok(())
@@ -197,6 +210,9 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The associated hotkey account.
     //
+    // 	* 'netuid' (u16):
+    // 		- The netuid to remove stake from.
+    //
     // 	* 'stake_to_be_added' (u64):
     // 		- The amount of stake to be added to the hotkey staking account.
     //
@@ -205,6 +221,10 @@ impl<T: Config> Pallet<T> {
     // 		- On the successfully removing stake from the hotkey account.
     //
     // # Raises:
+    //
+    //  * 'NetworkDoesNotExist':
+    //      - Thrown if the subnet we are attempting to stake into does not exist.
+    // 
     // 	* 'NotRegistered':
     // 		- Thrown if the account we are attempting to unstake from is non existent.
     //
@@ -224,38 +244,46 @@ impl<T: Config> Pallet<T> {
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        netuid: u16,
         stake_to_be_removed: u64,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )",
+            "do_remove_stake( origin:{:?} netuid:{:?}, hotkey:{:?}, stake_to_be_removed:{:?} )",
             coldkey,
             hotkey,
+            netuid,
             stake_to_be_removed
         );
 
-        // --- 2. Ensure that the hotkey account exists this is only possible through registration.
+        // --- 2. Ensure that the netuid exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // --- 3. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 3. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 4. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- Ensure that the stake amount to be removed is above zero.
+        // --- 5. Ensure that the stake amount to be removed is above zero.
         ensure!(
             stake_to_be_removed > 0,
             Error::<T>::NotEnoughStaketoWithdraw
         );
 
-        // --- 4. Ensure that the hotkey has enough stake to withdraw.
+        // --- 6. Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            Self::has_enough_stake(&coldkey, &hotkey, stake_to_be_removed),
+            Self::has_enough_stake(&coldkey, &hotkey, netuid, stake_to_be_removed),
             Error::<T>::NotEnoughStaketoWithdraw
         );
 
@@ -274,7 +302,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. We remove the balance from the hotkey.
-        Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
+        Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, stake_to_be_removed);
 
         // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
@@ -338,15 +366,15 @@ impl<T: Config> Pallet<T> {
 
     // Returns the stake under the cold - hot pairing in the staking table.
     //
-    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        return Stake::<T>::get(hotkey, coldkey);
+    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+        return SubStake::<T>::get(hotkey, coldkey, netuid );
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
-    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
+    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid: u16 ) {
         if !Self::hotkey_account_exists(hotkey) {
-            Stake::<T>::insert(hotkey, coldkey, 0);
+            SubStake::<T>::insert(hotkey, coldkey, netuid, 0 );
             Owner::<T>::insert(hotkey, coldkey);
         }
     }
@@ -375,13 +403,13 @@ impl<T: Config> Pallet<T> {
 
     // Returns true if the cold-hot staking account has enough balance to fufil the decrement.
     //
-    pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        return Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement;
+    pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid:u16, decrement: u64) -> bool {
+        return Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid ) >= decrement;
     }
 
     // Increases the stake on the hotkey account under its owning coldkey.
     //
-    pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, increment: u64) {
+    pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, increment: u64) {
         Self::increase_stake_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
             hotkey,
@@ -391,7 +419,7 @@ impl<T: Config> Pallet<T> {
 
     // Decreases the stake on the hotkey account under its owning coldkey.
     //
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
+    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, decrement: u64) {
         Self::decrease_stake_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
             hotkey,
@@ -405,6 +433,7 @@ impl<T: Config> Pallet<T> {
     pub fn increase_stake_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
+        netuid: u16,
         increment: u64,
     ) {
         TotalColdkeyStake::<T>::insert(
@@ -415,13 +444,13 @@ impl<T: Config> Pallet<T> {
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
         );
-        Stake::<T>::insert(
+        SubStake::<T>::insert(
             hotkey,
             coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
+            netuid,
+            Stake::<T>::get(coldkey, hotkey, netuid).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(increment));
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -429,20 +458,24 @@ impl<T: Config> Pallet<T> {
     pub fn decrease_stake_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
+        netuid: u16,
         decrement: u64,
     ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(decrement));
+        TotalColdkeyStake::<T>::insert(
+            coldkey,
+            TotalColdkeyStake::<T>::get(coldkey).saturating_sub(decrement),
+        );
         TotalHotkeyStake::<T>::insert(
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
         );
-        Stake::<T>::insert(
+        SubStake::<T>::insert(
             hotkey,
             coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
+            netuid,
+            Stake::<T>::get(coldkey, hotkey, netuid).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(decrement));
     }
 
     pub fn u64_to_balance(
@@ -511,9 +544,9 @@ impl<T: Config> Pallet<T> {
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
         // Iterate through all coldkeys that have a stake on this hotkey account.
-        for (delegate_coldkey_i, stake_i) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
+        for (delegate_coldkey_i, netuid, stake_i) in
+            <SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId, u16, u64>>::iter_key_prefix<(
+                hotkey
             )
         {
             // Convert to balance and add to the coldkey account.
@@ -527,6 +560,7 @@ impl<T: Config> Pallet<T> {
                 Self::decrease_stake_on_coldkey_hotkey_account(
                     &delegate_coldkey_i,
                     hotkey,
+                    netuid,
                     stake_i,
                 );
 

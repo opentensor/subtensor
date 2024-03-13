@@ -254,12 +254,12 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey and coldkey.
-    pub type SubnetStake<T: Config> = StorageNMap<
+    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
+    pub type SubStake<T: Config> = StorageNMap<
         _, 
         (
             NMapKey<Blake2_128Concat, T::AccountId>,    // hot
-            NMapKey<Blake2_128Concat, T::AccountId>     // cold
+            NMapKey<Blake2_128Concat, T::AccountId>,    // cold
             NMapKey<Identity, u16>,                     // subnet
         ),
         u64,
@@ -825,8 +825,8 @@ pub mod pallet {
         // parameters. [something, who]
         NetworkAdded(u16, u16), // --- Event created when a new network is added.
         NetworkRemoved(u16),    // --- Event created when a network is removed.
-        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
-        StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
+        StakeAdded(T::AccountId, u16, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
+        StakeRemoved(T::AccountId, u16, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
         WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
         NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
         BulkNeuronsRegistered(u16, u16), // --- Event created when multiple uids have been concurrently registered.
@@ -1314,9 +1314,10 @@ pub mod pallet {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, amount_staked)
+            Self::do_add_stake( origin, hotkey, netuid, amount_staked )
         }
 
         // ---- Remove stake from the staking account. The call must be made
@@ -1359,9 +1360,10 @@ pub mod pallet {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+            Self::do_remove_stake( origin, hotkey, netuid, amount_unstaked )
         }
 
         // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
