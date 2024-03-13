@@ -149,8 +149,8 @@ impl<T: Config> Pallet<T> {
                     Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
                 );
 
-                // We are minting tokens here for the owner.
-                Self::mint_tokens( cut.to_num::<u64>() );
+                // We are creating tokens here from the coinbase.
+                Self::coinbase( cut.to_num::<u64>() );
             }
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());

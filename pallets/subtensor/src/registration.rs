@@ -401,7 +401,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 100_000_000_000;
-        Self::mint_tokens( 100_000_000_000 ); // Accounting here for the newly created tokens.
+        Self::coinbase( 100_000_000_000 ); // We are creating tokens here from the coinbase.
 
         let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
