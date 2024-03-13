@@ -6,8 +6,8 @@ use frame_support::{
 use frame_system as system;
 use frame_system::{limits, EnsureNever};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::H256;
 use sp_core::U256;
+use sp_core::{ConstU64, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
@@ -19,15 +19,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
         System: frame_system,
         Balances: pallet_balances,
         AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -175,7 +172,7 @@ impl system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -187,20 +184,19 @@ impl system::Config for Test {
 }
 
 impl pallet_balances::Config for Test {
-    type Balance = Balance;
+    type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u64;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type MaxLocks = ();
+    type ExistentialDeposit = ConstU64<1>;
+    type AccountStore = System;
     type WeightInfo = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type RuntimeHoldReason = ();
+    type MaxHolds = ();
 }
 
 pub struct SubtensorIntrf;
