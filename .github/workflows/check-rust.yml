@@ -86,8 +86,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          sudo apt update &&
-          sudo apt install -y git clang curl libssl-dev llvm libudev-dev protobuf-compiler
+          sudo apt-get update &&
+          sudo apt-get install -y git clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
       - name: Install Rust ${{ matrix.rust-branch }}
         uses: actions-rs/toolchain@v1.0.6
@@ -95,27 +95,18 @@ jobs:
           toolchain: ${{ matrix.rust-branch }}
           profile: minimal
 
-      # - name: Utilize Rust shared cached
-      #   uses: Swatinem/rust-cache@v2.2.1
-      #   with:
-      #     key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+      - name: Utilize Rust shared cached
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: cargo fmt
         run: cargo fmt --check
 
-      # so we don't run out of disk space!
-      - name: cargo clean
-        run: cargo clean
-
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
-      - name: Run tests
+      - name: cargo test
         # timeout-minutes: 30
-        run: |
-          cargo test --tests
-
-      # so we don't run out of disk space!
-      - name: cargo clean
-        run: cargo clean
+        run: cargo test --workspace
 
       - name: Run benchmarks
         # timeout-minutes: 30
@@ -125,6 +116,5 @@ jobs:
 
       - name: Build executable
         # timeout-minutes: 30
-        run: |
-          cargo build --release
+        run: cargo build --release
 
