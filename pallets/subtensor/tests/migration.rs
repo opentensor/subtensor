@@ -132,49 +132,66 @@ fn test_migration5_total_issuance() {
 fn test_total_issuance_global() {
     new_test_ext().execute_with(|| {
 
+        
         // Initialize network unique identifier and keys for testing.
         let netuid: u16 = 1; // Network unique identifier set to 1 for testing.
         let coldkey = U256::from(0); // Coldkey initialized to 0, representing an account's public key for non-transactional operations.
         let hotkey = U256::from(0); // Hotkey initialized to 0, representing an account's public key for transactional operations.
-        add_network(netuid, 1, 0); // Add a new network with the given netuid, tempo (1), and initial block number (0).
+        let owner: U256 = U256::from(0);
+        
+        let lockcost: u64 = SubtensorModule::get_network_lock_cost();
+        SubtensorModule::add_balance_to_coldkey_account(&owner, lockcost); // Add a balance of 20000 to the coldkey account.
+        assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(owner)
+        ));
         SubtensorModule::set_max_allowed_uids(netuid, 1); // Set the maximum allowed unique identifiers for the network to 1.
+        assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
+        pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Pick up lock.
+        assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Verify the total issuance is updated to 20000 after migration.
+        assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Test the migration's effect on total issuance after adding balance to a coldkey account.
+        let account_balance: u64 = 20000;
         let hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
         let coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
-        assert_eq!(SubtensorModule::get_total_issuance(), 0); // Ensure the total issuance starts at 0 before the migration.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 20000); // Add a balance of 20000 to the coldkey account.
+        assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Ensure the total issuance starts at 0 before the migration.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance); // Add a balance of 20000 to the coldkey account.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
-        assert_eq!(SubtensorModule::get_total_issuance(), 20000); // Verify the total issuance is updated to 20000 after migration.
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost ); // Verify the total issuance is updated to 20000 after migration.
 
         // Test the effect of burning on total issuance.
-        SubtensorModule::set_burn(netuid, 10000); // Set the burn amount to 10000 for the network.
-        assert_eq!(SubtensorModule::get_total_issuance(), 20000); // Confirm the total issuance remains 20000 before burning.
+        let burn_cost: u64 = 10000;
+        SubtensorModule::set_burn(netuid, burn_cost); // Set the burn amount to 10000 for the network.
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost ); // Confirm the total issuance remains 20000 before burning.
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(hotkey),
             netuid,
             hotkey
         )); // Execute the burn operation, reducing the total issuance.
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1); // Ensure the subnetwork count increases to 1 after burning
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Verify the total issuance is reduced to 10000 after burning.
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost ); // Verify the total issuance is reduced to 10000 after burning.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Verify the total issuance is updated to 10000 nothing changes
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost ); // Verify the total issuance is updated to 10000 nothing changes
 
         // Test staking functionality and its effect on total issuance.
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Same
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 10000); // Stake an additional 10000 to the coldkey-hotkey account. This is i
-        assert_eq!(SubtensorModule::get_total_issuance(), 10000); // Same
+        let new_stake: u64 = 10000;
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost); // Same
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, new_stake); // Stake an additional 10000 to the coldkey-hotkey account. This is i
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost); // Same
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Fix issuance
-        assert_eq!(SubtensorModule::get_total_issuance(), 20000); // New
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost + new_stake ); // New
 
         // Set emission values for the network and verify.
-        SubtensorModule::set_emission_values(&vec![1], vec![1_000_000_000]); // Set the emission value for the network to 1_000_000_000.
-        assert_eq!( SubtensorModule::get_subnet_emission_value( netuid ), 1_000_000_000 ); // Verify the emission value is set correctly for the network.
+        let emission: u64 = 1_000_000_000;
+        SubtensorModule::set_tempo( netuid, 1 );
+        SubtensorModule::set_emission_values(&vec![netuid], vec![emission]); // Set the emission value for the network to 1_000_000_000.
+        assert_eq!( SubtensorModule::get_subnet_emission_value( netuid ), emission ); // Verify the emission value is set correctly for the network.
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost + new_stake );
         run_to_block(2); // Advance to block number 2 to trigger the emission through the subnet.
-        assert_eq!(SubtensorModule::get_total_issuance(), 1000020000); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost + new_stake + emission ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Test migration does not change amount.
-        assert_eq!(SubtensorModule::get_total_issuance(), 1000020000); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
-
+        assert_eq!(SubtensorModule::get_total_issuance(), account_balance + lockcost - burn_cost + new_stake + emission ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
     })
 }
 
