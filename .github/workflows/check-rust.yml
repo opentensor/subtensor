@@ -95,13 +95,18 @@ jobs:
           toolchain: ${{ matrix.rust-branch }}
           profile: minimal
 
-      - name: Utilize Rust shared cached
-        uses: Swatinem/rust-cache@v2.2.1
-        with:
-          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+      # - name: Utilize Rust shared cached
+      #   uses: Swatinem/rust-cache@v2.2.1
+      #   with:
+      #     key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: cargo fmt
         run: cargo fmt --check
+
+      # so we don't run out of disk space!
+      - name: cargo clean
+        run: cargo clean
+
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
       - name: Run tests
         # timeout-minutes: 30
