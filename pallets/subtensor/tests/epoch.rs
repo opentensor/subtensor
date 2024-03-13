@@ -184,10 +184,7 @@ fn init_run_epochs(
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
     // === Issue validator permits
-    SubtensorModule::set_max_allowed_validators(
-        netuid,
-        validators.len() as u16
-    );
+    SubtensorModule::set_max_allowed_validators(netuid, validators.len() as u16);
     assert_eq!(
         SubtensorModule::get_max_allowed_validators(netuid),
         validators.len() as u16
@@ -571,9 +568,12 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values( &vec![netuid], vec![1_000_000_000] );
-        assert_eq!( SubtensorModule::get_subnet_emission_value( netuid ), 1_000_000_000 );
-        SubtensorModule::epoch( netuid, 1_000_000_000 );
+        SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]);
+        assert_eq!(
+            SubtensorModule::get_subnet_emission_value(netuid),
+            1_000_000_000
+        );
+        SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
             stake_amount
@@ -635,7 +635,7 @@ fn test_10_graph() {
             ));
         }
         // Run the epoch.
-        SubtensorModule::epoch( netuid, 1_000_000_000 );
+        SubtensorModule::epoch(netuid, 1_000_000_000);
         // Check return values.
         for i in 0..n {
             assert_eq!(
@@ -1278,7 +1278,7 @@ fn test_active_stake() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX); 
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1308,10 +1308,7 @@ fn test_active_stake() {
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
         // === Issue validator permits
-        SubtensorModule::set_max_allowed_validators(
-            netuid,
-            n
-        );
+        SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
@@ -1486,7 +1483,7 @@ fn test_outdated_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX); 
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1515,10 +1512,7 @@ fn test_outdated_weights() {
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
         // === Issue validator permits
-        SubtensorModule::set_max_allowed_validators(
-            netuid,
-            n
-        );
+        SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         run_to_block(1);
@@ -1668,7 +1662,7 @@ fn test_zero_weights() {
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX); 
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         // === Register [validator, server]
         for key in 0..n as u64 {
@@ -1918,10 +1912,7 @@ fn test_validator_permits() {
                     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), network_n as u16);
 
                     // === Issue validator permits
-                    SubtensorModule::set_max_allowed_validators(
-                        netuid,
-                        validators_n as u16
-                    );
+                    SubtensorModule::set_max_allowed_validators(netuid, validators_n as u16);
                     assert_eq!(
                         SubtensorModule::get_max_allowed_validators(netuid),
                         validators_n as u16

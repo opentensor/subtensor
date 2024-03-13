@@ -59,8 +59,7 @@ impl<T: Config> Pallet<T> {
         SubnetLimit::<T>::get()
     }
 
-    pub fn set_max_subnets(limit: u16)
-    {
+    pub fn set_max_subnets(limit: u16) {
         SubnetLimit::<T>::put(limit);
         Self::deposit_event(Event::SubnetLimitSet(limit));
     }
@@ -202,14 +201,11 @@ impl<T: Config> Pallet<T> {
                 Self::get_root_netuid(),
             )
         {
-
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
             // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
             // weight of `uid_i` with respect to `uid_j`.
             for (netuid, weight_ij) in weights_i.iter() {
-                let option = subnet_list.iter().position(|item| {
-                    item == netuid
-                });
+                let option = subnet_list.iter().position(|item| item == netuid);
 
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
@@ -227,7 +223,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_network_rate_limit() -> u64 {
         NetworkRateLimit::<T>::get()
     }
-    pub fn set_network_rate_limit( limit: u64 ) {
+    pub fn set_network_rate_limit(limit: u64) {
         NetworkRateLimit::<T>::set(limit);
         Self::deposit_event(Event::NetworkRateLimitSet(limit));
     }
@@ -309,7 +305,6 @@ impl<T: Config> Pallet<T> {
             let hotkey_stake = stake_i64[idx];
             total_stake += hotkey_stake;
             for (weight_idx, weight) in weights.iter().enumerate() {
-
                 if *weight > 0 {
                     trust[weight_idx] += hotkey_stake;
                 }
@@ -320,7 +315,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("Total_stake:\n{:?}\n", &total_stake);
 
         if total_stake == 0 {
-            return Err("No stake on network")
+            return Err("No stake on network");
         }
 
         for trust_score in trust.iter_mut() {
@@ -340,7 +335,9 @@ impl<T: Config> Pallet<T> {
         for (idx, trust_score) in trust.iter_mut().enumerate() {
             let shifted_trust = *trust_score - I64F64::from_num(Self::get_float_kappa(0)); // Range( -kappa, 1 - kappa )
             let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
-            let exponentiated_trust: I64F64 = substrate_fixed::transcendental::exp(-temperatured_trust).expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
+            let exponentiated_trust: I64F64 =
+                substrate_fixed::transcendental::exp(-temperatured_trust)
+                    .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
 
             consensus[idx] = one / (one + exponentiated_trust);
         }
@@ -477,7 +474,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-		let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+        let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
         if (members.len() as u32) == T::SenateMembers::max_members() {
@@ -590,7 +587,7 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= Self::get_network_rate_limit(), 
+            current_block.saturating_sub(last_lock_block) >= Self::get_network_rate_limit(),
             Error::<T>::TxRateLimitExceeded
         );
 
@@ -609,8 +606,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
-            log::debug!("subnet count: {:?}\nmax subnets: {:?}", Self::get_num_subnets(), Self::get_max_subnets());
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() { // We subtract one because we don't want root subnet to count towards total
+            log::debug!(
+                "subnet count: {:?}\nmax subnets: {:?}",
+                Self::get_num_subnets(),
+                Self::get_max_subnets()
+            );
+            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
+                // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
                     next_available_netuid += 1;
@@ -822,12 +824,12 @@ impl<T: Config> Pallet<T> {
         let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
-      
+
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
-        <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-            Self::get_root_netuid(),
-        )
+            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
+                Self::get_root_netuid(),
+            )
         {
             // Create a new vector to hold modified weights.
             let mut modified_weights = weights_i.clone();
@@ -900,16 +902,11 @@ impl<T: Config> Pallet<T> {
         let lock_reduction_interval = Self::get_lock_reduction_interval();
         let mult = if last_lock_block == 0 { 1 } else { 2 };
 
-        let mut lock_cost = 
+        let mut lock_cost = last_lock.saturating_mul(mult).saturating_sub(
             last_lock
-                .saturating_mul(mult)
-                .saturating_sub(
-                    last_lock
-                        .saturating_div(lock_reduction_interval)
-                        .saturating_mul(
-                            current_block.saturating_sub(last_lock_block)
-                        )
-                );
+                .saturating_div(lock_reduction_interval)
+                .saturating_mul(current_block.saturating_sub(last_lock_block)),
+        );
 
         if lock_cost < min_lock {
             lock_cost = min_lock;
@@ -934,8 +931,10 @@ impl<T: Config> Pallet<T> {
 
         // Even if we don't have a root subnet, this still works
         for netuid in NetworksAdded::<T>::iter_keys_from(NetworksAdded::<T>::hashed_key_for(0)) {
-            if current_block.saturating_sub(Self::get_network_registered_block(netuid)) < Self::get_network_immunity_period() {
-                continue
+            if current_block.saturating_sub(Self::get_network_registered_block(netuid))
+                < Self::get_network_immunity_period()
+            {
+                continue;
             }
 
             // This iterator seems to return them in order anyways, so no need to sort by key
@@ -948,13 +947,15 @@ impl<T: Config> Pallet<T> {
 
             match Self::get_emission_value(*b).cmp(&Self::get_emission_value(*a)) {
                 Ordering::Equal => {
-                    if Self::get_network_registered_block(*b) < Self::get_network_registered_block(*a) {
+                    if Self::get_network_registered_block(*b)
+                        < Self::get_network_registered_block(*a)
+                    {
                         Ordering::Less
                     } else {
                         Ordering::Equal
                     }
-                },
-                v => v
+                }
+                v => v,
             }
         });
 
@@ -962,7 +963,7 @@ impl<T: Config> Pallet<T> {
 
         match netuids.last() {
             Some(netuid) => *netuid,
-            None => 0
+            None => 0,
         }
     }
 
