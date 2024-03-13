@@ -100,7 +100,6 @@ fn test_migration_fix_total_stake_maps() {
     })
 }
 
-
 #[test]
 fn test_migration_transfer_nets_to_foundation() {
     new_test_ext().execute_with(|| {
@@ -108,18 +107,18 @@ fn test_migration_transfer_nets_to_foundation() {
         add_network(1, 1, 0);
         // Create subnet 11
         add_network(11, 1, 0);
-        
+
         log::info!("{:?}", SubtensorModule::get_subnet_owner(1));
         //assert_eq!(SubtensorModule::<T>::get_subnet_owner(1), );
 
         // Run the migration to transfer ownership
-        let hex = hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
+        let hex =
+            hex_literal::hex!["feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"];
         pallet_subtensor::migration::migrate_transfer_ownership_to_foundation::<Test>(hex);
 
         log::info!("new owner: {:?}", SubtensorModule::get_subnet_owner(1));
     })
 }
-
 
 #[test]
 fn test_migration_delete_subnet_3() {

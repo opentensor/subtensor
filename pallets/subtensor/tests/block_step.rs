@@ -14,7 +14,8 @@ fn test_loaded_emission() {
         let emission: Vec<u64> = vec![1000000000];
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
-        SubtensorModule::set_emission_values( &netuids, emission);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
+        SubtensorModule::set_emission_values(&netuids, emission);
         for i in 0..n {
             SubtensorModule::append_neuron(netuid, &U256::from(i), 0);
         }
@@ -162,7 +163,6 @@ fn test_blocks_until_epoch() {
 // /********************************************
 //     block_step::adjust_registration_terms_for_networks tests
 // *********************************************/
-
 #[test]
 fn test_burn_adjustment() {
     new_test_ext().execute_with(|| {
@@ -174,11 +174,15 @@ fn test_burn_adjustment() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
         );
-        assert_eq!( SubtensorModule::get_adjustment_interval(netuid), adjustment_interval ); // Sanity check the adjustment interval.
+        assert_eq!(
+            SubtensorModule::get_adjustment_interval(netuid),
+            adjustment_interval
+        ); // Sanity check the adjustment interval.
 
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
@@ -220,6 +224,7 @@ fn test_burn_adjustment_with_moving_average() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -277,6 +282,7 @@ fn test_burn_adjustment_case_a() {
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_min_difficulty(netuid, start_diff);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -368,6 +374,7 @@ fn test_burn_adjustment_case_b() {
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -449,6 +456,7 @@ fn test_burn_adjustment_case_c() {
         SubtensorModule::set_burn(netuid, burn_cost);
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -541,6 +549,7 @@ fn test_burn_adjustment_case_d() {
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -624,6 +633,7 @@ fn test_burn_adjustment_case_e() {
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -698,6 +708,7 @@ fn test_burn_adjustment_case_f() {
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_min_difficulty(netuid, start_diff);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -771,6 +782,7 @@ fn test_burn_adjustment_case_e_zero_registrations() {
         SubtensorModule::set_difficulty(netuid, start_diff);
         SubtensorModule::set_min_difficulty(netuid, 1);
         SubtensorModule::set_adjustment_interval(netuid, adjustment_interval);
+        SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
         SubtensorModule::set_target_registrations_per_interval(
             netuid,
             target_registrations_per_interval,
@@ -793,4 +805,3 @@ fn test_burn_adjustment_case_e_zero_registrations() {
         assert_eq!(adjusted_diff, 5_000);
     });
 }
-
