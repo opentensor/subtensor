@@ -231,11 +231,14 @@ impl<T: Config> Pallet<T> {
         let mut remaining_validator_emission: u64 = validator_emission_minus_take;
 
         // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
-        for (owning_coldkey_i, netuid, stake_i) in
-            <SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId>>::iter_prefix(
+        for (owning_coldkey_i, _) in
+            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
                 hotkey,
-            )
-        {
+        ) {
+
+            // --- Get stake for hotkey/coldkey/netuid
+            let stake_i = Self::get_stake_for_coldkey_and_hotkey( hotkey, &owning_coldkey_i, netuid );
+
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
             let stake_proportion: u64 = Self::calculate_stake_proportional_emission(
                 stake_i,

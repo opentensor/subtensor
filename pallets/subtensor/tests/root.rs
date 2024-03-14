@@ -107,6 +107,7 @@ fn test_root_register_stake_based_pruning_works() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                other_netuid,
                 1000 + (i as u64)
             ));
             // Check successful registration.
@@ -169,6 +170,7 @@ fn test_root_set_weights() {
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
+        let netuid: u16 = 1;
         let root_netuid: u16 = 0;
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
@@ -187,6 +189,7 @@ fn test_root_set_weights() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                netuid,
                 1000
             ));
         }
@@ -271,6 +274,7 @@ fn test_root_set_weights_out_of_order_netuids() {
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
+        let netuid: u16 = 1;
         let root_netuid: u16 = 0;
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
@@ -289,6 +293,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                netuid,
                 1000
             ));
         }
@@ -471,6 +476,7 @@ fn test_network_pruning() {
 
         let n: usize = 10;
         let root_netuid: u16 = 0;
+        let netuid: u16 = 1;
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16 + 1);
@@ -491,6 +497,7 @@ fn test_network_pruning() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                netuid,
                 1_000
             ));
             assert_ok!(SubtensorModule::register_network(
@@ -594,6 +601,7 @@ fn test_weights_after_network_pruning() {
 
         // Set up N subnets, with max N + 1 allowed UIDs
         let n: usize = 2;
+        let netuid: u16 = 1;
         let root_netuid: u16 = 0;
         SubtensorModule::set_network_immunity_period(3);
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
@@ -630,6 +638,7 @@ fn test_weights_after_network_pruning() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold),
             hot,
+            netuid,
             1_000
         ));
 

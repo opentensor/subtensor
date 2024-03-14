@@ -6,7 +6,8 @@ use sp_core::U256;
 
 #[test]
 fn test_migration_fix_total_stake_maps() {
-    new_test_ext(1).execute_with(|| {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
         let ck1 = U256::from(1);
         let ck2 = U256::from(2);
         let ck3 = U256::from(3);
@@ -17,7 +18,7 @@ fn test_migration_fix_total_stake_maps() {
         let mut total_stake_amount = 0;
 
         // Give each coldkey some stake in the maps
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk1, 100);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk1, netuid, 100);
         total_stake_amount += 100;
 
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck2, &hk1, netuid, 10_101);

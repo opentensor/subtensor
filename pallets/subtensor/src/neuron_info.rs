@@ -125,11 +125,17 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
-        
-        let stake: Vec<(T::AccountId, Compact<u64>)> = < SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId, u16, u64> >::iter_prefix( hotkey.clone() )
-            .map(|(coldkey, _, stake)| (coldkey, stake.into()))
-            .collect();
 
+        let mut stake = Vec::<(T::AccountId, Compact<u64>)>::new();
+        for (coldkey, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone()  ) {
+            let mut total_staked_to_delegate_i: u64 = 0;
+            for netuid_i in 0..TotalNetworks::<T>::get() {
+                total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid_i );
+            }
+            if total_staked_to_delegate_i == 0 { continue; }
+            stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
+        }
+        
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),

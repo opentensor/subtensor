@@ -348,7 +348,7 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_removed
         );
-        Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
+        Self::deposit_event(Event::StakeRemoved(hotkey, netuid, stake_to_be_removed));
 
         // --- 11. Done and ok.
         Ok(())
@@ -476,7 +476,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) {
         if !Self::hotkey_account_exists(hotkey) {
-            SubStake::<T>::insert(hotkey, coldkey, netuid, 0);
+            Stake::<T>::insert( hotkey, coldkey, 0 );
+            SubStake::<T>::insert( ( hotkey, coldkey, netuid), 0 );
             Owner::<T>::insert(hotkey, coldkey);
         }
     }
@@ -520,6 +521,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_stake_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
             hotkey,
+            netuid,
             increment,
         );
     }
@@ -530,6 +532,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
             hotkey,
+            netuid,
             decrement,
         );
     }
@@ -552,10 +555,8 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
         );
         SubStake::<T>::insert(
-            hotkey,
-            coldkey,
-            netuid,
-            Stake::<T>::get(coldkey, hotkey, netuid).saturating_add(increment),
+            (hotkey,coldkey, netuid),
+            Self::get_stake_for_coldkey_and_hotkey( hotkey, coldkey, netuid ).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
     }
@@ -577,10 +578,8 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
         );
         SubStake::<T>::insert(
-            hotkey,
-            coldkey,
-            netuid,
-            Stake::<T>::get(coldkey, hotkey, netuid).saturating_sub(decrement),
+            (hotkey, coldkey, netuid ),
+            Self::get_stake_for_coldkey_and_hotkey( hotkey, coldkey, netuid ).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
     }
@@ -671,34 +670,33 @@ impl<T: Config> Pallet<T> {
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
         // Iterate through all coldkeys that have a stake on this hotkey account.
-        for (delegate_coldkey_i, netuid, stake_i) in <SubStake<T> as IterableStorageNMap<
-            T::AccountId,
-            T::AccountId,
-            u16,
-            u64,
-        >>::iter_key_prefix
-            < (hotkey)
-        {
-            // Convert to balance and add to the coldkey account.
-            let stake_i_as_balance = Self::u64_to_balance(stake_i);
-            if stake_i_as_balance.is_none() {
-                continue; // Don't unstake if we can't convert to balance.
-            } else {
-                // Stake is successfully converted to balance.
+        // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
+        for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey ) {
+            for netuid in 0..TotalNetworks::<T>::get() {
+                // Get the stake on this uid.
+                let stake_i = Self::get_stake_for_coldkey_and_hotkey( &coldkey_i, hotkey, netuid );
 
-                // Remove the stake from the coldkey - hotkey pairing.
-                Self::decrease_stake_on_coldkey_hotkey_account(
-                    &delegate_coldkey_i,
-                    hotkey,
-                    netuid,
-                    stake_i,
-                );
+                // Convert to balance and add to the coldkey account.
+                let stake_i_as_balance = Self::u64_to_balance(stake_i);
+                if stake_i_as_balance.is_none() {
+                    continue; // Don't unstake if we can't convert to balance.
+                } else {
+                    // Stake is successfully converted to balance.
 
-                // Add the balance to the coldkey account.
-                Self::add_balance_to_coldkey_account(
-                    &delegate_coldkey_i,
-                    stake_i_as_balance.unwrap(),
-                );
+                    // Remove the stake from the coldkey - hotkey pairing.
+                    Self::decrease_stake_on_coldkey_hotkey_account(
+                        &coldkey_i,
+                        hotkey,
+                        netuid,
+                        stake_i,
+                    );
+
+                    // Add the balance to the coldkey account.
+                    Self::add_balance_to_coldkey_account(
+                        &coldkey_i,
+                        stake_i_as_balance.unwrap(),
+                    );
+                }
             }
         }
     }

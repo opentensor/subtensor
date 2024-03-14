@@ -1917,7 +1917,7 @@ fn test_validator_permits() {
                         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                             &U256::from(key),
                             &U256::from(key),
-                            network_n,
+                            network_n as u16,
                             stake[key as usize],
                         );
                     }
@@ -1952,7 +1952,7 @@ fn test_validator_permits() {
                         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
-                            network_n,
+                            network_n as u16,
                             2 * network_n as u64,
                         );
                     }
