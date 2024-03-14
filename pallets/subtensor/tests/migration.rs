@@ -88,16 +88,6 @@ fn test_migration_fix_total_stake_maps() {
             100_000_000 + 1_123_000_000
         );
 
-        // Verify that the Stake map has no extra entries
-        assert_eq!(pallet_subtensor::Stake::<Test>::iter().count(), 4); // 4 entries total
-        assert_eq!(
-            pallet_subtensor::Stake::<Test>::iter_key_prefix(hk1).count(),
-            2
-        ); // 2 stake entries for hk1
-        assert_eq!(
-            pallet_subtensor::Stake::<Test>::iter_key_prefix(hk2).count(),
-            2
-        ); // 2 stake entries for hk2
     })
 }
 

@@ -387,7 +387,7 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
 
         // Now we iterate over the entire stake map, and sum each coldkey stake
         //   We also track TotalStake
-        for (_, coldkey, stake) in Stake::<T>::iter() {
+        for (( hotkey, coldkey, netuid ), stake) in SubStake::<T>::iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
             // Get the current coldkey stake
             let mut total_coldkey_stake = TotalColdkeyStake::<T>::get(coldkey.clone());

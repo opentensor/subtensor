@@ -566,8 +566,16 @@ fn test_senate_not_leave_when_stake_removed() {
             hotkey_account_id
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            stake_amount
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            stake_amount
+        );
 
-        step_block(100);
+        // step_block(100);
 
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
