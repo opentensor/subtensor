@@ -537,6 +537,12 @@ impl<T: Config> Pallet<T> {
         );
     }
 
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+        SubStake::<T>::try_get(( hotkey, coldkey, netuid )).unwrap_or(0)
+    }
+
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
     // This function should be called rather than set_stake under account.
     //
@@ -546,6 +552,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         increment: u64,
     ) {
+        if increment == 0 { return; }
         TotalColdkeyStake::<T>::insert(
             coldkey,
             TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),
@@ -554,9 +561,14 @@ impl<T: Config> Pallet<T> {
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
         );
+        Stake::<T>::insert(
+            hotkey,
+            coldkey,
+            Stake::<T>::get( hotkey, coldkey ).saturating_add( increment )
+        );
         SubStake::<T>::insert(
-            (hotkey,coldkey, netuid),
-            Self::get_stake_for_coldkey_and_hotkey( hotkey, coldkey, netuid ).saturating_add(increment),
+            (hotkey, coldkey, netuid),
+            SubStake::<T>::try_get(( hotkey, coldkey, netuid )).unwrap_or(0).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
     }
@@ -569,6 +581,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         decrement: u64,
     ) {
+        if decrement == 0 { return; }
         TotalColdkeyStake::<T>::insert(
             coldkey,
             TotalColdkeyStake::<T>::get(coldkey).saturating_sub(decrement),
@@ -577,9 +590,14 @@ impl<T: Config> Pallet<T> {
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
         );
+        Stake::<T>::insert(
+            hotkey,
+            coldkey,
+            Stake::<T>::get( hotkey, coldkey ).saturating_sub(decrement)
+        );
         SubStake::<T>::insert(
             (hotkey, coldkey, netuid ),
-            Self::get_stake_for_coldkey_and_hotkey( hotkey, coldkey, netuid ).saturating_sub(decrement),
+            SubStake::<T>::try_get(( hotkey, coldkey, netuid )).unwrap_or(0).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
     }
@@ -670,9 +688,8 @@ impl<T: Config> Pallet<T> {
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
         // Iterate through all coldkeys that have a stake on this hotkey account.
-        // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
         for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey ) {
-            for netuid in 0..TotalNetworks::<T>::get() {
+            for netuid in 0..(TotalNetworks::<T>::get()+1) {
                 // Get the stake on this uid.
                 let stake_i = Self::get_stake_for_coldkey_and_hotkey( &coldkey_i, hotkey, netuid );
 

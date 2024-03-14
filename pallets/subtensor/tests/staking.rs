@@ -158,6 +158,7 @@ fn test_add_stake_not_registered_key_pair() {
         let hotkey_account_id = U256::from(54544);
         let amount = 1337;
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 1800);
+        add_network(netuid, 0, 0 );
         assert_eq!(
             SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -1874,6 +1875,7 @@ fn test_full_with_delegating_some_servers() {
         let coldkey1 = U256::from(4);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+        add_network(netuid, 0, 0);
         SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
 
         // Neither key can add stake because they dont have fundss.
@@ -1901,8 +1903,6 @@ fn test_full_with_delegating_some_servers() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60000);
 
         // Register the 2 neurons to a new network.
-        let netuid = 1;
-        add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
         assert_eq!(
@@ -2213,6 +2213,8 @@ fn test_full_block_emission_occurs() {
 
         let coldkey0 = U256::from(3);
         let coldkey1 = U256::from(4);
+        
+        add_network(netuid, 0, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
         SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
@@ -2242,8 +2244,6 @@ fn test_full_block_emission_occurs() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60000);
 
         // Register the 2 neurons to a new network.
-        let netuid = 1;
-        add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
         assert_eq!(

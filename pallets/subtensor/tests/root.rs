@@ -189,7 +189,7 @@ fn test_root_set_weights() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
-                netuid,
+                root_netuid,
                 1000
             ));
         }
@@ -274,7 +274,6 @@ fn test_root_set_weights_out_of_order_netuids() {
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
-        let netuid: u16 = 1;
         let root_netuid: u16 = 0;
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
@@ -293,7 +292,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
-                netuid,
+                root_netuid,
                 1000
             ));
         }
@@ -466,6 +465,8 @@ fn test_root_subnet_creation_deletion() {
     });
 }
 
+// Run this test using the following bash command:
+// cargo test --package pallet-subtensor --test root test_network_pruning
 #[test]
 fn test_network_pruning() {
     new_test_ext(1).execute_with(|| {
@@ -494,14 +495,14 @@ fn test_network_pruning() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot
             ));
+            assert_ok!(SubtensorModule::register_network(
+                <<Test as Config>::RuntimeOrigin>::signed(cold)
+            ));
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
                 netuid,
                 1_000
-            ));
-            assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(cold)
             ));
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
             assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));

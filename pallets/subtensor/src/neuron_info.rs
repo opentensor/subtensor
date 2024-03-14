@@ -129,7 +129,7 @@ impl<T: Config> Pallet<T> {
         let mut stake = Vec::<(T::AccountId, Compact<u64>)>::new();
         for (coldkey, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone()  ) {
             let mut total_staked_to_delegate_i: u64 = 0;
-            for netuid_i in 0..TotalNetworks::<T>::get() {
+            for netuid_i in 0..(TotalNetworks::<T>::get()+1) {
                 total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid_i );
             }
             if total_staked_to_delegate_i == 0 { continue; }

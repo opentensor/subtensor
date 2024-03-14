@@ -221,6 +221,7 @@ impl<T: Config> Pallet<T> {
             return;
         }
         // Then this is a delegate, we distribute validator_emission, then server_emission.
+        log::debug!("Delegate: hotkey: {:?}, netuid: {:?}, server_emission: {:?}, validator_emission: {:?}", hotkey, netuid, server_emission, validator_emission);
 
         // --- 2. The hotkey is a delegate. We first distribute a proportion of the validator_emission to the hotkey
         // directly as a function of its 'take'
@@ -231,16 +232,18 @@ impl<T: Config> Pallet<T> {
         let mut remaining_validator_emission: u64 = validator_emission_minus_take;
 
         // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
+        log::debug!("Delegate: hotkey: {:?}, total_hotkey_stake: {:?}, delegate_take: {:?} validator_emission_minus_take: {:?} remaining_validator_emission: {:?}", hotkey, total_hotkey_stake, delegate_take, validator_emission_minus_take, remaining_validator_emission);
+
         for (owning_coldkey_i, _) in
             <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
                 hotkey,
         ) {
 
             // --- Get stake for hotkey/coldkey/netuid
-            let stake_i = Self::get_stake_for_coldkey_and_hotkey( hotkey, &owning_coldkey_i, netuid );
+            let stake_i = Self::get_stake_for_coldkey_and_hotkey(&owning_coldkey_i, hotkey, netuid );
 
             // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_proportion: u64 = Self::calculate_stake_proportional_emission(
+            let stake_proportion_emission: u64 = Self::calculate_stake_proportional_emission(
                 stake_i,
                 total_hotkey_stake,
                 validator_emission_minus_take,
@@ -249,16 +252,10 @@ impl<T: Config> Pallet<T> {
                 &owning_coldkey_i,
                 &hotkey,
                 netuid,
-                stake_proportion,
+                stake_proportion_emission,
             );
-            log::debug!(
-                "owning_coldkey_i: {:?}, hotkey: {:?}, netuid: {:?} emission: +{:?} ",
-                owning_coldkey_i,
-                hotkey,
-                netuid,
-                stake_proportion
-            );
-            remaining_validator_emission -= stake_proportion;
+            log::debug!("Delegate: hotkey: {:?}, coldkey: {:?}, netuid: {:?}, stake_i: {:?}, delegate_take: {:?}, stake_proportion_emission: {:?} ", hotkey, owning_coldkey_i, netuid, stake_i, delegate_take, stake_proportion_emission);
+            remaining_validator_emission -= stake_proportion_emission;
         }
 
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
@@ -266,13 +263,9 @@ impl<T: Config> Pallet<T> {
         Self::increase_stake_on_hotkey_account(
             &hotkey,
             netuid,
-            delegate_take + remaining_validator_emission,
+            delegate_take + remaining_validator_emission + server_emission ,
         );
-        log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take);
-        // Also emit the server_emission to the hotkey
-        // The server emission is distributed in-full to the delegate owner.
-        // We do this after 4. for the same reason as above.
-        Self::increase_stake_on_hotkey_account(&hotkey, netuid, server_emission);
+        log::debug!("Delegate: hotkey: {:?}, netuid: {:?}, delegate_take: {:?}, remaining_validator_emission: {:?}, server_emission: {:?} ", hotkey, netuid, delegate_take, remaining_validator_emission, server_emission);
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
