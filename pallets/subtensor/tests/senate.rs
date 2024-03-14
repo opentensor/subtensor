@@ -99,6 +99,7 @@ fn test_senate_join_works() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
@@ -168,6 +169,7 @@ fn test_senate_vote_works() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
@@ -338,6 +340,7 @@ fn test_senate_leave_works() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
@@ -408,6 +411,7 @@ fn test_senate_leave_vote_removal() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
@@ -470,6 +474,7 @@ fn test_senate_leave_vote_removal() {
             assert_ok!(SubtensorModule::add_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                netuid,
                 100_000_000 + (i as u64)
             ));
             // Register them on the root network.
@@ -544,6 +549,7 @@ fn test_senate_not_leave_when_stake_removed() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             stake_amount
         ));
         assert_eq!(
@@ -566,6 +572,7 @@ fn test_senate_not_leave_when_stake_removed() {
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             stake_amount
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);

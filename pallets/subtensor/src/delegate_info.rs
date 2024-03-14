@@ -1,7 +1,6 @@
 use super::*;
 use substrate_fixed::types::{U64F64};
 use frame_support::IterableStorageDoubleMap;
-use frame_support::IterableStorageNMap;
 use frame_support::storage::IterableStorageMap;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
@@ -23,14 +22,16 @@ pub struct DelegateInfo<T: Config> {
 
 impl<T: Config> Pallet<T> {
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
+
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
-
-        for ( nominator, _, stake ) in < SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId, u16, u64> >::iter_prefix( delegate.clone() ) {
-            if stake == 0 { continue; }
-            // Only add nominators with stake
-            nominators.push((nominator.clone(), stake.into()));
+        for (nominator, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate.clone() ) {
+            let mut total_staked_to_delegate_i: u64 = 0;
+            for netuid_i in 0..TotalNetworks::<T>::get() {
+                total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &nominator, &delegate, netuid_i );
+            }
+            if total_staked_to_delegate_i == 0 { continue; }
+            nominators.push((nominator.clone(), total_staked_to_delegate_i.into()));
         }
-
         let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
         let mut validator_permits = Vec::<Compact<u16>>::new();
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);
@@ -117,14 +118,16 @@ impl<T: Config> Pallet<T> {
         for delegate in
             <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys().into_iter()
         {
-            let staked_to_this_delegatee =
-                Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone());
-            if staked_to_this_delegatee == 0 {
+            let mut total_staked_to_delegate_i: u64 = 0;
+            for netuid_i in 0..TotalNetworks::<T>::get() {
+                total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &delegatee, &delegate, netuid_i );
+            }
+            if total_staked_to_delegate_i == 0 {
                 continue; // No stake to this delegate
             }
             // Staked to this delegate, so add to list
             let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-            delegates.push((delegate_info, staked_to_this_delegatee.into()));
+            delegates.push((delegate_info, total_staked_to_delegate_i.into()));
         }
 
         return delegates;
