@@ -255,6 +255,17 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> stake | Returns the total stake attached to a hotkey on a subnet.
+    pub type TotalHotkeySubStake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u64,
+        ValueQuery,
+        DefaultAccountTake<T>,
+    >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<
         _, 
@@ -266,6 +277,8 @@ pub mod pallet {
         u64,
         ValueQuery
     >;
+    #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
+    pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultAllowsDelegation<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
