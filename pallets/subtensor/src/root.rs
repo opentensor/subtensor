@@ -28,6 +28,17 @@ use substrate_fixed::{
 };
 
 impl<T: Config> Pallet<T> {
+
+    // Retrieves a boolean true is subnet emissions are determined by 
+    // subnet specific staking.
+    //    
+    // # Returns:
+    // * 'bool': Whether subnet emissions are determined by subnet specific staking.
+    //
+    pub fn subnet_staking_on() -> bool {
+        SubnetStakingOn::<T>::get()
+    }   
+
     // Retrieves the unique identifier (UID) for the root network.
     //
     // The root network is a special case and has a fixed UID of 0.
@@ -229,6 +240,14 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn get_network_rate_limit() -> u64 {
+        NetworkRateLimit::<T>::get()
+    }
+    pub fn set_network_rate_limit(limit: u64) {
+        NetworkRateLimit::<T>::set(limit);
+        Self::deposit_event(Event::NetworkRateLimitSet(limit));
+    }
+
     // Retrieves weight matrix associated with the root network.
     //  Weights represent the preferences for each subnetwork.
     //
@@ -277,20 +296,62 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    pub fn get_network_rate_limit() -> u64 {
-        NetworkRateLimit::<T>::get()
-    }
-    pub fn set_network_rate_limit(limit: u64) {
-        NetworkRateLimit::<T>::set(limit);
-        Self::deposit_event(Event::NetworkRateLimitSet(limit));
-    }
-
     // Computes and sets emission values for the root network which determine the emission for all subnets.
     //
-    // This function is responsible for calculating emission based on network weights, stake values,
-    // and registered hotkeys.
     //
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
+
+        if Self::subnet_staking_on() {
+            return Self::get_subnet_staking_emission_values( block_number );
+        } else {
+            return Self::get_root_network_emission_values( block_number );
+        }
+        
+    }
+
+    pub fn get_subnet_staking_emission_values( block_number: u64 ) -> Result<(), &'static str>  {
+
+        // --- 0. Determines the total block emission across all the subnetworks. This is the
+        // value which will be distributed based on the computation below.
+        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
+        log::debug!("block_emission:\n{:?}\n", block_emission);
+
+        // --- 1. Obtains the number of registered subnets.
+        let num_subnets: u16 = Self::get_all_subnet_netuids().len() as u16;
+        log::debug!("num subnets:\n{:?}\n", num_subnets );
+
+        // --- 2. Sum all stake across subnets.
+        let mut sum_stake = I64F64::from_num(0.0);
+        let mut normalized_total_stake = vec![ I64F64::from_num(0.0); num_subnets as usize ];
+        for ((_, _, netuid), stake) in SubStake::<T>::iter() {
+            sum_stake.saturating_add( I64F64::from_num(stake) );
+            normalized_total_stake[ netuid as usize ].saturating_add( I64F64::from_num(stake) );
+        }
+        log::debug!("Absolute Stake:\n{:?}\n", &normalized_total_stake);
+
+        // --- 3. Normalize stake values.
+        inplace_normalize_64(&mut normalized_total_stake);
+        log::debug!("Normalized Stake:\n{:?}\n", &normalized_total_stake);
+
+        // -- 4. Translate into emission.
+        let emission_as_tao: Vec<I64F64> = normalized_total_stake
+            .iter()
+            .map(|v: &I64F64| *v * block_emission)
+            .collect();
+        log::debug!("Emission as TAO_f64:\n{:?}\n", &emission_as_tao);
+
+        // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
+        log::debug!("Emission as TAO_u64:\n{:?}\n", &emission_u64);
+
+        // --- 13. Set the emission values for each subnet directly.
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
+
+        return Self::set_emission_values(&netuids, emission_u64);
+    }
+
+    pub fn get_root_network_emission_values( block_number: u64 )-> Result<(), &'static str> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
@@ -422,6 +483,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
 
         return Self::set_emission_values(&netuids, emission_u64);
+
     }
 
     // Registers a user's hotkey to the root network.

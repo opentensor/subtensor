@@ -390,6 +390,12 @@ impl<T: Config> Pallet<T> {
         return TotalHotkeyStake::<T>::get(hotkey);
     }
 
+    // Returns the total amount of stake under a hotkey for a subnet (delegative or otherwise)
+    //
+    pub fn get_total_stake_for_hotkey_and_subnet( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+        return TotalHotkeySubStake::<T>::get(hotkey, netuid);
+    }
+
     // Returns the total amount of stake held by the coldkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
@@ -561,6 +567,11 @@ impl<T: Config> Pallet<T> {
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
         );
+        TotalHotkeySubStake::<T>::insert(
+            hotkey,
+            netuid,
+            TotalHotkeySubStake::<T>::get(hotkey, netuid).saturating_add(increment),
+        );
         Stake::<T>::insert(
             hotkey,
             coldkey,
@@ -589,6 +600,11 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::insert(
             hotkey,
             TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
+        );
+        TotalHotkeySubStake::<T>::insert(
+            hotkey,
+            netuid,
+            TotalHotkeySubStake::<T>::get(hotkey, netuid).saturating_sub(decrement),
         );
         Stake::<T>::insert(
             hotkey,
