@@ -18,7 +18,7 @@ name = "node-subtensor"
 
 [dependencies]
 clap = { version = "4.0.9", features = ["derive"] }
-futures = { version = "0.3.21", features = ["thread-pool"]}
+futures = { version = "0.3.21", features = ["thread-pool"] }
 serde = { version = "1.0.145", features = ["derive"] }
 
 # Storage import
@@ -47,7 +47,7 @@ sp-inherents = { version = "4.0.0-dev", git = "https://github.com/paritytech/sub
 sp-keyring = { version = "7.0.0", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 frame-system = { version = "4.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 pallet-transaction-payment = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
-pallet-commitments = {path="../pallets/commitments"}
+pallet-commitments = { path = "../pallets/commitments" }
 
 # These dependencies are used for the subtensor's RPCs
 jsonrpsee = { version = "0.16.2", features = ["server"] }
@@ -87,4 +87,7 @@ pow-faucet = []
 
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
-try-runtime = ["node-subtensor-runtime/try-runtime", "try-runtime-cli/try-runtime"]
+try-runtime = [
+	"node-subtensor-runtime/try-runtime",
+	"try-runtime-cli/try-runtime",
+]

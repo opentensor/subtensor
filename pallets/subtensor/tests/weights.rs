@@ -79,7 +79,6 @@ fn test_weights_err_no_validator_permit() {
     });
 }
 
-
 // To execute this test: cargo test --package pallet-subtensor --test weights test_set_weights_min_stake_failed -- --nocapture`
 #[test]
 #[cfg(not(tarpaulin))]
@@ -96,12 +95,12 @@ fn test_set_weights_min_stake_failed() {
         SubtensorModule::set_weights_min_stake(20_000_000_000_000);
 
         // Check the signed extension function.
-        assert_eq!( SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
-        assert_eq!( SubtensorModule::check_weights_min_stake(&hotkey), false);
+        assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
+        assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), false);
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
-        assert_eq!( SubtensorModule::check_weights_min_stake(&hotkey), false);
+        assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), false);
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
-        assert_eq!( SubtensorModule::check_weights_min_stake(&hotkey), true);
+        assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), true);
 
         // Check that it fails at the pallet level.
         SubtensorModule::set_weights_min_stake(100_000_000_000_000);
@@ -117,15 +116,13 @@ fn test_set_weights_min_stake_failed() {
         );
         // Now passes
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
-        assert_ok!(
-            SubtensorModule::set_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                dests.clone(),
-                weights.clone(),
-                version_key,
-            ),
-        );
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            dests.clone(),
+            weights.clone(),
+            version_key,
+        ),);
     });
 }
 
@@ -298,7 +295,7 @@ fn test_weights_err_has_duplicate_ids() {
         SubtensorModule::set_max_allowed_uids(netuid, 100); // Allow many registrations per block.
         SubtensorModule::set_max_registrations_per_block(netuid, 100); // Allow many registrations per block.
         SubtensorModule::set_target_registrations_per_interval(netuid, 100); // Allow many registrations per block.
-        // uid 0
+                                                                             // uid 0
         register_ok_neuron(netuid, hotkey_account_id, U256::from(77), 0);
         let neuron_uid: u16 =
             SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
@@ -497,7 +494,7 @@ fn test_set_weight_not_enough_values() {
         let neuron_uid: u16 = SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(1))
             .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX );
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
         register_ok_neuron(1, U256::from(3), U256::from(4), 300000);
         SubtensorModule::set_min_allowed_weights(netuid, 2);
