@@ -962,7 +962,6 @@ impl
 }
 
 impl pallet_admin_utils::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AuraId;
     type MaxAuthorities = ConstU32<32>;
     type Aura = AuraPalletIntrf;

@@ -131,7 +131,8 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
+        // TODO: Consider adding difficulty to SubnetHyperparams
+        let _difficulty = Self::get_difficulty_as_u64(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
         let max_weights_limit = Self::get_max_weight_limit(netuid);

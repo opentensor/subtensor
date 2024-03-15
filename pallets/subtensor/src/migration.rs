@@ -113,8 +113,12 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i);
-        T::SenateMembers::remove_member(&hotkey_i);
+        if let Err(_) = T::TriumvirateInterface::remove_votes(&hotkey_i) {
+            info!(target: LOG_TARGET_1, ">>> Error in T::TriumvirateInterface::remove_votes");
+        }
+        if let Err(_) = T::SenateMembers::remove_member(&hotkey_i) {
+            info!(target: LOG_TARGET_1, ">>> Error in T::SenateMembers::remove_member");
+        }
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }

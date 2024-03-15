@@ -1,5 +1,4 @@
 use super::*;
-use crate::system::ensure_root;
 use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_system::ensure_signed;
