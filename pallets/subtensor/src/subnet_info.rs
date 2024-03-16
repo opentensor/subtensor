@@ -4,7 +4,6 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use alloc::vec::Vec;
 use codec::Compact;
-use sp_core::U256;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
