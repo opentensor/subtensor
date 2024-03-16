@@ -4,6 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use alloc::vec::Vec;
 use codec::Compact;
+use sp_core::U256;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
@@ -74,7 +75,7 @@ impl<T: Config> Pallet<T> {
         let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
         let adjustment_alpha: Compact<u64> = Self::get_adjustment_alpha(netuid).into();
-        let difficulty: Compact<u64> = Self::get_difficulty(netuid).into();
+        let difficulty: Compact<u64> = Self::get_difficulty_as_u64(netuid).into();
         let bonds_moving_avg: Compact<u64> = Self::get_bonds_moving_average(netuid).into();
 
         // DEPRECATED
@@ -101,9 +102,6 @@ impl<T: Config> Pallet<T> {
             emission_values: emission_values.into(),
             burn,
             difficulty: difficulty.into(),
-            adjustment_alpha: adjustment_alpha.into(),
-            bonds_moving_avg: bonds_moving_avg.into(),
-
             owner: Self::get_subnet_owner(netuid).into(),
         });
     }
@@ -158,7 +156,6 @@ impl<T: Config> Pallet<T> {
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
 
-
         return Some(SubnetHyperparams {
             rho: rho.into(),
             kappa: kappa.into(),
@@ -181,7 +178,7 @@ impl<T: Config> Pallet<T> {
             serving_rate_limit: serving_rate_limit.into(),
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
-            difficulty: difficulty.into()
+            difficulty: difficulty.into(),
         });
     }
 }
