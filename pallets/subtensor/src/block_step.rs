@@ -11,6 +11,7 @@ impl<T: Config> Pallet<T> {
     pub fn block_step() -> Result<(), &'static str> {
         let block_number: u64 = Self::get_current_block_as_u64();
         log::debug!("block_step for block: {:?} ", block_number);
+        /*
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Calculate per-subnet emissions
@@ -23,7 +24,8 @@ impl<T: Config> Pallet<T> {
         // --- 3. Drains emission tuples ( hotkey, amount ).
         Self::drain_emission(block_number);
         // --- 4. Generates emission tuples from epoch functions.
-        Self::generate_emission(block_number);
+        Self::generate_emission(block_number); */
+        
         // Return ok.
         Ok(())
     }
