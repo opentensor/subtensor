@@ -737,6 +737,9 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
             for (uid_j, weight_ij) in weights_i.iter() {
+                if *uid_j >= n {
+                    continue;
+                }
                 weights[uid_i as usize].push((*uid_j, I32F32::from_num(*weight_ij)));
             }
         }
