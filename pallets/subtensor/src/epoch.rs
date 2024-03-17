@@ -733,6 +733,9 @@ impl<T: Config> Pallet<T> {
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
         {
+            if uid_i >= n {
+                continue;
+            }
             for (uid_j, weight_ij) in weights_i.iter() {
                 weights[uid_i as usize].push((*uid_j, I32F32::from_num(*weight_ij)));
             }
