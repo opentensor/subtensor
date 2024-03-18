@@ -501,9 +501,9 @@ fn testnet_genesis(
     _root_key: AccountId,
     _endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
-    _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
-    _balances: Vec<(AccountId, u64)>,
-    _balances_issuance: u64,
+    stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
+    balances: Vec<(AccountId, u64)>,
+    balances_issuance: u64,
 ) -> GenesisConfig {
     GenesisConfig {
         system: SystemConfig {
@@ -512,11 +512,12 @@ fn testnet_genesis(
         },
         balances: BalancesConfig {
             // Configure sudo balance
-            balances: vec![(
-                Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx")
-                    .unwrap(),
-                1000000000000,
-            )],
+            // balances: vec![(
+            //     Ss58Codec::from_ss58check("5GpzQgpiAKHMWNSH3RN4GLf96GVTDct9QxYEFAY7LWcVzTbx")
+            //         .unwrap(),
+            //     1000000000000,
+            // )],
+            balances: balances.iter().cloned().map(|k| k).collect(),
         },
         aura: AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -534,7 +535,10 @@ fn testnet_genesis(
             ),
         },
         transaction_payment: Default::default(),
-        subtensor_module: Default::default(),
+        subtensor_module: SubtensorModuleConfig {
+            stakes: stakes,
+            balances_issuance: balances_issuance,
+        },
         triumvirate: TriumvirateConfig {
             // Add initial authorities as collective members
             members: Default::default(), //initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
