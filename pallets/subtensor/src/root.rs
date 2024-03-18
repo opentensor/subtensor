@@ -825,6 +825,9 @@ impl<T: Config> Pallet<T> {
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
 
+        // --- 8. Removes the weights for this subnet (do not remove).
+        let _ = Weights::<T>::clear_prefix(netuid, u32::max_value(), None);
+
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
