@@ -2,6 +2,7 @@
 
 - [Running docker](#running-docker)
 - [Compiling your own binary](#compiling-your-own-binary)
+- [Running on cloud](#running-on-cloud)
 
 ## Running docker
 
@@ -71,3 +72,6 @@ sudo ./scripts/run/subtensor.sh -e docker --network testnet --node-type lite
 ```bash
 sudo ./scripts/run/subtensor.sh -e docker --network testnet --node-type archive
 ```
+
+## Running on cloud
+We have not tested these installation scripts on any cloud service. In addition, if you are using Runpod cloud service, then note that this service is already [containerized](https://docs.runpod.io/pods/overview). Hence, the only option available to you is to compile from the source, as described in the above [Compiling your own binary](#compiling-your-own-binary) section. Note that these scripts have not been tested on Runpod.
