@@ -14,7 +14,7 @@ use pallet_grandpa::{
 };
 
 use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureNever, EnsureRoot, RawOrigin};
+use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
 use pallet_registry::CanRegisterIdentity;
 use smallvec::smallvec;

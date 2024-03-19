@@ -468,7 +468,7 @@ benchmarks_instance_pallet! {
             false,
         )?;
 
-        System::<T>::set_block_number(BlockNumberFor<T>::max_value());
+        System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
         // Prime nay will close it as disapproved
@@ -537,7 +537,7 @@ benchmarks_instance_pallet! {
         }
 
         // caller is prime, prime already votes aye by creating the proposal
-        System::<T>::set_block_number(BlockNumberFor<T>::max_value());
+        System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
         // Prime aye will close it as approved
@@ -586,7 +586,7 @@ benchmarks_instance_pallet! {
             last_hash = T::Hashing::hash_of(&proposal);
         }
 
-        System::<T>::set_block_number(BlockNumberFor<T>::max_value());
+        System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
     }: _(SystemOrigin::Root, last_hash)

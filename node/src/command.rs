@@ -13,9 +13,16 @@ pub use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
 #[cfg(feature = "runtime-benchmarks")]
 pub use sp_keyring::Sr25519Keyring;
 
+#[cfg(feature = "try-runtime")]
+use {
+    kitchensink_runtime::constants::time::SLOT_DURATION,
+    try_runtime_cli::block_building_info::substrate_info,
+};
+
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
+
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -212,11 +219,13 @@ pub fn run() -> sc_cli::Result<()> {
                 let task_manager =
                     sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
                         .map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
+                let info_provider = substrate_info(SLOT_DURATION);
+
                 Ok((
                     cmd.run::<Block, ExtendedHostFunctions<
                         sp_io::SubstrateHostFunctions,
                         <ExecutorDispatch as NativeExecutionDispatch>::ExtendHostFunctions,
-                    >>(),
+                    >, _>(Some(info_provider)),
                     task_manager,
                 ))
             })

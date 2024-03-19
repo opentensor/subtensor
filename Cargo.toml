@@ -13,3 +13,6 @@ panic = "unwind"
 
 [profile.test]
 opt-level = 3
+
+[workspace.lints.clippy]
+indexing_slicing = { level = "deny", priority = 2 } # Direct indexing can lead to panics

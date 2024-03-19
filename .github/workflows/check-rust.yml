@@ -101,7 +101,10 @@ jobs:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: cargo fmt
-        run: cargo fmt --check
+        run: cargo fmt --check --all-targets --all-features
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features
 
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
       - name: cargo test
@@ -117,4 +120,3 @@ jobs:
       - name: Build executable
         # timeout-minutes: 30
         run: cargo build --release
-
