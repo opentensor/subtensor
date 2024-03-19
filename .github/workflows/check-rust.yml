@@ -1,4 +1,4 @@
-name: Rust Checks
+name: CI
 
 concurrency:
   group: ci-${{ github.ref }}
