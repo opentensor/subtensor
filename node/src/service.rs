@@ -5,6 +5,7 @@ use node_subtensor_runtime::{self, opaque::Block, RuntimeApi};
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
+use sc_executor::sp_wasm_interface::{Function, HostFunctionRegistry, HostFunctions};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_keystore::LocalKeystore;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
@@ -15,6 +16,19 @@ use std::{sync::Arc, time::Duration};
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
+
+impl HostFunctions for ExecutorDispatch {
+    fn host_functions() -> Vec<&'static dyn Function> {
+        vec![]
+    }
+
+    fn register_static<T>(_registry: &mut T) -> core::result::Result<(), T::Error>
+    where
+        T: HostFunctionRegistry,
+    {
+        Ok(())
+    }
+}
 
 impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
     // Only enable the benchmarking host functions when we actually want to benchmark.
