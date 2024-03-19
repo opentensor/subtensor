@@ -101,7 +101,7 @@ jobs:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: cargo fmt
-        run: cargo fmt --check --all-targets --all-features
+        run: cargo fmt --check --all
 
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features
