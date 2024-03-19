@@ -55,7 +55,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2023-03-05
+          - nightly-2024-03-05
 
         rust-target:
           - x86_64-unknown-linux-gnu
