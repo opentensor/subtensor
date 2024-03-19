@@ -93,6 +93,7 @@ jobs:
         uses: actions-rs/toolchain@v1.0.6
         with:
           toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
           profile: minimal
 
       - name: Utilize Rust shared cached
