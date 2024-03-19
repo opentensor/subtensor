@@ -71,9 +71,6 @@ node-subtensor-runtime = { version = "4.0.0-dev", path = "../runtime" }
 subtensor-custom-rpc = { path = "../pallets/subtensor/rpc" }
 subtensor-custom-rpc-runtime-api = { path = "../pallets/subtensor/runtime-api" }
 
-# Node-specific dependencies
-kitchensink-runtime = { version = "3.0.0-dev", git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-
 # CLI-specific dependencies
 try-runtime-cli = { version = "0.10.0-dev", optional = true, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 
