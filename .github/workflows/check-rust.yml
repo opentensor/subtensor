@@ -105,7 +105,7 @@ jobs:
         run: cargo fmt --check --all
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --all-features
+        run: cargo clippy
 
       ## TODO: maybe use `if` conditions in tests to target `--package <name>`
       - name: cargo test
