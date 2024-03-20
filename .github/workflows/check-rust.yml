@@ -241,6 +241,9 @@ jobs:
       RUST_BIN_DIR: target/${{ matrix.rust-target }}
       SKIP_WASM_BUILD: 1
       TARGET: ${{ matrix.rust-target }}
+    lints:
+      deny:
+        - indexing_slicing
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v2
@@ -263,7 +266,7 @@ jobs:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: cargo clippy
-        run: cargo clippy
+        run: cargo clippy -D ${{ join(lints.deny, ' -D ') }}
 
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
