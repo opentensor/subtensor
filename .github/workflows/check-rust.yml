@@ -263,7 +263,12 @@ jobs:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
       - name: cargo clippy
-        run: cargo clippy -- -D clippy::indexing_slicing
+        run: cargo clippy -- -D clippy::indexing_slicing \
+                             -D clippy::panic \
+                             -D clippy::todo \
+                             -D clippy::unwrap_used \
+                             -D clippy::unreachable \
+                             -D clippy::unimplemented
 
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
