@@ -212,6 +212,14 @@ pub mod pallet {
         1_000_000_000
     }
     #[pallet::type_value]
+    pub fn DefaultTotalSupply<T: Config>() -> u64 {
+        21_000_000
+    }
+    #[pallet::type_value]
+    pub fn DefaultHalvingInterval<T: Config>() -> u64 {
+        1_000_000
+    }
+    #[pallet::type_value]
     pub fn DefaultAllowsDelegation<T: Config>() -> bool {
         false
     }
@@ -230,6 +238,10 @@ pub mod pallet {
     pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
+    #[pallet::storage] // --- ITEM ( total_supply )
+    pub type TotalSupply<T> = StorageValue<_, u64, ValueQuery, DefaultTotalSupply<T>>;
+    #[pallet::storage] // --- ITEM ( halving_interval )
+    pub type HalvingInterval<T> = StorageValue<_, u64, ValueQuery, DefaultHalvingInterval<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
