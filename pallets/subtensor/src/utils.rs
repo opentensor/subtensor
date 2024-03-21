@@ -49,10 +49,19 @@ impl<T: Config> Pallet<T> {
     ) {
         BurnRegistrationsThisInterval::<T>::insert(netuid, burn_registrations_this_interval);
     }
+    pub fn set_block_emission(new_value: u64) {
+        BlockEmission::<T>::put(new_value);
+    }
 
     // ========================
     // ==== Global Getters ====
     // ========================
+    pub fn get_total_supply() -> u64 {
+        TotalSupply::<T>::get()
+    }
+    pub fn get_halving_interval() -> u64 {
+        HalvingInterval::<T>::get()
+    }
     pub fn get_total_issuance() -> u64 {
         TotalIssuance::<T>::get()
     }

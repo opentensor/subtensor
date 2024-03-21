@@ -13,7 +13,9 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Calculate per-subnet emissions
+        // --- 2. Adjust for potential halving
+        Self::check_halving(block_number);
+        // --- 3. Calculate per-subnet emissions
         match Self::root_epoch(block_number) {
             Ok(_) => (),
             Err(e) => {
@@ -80,6 +82,29 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_loaded_emission_tuples(netuid: u16) -> Vec<(T::AccountId, u64, u64)> {
         LoadedEmission::<T>::get(netuid).unwrap()
+    }
+
+    // Determines if due for a halving at the current block and
+    // updates emissions if so.
+    //
+    pub fn check_halving(block_number: u64) {
+        let halving_period = Self::get_halving_interval();
+        if block_number != 0 && block_number % halving_period == 0 {
+            let new_emission = Self::get_block_emission() / 2;
+            let total_supply = Self::get_total_supply();
+            let total_issuance = Self::get_total_issuance();
+
+            if total_issuance + new_emission < total_supply {
+                Self::set_block_emission(new_emission);
+            } else {
+                Self::set_block_emission(0);
+            }
+            log::info!(
+                "Halving event at block {}: New block emission is {}",
+                block_number,
+                new_emission
+            );
+        }
     }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
