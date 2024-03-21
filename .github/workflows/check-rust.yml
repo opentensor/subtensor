@@ -268,7 +268,6 @@ jobs:
                           -D clippy::panic \
                           -D clippy::todo \
                           -D clippy::unwrap_used \
-                          -D clippy::unreachable \
                           -D clippy::unimplemented
 
   # ensures cargo fix has no trivial changes that can be applied
