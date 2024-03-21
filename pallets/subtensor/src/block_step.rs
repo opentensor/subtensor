@@ -14,7 +14,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Adjust for potential halving
-        Self::check_halving(block_number);
+        Self::check_halving();
         // --- 3. Calculate per-subnet emissions
         match Self::root_epoch(block_number) {
             Ok(_) => (),
@@ -85,29 +85,37 @@ impl<T: Config> Pallet<T> {
     }
 
     // Determines if due for a halving at the current block and
-    // updates emissions if so.
+    // updates block emissions if so.
     //
-    pub fn check_halving(block_number: u64) {
-        let halving_period = Self::get_halving_interval();
-        if block_number != 0 && block_number % halving_period == 0 {
-            let current_emission = Self::get_block_emission();
-            
-            if current_emission == 0 {
-                return;
-            } // halvings are complete, no more emission
+    pub fn check_halving() {
+        let total_issuance = Self::get_total_issuance();
+        let current_emission = Self::get_block_emission();
+        let last_halving_issuance = Self::get_last_halving_issuance();
 
-            let new_emission = current_emission / 2;
-            let total_supply = Self::get_total_supply();
-            let total_issuance = Self::get_total_issuance();
+        let is_halving = match total_issuance {
+            0..=10_499_999 => false,
+            10_500_000..=20_999_999 => 10_500_000 > last_halving_issuance,
+            21_000_000..=31_499_999 => 21_000_000 > last_halving_issuance,
+            31_500_000..=41_999_999 => 31_500_000 > last_halving_issuance,
+            42_000_000..=52_499_999 => 42_000_000 > last_halving_issuance,
+            _ => {
+                if current_emission == 0 {
+                    return;
+                } //Halvings are already complete
 
-            if total_issuance + new_emission < total_supply {
-                Self::set_block_emission(new_emission);
-            } else {
                 Self::set_block_emission(0);
+                Self::set_last_halving_issuance(total_issuance);
+                return;
             }
+        };
+
+        if is_halving {
+            let new_emission = current_emission / 2;
+            Self::set_block_emission(new_emission);
+            Self::set_last_halving_issuance(total_issuance);
             log::info!(
-                "Halving event at block {}: New block emission is {}",
-                block_number,
+                "Halving event at total issuance {}: New block emission is {}",
+                total_issuance,
                 new_emission
             );
         }

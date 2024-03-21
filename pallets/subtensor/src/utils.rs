@@ -53,17 +53,14 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ==== Global Getters ====
     // ========================
-    pub fn get_total_supply() -> u64 {
-        TotalSupply::<T>::get()
-    }
-    pub fn get_halving_interval() -> u64 {
-        HalvingInterval::<T>::get()
-    }
     pub fn get_total_issuance() -> u64 {
         TotalIssuance::<T>::get()
     }
     pub fn get_block_emission() -> u64 {
         BlockEmission::<T>::get()
+    }
+    pub fn get_last_halving_issuance() -> u64 {
+        LastHalvingIssuance::<T>::get()
     }
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
@@ -565,16 +562,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
     pub fn set_total_issuance(total_issuance: u64) {
-        TotalIssuance::<T>::put(total_issuance);
+        TotalIssuance::<T>::put(total_issuance)
+    }
+    pub fn set_last_halving_issuance(issuance: u64) {
+        LastHalvingIssuance::<T>::put(issuance)
     }
     pub fn set_block_emission(new_value: u64) {
         BlockEmission::<T>::put(new_value);
-    }
-    pub fn set_halving_interval(new_value: u64) {
-        HalvingInterval::<T>::put(new_value)
-    }
-    pub fn set_total_supply(new_value: u64) {
-        TotalSupply::<T>::put(new_value)
     }
     pub fn get_rao_recycled(netuid: u16) -> u64 {
         RAORecycledForRegistration::<T>::get(netuid)

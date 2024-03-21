@@ -167,62 +167,70 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_halving() {
     new_test_ext().execute_with(|| {
-        let initial_emission = 100_000;
-        let halving_interval = 10;
-        let total_supply = 1_000_000;
-        SubtensorModule::set_block_emission(initial_emission);
-        SubtensorModule::set_halving_interval(halving_interval);
-        SubtensorModule::set_total_supply(total_supply);
-        SubtensorModule::set_total_issuance(0);
+        let milestones: [(u64, u64); 11] = [
+            (0, 1_000_000_000),        // Before any halving
+            (10_500_000, 500_000_000), // First halving event
+            (15_750_000, 500_000_000), // After first halving, before second
+            (21_000_000, 250_000_000), // Second halving event
+            (26_250_000, 250_000_000), // After second halving, before third
+            (31_500_000, 125_000_000), // Third halving event
+            (36_750_000, 125_000_000), // After third halving, before fourth
+            (42_000_000, 62_500_000),  // Fourth halving event
+            (47_250_000, 62_500_000),  // After fourth halving, before fifth
+            (52_500_000, 0),           // Fifth halving event
+            (57_750_000, 0),           // After fifth halving, emission should be zero
+        ];
 
-        let mut expected_emission = initial_emission;
-
-        for _ in 1..=50 {
+        for (issuance, expected_emission) in milestones.iter() {
+            SubtensorModule::set_total_issuance(*issuance);
             step_block(1);
-            let block_number = SubtensorModule::get_current_block_as_u64();
-
-            if block_number as u64 % halving_interval == 0 {
-                expected_emission /= 2;
-            }
 
             let current_emission = SubtensorModule::get_block_emission();
-
             assert_eq!(
-                current_emission, expected_emission,
-                "Incorrect emission at block {}",
-                block_number
+                current_emission, *expected_emission,
+                "Incorrect emission {} at total issuance {}",
+                current_emission, issuance
             );
         }
     });
 }
 
 #[test]
-fn test_issuance_hard_cap() {
+fn test_issuance_never_exceeds_hard_cap() {
     new_test_ext().execute_with(|| {
-        let initial_emission = 1_000_000;
-        let halving_interval = 10;
-        let total_supply = 21_000_000;
-        SubtensorModule::set_block_emission(initial_emission);
-        SubtensorModule::set_halving_interval(halving_interval);
-        SubtensorModule::set_total_supply(total_supply);
-        SubtensorModule::set_total_issuance(0);
-
-        let mut total_issuance = 0_u64;
-
-        for _ in 1..=1000 {
+        // Define milestones for total issuance that simulate the progress towards and beyond the hard cap
+        let milestones: [(u64, u64); 8] = [
+            (10_499_999, 1_000_000_000), // Just before the first halving event
+            (10_500_000, 500_000_000),   // First halving event
+            (21_000_000, 250_000_000),   // Second halving event
+            (31_500_000, 125_000_000),   // Third halving event
+            (42_000_000, 62_500_000),    // Fourth halving event
+            (52_499_999, 62_500_000),    // Just before the fifth halving
+            (52_500_000, 0), // Point at which emissions stop, simulating the fifth halving
+            (52_500_000, 0), // One more just for fun
+        ];
+        for (issuance, expected_emission) in milestones.iter() {
+            SubtensorModule::set_total_issuance(*issuance);
             step_block(1);
-
             let current_emission = SubtensorModule::get_block_emission();
-            total_issuance += current_emission;
+
+            assert_eq!(
+                current_emission, *expected_emission,
+                "At issuance {}, expected emission was {}, but got {}",
+                issuance, expected_emission, current_emission
+            );
         }
+
+        let final_issuance = SubtensorModule::get_total_issuance();
         assert!(
-            total_issuance <= total_supply,
-            "Total issuance should never exceed the total supply cap of 21 million"
+            final_issuance <= 52_500_000,
+            "Total issuance exceeded the expected limit after halvings"
         );
+
         assert_eq!(
             SubtensorModule::get_block_emission(),
             0,
-            "Block emission should be zero to not exceed the total supply cap"
+            "Block emission was not zero after the final milestone"
         );
     });
 }
