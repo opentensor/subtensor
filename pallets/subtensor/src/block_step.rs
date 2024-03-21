@@ -90,7 +90,13 @@ impl<T: Config> Pallet<T> {
     pub fn check_halving(block_number: u64) {
         let halving_period = Self::get_halving_interval();
         if block_number != 0 && block_number % halving_period == 0 {
-            let new_emission = Self::get_block_emission() / 2;
+            let current_emission = Self::get_block_emission();
+            
+            if current_emission == 0 {
+                return;
+            } // halvings are complete, no more emission
+
+            let new_emission = current_emission / 2;
             let total_supply = Self::get_total_supply();
             let total_issuance = Self::get_total_issuance();
 
