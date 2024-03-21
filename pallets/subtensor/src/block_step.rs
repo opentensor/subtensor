@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
         let current_emission = Self::get_block_emission();
         let last_halving_issuance = Self::get_last_halving_issuance();
 
-        let is_halving = match total_issuance {
+        let is_halving: bool = match total_issuance {
             0..=10_499_999 => false,
             10_500_000..=20_999_999 => 10_500_000 > last_halving_issuance,
             21_000_000..=31_499_999 => 21_000_000 > last_halving_issuance,
