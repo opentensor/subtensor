@@ -235,7 +235,8 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( last_halving_issuance )
-    pub type LastHalvingIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultLastHalvingIssuance<T>>;
+    pub type LastHalvingIssuance<T> =
+        StorageValue<_, u64, ValueQuery, DefaultLastHalvingIssuance<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
