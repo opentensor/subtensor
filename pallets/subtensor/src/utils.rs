@@ -49,9 +49,6 @@ impl<T: Config> Pallet<T> {
     ) {
         BurnRegistrationsThisInterval::<T>::insert(netuid, burn_registrations_this_interval);
     }
-    pub fn set_block_emission(new_value: u64) {
-        BlockEmission::<T>::put(new_value);
-    }
 
     // ========================
     // ==== Global Getters ====
@@ -567,11 +564,18 @@ impl<T: Config> Pallet<T> {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
-
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }
-
+    pub fn set_block_emission(new_value: u64) {
+        BlockEmission::<T>::put(new_value);
+    }
+    pub fn set_halving_interval(new_value: u64) {
+        HalvingInterval::<T>::put(new_value)
+    }
+    pub fn set_total_supply(new_value: u64) {
+        TotalSupply::<T>::put(new_value)
+    }
     pub fn get_rao_recycled(netuid: u16) -> u64 {
         RAORecycledForRegistration::<T>::get(netuid)
     }
