@@ -165,6 +165,69 @@ fn test_root_register_stake_based_pruning_works() {
 }
 
 #[test]
+fn test_halving() {
+    new_test_ext().execute_with(|| {
+        let initial_emission = 100_000;
+        let halving_interval = 10;
+        let total_supply = 1_000_000;
+        SubtensorModule::set_block_emission(initial_emission);
+        SubtensorModule::set_halving_interval(halving_interval);
+        SubtensorModule::set_total_supply(total_supply);
+        SubtensorModule::set_total_issuance(0);
+
+        let mut expected_emission = initial_emission;
+
+        for _ in 1..=50 {
+            step_block(1);
+            let block_number = SubtensorModule::get_current_block_as_u64();
+
+            if block_number as u64 % halving_interval == 0 {
+                expected_emission /= 2;
+            }
+
+            let current_emission = SubtensorModule::get_block_emission();
+
+            assert_eq!(
+                current_emission, expected_emission,
+                "Incorrect emission at block {}",
+                block_number
+            );
+        }
+    });
+}
+
+#[test]
+fn test_issuance_hard_cap() {
+    new_test_ext().execute_with(|| {
+        let initial_emission = 1_000_000;
+        let halving_interval = 10;
+        let total_supply = 21_000_000;
+        SubtensorModule::set_block_emission(initial_emission);
+        SubtensorModule::set_halving_interval(halving_interval);
+        SubtensorModule::set_total_supply(total_supply);
+        SubtensorModule::set_total_issuance(0);
+
+        let mut total_issuance = 0_u64;
+
+        for _ in 1..=1000 {
+            step_block(1);
+
+            let current_emission = SubtensorModule::get_block_emission();
+            total_issuance += current_emission;
+        }
+        assert!(
+            total_issuance <= total_supply,
+            "Total issuance should never exceed the total supply cap of 21 million"
+        );
+        assert_eq!(
+            SubtensorModule::get_block_emission(),
+            0,
+            "Block emission should be zero to not exceed the total supply cap"
+        );
+    });
+}
+
+#[test]
 fn test_root_set_weights() {
     new_test_ext().execute_with(|| {
         migration::migrate_create_root_network::<Test>();
