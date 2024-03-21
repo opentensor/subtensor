@@ -167,16 +167,18 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_halving() {
     new_test_ext().execute_with(|| {
-        let milestones: [(u64, u64); 11] = [
+        let milestones: [(u64, u64); 13] = [
             (0, 1_000_000_000),        // Before any halving
+            (100, 1_000_000_000),
+            (50_000, 1_000_000_000),
             (10_500_000, 500_000_000), // First halving event
-            (15_750_000, 500_000_000), // After first halving, before second
+            (15_750_000, 500_000_000),
             (21_000_000, 250_000_000), // Second halving event
-            (26_250_000, 250_000_000), // After second halving, before third
+            (26_250_000, 250_000_000),
             (31_500_000, 125_000_000), // Third halving event
-            (36_750_000, 125_000_000), // After third halving, before fourth
+            (36_750_000, 125_000_000),
             (42_000_000, 62_500_000),  // Fourth halving event
-            (47_250_000, 62_500_000),  // After fourth halving, before fifth
+            (47_250_000, 62_500_000),
             (52_500_000, 0),           // Fifth halving event
             (57_750_000, 0),           // After fifth halving, emission should be zero
         ];
@@ -199,15 +201,21 @@ fn test_halving() {
 fn test_issuance_never_exceeds_hard_cap() {
     new_test_ext().execute_with(|| {
         // Define milestones for total issuance that simulate the progress towards and beyond the hard cap
-        let milestones: [(u64, u64); 8] = [
-            (10_499_999, 1_000_000_000), // Just before the first halving event
+        let milestones: [(u64, u64); 14] = [
+            (100, 1_000_000_000),
+            (50_000, 1_000_000_000),
+            (10_499_999, 1_000_000_000),
             (10_500_000, 500_000_000),   // First halving event
+            (15_750_000, 500_000_000),
             (21_000_000, 250_000_000),   // Second halving event
+            (26_250_000, 250_000_000),
             (31_500_000, 125_000_000),   // Third halving event
+            (36_750_000, 125_000_000),
             (42_000_000, 62_500_000),    // Fourth halving event
-            (52_499_999, 62_500_000),    // Just before the fifth halving
+            (47_250_000, 62_500_000),
+            (52_499_999, 62_500_000),    
             (52_500_000, 0), // Point at which emissions stop, simulating the fifth halving
-            (52_500_000, 0), // One more just for fun
+            (52_500_000, 0),
         ];
         for (issuance, expected_emission) in milestones.iter() {
             SubtensorModule::set_total_issuance(*issuance);
