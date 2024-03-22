@@ -465,7 +465,7 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    pub fn DefaultLastMechansimStepBlock<T: Config>() -> u64 {
+    pub fn DefaultLastMechanismStepBlock<T: Config>() -> u64 {
         0
     }
     #[pallet::type_value]
@@ -494,7 +494,7 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T>>;
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
     #[pallet::storage]
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
