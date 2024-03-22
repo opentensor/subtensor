@@ -17,6 +17,7 @@ use std::{sync::Arc, time::Duration};
 // Our native executor instance.
 pub struct ExecutorDispatch;
 
+// appeasing the compiler, this is a no-op
 impl HostFunctions for ExecutorDispatch {
     fn host_functions() -> Vec<&'static dyn Function> {
         vec![]
