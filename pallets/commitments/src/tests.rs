@@ -7,7 +7,6 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, ConstU16, IdentityLookup},
-    BuildStorage,
 };
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
