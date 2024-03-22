@@ -1,6 +1,6 @@
 use frame_support::{
     parameter_types,
-    traits::{Everything, Hooks, StorageMapShim},
+    traits::{Everything, Hooks},
     weights,
 };
 use frame_system as system;
@@ -9,12 +9,10 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
     BuildStorage, DispatchError,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
