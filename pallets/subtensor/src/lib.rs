@@ -820,7 +820,7 @@ pub mod pallet {
         // parameters. [something, who]
         NetworkAdded(u16, u16), // --- Event created when a new network is added.
         NetworkRemoved(u16),    // --- Event created when a network is removed.
-        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
+        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transferred from the a coldkey account onto the hotkey staking account.
         StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
         WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
         NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
@@ -830,12 +830,12 @@ pub mod pallet {
         MaxWeightLimitSet(u16, u16), // --- Event created when the max weight limit has been set for a subnetwork.
         DifficultySet(u16, u64), // --- Event created when the difficulty has been set for a subnet.
         AdjustmentIntervalSet(u16, u16), // --- Event created when the adjustment interval is set for a subnet.
-        RegistrationPerIntervalSet(u16, u16), // --- Event created when registeration per interval is set for a subnet.
+        RegistrationPerIntervalSet(u16, u16), // --- Event created when registration per interval is set for a subnet.
         MaxRegistrationsPerBlockSet(u16, u16), // --- Event created when we set max registrations per block.
         ActivityCutoffSet(u16, u16), // --- Event created when an activity cutoff is set for a subnet.
         RhoSet(u16, u16),            // --- Event created when Rho value is set.
         KappaSet(u16, u16),          // --- Event created when Kappa is set for a subnet.
-        MinAllowedWeightSet(u16, u16), // --- Event created when minimun allowed weight is set for a subnet.
+        MinAllowedWeightSet(u16, u16), // --- Event created when minimum allowed weight is set for a subnet.
         ValidatorPruneLenSet(u16, u64), // --- Event created when the validator pruning length has been set.
         ScalingLawPowerSet(u16, u16), // --- Event created when the scaling law power has been set for a subnet.
         WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet.
@@ -848,8 +848,8 @@ pub mod pallet {
         DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
         DefaultTakeSet(u16), // --- Event created when the default take is set.
         WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
-        MinDifficultySet(u16, u64), // --- Event created when setting min difficutly on a network.
-        MaxDifficultySet(u16, u64), // --- Event created when setting max difficutly on a network.
+        MinDifficultySet(u16, u64), // --- Event created when setting min difficulty on a network.
+        MaxDifficultySet(u16, u64), // --- Event created when setting max difficulty on a network.
         ServingRateLimitSet(u16, u64), // --- Event created when setting the prometheus serving rate limit.
         BurnSet(u16, u64),             // --- Event created when setting burn on a network.
         MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
@@ -863,7 +863,7 @@ pub mod pallet {
         WeightsMinStake(u64), // --- Event created when min stake is set for validators to set weights.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
-        Faucet(T::AccountId, u64),    // Event created when the facuet it called on the test net.
+        Faucet(T::AccountId, u64),    // Event created when the faucet it called on the test net.
         SubnetOwnerCutSet(u16),       // Event created when the subnet owner cut is set.
         NetworkRateLimitSet(u64),     // Event created when the network creation rate limit is set.
         NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
@@ -902,14 +902,14 @@ pub mod pallet {
         InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative.
         InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
         InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
-        MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids.
+        MaxAllowedUIdsNotAllowed, // ---  Thrown if the value is invalid for MaxAllowedUids.
         CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
         StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
         MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.
         TempoHasNotSet,         // --- Thrown when tempo has not set.
         InvalidTempo,           // --- Thrown when tempo is not valid.
-        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks.
+        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or received emission rates does not match number of networks.
         InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
         AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
         SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
