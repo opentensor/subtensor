@@ -659,7 +659,7 @@ fn test_weights_after_network_pruning() {
         );
         log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
         let i = (n as u16) + 1;
-        let hot: U256 = U256::from(i);
+        let _hot: U256 = U256::from(i);
         let cold: U256 = U256::from(i);
 
         SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000_000);

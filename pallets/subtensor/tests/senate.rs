@@ -18,7 +18,7 @@ use pallet_subtensor::Error;
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
 
-    let mut ext: sp_io::TestExternalities = GenesisConfig {
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
         senate_members: pallet_membership::GenesisConfig::<Test, pallet_membership::Instance2> {
             members: bounded_vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
             phantom: Default::default(),
