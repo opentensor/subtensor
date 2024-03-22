@@ -457,7 +457,8 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
     ) {
-        T::Currency::deposit_creating(&coldkey, amount); // Infallibe
+        // infallible
+        let _ = T::Currency::deposit_creating(&coldkey, amount);
     }
 
     pub fn set_balance_on_coldkey_account(
