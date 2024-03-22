@@ -331,7 +331,7 @@ pub struct IdentityInfo<FieldLimit: Get<u32>> {
 }
 
 impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
-    pub(crate) fn fields(&self) -> IdentityFields {
+    pub fn fields(&self) -> IdentityFields {
         let mut res = <BitFlags<IdentityField>>::empty();
         if !self.display.is_none() {
             res.insert(IdentityField::Display);
