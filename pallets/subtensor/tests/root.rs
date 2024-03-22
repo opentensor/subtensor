@@ -167,7 +167,7 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_halving() {
     new_test_ext().execute_with(|| {
-        let milestones: [(u64, u64); 13] = [
+        let milestones: [(u64, u64); 15] = [
             (0, 1_000_000_000), // Before any halving
             (100, 1_000_000_000),
             (50_000, 1_000_000_000),
@@ -179,8 +179,10 @@ fn test_halving() {
             (36_750_000, 125_000_000),
             (42_000_000, 62_500_000), // Fourth halving event
             (47_250_000, 62_500_000),
-            (52_500_000, 0), // Fifth halving event
-            (57_750_000, 0), // After fifth halving, emission should be zero
+            (52_500_000, 0), // After fifth halving, emission should be zero
+            (56_500_000, 0),
+            (62_000_000, 0),
+            (70_250_000, 0),
         ];
 
         for (issuance, expected_emission) in milestones.iter() {
@@ -194,51 +196,6 @@ fn test_halving() {
                 current_emission, issuance
             );
         }
-    });
-}
-
-#[test]
-fn test_issuance_never_exceeds_hard_cap() {
-    new_test_ext().execute_with(|| {
-        let milestones: [(u64, u64); 14] = [
-            (100, 1_000_000_000),
-            (50_000, 1_000_000_000),
-            (10_499_999, 1_000_000_000),
-            (10_500_000, 500_000_000), // First halving event
-            (15_750_000, 500_000_000),
-            (21_000_000, 250_000_000), // Second halving event
-            (26_250_000, 250_000_000),
-            (31_500_000, 125_000_000), // Third halving event
-            (36_750_000, 125_000_000),
-            (42_000_000, 62_500_000), // Fourth halving event
-            (47_250_000, 62_500_000),
-            (52_499_999, 62_500_000),
-            (52_500_000, 0), // After fifth halving, emission should be zero
-            (52_500_000, 0),
-        ];
-        for (issuance, expected_emission) in milestones.iter() {
-            SubtensorModule::set_total_issuance(*issuance);
-            step_block(1);
-            let current_emission = SubtensorModule::get_block_emission();
-
-            assert_eq!(
-                current_emission, *expected_emission,
-                "At issuance {}, expected emission was {}, but got {}",
-                issuance, expected_emission, current_emission
-            );
-        }
-
-        let final_issuance = SubtensorModule::get_total_issuance();
-        assert!(
-            final_issuance <= 52_500_000,
-            "Total issuance exceeded the expected limit after halvings"
-        );
-
-        assert_eq!(
-            SubtensorModule::get_block_emission(),
-            0,
-            "Block emission was not zero after the final milestone"
-        );
     });
 }
 

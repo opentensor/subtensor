@@ -92,26 +92,30 @@ impl<T: Config> Pallet<T> {
         let current_emission = Self::get_block_emission();
         let last_halving_issuance = Self::get_last_halving_issuance();
 
-        let is_halving: bool = match total_issuance {
-            0..=10_499_999 => false,
-            10_500_000..=20_999_999 => 10_500_000 > last_halving_issuance,
-            21_000_000..=31_499_999 => 21_000_000 > last_halving_issuance,
-            31_500_000..=41_999_999 => 31_500_000 > last_halving_issuance,
-            42_000_000..=52_499_999 => 42_000_000 > last_halving_issuance,
-            _ => {
-                if current_emission == 0 {
-                    return;
-                } //Halvings are already complete
+        // Assuming halving occurs every 10,500,000 tokens.
+        const HALVING_INTERVAL: u64 = 10_500_000;
+        // Calculate the number of halvings that should have occurred by now.
+        let halvings = total_issuance / HALVING_INTERVAL;
+        // Emissions cap after 5 halvings
+        let expected_halvings = if halvings <= 5 { halvings } else { 5 };
+        // Calculate the number of halvings that had occurred by the last recorded issuance.
+        let actual_halvings = last_halving_issuance / HALVING_INTERVAL;
 
+        // Check if a new halving event should occur.
+        if expected_halvings > actual_halvings {
+            if current_emission == 0 {
+                // Halvings are already complete, or no emission to halve.
+                return;
+            }
+            if expected_halvings == 5 {
                 Self::set_block_emission(0);
                 Self::set_last_halving_issuance(total_issuance);
                 return;
             }
-        };
-
-        if is_halving {
+            // Halve the current emission and update the last halving issuance.
             let new_emission = current_emission / 2;
             Self::set_block_emission(new_emission);
+            // Update the last halving issuance to the current total issuance.
             Self::set_last_halving_issuance(total_issuance);
             log::info!(
                 "Halving event at total issuance {}: New block emission is {}",
