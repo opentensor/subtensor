@@ -57,7 +57,7 @@ use frame_support::{
     traits::{
         Backing, ChangeMembers, EnsureOrigin, Get, GetBacking, InitializeMembers, StorageVersion,
     },
-    weights::{OldWeight, Weight},
+    weights::Weight,
 };
 
 #[cfg(test)]
