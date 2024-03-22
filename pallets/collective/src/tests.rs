@@ -45,7 +45,7 @@ frame_support::construct_runtime!(
 
 mod mock_democracy {
     pub use pallet::*;
-    #[frame_support::pallet]
+    #[frame_support::pallet(dev_mode)]
     pub mod pallet {
         use frame_support::pallet_prelude::*;
         use frame_system::pallet_prelude::*;
@@ -63,7 +63,6 @@ mod mock_democracy {
         #[pallet::call]
         impl<T: Config> Pallet<T> {
             #[pallet::call_index(0)]
-            #[pallet::weight(0)]
             pub fn external_propose_majority(origin: OriginFor<T>) -> DispatchResult {
                 T::ExternalMajorityOrigin::ensure_origin(origin)?;
                 Self::deposit_event(Event::<T>::ExternalProposed);
