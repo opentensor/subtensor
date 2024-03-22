@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::sp_std::vec;
-use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.

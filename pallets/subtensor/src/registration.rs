@@ -1,12 +1,9 @@
 use super::*;
-use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
+use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use frame_support::storage::IterableStorageDoubleMap;
-use frame_system::ensure_signed;
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::MultiAddress;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &'static str = "runtime::subtensor::registration";
