@@ -1,8 +1,11 @@
 use frame_support::sp_std::vec;
 use sp_runtime::traits::CheckedAdd;
-use sp_std::vec::Vec;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
+
+// TODO: figure out what cfg gate this needs to not be a warning in rustc
+#[allow(unused)]
+use sp_std::vec::Vec;
 
 #[allow(dead_code)]
 pub fn fixed(val: f32) -> I32F32 {
@@ -1112,8 +1115,7 @@ pub fn sparse_threshold(w: &Vec<Vec<(u16, I32F32)>>, threshold: I32F32) -> Vec<V
 mod tests {
     use crate::math::*;
     use rand::{seq::SliceRandom, thread_rng, Rng};
-    use substrate_fixed::transcendental::exp;
-    use substrate_fixed::types::{I110F18, I32F32, I64F64, I96F32};
+    use substrate_fixed::types::{I110F18, I96F32};
 
     fn assert_float_compare(a: I32F32, b: I32F32, epsilon: I32F32) {
         assert!(I32F32::abs(a - b) <= epsilon, "a({:?}) != b({:?})", a, b);
