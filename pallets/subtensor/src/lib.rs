@@ -932,7 +932,7 @@ pub mod pallet {
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
         FaucetDisabled,         // --- Thrown when the faucet is disabled
         NotSubnetOwner,
-        OperationNotPermittedonRootSubnet,
+        OperationNotPermittedOnRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
