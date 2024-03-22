@@ -1,13 +1,8 @@
-use super::{Event as CommitmentEvent, *};
+#![allow(non_camel_case_types)]
+
+use super::*;
 use crate as pallet_commitments;
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::Pays,
-    parameter_types,
-    traits::{ConstU32, ConstU64, GenesisBuild, StorageMapShim},
-    Hashable,
-};
-use frame_system::{EnsureRoot, EventRecord, Phase};
+use frame_support::traits::ConstU64;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -95,12 +90,12 @@ impl pallet_commitments::Config for Test {
     type RateLimit = frame_support::traits::ConstU64<0>;
 }
 
-// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::<Test>::default()
-        .build_storage()
-        .unwrap();
-    let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(1));
-    ext
-}
+// // Build genesis storage according to the mock runtime.
+// pub fn new_test_ext() -> sp_io::TestExternalities {
+//     let t = frame_system::GenesisConfig::<Test>::default()
+//         .build_storage()
+//         .unwrap();
+//     let mut ext = sp_io::TestExternalities::new(t);
+//     ext.execute_with(|| System::set_block_number(1));
+//     ext
+// }
