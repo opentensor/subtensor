@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![allow(non_camel_case_types)]
+
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
 use frame_support::{
@@ -34,7 +36,8 @@ pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
-    pub enum Test {
+    pub enum Test
+    {
         System: frame_system::{Pallet, Call, Event<T>},
         Collective: pallet_collective::<Instance1>::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
         CollectiveMajority: pallet_collective::<Instance2>::{Pallet, Call, Event<T>, Origin<T>, Config<T>},
@@ -42,7 +45,6 @@ frame_support::construct_runtime!(
         Democracy: mock_democracy::{Pallet, Call, Event<T>},
     }
 );
-
 mod mock_democracy {
     pub use pallet::*;
     #[frame_support::pallet(dev_mode)]
