@@ -316,16 +316,16 @@ pub struct Registration<
     pub info: CommitmentInfo<MaxFields>,
 }
 
-impl<
-        Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
-        MaxFields: Get<u32>,
-        Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
-    > Registration<Balance, MaxFields, Block>
-{
-    pub(crate) fn total_deposit(&self) -> Balance {
-        self.deposit
-    }
-}
+// impl<
+//         Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
+//         MaxFields: Get<u32>,
+//         Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
+//     > Registration<Balance, MaxFields, Block>
+// {
+//     pub(crate) fn total_deposit(&self) -> Balance {
+//         self.deposit
+//     }
+// }
 
 impl<
         Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
