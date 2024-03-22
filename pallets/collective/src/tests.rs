@@ -238,7 +238,7 @@ impl Config for Test {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let mut ext: sp_io::TestExternalities = GenesisConfig {
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
         collective: pallet_collective::GenesisConfig {
             members: vec![1, 2, 3],
             phantom: Default::default(),
