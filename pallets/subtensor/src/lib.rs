@@ -1671,7 +1671,7 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if Uids::<T>::contains_key(netuid, &hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-                let _stake = Self::get_total_stake_for_hotkey(&hotkey);
+                let stake = Self::get_total_stake_for_hotkey(&hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
@@ -1906,6 +1906,11 @@ where
 }
 
 use frame_support::sp_std::vec;
+
+// TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
+// used not 25 lines below
+#[allow(unused)]
+use sp_std::vec::Vec;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
