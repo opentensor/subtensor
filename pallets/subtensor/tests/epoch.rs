@@ -1577,6 +1577,8 @@ fn test_outdated_weights() {
             0,
             &U256::from(new_key),
         );
+        assert_eq!(System::block_number(), block_number);
+        assert_eq!(block_number, 1);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(new_key)),
             netuid,
