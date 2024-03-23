@@ -1372,6 +1372,17 @@ pub mod pallet {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            Self::do_add_stake( origin, hotkey, 0, amount_staked )
+        }
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_ref_time(65_000_000)
+		.saturating_add(T::DbWeight::get().reads(8))
+		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        pub fn add_subnet_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
             netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
