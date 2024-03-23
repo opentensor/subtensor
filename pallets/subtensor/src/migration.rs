@@ -76,7 +76,8 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
         info!(target: LOG_TARGET_1, ">>> Migrating subnet 1 and 11 to foundation control {:?}", onchain_version);
 
         // We have to decode this using a byte slice as we don't have crypto-std
-        let coldkey_account: <T as frame_system::Config>::AccountId = <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
+        let coldkey_account: <T as frame_system::Config>::AccountId =
+            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
         info!("Foundation coldkey: {:?}", coldkey_account);
 
         let current_block = Pallet::<T>::get_current_block_as_u64();
@@ -118,7 +119,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
 
     // Set the root network as added.
     NetworksAdded::<T>::insert(root_netuid, true);
-    
+
     // Increment the number of total networks.
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
@@ -156,7 +157,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
         T::SenateMembers::remove_member(&hotkey_i);
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-    }  
+    }
 
     weight
 }
@@ -173,7 +174,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 3 {:?}", onchain_version);
-        
+
         let netuid = 3;
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
@@ -235,7 +236,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
 
         // Update storage version.
         StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update version so we don't run this again.
-        // One write to storage version
+                                                                     // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         weight
@@ -257,7 +258,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(21) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 21 {:?}", onchain_version);
-        
+
         let netuid = 21;
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
@@ -319,7 +320,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
 
         // Update storage version.
         StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update version so we don't run this again.
-        // One write to storage version
+                                                                     // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         weight

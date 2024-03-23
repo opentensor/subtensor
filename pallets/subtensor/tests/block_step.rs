@@ -15,7 +15,7 @@ fn test_loaded_emission() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
-        SubtensorModule::set_emission_values( &netuids, emission);
+        SubtensorModule::set_emission_values(&netuids, emission);
         for i in 0..n {
             SubtensorModule::append_neuron(netuid, &U256::from(i), 0);
         }
@@ -163,7 +163,6 @@ fn test_blocks_until_epoch() {
 // /********************************************
 //     block_step::adjust_registration_terms_for_networks tests
 // *********************************************/
-
 #[test]
 fn test_burn_adjustment() {
     new_test_ext().execute_with(|| {
@@ -180,7 +179,10 @@ fn test_burn_adjustment() {
             netuid,
             target_registrations_per_interval,
         );
-        assert_eq!( SubtensorModule::get_adjustment_interval(netuid), adjustment_interval ); // Sanity check the adjustment interval.
+        assert_eq!(
+            SubtensorModule::get_adjustment_interval(netuid),
+            adjustment_interval
+        ); // Sanity check the adjustment interval.
 
         // Register key 1.
         let hotkey_account_id_1 = U256::from(1);
@@ -803,4 +805,3 @@ fn test_burn_adjustment_case_e_zero_registrations() {
         assert_eq!(adjusted_diff, 5_000);
     });
 }
-

@@ -12,16 +12,19 @@ repository = "https://github.com/opentensor/subtensor/"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
-[profile.test]
-opt-level = 3
-
 [dependencies]
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../pallets/subtensor" }
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = "1.6.1"
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
-scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-serde_json = { version = "1.0.85", default-features = false, features = ["alloc"] }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
+	"derive",
+] }
+scale-info = { version = "2.1.1", default-features = false, features = [
+	"derive",
+] }
+serde_json = { version = "1.0.85", default-features = false, features = [
+	"alloc",
+] }
 pallet-aura = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 pallet-balances = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 frame-support = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -52,7 +55,7 @@ pallet-admin-utils = { version = "4.0.0-dev", default-features = false, path = "
 
 # Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../pallets/collective" }
-pallet-membership = {version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
+pallet-membership = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 
 # Multisig
 pallet-multisig = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
@@ -121,7 +124,7 @@ std = [
 	"pallet-collective/std",
 	"pallet-membership/std",
 	"pallet-registry/std",
-	"pallet-admin-utils/std"
+	"pallet-admin-utils/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -138,7 +141,7 @@ runtime-benchmarks = [
 	"pallet-membership/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
-	"pallet-admin-utils/runtime-benchmarks"
+	"pallet-admin-utils/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
