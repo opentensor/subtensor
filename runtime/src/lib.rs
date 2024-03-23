@@ -523,55 +523,57 @@ pub enum ProxyType {
 	Registration,
 }
 impl Default for ProxyType { fn default() -> Self { Self::Any } } // allow all Calls; required to be most permissive
-impl InstanceFilter<Call> for ProxyType {
-	fn filter(&self, c: &Call) -> bool {
+impl InstanceFilter<RuntimeCall> for ProxyType {
+	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
 			ProxyType::Any => true,
 			ProxyType::NonTransfer => !matches!(
 				c,
-				Call::Balances(..)
+				RuntimeCall::Balances(..)
 			),
 			ProxyType::NonFungibile => !matches!(
 				c,
-				Call::Balances(..) |
-				Call::SubtensorModule(pallet_subtensor::Call::add_stake(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::remove_stake(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::burned_register(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::root_register(..))
+				RuntimeCall::Balances(..) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register {..})
 			),
 			ProxyType::Owner => matches!(
 				c,
-				Call::AdminUtils(..)
+				RuntimeCall::AdminUtils(..)
 			),
 			ProxyType::NonCritical => !matches!(
 				c,
-				Call::SubtensorModule(pallet_subtensor::Call::dissolve_network(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::root_register(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::burned_register(..)) |
-				Call::Collective(..)
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register {..}) |
+				RuntimeCall::Triumvirate(..)
 			),
 			ProxyType::Triumvirate => matches!(
 				c,
-				Call::Collective(..)
+				RuntimeCall::Triumvirate(..) |
+				RuntimeCall::TriumvirateMembers(..)
 			),
 			ProxyType::Senate => matches!(
 				c,
-				Call::Democracy(..)
+				RuntimeCall::SenateMembers(..)
 			),
 			ProxyType::Governance => matches!(
 				c,
-				Call::Democracy(..) |
-				Call::Collective(..)
+				RuntimeCall::SenateMembers(..) |
+				RuntimeCall::Triumvirate(..) |
+				RuntimeCall::TriumvirateMembers(..)
 			),
 			ProxyType::Staking => matches!(
 				c,
-				Call::SubtensorModule(pallet_subtensor::Call::add_stake(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::remove_stake(..))
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::remove_stake {..})
 			),
 			ProxyType::Registration => matches!(
 				c,
-				Call::SubtensorModule(pallet_subtensor::Call::burned_register(..)) |
-				Call::SubtensorModule(pallet_subtensor::Call::register(..))
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register {..}) |
+				RuntimeCall::SubtensorModule(pallet_subtensor::Call::register {..})
 			),
 		}
 	}
@@ -596,7 +598,7 @@ impl pallet_proxy::Config for Runtime {
 		type MaxProxies = MaxProxies;
 		type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
 		type MaxPending = MaxPending;
-		type CallHasher = Hash;
+		type CallHasher = BlakeTwo256;
 		type AnnouncementDepositBase = AnnouncementDepositBase;
 		type AnnouncementDepositFactor = AnnouncementDepositFactor;
 }
@@ -1104,7 +1106,6 @@ construct_runtime!(
         Utility: pallet_utility,
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
-		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
 		Proxy: pallet_proxy,
