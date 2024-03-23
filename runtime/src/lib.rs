@@ -496,15 +496,15 @@ impl pallet_multisig::Config for Runtime {
 ///f Proxy Pallet config
 parameter_types! {
 	// One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
-	pub const ProxyDepositBase = (1) as Balance * 2_000 * 10_000 + (40 as Balance) * 100 * 10_000;
+	pub const ProxyDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (40 as Balance) * 100 * 10_000;
 	// Adding 32 bytes + sizeof(ProxyType) = 32 + 1
-	pub const ProxyDepositFactor = (0) as Balance * 2_000 * 10_000 + (33 as Balance) * 100 * 10_000;
+	pub const ProxyDepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (33 as Balance) * 100 * 10_000;
 	pub const MaxProxies: u32 = 20; // max num proxies per acct
 	pub const MaxPending: u32 = 15 * 5; // max blocks pending ~15min
 	// 16 bytes
-	pub const AnnouncementDepositBase = (1) as Balance * 2_000 * 10_000 + (16 as Balance) * 100 * 10_000;
+	pub const AnnouncementDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (16 as Balance) * 100 * 10_000;
 	// 68 bytes per announcement
-	pub const AnnouncementDepositFactor = (0) as Balance * 2_000 * 10_000 + (68 as Balance) * 100 * 10_000;
+	pub const AnnouncementDepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (68 as Balance) * 100 * 10_000;
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug)]
