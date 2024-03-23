@@ -167,22 +167,26 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_halving() {
     new_test_ext().execute_with(|| {
-        let milestones: [(u64, u64); 15] = [
-            (0, 1_000_000_000), // Before any halving
-            (100, 1_000_000_000),
-            (50_000, 1_000_000_000),
-            (10_500_000, 500_000_000), // First halving event
-            (15_750_000, 500_000_000),
-            (21_000_000, 250_000_000), // Second halving event
-            (26_250_000, 250_000_000),
-            (31_500_000, 125_000_000), // Third halving event
-            (36_750_000, 125_000_000),
-            (42_000_000, 62_500_000), // Fourth halving event
-            (47_250_000, 62_500_000),
-            (52_500_000, 0), // After fifth halving, emission should be zero
-            (56_500_000, 0),
-            (62_000_000, 0),
-            (70_250_000, 0),
+        let milestones: [(u64, u64); 19] = [
+            (1776, 1_000_000_000), // Before any halving
+            (10_500_000, 1_000_000_000),
+            (10_999_999, 1_000_000_000),
+            (11_000_000, 500_000_000), // First halving event
+            (12_000_999, 500_000_000),
+            (15_749_999, 500_000_000),
+            (16_400_999, 500_000_000),
+            (16_499_999, 500_000_000),
+            (16_500_000, 250_000_000), // Second halving event
+            (17_000_000, 250_000_000),
+            (19_249_999, 250_000_000),
+            (19_250_000, 125_000_000), // Third halving event
+            (19_499_999, 125_000_000),
+            (20_010_000, 125_000_000),
+            (20_624_999, 125_000_000),
+            (20_625_000, 62_500_000), // Fourth halving event
+            (20_825_000, 62_500_000),
+            (21_000_000, 0), // Fifth halving point
+            (21_100_000, 0),
         ];
 
         for (issuance, expected_emission) in milestones.iter() {
@@ -194,6 +198,42 @@ fn test_halving() {
                 current_emission, *expected_emission,
                 "Incorrect emission {} at total issuance {}",
                 current_emission, issuance
+            );
+        }
+    });
+}
+
+#[test]
+fn test_get_emission_from_issuance() {
+    new_test_ext().execute_with(|| {
+        let expected_emissions: [(f64, f64); 19] = [
+            (0.0, 1.0),
+            (10_500_000.0, 1.0),
+            (10_999_999.0, 1.0),
+            (11_000_000.0, 0.5), // First halving point
+            (12_000_999.0, 0.5),
+            (15_749_999.0, 0.5),
+            (16_400_999.0, 0.5),
+            (16_499_999.9, 0.5),
+            (16_500_000.0, 0.25), // Second halving point
+            (17_000_000.0, 0.25),
+            (19_249_999.0, 0.25),
+            (19_250_000.0, 0.125), // Third halving point
+            (19_499_999.0, 0.125),
+            (20_010_000.0, 0.125),
+            (20_624_999.0, 0.125),
+            (20_625_000.0, 0.0625), // Fourth halving point
+            (20_825_000.0, 0.0625),
+            (21_000_000.0, 0.0), // Fifth halving point
+            (21_100_000.0, 0.0),
+        ];
+
+        for (issuance, expected_emission) in expected_emissions.iter() {
+            let actual_emission = SubtensorModule::get_emission_from_issuance(*issuance);
+            assert_eq!(
+                actual_emission, *expected_emission,
+                "Incorrect emission from get_emission_from_issuance({:?}) expected: {}, actual: {}",
+                issuance, expected_emission, actual_emission
             );
         }
     });

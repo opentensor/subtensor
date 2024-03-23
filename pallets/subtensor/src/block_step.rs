@@ -84,45 +84,30 @@ impl<T: Config> Pallet<T> {
         LoadedEmission::<T>::get(netuid).unwrap()
     }
 
-    // Determines if due for a halving at the current block and
-    // updates block emissions if so.
-    //
     pub fn check_halving() {
-        let total_issuance = Self::get_total_issuance();
-        let current_emission = Self::get_block_emission();
-        let last_halving_issuance = Self::get_last_halving_issuance();
+        const ORIGINAL_EMISSION: f64 = 1_000_000_000.0;
+        let current_issuance: f64 = Self::get_total_issuance() as f64;
 
-        // Assuming halving occurs every 10,500,000 tokens.
-        const HALVING_INTERVAL: u64 = 10_500_000;
-        // Calculate the number of halvings that should have occurred by now.
-        let halvings = total_issuance / HALVING_INTERVAL;
-        // Emissions cap after 5 halvings
-        let expected_halvings = if halvings <= 5 { halvings } else { 5 };
-        // Calculate the number of halvings that had occurred by the last recorded issuance.
-        let actual_halvings = last_halving_issuance / HALVING_INTERVAL;
+        let emission_precentage: f64 = Self::get_emission_from_issuance(current_issuance);
+        let new_emission_float: f64 = ORIGINAL_EMISSION * emission_precentage;
+        let new_emission: u64 = new_emission_float as u64;
 
-        // Check if a new halving event should occur.
-        if expected_halvings > actual_halvings {
-            if current_emission == 0 {
-                // Halvings are already complete, or no emission to halve.
-                return;
-            }
-            if expected_halvings == 5 {
-                Self::set_block_emission(0);
-                Self::set_last_halving_issuance(total_issuance);
-                return;
-            }
-            // Halve the current emission and update the last halving issuance.
-            let new_emission = current_emission / 2;
+        let current_emission: u64 = Self::get_block_emission();
+
+        if current_emission > new_emission {
             Self::set_block_emission(new_emission);
-            // Update the last halving issuance to the current total issuance.
-            Self::set_last_halving_issuance(total_issuance);
-            log::info!(
-                "Halving event at total issuance {}: New block emission is {}",
-                total_issuance,
-                new_emission
-            );
         }
+    }
+
+    pub fn get_emission_from_issuance(total_issuance: f64) -> f64 {
+        const TOTAL_SUPPLY: f64 = 21_000_000.0;
+        if total_issuance >= TOTAL_SUPPLY {
+            return 0.0;
+        }
+
+        let h = Self::log2(1.0 / (1.0 - total_issuance / (2.0 * 11_000_000.0)));
+        let h = Self::floor(h);
+        Self::powf(2.0, -h)
     }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )

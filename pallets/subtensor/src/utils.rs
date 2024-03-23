@@ -59,9 +59,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_block_emission() -> u64 {
         BlockEmission::<T>::get()
     }
-    pub fn get_last_halving_issuance() -> u64 {
-        LastHalvingIssuance::<T>::get()
-    }
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
             .ok()
@@ -564,11 +561,8 @@ impl<T: Config> Pallet<T> {
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance)
     }
-    pub fn set_last_halving_issuance(issuance: u64) {
-        LastHalvingIssuance::<T>::put(issuance)
-    }
     pub fn set_block_emission(new_value: u64) {
-        BlockEmission::<T>::put(new_value);
+        BlockEmission::<T>::put(new_value)
     }
     pub fn get_rao_recycled(netuid: u16) -> u64 {
         RAORecycledForRegistration::<T>::get(netuid)
@@ -604,5 +598,41 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
+    }
+
+    pub fn log2(x: f64) -> f64 {
+        let mut y = x;
+        let mut result = 0.0;
+        while y < 1.0 {
+            y *= 2.0;
+            result -= 1.0;
+        }
+        while y >= 2.0 {
+            y *= 0.5;
+            result += 1.0;
+        }
+        result
+    }
+    pub fn powf(base: f64, exponent: f64) -> f64 {
+        if exponent == 0.0 {
+            return 1.0;
+        } else if exponent < 0.0 {
+            return 1.0 / Self::powf(base, -exponent);
+        }
+
+        let mut result = 1.0;
+        let mut exp = exponent as i64;
+        let mut b = base;
+        while exp > 0 {
+            if exp % 2 == 1 {
+                result *= b;
+            }
+            b *= b;
+            exp /= 2;
+        }
+        result
+    }
+    pub fn floor(x: f64) -> f64 {
+        x as i64 as f64
     }
 }
