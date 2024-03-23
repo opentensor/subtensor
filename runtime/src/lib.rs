@@ -40,7 +40,9 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
     construct_runtime, parameter_types,
     traits::{
-        ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, PrivilegeCmp, Randomness,
+        ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem,
+		InstanceFilter,
+		PrivilegeCmp, Randomness,
         StorageInfo,
     },
     weights::{
@@ -490,6 +492,113 @@ impl pallet_multisig::Config for Runtime {
     type MaxSignatories = MaxSignatories;
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
+
+///f Proxy Pallet config
+parameter_types! {
+	// One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
+	pub const ProxyDepositBase = (1) as Balance * 2_000 * 10_000 + (40 as Balance) * 100 * 10_000;
+	// Adding 32 bytes + sizeof(ProxyType) = 32 + 1
+	pub const ProxyDepositFactor = (0) as Balance * 2_000 * 10_000 + (33 as Balance) * 100 * 10_000;
+	pub const MaxProxies: u32 = 20; // max num proxies per acct
+	pub const MaxPending: u32 = 15 * 5; // max blocks pending ~15min
+	// 16 bytes
+	pub const AnnouncementDepositBase = (1) as Balance * 2_000 * 10_000 + (16 as Balance) * 100 * 10_000;
+	// 68 bytes per announcement
+	pub const AnnouncementDepositFactor = (0) as Balance * 2_000 * 10_000 + (68 as Balance) * 100 * 10_000;
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug)]
+pub enum ProxyType {
+	Any,
+	Owner, // Subnet owner Calls
+	NonCritical,
+	NonTransfer,
+	Senate,
+	NonFungibile, // Nothing involving moving TAO
+	Triumvirate,
+	Governance, // Both above governance
+	Staking,
+	Registration,
+}
+impl Default for ProxyType { fn default() -> Self { Self::Any } } // allow all Calls; required to be most permissive
+impl InstanceFilter<Call> for ProxyType {
+	fn filter(&self, c: &Call) -> bool {
+		match self {
+			ProxyType::Any => true,
+			ProxyType::NonTransfer => !matches!(
+				c,
+				Call::Balances(..)
+			),
+			ProxyType::NonFungibile => !matches!(
+				c,
+				Call::Balances(..) |
+				Call::SubtensorModule(pallet_subtensor::Call::add_stake(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::remove_stake(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::burned_register(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::root_register(..))
+			),
+			ProxyType::Owner => matches!(
+				c,
+				Call::AdminUtils(..)
+			),
+			ProxyType::NonCritical => !matches!(
+				c,
+				Call::SubtensorModule(pallet_subtensor::Call::dissolve_network(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::root_register(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::burned_register(..)) |
+				Call::Collective(..)
+			),
+			ProxyType::Triumvirate => matches!(
+				c,
+				Call::Collective(..)
+			),
+			ProxyType::Senate => matches!(
+				c,
+				Call::Democracy(..)
+			),
+			ProxyType::Governance => matches!(
+				c,
+				Call::Democracy(..) |
+				Call::Collective(..)
+			),
+			ProxyType::Staking => matches!(
+				c,
+				Call::SubtensorModule(pallet_subtensor::Call::add_stake(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::remove_stake(..))
+			),
+			ProxyType::Registration => matches!(
+				c,
+				Call::SubtensorModule(pallet_subtensor::Call::burned_register(..)) |
+				Call::SubtensorModule(pallet_subtensor::Call::register(..))
+			),
+		}
+	}
+	fn is_superset(&self, o: &Self) -> bool {
+		match (self, o) {
+			(x, y) if x == y => true,
+			(ProxyType::Any, _) => true,
+			(_, ProxyType::Any) => false,
+			(ProxyType::NonTransfer, _) => true,
+			_ => false,
+		}
+	}
+}
+
+impl pallet_proxy::Config for Runtime {
+		type RuntimeEvent = RuntimeEvent;
+		type RuntimeCall = RuntimeCall;
+		type Currency = Balances;
+		type ProxyType = ProxyType;
+		type ProxyDepositBase = ProxyDepositBase;
+		type ProxyDepositFactor = ProxyDepositFactor;
+		type MaxProxies = MaxProxies;
+		type WeightInfo = pallet_proxy::weights::SubstrateWeight<Runtime>;
+		type MaxPending = MaxPending;
+		type CallHasher = Hash;
+		type AnnouncementDepositBase = AnnouncementDepositBase;
+		type AnnouncementDepositFactor = AnnouncementDepositFactor;
+}
+
 
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) *
@@ -993,6 +1102,7 @@ construct_runtime!(
         Utility: pallet_utility,
         Sudo: pallet_sudo,
         Multisig: pallet_multisig,
+		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
         Registry: pallet_registry,
