@@ -1346,7 +1346,7 @@ pub mod pallet {
             hotkey: T::AccountId,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake( origin, hotkey, 0, amount_staked )
+            Self::do_add_stake( origin, hotkey, Self::get_root_netuid(), amount_staked )
         }
         #[pallet::call_index(63)]
         #[pallet::weight((Weight::from_ref_time(65_000_000)
