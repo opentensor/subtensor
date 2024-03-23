@@ -476,9 +476,9 @@ impl pallet_sudo::Config for Runtime {
 parameter_types! {
     // One storage item; key size is 32 + sizeof(AccountId) = 64; value is size 4 + sizeof((BlockNumber, Balance, AccountId)) = 56;
 	// = 120 bytes total.
-    pub const DepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (120 as Balance) * 100 * 10_000;
+    pub const DepositBase: Balance = (1) as Balance * 200 * 1_000 + (120 as Balance) * 300 * 1_000;
     // Additional storage item size of 32 bytes.
-    pub const DepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (32 as Balance) * 100 * 10_000;
+    pub const DepositFactor: Balance = (0) as Balance * 200 * 1_000 + (32 as Balance) * 300 * 1_000;
     pub const MaxSignatories: u32 = 100;
 }
 
