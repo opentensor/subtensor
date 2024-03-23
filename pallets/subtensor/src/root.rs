@@ -324,6 +324,8 @@ impl<T: Config> Pallet<T> {
         let mut sum_stake = I64F64::from_num(0.0);
         let mut normalized_total_stake = vec![ I64F64::from_num(0.0); num_subnets as usize ];
         for ((_, _, netuid), stake) in SubStake::<T>::iter() {
+            // We don't sum the stake on the root network.
+            if netuid == 0 { continue }; 
             sum_stake.saturating_add( I64F64::from_num(stake) );
             normalized_total_stake[ netuid as usize ].saturating_add( I64F64::from_num(stake) );
         }
