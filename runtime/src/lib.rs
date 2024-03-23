@@ -1107,6 +1107,7 @@ construct_runtime!(
 		Proxy: pallet_proxy::{Pallet, Call, Storage, Event<T>},
         Preimage: pallet_preimage,
         Scheduler: pallet_scheduler,
+		Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
         AdminUtils: pallet_admin_utils
