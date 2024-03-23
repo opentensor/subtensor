@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::Encode;
+use codec::{Encode, Decode};
 
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
@@ -39,6 +39,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
+	RuntimeDebug,
     traits::{
         ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem,
 		InstanceFilter,
@@ -493,7 +494,7 @@ impl pallet_multisig::Config for Runtime {
     type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
 }
 
-///f Proxy Pallet config
+// Proxy Pallet config
 parameter_types! {
 	// One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
 	pub const ProxyDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (40 as Balance) * 100 * 10_000;
