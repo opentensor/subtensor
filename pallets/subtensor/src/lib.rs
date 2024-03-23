@@ -1348,7 +1348,7 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_add_stake( origin, hotkey, 0, amount_staked )
         }
-        #[pallet::call_index(62)]
+        #[pallet::call_index(63)]
         #[pallet::weight((Weight::from_ref_time(65_000_000)
 		.saturating_add(T::DbWeight::get().reads(8))
 		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
@@ -1405,7 +1405,7 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_remove_stake( origin, hotkey, 0, amount_unstaked )
         }
-        #[pallet::call_index(63)]
+        #[pallet::call_index(64)]
         #[pallet::weight((Weight::from_ref_time(65_000_000)
 		.saturating_add(T::DbWeight::get().reads(8))
 		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
