@@ -104,7 +104,7 @@ fn test_root_register_stake_based_pruning_works() {
                 hot
             ));
             // Add stake on other network
-            assert_ok!(SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
                 other_netuid,
@@ -186,7 +186,7 @@ fn test_root_set_weights() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
             ));
-            assert_ok!(SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
                 root_netuid,
@@ -289,7 +289,7 @@ fn test_root_set_weights_out_of_order_netuids() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
             ));
-            assert_ok!(SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
                 root_netuid,
@@ -498,7 +498,7 @@ fn test_network_pruning() {
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(cold)
             ));
-            assert_ok!(SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
                 netuid,
@@ -636,7 +636,7 @@ fn test_weights_after_network_pruning() {
             <<Test as Config>::RuntimeOrigin>::signed(cold),
             hot
         ));
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold),
             hot,
             netuid,

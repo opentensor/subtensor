@@ -1432,6 +1432,19 @@ pub mod pallet {
             netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
+            Self::do_remove_stake( origin, hotkey, Self::get_root_netuid(), amount_unstaked )
+        }
+        #[pallet::call_index(64)]
+        #[pallet::weight((Weight::from_ref_time(63_000_000)
+		.saturating_add(Weight::from_proof_size(43991))
+		.saturating_add(T::DbWeight::get().reads(14))
+		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
+        pub fn remove_subnet_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_unstaked: u64,
+        ) -> DispatchResult {
             Self::do_remove_stake( origin, hotkey, netuid, amount_unstaked )
         }
 
