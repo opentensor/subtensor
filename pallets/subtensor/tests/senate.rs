@@ -96,7 +96,7 @@ fn test_senate_join_works() {
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
@@ -166,7 +166,7 @@ fn test_senate_vote_works() {
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
@@ -337,7 +337,7 @@ fn test_senate_leave_works() {
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
@@ -408,7 +408,7 @@ fn test_senate_leave_vote_removal() {
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
@@ -471,7 +471,7 @@ fn test_senate_leave_vote_removal() {
                 hot
             ));
             // Add stake on other network
-            assert_ok!(SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
                 netuid,
@@ -546,7 +546,7 @@ fn test_senate_not_leave_when_stake_removed() {
         let stake_amount: u64 = 100_000;
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, stake_amount);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
@@ -577,7 +577,7 @@ fn test_senate_not_leave_when_stake_removed() {
 
         // step_block(100);
 
-        assert_ok!(SubtensorModule::remove_stake(
+        assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,

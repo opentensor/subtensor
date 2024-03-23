@@ -64,48 +64,6 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
     }
 }
 
-pub fn migrate_fill_substake<T: Config>() -> Weight {
-    let new_storage_version = 3;
-
-    // Setup migration weight
-    let mut weight = T::DbWeight::get().reads(1);
-
-    // Grab current version
-    let onchain_version = Pallet::<T>::on_chain_storage_version();
-
-    // Only runs if we haven't already updated version past above new_storage_version.
-    if onchain_version < new_storage_version {
-        info!(target: LOG_TARGET_1, ">>> Migrating subnet 1 and 11 to foundation control {:?}", onchain_version);
-
-        // We have to decode this using a byte slice as we don't have crypto-std
-        let coldkey_account: <T as frame_system::Config>::AccountId =
-            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
-        info!("Foundation coldkey: {:?}", coldkey_account);
-
-        let current_block = Pallet::<T>::get_current_block_as_u64();
-        weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-        // Migrate ownership and set creation time as now
-        SubnetOwner::<T>::insert(1, coldkey_account.clone());
-        SubnetOwner::<T>::insert(11, coldkey_account);
-
-        // We are setting the NetworkRegisteredAt storage to a future block to extend the immunity period to 2 weeks
-        NetworkRegisteredAt::<T>::insert(1, current_block.saturating_add(13 * 7200));
-        NetworkRegisteredAt::<T>::insert(11, current_block);
-
-        weight.saturating_accrue(T::DbWeight::get().writes(4));
-
-        // Update storage version.
-        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        weight
-    } else {
-        info!(target: LOG_TARGET_1, "Migration to v3 already done!");
-        Weight::zero()
-    }
-}
-
 pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Get the root network uid.
     let root_netuid: u16 = 0;
