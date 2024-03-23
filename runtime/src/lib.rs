@@ -6,7 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::{Encode, Decode};
+use codec::{Decode, Encode, MaxEncodedLen};
 
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
@@ -17,6 +17,7 @@ use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
 use pallet_registry::CanRegisterIdentity;
+use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -508,7 +509,7 @@ parameter_types! {
 	pub const AnnouncementDepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (68 as Balance) * 100 * 10_000;
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, RuntimeDebug, MaxEncodedLen, TypeInfo)]
 pub enum ProxyType {
 	Any,
 	Owner, // Subnet owner Calls
