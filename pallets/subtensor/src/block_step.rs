@@ -91,8 +91,8 @@ impl<T: Config> Pallet<T> {
         const ORIGINAL_EMISSION: f64 = 1_000_000_000.0;
         let current_issuance: f64 = Self::get_total_issuance() as f64;
 
-        let emission_precentage: f64 = Self::get_emission_from_issuance(current_issuance);
-        let new_emission_float: f64 = ORIGINAL_EMISSION * emission_precentage;
+        let emission_percentage: f64 = Self::get_emission_from_issuance(current_issuance);
+        let new_emission_float: f64 = ORIGINAL_EMISSION * emission_percentage;
         let new_emission: u64 = new_emission_float as u64;
 
         let current_emission: u64 = Self::get_block_emission();
