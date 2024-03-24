@@ -1485,6 +1485,7 @@ fn test_outdated_weights() {
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
 
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
             SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), stake);
@@ -1510,6 +1511,7 @@ fn test_outdated_weights() {
             );
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
