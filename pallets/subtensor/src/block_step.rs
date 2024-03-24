@@ -84,6 +84,9 @@ impl<T: Config> Pallet<T> {
         LoadedEmission::<T>::get(netuid).unwrap()
     }
 
+    // Checks the current block emission and
+    // updates the block emission if the recalculated value is lower
+    //
     pub fn check_halving() {
         const ORIGINAL_EMISSION: f64 = 1_000_000_000.0;
         let current_issuance: f64 = Self::get_total_issuance() as f64;
@@ -99,6 +102,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    // Calculates the emission rate based on the total issuance,
+    // where the emission decreases as the total issuance approaches the supply cap.
+    //
     pub fn get_emission_from_issuance(total_issuance: f64) -> f64 {
         const TOTAL_SUPPLY: f64 = 21_000_000.0;
         if total_issuance >= TOTAL_SUPPLY {
