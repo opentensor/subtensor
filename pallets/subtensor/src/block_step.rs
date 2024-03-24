@@ -88,7 +88,7 @@ impl<T: Config> Pallet<T> {
     // updates the block emission if the recalculated value is lower
     //
     pub fn check_halving() {
-        const ORIGINAL_EMISSION: f64 = 1_000_000_000.0;
+        const ORIGINAL_EMISSION: f64 = 1_000_000_000.0; //Rao => 1 Tao
         let current_issuance: f64 = Self::get_total_issuance() as f64;
 
         let emission_percentage: f64 = Self::get_emission_from_issuance(current_issuance);
@@ -106,12 +106,12 @@ impl<T: Config> Pallet<T> {
     // where the emission decreases as the total issuance approaches the supply cap.
     //
     pub fn get_emission_from_issuance(total_issuance: f64) -> f64 {
-        const TOTAL_SUPPLY: f64 = 21_000_000.0;
+        const TOTAL_SUPPLY: f64 = 21_000_000_000_000_000.0; //Rao => 21_000_000 Tao
         if total_issuance >= TOTAL_SUPPLY {
             return 0.0;
         }
 
-        let h = Self::log2(1.0 / (1.0 - total_issuance / (2.0 * 11_000_000.0)));
+        let h = Self::log2(1.0 / (1.0 - total_issuance / (2.0 * 11_000_000_000_000_000.0)));
         let h = Self::floor(h);
         Self::powf(2.0, -h)
     }

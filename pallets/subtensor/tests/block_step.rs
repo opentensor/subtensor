@@ -810,25 +810,25 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 fn test_halving() {
     new_test_ext().execute_with(|| {
         let milestones: [(u64, u64); 19] = [
-            (1776, 1_000_000_000), // Before any halving
-            (10_500_000, 1_000_000_000),
-            (10_999_999, 1_000_000_000),
-            (11_000_000, 500_000_000), // First halving event
-            (12_000_999, 500_000_000),
-            (15_749_999, 500_000_000),
-            (16_400_999, 500_000_000),
-            (16_499_999, 500_000_000),
-            (16_500_000, 250_000_000), // Second halving event
-            (17_000_000, 250_000_000),
-            (19_249_999, 250_000_000),
-            (19_250_000, 125_000_000), // Third halving event
-            (19_499_999, 125_000_000),
-            (20_010_000, 125_000_000),
-            (20_624_999, 125_000_000),
-            (20_625_000, 62_500_000), // Fourth halving event
-            (20_825_000, 62_500_000),
-            (21_000_000, 0), // Fifth halving point
-            (21_100_000, 0),
+            (1_776_000_000_000, 1_000_000_000), // Before any halving
+            (10_500_000_000_000_000, 1_000_000_000),
+            (10_999_999_000_000_000, 1_000_000_000),
+            (11_000_000_000_000_000, 500_000_000), // First halving event
+            (12_000_999_000_000_000, 500_000_000),
+            (15_749_999_000_000_000, 500_000_000),
+            (16_400_999_000_000_000, 500_000_000),
+            (16_499_999_000_000_000, 500_000_000),
+            (16_500_000_000_000_000, 250_000_000), // Second halving event
+            (17_000_000_000_000_000, 250_000_000),
+            (19_249_999_000_000_000, 250_000_000),
+            (19_250_000_000_000_000, 125_000_000), // Third halving event
+            (19_499_999_000_000_000, 125_000_000),
+            (20_010_000_000_000_000, 125_000_000),
+            (20_624_999_000_000_000, 125_000_000),
+            (20_625_000_000_000_000, 62_500_000), // Fourth halving event
+            (20_825_000_000_000_000, 62_500_000),
+            (21_000_000_000_000_000, 0), // Fifth halving point
+            (21_100_000_000_000_000, 0),
         ];
 
         for (issuance, expected_emission) in milestones.iter() {
@@ -849,25 +849,25 @@ fn test_halving() {
 fn test_get_emission_from_issuance() {
     new_test_ext().execute_with(|| {
         let expected_emissions: [(f64, f64); 19] = [
-            (0.0, 1.0),
-            (10_500_000.0, 1.0),
-            (10_999_999.0, 1.0),
-            (11_000_000.0, 0.5), // First halving point
-            (12_000_999.0, 0.5),
-            (15_749_999.0, 0.5),
-            (16_400_999.0, 0.5),
-            (16_499_999.9, 0.5),
-            (16_500_000.0, 0.25), // Second halving point
-            (17_000_000.0, 0.25),
-            (19_249_999.0, 0.25),
-            (19_250_000.0, 0.125), // Third halving point
-            (19_499_999.0, 0.125),
-            (20_010_000.0, 0.125),
-            (20_624_999.0, 0.125),
-            (20_625_000.0, 0.0625), // Fourth halving point
-            (20_825_000.0, 0.0625),
-            (21_000_000.0, 0.0), // Fifth halving point
-            (21_100_000.0, 0.0),
+            (1_776_000_000_000.0, 1.0),
+            (10_500_000_000_000_000.0, 1.0),
+            (10_999_999_000_000_000.0, 1.0),
+            (11_000_000_000_000_000.0, 0.5), // First halving point
+            (12_000_999_000_000_000.0, 0.5),
+            (15_749_999_000_000_000.0, 0.5),
+            (16_400_999_000_000_000.0, 0.5),
+            (16_499_999_000_000_000.9, 0.5),
+            (16_500_000_000_000_000.0, 0.25), // Second halving point
+            (17_000_000_000_000_000.0, 0.25),
+            (19_249_999_000_000_000.0, 0.25),
+            (19_250_000_000_000_000.0, 0.125), // Third halving point
+            (19_499_999_000_000_000.0, 0.125),
+            (20_010_000_000_000_000.0, 0.125),
+            (20_624_999_000_000_000.0, 0.125),
+            (20_625_000_000_000_000.0, 0.0625), // Fourth halving point
+            (20_825_000_000_000_000.0, 0.0625),
+            (21_000_000_000_000_000.0, 0.0), // Fifth halving point
+            (21_100_000_000_000_000.0, 0.0),
         ];
 
         for (issuance, expected_emission) in expected_emissions.iter() {
@@ -884,25 +884,26 @@ fn test_get_emission_from_issuance() {
 #[test]
 fn test_get_emission_across_entire_issuance_range() {
     new_test_ext().execute_with(|| {
-        const TOTAL_SUPPLY: f64 = 21_000_000.0;
+        const ORIGINAL_EMISSION: f64 = 1_000_000_000.0;
+        const TOTAL_SUPPLY: f64 = 21_000_000_000_000_000.0;
 
-        for issuance in 1..=TOTAL_SUPPLY as u64 {
+        for issuance in (1..=TOTAL_SUPPLY as u64).step_by(1_000_000_000) {
             SubtensorModule::set_total_issuance(issuance);
 
             let issuance_f64 = issuance as f64;
-            let h = f64::log2(1.0 / (1.0 - issuance_f64 / (2.0 * 11_000_000.0)));
+            let h = f64::log2(1.0 / (1.0 - issuance_f64 / (2.0 * 11_000_000_000_000_000.0)));
             let h = h.floor();
             let emission_percentage = f64::powf(2.0, -h);
 
             let expected_emission: f64 = if issuance_f64 < TOTAL_SUPPLY {
-                TOTAL_SUPPLY * emission_percentage
+                ORIGINAL_EMISSION * emission_percentage
             } else {
                 0.0
             };
 
             let actual_emission_percentage =
                 SubtensorModule::get_emission_from_issuance(issuance_f64);
-            let actual_emission = TOTAL_SUPPLY * actual_emission_percentage;
+            let actual_emission = ORIGINAL_EMISSION * actual_emission_percentage;
 
             assert_eq!(
                 actual_emission, expected_emission,
