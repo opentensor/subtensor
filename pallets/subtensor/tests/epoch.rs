@@ -1511,7 +1511,7 @@ fn test_outdated_weights() {
             );
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
@@ -1519,6 +1519,8 @@ fn test_outdated_weights() {
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
         run_to_block(1);
         block_number += 1; // run to next block to ensure weights are set on nodes after their registration block
+
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
 
         // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3, srv1->srv1: 1, srv2->srv2: 1]
         for uid in 0..(n / 2) as u64 {
