@@ -880,3 +880,35 @@ fn test_get_emission_from_issuance() {
         }
     });
 }
+
+#[test]
+fn test_get_emission_across_entire_issuance_range() {
+    new_test_ext().execute_with(|| {
+        const TOTAL_SUPPLY: f64 = 21_000_000.0;
+
+        for issuance in 1..=TOTAL_SUPPLY as u64 {
+            SubtensorModule::set_total_issuance(issuance);
+
+            let issuance_f64 = issuance as f64;
+            let h = f64::log2(1.0 / (1.0 - issuance_f64 / (2.0 * 11_000_000.0)));
+            let h = h.floor();
+            let emission_percentage = f64::powf(2.0, -h);
+
+            let expected_emission: f64 = if issuance_f64 < TOTAL_SUPPLY {
+                TOTAL_SUPPLY * emission_percentage
+            } else {
+                0.0
+            };
+
+            let actual_emission_percentage =
+                SubtensorModule::get_emission_from_issuance(issuance_f64);
+            let actual_emission = TOTAL_SUPPLY * actual_emission_percentage;
+
+            assert_eq!(
+                actual_emission, expected_emission,
+                "Issuance: {}",
+                issuance_f64
+            );
+        }
+    });
+}
