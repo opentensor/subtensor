@@ -1,4 +1,5 @@
 use super::*;
+use alloc::collections::BTreeMap;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     sp_std::vec::Vec,
@@ -484,25 +485,57 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
     let mut weight = T::DbWeight::get().reads_writes(1, 1);
 
     let onchain_version = Pallet::<T>::on_chain_storage_version();
+    println!("Current on-chain storage version: {:?}", onchain_version); // Debug print
     if onchain_version < new_storage_version {
-        info!(
-            target: LOG_TARGET_1,
-            ">>> Migrating Stake to SubStake {:?}", onchain_version
-        );
-        // Iterate over the Stake map
-        Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
-            // Insert into SubStake with netuid set to 0 for all entries
-            SubStake::<T>::insert((&hotkey, &coldkey, &0u16), stake);
-            // Accrue read and write weights
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        println!("Starting migration from Stake to SubStake."); // Debug print
+        Stake::<T>::iter().for_each(|(coldkey, hotkey, stake)| {
+            println!(
+                "Found: coldkey: {:?}, hotkey: {:?}, stake: {:?}",
+                coldkey, hotkey, stake
+            ); // Debug print before filtering
+            if stake > 0 {
+                // Ensure we're only migrating non-zero stakes
+                println!(
+                    "Migrating: coldkey: {:?}, hotkey: {:?}, stake: {:?}",
+                    coldkey, hotkey, stake
+                );
+                // Insert into SubStake with netuid set to 0 for all entries
+                SubStake::<T>::insert((&hotkey, &coldkey, &0u16), stake);
+                // Accrue read and write weights
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            }
         });
 
+        // Assuming TotalHotkeySubStake needs to be updated similarly
+        let mut total_stakes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+        SubStake::<T>::iter().for_each(|((hotkey, _, _), stake)| {
+            println!(
+                "Calculating total stakes for hotkey: {:?}, stake: {:?}",
+                hotkey, stake
+            ); // Debug print
+            *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
+        });
+
+        for (hotkey, total_stake) in total_stakes.iter() {
+            println!(
+                "Inserting total stake for hotkey: {:?}, total_stake: {:?}",
+                hotkey, total_stake
+            ); // Debug print
+            TotalHotkeySubStake::<T>::insert(hotkey, &0u16, *total_stake);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+        }
+
         // Update the storage version to indicate this migration has been completed
+        println!(
+            "Migration completed, updating storage version to: {:?}",
+            new_storage_version
+        ); // Debug print
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
         weight += T::DbWeight::get().writes(1);
     } else {
-        info!(target: "migration", "Migration to fill SubStake from Stake already done!");
+        println!("Migration to fill SubStake from Stake already done!"); // Debug print
     }
 
+    println!("Final weight: {:?}", weight); // Debug print
     weight
 }
