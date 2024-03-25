@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("num subnets:\n{:?}\n", num_subnets);
 
         // --- 2. Sum all stake across subnets.
-        let mut sum_stake = I64F64::from_num(num_subnets);
+        let sum_stake = I64F64::from_num(num_subnets);
         let mut normalized_total_stake = vec![I64F64::from_num(1.0); num_subnets as usize];
         for ((_, _, netuid), stake) in SubStake::<T>::iter() {
             // We don't sum the stake on the root network.

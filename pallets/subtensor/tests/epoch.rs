@@ -555,7 +555,12 @@ fn test_1_graph() {
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, stake_amount);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            netuid,
+            stake_amount,
+        );
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block

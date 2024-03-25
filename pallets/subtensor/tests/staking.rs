@@ -110,6 +110,11 @@ fn test_dividends_with_run_to_block() {
             netuid,
             initial_stake,
         );
+        SubtensorModule::increase_stake_on_hotkey_account(
+            &neuron_src_hotkey_id,
+            netuid,
+            initial_stake,
+        );
 
         // Check if the initial stake has arrived
         assert_eq!(
@@ -2566,5 +2571,137 @@ fn test_faucet_ok() {
             nonce,
             vec_work
         ));
+    });
+}
+
+#[test]
+// Set up 32 subnets with a total of 1024 nodes each, and a root network with 1024 nodes.
+// Each subnet has a total of 1024 nodes, and a root network has 1024 nodes.
+// Register 10 neurons on each subnet.
+// Add a stake of 100 TAO to each neuron.
+// Run epochs for each subnet.
+// Check that the total stake is correct.
+fn test_subnet_stake_calculation() {
+    new_test_ext().execute_with(|| {
+        pallet_subtensor::migration::migrate_create_root_network::<Test>();
+        // Setup constants
+        const NUM_SUBNETS: u16 = 32;
+        const NUM_NEURONS_PER_SUBNET: u16 = 10;
+        const ROOT_STAKE_PER_NEURON: u64 = 1000; // Stake at the root level per neuron
+        const SUBNET_STAKE_PER_NEURON: u64 = 100; // Stake at the subnet level per neuron
+
+        let root: u16 = 0;
+        let tempo: u16 = 13;
+
+        add_network(root, tempo, 0);
+
+        // Add networks for each subnet UID
+        for netuid in 1..=NUM_SUBNETS {
+            add_network(netuid, tempo, 0);
+        }
+
+        // Setup variables to track total expected stakes
+        let mut total_root_stake: u64 = 0;
+        let mut total_subnet_stake: u64 = 0;
+
+        for netuid in 1..=NUM_SUBNETS {
+            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
+                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64); // Unique hotkey for each neuron
+                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64); // Unique coldkey for each neuron
+
+                SubtensorModule::set_max_registrations_per_block(netuid, 500);
+                SubtensorModule::set_target_registrations_per_interval(netuid, 500);
+
+                // Increase balance for coldkey account
+                SubtensorModule::add_balance_to_coldkey_account(
+                    &coldkey,
+                    ROOT_STAKE_PER_NEURON + SUBNET_STAKE_PER_NEURON,
+                );
+                register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+                // Add stakes at both the root and subnet levels
+                assert_ok!(SubtensorModule::add_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                    hotkey,
+                    ROOT_STAKE_PER_NEURON
+                ));
+
+                assert_ok!(SubtensorModule::add_subnet_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                    hotkey,
+                    netuid,
+                    SUBNET_STAKE_PER_NEURON
+                ));
+
+                // Update total stakes
+                total_root_stake += ROOT_STAKE_PER_NEURON;
+                total_subnet_stake += SUBNET_STAKE_PER_NEURON;
+            }
+        }
+
+        step_block(1);
+
+        // Check total stakes across all subnets
+        let expected_total_stake = total_root_stake + total_subnet_stake;
+        let actual_total_stake = SubtensorModule::get_total_stake(); // Assuming this function returns the total stake across all subnets
+        assert_eq!(
+            actual_total_stake, expected_total_stake,
+            "The total stake across all subnets did not match the expected value."
+        );
+
+        // After checking the total stake, proceed to remove the stakes
+        for netuid in 1..=NUM_SUBNETS {
+            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
+                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64);
+                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64);
+
+                // Remove subnet stake first
+                assert_ok!(SubtensorModule::remove_subnet_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                    hotkey,
+                    netuid,
+                    SUBNET_STAKE_PER_NEURON
+                ));
+
+                total_subnet_stake -= SUBNET_STAKE_PER_NEURON;
+            }
+        }
+
+        step_block(1);
+
+        // Verify that the total stake has been correctly reduced to just the root stake
+        let expected_total_stake_after_removal = total_root_stake;
+        let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
+        assert_eq!(
+            actual_total_stake_after_removal, expected_total_stake_after_removal,
+            "The total stake after removal did not match the expected value."
+        );
+
+        // Finally , remove the root stake
+        for netuid in 1..=NUM_SUBNETS {
+            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
+                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64);
+                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64);
+
+                assert_ok!(SubtensorModule::remove_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                    hotkey,
+                    ROOT_STAKE_PER_NEURON
+                ));
+
+                // Update total stakes to reflect removal
+                total_root_stake -= ROOT_STAKE_PER_NEURON;
+            }
+        }
+
+        step_block(1);
+
+        // Verify that the total stake has been correctly reduced to 0
+        let expected_total_stake_after_removal = 0;
+        let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
+        assert_eq!(
+            actual_total_stake_after_removal, expected_total_stake_after_removal,
+            "The total stake after removal did not match the expected value."
+        );
     });
 }
