@@ -2738,3 +2738,73 @@ fn test_subnet_stake_calculation() {
         );
     });
 }
+
+#[test]
+fn test_three_subnets_with_different_stakes() {
+    new_test_ext().execute_with(|| {
+        pallet_subtensor::migration::migrate_create_root_network::<Test>();
+        // Setup constants
+        const NUM_SUBNETS: u16 = 3; // Only 3 subnets
+        const NUM_NEURONS_PER_SUBNET: u16 = 10;
+        // Different stake amounts for each subnet
+        const STAKE_AMOUNTS: [u64; NUM_SUBNETS as usize] = [100, 200, 300];
+
+        let root: u16 = 0;
+        let tempo: u16 = 13;
+
+        add_network(root, tempo, 0);
+
+        // Add networks for each subnet UID
+        for netuid in 1..=NUM_SUBNETS {
+            add_network(netuid, tempo, 0);
+        }
+
+        for netuid in 1..=NUM_SUBNETS {
+            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
+                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64);
+                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64);
+
+                SubtensorModule::set_max_registrations_per_block(netuid, 500);
+                SubtensorModule::set_target_registrations_per_interval(netuid, 500);
+
+                // Increase balance for coldkey account
+                SubtensorModule::add_balance_to_coldkey_account(
+                    &coldkey,
+                    STAKE_AMOUNTS[netuid as usize - 1],
+                );
+                register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+                // Add stake at the subnet level
+                assert_ok!(SubtensorModule::add_subnet_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                    hotkey,
+                    netuid,
+                    STAKE_AMOUNTS[netuid as usize - 1],
+                ));
+
+                // Assert individual stake amounts
+                let stake_for_neuron =
+                    SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+                assert_eq!(
+                    stake_for_neuron,
+                    STAKE_AMOUNTS[netuid as usize - 1],
+                    "The stake for neuron {} in subnet {} did not match the expected value.",
+                    neuron_index,
+                    netuid
+                );
+            }
+        }
+
+        // Verify the total stake for each subnet
+        for netuid in 1..=NUM_SUBNETS {
+            let total_stake_for_subnet = SubtensorModule::get_total_stake_for_subnet(netuid); 
+            let expected_total_stake =
+                STAKE_AMOUNTS[netuid as usize - 1] * NUM_NEURONS_PER_SUBNET as u64;
+            assert_eq!(
+                total_stake_for_subnet, expected_total_stake,
+                "The total stake for subnet {} did not match the expected value.",
+                netuid
+            );
+        }
+    });
+}
