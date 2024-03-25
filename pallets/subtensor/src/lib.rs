@@ -11,10 +11,7 @@ use frame_support::{
     dispatch,
     dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
-    traits::{
-        tokens::fungible,
-        IsSubType,
-    },
+    traits::{tokens::fungible, IsSubType},
 };
 
 use codec::{Decode, Encode};
