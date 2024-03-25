@@ -109,7 +109,7 @@ fn test_root_register_stake_based_pruning_works() {
                 hot,
                 1000 + (i as u64)
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             // Check that they are NOT all delegates
             assert!(!SubtensorModule::hotkey_is_delegate(&hot));
@@ -123,7 +123,7 @@ fn test_root_register_stake_based_pruning_works() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates
             assert!(SubtensorModule::hotkey_is_delegate(&hot));
@@ -138,12 +138,12 @@ fn test_root_register_stake_based_pruning_works() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
         }
 
         // Register the first 64 accounts again, this time failing because they
-        // dont have enough stake.
+        // don't have enough stake.
         for i in 0..64 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
@@ -154,7 +154,7 @@ fn test_root_register_stake_based_pruning_works() {
                 ),
                 Err(Error::<Test>::StakeTooLowForRoot.into())
             );
-            // Check for unsuccesfull registration.
+            // Check for unsuccessful registration.
             assert!(!SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are NOT senate members
             assert!(!SubtensorModule::is_senate_member(&hot));
