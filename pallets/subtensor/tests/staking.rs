@@ -2641,6 +2641,21 @@ fn test_subnet_stake_calculation() {
 
         step_block(1);
 
+        // SubtensorModule::epoch(, 0);
+
+        // Print Subnet Emission Value for each netuid after the block step
+        for netuid in 1..=NUM_SUBNETS {
+            // let emission_values = SubtensorModule::get_emission(netuid);
+            // for emission_value in emission_values {
+            SubtensorModule::epoch(netuid, 100_000_000);
+            // }
+            let emission_value = SubtensorModule::get_subnet_emission_value(netuid);
+            println!(
+                "Subnet Emission Value for netuid {}: {}",
+                netuid, emission_value
+            );
+        }
+
         // Check total stakes across all subnets
         let expected_total_stake = total_root_stake + total_subnet_stake;
         let actual_total_stake = SubtensorModule::get_total_stake(); // Assuming this function returns the total stake across all subnets
@@ -2669,6 +2684,15 @@ fn test_subnet_stake_calculation() {
 
         step_block(1);
 
+        // Print Subnet Emission Value for each netuid after the block step
+        for netuid in 1..=NUM_SUBNETS {
+            let emission_value = SubtensorModule::get_subnet_emission_value(netuid);
+            println!(
+                "Subnet Emission Value for netuid {}: {}",
+                netuid, emission_value
+            );
+        }
+
         // Verify that the total stake has been correctly reduced to just the root stake
         let expected_total_stake_after_removal = total_root_stake;
         let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
@@ -2695,6 +2719,15 @@ fn test_subnet_stake_calculation() {
         }
 
         step_block(1);
+
+        // Print Subnet Emission Value for each netuid after the block step
+        for netuid in 1..=NUM_SUBNETS {
+            let emission_value = SubtensorModule::get_subnet_emission_value(netuid);
+            println!(
+                "Subnet Emission Value for netuid {}: {}",
+                netuid, emission_value
+            );
+        }
 
         // Verify that the total stake has been correctly reduced to 0
         let expected_total_stake_after_removal = 0;
