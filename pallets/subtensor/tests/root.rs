@@ -267,6 +267,7 @@ fn test_root_set_weights() {
 #[test]
 fn test_root_set_weights_out_of_order_netuids() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
