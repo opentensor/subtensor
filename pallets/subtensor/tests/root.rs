@@ -384,6 +384,7 @@ fn test_root_set_weights_out_of_order_netuids() {
 #[test]
 fn test_root_subnet_creation_deletion() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
         // Owner of subnets.
         let owner: U256 = U256::from(0);
