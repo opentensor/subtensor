@@ -165,6 +165,7 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_root_set_weights() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
