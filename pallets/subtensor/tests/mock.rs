@@ -367,7 +367,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage()
         .unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(0));
+    ext.execute_with(|| System::set_block_number(1));
     ext
 }
 
