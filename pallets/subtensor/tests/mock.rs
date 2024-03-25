@@ -412,6 +412,20 @@ pub(crate) fn run_to_block(n: u64) {
     }
 }
 
+/// Increments current block by `1`, running all hooks associated with doing so, and asserts
+/// that the block number was in fact incremented.
+///
+/// Returns the new block number.
+#[allow(dead_code)]
+#[cfg(test)]
+pub(crate) fn next_block() -> u64 {
+    let mut block = System::block_number();
+    block += 1;
+    run_to_block(block);
+    assert_eq!(System::block_number(), block);
+    block
+}
+
 #[allow(dead_code)]
 pub fn register_ok_neuron(
     netuid: u16,
