@@ -464,6 +464,7 @@ fn test_root_subnet_creation_deletion() {
 #[test]
 fn test_network_pruning() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
