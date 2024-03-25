@@ -22,22 +22,22 @@ use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use frame_support::IterableStorageNMap;
 use substrate_fixed::{
     transcendental::log2,
     types::{I64F64, I96F32},
 };
 
 impl<T: Config> Pallet<T> {
-
-    // Retrieves a boolean true is subnet emissions are determined by 
+    // Retrieves a boolean true is subnet emissions are determined by
     // subnet specific staking.
-    //    
+    //
     // # Returns:
     // * 'bool': Whether subnet emissions are determined by subnet specific staking.
     //
     pub fn subnet_staking_on() -> bool {
         SubnetStakingOn::<T>::get()
-    }   
+    }
 
     // Retrieves the unique identifier (UID) for the root network.
     //
@@ -300,17 +300,14 @@ impl<T: Config> Pallet<T> {
     //
     //
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
-
         if Self::subnet_staking_on() {
-            return Self::get_subnet_staking_emission_values( block_number );
+            return Self::get_subnet_staking_emission_values(block_number);
         } else {
-            return Self::get_root_network_emission_values( block_number );
+            return Self::get_root_network_emission_values(block_number);
         }
-        
     }
 
-    pub fn get_subnet_staking_emission_values( block_number: u64 ) -> Result<(), &'static str>  {
-
+    pub fn get_subnet_staking_emission_values(block_number: u64) -> Result<(), &'static str> {
         // --- 0. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
         let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
@@ -318,16 +315,18 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Obtains the number of registered subnets.
         let num_subnets: u16 = Self::get_all_subnet_netuids().len() as u16;
-        log::debug!("num subnets:\n{:?}\n", num_subnets );
+        log::debug!("num subnets:\n{:?}\n", num_subnets);
 
         // --- 2. Sum all stake across subnets.
-        let mut sum_stake = I64F64::from_num( num_subnets );
-        let mut normalized_total_stake = vec![ I64F64::from_num(1.0); num_subnets as usize ];
+        let mut sum_stake = I64F64::from_num(num_subnets);
+        let mut normalized_total_stake = vec![I64F64::from_num(1.0); num_subnets as usize];
         for ((_, _, netuid), stake) in SubStake::<T>::iter() {
             // We don't sum the stake on the root network.
-            if netuid == 0 { continue }; 
-            sum_stake.saturating_add( I64F64::from_num(stake) );
-            normalized_total_stake[ netuid as usize ].saturating_add( I64F64::from_num(stake) );
+            if netuid == 0 {
+                continue;
+            };
+            sum_stake.saturating_add(I64F64::from_num(stake));
+            normalized_total_stake[netuid as usize].saturating_add(I64F64::from_num(stake));
         }
         log::debug!("Absolute Stake:\n{:?}\n", &normalized_total_stake);
 
@@ -353,7 +352,7 @@ impl<T: Config> Pallet<T> {
         return Self::set_emission_values(&netuids, emission_u64);
     }
 
-    pub fn get_root_network_emission_values( block_number: u64 )-> Result<(), &'static str> {
+    pub fn get_root_network_emission_values(block_number: u64) -> Result<(), &'static str> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
@@ -485,7 +484,6 @@ impl<T: Config> Pallet<T> {
         log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
 
         return Self::set_emission_values(&netuids, emission_u64);
-
     }
 
     // Registers a user's hotkey to the root network.
@@ -991,7 +989,34 @@ impl<T: Config> Pallet<T> {
         POWRegistrationsThisInterval::<T>::remove(netuid);
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
-        // --- 12. Add the balance back to the owner.
+        // --- 12. Iterate over Substake and remove all stake.
+
+        for ((hotkey, coldkey, current_netuid), _stake) in
+            <SubStake<T> as IterableStorageNMap<_, _>>::iter()
+        {
+            // Check if the current entry's netuid matches the target netuid
+            if current_netuid == netuid {
+                // For each hotkey with the matching netuid, get the associated coldkey and the stake amount.
+                let stake_to_be_removed =
+                    Self::get_total_stake_for_hotkey_and_subnet(&hotkey, netuid);
+
+                // Convert the stake amount to the appropriate balance type.
+                if let Some(stake_as_balance) = Self::u64_to_balance(stake_to_be_removed) {
+                    // Decrease the stake on the hotkey account under its owning coldkey for the given netuid.
+                    Self::decrease_stake_on_coldkey_hotkey_account(
+                        &coldkey,
+                        &hotkey,
+                        netuid,
+                        stake_to_be_removed,
+                    );
+
+                    // Add the balance back to the coldkey account.
+                    Self::add_balance_to_coldkey_account(&coldkey, stake_as_balance);
+                }
+            }
+        }
+
+        // --- 13. Add the balance back to the owner.
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);

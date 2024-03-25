@@ -702,6 +702,72 @@ fn test_weights_after_network_pruning() {
     });
 }
 
+#[test]
+fn test_subnet_staking_cleared_and_refunded_on_network_removal() {
+    new_test_ext(1).execute_with(|| {
+        migration::migrate_create_root_network::<Test>();
+        let netuid: u16 = 1;
+        let hotkey_account_id = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let initial_balance = 100_000_000;
+        let burn_amount: u64 = 10;
+        let stake_amount = 1_000;
+
+        add_network(netuid, 0, 0);
+
+        // Add initial balance to the coldkey account
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, initial_balance);
+        log::info!(
+            "Initial balance added to coldkey account: {}",
+            initial_balance
+        );
+
+        // Set up the network with a specific burn cost (if applicable)
+        SubtensorModule::set_burn(netuid, burn_amount);
+        log::info!("Burn set to {}", burn_amount);
+
+        // Register the hotkey with the network and stake
+        assert_ok!(SubtensorModule::burned_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            netuid,
+            hotkey_account_id,
+        ));
+        log::info!("Hotkey registered");
+
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            netuid,
+            stake_amount,
+        ));
+        log::info!("Stake added");
+        log::info!(
+            "Balance after adding stake: {}",
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id)
+        );
+        // Verify the stake has been added
+        let stake_before_removal =
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey_account_id, netuid);
+        log::info!("Stake before removal: {}", stake_before_removal);
+        assert_eq!(stake_before_removal, stake_amount);
+
+        // Remove the network, triggering stake removal and refund
+        SubtensorModule::remove_network(netuid);
+        log::info!("Network removed");
+
+        // Verify the stake has been cleared
+        let stake_after_removal =
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey_account_id, netuid);
+        log::info!("Stake after removal: {}", stake_after_removal);
+        assert_eq!(stake_after_removal, 0);
+
+        // Verify the balance has been refunded to the coldkey account
+        let balance_after_refund = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
+        log::info!("Balance after refund: {}", balance_after_refund);
+        assert_eq!(balance_after_refund, initial_balance - burn_amount);
+    });
+}
+
 /// This test checks the halving mechanism of the emission schedule.
 /// Run this test using the following command:
 /// `cargo test --package pallet-subtensor --test root test_issance_bounds`
