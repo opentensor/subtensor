@@ -718,6 +718,7 @@ fn test_registration_invalid_seal() {
 #[test]
 fn test_registration_invalid_block_number() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         let block_number: u64 = 1;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
