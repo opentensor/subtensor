@@ -834,9 +834,10 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
 #[test]
 fn test_registration_get_uid_to_prune_none_in_immunity_period() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         let netuid: u16 = 1;
         add_network(netuid, 0, 0);
-        log::info!("add netweork");
+        log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
