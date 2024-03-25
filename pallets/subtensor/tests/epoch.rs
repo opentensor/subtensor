@@ -1474,7 +1474,7 @@ fn test_outdated_weights() {
         let n: u16 = 4;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-        let mut block_number: u64 = 0;
+        let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
@@ -1510,14 +1510,16 @@ fn test_outdated_weights() {
             );
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
-        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-        run_to_block(1);
-        block_number += 1; // run to next block to ensure weights are set on nodes after their registration block
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        block_number += 1;
+        run_to_block(block_number); // run to next block to ensure weights are set on nodes after their registration block
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
         // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3, srv1->srv1: 1, srv2->srv2: 1]
         for uid in 0..(n / 2) as u64 {
@@ -1580,7 +1582,6 @@ fn test_outdated_weights() {
             &U256::from(new_key),
         );
         assert_eq!(System::block_number(), block_number);
-        assert_eq!(block_number, 1);
         assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), n);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
         assert_ok!(SubtensorModule::register(
@@ -1598,7 +1599,9 @@ fn test_outdated_weights() {
             SubtensorModule::get_hotkey_for_net_and_uid(netuid, deregistered_uid)
                 .expect("Not registered")
         );
-        run_to_block(2); // run to next block to outdate weights and bonds set on deregistered uid
+        block_number += 1;
+        run_to_block(block_number); // run to next block to outdate weights and bonds set on deregistered uid
+        assert_eq!(System::block_number(), block_number);
 
         // === Update weights from only uid=0
         assert_ok!(SubtensorModule::set_weights(
