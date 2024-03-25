@@ -11,7 +11,10 @@ use frame_support::{
     dispatch,
     dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
-    traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
+    traits::{
+        tokens::fungible,
+        IsSubType,
+    },
 };
 
 use codec::{Decode, Encode};
@@ -62,7 +65,7 @@ pub mod pallet {
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         sp_std::vec,
         sp_std::vec::Vec,
-        traits::{Currency, UnfilteredDispatchable},
+        traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::TrailingZeroInput;
@@ -96,7 +99,7 @@ pub mod pallet {
         type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         // --- Currency type that will be used to place deposits on neurons
-        type Currency: Currency<Self::AccountId> + Send + Sync;
+        type Currency: fungible::Balanced<Self::AccountId> + fungible::Mutate<Self::AccountId>;
 
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
@@ -1764,8 +1767,8 @@ where
     pub fn u64_to_balance(
         input: u64,
     ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-    > {
+        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
+    >{
         input.try_into().ok()
     }
 }

@@ -1,5 +1,5 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::{storage::IterableStorageDoubleMap, traits::tokens::{fungible::{Balanced as _, Inspect as _, Mutate as _}, Fortitude, Precision, Preservation}};
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -448,29 +448,29 @@ impl<T: Config> Pallet<T> {
     pub fn u64_to_balance(
         input: u64,
     ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
     > {
         input.try_into().ok()
     }
 
     pub fn add_balance_to_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
-        let _ = T::Currency::deposit_creating(&coldkey, amount);
+        let _ = T::Currency::deposit(&coldkey, amount, Precision::BestEffort);
     }
 
     pub fn set_balance_on_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
-        T::Currency::make_free_balance_be(&coldkey, amount);
+        T::Currency::set_balance(&coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> bool {
         let current_balance = Self::get_coldkey_balance(coldkey);
         if amount > current_balance {
@@ -478,36 +478,33 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let new_potential_balance = current_balance - amount;
-        let can_withdraw = T::Currency::ensure_can_withdraw(
+        let can_withdraw = T::Currency::can_withdraw(
             &coldkey,
             amount,
-            WithdrawReasons::except(WithdrawReasons::TIP),
-            new_potential_balance,
         )
+        .into_result(false)
         .is_ok();
         can_withdraw
     }
 
     pub fn get_coldkey_balance(
         coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance {
-        return T::Currency::free_balance(&coldkey);
+    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance {
+        return T::Currency::reducible_balance(&coldkey, Preservation::Expendable, Fortitude::Polite);
     }
 
     pub fn remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> bool {
-        return match T::Currency::withdraw(
+        T::Currency::withdraw(
             &coldkey,
             amount,
-            WithdrawReasons::except(WithdrawReasons::TIP),
-            ExistenceRequirement::KeepAlive,
-        ) {
-            Ok(_result) => true,
-            Err(_error) => false,
-        };
+            Precision::BestEffort,
+            Preservation::Preserve,
+            Fortitude::Polite,
+        )
+        .is_ok()
     }
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
