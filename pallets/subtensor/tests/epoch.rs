@@ -1265,11 +1265,12 @@ fn test_bonds() {
 #[test]
 fn test_active_stake() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         let sparse: bool = true;
         let n: u16 = 4;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-        let block_number: u64 = 0;
+        let block_number: u64 = System::block_number();
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
@@ -1310,7 +1311,7 @@ fn test_active_stake() {
         SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-        run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
+        next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
         // === Set weights [val1->srv1: 0.5, val1->srv2: 0.5, val2->srv1: 0.5, val2->srv2: 0.5]
         for uid in 0..(n / 2) as u64 {
