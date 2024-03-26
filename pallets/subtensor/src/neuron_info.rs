@@ -219,9 +219,23 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid as u16);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
-        let stake: Vec<(T::AccountId, Compact<u64>)> = < SubStake<T> as IterableStorageNMap<T::AccountId, T::AccountId, u16, u64> >::iter_prefix( hotkey.clone() )
-            .map(|(coldkey, _, stake)| (coldkey, stake.into()))
-            .collect();
+        let mut stake: Vec<(T::AccountId, Compact<u64>)> = Vec::new();
+
+        if netuid == 0 {
+            stake = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
+                .map(|(coldkey, stake)| (coldkey, stake.into()))
+                .collect();
+        } else {
+            stake = SubStake::<T>::iter()
+                .filter_map(|((_, sub_coldkey, sub_netuid), sub_stake)| {
+                    if sub_netuid == netuid {
+                        Some((sub_coldkey, sub_stake.into()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        }
 
         let neuron = NeuronInfoLite {
             hotkey: hotkey.clone(),
