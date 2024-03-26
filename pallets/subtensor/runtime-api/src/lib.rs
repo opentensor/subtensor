@@ -27,8 +27,9 @@ sp_api::decl_runtime_apis! {
     pub trait StakeInfoRuntimeApi {
         fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8>;
-        fn get_stake_info_for_coldkeys_subnet( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8>;
-        fn get_stake_info_for_coldkey_subnet( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
+        fn get_subnet_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>>, netuid: u16 ) -> Vec<u8>;
+        fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> , netuid: u16) -> Vec<u8>;
+        fn get_total_subnet_stake( netuid: u16 ) -> Vec<u8>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {
