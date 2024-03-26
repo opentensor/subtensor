@@ -246,6 +246,10 @@ fn test_registration_rate_limit_exceeded() {
     });
 }
 
+/********************************************
+    registration::do_burned_registration tests
+*********************************************/
+
 #[test]
 fn test_burned_registration_under_limit() {
     new_test_ext().execute_with(|| {
@@ -330,10 +334,6 @@ fn test_burned_registration_rate_limit_exceeded() {
         assert!(current_registrants <= max_registrants);
     });
 }
-
-/********************************************
-    registration::do_burned_registration tests
-*********************************************/
 
 #[test]
 fn test_burned_registration_ok() {
