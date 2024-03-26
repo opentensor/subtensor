@@ -1222,6 +1222,8 @@ fn test_full_with_delegating() {
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_target_registrations_per_interval(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 4); // Allow all 4 to be registered at once
+        SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
+        SubtensorModule::set_target_unstakes_per_interval(10);
 
         // Neither key can add stake because they dont have fundss.
         assert_eq!(
@@ -1801,6 +1803,7 @@ fn test_full_with_delegating_some_servers() {
         let coldkey1 = U256::from(4);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+        SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
 
         // Neither key can add stake because they dont have fundss.
         assert_eq!(
@@ -2128,6 +2131,7 @@ fn test_full_block_emission_occurs() {
         let coldkey1 = U256::from(4);
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+        SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
 
         // Neither key can add stake because they dont have fundss.
         assert_eq!(
