@@ -16,7 +16,7 @@ pub struct StakeInfo<T: Config> {
 pub struct SubnetStakeInfo<T: Config> {
     hotkey: T::AccountId,
     netuid: u16,
-    stake: Compact<u64>,
+    pub stake: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
