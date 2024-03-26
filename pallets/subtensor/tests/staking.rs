@@ -1,11 +1,12 @@
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use mock::*;
-use pallet_subtensor::Error;
+use pallet_subtensor::{Error, Error::StakeRateLimitExceeded, SubtensorSignedExtension};
 use sp_core::{H256, U256};
+use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 /***********************************************************
     staking::add_stake() tests
@@ -333,9 +334,212 @@ fn test_add_stake_total_issuance_no_change() {
     });
 }
 
+#[test]
+fn test_reset_stakes_per_interval() {
+    new_test_ext().execute_with(|| {
+        let hotkey = U256::from(561337);
+
+        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 5);
+        assert_eq!(
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
+            5
+        );
+
+        SubtensorModule::reset_stakes_and_unstakes_this_interval();
+        assert_eq!(
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
+            0
+        );
+
+        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 6);
+        SubtensorModule::set_tempo(0, 3);
+        step_block(3);
+        assert_eq!(
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
+            0
+        );
+    });
+}
+#[test]
+fn test_add_stake_under_limit() {
+    new_test_ext().execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id.into();
+        let netuid: u16 = 1;
+        let start_nonce: u64 = 0;
+        let tempo: u16 = 13;
+        let max_stakes = 2;
+
+        SubtensorModule::set_target_stakes_per_interval(max_stakes);
+
+        let call: pallet_subtensor::Call<Test> = pallet_subtensor::Call::add_stake {
+            hotkey: hotkey_account_id,
+            amount_staked: 1,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let result = extension.validate(&who, &call.into(), &info, 10);
+
+        assert_ok!(result);
+
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1,
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1,
+        ));
+
+        let current_stakes =
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey_account_id);
+        assert!(current_stakes <= max_stakes);
+    });
+}
+
+#[test]
+fn test_add_stake_rate_limit_exceeded() {
+    new_test_ext().execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id.into();
+        let netuid: u16 = 1;
+        let start_nonce: u64 = 0;
+        let tempo: u16 = 13;
+        let max_stakes = 2;
+
+        SubtensorModule::set_target_stakes_per_interval(max_stakes);
+        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey_account_id, max_stakes);
+
+        let call: pallet_subtensor::Call<Test> = pallet_subtensor::Call::add_stake {
+            hotkey: hotkey_account_id,
+            amount_staked: 1,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let result = extension.validate(&who, &call.into(), &info, 10);
+
+        assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
+        assert_err!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                1,
+            ),
+            Error::<Test>::StakeRateLimitExceeded
+        );
+
+        let current_stakes =
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey_account_id);
+        assert_eq!(current_stakes, max_stakes);
+    });
+}
+
 // /***********************************************************
 // 	staking::remove_stake() tests
 // ************************************************************/
+#[test]
+fn test_remove_stake_under_limit() {
+    new_test_ext().execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id.into();
+        let netuid: u16 = 1;
+        let start_nonce: u64 = 0;
+        let tempo: u16 = 13;
+        let max_unstakes = 2;
+
+        SubtensorModule::set_target_unstakes_per_interval(max_unstakes);
+
+        let call = pallet_subtensor::Call::remove_stake {
+            hotkey: hotkey_account_id,
+            amount_unstaked: 1,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let result = extension.validate(&who, &call.into(), &info, 10);
+
+        assert_ok!(result);
+
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2);
+
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1,
+        ));
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            hotkey_account_id,
+            1,
+        ));
+
+        let current_unstakes =
+            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey_account_id);
+        assert!(current_unstakes <= max_unstakes);
+    });
+}
+
+#[test]
+fn test_remove_stake_rate_limit_exceeded() {
+    new_test_ext().execute_with(|| {
+        let hotkey_account_id = U256::from(561337);
+        let coldkey_account_id = U256::from(61337);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id.into();
+        let netuid: u16 = 1;
+        let start_nonce: u64 = 0;
+        let tempo: u16 = 13;
+        let max_unstakes = 1;
+
+        SubtensorModule::set_target_unstakes_per_interval(max_unstakes);
+        SubtensorModule::set_unstakes_this_interval_for_hotkey(&hotkey_account_id, max_unstakes);
+
+        let call = pallet_subtensor::Call::remove_stake {
+            hotkey: hotkey_account_id,
+            amount_unstaked: 1,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let result = extension.validate(&who, &call.into(), &info, 10);
+
+        assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2);
+        assert_err!(
+            SubtensorModule::remove_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                2,
+            ),
+            Error::<Test>::UnstakeRateLimitExceeded
+        );
+
+        let current_unstakes =
+            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey_account_id);
+        assert_eq!(current_unstakes, max_unstakes);
+    });
+}
+
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_remove_stake_dispatch_info_ok() {
