@@ -126,20 +126,34 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
 
         let mut stake = Vec::<(T::AccountId, Compact<u64>)>::new();
-        for (coldkey, _) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey.clone(),
-            )
-        {
-            let mut total_staked_to_delegate_i: u64 = 0;
-            for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
-                total_staked_to_delegate_i +=
-                    Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
+        if netuid == 0 {
+            for (coldkey, _) in <Stake<T> as IterableStorageDoubleMap<
+                T::AccountId,
+                T::AccountId,
+                u64,
+            >>::iter_prefix(hotkey.clone())
+            {
+                let mut total_staked_to_delegate_i: u64 = 0;
+                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
+                    total_staked_to_delegate_i +=
+                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
+                }
+                if total_staked_to_delegate_i > 0 {
+                    stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
+                }
             }
-            if total_staked_to_delegate_i == 0 {
-                continue;
+        } else {
+            for ((hotkey, coldkey, _), _) in SubStake::<T>::iter() {
+                let mut total_staked_to_delegate_i: u64 = 0;
+                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
+                    total_staked_to_delegate_i +=
+                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
+                }
+
+                if total_staked_to_delegate_i > 0 {
+                    stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
+                }
             }
-            stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
         }
 
         let neuron = NeuronInfo {
