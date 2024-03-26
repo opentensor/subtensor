@@ -339,6 +339,7 @@ fn test_reset_stakes_per_interval() {
     new_test_ext().execute_with(|| {
         let hotkey = U256::from(561337);
 
+        // ** Stakes **
         SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 5);
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
@@ -356,6 +357,27 @@ fn test_reset_stakes_per_interval() {
         step_block(3);
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
+            0
+        );
+
+        // ** Unstakes **
+        SubtensorModule::set_unstakes_this_interval_for_hotkey(&hotkey, 5);
+        assert_eq!(
+            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey),
+            5
+        );
+
+        SubtensorModule::reset_stakes_and_unstakes_this_interval();
+        assert_eq!(
+            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey),
+            0
+        );
+
+        SubtensorModule::set_unstakes_this_interval_for_hotkey(&hotkey, 6);
+        SubtensorModule::set_tempo(0, 3);
+        step_block(3);
+        assert_eq!(
+            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey),
             0
         );
     });
