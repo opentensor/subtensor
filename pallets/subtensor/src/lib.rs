@@ -182,6 +182,9 @@ pub mod pallet {
         type InitialSubnetLimit: Get<u16>;
         #[pallet::constant] // Initial network creation rate limit
         type InitialNetworkRateLimit: Get<u64>;
+        #[pallet::constant] // Initial target stakes per interval issuance.
+        type InitialTargetStakesPerInterval: Get<u64>;
+        type InitialTargetUnstakesPerInterval: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -223,6 +226,14 @@ pub mod pallet {
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
+    #[pallet::type_value]
+    pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
+        T::InitialTargetStakesPerInterval::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultTargetUnstakesPerInterval<T: Config>() -> u64 {
+        T::InitialTargetUnstakesPerInterval::get()
+    }
 
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -232,11 +243,23 @@ pub mod pallet {
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
+    #[pallet::storage] // --- ITEM (target_stakes_per_interval)
+    pub type TargetStakesPerInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
+    #[pallet::storage] // --- ITEM (target_unstakes_per_interval)
+    pub type TargetUnstakesPerInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTargetUnstakesPerInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total number of stakes under a hotkey this interval
+    pub type TotalHotkeyStakesThisInterval<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total number of unstakes under a hotkey this interval
+    pub type TotalHotkeyUnstakesThisInterval<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
@@ -920,7 +943,9 @@ pub mod pallet {
         MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
         TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
         TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-        RegistrationDisabled, // --- Thrown when registration is disabled
+        StakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for stakes.
+        UnstakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for unstakes.
+        RegistrationDisabled,     // --- Thrown when registration is disabled
         TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
         BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
         HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
@@ -1817,14 +1842,33 @@ where
                     return Err(InvalidTransaction::Call.into());
                 }
             }
-            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::add_stake { hotkey, .. }) => {
+                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
+                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
+
+                if stakes_this_interval >= max_stakes_per_interval {
+                    return InvalidTransaction::ExhaustsResources.into();
+                }
+
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
+            Some(Call::remove_stake { hotkey, .. }) => {
+                let unstakes_this_interval =
+                    Pallet::<T>::get_unstakes_this_interval_for_hotkey(hotkey);
+                let max_unstakes_per_interval = Pallet::<T>::get_target_unstakes_per_interval();
+
+                if unstakes_this_interval >= max_unstakes_per_interval {
+                    return InvalidTransaction::ExhaustsResources.into();
+                }
+
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
             Some(Call::register { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
