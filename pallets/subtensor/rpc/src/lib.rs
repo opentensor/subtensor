@@ -51,6 +51,9 @@ pub trait SubtensorCustomApi<BlockHash> {
 
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+
+    #[method(name = "subnetInfo_getSubnetStakeInfo")]
+    fn get_subnet_stake_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -270,6 +273,24 @@ where
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get subnet lock cost.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_subnet_stake_info(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnet_stake_info(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get subnet stake info.",
                 Some(e.to_string()),
             ))
             .into()
