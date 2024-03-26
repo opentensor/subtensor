@@ -2,7 +2,7 @@ use frame_support::traits::Currency;
 
 use crate::mock::*;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::{AxonInfoOf, Error, SubtensorSignedExtension};
@@ -240,7 +240,7 @@ fn test_registration_rate_limit_exceeded() {
         let result = extension.validate(&who, &call.into(), &info, 10);
 
         // Expectation: The transaction should be rejected
-        assert!(result.is_err());
+        assert_err!(result, InvalidTransaction::ExhaustsResources);
 
         let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
         assert!(current_registrants <= max_registrants);
