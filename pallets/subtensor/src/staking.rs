@@ -86,7 +86,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
+    // ---- The implementation for the extrinsic decrease_take
     //
     // # Args:
     // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
