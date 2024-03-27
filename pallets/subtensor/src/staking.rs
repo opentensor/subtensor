@@ -86,6 +86,87 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The hotkey we are delegating (must be owned by the coldkey.)
+    //
+    // 	* 'take' (u16):
+    // 		- The stake proportion that this hotkey takes from delegations.
+    //
+    // # Event:
+    // 	* DelegateAdded;
+    // 		- On successfully setting a hotkey as a delegate.
+    //
+    // # Raises:
+    // 	* 'NotRegistered':
+    // 		- The hotkey we are delegating is not registered on the network.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- The hotkey we are delegating is not owned by the calling coldket.
+    //
+    // 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
+    //
+    pub fn do_decrease_take(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        take: u16,
+    ) -> dispatch::DispatchResult {
+        // --- 1. We check the coldkey signature.
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_decrease_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            coldkey,
+            hotkey,
+            take
+        );
+
+        // --- 2. Ensure we are delegating an known key.
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // --- 3. Ensure that the coldkey is the owner.
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // --- 4. Ensure we are not already a delegate (dont allow changing delegate take.)
+        ensure!(
+            !Self::hotkey_is_delegate(&hotkey),
+            Error::<T>::AlreadyDelegate
+        );
+
+        // --- 5. Ensure we are always decreasing take never increasing.
+        let current_take: u16 = Delegates::<T>::get(hotkey.clone());
+        ensure!(
+            take < current_take,
+            Error::<T>::InvalidTake
+        );
+
+        // --- 6. Set the new take value.
+        Delegates::<T>::insert(hotkey.clone(), take);
+
+        // --- 7. Emit the take value.
+        log::info!(
+            "TakeDecreased( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
+            coldkey,
+            hotkey,
+            take
+        );
+        Self::deposit_event(Event::TakeDecreased(coldkey, hotkey, take));
+
+        // --- 8. Ok and return.
+        Ok(())
+    }
+
     // ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
     //
     // # Args:
