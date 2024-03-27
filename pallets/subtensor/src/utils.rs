@@ -146,19 +146,9 @@ impl<T: Config> Pallet<T> {
     pub fn set_stakes_this_interval_for_hotkey(hotkey: &T::AccountId, stakes_this_interval: u64) {
         TotalHotkeyStakesThisInterval::<T>::insert(hotkey, stakes_this_interval);
     }
-    pub fn set_target_unstakes_per_interval(target_stakes_per_interval: u64) {
-        TargetUnstakesPerInterval::<T>::set(target_stakes_per_interval)
-    }
-    pub fn set_unstakes_this_interval_for_hotkey(
-        hotkey: &T::AccountId,
-        registrations_this_interval: u64,
-    ) {
-        TotalHotkeyUnstakesThisInterval::<T>::insert(hotkey, registrations_this_interval);
-    }
     pub fn reset_stakes_and_unstakes_this_interval() {
         // This removes all key-value pairs from the storage map
         let _ = TotalHotkeyStakesThisInterval::<T>::clear(u32::MAX, None);
-        let _ = TotalHotkeyUnstakesThisInterval::<T>::clear(u32::MAX, None);
     }
 
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {

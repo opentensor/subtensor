@@ -4,7 +4,7 @@ mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use mock::*;
-use pallet_subtensor::{Error, Error::StakeRateLimitExceeded, SubtensorSignedExtension};
+use pallet_subtensor::{Error, SubtensorSignedExtension};
 use sp_core::{H256, U256};
 use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
@@ -339,7 +339,6 @@ fn test_reset_stakes_per_interval() {
     new_test_ext().execute_with(|| {
         let hotkey = U256::from(561337);
 
-        // ** Stakes **
         SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 5);
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
@@ -357,27 +356,6 @@ fn test_reset_stakes_per_interval() {
         step_block(3);
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
-            0
-        );
-
-        // ** Unstakes **
-        SubtensorModule::set_unstakes_this_interval_for_hotkey(&hotkey, 5);
-        assert_eq!(
-            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey),
-            5
-        );
-
-        SubtensorModule::reset_stakes_and_unstakes_this_interval();
-        assert_eq!(
-            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey),
-            0
-        );
-
-        SubtensorModule::set_unstakes_this_interval_for_hotkey(&hotkey, 6);
-        SubtensorModule::set_tempo(0, 3);
-        step_block(3);
-        assert_eq!(
-            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey),
             0
         );
     });
@@ -483,7 +461,7 @@ fn test_remove_stake_under_limit() {
         let tempo: u16 = 13;
         let max_unstakes = 2;
 
-        SubtensorModule::set_target_unstakes_per_interval(max_unstakes);
+        SubtensorModule::set_target_stakes_per_interval(max_unstakes);
 
         let call = pallet_subtensor::Call::remove_stake {
             hotkey: hotkey_account_id,
@@ -513,7 +491,7 @@ fn test_remove_stake_under_limit() {
         ));
 
         let current_unstakes =
-            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey_account_id);
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey_account_id);
         assert!(current_unstakes <= max_unstakes);
     });
 }
@@ -529,8 +507,8 @@ fn test_remove_stake_rate_limit_exceeded() {
         let tempo: u16 = 13;
         let max_unstakes = 1;
 
-        SubtensorModule::set_target_unstakes_per_interval(max_unstakes);
-        SubtensorModule::set_unstakes_this_interval_for_hotkey(&hotkey_account_id, max_unstakes);
+        SubtensorModule::set_target_stakes_per_interval(max_unstakes);
+        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey_account_id, max_unstakes);
 
         let call = pallet_subtensor::Call::remove_stake {
             hotkey: hotkey_account_id,
@@ -557,7 +535,7 @@ fn test_remove_stake_rate_limit_exceeded() {
         );
 
         let current_unstakes =
-            SubtensorModule::get_unstakes_this_interval_for_hotkey(&hotkey_account_id);
+            SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey_account_id);
         assert_eq!(current_unstakes, max_unstakes);
     });
 }
@@ -1245,7 +1223,6 @@ fn test_full_with_delegating() {
         SubtensorModule::set_target_registrations_per_interval(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 4); // Allow all 4 to be registered at once
         SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
-        SubtensorModule::set_target_unstakes_per_interval(10);
 
         // Neither key can add stake because they dont have fundss.
         assert_eq!(

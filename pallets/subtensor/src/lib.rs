@@ -184,7 +184,6 @@ pub mod pallet {
         type InitialNetworkRateLimit: Get<u64>;
         #[pallet::constant] // Initial target stakes per interval issuance.
         type InitialTargetStakesPerInterval: Get<u64>;
-        type InitialTargetUnstakesPerInterval: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -230,10 +229,6 @@ pub mod pallet {
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
     }
-    #[pallet::type_value]
-    pub fn DefaultTargetUnstakesPerInterval<T: Config>() -> u64 {
-        T::InitialTargetUnstakesPerInterval::get()
-    }
 
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -246,9 +241,6 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
-    #[pallet::storage] // --- ITEM (target_unstakes_per_interval)
-    pub type TargetUnstakesPerInterval<T> =
-        StorageValue<_, u64, ValueQuery, DefaultTargetUnstakesPerInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
@@ -257,9 +249,6 @@ pub mod pallet {
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total number of stakes under a hotkey this interval
     pub type TotalHotkeyStakesThisInterval<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total number of unstakes under a hotkey this interval
-    pub type TotalHotkeyUnstakesThisInterval<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
@@ -1856,11 +1845,10 @@ where
                 })
             }
             Some(Call::remove_stake { hotkey, .. }) => {
-                let unstakes_this_interval =
-                    Pallet::<T>::get_unstakes_this_interval_for_hotkey(hotkey);
-                let max_unstakes_per_interval = Pallet::<T>::get_target_unstakes_per_interval();
+                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
+                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
 
-                if unstakes_this_interval >= max_unstakes_per_interval {
+                if stakes_this_interval >= max_stakes_per_interval {
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 

@@ -284,9 +284,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Ensure we don't exceed stake rate limit
-        let unstakes_this_interval = Self::get_unstakes_this_interval_for_hotkey(&hotkey);
+        let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         ensure!(
-            unstakes_this_interval < Self::get_target_unstakes_per_interval(),
+            unstakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::UnstakeRateLimitExceeded
         );
 
@@ -297,7 +297,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // --- 10. Increment stakes this interval for the given hotkey
-        Self::set_unstakes_this_interval_for_hotkey(&hotkey, unstakes_this_interval + 1);
+        Self::set_stakes_this_interval_for_hotkey(&hotkey, unstakes_this_interval + 1);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -368,14 +368,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_target_stakes_per_interval() -> u64 {
         return TargetStakesPerInterval::<T>::get();
-    }
-
-    pub fn get_unstakes_this_interval_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        return TotalHotkeyUnstakesThisInterval::<T>::get(hotkey);
-    }
-
-    pub fn get_target_unstakes_per_interval() -> u64 {
-        return TargetUnstakesPerInterval::<T>::get();
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
