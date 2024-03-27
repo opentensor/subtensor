@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic decrease_take
     //
     // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 	* 'origin': (<T as frame_system::Config>::RuntimeOrigin):
     // 		- The signature of the caller's coldkey.
     //
     // 	* 'hotkey' (T::AccountId):
