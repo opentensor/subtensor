@@ -13,7 +13,9 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Calculate per-subnet emissions
+        // --- 2. Adjust for potential halving
+        Self::check_halving();
+        // --- 3. Calculate per-subnet emissions
         match Self::root_epoch(block_number) {
             Ok(_) => (),
             Err(e) => {
@@ -80,6 +82,38 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_loaded_emission_tuples(netuid: u16) -> Vec<(T::AccountId, u64, u64)> {
         LoadedEmission::<T>::get(netuid).unwrap()
+    }
+
+    // Checks the current block emission and
+    // updates the block emission if the recalculated value is lower
+    //
+    pub fn check_halving() {
+        const ORIGINAL_EMISSION: f64 = 1_000_000_000.0; //Rao => 1 Tao
+        let current_issuance: f64 = Self::get_total_issuance() as f64;
+
+        let emission_percentage: f64 = Self::get_emission_from_issuance(current_issuance);
+        let new_emission_float: f64 = ORIGINAL_EMISSION * emission_percentage;
+        let new_emission: u64 = new_emission_float as u64;
+
+        let current_emission: u64 = Self::get_block_emission();
+
+        if current_emission > new_emission {
+            Self::set_block_emission(new_emission);
+        }
+    }
+
+    // Calculates the emission rate based on the total issuance,
+    // where the emission decreases as the total issuance approaches the supply cap.
+    //
+    pub fn get_emission_from_issuance(total_issuance: f64) -> f64 {
+        const TOTAL_SUPPLY: f64 = 21_000_000_000_000_000.0; //Rao => 21_000_000 Tao
+        if total_issuance >= TOTAL_SUPPLY {
+            return 0.0;
+        }
+
+        let h = Self::log2(1.0 / (1.0 - total_issuance / (2.0 * 11_000_000_000_000_000.0)));
+        let h = Self::floor(h);
+        Self::powf(2.0, -h)
     }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )

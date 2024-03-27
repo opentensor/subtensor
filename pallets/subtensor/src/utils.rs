@@ -558,11 +558,12 @@ impl<T: Config> Pallet<T> {
         SubnetOwnerCut::<T>::set(subnet_owner_cut);
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
-
     pub fn set_total_issuance(total_issuance: u64) {
-        TotalIssuance::<T>::put(total_issuance);
+        TotalIssuance::<T>::put(total_issuance)
     }
-
+    pub fn set_block_emission(new_value: u64) {
+        BlockEmission::<T>::put(new_value)
+    }
     pub fn get_rao_recycled(netuid: u16) -> u64 {
         RAORecycledForRegistration::<T>::get(netuid)
     }
@@ -597,5 +598,41 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
+    }
+
+    pub fn log2(x: f64) -> f64 {
+        let mut y = x;
+        let mut result = 0.0;
+        while y < 1.0 {
+            y *= 2.0;
+            result -= 1.0;
+        }
+        while y >= 2.0 {
+            y *= 0.5;
+            result += 1.0;
+        }
+        result
+    }
+    pub fn powf(base: f64, exponent: f64) -> f64 {
+        if exponent == 0.0 {
+            return 1.0;
+        } else if exponent < 0.0 {
+            return 1.0 / Self::powf(base, -exponent);
+        }
+
+        let mut result = 1.0;
+        let mut exp = exponent as i64;
+        let mut b = base;
+        while exp > 0 {
+            if exp % 2 == 1 {
+                result *= b;
+            }
+            b *= b;
+            exp /= 2;
+        }
+        result
+    }
+    pub fn floor(x: f64) -> f64 {
+        x as i64 as f64
     }
 }
