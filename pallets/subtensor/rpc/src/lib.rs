@@ -68,6 +68,12 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getTotalSubnetStake")]
     fn get_total_subnet_stake(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getAllStakeInfoForColdKey")]
+    fn get_all_stake_info_for_coldkey(
+        &self,
+        coldkey_account_vec: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -350,5 +356,24 @@ where
             ))
             .into()
         })
+    }
+
+    fn get_all_stake_info_for_coldkey(
+        &self,
+        coldkey_account_vec: Vec<u8>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_all_stake_info_for_coldkey(at, coldkey_account_vec)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to get all stake info for coldkey.",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
     }
 }

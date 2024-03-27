@@ -135,3 +135,47 @@ fn test_get_total_subnet_stake() {
         );
     });
 }
+
+#[test]
+fn test_get_all_stake_info_for_coldkey() {
+    new_test_ext().execute_with(|| {
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        let tempo: u16 = 13;
+
+        // Create coldkey and multiple hotkeys
+        let coldkey = U256::from(0);
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+
+        add_network(netuid1, tempo, 0);
+        add_network(netuid2, tempo, 0);
+
+        // Register neurons and add balance for the coldkey in different subnets
+        register_ok_neuron(netuid1, hotkey1, coldkey, 39420842);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 20000);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey1,
+            netuid1,
+            10000
+        ));
+
+        register_ok_neuron(netuid2, hotkey2, coldkey, 39420843);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey2,
+            netuid2,
+            5000
+        ));
+
+        // Retrieve all stake info for the coldkey and assert the results
+        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+
+        // Assuming the function returns a Vec<(AccountId, u16, Compact<u64>)>
+        assert_eq!(all_stake_info.len(), 2); // Ensure we have two entries
+
+        let total_stake: u64 = all_stake_info.iter().map(|info| info.2 .0).sum();
+        assert_eq!(total_stake, 15000); // Total stake should be the sum of stakes in both subnets
+    });
+}
