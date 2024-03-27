@@ -1284,7 +1284,7 @@ pub mod pallet {
         // --- Allows delegates to decrease its take value.
         //
         // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
         // 		- The signature of the caller's coldkey.
         //
         // 	* 'hotkey' (T::AccountId):
