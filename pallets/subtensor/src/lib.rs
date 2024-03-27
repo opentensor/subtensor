@@ -1351,6 +1351,38 @@ pub mod pallet {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
         }
 
+        // --- Allows delegates to decrease its take value.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'take' (u64):
+        // 		- The new stake proportion that this hotkey takes from delegations.
+        //
+        // # Event:
+        // 	* DelegateAdded;
+        // 		- On successfully setting a hotkey as a delegate.
+        //
+        // # Raises:
+        // 	* 'NotRegistered':
+        // 		- The hotkey we are delegating is not registered on the network.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- The hotkey we are delegating is not owned by the calling coldkey.
+        //
+        // 	* 'InvalidTransaction':
+        // 		- The delegate is setting a take which is not lower than the previous.
+        //
+        #[pallet::call_index(63)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn decrease_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
+            Self::do_decrease_take(origin, hotkey, take)
+        }
+
         // --- Adds stake to a hotkey. The call is made from the
         // coldkey account linked in the hotkey.
         // Only the associated coldkey is allowed to make staking and
