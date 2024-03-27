@@ -1,7 +1,7 @@
 use super::*;
+use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageNMap;
-use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use alloc::vec::Vec;
 use codec::Compact;
@@ -15,7 +15,7 @@ pub struct NeuronInfo<T: Config> {
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    pub stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,
@@ -39,7 +39,7 @@ pub struct NeuronInfoLite<T: Config> {
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    pub stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,
@@ -130,15 +130,36 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
 
         let mut stake = Vec::<(T::AccountId, Compact<u64>)>::new();
-        for (coldkey, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone()  ) {
-            let mut total_staked_to_delegate_i: u64 = 0;
-            for netuid_i in 0..(TotalNetworks::<T>::get()+1) {
-                total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid_i );
+        if netuid == 0 {
+            for (coldkey, _) in <Stake<T> as IterableStorageDoubleMap<
+                T::AccountId,
+                T::AccountId,
+                u64,
+            >>::iter_prefix(hotkey.clone())
+            {
+                let mut total_staked_to_delegate_i: u64 = 0;
+                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
+                    total_staked_to_delegate_i +=
+                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
+                }
+                if total_staked_to_delegate_i > 0 {
+                    stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
+                }
             }
-            if total_staked_to_delegate_i == 0 { continue; }
-            stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
+        } else {
+            for ((hotkey, coldkey, _), _) in SubStake::<T>::iter() {
+                let mut total_staked_to_delegate_i: u64 = 0;
+                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
+                    total_staked_to_delegate_i +=
+                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
+                }
+
+                if total_staked_to_delegate_i > 0 {
+                    stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
+                }
+            }
         }
-        
+
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),
@@ -202,12 +223,23 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid as u16);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
-        let stake: Vec<(T::AccountId, Compact<u64>)> =
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey.clone(),
-            )
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
+        let mut stake: Vec<(T::AccountId, Compact<u64>)> = Vec::new();
+
+        if netuid == 0 {
+            stake = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
+                .map(|(coldkey, stake)| (coldkey, stake.into()))
+                .collect();
+        } else {
+            stake = SubStake::<T>::iter()
+                .filter_map(|((_, sub_coldkey, sub_netuid), sub_stake)| {
+                    if sub_netuid == netuid {
+                        Some((sub_coldkey, sub_stake.into()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        }
 
         let neuron = NeuronInfoLite {
             hotkey: hotkey.clone(),

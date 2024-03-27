@@ -793,8 +793,7 @@ impl
         return SubtensorModule::if_subnet_exist(netuid);
     }
 
-	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16 )
-    {
+    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16) {
         return SubtensorModule::create_account_if_non_existent(coldkey, hotkey, netuid);
     }
 
@@ -802,9 +801,15 @@ impl
         return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
     }
 
-	fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, netuid: u16, increment: u64)
-    {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid, increment);
+    fn increase_stake_on_coldkey_hotkey_account(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: u16,
+        increment: u64,
+    ) {
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            coldkey, hotkey, netuid, increment,
+        );
     }
 
     fn u64_to_balance(input: u64) -> Option<Balance> {
@@ -1363,6 +1368,21 @@ impl_runtime_apis! {
 
         fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
+            result.encode()
+        }
+
+        fn get_subnet_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ,netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_subnet_stake_info_for_coldkeys( coldkey_account_vecs, netuid );
+            result.encode()
+        }
+
+        fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_subnet_stake_info_for_coldkey( coldkey_account_vec, netuid );
+            result.encode()
+        }
+
+        fn get_total_subnet_stake( netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_total_subnet_stake( netuid );
             result.encode()
         }
     }

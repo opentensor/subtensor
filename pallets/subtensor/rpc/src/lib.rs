@@ -12,7 +12,7 @@ use std::sync::Arc;
 use sp_api::ProvideRuntimeApi;
 
 pub use subtensor_custom_rpc_runtime_api::{
-    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
+    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
     SubnetRegistrationRuntimeApi,
 };
 
@@ -51,6 +51,23 @@ pub trait SubtensorCustomApi<BlockHash> {
 
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+
+    #[method(name = "subnetInfo_getSubnetStakeInfoForColdKey")]
+    fn get_subnet_stake_info_for_cold_key(
+        &self,
+        coldkey_account_vec: Vec<u8>,
+        netuid: u16,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetStakeInfoForColdKeys")]
+    fn get_subnet_stake_info_for_coldkeys(
+        &self,
+        coldkey_account_vecs: Vec<Vec<u8>>,
+        netuid: u16,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getTotalSubnetStake")]
+    fn get_total_subnet_stake(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -91,6 +108,7 @@ where
     C::Api: NeuronInfoRuntimeApi<Block>,
     C::Api: SubnetInfoRuntimeApi<Block>,
     C::Api: SubnetRegistrationRuntimeApi<Block>,
+    C::Api: StakeInfoRuntimeApi<Block>,
 {
     fn get_delegates(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -270,6 +288,64 @@ where
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get subnet lock cost.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_subnet_stake_info_for_cold_key(
+        &self,
+        coldkey_account_vec: Vec<u8>,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnet_stake_info_for_coldkey(at, coldkey_account_vec, netuid)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to get subnet stake info.",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
+    }
+
+    fn get_subnet_stake_info_for_coldkeys(
+        &self,
+        coldkey_account_vecs: Vec<Vec<u8>>,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnet_stake_info_for_coldkeys(at, coldkey_account_vecs, netuid)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to get subnet stake info.",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
+    }
+
+    fn get_total_subnet_stake(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_total_subnet_stake(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get total subnet stake.",
                 Some(e.to_string()),
             ))
             .into()
