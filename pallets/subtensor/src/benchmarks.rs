@@ -7,10 +7,10 @@ use crate::Pallet as Subtensor;
 use crate::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
-use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_system::RawOrigin;
 pub use pallet::*;
+use sp_std::vec::Vec;
 //use mock::{Test, new_test_ext};
 
 benchmarks! {

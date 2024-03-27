@@ -3,7 +3,6 @@ use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
-use frame_system::Config;
 use mock::*;
 use pallet_subtensor::Error;
 use sp_core::U256;
@@ -481,7 +480,7 @@ fn test_set_weights_err_invalid_uid() {
     });
 }
 
-// Tests that set weights fails if you dont pass enough values.
+// Tests that set weights fails if you don't pass enough values.
 #[test]
 fn test_set_weight_not_enough_values() {
     new_test_ext().execute_with(|| {

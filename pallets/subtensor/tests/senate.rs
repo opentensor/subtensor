@@ -9,6 +9,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
+use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
 use pallet_subtensor::migration;
@@ -17,7 +18,7 @@ use pallet_subtensor::Error;
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
 
-    let mut ext: sp_io::TestExternalities = GenesisConfig {
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
         senate_members: pallet_membership::GenesisConfig::<Test, pallet_membership::Instance2> {
             members: bounded_vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
             phantom: Default::default(),
@@ -194,7 +195,7 @@ fn test_senate_vote_works() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -271,7 +272,7 @@ fn test_senate_vote_not_member() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -432,7 +433,7 @@ fn test_senate_leave_vote_removal() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));

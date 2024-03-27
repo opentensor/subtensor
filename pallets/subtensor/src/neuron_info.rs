@@ -2,7 +2,6 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageDoubleMap;
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -61,9 +60,6 @@ impl<T: Config> Pallet<T> {
         let mut neurons = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let uid = uid;
-            let netuid = netuid;
-
             let _neuron = Self::get_neuron_subnet_exists(netuid, uid);
             let neuron;
             if _neuron.is_none() {
@@ -237,8 +233,6 @@ impl<T: Config> Pallet<T> {
         let mut neurons: Vec<NeuronInfoLite<T>> = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let uid = uid;
-
             let _neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
             let neuron;
             if _neuron.is_none() {

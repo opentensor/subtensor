@@ -35,7 +35,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(91000000),
+                weight: frame_support::weights::Weight::from_parts(91000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -718,6 +718,7 @@ fn test_registration_invalid_seal() {
 #[test]
 fn test_registration_invalid_block_number() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         let block_number: u64 = 1;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -810,9 +811,10 @@ fn test_registration_failed_no_signature() {
 #[test]
 fn test_registration_get_uid_to_prune_all_in_immunity_period() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         let netuid: u16 = 1;
         add_network(netuid, 0, 0);
-        log::info!("add netweork");
+        log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
@@ -833,9 +835,10 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
 #[test]
 fn test_registration_get_uid_to_prune_none_in_immunity_period() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         let netuid: u16 = 1;
         add_network(netuid, 0, 0);
-        log::info!("add netweork");
+        log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);

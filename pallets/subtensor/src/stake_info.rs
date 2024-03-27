@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 

@@ -18,12 +18,11 @@
 use super::*;
 use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
-use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::types::I64F64;
 
 impl<T: Config> Pallet<T> {
     // Retrieves the unique identifier (UID) for the root network.
@@ -550,10 +549,10 @@ impl<T: Config> Pallet<T> {
         let members = T::SenateMembers::members();
         let member_count = members.len() as u32;
         let vote_weight = Weight::from_parts(20_528_275, 4980)
-            .saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
+            .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
+            .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
 
         Ok((
             Some(vote_weight),

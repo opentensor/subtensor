@@ -2,7 +2,6 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use log::info;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 use sp_core::{H256, U256};
@@ -22,7 +21,6 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 fn test_root_register_network_exist() {
     new_test_ext().execute_with(|| {
         migration::migrate_create_root_network::<Test>();
-        let root_netuid: u16 = 0;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
         assert_ok!(SubtensorModule::root_register(
@@ -51,7 +49,7 @@ fn test_root_register_normal_on_root_fails() {
                 root_netuid,
                 hotkey_account_id
             ),
-            Err(Error::<Test>::OperationNotPermittedonRootSubnet.into())
+            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
         );
         // Pow registration fails.
         let block_number: u64 = SubtensorModule::get_current_block_as_u64();
@@ -71,7 +69,7 @@ fn test_root_register_normal_on_root_fails() {
                 hotkey_account_id,
                 coldkey_account_id,
             ),
-            Err(Error::<Test>::OperationNotPermittedonRootSubnet.into())
+            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
         );
     });
 }
@@ -111,7 +109,7 @@ fn test_root_register_stake_based_pruning_works() {
                 hot,
                 1000 + (i as u64)
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             // Check that they are NOT all delegates
             assert!(!SubtensorModule::hotkey_is_delegate(&hot));
@@ -125,7 +123,7 @@ fn test_root_register_stake_based_pruning_works() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates
             assert!(SubtensorModule::hotkey_is_delegate(&hot));
@@ -140,12 +138,12 @@ fn test_root_register_stake_based_pruning_works() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
         }
 
         // Register the first 64 accounts again, this time failing because they
-        // dont have enough stake.
+        // don't have enough stake.
         for i in 0..64 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
@@ -156,7 +154,7 @@ fn test_root_register_stake_based_pruning_works() {
                 ),
                 Err(Error::<Test>::StakeTooLowForRoot.into())
             );
-            // Check for unsuccesfull registration.
+            // Check for unsuccessful registration.
             assert!(!SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are NOT senate members
             assert!(!SubtensorModule::is_senate_member(&hot));
@@ -167,6 +165,7 @@ fn test_root_register_stake_based_pruning_works() {
 #[test]
 fn test_root_set_weights() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
@@ -268,6 +267,7 @@ fn test_root_set_weights() {
 #[test]
 fn test_root_set_weights_out_of_order_netuids() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
@@ -384,6 +384,7 @@ fn test_root_set_weights_out_of_order_netuids() {
 #[test]
 fn test_root_subnet_creation_deletion() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
         // Owner of subnets.
         let owner: U256 = U256::from(0);
@@ -463,6 +464,7 @@ fn test_root_subnet_creation_deletion() {
 #[test]
 fn test_network_pruning() {
     new_test_ext().execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
@@ -577,15 +579,18 @@ fn test_network_prune_results() {
         step_block(3);
 
         // lowest emission
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64]);
+        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64])
+            .unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 2u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64]);
+        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64])
+            .unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 3u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64]);
+        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64])
+            .unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 1u16);
     });
 }
@@ -610,7 +615,6 @@ fn test_weights_after_network_pruning() {
 
         for i in 0..n {
             // Register a validator
-            let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
 
             SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000);
@@ -659,7 +663,7 @@ fn test_weights_after_network_pruning() {
         );
         log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
         let i = (n as u16) + 1;
-        let hot: U256 = U256::from(i);
+        let _hot: U256 = U256::from(i);
         let cold: U256 = U256::from(i);
 
         SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000_000);

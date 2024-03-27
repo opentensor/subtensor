@@ -1,30 +1,21 @@
-use super::{Event as CommitmentEvent, *};
+#![allow(non_camel_case_types)]
+
+use super::*;
 use crate as pallet_commitments;
-use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::Pays,
-    parameter_types,
-    traits::{ConstU32, ConstU64, GenesisBuild, StorageMapShim},
-    Hashable,
-};
-use frame_system::{EnsureRoot, EventRecord, Phase};
+use frame_support::traits::ConstU64;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, ConstU16, IdentityLookup},
-    BuildStorage,
 };
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
 
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Event<T>},
+        System: frame_system,
         Balances: pallet_balances,
         Commitments: pallet_commitments
     }
@@ -46,20 +37,19 @@ pub type Balance = u64;
 pub type BlockNumber = u64;
 
 impl pallet_balances::Config for Test {
-    type Balance = Balance;
+    type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u64;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type MaxLocks = ();
+    type ExistentialDeposit = ConstU64<1>;
+    type AccountStore = System;
     type WeightInfo = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type RuntimeHoldReason = ();
+    type MaxHolds = ();
 }
 
 impl frame_system::Config for Test {
@@ -77,16 +67,15 @@ impl frame_system::Config for Test {
     type BlockHashCount = ConstU64<250>;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = ConstU16<42>;
     type OnSetCode = ();
-    type Index = u32;
-    type BlockNumber = u64;
-    type Header = sp_runtime::generic::Header<Self::BlockNumber, BlakeTwo256>;
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Block = Block;
+    type Nonce = u64;
 }
 
 impl pallet_commitments::Config for Test {
@@ -100,10 +89,12 @@ impl pallet_commitments::Config for Test {
     type RateLimit = frame_support::traits::ConstU64<0>;
 }
 
-// Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
-}
+// // Build genesis storage according to the mock runtime.
+// pub fn new_test_ext() -> sp_io::TestExternalities {
+//     let t = frame_system::GenesisConfig::<Test>::default()
+//         .build_storage()
+//         .unwrap();
+//     let mut ext = sp_io::TestExternalities::new(t);
+//     ext.execute_with(|| System::set_block_number(1));
+//     ext
+// }

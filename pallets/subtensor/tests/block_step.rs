@@ -15,7 +15,7 @@ fn test_loaded_emission() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
-        SubtensorModule::set_emission_values(&netuids, emission);
+        SubtensorModule::set_emission_values(&netuids, emission).unwrap();
         for i in 0..n {
             SubtensorModule::append_neuron(netuid, &U256::from(i), 0);
         }
