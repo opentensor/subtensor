@@ -1376,6 +1376,11 @@ impl_runtime_apis! {
             result.encode()
         }
 
+        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_all_stake_info_for_coldkey( coldkey_account_vec );
+            result.encode()
+        }
+
         fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
             let result = SubtensorModule::get_subnet_stake_info_for_coldkey( coldkey_account_vec, netuid );
             result.encode()

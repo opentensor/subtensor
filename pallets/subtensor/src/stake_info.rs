@@ -188,4 +188,37 @@ impl<T: Config> Pallet<T> {
         // Return the total stake wrapped in Compact.
         Compact(total_stake)
     }
+
+    /// This function is used to get all the stake information for a given coldkey across all subnets.
+    /// It iterates over the `SubStake` storage map and returns a vector of all stakes associated with the coldkey.
+    ///
+    /// # Args:
+    /// * 'coldkey_account_vec': Vec<u8>:
+    ///     - The coldkey account vector.
+    ///
+    /// # Returns:
+    /// A vector of tuples, each containing a hotkey (`T::AccountId`), netuid (`u16`), and stake amount (`Compact<u64>`).
+    pub fn get_all_stake_info_for_coldkey(
+        coldkey_account_vec: Vec<u8>,
+    ) -> Vec<(T::AccountId, u16, Compact<u64>)> {
+        if coldkey_account_vec.len() != 32 {
+            return Vec::new(); // Invalid coldkey, return empty vector
+        }
+
+        let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])
+            .expect("Failed to decode AccountId");
+
+        // Initialize a vector to hold all stake information.
+        let mut all_stake_info: Vec<(T::AccountId, u16, Compact<u64>)> = Vec::new();
+
+        // Iterate over `SubStake` storage map for entries matching the coldkey and collect their information.
+        for ((hotkey, coldkey_iter, netuid), stake) in SubStake::<T>::iter() {
+            if coldkey == coldkey_iter {
+                all_stake_info.push((hotkey, netuid, Compact(stake))); // Assuming stake is of type u64
+            }
+        }
+
+        // Return the vector of all stake information.
+        all_stake_info
+    }
 }

@@ -138,7 +138,7 @@ impl<T: Config> Pallet<T> {
             >>::iter_prefix(hotkey.clone())
             {
                 let mut total_staked_to_delegate_i: u64 = 0;
-                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
+                for netuid_i in 1..(TotalNetworks::<T>::get() + 1) {
                     total_staked_to_delegate_i +=
                         Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
                 }
@@ -149,9 +149,9 @@ impl<T: Config> Pallet<T> {
         } else {
             for ((hotkey, coldkey, _), _) in SubStake::<T>::iter() {
                 let mut total_staked_to_delegate_i: u64 = 0;
-                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
+                for netuid_i in 1..(TotalNetworks::<T>::get() + 1) {
                     total_staked_to_delegate_i +=
-                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
+                        Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
                 }
 
                 if total_staked_to_delegate_i > 0 {

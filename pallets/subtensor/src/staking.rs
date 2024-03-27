@@ -463,6 +463,16 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
+        Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
+    }
+
+    // Returns the subent stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_subnet_stake_for_coldkey_and_hotkey(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+    ) -> u64 {
         SubStake::<T>::try_get((hotkey, coldkey, netuid)).unwrap_or(0)
     }
 
@@ -636,5 +646,4 @@ impl<T: Config> Pallet<T> {
             }
         }
     }
-    
 }
