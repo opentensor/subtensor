@@ -267,8 +267,8 @@ jobs:
           cargo clippy -- -D clippy::panic \
                           -D clippy::todo \
                           -D clippy::unimplemented
-# -D clippy::indexing_slicing \
-# -D clippy::unwrap_used \
+  # -D clippy::indexing_slicing \
+  # -D clippy::unwrap_used \
 
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
