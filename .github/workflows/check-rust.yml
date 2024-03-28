@@ -10,9 +10,9 @@ on:
   ## to be safe and so we can more easily force re-run the CI when github is being
   ## weird by using a blank commit
   push:
-    branches: [main]
+    branches: [main, development]
   pull_request:
-    branches: [main]
+    branches: [main, development]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
@@ -267,6 +267,8 @@ jobs:
           cargo clippy -- -D clippy::panic \
                           -D clippy::todo \
                           -D clippy::unimplemented
+# -D clippy::indexing_slicing \
+# -D clippy::unwrap_used \
 
   # ensures cargo fix has no trivial changes that can be applied
   cargo-fix:
