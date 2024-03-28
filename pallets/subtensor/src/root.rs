@@ -122,7 +122,28 @@ impl<T: Config> Pallet<T> {
             .map(|(netuid, _)| netuid)
             .collect();
     }
-
+    /// Calculates the block emission based on the total issuance.
+    ///
+    /// This function computes the block emission by applying a logarithmic function
+    /// to the total issuance of the network. The formula used takes into account
+    /// the current total issuance and adjusts the emission rate accordingly to ensure
+    /// a smooth issuance curve. The emission rate decreases as the total issuance increases,
+    /// following a logarithmic decay.
+    ///
+    /// # Returns
+    /// * 'I96F32': The calculated block emission rate.
+    ///
+    pub fn get_block_emission() -> I96F32 {
+        // Convert the total issuance to a fixed-point number for calculation.
+        let total_issuance: I96F32 = I96F32::from_num(Self::total_issuance());
+        // Calculate the logarithmic residual of the issuance against a predefined constant.
+        let residual: I96F32 = I96F32::log2(I96F32::from_num(1.0) / (I96F32::from_num(1.0) - total_issuance / I96F32::from_num(2.0) * I96F32::from_num(10_500_000_000_000_000)));
+        // Floor the residual to smooth out the emission rate.
+        let floored_residual: I96F32 = residual.floor();
+        // Calculate the final emission rate using the floored residual.
+        I96F32::from_num(1.0) / I96F32::powf(2.0, floored_residual)
+    }
+    
     // Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
     //
     // It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
