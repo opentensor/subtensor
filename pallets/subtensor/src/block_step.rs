@@ -2,6 +2,7 @@ use super::*;
 use frame_support::inherent::Vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
+use sp_core::Get;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
@@ -83,19 +84,23 @@ impl<T: Config> Pallet<T> {
     pub fn get_loaded_emission_tuples(netuid: u16) -> Vec<(T::AccountId, u64, u64)> {
         LoadedEmission::<T>::get(netuid).unwrap()
     }
+    pub fn get_default_block_emission() -> u64 {
+        DefaultBlockEmission::<T>::get()
+    }
+    pub fn get_total_supply() -> u64 {
+        TotalSupply::<T>::get()
+    }
+    pub fn get_halving_issuance() -> u64 {
+        HalvingIssuance::<T>::get()
+    }
 
     // Checks the current block emission and
     // updates the block emission if the recalculated value is lower
     //
     pub fn check_halving() {
-        const ORIGINAL_EMISSION: f64 = 1_000_000_000.0; //Rao => 1 Tao
-        let current_issuance: f64 = Self::get_total_issuance() as f64;
-
-        let emission_percentage: f64 = Self::get_emission_from_issuance(current_issuance);
-        let new_emission_float: f64 = ORIGINAL_EMISSION * emission_percentage;
-        let new_emission: u64 = new_emission_float as u64;
-
-        let current_emission: u64 = Self::get_block_emission();
+        let current_emission = Self::get_block_emission();
+        let current_issuance = Self::get_total_issuance();
+        let new_emission = Self::get_emission_from_issuance(current_issuance);
 
         if current_emission > new_emission {
             Self::set_block_emission(new_emission);
@@ -105,15 +110,29 @@ impl<T: Config> Pallet<T> {
     // Calculates the emission rate based on the total issuance,
     // where the emission decreases as the total issuance approaches the supply cap.
     //
-    pub fn get_emission_from_issuance(total_issuance: f64) -> f64 {
-        const TOTAL_SUPPLY: f64 = 21_000_000_000_000_000.0; //Rao => 21_000_000 Tao
-        if total_issuance >= TOTAL_SUPPLY {
-            return 0.0;
+    pub fn get_emission_from_issuance(total_issuance: u64) -> u64 {
+        let halving_issuance: u64 = Self::get_halving_issuance();
+        let total_supply: u64 = Self::get_total_supply();
+        let original_emission: u64 = Self::get_default_block_emission();
+
+        if total_issuance >= total_supply {
+            return 0; // No emission after reaching the supply cap
         }
 
-        let h = Self::log2(1.0 / (1.0 - total_issuance / (2.0 * 11_000_000_000_000_000.0)));
-        let h = Self::floor(h);
-        Self::powf(2.0, -h)
+        if total_issuance < halving_issuance {
+            return original_emission; // Full original emission before any halving
+        }
+
+        // Calculate halvings based on how far beyond the first halving point we are
+        let mut excess_issuance = total_issuance - halving_issuance;
+        let mut halvings = 1; // Starts at 1 because we're already past the first halving
+
+        while excess_issuance >= (halving_issuance >> halvings) {
+            excess_issuance -= halving_issuance >> halvings;
+            halvings += 1;
+        }
+
+        original_emission >> halvings
     }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
