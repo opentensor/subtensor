@@ -141,9 +141,15 @@ impl<T: Config> Pallet<T> {
         // Floor the residual to smooth out the emission rate.
         let floored_residual: I96F32 = residual.floor();
         // Calculate the final emission rate using the floored residual.
-        I96F32::from_num(1.0) / I96F32::powf(2.0, floored_residual)
+        let block_emission: I96F32 = I96F32::from_num(1.0) / I96F32::powf(2.0, floored_residual);
+        // Convert to u64
+        let block_emission_u64: u64 = block_emission.to_num::<u64>();
+        if BlockEmission::<T>::get() != block_emission_u64 { 
+            BlockEmission::<T>::put( block_emission_u64 );
+        }   
+        return block_emission_u64
     }
-    
+
     // Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
     //
     // It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
