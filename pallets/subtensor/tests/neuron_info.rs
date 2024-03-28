@@ -394,7 +394,12 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
         for i in 0..neuron_count {
             let hotkey = U256::from(i);
             let coldkey = U256::from(i);
-            log::info!("Appending neuron {} with hotkey {:?} and coldkey {:?}", i, hotkey, coldkey);
+            log::info!(
+                "Appending neuron {} with hotkey {:?} and coldkey {:?}",
+                i,
+                hotkey,
+                coldkey
+            );
             register_ok_neuron(netuid, hotkey, coldkey, 0 as u64);
             SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 5);
             assert_ok!(SubtensorModule::add_subnet_stake(
@@ -418,26 +423,39 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
             additional_stake,
         ));
 
-        // Retrieve the targeted neuron using get_neuron_lite and check its stake
-        log::info!("Retrieving neuron with uid {}", target_neuron_index);
-        if let Some(neuron_lite) = SubtensorModule::get_neuron_lite(netuid, target_neuron_index) {
-            log::info!("Neuron retrieved successfully. Checking stake...");
-            // Extract the stake value for comparison
-            let found_stake_tuple = neuron_lite.stake.iter().find(|(hotkey, _)| *hotkey == target_hotkey);
-            if let Some((_, stake)) = found_stake_tuple {
-                let stake_value: u64 = stake.0; // Assuming `Compact` is a wrapper around the value.
-                let expected_stake = initial_stake + additional_stake;
-                log::info!("Comparing expected stake: {}, with actual stake: {}", expected_stake, stake_value);
-                assert_eq!(
-                    stake_value, expected_stake,
-                    "Stake does not match expected value for neuron with hotkey {:?}. Expected: {}, Got: {}",
-                    target_hotkey, expected_stake, stake_value
-                );
+        // Retrieve and check all neurons to ensure only the targeted neuron's stake has increased
+        for i in 0..neuron_count {
+            let neuron_index = i as u16;
+            if let Some(neuron_lite) = SubtensorModule::get_neuron_lite(netuid, neuron_index) {
+                let neuron_hotkey = U256::from(i);
+                let found_stake_tuple = neuron_lite
+                    .stake
+                    .iter()
+                    .find(|(hotkey, _)| *hotkey == neuron_hotkey);
+                if let Some((_, stake)) = found_stake_tuple {
+                    let stake_value: u64 = stake.0; // Assuming `Compact` is a wrapper around the value.
+                    let expected_stake = if neuron_index == target_neuron_index {
+                        initial_stake + additional_stake
+                    } else {
+                        initial_stake
+                    };
+                    log::info!(
+                        "Checking stake for neuron {}: Expected: {}, Got: {}",
+                        i,
+                        expected_stake,
+                        stake_value
+                    );
+                    assert_eq!(
+                        stake_value, expected_stake,
+                        "Stake does not match expected value for neuron {}. Expected: {}, Got: {}",
+                        i, expected_stake, stake_value
+                    );
+                } else {
+                    panic!("Stake for neuron with hotkey {:?} not found", neuron_hotkey);
+                }
             } else {
-                panic!("Stake for neuron with hotkey {:?} not found", target_hotkey);
+                panic!("Neuron with index {} not found", neuron_index);
             }
-        } else {
-            panic!("Neuron with uid {} not found", target_neuron_index);
         }
     });
 }
