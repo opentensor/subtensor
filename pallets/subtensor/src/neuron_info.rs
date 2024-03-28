@@ -31,9 +31,9 @@ pub struct NeuronInfo<T: Config> {
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfoLite<T: Config> {
-    hotkey: T::AccountId,
+    pub hotkey: T::AccountId,
     coldkey: T::AccountId,
-    uid: Compact<u16>,
+    pub uid: Compact<u16>,
     netuid: Compact<u16>,
     active: bool,
     axon_info: AxonInfo,
