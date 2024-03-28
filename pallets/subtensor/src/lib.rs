@@ -871,7 +871,6 @@ pub mod pallet {
         NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        TakeDecreased( T::AccountId, T::AccountId, u16 ), // Event created when the take for a delegate is decreased.
         HotkeySwapped {
             coldkey: T::AccountId,
             old_hotkey: T::AccountId,
@@ -938,7 +937,6 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
-        InvalidTake, // -- Thrown when take being set is invalid.
     }
 
     // ==================
@@ -1281,38 +1279,6 @@ pub mod pallet {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
         }
 
-        // --- Allows delegates to decrease its take value.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'take' (u64):
-        // 		- The new stake proportion that this hotkey takes from delegations.
-        //
-        // # Event:
-        // 	* DelegateAdded;
-        // 		- On successfully setting a hotkey as a delegate.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- The hotkey we are delegating is not registered on the network.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The hotkey we are delegating is not owned by the calling coldkey.
-        //
-        // 	* 'InvalidTransaction':
-        // 		- The delegate is setting a take which is not lower than the previous.
-        //
-        #[pallet::call_index(63)]
-        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn decrease_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
-            Self::do_decrease_take(origin, hotkey, take)
-        }
-
         // --- Adds stake to a hotkey. The call is made from the
         // coldkey account linked in the hotkey.
         // Only the associated coldkey is allowed to make staking and
@@ -1358,7 +1324,6 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, amount_staked)
         }
-
 
         // ---- Remove stake from the staking account. The call must be made
         // from the coldkey account attached to the neuron metadata. Only this key
