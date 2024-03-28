@@ -2567,13 +2567,136 @@ fn test_three_subnets_with_different_stakes() {
 
         // Verify the total stake for each subnet
         for netuid in 1..=NUM_SUBNETS {
-            let total_stake_for_subnet = SubtensorModule::get_total_stake_for_subnet(netuid); 
+            let total_stake_for_subnet = SubtensorModule::get_total_stake_for_subnet(netuid);
             let expected_total_stake =
                 STAKE_AMOUNTS[netuid as usize - 1] * NUM_NEURONS_PER_SUBNET as u64;
             assert_eq!(
                 total_stake_for_subnet, expected_total_stake,
                 "The total stake for subnet {} did not match the expected value.",
                 netuid
+            );
+        }
+    });
+}
+
+#[test]
+fn test_register_neurons_and_stake_different_amounts() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let start_nonce: u64 = 0;
+
+        // Setup the network
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, NUM_NEURONS);
+        SubtensorModule::set_target_registrations_per_interval(netuid, NUM_NEURONS);
+
+        // Define the number of neurons and their stake amounts
+        const NUM_NEURONS: u16 = 10;
+        let stake_amounts: [u64; NUM_NEURONS as usize] =
+            [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+
+        for i in 0..NUM_NEURONS {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i + 100); // Ensure coldkey is different but consistent
+
+            // Increase balance for coldkey account
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amounts[i as usize]);
+
+            // Register neuron
+            register_ok_neuron(netuid, hotkey, coldkey, start_nonce);
+
+            // Stake the specified amount
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                netuid,
+                stake_amounts[i as usize],
+            ));
+
+            // Assert the stake for the neuron is as expected
+            let stake_for_neuron =
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+            assert_eq!(
+                stake_for_neuron, stake_amounts[i as usize],
+                "The stake for neuron {} did not match the expected value.",
+                i
+            );
+        }
+
+        // verify the total stake for the subnet if needed
+        let total_stake_for_subnet = SubtensorModule::get_total_stake_for_subnet(netuid);
+        let expected_total_stake: u64 = stake_amounts.iter().sum();
+        assert_eq!(
+            total_stake_for_subnet, expected_total_stake,
+            "The total stake for subnet {} did not match the expected value.",
+            netuid
+        );
+    });
+}
+
+#[test]
+fn test_substake_increases_stake_of_only_targeted_neuron() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+
+        // Setup the network
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, NUM_NEURONS);
+        SubtensorModule::set_target_registrations_per_interval(netuid, NUM_NEURONS);
+
+        // Define the number of neurons and initial stake amounts
+        const NUM_NEURONS: u16 = 3;
+        let initial_stake: u64 = 1000;
+
+        // Register neurons and stake an initial amount
+        for i in 0..NUM_NEURONS {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i + 100); // Ensure coldkey is different but consistent
+
+            // Increase balance for coldkey account
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 2);
+
+            // Register neuron and add initial stake
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                netuid,
+                initial_stake,
+            ));
+        }
+
+        // Perform a substake operation on the first neuron
+        let substake_amount: u64 = 500;
+        let target_neuron_hotkey = U256::from(0);
+        let target_neuron_coldkey = U256::from(100);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(target_neuron_coldkey),
+            target_neuron_hotkey,
+            netuid,
+            substake_amount,
+        ));
+
+        // Verify that only the stake of the targeted neuron has increased
+        for i in 0..NUM_NEURONS {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i + 100);
+            let expected_stake = if hotkey == target_neuron_hotkey {
+                initial_stake + substake_amount
+            } else {
+                initial_stake
+            };
+
+            let actual_stake =
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+            assert_eq!(
+                actual_stake, expected_stake,
+                "Stake for neuron {} did not match the expected value.",
+                i
             );
         }
     });
