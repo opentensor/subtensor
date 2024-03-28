@@ -209,63 +209,62 @@ impl<T: Config> Pallet<T> {
     // is called after an epoch to distribute the newly minted stake according to delegation.
     //
     pub fn emit_inflation_through_hotkey_account(
-        hotkey: &T::AccountId,
+        delegate: &T::AccountId,
         netuid: u16,
         server_emission: u64,
         validator_emission: u64,
     ) {
-        // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the
-        // coldkey - hotkey account as normal.
-        if !Self::hotkey_is_delegate(hotkey) {
-            Self::increase_stake_on_hotkey_account(&hotkey, netuid, server_emission + validator_emission);
+        // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
+        if !Self::hotkey_is_delegate( delegate ) {
+            let total_delegate_emission: u64 = server_emission + validator_emission;
+            Self::increase_stake_on_hotkey_account( 
+                delegate, 
+                netuid, 
+                total_delegate_emission
+            );
             return;
         }
-        // Then this is a delegate, we distribute validator_emission, then server_emission.
-        log::debug!("Delegate: hotkey: {:?}, netuid: {:?}, server_emission: {:?}, validator_emission: {:?}", hotkey, netuid, server_emission, validator_emission);
+        // 2. Else the key is a delegate, first compute the delegate take from the emission.
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate )) / I64F64::from_num(u16::MAX);
+        let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
+        let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
+        let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
 
-        // --- 2. The hotkey is a delegate. We first distribute a proportion of the validator_emission to the hotkey
-        // directly as a function of its 'take'
-        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
-        let delegate_take: u64 =
-            Self::calculate_delegate_proportional_take(hotkey, validator_emission);
-        let validator_emission_minus_take: u64 = validator_emission - delegate_take;
-        let mut remaining_validator_emission: u64 = validator_emission_minus_take;
+        // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
+        let delegate_subnet_total: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
+        let delegate_total_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
+        if delegate_subnet_total + delegate_root_total != 0 {
+            for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
 
-        // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
-        log::debug!("Delegate: hotkey: {:?}, total_hotkey_stake: {:?}, delegate_take: {:?} validator_emission_minus_take: {:?} remaining_validator_emission: {:?}", hotkey, total_hotkey_stake, delegate_take, validator_emission_minus_take, remaining_validator_emission);
+                // 3.a Compute the stake weight percentage for the nominatore weight.
+                let nominator_subnet_stake: u64 = Self::get_stake_for_coldkey_and_hotkey( &nominator_i, delegate, netuid );
+                let nominator_subnet_percentage: I64F64 = I64F64::from_num( nominator_subnet_stake) / I64F64::from_num( delegate_subnet_total );
+                let nominator_subnet_emission_i: I64F64 = nominator_subnet_percentage * I64F64::from_num( remaining_validator_emission ) * I64F64::from_num( 0.5 );
 
-        for (owning_coldkey_i, _) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
-        ) {
+                let nominator_total_stake: u64 = Self::get_total_stake_for_hotkey_and_coldkey( delegate, &nominator_i );
+                let nominator_total_percentage: I64F64 = I64F64::from_num( nominator_total_stake ) / I64F64::from_num( delegate_total_stake );
+                let nominator_total_emission_i: I64F64 = nominator_total_emission_i * I64F64::from_num( remaining_validator_emission ) * I64F64::from_num( 0.5 );
 
-            // --- Get stake for hotkey/coldkey/netuid
-            let stake_i = Self::get_stake_for_coldkey_and_hotkey(&owning_coldkey_i, hotkey, netuid );
+                let nominator_emission_u64: u64 = (nominator_total_emission_i + nominator_subnet_emission_i).to_num::<u64>();
 
-            // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_proportion_emission: u64 = Self::calculate_stake_proportional_emission(
-                stake_i,
-                total_hotkey_stake,
-                validator_emission_minus_take,
-            );
-            Self::increase_stake_on_coldkey_hotkey_account(
-                &owning_coldkey_i,
-                &hotkey,
-                netuid,
-                stake_proportion_emission,
-            );
-            log::debug!("Delegate: hotkey: {:?}, coldkey: {:?}, netuid: {:?}, stake_i: {:?}, delegate_take: {:?}, stake_proportion_emission: {:?} ", hotkey, owning_coldkey_i, netuid, stake_i, delegate_take, stake_proportion_emission);
-            remaining_validator_emission -= stake_proportion_emission;
+                // 3.b Increase the stake of the nominator.
+                Self::increase_stake_on_coldkey_hotkey_account(
+                    &nominator_i,
+                    delegate,
+                    netuid,
+                    nominator_emission_u64,
+                );
+            }
         }
 
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
+        let total_delegate_emission: u64 = delegate_take_u64 + server_emission;
         Self::increase_stake_on_hotkey_account(
-            &hotkey,
+            delegate,
             netuid,
-            delegate_take + remaining_validator_emission + server_emission ,
+            total_delegate_emission,
         );
-        log::debug!("Delegate: hotkey: {:?}, netuid: {:?}, delegate_take: {:?}, remaining_validator_emission: {:?}, server_emission: {:?} ", hotkey, netuid, delegate_take, remaining_validator_emission, server_emission);
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.

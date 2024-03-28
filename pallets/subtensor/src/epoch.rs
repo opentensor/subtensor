@@ -402,11 +402,12 @@ impl<T: Config> Pallet<T> {
         for (uid_i, hotkey) in hotkeys.iter() {
             // The total stake for a subnet is given by the total subnet specific stake + global hotkey stake.
             let subnet_hotkey_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( hotkey, netuid );
-            let global_hotkey_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( hotkey, Self::get_root_netuid() );
+            let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
             stake_64[ *uid_i as usize ] = (I64F64::from_num( subnet_hotkey_stake ) + I64F64::from_num( global_hotkey_stake )) / I64F64::from_num( 2.0 );            
         }
         inplace_normalize_64(&mut stake_64);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
+        
         // range: I32F32(0, 1)
         log::trace!("S: {:?}", &stake);
 

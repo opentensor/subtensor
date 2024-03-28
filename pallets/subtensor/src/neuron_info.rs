@@ -125,35 +125,9 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
 
-        let mut stake = Vec::<(T::AccountId, Compact<u64>)>::new();
-        if netuid == 0 {
-            for (coldkey, _) in <Stake<T> as IterableStorageDoubleMap<
-                T::AccountId,
-                T::AccountId,
-                u64,
-            >>::iter_prefix(hotkey.clone())
-            {
-                let mut total_staked_to_delegate_i: u64 = 0;
-                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
-                    total_staked_to_delegate_i +=
-                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
-                }
-                if total_staked_to_delegate_i > 0 {
-                    stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
-                }
-            }
-        } else {
-            for ((hotkey, coldkey, _), _) in SubStake::<T>::iter() {
-                let mut total_staked_to_delegate_i: u64 = 0;
-                for netuid_i in 0..(TotalNetworks::<T>::get() + 1) {
-                    total_staked_to_delegate_i +=
-                        Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid_i);
-                }
-
-                if total_staked_to_delegate_i > 0 {
-                    stake.push((coldkey.clone(), total_staked_to_delegate_i.into()));
-                }
-            }
+        let mut stake: Vec<(T::AccountId, Compact<u64>)> = Vec::new();
+        for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone() ) {
+            stake.push((coldkey_i.clone(), Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid ).into() ));
         }
 
         let neuron = NeuronInfo {
@@ -220,21 +194,8 @@ impl<T: Config> Pallet<T> {
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
         let mut stake: Vec<(T::AccountId, Compact<u64>)> = Vec::new();
-
-        if netuid == 0 {
-            stake = <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey.clone())
-                .map(|(coldkey, stake)| (coldkey, stake.into()))
-                .collect();
-        } else {
-            stake = SubStake::<T>::iter()
-                .filter_map(|((_, sub_coldkey, sub_netuid), sub_stake)| {
-                    if sub_netuid == netuid {
-                        Some((sub_coldkey, sub_stake.into()))
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+        for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone() ) {
+            stake.push((coldkey_i.clone(), Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid ).into() ));
         }
 
         let neuron = NeuronInfoLite {

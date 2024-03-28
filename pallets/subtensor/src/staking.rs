@@ -556,7 +556,7 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    // Returns the stake under the cold - hot pairing in the staking table.
+    // Returns the stake under the cold - hot - netuid pairing in the staking table.
     //
     pub fn get_stake_for_coldkey_and_hotkey(
         coldkey: &T::AccountId,
@@ -564,6 +564,15 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         SubStake::<T>::try_get((hotkey, coldkey, netuid)).unwrap_or(0)
+    }
+
+     // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_total_stake_for_hotkey_and_coldkey(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+    ) -> u64 {
+        Stake::<T>::try_get((hotkey, coldkey)).unwrap_or(0)
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
