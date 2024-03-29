@@ -102,14 +102,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
-        ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)
-                == true,
-            Error::<T>::BalanceWithdrawalError
-        );
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
 
         // The burn occurs here.
-        Self::burn_tokens(Self::get_burn_as_u64(netuid));
+        Self::burn_tokens(actual_burn_amount);
 
         // --- 9. If the network account does not exist we will create it here.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
@@ -730,11 +726,8 @@ impl<T: Config> Pallet<T> {
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
             Error::<T>::NotEnoughBalance
         );
-        ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance) == true,
-            Error::<T>::BalanceWithdrawalError
-        );
-        Self::burn_tokens(swap_cost);
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
+        Self::burn_tokens(actual_burn_amount);
 
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());

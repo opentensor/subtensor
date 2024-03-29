@@ -904,6 +904,7 @@ pub mod pallet {
         InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
         MaxAllowedUIdsNotAllowed, // ---  Thrown if the value is invalid for MaxAllowedUids.
         CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
+        CouldNotConvertToU64, // -- Thrown when the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
         StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
         MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.

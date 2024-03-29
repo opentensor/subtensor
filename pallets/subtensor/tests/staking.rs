@@ -68,14 +68,14 @@ fn test_add_stake_ok_no_emission() {
         // Check if stake has increased
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            10000
+            9999
         );
 
-        // Check if balance has  decreased
-        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
+        // Check if balance has decreased
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
+        assert_eq!(SubtensorModule::get_total_stake(), 9999);
     });
 }
 
@@ -847,7 +847,7 @@ fn test_remove_balance_from_coldkey_account_ok() {
         // Should be able to withdraw without hassle
         let result =
             SubtensorModule::remove_balance_from_coldkey_account(&coldkey_account_id, ammount);
-        assert_eq!(result, true);
+        assert!(result.is_ok());
     });
 }
 
@@ -861,7 +861,7 @@ fn test_remove_balance_from_coldkey_account_failed() {
         // as there is no balance, nor does the account exist
         let result =
             SubtensorModule::remove_balance_from_coldkey_account(&coldkey_account_id, ammount);
-        assert_eq!(result, false);
+        assert_eq!(result, Err(Error::<Test>::BalanceWithdrawalError.into()));
     });
 }
 
