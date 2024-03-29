@@ -17,13 +17,14 @@
 
 use super::*;
 use crate::math::*;
+use crate::utils::{log2, powf};
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::types::{I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
     // Retrieves the unique identifier (UID) for the root network.
@@ -131,23 +132,37 @@ impl<T: Config> Pallet<T> {
     /// following a logarithmic decay.
     ///
     /// # Returns
-    /// * 'I96F32': The calculated block emission rate.
+    /// * 'u64': The calculated block emission rate.
     ///
-    pub fn get_block_emission() -> I96F32 {
+    pub fn get_block_emission() -> u64 {
         // Convert the total issuance to a fixed-point number for calculation.
-        let total_issuance: I96F32 = I96F32::from_num(Self::total_issuance());
-        // Calculate the logarithmic residual of the issuance against a predefined constant.
-        let residual: I96F32 = I96F32::log2(I96F32::from_num(1.0) / (I96F32::from_num(1.0) - total_issuance / I96F32::from_num(2.0) * I96F32::from_num(10_500_000_000_000_000)));
+        let total_issuance: I96F32 = I96F32::from_num(Self::get_total_issuance());
+        // Check to prevent division by zero when the total supply is reached
+        // and creating an issuance greater than the total supply.
+        if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
+            return 0;
+        }
+        // Calculate the logarithmic residual of the issuance against half the total supply.
+        let residual: I96F32 = log2(
+            I96F32::from_num(1.0)
+                / (I96F32::from_num(1.0)
+                    - total_issuance
+                        / (I96F32::from_num(2.0) * I96F32::from_num(10_500_000_000_000_000.0))),
+        );
         // Floor the residual to smooth out the emission rate.
         let floored_residual: I96F32 = residual.floor();
         // Calculate the final emission rate using the floored residual.
-        let block_emission: I96F32 = I96F32::from_num(1.0) / I96F32::powf(2.0, floored_residual);
+        let block_emission_precentage: I96F32 =
+            I96F32::from_num(1.0) / powf(I96F32::from_num(2.0), floored_residual);
+        // Calculate the actual emission based on the emission rate
+        let block_emission: I96F32 =
+            block_emission_precentage * I96F32::from_num(DefaultBlockEmission::<T>::get());
         // Convert to u64
         let block_emission_u64: u64 = block_emission.to_num::<u64>();
-        if BlockEmission::<T>::get() != block_emission_u64 { 
-            BlockEmission::<T>::put( block_emission_u64 );
-        }   
-        return block_emission_u64
+        if BlockEmission::<T>::get() != block_emission_u64 {
+            BlockEmission::<T>::put(block_emission_u64);
+        }
+        block_emission_u64
     }
 
     // Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.

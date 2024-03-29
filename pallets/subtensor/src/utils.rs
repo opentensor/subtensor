@@ -3,6 +3,7 @@ use crate::system::{ensure_root, ensure_signed_or_root};
 use frame_support::inherent::Vec;
 use frame_support::pallet_prelude::DispatchResult;
 use sp_core::U256;
+use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -595,4 +596,38 @@ impl<T: Config> Pallet<T> {
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
+}
+
+pub fn log2(x: I96F32) -> I96F32 {
+    let mut y = x;
+    let mut result = I96F32::from_num(0.0);
+    while y < I96F32::from_num(1.0) {
+        y *= I96F32::from_num(2.0);
+        result -= I96F32::from_num(1.0);
+    }
+    while y >= I96F32::from_num(2.0) {
+        y *= I96F32::from_num(0.5);
+        result += I96F32::from_num(1.0)
+    }
+    result
+}
+
+pub fn powf(base: I96F32, exponent: I96F32) -> I96F32 {
+    if exponent == I96F32::from_num(0.0) {
+        return I96F32::from_num(1.0);
+    } else if exponent < I96F32::from_num(0.0) {
+        return I96F32::from_num(1.0) / powf(base, -exponent);
+    }
+
+    let mut result = I96F32::from_num(1.0);
+    let mut exp = exponent.to_num::<u64>();
+    let mut b = base;
+    while exp > 0 {
+        if exp % 2 == 1 {
+            result *= b;
+        }
+        b *= b;
+        exp /= 2;
+    }
+    result
 }
