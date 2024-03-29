@@ -632,12 +632,9 @@ impl<T: Config> Pallet<T> {
         };
 
         // --- 5. Perform the lock operation.
-        ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()) == true,
-            Error::<T>::BalanceWithdrawalError
-        );
-        Self::set_subnet_locked_balance(netuid_to_register, lock_amount);
-        Self::set_network_last_lock(lock_amount);
+        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap())?;
+        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
+        Self::set_network_last_lock(actual_lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
