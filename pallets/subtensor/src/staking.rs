@@ -504,6 +504,12 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
+        let amount_u64: u64 = amount.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+
+        if amount_u64 == 0 {
+            return Ok(0);
+        }
+
         let credit = T::Currency::withdraw(
                 &coldkey,
                 amount,
