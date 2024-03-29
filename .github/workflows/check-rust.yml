@@ -11,6 +11,8 @@ on:
   push:
     branches:
       - main
+      - development
+      - staging
       - $default-branch
 
     paths:
@@ -23,6 +25,8 @@ on:
   pull_request:
     branches:
       - main
+      - development
+      - staging
       - $default-branch
 
     paths:
