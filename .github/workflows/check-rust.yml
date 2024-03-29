@@ -13,7 +13,6 @@ on:
       - main
       - development
       - staging
-      - $default-branch
 
     paths:
       - "**.rs"
@@ -27,7 +26,6 @@ on:
       - main
       - development
       - staging
-      - $default-branch
 
     paths:
       - "**.rs"
