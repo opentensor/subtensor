@@ -598,20 +598,6 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-pub fn log2(x: I96F32) -> I96F32 {
-    let mut y = x;
-    let mut result = I96F32::from_num(0.0);
-    while y < I96F32::from_num(1.0) {
-        y *= I96F32::from_num(2.0);
-        result -= I96F32::from_num(1.0);
-    }
-    while y >= I96F32::from_num(2.0) {
-        y *= I96F32::from_num(0.5);
-        result += I96F32::from_num(1.0)
-    }
-    result
-}
-
 pub fn powf(base: I96F32, exponent: I96F32) -> I96F32 {
     if exponent == I96F32::from_num(0.0) {
         return I96F32::from_num(1.0);

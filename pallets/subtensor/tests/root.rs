@@ -741,14 +741,14 @@ fn test_halving() {
             (20_999_998_000_000_000, 119), // Twenty-third halving event
             (20_999_999_000_000_000, 59),  // Twenty-fourth halving event
             (21_000_000_000_000_000, 0),   // Total supply reached, emissions stop
-            (21_100_000_000_000_000, 0)    // Just for fun
+            (21_100_000_000_000_000, 0),   // Just for fun
         ];
 
         for (issuance, expected_emission) in expected_emissions.iter() {
             SubtensorModule::set_total_issuance(*issuance);
             step_block(1);
 
-            let current_emission = SubtensorModule::get_block_emission();
+            let current_emission = SubtensorModule::get_block_emission().unwrap();
             assert_eq!(
                 current_emission, *expected_emission,
                 "Incorrect emission {} at total issuance {}",
@@ -780,7 +780,7 @@ fn test_get_emission_across_entire_issuance_range() {
                 0
             };
             assert_eq!(
-                SubtensorModule::get_block_emission(),
+                SubtensorModule::get_block_emission().unwrap(),
                 expected_emission,
                 "Issuance: {}",
                 issuance_f64
