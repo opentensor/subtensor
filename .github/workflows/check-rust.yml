@@ -9,26 +9,12 @@ on:
   ##
   # Run automatically for any push that changes Rust file(s)
   push:
-    branches:
-      - main
-      - $default-branch
-
-    paths:
-      - "**.rs"
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
+    branches: [main, development, staging]
 
   ##
   # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches:
-      - main
-      - $default-branch
-
-    paths:
-      - "**.rs"
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
+    branches: [main, development, staging]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
