@@ -17,7 +17,6 @@
 
 use super::*;
 use crate::math::*;
-use crate::utils::powf;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
@@ -135,7 +134,7 @@ impl<T: Config> Pallet<T> {
     /// following a logarithmic decay.
     ///
     /// # Returns
-    /// * 'u64': The calculated block emission rate.
+    /// * 'Result<u64, &'static str>': The calculated block emission rate or error.
     ///
     pub fn get_block_emission() -> Result<u64, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
@@ -156,8 +155,14 @@ impl<T: Config> Pallet<T> {
         // Floor the residual to smooth out the emission rate.
         let floored_residual: I96F32 = residual.floor();
         // Calculate the final emission rate using the floored residual.
-        let block_emission_percentage: I96F32 =
-            I96F32::from_num(1.0) / powf(I96F32::from_num(2.0), floored_residual);
+        // Convert floored_residual to an integer
+        let floored_residual_int: u64 = floored_residual.to_num::<u64>();
+        // Multiply 2.0 by itself floored_residual times to calculate the power of 2.
+        let mut multiplier: I96F32 = I96F32::from_num(1.0);
+        for _ in 0..floored_residual_int {
+            multiplier *= I96F32::from_num(2.0);
+        }
+        let block_emission_percentage: I96F32 = I96F32::from_num(1.0) / multiplier;
         // Calculate the actual emission based on the emission rate
         let block_emission: I96F32 =
             block_emission_percentage * I96F32::from_num(DefaultBlockEmission::<T>::get());

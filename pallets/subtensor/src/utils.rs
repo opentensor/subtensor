@@ -597,23 +597,3 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
 }
-
-pub fn powf(base: I96F32, exponent: I96F32) -> I96F32 {
-    if exponent == I96F32::from_num(0.0) {
-        return I96F32::from_num(1.0);
-    } else if exponent < I96F32::from_num(0.0) {
-        return I96F32::from_num(1.0) / powf(base, -exponent);
-    }
-
-    let mut result = I96F32::from_num(1.0);
-    let mut exp = exponent.to_num::<u64>();
-    let mut b = base;
-    while exp > 0 {
-        if exp % 2 == 1 {
-            result *= b;
-        }
-        b *= b;
-        exp /= 2;
-    }
-    result
-}
