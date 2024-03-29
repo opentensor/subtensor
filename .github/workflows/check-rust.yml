@@ -9,9 +9,7 @@ on:
   ##
   # Run automatically for any push that changes Rust file(s)
   push:
-    branches:
-      - main
-      - $default-branch
+    branches: [main, development, staging]
 
     paths:
       - "**.rs"
@@ -21,9 +19,7 @@ on:
   ##
   # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches:
-      - main
-      - $default-branch
+    branches: [main, development, staging]
 
     paths:
       - "**.rs"
