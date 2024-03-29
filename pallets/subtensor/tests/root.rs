@@ -5,7 +5,7 @@ use frame_system::{EventRecord, Phase};
 use log::info;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
-use sp_core::{H256, U256};
+use sp_core::{Get, H256, U256};
 
 mod mock;
 
@@ -695,5 +695,96 @@ fn test_weights_after_network_pruning() {
 
         // Subnet 0 should be kicked, and thus its weight should be 0
         assert_eq!(latest_weights[0][1], 0);
+    });
+}
+#[test]
+fn test_halving() {
+    new_test_ext().execute_with(|| {
+        let expected_emissions: [(u64, u64); 40] = [
+            (1_776_000, 1_000_000_000),
+            (1_776_000_000, 1_000_000_000),
+            (1_776_000_000_000, 1_000_000_000),
+            (10_500_000_000_000_000, 500_000_000), // First halving event
+            (10_999_999_000_000_000, 500_000_000),
+            (11_000_000_000_000_000, 500_000_000),
+            (12_000_999_000_000_000, 500_000_000),
+            (15_749_999_000_000_000, 500_000_000),
+            (15_800_000_000_000_000, 250_000_000), // Second halving event
+            (16_400_999_000_000_000, 250_000_000),
+            (16_499_999_000_000_000, 250_000_000),
+            (17_624_999_000_000_000, 250_000_000),
+            (18_400_000_000_000_000, 125_000_000), // Third halving event
+            (19_312_500_000_000_000, 125_000_000),
+            (19_700_000_000_000_000, 62_500_000), // Fourth halving event
+            (19_906_249_000_000_000, 62_500_000),
+            (20_400_000_000_000_000, 31_250_000), // Fifth halving event
+            (20_500_000_000_000_000, 31_250_000),
+            (20_700_000_000_000_000, 15_625_000), // Sixth halving event
+            (20_800_000_000_000_000, 15_625_000),
+            (20_900_000_000_000_000, 7_812_500), // Seventh halving event
+            (20_917_970_000_000_000, 3_906_250), // Eighth halving event
+            (20_958_985_000_000_000, 1_953_125),
+            (20_979_493_000_000_000, 976_562), // Ninth halving event
+            (20_989_747_000_000_000, 488_281), // Tenth halving event
+            (20_994_874_000_000_000, 244_140), // Eleventh halving event
+            (20_997_437_000_000_000, 122_070), // Twelfth halving event
+            (20_998_719_000_000_000, 61_035),  // Thirteenth halving event
+            (20_999_360_000_000_000, 30_517),  // Fourteenth halving event
+            (20_999_680_000_000_000, 15_258),  // Fifteenth halving event
+            (20_999_840_000_000_000, 7_629),   // Sixteenth halving event
+            (20_999_920_000_000_000, 3_814),   // Seventeenth halving event
+            (20_999_960_000_000_000, 1_907),   // Eighteenth halving event
+            (20_999_980_000_000_000, 953),     // Nineteenth halving event
+            (20_999_990_000_000_000, 476),     // Twentieth halving event
+            (20_999_990_500_000_000, 476),
+            (20_999_995_000_000_000, 238), // Twenty-first halving event
+            (20_999_998_000_000_000, 119), // Twenty-second halving event
+            (20_999_999_000_000_000, 59),  // Twenty-third halving event
+            (21_000_000_000_000_000, 0),   // Total supply reached, emissions stop
+        ];
+
+        for (issuance, expected_emission) in expected_emissions.iter() {
+            SubtensorModule::set_total_issuance(*issuance);
+            step_block(1);
+
+            let current_emission = SubtensorModule::get_block_emission();
+            assert_eq!(
+                current_emission, *expected_emission,
+                "Incorrect emission {} at total issuance {}",
+                current_emission, issuance
+            );
+        }
+    });
+}
+
+#[test]
+fn test_get_emission_across_entire_issuance_range() {
+    new_test_ext().execute_with(|| {
+        let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
+        let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
+        let halving_issuance: u64 = total_supply / 2;
+        let mut step: usize = original_emission as usize;
+
+        for issuance in (0..=total_supply).step_by(step) {
+            SubtensorModule::set_total_issuance(issuance);
+
+            let issuance_f64 = issuance as f64;
+            let h = f64::log2(1.0 / (1.0 - issuance_f64 / (2.0 * halving_issuance as f64)));
+            let h = h.floor();
+            let emission_percentage = f64::powf(2.0, -h);
+
+            let expected_emission: u64 = if issuance < total_supply {
+                (original_emission as f64 * emission_percentage) as u64
+            } else {
+                0
+            };
+            assert_eq!(
+                SubtensorModule::get_block_emission(),
+                expected_emission,
+                "Issuance: {}",
+                issuance_f64
+            );
+            step = expected_emission as usize;
+        }
     });
 }
