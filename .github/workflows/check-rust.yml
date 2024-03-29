@@ -11,20 +11,10 @@ on:
   push:
     branches: [main, development, staging]
 
-    paths:
-      - "**.rs"
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
-
   ##
   # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
     branches: [main, development, staging]
-
-    paths:
-      - "**.rs"
-      - "**/Cargo.toml"
-      - "**/Cargo.lock"
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
