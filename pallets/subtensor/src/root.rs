@@ -152,11 +152,11 @@ impl<T: Config> Pallet<T> {
         // Floor the residual to smooth out the emission rate.
         let floored_residual: I96F32 = residual.floor();
         // Calculate the final emission rate using the floored residual.
-        let block_emission_precentage: I96F32 =
+        let block_emission_percentage: I96F32 =
             I96F32::from_num(1.0) / powf(I96F32::from_num(2.0), floored_residual);
         // Calculate the actual emission based on the emission rate
         let block_emission: I96F32 =
-            block_emission_precentage * I96F32::from_num(DefaultBlockEmission::<T>::get());
+            block_emission_percentage * I96F32::from_num(DefaultBlockEmission::<T>::get());
         // Convert to u64
         let block_emission_u64: u64 = block_emission.to_num::<u64>();
         if BlockEmission::<T>::get() != block_emission_u64 {

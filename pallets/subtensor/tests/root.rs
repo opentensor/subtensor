@@ -724,18 +724,18 @@ fn test_halving() {
             (20_900_000_000_000_000, 7_812_500), // Seventh halving event
             (20_917_970_000_000_000, 3_906_250), // Eighth halving event
             (20_958_985_000_000_000, 1_953_125), // Ninth halving event
-            (20_979_493_000_000_000, 976_562), // Tenth halving event
-            (20_989_747_000_000_000, 488_281), // Eleventh halving event
-            (20_994_874_000_000_000, 244_140), // Twelfth halving event
-            (20_997_437_000_000_000, 122_070), // Thirteenth halving event
-            (20_998_719_000_000_000, 61_035),  // Fourteenth halving event
-            (20_999_360_000_000_000, 30_517),  // Fifteenth halving event
-            (20_999_680_000_000_000, 15_258),  // Sixteenth halving event
-            (20_999_840_000_000_000, 7_629),   // Seventeenth halving event
-            (20_999_920_000_000_000, 3_814),   // Eighteenth halving event
-            (20_999_960_000_000_000, 1_907),   // Nineteenth halving even
-            (20_999_980_000_000_000, 953),     // Twentieth halving event
-            (20_999_990_000_000_000, 476),     // Twenty-first halving event
+            (20_979_493_000_000_000, 976_562),   // Tenth halving event
+            (20_989_747_000_000_000, 488_281),   // Eleventh halving event
+            (20_994_874_000_000_000, 244_140),   // Twelfth halving event
+            (20_997_437_000_000_000, 122_070),   // Thirteenth halving event
+            (20_998_719_000_000_000, 61_035),    // Fourteenth halving event
+            (20_999_360_000_000_000, 30_517),    // Fifteenth halving event
+            (20_999_680_000_000_000, 15_258),    // Sixteenth halving event
+            (20_999_840_000_000_000, 7_629),     // Seventeenth halving event
+            (20_999_920_000_000_000, 3_814),     // Eighteenth halving event
+            (20_999_960_000_000_000, 1_907),     // Nineteenth halving event
+            (20_999_980_000_000_000, 953),       // Twentieth halving event
+            (20_999_990_000_000_000, 476),       // Twenty-first halving event
             (20_999_990_500_000_000, 476),
             (20_999_995_000_000_000, 238), // Twenty-second halving event
             (20_999_998_000_000_000, 119), // Twenty-third halving event
