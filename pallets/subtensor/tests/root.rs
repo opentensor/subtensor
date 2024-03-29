@@ -700,7 +700,7 @@ fn test_weights_after_network_pruning() {
 #[test]
 fn test_halving() {
     new_test_ext().execute_with(|| {
-        let expected_emissions: [(u64, u64); 40] = [
+        let expected_emissions: [(u64, u64); 41] = [
             (1_776_000, 1_000_000_000),
             (1_776_000_000, 1_000_000_000),
             (1_776_000_000_000, 1_000_000_000),
@@ -741,6 +741,7 @@ fn test_halving() {
             (20_999_998_000_000_000, 119), // Twenty-third halving event
             (20_999_999_000_000_000, 59),  // Twenty-fourth halving event
             (21_000_000_000_000_000, 0),   // Total supply reached, emissions stop
+            (21_100_000_000_000_000, 0)    // Just for fun
         ];
 
         for (issuance, expected_emission) in expected_emissions.iter() {
