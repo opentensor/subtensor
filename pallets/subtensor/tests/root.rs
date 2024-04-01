@@ -697,10 +697,32 @@ fn test_weights_after_network_pruning() {
         assert_eq!(latest_weights[0][1], 0);
     });
 }
+/// This test checks the halving mechanism of the emission schedule.
+/// Run this test using the following command:
+/// `cargo test --package pallet-subtensor --test root test_issance_bounds`
+#[test]
+fn test_issance_bounds() {
+    new_test_ext().execute_with(|| {
+        // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors. 
+        // We converge to 20_999_999_989_500_000 (< 1 TAO away).
+        let n_halvings: usize = 100;
+        let mut total_issuance: u64 = 0;
+        for i in 0..n_halvings {
+            let block_emission_10_500_000x: u64 = SubtensorModule::get_block_emission_for_issuance( total_issuance ).unwrap() * 10_500_000;
+            total_issuance += block_emission_10_500_000x;
+        }
+        assert_eq!( total_issuance, 20_999_999_989_500_000 );
+    })
+}
+
+/// This test checks the halving mechanism of the emission schedule.
+/// Run this test using the following command:
+/// `cargo test --package pallet-subtensor --test root test_halving`
 #[test]
 fn test_halving() {
     new_test_ext().execute_with(|| {
-        let expected_emissions: [(u64, u64); 41] = [
+        let expected_emissions: [(u64, u64); 43] = [
+            (0, 1_000_000_000), // Testing at zero issuance.
             (1_776_000, 1_000_000_000),
             (1_776_000_000, 1_000_000_000),
             (1_776_000_000_000, 1_000_000_000),
@@ -742,6 +764,7 @@ fn test_halving() {
             (20_999_999_000_000_000, 59),  // Twenty-fourth halving event
             (21_000_000_000_000_000, 0),   // Total supply reached, emissions stop
             (21_100_000_000_000_000, 0),   // Just for fun
+            (u64::MAX, 0),   // Testing bounds
         ];
 
         for (issuance, expected_emission) in expected_emissions.iter() {

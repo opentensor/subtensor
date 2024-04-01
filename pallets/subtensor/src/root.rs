@@ -138,7 +138,14 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_block_emission() -> Result<u64, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        let total_issuance: I96F32 = I96F32::from_num(Self::get_total_issuance());
+        Self::get_block_emission_for_issuance( Self::get_total_issuance() )
+    }
+
+    // Returns the block emission for an issuance value.
+    pub fn get_block_emission_for_issuance( issuance: u64 ) -> Result<u64, &'static str> {
+
+        // Convert issuance to a float for calculations below.
+        let total_issuance: I96F32 = I96F32::from_num( issuance );
         // Check to prevent division by zero when the total supply is reached
         // and creating an issuance greater than the total supply.
         if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
