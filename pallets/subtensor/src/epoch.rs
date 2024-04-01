@@ -55,9 +55,9 @@ impl<T: Config> Pallet<T> {
             .collect();
         log::trace!("Outdated:\n{:?}\n", &outdated);
 
-        // ===========
-        // == Stake ==
-        // ===========
+        // =============
+        // == Hotkeys ==
+        // =============
 
         let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
         for (uid_i, hotkey) in
@@ -67,16 +67,37 @@ impl<T: Config> Pallet<T> {
         }
         log::trace!("hotkeys: {:?}", &hotkeys);
 
-        // Access network stake as normalized vector.
-        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // ===========
+        // == Stake ==
+        // ===========
+        // This code block calculates the stake distribution across the network based on the formula:
+        // \sum_{m}({ (\frac{\sum_{j}{s^{m}_{j}}}{\sum_{k}{\sum_{j}{s^{k}_{j}}}}} )* (\frac{s^{m}_{i}}{\sum_{j}{s^{m}_{j}}} + \frac{\sum_{k}{s^{k}_{i}}}{\sum_{k}{\sum_{j}{s^{k}_{j}}}}))
+        // where s^{m}_{i} represents the stake of hotkey i in subnet m, and the sums over j iterate over all hotkeys in a given subnet, while the sums over k iterate over all subnets.
+        // This formula calculates a weighted average of local and global stakes, taking into account the total stake across all subnets.
+
+        // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
+        let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // Iterate over each hotkey to calculate and assign the local stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            // The total stake for a subnet is given by the total subnet specific stake + global hotkey stake.
-            let subnet_hotkey_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( hotkey, netuid );
-            let global_hotkey_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( hotkey, Self::get_root_netuid() );
-            stake_64[ *uid_i as usize ] = (I64F64::from_num( subnet_hotkey_stake ) + I64F64::from_num( global_hotkey_stake )) / I64F64::from_num( 2.0 );            
+            local_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, netuid ) );
         }
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
+        // Normalize the local stake values in-place.
+        inplace_normalize_64(&mut local_stake_64);
+        
+        // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
+        let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // Iterate over each hotkey to calculate and assign the global stake values.
+        for (uid_i, hotkey) in hotkeys.iter() {
+            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+        }
+        // Normalize the global stake values in-place.
+        inplace_normalize_64(&mut global_stake_64);
+
+        // Calculate the average of local and global stakes after normalization.
+        let averaged_stake_64: Vec<I64F64> = local_stake_64.iter().zip(global_stake_64.iter()).map(|(local, global)| (*local + *global) / 2).collect();
+
+        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(averaged_stake_64);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -398,16 +419,34 @@ impl<T: Config> Pallet<T> {
         }
         log::trace!("hotkeys: {:?}", &hotkeys);
 
-        // Access network stake as normalized vector.
-        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // This code block calculates the stake distribution across the network based on the formula:
+        // \sum_{m}({ (\frac{\sum_{j}{s^{m}_{j}}}{\sum_{k}{\sum_{j}{s^{k}_{j}}}}} )* (\frac{s^{m}_{i}}{\sum_{j}{s^{m}_{j}}} + \frac{\sum_{k}{s^{k}_{i}}}{\sum_{k}{\sum_{j}{s^{k}_{j}}}}))
+        // where s^{m}_{i} represents the stake of hotkey i in subnet m, and the sums over j iterate over all hotkeys in a given subnet, while the sums over k iterate over all subnets.
+        // This formula calculates a weighted average of local and global stakes, taking into account the total stake across all subnets.
+
+        // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
+        let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // Iterate over each hotkey to calculate and assign the local stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            // The total stake for a subnet is given by the total subnet specific stake + global hotkey stake.
-            let subnet_hotkey_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( hotkey, netuid );
-            let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
-            stake_64[ *uid_i as usize ] = (I64F64::from_num( subnet_hotkey_stake ) + I64F64::from_num( global_hotkey_stake )) / I64F64::from_num( 2.0 );            
+            local_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, netuid ) );
         }
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
+        // Normalize the local stake values in-place.
+        inplace_normalize_64(&mut local_stake_64);
+
+        // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
+        let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
+        // Iterate over each hotkey to calculate and assign the global stake values.
+        for (uid_i, hotkey) in hotkeys.iter() {
+            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+        }
+        // Normalize the global stake values in-place.
+        inplace_normalize_64(&mut global_stake_64);
+
+        // Calculate the average of local and global stakes after normalization.
+        let averaged_stake_64: Vec<I64F64> = local_stake_64.iter().zip(global_stake_64.iter()).map(|(local, global)| (*local + *global) / 2).collect();
+
+        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
+        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(averaged_stake_64);
         
         // range: I32F32(0, 1)
         log::trace!("S: {:?}", &stake);
