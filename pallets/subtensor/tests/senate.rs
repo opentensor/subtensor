@@ -104,11 +104,11 @@ fn test_senate_join_works() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -173,11 +173,11 @@ fn test_senate_vote_works() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -343,11 +343,11 @@ fn test_senate_leave_works() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -413,11 +413,11 @@ fn test_senate_leave_vote_removal() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -549,11 +549,11 @@ fn test_senate_not_leave_when_stake_removed() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            stake_amount
+            stake_amount - 1 // Need to account for ED
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_amount
+            stake_amount - 1 // Need to account for ED
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -567,7 +567,7 @@ fn test_senate_not_leave_when_stake_removed() {
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
-            stake_amount
+            stake_amount - 1
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });
