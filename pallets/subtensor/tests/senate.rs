@@ -95,7 +95,7 @@ fn test_senate_join_works() {
         ));
 
         let staker_coldkey = U256::from(7);
-        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 200_000);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
@@ -164,20 +164,27 @@ fn test_senate_vote_works() {
         ));
 
         let staker_coldkey = U256::from(7);
-        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
+        let coldkey_account_balance = 200_000;
+        let stake_amount = 100_000;
+        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, coldkey_account_balance);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
-            100_000
+            stake_amount
         ));
+
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&staker_coldkey),
+            coldkey_account_balance - stake_amount
+        );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            stake_amount
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            stake_amount
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -334,20 +341,22 @@ fn test_senate_leave_works() {
         ));
 
         let staker_coldkey = U256::from(7);
-        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
+        let coldkey_account_balance = 200_000;
+        let stake_amount = 100_000;
+        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, coldkey_account_balance);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
-            100_000
+            stake_amount
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            stake_amount
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            stake_amount
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -404,20 +413,22 @@ fn test_senate_leave_vote_removal() {
         ));
 
         let staker_coldkey = U256::from(7);
-        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
+        let coldkey_account_balance = 200_000;
+        let stake_amount = 100_000;
+        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, coldkey_account_balance);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
-            100_000
+            stake_amount
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            stake_amount
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            stake_amount
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -539,8 +550,9 @@ fn test_senate_not_leave_when_stake_removed() {
         ));
 
         let staker_coldkey = U256::from(7);
-        let stake_amount: u64 = 100_000;
-        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, stake_amount);
+        let coldkey_account_balance = 200_000;
+        let stake_amount = 100_000;
+        SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, coldkey_account_balance);
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
