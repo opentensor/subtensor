@@ -4,7 +4,7 @@ use sp_core::U256;
 
 #[test]
 fn test_migration_fix_total_stake_maps() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let ck1 = U256::from(1);
         let ck2 = U256::from(2);
         let ck3 = U256::from(3);
@@ -102,7 +102,7 @@ fn test_migration_fix_total_stake_maps() {
 
 #[test]
 fn test_migration_transfer_nets_to_foundation() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Create subnet 1
         add_network(1, 1, 0);
         // Create subnet 11
@@ -122,7 +122,7 @@ fn test_migration_transfer_nets_to_foundation() {
 
 #[test]
 fn test_migration_delete_subnet_3() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Create subnet 3
         add_network(3, 1, 0);
         assert_eq!(SubtensorModule::if_subnet_exist(3), true);
@@ -136,7 +136,7 @@ fn test_migration_delete_subnet_3() {
 
 #[test]
 fn test_migration_delete_subnet_21() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Create subnet 21
         add_network(21, 1, 0);
         assert_eq!(SubtensorModule::if_subnet_exist(21), true);

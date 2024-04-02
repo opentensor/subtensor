@@ -439,7 +439,7 @@ fn init_run_epochs(
 //             interleave as usize,
 //         );
 
-//         new_test_ext().execute_with(|| {
+//         new_test_ext(1).execute_with(|| {
 //             init_run_epochs(
 //                 netuid,
 //                 network_n,
@@ -481,7 +481,7 @@ fn init_run_epochs(
 // Test an epoch on an empty graph.
 // #[test]
 // fn test_overflow() {
-//     new_test_ext().execute_with(|| {
+//     new_test_ext(1).execute_with(|| {
 //         log::info!("test_overflow:");
 //         let netuid: u16 = 1;
 //         add_network(netuid, 0, 0);
@@ -535,7 +535,7 @@ fn init_run_epochs(
 // Test an epoch on an empty graph.
 // #[test]
 // fn test_nill_epoch_subtensor() {
-//     new_test_ext().execute_with(|| {
+//     new_test_ext(1).execute_with(|| {
 //         log::info!("test_nill_epoch:");
 //         SubtensorModule::epoch(0, 0);
 //     });
@@ -544,7 +544,7 @@ fn init_run_epochs(
 // Test an epoch on a graph with a single item.
 #[test]
 fn test_1_graph() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         log::info!("test_1_graph:");
         let netuid: u16 = 1;
         let coldkey = U256::from(0);
@@ -592,7 +592,7 @@ fn test_1_graph() {
 // Test an epoch on a graph with two items.
 #[test]
 fn test_10_graph() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         log::info!("test_10_graph");
         // Function for adding a nodes to the graph.
         pub fn add_node(netuid: u16, coldkey: U256, hotkey: U256, uid: u16, stake_amount: u64) {
@@ -673,7 +673,7 @@ fn test_512_graph() {
             );
             let server: usize = servers[0] as usize;
             let validator: usize = validators[0] as usize;
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -753,7 +753,7 @@ fn test_512_graph_random_weights() {
             ) = (vec![], vec![], vec![], vec![], vec![], vec![]);
 
             // Dense epoch
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -783,7 +783,7 @@ fn test_512_graph_random_weights() {
             });
 
             // Sparse epoch (same random seed as dense)
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -847,7 +847,7 @@ fn test_4096_graph() {
         let validator: usize = validators[0] as usize;
         for server_self in vec![false, true] {
             // server-self weight off/on
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -906,7 +906,7 @@ fn test_4096_graph() {
 // #[test]
 #[allow(dead_code)]
 fn test_16384_graph_sparse() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let n: u16 = 16384;
         let validators_n: u16 = 512;
@@ -969,7 +969,7 @@ fn test_16384_graph_sparse() {
 // Test bonds exponential moving average over a sequence of epochs.
 #[test]
 fn test_bonds() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
 		let sparse: bool = true;
 		let n: u16 = 8;
 		let netuid: u16 = 1;
@@ -1264,7 +1264,7 @@ fn test_bonds() {
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]
 fn test_active_stake() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         let sparse: bool = true;
         let n: u16 = 4;
@@ -1470,7 +1470,7 @@ fn test_active_stake() {
 // Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
 #[test]
 fn test_outdated_weights() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 4;
         let netuid: u16 = 1;
@@ -1655,7 +1655,7 @@ fn test_outdated_weights() {
 // Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
 #[test]
 fn test_zero_weights() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 2;
         let netuid: u16 = 1;
@@ -1873,7 +1873,7 @@ fn test_validator_permits() {
                         _ => 0,
                     };
                 }
-                new_test_ext().execute_with(|| {
+                new_test_ext(1).execute_with(|| {
                     let block_number: u64 = 0;
                     add_network(netuid, tempo, 0);
                     SubtensorModule::set_max_allowed_uids(netuid, network_n as u16);
@@ -2048,7 +2048,7 @@ fn test_validator_permits() {
 //                     interleave as usize,
 //                 );
 
-//                 new_test_ext().execute_with(|| {
+//                 new_test_ext(1).execute_with(|| {
 // 					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, true);
 
 // 					let mut major_emission: I64F64 = I64F64::from_num(0);

@@ -19,7 +19,7 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 
 #[test]
 fn test_root_register_network_exist() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
@@ -32,7 +32,7 @@ fn test_root_register_network_exist() {
 
 #[test]
 fn test_root_register_normal_on_root_fails() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
         // Test fails because normal registrations are not allowed
         // on the root network.
@@ -76,7 +76,7 @@ fn test_root_register_normal_on_root_fails() {
 
 #[test]
 fn test_root_register_stake_based_pruning_works() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
         // Add two networks.
         let root_netuid: u16 = 0;
@@ -164,7 +164,7 @@ fn test_root_register_stake_based_pruning_works() {
 
 #[test]
 fn test_root_set_weights() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
@@ -266,7 +266,7 @@ fn test_root_set_weights() {
 
 #[test]
 fn test_root_set_weights_out_of_order_netuids() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
@@ -383,7 +383,7 @@ fn test_root_set_weights_out_of_order_netuids() {
 
 #[test]
 fn test_root_subnet_creation_deletion() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
         // Owner of subnets.
@@ -463,7 +463,7 @@ fn test_root_subnet_creation_deletion() {
 
 #[test]
 fn test_network_pruning() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
@@ -553,7 +553,7 @@ fn test_network_pruning() {
 
 #[test]
 fn test_network_prune_results() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
 
         SubtensorModule::set_network_immunity_period(3);
@@ -597,7 +597,7 @@ fn test_network_prune_results() {
 
 #[test]
 fn test_weights_after_network_pruning() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
@@ -707,7 +707,7 @@ fn test_weights_after_network_pruning() {
 /// `cargo test --package pallet-subtensor --test root test_issance_bounds`
 #[test]
 fn test_issance_bounds() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
@@ -727,7 +727,7 @@ fn test_issance_bounds() {
 /// `cargo test --package pallet-subtensor --test root test_halving`
 #[test]
 fn test_halving() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let expected_emissions: [(u64, u64); 43] = [
             (0, 1_000_000_000), // Testing at zero issuance.
             (1_776_000, 1_000_000_000),
@@ -790,7 +790,7 @@ fn test_halving() {
 
 #[test]
 fn test_get_emission_across_entire_issuance_range() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
         let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
         let halving_issuance: u64 = total_supply / 2;

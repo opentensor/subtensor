@@ -361,13 +361,13 @@ impl pallet_utility::Config for Test {
 
 #[allow(dead_code)]
 // Build genesis storage according to the mock runtime.
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
     let t = frame_system::GenesisConfig::<Test>::default()
         .build_storage()
         .unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(1));
+    ext.execute_with(|| System::set_block_number(block_number));
     ext
 }
 
