@@ -199,6 +199,10 @@ pub mod pallet {
     // ==== Staking + Accounts ====
     // ============================
     #[pallet::type_value]
+    pub fn TotalSupply<T: Config>() -> u64 {
+        21_000_000_000_000_000 // Rao => 21_000_000 Tao
+    }
+    #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
     }
