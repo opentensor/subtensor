@@ -1839,6 +1839,7 @@ where
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 
+                Pallet::<T>::set_stakes_this_interval_for_hotkey(hotkey, stakes_this_interval + 1);
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
@@ -1852,6 +1853,7 @@ where
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 
+                Pallet::<T>::set_stakes_this_interval_for_hotkey(hotkey, stakes_this_interval + 1);
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()

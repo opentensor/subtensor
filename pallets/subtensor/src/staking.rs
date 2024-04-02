@@ -180,13 +180,10 @@ impl<T: Config> Pallet<T> {
         // --- 9. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_added);
 
-        // --- 10. Increment stakes this interval for the given hotkey
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1);
-
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 11. Emit the staking event.
+        // --- 10. Emit the staking event.
         log::info!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
             hotkey,
@@ -194,7 +191,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, stake_to_be_added));
 
-        // --- 12. Ok and return.
+        // --- 11. Ok and return.
         Ok(())
     }
 
@@ -296,13 +293,10 @@ impl<T: Config> Pallet<T> {
         // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
-        // --- 10. Increment stakes this interval for the given hotkey
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, unstakes_this_interval + 1);
-
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 11. Emit the unstaking event.
+        // --- 10. Emit the unstaking event.
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
@@ -310,7 +304,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 12. Done and ok.
+        // --- 11. Done and ok.
         Ok(())
     }
 
