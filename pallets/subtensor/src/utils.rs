@@ -56,9 +56,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_issuance() -> u64 {
         TotalIssuance::<T>::get()
     }
-    pub fn get_block_emission() -> u64 {
-        BlockEmission::<T>::get()
-    }
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
             .ok()
