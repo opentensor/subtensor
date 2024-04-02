@@ -2231,7 +2231,7 @@ fn test_faucet_ok() {
         #[cfg(feature = "pow-faucet")]
         assert_ok!(SubtensorModule::do_faucet(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            0,
+            block_number,
             nonce,
             vec_work
         ));
@@ -2239,7 +2239,7 @@ fn test_faucet_ok() {
         #[cfg(not(feature = "pow-faucet"))]
         assert_ok!(SubtensorModule::do_faucet(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            0,
+            block_number,
             nonce,
             vec_work
         ));
