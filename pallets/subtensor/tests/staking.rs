@@ -2221,7 +2221,7 @@ fn test_faucet_ok() {
         let mut nonce: u64 = 0;
         let mut work: H256 = SubtensorModule::create_seal_hash(block_number, nonce, &coldkey);
         while !SubtensorModule::hash_meets_difficulty(&work, difficulty) {
-            nonce = nonce + 1;
+            nonce += 1;
             work = SubtensorModule::create_seal_hash(block_number, nonce, &coldkey);
         }
         let vec_work: Vec<u8> = SubtensorModule::hash_to_vec(work);
@@ -2231,7 +2231,7 @@ fn test_faucet_ok() {
         #[cfg(feature = "pow-faucet")]
         assert_ok!(SubtensorModule::do_faucet(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            0,
+            block_number,
             nonce,
             vec_work
         ));
@@ -2239,7 +2239,7 @@ fn test_faucet_ok() {
         #[cfg(not(feature = "pow-faucet"))]
         assert_ok!(SubtensorModule::do_faucet(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            0,
+            block_number,
             nonce,
             vec_work
         ));
