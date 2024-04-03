@@ -184,6 +184,11 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 10. Emit the staking event.
+        Self::set_stakes_this_interval_for_hotkey(
+            &hotkey,
+            stakes_this_interval + 1,
+            block,
+        );
         log::info!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
             hotkey,
@@ -297,6 +302,11 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 10. Emit the unstaking event.
+        Self::set_stakes_this_interval_for_hotkey(
+            &hotkey,
+            unstakes_this_interval + 1,
+            block,
+        );
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,

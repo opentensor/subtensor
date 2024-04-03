@@ -1851,12 +1851,6 @@ where
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 
-                let current_block_number = Pallet::<T>::get_current_block_as_u64();
-                Pallet::<T>::set_stakes_this_interval_for_hotkey(
-                    hotkey,
-                    stakes_this_interval + 1,
-                    current_block_number,
-                );
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
@@ -1870,12 +1864,6 @@ where
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 
-                let current_block_number = Pallet::<T>::get_current_block_as_u64();
-                Pallet::<T>::set_stakes_this_interval_for_hotkey(
-                    hotkey,
-                    stakes_this_interval + 1,
-                    current_block_number,
-                );
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
