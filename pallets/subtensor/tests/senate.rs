@@ -505,6 +505,8 @@ fn test_senate_not_leave_when_stake_removed() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
+        SubtensorModule::set_target_stakes_per_interval(2);
+
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
