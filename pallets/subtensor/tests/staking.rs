@@ -2221,6 +2221,49 @@ fn test_full_with_delegating_some_servers() {
 }
 
 #[test]
+fn test_stao_delegation() {
+    new_test_ext().execute_with(|| {
+
+        let netuid: u16 = 1;
+        let delegate = U256::from(1);
+        let nominator1 = U256::from(2);
+        let nominator2 = U256::from(3);
+        
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate, delegate, 124124);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100000);
+        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, netuid, 100000 ));
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, 0));
+        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator1), delegate, netuid, 100000 ));
+        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator2), delegate, netuid, 100000 ));
+        assert!( SubtensorModule::hotkey_is_delegate( &delegate ) );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate), 100000 * 3 );
+        assert_eq!( SubtensorModule::get_total_stake(), 100000 * 3 );
+        assert_eq!( SubtensorModule::get_total_stake_for_subnet(netuid), 100000 * 3 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_subnet( &delegate, netuid ), 100000 * 3 );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &delegate ), 100000 );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &nominator1 ), 100000 );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &nominator2 ), 100000 );
+        assert_eq!( SubtensorModule::get_owning_coldkey_for_hotkey( &delegate ), delegate );
+        assert_eq!( SubtensorModule::hotkey_account_exists( &delegate ), true );
+        assert_eq!( SubtensorModule::hotkey_account_exists( &nominator1 ), false );
+        assert_eq!( SubtensorModule::hotkey_account_exists( &nominator2 ), false );
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &delegate, &delegate, netuid ), 100000 );
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &nominator1, &delegate, netuid ), 100000 );
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &nominator2, &delegate, netuid ), 100000 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &delegate), 100000 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1), 100000 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1), 100000 );
+        SubtensorModule::emit_inflation_through_hotkey_account(&delegate, netuid, 0, 1000);
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &delegate, &delegate, netuid ), 100000 + 1000/3 );
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &nominator1, &delegate, netuid ), 100000 + 1000/3);
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &nominator2, &delegate, netuid ), 100000 + 1000/3);
+    })
+}
+
+#[test]
 fn test_full_block_emission_occurs() {
     new_test_ext(1).execute_with(|| {
         let netuid = 1;
