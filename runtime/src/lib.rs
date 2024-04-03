@@ -35,6 +35,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+// use tracing::info;
+// use log::info;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -1380,6 +1382,20 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_all_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }
+
+        // fn get_all_stake_info_for_coldkey(coldkey_account_vec: Vec<u8>) -> Vec<u8> {
+        //     let result = SubtensorModule::get_all_stake_info_for_coldkey(coldkey_account_vec.clone());
+        //     let encoded_result = result.encode();
+
+        //     // Log the size of the input and output
+        //     info!(
+        //         "get_all_stake_info_for_coldkey called with input size: {}, returning result size: {}",
+        //         coldkey_account_vec.len(),
+        //         encoded_result.len()
+        //     );
+
+        //     encoded_result
+        // }
 
         fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
             let result = SubtensorModule::get_subnet_stake_info_for_coldkey( coldkey_account_vec, netuid );
