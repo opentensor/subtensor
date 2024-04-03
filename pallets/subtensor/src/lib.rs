@@ -1170,7 +1170,8 @@ pub mod pallet {
                     hex,
                 ))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
-                .saturating_add(migration::migrate_delete_subnet_21::<T>());
+                .saturating_add(migration::migrate_delete_subnet_21::<T>())
+                .saturating_add(migration::migration5_total_issuance::<T>(false));
 
             return weight;
         }
