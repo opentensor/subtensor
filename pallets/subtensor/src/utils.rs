@@ -143,14 +143,12 @@ impl<T: Config> Pallet<T> {
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
     }
-    pub fn set_stakes_this_interval_for_hotkey(hotkey: &T::AccountId, stakes_this_interval: u64) {
-        TotalHotkeyStakesThisInterval::<T>::insert(hotkey, stakes_this_interval);
+    pub fn set_stakes_this_interval_for_hotkey(hotkey: &T::AccountId, stakes_this_interval: u64, last_staked_block_number: u64) {
+        TotalHotkeyStakesThisInterval::<T>::insert(hotkey, (stakes_this_interval, last_staked_block_number));
     }
-    pub fn reset_stakes_and_unstakes_this_interval() {
-        // This removes all key-value pairs from the storage map
-        let _ = TotalHotkeyStakesThisInterval::<T>::clear(u32::MAX, None);
+    pub fn set_stake_interval(block: u64) {
+        StakeInterval::<T>::set(block);
     }
-
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         if (uid as usize) < vec.len() {

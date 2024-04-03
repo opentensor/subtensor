@@ -356,8 +356,31 @@ impl<T: Config> Pallet<T> {
         return Stake::<T>::get(hotkey, coldkey);
     }
 
+    // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
     pub fn get_stakes_this_interval_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        return TotalHotkeyStakesThisInterval::<T>::get(hotkey);
+        // Retrieve the configured stake interval duration from storage.
+        let stake_interval = StakeInterval::<T>::get();
+
+        // Obtain the current block number as an unsigned 64-bit integer.
+        let current_block = Self::get_current_block_as_u64();
+
+        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
+        let (stakes, block_last_staked_at) = TotalHotkeyStakesThisInterval::<T>::get(hotkey);
+
+        // Calculate the block number after which the stakes for the hotkey should be reset.
+        let block_to_reset_after = block_last_staked_at + stake_interval;
+
+        // If the current block number is beyond the reset point,
+        // it indicates the end of the staking interval for the hotkey.
+        if block_to_reset_after <= current_block {
+            // Reset the stakes for this hotkey for the current interval.
+            Self::set_stakes_this_interval_for_hotkey(hotkey, 0, block_last_staked_at);
+            // Return 0 as the stake amount since we've just reset the stakes.
+            return 0;
+        }
+
+        // If the staking interval has not yet ended, return the current stake amount.
+        stakes
     }
 
     pub fn get_target_stakes_per_interval() -> u64 {

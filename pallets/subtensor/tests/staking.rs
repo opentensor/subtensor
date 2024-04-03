@@ -339,27 +339,31 @@ fn test_reset_stakes_per_interval() {
     new_test_ext().execute_with(|| {
         let hotkey = U256::from(561337);
 
-        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 5);
+        SubtensorModule::set_stake_interval(7);
+        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 5, 1);
+        step_block(1);
+
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
             5
         );
 
-        SubtensorModule::reset_stakes_and_unstakes_this_interval();
+        // block: 7 interval not yet passed
+        step_block(6);
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
-            0
+            5
         );
 
-        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey, 6);
-        SubtensorModule::set_tempo(0, 3);
-        step_block(3);
+        // block 8: interval passed
+        step_block(1);
         assert_eq!(
             SubtensorModule::get_stakes_this_interval_for_hotkey(&hotkey),
             0
         );
     });
 }
+
 #[test]
 fn test_add_stake_under_limit() {
     new_test_ext().execute_with(|| {
@@ -414,9 +418,14 @@ fn test_add_stake_rate_limit_exceeded() {
         let start_nonce: u64 = 0;
         let tempo: u16 = 13;
         let max_stakes = 2;
+        let block_number = 1;
 
         SubtensorModule::set_target_stakes_per_interval(max_stakes);
-        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey_account_id, max_stakes);
+        SubtensorModule::set_stakes_this_interval_for_hotkey(
+            &hotkey_account_id,
+            max_stakes,
+            block_number,
+        );
 
         let call: pallet_subtensor::Call<Test> = pallet_subtensor::Call::add_stake {
             hotkey: hotkey_account_id,
@@ -506,9 +515,14 @@ fn test_remove_stake_rate_limit_exceeded() {
         let start_nonce: u64 = 0;
         let tempo: u16 = 13;
         let max_unstakes = 1;
+        let block_number = 1;
 
         SubtensorModule::set_target_stakes_per_interval(max_unstakes);
-        SubtensorModule::set_stakes_this_interval_for_hotkey(&hotkey_account_id, max_unstakes);
+        SubtensorModule::set_stakes_this_interval_for_hotkey(
+            &hotkey_account_id,
+            max_unstakes,
+            block_number,
+        );
 
         let call = pallet_subtensor::Call::remove_stake {
             hotkey: hotkey_account_id,

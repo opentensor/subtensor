@@ -210,6 +210,10 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
+        (0, 0)
+    }
+    #[pallet::type_value]
     pub fn DefaultBlockEmission<T: Config>() -> u64 {
         1_000_000_000
     }
@@ -229,6 +233,10 @@ pub mod pallet {
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
     }
+    #[pallet::type_value]
+    pub fn DefaultStakeInterval<T: Config>() -> u64 {
+        360
+    }
 
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -241,15 +249,19 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
+    #[pallet::storage] // --- ITEM (default_stake_interval)
+    pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total number of stakes under a hotkey this interval
+    #[pallet::storage]
+    // --- MAP (hot) --> stake | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyStakesThisInterval<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+        StorageMap<_, Identity, T::AccountId, (u64, u64), ValueQuery, DefaultStakesPerInterval<T>>;
+
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -1839,7 +1851,6 @@ where
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 
-                Pallet::<T>::set_stakes_this_interval_for_hotkey(hotkey, stakes_this_interval + 1);
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
@@ -1853,7 +1864,6 @@ where
                     return InvalidTransaction::ExhaustsResources.into();
                 }
 
-                Pallet::<T>::set_stakes_this_interval_for_hotkey(hotkey, stakes_this_interval + 1);
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()

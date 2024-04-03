@@ -246,9 +246,6 @@ impl<T: Config> Pallet<T> {
             return Err("Not the block to update emission values.");
         }
 
-        // Resets the trackers for stakes and unstakes during a given interval
-        Self::reset_stakes_and_unstakes_this_interval();
-
         // --- 1. Retrieves the number of root validators on subnets.
         let n: u16 = Self::get_num_root_validators();
         log::debug!("n:\n{:?}\n", n);
