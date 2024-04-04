@@ -8441,6 +8441,7 @@ dependencies = [
  "jsonrpsee",
  "pallet-subtensor",
  "parity-scale-codec",
+ "sc-client-api",
  "serde",
  "sp-api",
  "sp-blockchain",

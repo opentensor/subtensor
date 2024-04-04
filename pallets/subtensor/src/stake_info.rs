@@ -212,8 +212,12 @@ impl<T: Config> Pallet<T> {
         let mut all_stake_info: Vec<(T::AccountId, u16, Compact<u64>)> = Vec::new();
 
         // Iterate over `SubStake` storage map for entries matching the coldkey and collect their information.
+        // If stake != 0
         for ((hotkey, coldkey_iter, netuid), stake) in SubStake::<T>::iter() {
-            if coldkey == coldkey_iter {
+            // if coldkey == coldkey_iter {
+            //     all_stake_info.push((hotkey, netuid, Compact(stake)));
+            // }
+            if coldkey == coldkey_iter && stake != 0 {
                 all_stake_info.push((hotkey, netuid, Compact(stake)));
             }
         }
