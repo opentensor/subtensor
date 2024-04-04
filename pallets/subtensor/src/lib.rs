@@ -202,6 +202,10 @@ pub mod pallet {
     // ==== Staking + Accounts ====
     // ============================
     #[pallet::type_value]
+    pub fn TotalSupply<T: Config>() -> u64 {
+        21_000_000_000_000_000 // Rao => 21_000_000 Tao
+    }
+    #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
     }
@@ -1192,7 +1196,8 @@ pub mod pallet {
                     hex,
                 ))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
-                .saturating_add(migration::migrate_delete_subnet_21::<T>());
+                .saturating_add(migration::migrate_delete_subnet_21::<T>())
+                .saturating_add(migration::migration5_total_issuance::<T>(false));
 
             return weight;
         }
@@ -1863,16 +1868,26 @@ where
                 if stakes_this_interval >= max_stakes_per_interval {
                     return InvalidTransaction::ExhaustsResources.into();
                 }
-
+              
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
-            Some(Call::register { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
+                let registrations_this_interval =
+                    Pallet::<T>::get_registrations_this_interval(*netuid);
+                let max_registrations_per_interval =
+                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
+                if registrations_this_interval >= max_registrations_per_interval {
+                    // If the registration limit for the interval is exceeded, reject the transaction
+                    return InvalidTransaction::ExhaustsResources.into();
+                }
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
             Some(Call::register_network { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()

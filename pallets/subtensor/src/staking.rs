@@ -476,7 +476,6 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(increment));
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -497,7 +496,6 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(decrement));
     }
 
     pub fn u64_to_balance(

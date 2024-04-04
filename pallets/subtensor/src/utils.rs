@@ -56,9 +56,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_issuance() -> u64 {
         TotalIssuance::<T>::get()
     }
-    pub fn get_block_emission() -> u64 {
-        BlockEmission::<T>::get()
-    }
     pub fn get_current_block_as_u64() -> u64 {
         TryInto::try_into(<frame_system::Pallet<T>>::block_number())
             .ok()
@@ -304,6 +301,9 @@ impl<T: Config> Pallet<T> {
     // ========================
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
+    }
+    pub fn coinbase(amount: u64 ){
+        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {
         DefaultTake::<T>::get()
