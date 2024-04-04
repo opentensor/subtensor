@@ -232,7 +232,7 @@ impl<T: Config> Pallet<T> {
             
 
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
-        let global_stake_weight: I64F64 = Self::get_global_stake_weight();
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_stake);

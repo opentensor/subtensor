@@ -18,14 +18,14 @@ pub use subtensor_custom_rpc_runtime_api::{
 
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
-    #[method(name = "delegateInfo_getDelegates")]
-    fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+
     #[method(name = "delegateInfo_getDelegate")]
     fn get_delegate(
         &self,
         delegate_account_vec: Vec<u8>,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+
     #[method(name = "delegateInfo_getDelegated")]
     fn get_delegated(
         &self,
@@ -33,6 +33,8 @@ pub trait SubtensorCustomApi<BlockHash> {
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 
+    #[method(name = "delegateInfo_getDelegates")]
+    fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronsLite")]
     fn get_neurons_lite(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronLite")]

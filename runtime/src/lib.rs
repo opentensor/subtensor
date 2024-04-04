@@ -964,6 +964,14 @@ impl
     fn set_weights_min_stake(min_stake: u64) {
         SubtensorModule::set_weights_min_stake(min_stake);
     }
+
+    fn set_global_stake_weight(global_stake_weight: u16) {
+        SubtensorModule::set_global_stake_weight(global_stake_weight);
+    }
+
+    fn set_subnet_staking(subnet_staking: bool) {
+        SubtensorModule::set_subnet_staking(subnet_staking);
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {

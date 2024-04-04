@@ -38,6 +38,9 @@ impl<T: Config> Pallet<T> {
     pub fn subnet_staking_on() -> bool {
         SubnetStakingOn::<T>::get()
     }
+    pub fn set_subnet_staking( subnet_staking: bool ) {
+        SubnetStakingOn::<T>::put( subnet_staking );
+    }
 
     // Retrieves the unique identifier (UID) for the root network.
     //

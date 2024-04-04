@@ -705,6 +705,48 @@ fn test_sudo_set_weights_min_stake() {
 }
 
 #[test]
+fn test_sudo_global_stake_weight() {
+    new_test_ext().execute_with(|| {
+        let to_be_set: u16 = 10;
+        let init_value: u16 = SubtensorModule::get_global_stake_weight();
+        assert_eq!(
+            AdminUtils::sudo_set_global_stake_weight(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(SubtensorModule::get_global_stake_weight(), init_value);
+        assert_ok!(AdminUtils::sudo_set_global_stake_weight(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_global_stake_weight(), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_subnet_staking() {
+    new_test_ext().execute_with(|| {
+        let to_be_set: bool = true;
+        let init_value: bool = SubtensorModule::subnet_staking_on();
+        assert_eq!(
+            AdminUtils::sudo_set_subnet_staking(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(SubtensorModule::subnet_staking_on(), init_value);
+        assert_ok!(AdminUtils::sudo_set_subnet_staking(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::subnet_staking_on(), to_be_set);
+    });
+}
+
+#[test]
 fn test_sudo_set_bonds_moving_average() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;

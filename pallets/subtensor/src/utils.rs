@@ -283,7 +283,10 @@ impl<T: Config> Pallet<T> {
     // ==============================
     // ==== Global Stake Weight =====
     // ==============================
-    pub fn get_global_stake_weight() -> I64F64 {
+    pub fn get_global_stake_weight() -> u16 {
+        GlobalStakeWeight::<T>::get()
+    }
+    pub fn get_global_stake_weight_float() -> I64F64 {
         I64F64::from_num( GlobalStakeWeight::<T>::get() ) / I64F64::from_num( u16::MAX )
     }
     pub fn set_global_stake_weight( global_stake_weight: u16 ) {
