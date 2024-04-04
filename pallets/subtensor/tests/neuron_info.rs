@@ -158,3 +158,304 @@ fn test_get_neuron_subnet_staking_info_multiple() {
         }
     });
 }
+
+#[test]
+fn test_get_neuron_stake_based_on_netuid() {
+    new_test_ext().execute_with(|| {
+        let netuid_root: u16 = 0; // Root network
+        let netuid_sub: u16 = 1; // Subnetwork
+
+        let uid_root: u16 = 0;
+        let uid_sub: u16 = 1;
+
+        let hotkey_root = U256::from(0);
+        let coldkey_root = U256::from(0);
+        let stake_amount_root: u64 = 100;
+
+        let hotkey_sub = U256::from(1);
+        let coldkey_sub = U256::from(1);
+        let stake_amount_sub: u64 = 200;
+
+        // Setup for root network
+        add_network(netuid_root, 2, 2);
+        add_network(netuid_sub, 2, 2);
+        register_ok_neuron(netuid_sub, hotkey_root, coldkey_root, 39420842);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_root, stake_amount_root);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_root),
+            hotkey_root,
+            stake_amount_root,
+        ));
+
+        step_block(1);
+
+        // Setup for subnetwork
+        // add_network(netuid_sub, 2, 2);
+        register_ok_neuron(netuid_sub, hotkey_sub, coldkey_sub, 39420843);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_sub, stake_amount_sub);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_sub),
+            hotkey_sub,
+            netuid_sub,
+            stake_amount_sub,
+        ));
+
+        // Test for main network
+        let neuron_main = SubtensorModule::get_neuron(netuid_sub, uid_root)
+            .expect("Neuron should exist for main network");
+        assert_eq!(
+            neuron_main.stake.len(),
+            1,
+            "Main network should have 1 stake entry"
+        );
+        // assert_eq!(
+        //     neuron_main.stake[0].1 .0, stake_amount_root,
+        //     "Stake amount for main network does not match"
+        // );
+
+        // Test for subnetwork
+        let neuron_sub = SubtensorModule::get_neuron(netuid_sub, uid_sub)
+            .expect("Neuron should exist for subnetwork");
+        assert_eq!(
+            neuron_sub.stake.len(),
+            1,
+            "Subnetwork should have 1 stake entry"
+        );
+        assert_eq!(
+            neuron_sub.stake[0].1 .0, stake_amount_sub,
+            "Stake amount for subnetwork does not match"
+        );
+    });
+}
+
+#[test]
+fn test_adding_substake_affects_only_targeted_neuron() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 2;
+        let modality: u16 = 2;
+
+        // Setup the network and neurons
+        add_network(netuid, tempo, modality);
+        let neuron_count = 5;
+        let total_stake: u64 = neuron_count as u64 * 1000;
+        let initial_stake: u64 = 1000;
+
+        SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
+        SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
+
+        // Register neurons and add initial stake
+        for i in 0..neuron_count {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
+            register_ok_neuron(netuid, hotkey, coldkey, 39420842 + i as u64);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, total_stake);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                netuid,
+                initial_stake,
+            ));
+        }
+
+        // Add sub-stake to the first neuron
+        let target_neuron_index: u16 = 0;
+        let additional_stake: u64 = 500;
+        let target_hotkey = U256::from(target_neuron_index);
+        let target_coldkey = U256::from(target_neuron_index);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(target_coldkey),
+            target_hotkey,
+            netuid,
+            additional_stake,
+        ));
+
+        // Check that only the targeted neuron's stake has increased
+        for i in 0..neuron_count {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
+            let expected_stake = if i == target_neuron_index {
+                initial_stake + additional_stake
+            } else {
+                initial_stake
+            };
+            let neuron_stake =
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+            assert_eq!(
+                neuron_stake, expected_stake,
+                "Neuron {} stake does not match expected value. Expected: {}, Got: {}",
+                i, expected_stake, neuron_stake
+            );
+        }
+    });
+}
+
+#[test]
+fn test_adding_substake_affects_only_targeted_neuron_with_get_neurons_lite() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 2;
+        let modality: u16 = 2;
+
+        log::info!("Setting up the network and neurons");
+        add_network(netuid, tempo, modality);
+        let neuron_count = 5;
+        let initial_stake: u64 = 1000;
+
+        SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
+        SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
+
+        // Register neurons and add initial stake
+        for i in 0..neuron_count {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
+            log::info!(
+                "Registering neuron {} with hotkey {:?} and coldkey {:?}",
+                i,
+                hotkey,
+                coldkey
+            );
+            register_ok_neuron(netuid, hotkey, coldkey, 0 as u64);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 5);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                netuid,
+                initial_stake,
+            ));
+        }
+
+        // Add sub-stake to the targeted neuron
+        let target_neuron_index: u16 = 2;
+        let additional_stake: u64 = 500;
+        log::info!("Adding additional stake to neuron {}", target_neuron_index);
+        let target_hotkey = U256::from(target_neuron_index);
+        let target_coldkey = U256::from(target_neuron_index);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(target_coldkey),
+            target_hotkey,
+            netuid,
+            additional_stake,
+        ));
+
+        // Retrieve all neurons using get_neurons_lite and check stakes
+        let neurons_lite = SubtensorModule::get_neurons_lite(netuid);
+        log::info!(
+            "Retrieved {} neurons using get_neurons_lite",
+            neurons_lite.len()
+        );
+        assert_eq!(
+            neurons_lite.len(),
+            neuron_count as usize,
+            "There should be {} neurons",
+            neuron_count
+        );
+
+
+        // Check that only the targeted neuron's stake has increased
+    for neuron in neurons_lite.into_iter() {
+    // Find the stake for the neuron based on its identifier (assuming the identifier is the first element in the tuple)
+    let neuron_stake = neuron.stake.iter().find(|(id, _)| *id == neuron.hotkey).expect("Neuron stake not found");
+
+    let expected_stake = if neuron.hotkey == U256::from(target_neuron_index) {
+        Compact(initial_stake + additional_stake)
+    } else {
+        Compact(initial_stake)
+    };
+    log::info!("Stake in all neurons: {:?}", neuron.stake);
+    log::info!("Neurons: {:?}", neuron);
+    log::info!("Neurons UID: {:?}", neuron.uid);
+    log::info!("Checking stake for neuron with hotkey {:?}: Expected: {:?}, Got: {:?}", neuron.hotkey, expected_stake, neuron_stake.1);
+    assert_eq!(
+        neuron_stake.1, expected_stake,
+        "Stake does not match expected value for neuron with hotkey {:?}. Expected: {:?}, Got: {:?}",
+        neuron.hotkey, expected_stake, neuron_stake.1
+    );
+}
+    });
+}
+
+#[test]
+fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 2;
+        let modality: u16 = 2;
+
+        log::info!("Setting up the network and neurons");
+        add_network(netuid, tempo, modality);
+        let neuron_count = 5;
+        let initial_stake: u64 = 1000;
+
+        SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
+        SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
+
+        // Append neurons and add initial stake
+        for i in 0..neuron_count {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
+            log::info!(
+                "Appending neuron {} with hotkey {:?} and coldkey {:?}",
+                i,
+                hotkey,
+                coldkey
+            );
+            register_ok_neuron(netuid, hotkey, coldkey, 0 as u64);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 5);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                netuid,
+                initial_stake,
+            ));
+        }
+
+        // Add sub-stake to the targeted neuron
+        let target_neuron_index: u16 = 0;
+        let additional_stake: u64 = 500;
+        let target_hotkey = U256::from(target_neuron_index);
+        let target_coldkey = U256::from(target_neuron_index);
+        log::info!("Adding additional stake to neuron {}", target_neuron_index);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(target_coldkey),
+            target_hotkey,
+            netuid,
+            additional_stake,
+        ));
+
+        // Retrieve and check all neurons to ensure only the targeted neuron's stake has increased
+        for i in 0..neuron_count {
+            let neuron_index = i as u16;
+            if let Some(neuron_lite) = SubtensorModule::get_neuron_lite(netuid, neuron_index) {
+                let neuron_hotkey = U256::from(i);
+                let found_stake_tuple = neuron_lite
+                    .stake
+                    .iter()
+                    .find(|(hotkey, _)| *hotkey == neuron_hotkey);
+                if let Some((_, stake)) = found_stake_tuple {
+                    let stake_value: u64 = stake.0; // Assuming `Compact` is a wrapper around the value.
+                    let expected_stake = if neuron_index == target_neuron_index {
+                        initial_stake + additional_stake
+                    } else {
+                        initial_stake
+                    };
+                    log::info!(
+                        "Checking stake for neuron {}: Expected: {}, Got: {}",
+                        i,
+                        expected_stake,
+                        stake_value
+                    );
+                    assert_eq!(
+                        stake_value, expected_stake,
+                        "Stake does not match expected value for neuron {}. Expected: {}, Got: {}",
+                        i, expected_stake, stake_value
+                    );
+                } else {
+                    panic!("Stake for neuron with hotkey {:?} not found", neuron_hotkey);
+                }
+            } else {
+                panic!("Neuron with index {} not found", neuron_index);
+            }
+        }
+    });
+}

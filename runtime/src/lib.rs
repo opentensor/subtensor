@@ -35,6 +35,8 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+// use tracing::info;
+// use log::info;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -121,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 144,
+    spec_version: 181,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1375,6 +1377,25 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_subnet_stake_info_for_coldkeys( coldkey_account_vecs, netuid );
             result.encode()
         }
+
+        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_all_stake_info_for_coldkey( coldkey_account_vec );
+            result.encode()
+        }
+
+        // fn get_all_stake_info_for_coldkey(coldkey_account_vec: Vec<u8>) -> Vec<u8> {
+        //     let result = SubtensorModule::get_all_stake_info_for_coldkey(coldkey_account_vec.clone());
+        //     let encoded_result = result.encode();
+
+        //     // Log the size of the input and output
+        //     info!(
+        //         "get_all_stake_info_for_coldkey called with input size: {}, returning result size: {}",
+        //         coldkey_account_vec.len(),
+        //         encoded_result.len()
+        //     );
+
+        //     encoded_result
+        // }
 
         fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
             let result = SubtensorModule::get_subnet_stake_info_for_coldkey( coldkey_account_vec, netuid );

@@ -30,6 +30,11 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../runtime-api", default-features = false }
 pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
 
+[dev-dependencies]
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+# sp_version = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+# sp_core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
 [features]
 default = ["std"]
 std = ["sp-api/std", "sp-runtime/std", "subtensor-custom-rpc-runtime-api/std"]
