@@ -106,7 +106,7 @@ fn test_migration_fix_total_stake_maps() {
 // To run this test with cargo, use the following command:
 // cargo test --package pallet-subtensor --test migration test_migration5_total_issuance
 fn test_migration5_total_issuance() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Run the migration to check total issuance.
         let test: bool = true;
 
@@ -134,7 +134,7 @@ fn test_migration5_total_issuance() {
 // To run this test with cargo, use the following command:
 // cargo test --package pallet-subtensor --test migration test_total_issuance_global
 fn test_total_issuance_global() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Initialize network unique identifier and keys for testing.
         let netuid: u16 = 1; // Network unique identifier set to 1 for testing.
         let coldkey = U256::from(0); // Coldkey initialized to 0, representing an account's public key for non-transactional operations.

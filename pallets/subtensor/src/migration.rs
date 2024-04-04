@@ -3,7 +3,7 @@ use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     sp_std::vec::Vec,
     storage_alias,
-    traits::{Get, GetStorageVersion, StorageVersion},
+    traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;

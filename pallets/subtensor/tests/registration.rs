@@ -156,7 +156,7 @@ fn test_registration_ok() {
 
 #[test]
 fn test_registration_under_limit() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let block_number: u64 = 0;
         let hotkey_account_id: U256 = U256::from(1);
@@ -208,7 +208,7 @@ fn test_registration_under_limit() {
 
 #[test]
 fn test_registration_rate_limit_exceeded() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let block_number: u64 = 0;
         let hotkey_account_id: U256 = U256::from(1);
@@ -252,7 +252,7 @@ fn test_registration_rate_limit_exceeded() {
 
 #[test]
 fn test_burned_registration_under_limit() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
@@ -303,7 +303,7 @@ fn test_burned_registration_under_limit() {
 
 #[test]
 fn test_burned_registration_rate_limit_exceeded() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let hotkey_account_id: U256 = U256::from(1);
         let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
