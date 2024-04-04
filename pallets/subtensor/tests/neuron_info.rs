@@ -126,7 +126,7 @@ fn test_get_neuron_subnet_staking_info_multiple() {
         SubtensorModule::set_target_registrations_per_interval(netuid, 10);
 
         for (index, &stake_amount) in stake_amounts.iter().enumerate() {
-            let uid: u16 = index as u16;
+            let _uid: u16 = index as u16;
             let hotkey = U256::from(index as u64);
             let coldkey = U256::from((index + 10) as u64);
 

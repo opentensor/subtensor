@@ -2,6 +2,7 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
+use log::info;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 use sp_core::{Get, H256, U256};
@@ -21,6 +22,7 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 fn test_root_register_network_exist() {
     new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
+        let _root_netuid: u16 = 0;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
         assert_ok!(SubtensorModule::root_register(
@@ -170,7 +172,7 @@ fn test_root_set_weights() {
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
-        let netuid: u16 = 1;
+        let _netuid: u16 = 1;
         let root_netuid: u16 = 0;
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
@@ -614,6 +616,7 @@ fn test_weights_after_network_pruning() {
 
         for i in 0..n {
             // Register a validator
+            let _hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
 
             SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000);
@@ -663,7 +666,7 @@ fn test_weights_after_network_pruning() {
         );
         log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
         let i = (n as u16) + 1;
-        // let _hot: U256 = U256::from(i);
+        let _hot: U256 = U256::from(i);
         let cold: U256 = U256::from(i);
 
         SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000_000);
