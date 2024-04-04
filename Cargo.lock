@@ -8487,6 +8487,7 @@ dependencies = [
  "sp-runtime",
  "substrate-test-runtime-client",
  "subtensor-custom-rpc-runtime-api",
+ "tokio",
 ]
 
 [[package]]
