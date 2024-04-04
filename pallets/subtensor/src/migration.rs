@@ -327,8 +327,8 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
                 info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
 
                 // We will assume all loaded emission is validator emissions,
-                //      so this will get distributed over delegatees (nominators), if there are any
-                //      This will NOT effect any servers that are not (also) a delegate validator.
+                // so this will get distributed over delegatees (nominators), if there are any
+                // This will NOT effect any servers that are not (also) a delegate validator.
                 // server_emission will be 0 for any alread loaded emission.
 
                 let mut new_netuid_emissions = Vec::new();
