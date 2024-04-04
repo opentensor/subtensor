@@ -85,15 +85,12 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// This function is use to get the stake that the coldkey holds on the subnet
-    /// it should iterate over `SubStake` storage map and return the stake mapped to the UI
+    /// This function is used to retrieve the stake associated with a coldkey on a specific subnet.
+    /// It iterates over the `SubStake` storage map and returns the stake information for the UI.
     ///
-    /// # Args:
-    /// 	* 'coldkey_account_vec': (Vec<u8>):
-    /// 		- The coldkey account vector.
-    /// 	* 'netuid': (u16):
-    /// 		- The network uid.
-    //
+    /// # Arguments:
+    /// * `coldkey_account_vec`: Vec<u8> - The vector representing the coldkey account.
+    /// * `netuid`: u16 - The unique identifier of the network.
     pub fn get_subnet_stake_info_for_coldkey(
         coldkey_account_vec: Vec<u8>,
         netuid: u16,

@@ -204,8 +204,12 @@ pub mod pallet {
         T::InitialDefaultTake::get()
     }
     #[pallet::type_value]
-    pub fn DefaultAccountTake<T: Config>() -> u64 {
+    pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
+    }
+    #[pallet::type_value]
+    pub fn DefaultMaxU16<T: Config>() -> u16 {
+        u16::MAX
     }
     #[pallet::type_value]
     pub fn DefaultBlockEmission<T: Config>() -> u64 {
@@ -224,6 +228,8 @@ pub mod pallet {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
 
+    #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
+    pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -234,10 +240,10 @@ pub mod pallet {
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -253,7 +259,7 @@ pub mod pallet {
         T::AccountId,
         u64,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> stake | Returns the total stake attached to a hotkey on a subnet.
     pub type TotalHotkeySubStake<T: Config> = StorageDoubleMap<
@@ -264,7 +270,7 @@ pub mod pallet {
         u16,
         u64,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<

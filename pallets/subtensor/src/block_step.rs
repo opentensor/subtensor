@@ -229,11 +229,15 @@ impl<T: Config> Pallet<T> {
         let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
+        let mut residual: u64 = remaining_validator_emission;
             
 
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
+        log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_stake);
+
         if delegate_local_stake + delegate_global_stake != 0 {
             for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
 
@@ -243,21 +247,23 @@ impl<T: Config> Pallet<T> {
                     I64F64::from_num(0)
                 } else {
                     let nominator_local_percentage: I64F64 = I64F64::from_num( nominator_local_stake ) / I64F64::from_num( delegate_local_stake );
-                    nominator_local_percentage * I64F64::from_num(remaining_validator_emission) * I64F64::from_num(0.5)
+                    nominator_local_percentage * I64F64::from_num(remaining_validator_emission) * ( I64F64::from_num(1.0) - global_stake_weight )
                 };
+                log::debug!("nominator_local_emission_i: {:?}", nominator_local_emission_i);
 
                 let nominator_global_stake: u64 = Self::get_total_stake_for_hotkey_and_coldkey( delegate, &nominator_i );
                 let nominator_global_emission_i: I64F64 = if delegate_global_stake == 0 {
                     I64F64::from_num(0)
                 } else {
                     let nominator_global_percentage: I64F64 = I64F64::from_num( nominator_global_stake ) / I64F64::from_num( delegate_global_stake );
-                    nominator_global_percentage * I64F64::from_num( remaining_validator_emission ) * I64F64::from_num( 0.5 )
+                    nominator_global_percentage * I64F64::from_num( remaining_validator_emission ) * global_stake_weight
                 };
-
+                log::debug!("nominator_global_emission_i: {:?}", nominator_global_emission_i);
                 let nominator_emission_u64: u64 = (nominator_global_emission_i + nominator_local_emission_i).to_num::<u64>();
 
                 // 3.b Increase the stake of the nominator.
                 log::debug!("nominator: {:?}, global_emission: {:?}, local_emission: {:?}", nominator_i, nominator_global_emission_i, nominator_local_emission_i);
+                residual -= nominator_emission_u64;
                 Self::increase_stake_on_coldkey_hotkey_account(
                     &nominator_i,
                     delegate,
@@ -269,7 +275,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
-        let total_delegate_emission: u64 = delegate_take_u64 + server_emission;
+        let total_delegate_emission: u64 = delegate_take_u64 + server_emission + residual;
         log::debug!("total_delegate_emission: {:?}", delegate_take_u64 + server_emission);
         Self::increase_stake_on_hotkey_account(
             delegate,

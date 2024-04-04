@@ -2,7 +2,9 @@ use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
 use frame_support::inherent::Vec;
 use frame_support::pallet_prelude::DispatchResult;
+use substrate_fixed::types::I64F64;
 use sp_core::U256;
+
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -271,6 +273,16 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_neuron_block_at_registration(netuid: u16, neuron_uid: u16) -> u64 {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
+    }
+
+    // ==============================
+    // ==== Global Stake Weight =====
+    // ==============================
+    pub fn get_global_stake_weight() -> I64F64 {
+        I64F64::from_num( GlobalStakeWeight::<T>::get() ) / I64F64::from_num( u16::MAX )
+    }
+    pub fn set_global_stake_weight( global_stake_weight: u16 ) {
+        GlobalStakeWeight::<T>::put( global_stake_weight );
     }
 
     // ========================

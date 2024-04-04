@@ -75,6 +75,7 @@ impl<T: Config> Pallet<T> {
         // where s^{m}_{i} represents the stake of hotkey i in subnet m, and the sums over j iterate over all hotkeys in a given subnet, while the sums over k iterate over all subnets.
         // This formula calculates a weighted average of local and global stakes, taking into account the total stake across all subnets.
 
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight();
         // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the local stake values.
@@ -94,7 +95,11 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut global_stake_64);
 
         // Calculate the average of local and global stakes after normalization.
-        let averaged_stake_64: Vec<I64F64> = local_stake_64.iter().zip(global_stake_64.iter()).map(|(local, global)| (*local + *global) / 2).collect();
+        let averaged_stake_64: Vec<I64F64> = local_stake_64.iter().zip(
+            global_stake_64.iter()
+        ).map(
+            |(local, global)| (I64F64::from_num(1.0) - global_stake_weight)*(*local) + global_stake_weight * (*global)
+        ).collect();
 
         // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(averaged_stake_64);
@@ -407,10 +412,9 @@ impl<T: Config> Pallet<T> {
         let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
         log::trace!("Block at registration: {:?}", &block_at_registration);
 
-        // ===========
-        // == Stake ==
-        // ===========
-
+        // =============
+        // == Hotkeys ==
+        // =============
         let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
         for (uid_i, hotkey) in
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
@@ -419,11 +423,15 @@ impl<T: Config> Pallet<T> {
         }
         log::trace!("hotkeys: {:?}", &hotkeys);
 
+        // ===========
+        // == Stake ==
+        // ===========
         // This code block calculates the stake distribution across the network based on the formula:
         // \sum_{m}({ (\frac{\sum_{j}{s^{m}_{j}}}{\sum_{k}{\sum_{j}{s^{k}_{j}}}}} )* (\frac{s^{m}_{i}}{\sum_{j}{s^{m}_{j}}} + \frac{\sum_{k}{s^{k}_{i}}}{\sum_{k}{\sum_{j}{s^{k}_{j}}}}))
         // where s^{m}_{i} represents the stake of hotkey i in subnet m, and the sums over j iterate over all hotkeys in a given subnet, while the sums over k iterate over all subnets.
         // This formula calculates a weighted average of local and global stakes, taking into account the total stake across all subnets.
 
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight();
         // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the local stake values.
@@ -432,7 +440,7 @@ impl<T: Config> Pallet<T> {
         }
         // Normalize the local stake values in-place.
         inplace_normalize_64(&mut local_stake_64);
-
+        
         // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the global stake values.
@@ -443,13 +451,15 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut global_stake_64);
 
         // Calculate the average of local and global stakes after normalization.
-        let averaged_stake_64: Vec<I64F64> = local_stake_64.iter().zip(global_stake_64.iter()).map(|(local, global)| (*local + *global) / 2).collect();
+        let averaged_stake_64: Vec<I64F64> = local_stake_64.iter().zip(
+            global_stake_64.iter()
+        ).map(
+            |(local, global)| (I64F64::from_num(1.0) - global_stake_weight)*(*local) + global_stake_weight*(*global)
+        ).collect();
 
         // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(averaged_stake_64);
-        
-        // range: I32F32(0, 1)
-        log::trace!("S: {:?}", &stake);
+        log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
         // == Validator permits ==
