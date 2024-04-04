@@ -2,11 +2,12 @@ use frame_support::traits::Currency;
 
 use crate::mock::*;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::{AxonInfoOf, Error};
+use pallet_subtensor::{AxonInfoOf, Error, SubtensorSignedExtension};
 use sp_core::U256;
+use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 mod mock;
 
@@ -153,9 +154,186 @@ fn test_registration_ok() {
     });
 }
 
+#[test]
+fn test_registration_under_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let block_number: u64 = 0;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+
+        let max_registrants = 2;
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+
+        let (nonce, work) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+        let work_clone = work.clone();
+        let call = pallet_subtensor::Call::register {
+            netuid,
+            block_number,
+            nonce,
+            work: work_clone,
+            hotkey: hotkey_account_id,
+            coldkey: coldkey_account_id,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        //does not actually call register
+        let result = extension.validate(&who, &call.into(), &info, 10);
+        assert_ok!(result);
+
+        //actually call register
+        add_network(netuid, 13, 0);
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        let target_registrants = SubtensorModule::get_target_registrations_per_interval(netuid);
+        assert!(current_registrants <= target_registrants);
+    });
+}
+
+#[test]
+fn test_registration_rate_limit_exceeded() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let block_number: u64 = 0;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+
+        let max_registrants = 1;
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+        SubtensorModule::set_registrations_this_interval(netuid, 1);
+
+        let (nonce, work) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+        let call = pallet_subtensor::Call::register {
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey: hotkey_account_id,
+            coldkey: coldkey_account_id,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let result = extension.validate(&who, &call.into(), &info, 10);
+
+        // Expectation: The transaction should be rejected
+        assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        assert!(current_registrants <= max_registrants);
+    });
+}
+
 /********************************************
     registration::do_burned_registration tests
 *********************************************/
+
+#[test]
+fn test_burned_registration_under_limit() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+        let block_number: u64 = 0;
+
+        let (nonce, work) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        let max_registrants = 2;
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+
+        let call_burned_register: pallet_subtensor::Call<Test> =
+            pallet_subtensor::Call::burned_register {
+                netuid,
+                hotkey: hotkey_account_id,
+            };
+
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        //does not actually call register
+        let burned_register_result =
+            extension.validate(&who, &call_burned_register.into(), &info, 10);
+        assert_ok!(burned_register_result);
+
+        add_network(netuid, 13, 0);
+        //actually call register
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        let target_registrants = SubtensorModule::get_target_registrations_per_interval(netuid);
+        assert!(current_registrants <= target_registrants);
+    });
+}
+
+#[test]
+fn test_burned_registration_rate_limit_exceeded() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey_account_id: U256 = U256::from(1);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+        let max_registrants = 1;
+
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+        SubtensorModule::set_registrations_this_interval(netuid, 1);
+
+        let call_burned_register: pallet_subtensor::Call<Test> =
+            pallet_subtensor::Call::burned_register {
+                netuid,
+                hotkey: hotkey_account_id,
+            };
+
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let burned_register_result =
+            extension.validate(&who, &call_burned_register.into(), &info, 10);
+
+        // Expectation: The transaction should be rejected
+        assert_err!(
+            burned_register_result,
+            InvalidTransaction::ExhaustsResources
+        );
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        assert!(current_registrants <= max_registrants);
+    });
+}
 
 #[test]
 fn test_burned_registration_ok() {

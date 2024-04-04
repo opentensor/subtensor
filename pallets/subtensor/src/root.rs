@@ -300,7 +300,7 @@ impl<T: Config> Pallet<T> {
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
-            return Err("Not the block to update emission values.");
+            return Err("");
         }
 
         // --- 1. Retrieves the number of root validators on subnets.
