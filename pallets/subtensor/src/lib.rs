@@ -210,13 +210,18 @@ pub mod pallet {
         T::InitialDefaultTake::get()
     }
     #[pallet::type_value]
-    pub fn DefaultAccountTake<T: Config>() -> u64 {
+    pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
     }
     #[pallet::type_value]
-    pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
-        (0, 0)
+    pub fn DefaultMaxU16<T: Config>() -> u16 {
+        u16::MAX
     }
+    #[pallet::type_value]
+    pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
+        (0, 0)  
+    } 
+
     #[pallet::type_value]
     pub fn DefaultBlockEmission<T: Config>() -> u64 {
         1_000_000_000
@@ -233,15 +238,9 @@ pub mod pallet {
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
-    #[pallet::type_value]
-    pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
-        T::InitialTargetStakesPerInterval::get()
-    }
-    #[pallet::type_value]
-    pub fn DefaultStakeInterval<T: Config>() -> u64 {
-        360
-    }
-
+ 
+    #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
+    pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -257,7 +256,7 @@ pub mod pallet {
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
@@ -281,7 +280,7 @@ pub mod pallet {
         T::AccountId,
         u64,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> stake | Returns the total stake attached to a hotkey on a subnet.
     pub type TotalHotkeySubStake<T: Config> = StorageDoubleMap<
@@ -292,7 +291,7 @@ pub mod pallet {
         u16,
         u64,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultZeroU64<T>,
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<

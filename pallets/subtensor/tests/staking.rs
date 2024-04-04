@@ -2257,7 +2257,7 @@ fn test_stao_delegation() {
         assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1), 100000 );
         assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1), 100000 );
         SubtensorModule::emit_inflation_through_hotkey_account(&delegate, netuid, 0, 1000);
-        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &delegate, &delegate, netuid ), 100000 + 1000/3 );
+        assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &delegate, &delegate, netuid ), 100000 + 1000/3 + 1 ); // The +1 is from the residual.
         assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &nominator1, &delegate, netuid ), 100000 + 1000/3);
         assert_eq!( SubtensorModule::get_stake_for_coldkey_and_hotkey( &nominator2, &delegate, netuid ), 100000 + 1000/3);
     })
