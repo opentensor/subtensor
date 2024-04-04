@@ -1868,7 +1868,7 @@ where
                 if stakes_this_interval >= max_stakes_per_interval {
                     return InvalidTransaction::ExhaustsResources.into();
                 }
-              
+
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
