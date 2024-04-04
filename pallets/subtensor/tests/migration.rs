@@ -134,7 +134,7 @@ fn test_migration5_total_issuance() {
 // To run this test with cargo, use the following command:
 // cargo test --package pallet-subtensor --test migration test_total_issuance_global
 fn test_total_issuance_global() {
-    new_test_ext(1).execute_with(|| {
+    new_test_ext(0).execute_with(|| {
         // Initialize network unique identifier and keys for testing.
         let netuid: u16 = 1; // Network unique identifier set to 1 for testing.
         let coldkey = U256::from(0); // Coldkey initialized to 0, representing an account's public key for non-transactional operations.
@@ -208,7 +208,7 @@ fn test_total_issuance_global() {
         // Set emission values for the network and verify.
         let emission: u64 = 1_000_000_000;
         SubtensorModule::set_tempo(netuid, 1);
-        SubtensorModule::set_emission_values(&vec![netuid], vec![emission]); // Set the emission value for the network to 1_000_000_000.
+        SubtensorModule::set_emission_values(&vec![netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), emission); // Verify the emission value is set correctly for the network.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
