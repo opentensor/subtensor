@@ -3,7 +3,7 @@ use frame_support::{
     assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
-use frame_system::Config;
+
 use mock::*;
 use pallet_subtensor::Error;
 use sp_core::U256;

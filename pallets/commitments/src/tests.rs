@@ -1,13 +1,9 @@
-use super::{Event as CommitmentEvent, *};
+use super::{*};
 use crate as pallet_commitments;
 use frame_support::{
-    assert_noop, assert_ok,
-    dispatch::Pays,
-    parameter_types,
-    traits::{ConstU32, ConstU64, GenesisBuild, StorageMapShim},
-    Hashable,
+    traits::{ConstU64, GenesisBuild, StorageMapShim},
 };
-use frame_system::{EnsureRoot, EventRecord, Phase};
+
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
