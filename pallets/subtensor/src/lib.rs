@@ -1015,6 +1015,8 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            
+
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 

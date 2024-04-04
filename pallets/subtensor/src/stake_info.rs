@@ -30,7 +30,7 @@ impl<T: Config> Pallet<T> {
         for coldkey_ in coldkeys {
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
 
-            for ((hotkey, coldkey, netuid), stake) in <SubStake<T>>::iter() {
+            for ((hotkey, coldkey, _netuid), stake) in <SubStake<T>>::iter() {
                 if coldkey == coldkey_ {
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey,

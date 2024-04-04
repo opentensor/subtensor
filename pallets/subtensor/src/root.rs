@@ -307,7 +307,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_subnet_staking_emission_values(block_number: u64) -> Result<(), &'static str> {
+    pub fn get_subnet_staking_emission_values(_block_number: u64) -> Result<(), &'static str> {
         // --- 0. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
         let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());

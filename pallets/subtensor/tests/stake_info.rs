@@ -13,7 +13,7 @@ fn test_get_stake_info_for_coldkey() {
         let tempo: u16 = 13;
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
-        let uid: u16 = 0;
+        let _uid: u16 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 39420842);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10000);
@@ -40,7 +40,7 @@ fn test_get_stake_info_for_coldkeys() {
         let tempo: u16 = 13;
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
-        let uid: u16 = 0;
+        let _uid: u16 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 39420842);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10000);
@@ -119,7 +119,7 @@ fn test_get_total_subnet_stake() {
         let tempo: u16 = 13;
         let coldkey = U256::from(0);
         let hotkey = U256::from(0);
-        let uid: u16 = 0;
+        let _uid: u16 = 0;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 39420842);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 10000);
