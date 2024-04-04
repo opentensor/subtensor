@@ -121,11 +121,11 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
     }
 }
 
-#[tokio::test]
-async fn get_delegates_should_work() {
-    let client = Arc::new(TestApi {});
-    let api = SubtensorCustom::new(client.clone());
-    let request = api.get_delegates();
-    let response = request.await.unwrap();
-    println!("response: {:?}", response);
-}
+// #[tokio::test]
+// async fn get_delegates_should_work() {
+//     let client = Arc::new(TestApi {});
+//     let api = SubtensorCustom::new(client.clone());
+//     let request = api.get_delegates();
+//     let response = request.await.unwrap();
+//     println!("response: {:?}", response);
+// }

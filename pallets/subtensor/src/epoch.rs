@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
         // where s^{m}_{i} represents the stake of hotkey i in subnet m, and the sums over j iterate over all hotkeys in a given subnet, while the sums over k iterate over all subnets.
         // This formula calculates a weighted average of local and global stakes, taking into account the total stake across all subnets.
 
-        let global_stake_weight: I64F64 = Self::get_global_stake_weight();
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the local stake values.
@@ -431,7 +431,7 @@ impl<T: Config> Pallet<T> {
         // where s^{m}_{i} represents the stake of hotkey i in subnet m, and the sums over j iterate over all hotkeys in a given subnet, while the sums over k iterate over all subnets.
         // This formula calculates a weighted average of local and global stakes, taking into account the total stake across all subnets.
 
-        let global_stake_weight: I64F64 = Self::get_global_stake_weight();
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the local stake values.
