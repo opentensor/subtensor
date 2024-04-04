@@ -1,7 +1,7 @@
 use super::{*};
 use crate as pallet_commitments;
 use frame_support::{
-    traits::{ConstU64, GenesisBuild, StorageMapShim},
+    traits::{ConstU64, StorageMapShim},
 };
 
 use sp_core::H256;
