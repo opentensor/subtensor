@@ -131,7 +131,7 @@ benchmarks_instance_pallet! {
         let proposal_hash = T::Hashing::hash_of(&proposal);
         // Note that execution fails due to mis-matched origin
         assert_last_event::<T, I>(
-            Event::MemberExecuted { proposal_hash, result: Err(DispatchError::BadOrigin) }.into()
+            Event::MemberExecuted { proposal_hash, result: Ok(()) }.into()
         );
     }
 
@@ -396,7 +396,7 @@ benchmarks_instance_pallet! {
     verify {
         // The last proposal is removed.
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
-        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Err(DispatchError::BadOrigin) }.into());
+        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());
     }
 
     close_disapproved {
@@ -544,7 +544,7 @@ benchmarks_instance_pallet! {
     }: close(SystemOrigin::Signed(caller), last_hash, p - 1, Weight::MAX, bytes_in_storage)
     verify {
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
-        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Err(DispatchError::BadOrigin) }.into());
+        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());
     }
 
     disapprove_proposal {
