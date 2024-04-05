@@ -1,0 +1,56 @@
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: Subtensor Node    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: ✌️  version 4.0.0-dev-dbf4a2018fa    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: ❤️  by Substrate DevHub <https://github.com/substrate-developer-hub>, 2017-2024    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: 📋 Chain specification: Bittensor    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: 🏷  Node name: Bob    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: 👤 Role: AUTHORITY    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: 💾 Database: RocksDb at /tmp/bob/chains/bittensor/db/full    
+2024-04-04 13:24:07.235  INFO main sc_cli::runner: ⛓  Native runtime: node-subtensor-181 (node-subtensor-1.tx1.au1)    
+2024-04-04 13:24:07.758  INFO main sc_service::client::client: 🔨 Initializing Genesis block/state (state: 0x864a…566c, header-hash: 0x2f62…80c6)    
+2024-04-04 13:24:07.760  INFO main grandpa: 👴 Loading GRANDPA authority set from genesis on what appears to be first startup.    
+2024-04-04 13:24:08.106  INFO main sub-libp2p: 🏷  Local node identity is: 12D3KooWFa4RPdV7rXdmw5Bwtj3BtzfYhW2Js1QcTtQ1ttKLpRqq    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 Operating system: linux    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 CPU architecture: x86_64    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 Target environment: gnu    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 CPU: AMD EPYC 7313 16-Core Processor    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 CPU cores: 32    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 Memory: 257754MB    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 Kernel: 5.4.0-125-generic    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 Linux distribution: Ubuntu 20.04.6 LTS    
+2024-04-04 13:24:08.123  INFO main sc_sysinfo: 💻 Virtual machine: no    
+2024-04-04 13:24:08.123  INFO main sc_service::builder: 📦 Highest known block at #0    
+2024-04-04 13:24:08.123  INFO main sc_rpc_server: Running JSON-RPC HTTP server: addr=127.0.0.1:9935, allowed origins=["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*", "https://polkadot.js.org"]    
+2024-04-04 13:24:08.123  INFO main sc_rpc_server: Running JSON-RPC WS server: addr=127.0.0.1:9947, allowed origins=["http://localhost:*", "http://127.0.0.1:*", "https://localhost:*", "https://127.0.0.1:*", "https://polkadot.js.org"]    
+2024-04-04 13:24:08.125  INFO tokio-runtime-worker libp2p_mdns::behaviour: discovered: 12D3KooWHKRMiW29ci27mw67bWVKCt6wE9dGN6oByda2dEwG5zMZ /ip4/172.17.0.1/tcp/30334    
+2024-04-04 13:24:08.126  INFO tokio-runtime-worker libp2p_mdns::behaviour: discovered: 12D3KooWHKRMiW29ci27mw67bWVKCt6wE9dGN6oByda2dEwG5zMZ /ip4/172.21.0.1/tcp/30334    
+2024-04-04 13:24:08.126  INFO tokio-runtime-worker libp2p_mdns::behaviour: discovered: 12D3KooWHKRMiW29ci27mw67bWVKCt6wE9dGN6oByda2dEwG5zMZ /ip4/104.171.201.172/tcp/30334    
+2024-04-04 13:24:08.631  INFO tokio-runtime-worker sub-libp2p: 🔍 Discovered new external address for our node: /ip4/104.171.201.172/tcp/30335/p2p/12D3KooWFa4RPdV7rXdmw5Bwtj3BtzfYhW2Js1QcTtQ1ttKLpRqq    
+2024-04-04 13:24:12.000  INFO tokio-runtime-worker sc_basic_authorship::basic_authorship: 🙌 Starting consensus session on top of parent 0x2f6272e44275d1fb0a61404e50fdcb582ee2bb01d11282574c7690c8074e80c6    
+2024-04-04 13:24:12.002  INFO tokio-runtime-worker pallet_subtensor::pallet: Successfully ran block step.    
+2024-04-04 13:24:12.004  INFO tokio-runtime-worker sc_basic_authorship::basic_authorship: 🎁 Prepared block for proposing at 1 (1 ms) [hash: 0xf1a6307b5b4b262ff7f8de22a9212c3dc86ee4af73b2e5b899d0cfc533250277; parent_hash: 0x2f62…80c6; extrinsics (1): [0x4658…2577]]    
+2024-04-04 13:24:12.007  INFO tokio-runtime-worker aura: 🔖 Pre-sealed block for proposal at 1. Hash now 0x62436613fa5424875d0e64ea9980bbc0bd811af923e23a7bb4abed4313e182de, previously 0xf1a6307b5b4b262ff7f8de22a9212c3dc86ee4af73b2e5b899d0cfc533250277.    
+2024-04-04 13:24:12.008  INFO tokio-runtime-worker substrate: ✨ Imported #1 (0x6243…82de)    
+2024-04-04 13:24:13.124  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #1 (0x6243…82de), finalized #0 (0x2f62…80c6), ⬇ 1.4kiB/s ⬆ 1.5kiB/s    
+2024-04-04 13:24:18.124  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #1 (0x6243…82de), finalized #0 (0x2f62…80c6), ⬇ 0.6kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:24:23.125  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #1 (0x6243…82de), finalized #0 (0x2f62…80c6), ⬇ 0.7kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:24:24.012  INFO tokio-runtime-worker pallet_subtensor::pallet: Successfully ran block step.    
+2024-04-04 13:24:24.014  INFO tokio-runtime-worker substrate: ✨ Imported #2 (0x807c…e89f)    
+2024-04-04 13:24:28.125  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #2 (0x807c…e89f), finalized #0 (0x2f62…80c6), ⬇ 0.7kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:24:33.125  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #2 (0x807c…e89f), finalized #0 (0x2f62…80c6), ⬇ 0.6kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:24:36.001  INFO tokio-runtime-worker sc_basic_authorship::basic_authorship: 🙌 Starting consensus session on top of parent 0x807c845e4a870fb385bda6149609d3376e886791e0f8c93b0c59c4327fcae89f    
+2024-04-04 13:24:36.002  INFO tokio-runtime-worker pallet_subtensor::pallet: Successfully ran block step.    
+2024-04-04 13:24:36.004  INFO tokio-runtime-worker sc_basic_authorship::basic_authorship: 🎁 Prepared block for proposing at 3 (1 ms) [hash: 0x400feeaad96de3d5c05ba76b5abdfe35931a7d21e6339570c0ce3ed757157e70; parent_hash: 0x807c…e89f; extrinsics (1): [0xb298…e357]]    
+2024-04-04 13:24:36.006  INFO tokio-runtime-worker aura: 🔖 Pre-sealed block for proposal at 3. Hash now 0x1123533d144d74f5b9217291cbce403a34d18f84737e27b0b5dde9810d3cb056, previously 0x400feeaad96de3d5c05ba76b5abdfe35931a7d21e6339570c0ce3ed757157e70.    
+2024-04-04 13:24:36.006  INFO tokio-runtime-worker substrate: ✨ Imported #3 (0x1123…b056)    
+2024-04-04 13:24:38.126  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #3 (0x1123…b056), finalized #1 (0x6243…82de), ⬇ 0.6kiB/s ⬆ 0.7kiB/s    
+2024-04-04 13:24:43.126  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #3 (0x1123…b056), finalized #1 (0x6243…82de), ⬇ 0.7kiB/s ⬆ 0.7kiB/s    
+2024-04-04 13:24:48.010  INFO tokio-runtime-worker pallet_subtensor::pallet: Successfully ran block step.    
+2024-04-04 13:24:48.012  INFO tokio-runtime-worker substrate: ✨ Imported #4 (0x4a58…e469)    
+2024-04-04 13:24:48.126  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #4 (0x4a58…e469), finalized #1 (0x6243…82de), ⬇ 0.7kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:24:53.126  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #4 (0x4a58…e469), finalized #2 (0x807c…e89f), ⬇ 0.7kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:24:58.127  INFO tokio-runtime-worker substrate: 💤 Idle (1 peers), best: #4 (0x4a58…e469), finalized #2 (0x807c…e89f), ⬇ 0.6kiB/s ⬆ 0.6kiB/s    
+2024-04-04 13:25:00.000  INFO tokio-runtime-worker sc_basic_authorship::basic_authorship: 🙌 Starting consensus session on top of parent 0x4a58cff87bebfa94b5ec7b523be54413588b92f0268e1e02d62c9341f638e469    
+2024-04-04 13:25:00.002  INFO tokio-runtime-worker pallet_subtensor::pallet: Successfully ran block step.    
+2024-04-04 13:25:00.003  INFO tokio-runtime-worker sc_basic_authorship::basic_authorship: 🎁 Prepared block for proposing at 5 (0 ms) [hash: 0x64591c0bc1c1d4ebbfaf5ce4605fa460b46214eb4715092b91e6fe9575350d02; parent_hash: 0x4a58…e469; extrinsics (1): [0x4c2a…2d5b]]    
+2024-04-04 13:25:00.006  INFO tokio-runtime-worker aura: 🔖 Pre-sealed block for proposal at 5. Hash now 0xe127bbd5248e6f10b0a5f0e93a5f7b8af6243a895770d23cca253663470e79bd, previously 0x64591c0bc1c1d4ebbfaf5ce4605fa460b46214eb4715092b91e6fe9575350d02.    
+2024-04-04 13:25:00.006  INFO tokio-runtime-worker substrate: ✨ Imported #5 (0xe127…79bd)    

@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageNMap;
 extern crate alloc;
 use alloc::vec::Vec;
 use codec::Compact;
@@ -131,7 +130,7 @@ impl<T: Config> Pallet<T> {
 
         let mut stake: Vec<(T::AccountId, Compact<u64>)> = Vec::new();
         for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone() ) {
-            stake.push((coldkey_i.clone(), Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid ).into() ));
+            stake.push((coldkey_i.clone(), Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid ).into() ));
         }
 
         let neuron = NeuronInfo {
@@ -199,7 +198,7 @@ impl<T: Config> Pallet<T> {
 
         let mut stake: Vec<(T::AccountId, Compact<u64>)> = Vec::new();
         for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone() ) {
-            stake.push((coldkey_i.clone(), Self::get_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid ).into() ));
+            stake.push((coldkey_i.clone(), Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, netuid ).into() ));
         }
 
         let neuron = NeuronInfoLite {

@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageNMap;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -202,7 +201,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, netuid, stake_to_be_added));
 
-        // --- 10. Ok and return.
+        // --- 11. Ok and return.
         Ok(())
     }
 
@@ -292,21 +291,21 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStaketoWithdraw
         );
 
-        // --- 5. Ensure that we can conver this u64 to a balance.
+        // --- 7. Ensure that we can conver this u64 to a balance.
         let stake_to_be_added_as_currency = Self::u64_to_balance(stake_to_be_removed);
         ensure!(
             stake_to_be_added_as_currency.is_some(),
             Error::<T>::CouldNotConvertToBalance
         );
 
-        // --- 6. Ensure we don't exceed tx rate limit
+        // --- 8. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 7. We remove the balance from the hotkey.
+        // --- 9. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -314,13 +313,13 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed,
         );
 
-        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 9. Emit the unstaking event.
+        // --- 11. Emit the unstaking event.
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
@@ -328,7 +327,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, netuid, stake_to_be_removed));
 
-        // --- 10. Done and ok.
+        // --- 12. Done and ok.
         Ok(())
     }
 
@@ -431,7 +430,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         decrement: u64,
     ) -> bool {
-        return Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid) >= decrement;
+        return Self::get_subnet_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid) >= decrement;
     }
 
     // Increases the stake on the hotkey account under its owning coldkey.
@@ -454,16 +453,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             decrement,
         );
-    }
-
-    // Returns the stake under the cold - hot - netuid pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        netuid: u16,
-    ) -> u64 {
-        Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
     }
 
     // Returns the subent stake under the cold - hot pairing in the staking table.
@@ -635,7 +624,7 @@ impl<T: Config> Pallet<T> {
         {
             for netuid in 0..(TotalNetworks::<T>::get() + 1) {
                 // Get the stake on this uid.
-                let stake_i = Self::get_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, netuid);
+                let stake_i = Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, netuid);
 
                 // Convert to balance and add to the coldkey account.
                 let stake_i_as_balance = Self::u64_to_balance(stake_i);
