@@ -47,3 +47,4 @@ tokio = { version = "1.24.1", features = ["macros", "time", "parking_lot"] }
 default = ["std"]
 std = ["sp-api/std", "sp-runtime/std", "subtensor-custom-rpc-runtime-api/std"]
 pow-faucet = []
+subnet-staking = []

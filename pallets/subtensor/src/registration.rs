@@ -387,7 +387,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 3. Ensure the supplied work passes the difficulty.
-        let difficulty: U256 = U256::from(1_000_000); // Base faucet difficulty.
+        let difficulty: U256 = U256::from(100_000_000); // Base faucet difficulty.
         let work_hash: H256 = Self::vec_to_hash(work.clone());
         ensure!(
             Self::hash_meets_difficulty(&work_hash, difficulty),
@@ -400,7 +400,7 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(&work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
-        let balance_to_add: u64 = 100_000_000_000_000_000;
+        let balance_to_add: u64 = 1_000_000_000_000_000_000;
         let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(balance_to_add));
