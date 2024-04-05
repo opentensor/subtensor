@@ -45,11 +45,10 @@ pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
-        let total_balance_sum: u64 = total_balance.try_into().unwrap_or_else(|_| panic!("Conversion must be within range"));
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // Compute the total issuance value
-        let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
+        let total_issuance_value: u64 = stake_sum + total_balance + locked_sum;
 
         // Update the total issuance in storage
         TotalIssuance::<T>::put(total_issuance_value);

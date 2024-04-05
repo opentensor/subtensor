@@ -96,7 +96,7 @@ pub mod pallet {
         type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         // --- Currency type that will be used to place deposits on neurons
-        type Currency: fungible::Balanced<Self::AccountId> + fungible::Mutate<Self::AccountId>;
+        type Currency: fungible::Balanced<Self::AccountId, Balance = u64> + fungible::Mutate<Self::AccountId>;
 
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
