@@ -304,8 +304,16 @@ pub mod pallet {
         u64,
         ValueQuery
     >;
+    #[pallet::type_value]
+    pub fn DefaultSubnetStaking<T: Config>() -> bool {
+        if cfg!(feature = "subnet-staking") {
+            return true;
+        } else {
+            return false;
+        }
+    }
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
-    pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultAllowsDelegation<T>>;
+    pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====

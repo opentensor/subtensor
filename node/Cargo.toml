@@ -87,6 +87,7 @@ runtime-benchmarks = [
 	"frame-benchmarking-cli/runtime-benchmarks",
 ]
 pow-faucet = []
+subnet-staking = []
 
 # Enable features that allow the runtime to be tried and debugged. Name might be subject to change
 # in the near future.
