@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
         for (nominator, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate.clone() ) {
             let mut total_staked_to_delegate_i: u64 = 0;
             for netuid_i in 0..(TotalNetworks::<T>::get()+1) {
-                total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &nominator, &delegate, netuid_i );
+                total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &nominator, &delegate, netuid_i );
             }
             if total_staked_to_delegate_i == 0 { continue; }
             nominators.push((nominator.clone(), total_staked_to_delegate_i.into()));
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
         {
             let mut total_staked_to_delegate_i: u64 = 0;
             for netuid_i in 0..(TotalNetworks::<T>::get()+1) {
-                total_staked_to_delegate_i += Self::get_stake_for_coldkey_and_hotkey( &delegatee, &delegate, netuid_i );
+                total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &delegatee, &delegate, netuid_i );
             }
             if total_staked_to_delegate_i == 0 {
                 continue; // No stake to this delegate

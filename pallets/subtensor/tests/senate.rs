@@ -590,7 +590,7 @@ fn test_senate_not_leave_when_stake_removed() {
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id, netuid),
             stake_amount
         );
         assert_eq!(

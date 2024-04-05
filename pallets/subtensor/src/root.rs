@@ -320,39 +320,71 @@ impl<T: Config> Pallet<T> {
         let num_subnets: u16 = Self::get_all_subnet_netuids().len() as u16;
         log::debug!("num subnets:\n{:?}\n", num_subnets);
 
-        // --- 2. Sum all stake across subnets.
-        let sum_stake = I64F64::from_num(num_subnets);
-        let mut normalized_total_stake = vec![I64F64::from_num(1.0); num_subnets as usize];
+        // --- 2. Obtain the max subnet index.
+        let max_subnet_index: u16 = match Self::get_all_subnet_netuids().iter().max() {
+            Some(max) => *max,
+            None => return Err("No subnets found."), // Changed to return an error if no subnets are found
+        };
+        // --- 3. Sum all stake across subnets.
+        let mut sum_stake = I64F64::from_num(0.0); // Changed to mutable
+
+        // --- 4. Build a vector to store stake sum per subnet.
+        let mut normalized_total_stake = vec![I64F64::from_num(0.0); max_subnet_index as usize + 1]; // Adjusted size to include max index
+
+        // --- 5. Iterate over all stake values filling the vector.
         for ((_, _, netuid), stake) in SubStake::<T>::iter() {
-            // We don't sum the stake on the root network.
-            if netuid == 0 {
-                continue;
-            };
-            sum_stake.saturating_add(I64F64::from_num(stake));
-            normalized_total_stake[netuid as usize].saturating_add(I64F64::from_num(stake));
+            // --- 5.a. Skip Root: We don't sum the stake on the root network.
+            if netuid == 0 { continue; }
+            if netuid > max_subnet_index { 
+                return Err("Found stake value with no corresponding valid netuid.");
+            }
+
+            // --- 5.b Increment total recognized stake.
+            sum_stake = sum_stake.saturating_add(I64F64::from_num(stake)); // Fixed to actually update sum_stake
+
+            // --- 5.c Increment the total stake at this netuid index.
+            let stake_index = netuid as usize;
+            if stake_index < normalized_total_stake.len() {
+                normalized_total_stake[stake_index] = normalized_total_stake[stake_index].saturating_add(I64F64::from_num(stake));
+            } else {
+                return Err("Stake index out of bounds."); // Added error handling for out of bounds
+            }
         }
         log::debug!("Absolute Stake:\n{:?}\n", &normalized_total_stake);
 
-        // --- 3. Normalize stake values.
+        // --- 6. Normalize stake values across all non-root netuids.
         inplace_normalize_64(&mut normalized_total_stake);
         log::debug!("Normalized Stake:\n{:?}\n", &normalized_total_stake);
 
-        // -- 4. Translate into emission.
+        // --- 7. Multiply stake proportions. Note that there is a chance that the normalization
+        // Returned a zero vector, so this calculation also returns 0. In this event the block step 
+        // returns a zero emission for every subnet and there is not issuance increase.
         let emission_as_tao: Vec<I64F64> = normalized_total_stake
             .iter()
             .map(|v: &I64F64| *v * block_emission)
             .collect();
         log::debug!("Emission as TAO_f64:\n{:?}\n", &emission_as_tao);
 
-        // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
+        // --- 8. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
         log::debug!("Emission as TAO_u64:\n{:?}\n", &emission_u64);
 
-        // --- 13. Set the emission values for each subnet directly.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
+        // --- 9. Produce vec of emission for each netuid.
+        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let mut emission_values: Vec<u64> = Vec::with_capacity(all_netuids.len());
+        for &netuid in &all_netuids {
+            let netuid_idx = netuid as usize;
+            if netuid_idx < emission_u64.len() {
+                emission_values.push(emission_u64[netuid_idx]);
+            } else {
+                return Err("Emission value not found for netuid"); // Added error handling for out of bounds
+            }
+        }
+        log::debug!("netuids: {:?} emission_values: {:?}", all_netuids, emission_values);
 
-        return Self::set_emission_values(&netuids, emission_u64);
+        // --- 10. Set emission values.
+        Self::set_emission_values(&all_netuids, emission_values)?;
+        Ok(())
     }
 
     pub fn get_root_network_emission_values(block_number: u64) -> Result<(), &'static str> {

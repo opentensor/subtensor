@@ -249,7 +249,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check stake on neuron
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
                 &hotkey_account_id,
                 netuid,
@@ -257,7 +257,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
                 &hotkey_account_id,
                 netuid,
@@ -265,7 +265,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             stake_amount + 1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
                 &hotkey_account_id,
                 netuid,
@@ -294,7 +294,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check the stake is still on the coldkey accounts.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
                 &hotkey_account_id,
                 netuid,
@@ -302,7 +302,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
                 &hotkey_account_id,
                 netuid,
@@ -310,7 +310,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             stake_amount + 1
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
                 &hotkey_account_id,
                 netuid,
@@ -339,7 +339,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
 
         // Check the stake is now on the free balance of the coldkey accounts.
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account_id,
                 &hotkey_account_id,
                 netuid,
@@ -349,7 +349,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_eq!(Balances::free_balance(&coldkey_account_id), stake_amount);
 
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account1_id,
                 &hotkey_account_id,
                 netuid,
@@ -362,7 +362,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         );
 
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
                 &coldkey_account2_id,
                 &hotkey_account_id,
                 netuid,

@@ -280,7 +280,7 @@ fn test_adding_substake_affects_only_targeted_neuron() {
                 initial_stake
             };
             let neuron_stake =
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+                SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
             assert_eq!(
                 neuron_stake, expected_stake,
                 "Neuron {} stake does not match expected value. Expected: {}, Got: {}",

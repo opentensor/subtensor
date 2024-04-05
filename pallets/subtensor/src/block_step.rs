@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
-use frame_support::storage::IterableStorageNMap;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
@@ -241,7 +240,7 @@ impl<T: Config> Pallet<T> {
             for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
 
                 // 3.a Compute the stake weight percentage for the nominatore weight.
-                let nominator_local_stake: u64 = Self::get_stake_for_coldkey_and_hotkey( &nominator_i, delegate, netuid );
+                let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &nominator_i, delegate, netuid );
                 let nominator_local_emission_i: I64F64 = if delegate_local_stake == 0 {
                     I64F64::from_num(0)
                 } else {

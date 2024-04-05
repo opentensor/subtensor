@@ -312,14 +312,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughStaketoWithdraw
         );
 
-        // --- 5. Ensure that we can conver this u64 to a balance.
+        // --- 7. Ensure that we can conver this u64 to a balance.
         let stake_to_be_added_as_currency = Self::u64_to_balance(stake_to_be_removed);
         ensure!(
             stake_to_be_added_as_currency.is_some(),
             Error::<T>::CouldNotConvertToBalance
         );
 
-        // --- 6. Ensure we don't exceed tx rate limit
+        // --- 8. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
@@ -531,7 +531,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         decrement: u64,
     ) -> bool {
-        return Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid) >= decrement;
+        return Self::get_subnet_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid) >= decrement;
     }
 
     // Increases the stake on the hotkey account under its owning coldkey.
@@ -554,16 +554,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             decrement,
         );
-    }
-
-    // Returns the stake under the cold - hot - netuid pairing in the staking table.
-    //
-    pub fn get_stake_for_coldkey_and_hotkey(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        netuid: u16,
-    ) -> u64 {
-        Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
     }
 
     // Returns the subent stake under the cold - hot pairing in the staking table.
@@ -755,7 +745,7 @@ impl<T: Config> Pallet<T> {
         {
             for netuid in 0..(TotalNetworks::<T>::get() + 1) {
                 // Get the stake on this uid.
-                let stake_i = Self::get_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, netuid);
+                let stake_i = Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, netuid);
 
                 // Convert to balance and add to the coldkey account.
                 let stake_i_as_balance = Self::u64_to_balance(stake_i);
