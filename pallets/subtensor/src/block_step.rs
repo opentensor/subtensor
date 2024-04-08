@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::inherent::Vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;

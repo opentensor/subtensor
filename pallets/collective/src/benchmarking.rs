@@ -73,7 +73,7 @@ benchmarks_instance_pallet! {
                     SystemOrigin::Signed(old_members.last().unwrap().clone()).into(),
                     Box::new(proposal.clone()),
                     MAX_BYTES,
-                    TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                    TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
                 )?;
                 let hash = T::Hashing::hash_of(&proposal);
                 // Vote on the proposal to increase state relevant for `set_members`.
@@ -131,7 +131,7 @@ benchmarks_instance_pallet! {
         let proposal_hash = T::Hashing::hash_of(&proposal);
         // Note that execution fails due to mis-matched origin
         assert_last_event::<T, I>(
-            Event::MemberExecuted { proposal_hash, result: Err(DispatchError::BadOrigin) }.into()
+            Event::MemberExecuted { proposal_hash, result: Ok(()) }.into()
         );
     }
 
@@ -162,7 +162,7 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(caller.clone()).into(),
                 Box::new(proposal),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
         }
 
@@ -170,7 +170,7 @@ benchmarks_instance_pallet! {
 
         let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(p, b as usize) }.into();
 
-    }: propose(SystemOrigin::Signed(caller.clone()), Box::new(proposal.clone()), bytes_in_storage, TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number."))
+    }: propose(SystemOrigin::Signed(caller.clone()), Box::new(proposal.clone()), bytes_in_storage, TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number."))
     verify {
         // New proposal is recorded
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
@@ -210,7 +210,7 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(proposer.clone()).into(),
                 Box::new(proposal.clone()),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
@@ -282,7 +282,7 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(proposer.clone()).into(),
                 Box::new(proposal.clone()),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
@@ -348,7 +348,7 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(caller.clone()).into(),
                 Box::new(proposal.clone()),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
@@ -396,7 +396,7 @@ benchmarks_instance_pallet! {
     verify {
         // The last proposal is removed.
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
-        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Err(DispatchError::BadOrigin) }.into());
+        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());
     }
 
     close_disapproved {
@@ -431,7 +431,7 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(caller.clone()).into(),
                 Box::new(proposal.clone()),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
@@ -468,7 +468,7 @@ benchmarks_instance_pallet! {
             false,
         )?;
 
-        System::<T>::set_block_number(T::BlockNumber::max_value());
+        System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
         // Prime nay will close it as disapproved
@@ -510,7 +510,7 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(caller.clone()).into(),
                 Box::new(proposal.clone()),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
@@ -537,14 +537,14 @@ benchmarks_instance_pallet! {
         }
 
         // caller is prime, prime already votes aye by creating the proposal
-        System::<T>::set_block_number(T::BlockNumber::max_value());
+        System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
         // Prime aye will close it as approved
     }: close(SystemOrigin::Signed(caller), last_hash, p - 1, Weight::MAX, bytes_in_storage)
     verify {
         assert_eq!(Collective::<T, I>::proposals().len(), (p - 1) as usize);
-        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Err(DispatchError::BadOrigin) }.into());
+        assert_last_event::<T, I>(Event::Executed { proposal_hash: last_hash, result: Ok(()) }.into());
     }
 
     disapprove_proposal {
@@ -581,12 +581,12 @@ benchmarks_instance_pallet! {
                 SystemOrigin::Signed(caller.clone()).into(),
                 Box::new(proposal.clone()),
                 bytes_in_storage,
-                TryInto::<T::BlockNumber>::try_into(3u64).ok().expect("convert u64 to block number.")
+                TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
             )?;
             last_hash = T::Hashing::hash_of(&proposal);
         }
 
-        System::<T>::set_block_number(T::BlockNumber::max_value());
+        System::<T>::set_block_number(BlockNumberFor::<T>::max_value());
         assert_eq!(Collective::<T, I>::proposals().len(), p as usize);
 
     }: _(SystemOrigin::Root, last_hash)

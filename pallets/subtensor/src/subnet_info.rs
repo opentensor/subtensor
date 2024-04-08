@@ -2,7 +2,6 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -153,7 +152,6 @@ impl<T: Config> Pallet<T> {
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
 
-
         return Some(SubnetHyperparams {
             rho: rho.into(),
             kappa: kappa.into(),
@@ -176,7 +174,7 @@ impl<T: Config> Pallet<T> {
             serving_rate_limit: serving_rate_limit.into(),
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
-            difficulty: difficulty.into()
+            difficulty: difficulty.into(),
         });
     }
 }

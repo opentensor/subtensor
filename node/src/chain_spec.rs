@@ -1,24 +1,22 @@
 use node_subtensor_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SenateMembersConfig,
-    Signature, SubtensorModuleConfig, SudoConfig, SystemConfig, TriumvirateConfig,
-    TriumvirateMembersConfig, WASM_BINARY,
+    AccountId, AuraConfig, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig,
+    SenateMembersConfig, Signature, SubtensorModuleConfig, SudoConfig, SystemConfig,
+    TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{bounded_vec, sr25519, Pair, Public};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::env;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
-// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
+pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
 
-// These functions are unused in production compiles, util functions for unit testing
-#[allow(dead_code)]
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
     TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -26,10 +24,8 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
-#[allow(dead_code)]
 type AccountPublic = <Signature as Verify>::Signer;
 
-#[allow(dead_code)]
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
@@ -38,7 +34,6 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-#[allow(dead_code)]
 /// Generate an Aura authority key.
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
@@ -414,7 +409,7 @@ fn localnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     _enable_println: bool,
-) -> GenesisConfig {
+) -> RuntimeGenesisConfig {
     let mut balances = vec![
         (
             get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -451,10 +446,11 @@ fn localnet_genesis(
         }
     }
 
-    GenesisConfig {
+    RuntimeGenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
+            ..Default::default()
         },
         balances: BalancesConfig { balances },
         aura: AuraConfig {
@@ -465,6 +461,7 @@ fn localnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
@@ -504,11 +501,12 @@ fn testnet_genesis(
     _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
     _balances: Vec<(AccountId, u64)>,
     _balances_issuance: u64,
-) -> GenesisConfig {
-    GenesisConfig {
+) -> RuntimeGenesisConfig {
+    RuntimeGenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
+            ..Default::default()
         },
         balances: BalancesConfig {
             // Configure sudo balance
@@ -526,6 +524,7 @@ fn testnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(
@@ -561,11 +560,12 @@ fn finney_genesis(
     stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
     balances: Vec<(AccountId, u64)>,
     balances_issuance: u64,
-) -> GenesisConfig {
-    GenesisConfig {
+) -> RuntimeGenesisConfig {
+    RuntimeGenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
+            ..Default::default()
         },
         balances: BalancesConfig {
             // Configure endowed accounts with initial balance of 1 << 60.
@@ -580,6 +580,7 @@ fn finney_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(

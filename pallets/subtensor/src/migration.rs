@@ -1,9 +1,9 @@
 use super::*;
 use frame_support::{
-    inherent::Vec,
     pallet_prelude::{Identity, OptionQuery},
+    sp_std::vec::Vec,
     storage_alias,
-    traits::{Get, GetStorageVersion, StorageVersion},
+    traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;
@@ -45,11 +45,10 @@ pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
-        let total_balance_sum: u64 = total_balance.try_into().unwrap_or_else(|_| panic!("Conversion must be within range"));
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // Compute the total issuance value
-        let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
+        let total_issuance_value: u64 = stake_sum + total_balance + locked_sum;
 
         // Update the total issuance in storage
         TotalIssuance::<T>::put(total_issuance_value);
@@ -153,8 +152,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i);
-        T::SenateMembers::remove_member(&hotkey_i);
+        T::TriumvirateInterface::remove_votes(&hotkey_i).unwrap();
+        T::SenateMembers::remove_member(&hotkey_i).unwrap();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }
@@ -367,8 +366,8 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
                 info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
 
                 // We will assume all loaded emission is validator emissions,
-                //      so this will get distributed over delegatees (nominators), if there are any
-                //      This will NOT effect any servers that are not (also) a delegate validator.
+                // so this will get distributed over delegatees (nominators), if there are any
+                // This will NOT effect any servers that are not (also) a delegate validator.
                 // server_emission will be 0 for any alread loaded emission.
 
                 let mut new_netuid_emissions = Vec::new();

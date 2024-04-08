@@ -11,7 +11,7 @@ use frame_support::{
     dispatch,
     dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
     ensure,
-    traits::{tokens::WithdrawReasons, Currency, ExistenceRequirement, IsSubType},
+    traits::{tokens::fungible, IsSubType},
 };
 
 use codec::{Decode, Encode};
@@ -59,10 +59,10 @@ pub mod pallet {
 
     use frame_support::{
         dispatch::GetDispatchInfo,
-        inherent::Vec,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
         sp_std::vec,
-        traits::{Currency, UnfilteredDispatchable},
+        sp_std::vec::Vec,
+        traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::TrailingZeroInput;
@@ -77,7 +77,6 @@ pub mod pallet {
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::without_storage_info]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
@@ -97,7 +96,8 @@ pub mod pallet {
         type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         // --- Currency type that will be used to place deposits on neurons
-        type Currency: Currency<Self::AccountId> + Send + Sync;
+        type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+            + fungible::Mutate<Self::AccountId>;
 
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
@@ -494,7 +494,7 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
-    pub fn DefaultLastMechansimStepBlock<T: Config>() -> u64 {
+    pub fn DefaultLastMechanismStepBlock<T: Config>() -> u64 {
         0
     }
     #[pallet::type_value]
@@ -523,7 +523,7 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechansimStepBlock<T>>;
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
     #[pallet::storage]
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
@@ -849,7 +849,7 @@ pub mod pallet {
         // parameters. [something, who]
         NetworkAdded(u16, u16), // --- Event created when a new network is added.
         NetworkRemoved(u16),    // --- Event created when a network is removed.
-        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
+        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transferred from the a coldkey account onto the hotkey staking account.
         StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
         WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
         NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
@@ -859,12 +859,12 @@ pub mod pallet {
         MaxWeightLimitSet(u16, u16), // --- Event created when the max weight limit has been set for a subnetwork.
         DifficultySet(u16, u64), // --- Event created when the difficulty has been set for a subnet.
         AdjustmentIntervalSet(u16, u16), // --- Event created when the adjustment interval is set for a subnet.
-        RegistrationPerIntervalSet(u16, u16), // --- Event created when registeration per interval is set for a subnet.
+        RegistrationPerIntervalSet(u16, u16), // --- Event created when registration per interval is set for a subnet.
         MaxRegistrationsPerBlockSet(u16, u16), // --- Event created when we set max registrations per block.
         ActivityCutoffSet(u16, u16), // --- Event created when an activity cutoff is set for a subnet.
         RhoSet(u16, u16),            // --- Event created when Rho value is set.
         KappaSet(u16, u16),          // --- Event created when Kappa is set for a subnet.
-        MinAllowedWeightSet(u16, u16), // --- Event created when minimun allowed weight is set for a subnet.
+        MinAllowedWeightSet(u16, u16), // --- Event created when minimum allowed weight is set for a subnet.
         ValidatorPruneLenSet(u16, u64), // --- Event created when the validator pruning length has been set.
         ScalingLawPowerSet(u16, u16), // --- Event created when the scaling law power has been set for a subnet.
         WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet.
@@ -877,8 +877,8 @@ pub mod pallet {
         DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
         DefaultTakeSet(u16), // --- Event created when the default take is set.
         WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
-        MinDifficultySet(u16, u64), // --- Event created when setting min difficutly on a network.
-        MaxDifficultySet(u16, u64), // --- Event created when setting max difficutly on a network.
+        MinDifficultySet(u16, u64), // --- Event created when setting min difficulty on a network.
+        MaxDifficultySet(u16, u64), // --- Event created when setting max difficulty on a network.
         ServingRateLimitSet(u16, u64), // --- Event created when setting the prometheus serving rate limit.
         BurnSet(u16, u64),             // --- Event created when setting burn on a network.
         MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
@@ -892,7 +892,7 @@ pub mod pallet {
         WeightsMinStake(u64), // --- Event created when min stake is set for validators to set weights.
         SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
         AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
-        Faucet(T::AccountId, u64),    // Event created when the facuet it called on the test net.
+        Faucet(T::AccountId, u64),    // Event created when the faucet it called on the test net.
         SubnetOwnerCutSet(u16),       // Event created when the subnet owner cut is set.
         NetworkRateLimitSet(u64),     // Event created when the network creation rate limit is set.
         NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
@@ -931,14 +931,15 @@ pub mod pallet {
         InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative.
         InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
         InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
-        MaxAllowedUIdsNotAllowed, // ---  Thrown if the vaule is invalid for MaxAllowedUids.
+        MaxAllowedUIdsNotAllowed, // ---  Thrown if the value is invalid for MaxAllowedUids.
         CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
+        CouldNotConvertToU64, // -- Thrown when the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
         StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
         MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.
         TempoHasNotSet,         // --- Thrown when tempo has not set.
         InvalidTempo,           // --- Thrown when tempo is not valid.
-        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or recieved emission rates does not match number of networks.
+        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or received emission rates does not match number of networks.
         InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
         AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
         SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
@@ -963,7 +964,7 @@ pub mod pallet {
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
         FaucetDisabled,         // --- Thrown when the faucet is disabled
         NotSubnetOwner,
-        OperationNotPermittedonRootSubnet,
+        OperationNotPermittedOnRootSubnet,
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
@@ -974,13 +975,11 @@ pub mod pallet {
     // ==================
 
     #[pallet::genesis_config]
-    #[cfg(feature = "std")]
     pub struct GenesisConfig<T: Config> {
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
         pub balances_issuance: u64,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
@@ -991,10 +990,8 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            use crate::MemberManagement;
-
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -1157,7 +1154,7 @@ pub mod pallet {
         // ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
         //
         // # Args:
-        // 	* 'n': (T::BlockNumber):
+        // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             let block_step_result = Self::block_step();
@@ -1165,14 +1162,14 @@ pub mod pallet {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::info!("Successfully ran block step.");
-                    return Weight::from_ref_time(110_634_229_000 as u64)
+                    return Weight::from_parts(110_634_229_000 as u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    return Weight::from_ref_time(110_634_229_000 as u64)
+                    return Weight::from_parts(110_634_229_000 as u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304 as u64))
                         .saturating_add(T::DbWeight::get().writes(110 as u64));
                 }
@@ -1182,7 +1179,7 @@ pub mod pallet {
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
             use crate::migration;
-            let mut weight = frame_support::weights::Weight::from_ref_time(0);
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
             // Hex encoded foundation coldkey
             let hex = hex_literal::hex![
@@ -1267,7 +1264,7 @@ pub mod pallet {
         // 	* 'MaxWeightExceeded':
         // 		- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_ref_time(10_151_000_000)
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
@@ -1345,7 +1342,7 @@ pub mod pallet {
         //
         //
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_ref_time(65_000_000)
+        #[pallet::weight((Weight::from_parts(65_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(8))
 		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake(
@@ -1389,8 +1386,8 @@ pub mod pallet {
         //
         //
         #[pallet::call_index(3)]
-        #[pallet::weight((Weight::from_ref_time(63_000_000)
-		.saturating_add(Weight::from_proof_size(43991))
+        #[pallet::weight((Weight::from_parts(63_000_000, 0)
+		.saturating_add(Weight::from_parts(0, 43991))
 		.saturating_add(T::DbWeight::get().reads(14))
 		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake(
@@ -1453,7 +1450,7 @@ pub mod pallet {
         // 		- Attempting to set prometheus information withing the rate limit min.
         //
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_ref_time(19_000_000)
+        #[pallet::weight((Weight::from_parts(19_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
@@ -1481,7 +1478,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_ref_time(17_000_000)
+        #[pallet::weight((Weight::from_parts(17_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
@@ -1543,7 +1540,7 @@ pub mod pallet {
         // 		- The seal is incorrect.
         //
         #[pallet::call_index(6)]
-        #[pallet::weight((Weight::from_ref_time(91_000_000)
+        #[pallet::weight((Weight::from_parts(91_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn register(
@@ -1559,7 +1556,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_ref_time(120_000_000)
+        #[pallet::weight((Weight::from_parts(120_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1567,7 +1564,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_ref_time(89_000_000)
+        #[pallet::weight((Weight::from_parts(89_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
@@ -1612,7 +1609,7 @@ pub mod pallet {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(51)]
-        #[pallet::weight((Weight::from_ref_time(0), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Operational, Pays::No))]
         pub fn sudo(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
@@ -1653,8 +1650,8 @@ pub mod pallet {
         }
 
         #[pallet::call_index(55)]
-        #[pallet::weight((Weight::from_ref_time(0)
-		.saturating_add(Weight::from_proof_size(0))
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(Weight::from_parts(0, 0))
 		.saturating_add(T::DbWeight::get().reads(0))
 		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
         pub fn vote(
@@ -1668,7 +1665,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_ref_time(85_000_000)
+        #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
@@ -1676,7 +1673,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(60)]
-        #[pallet::weight((Weight::from_ref_time(91_000_000)
+        #[pallet::weight((Weight::from_parts(91_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn faucet(
@@ -1693,7 +1690,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_ref_time(70_000_000)
+        #[pallet::weight((Weight::from_parts(70_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(5))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
@@ -1707,7 +1704,7 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if Uids::<T>::contains_key(netuid, &hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-                let stake = Self::get_total_stake_for_hotkey(&hotkey);
+                let _stake = Self::get_total_stake_for_hotkey(&hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
@@ -1800,8 +1797,8 @@ where
     pub fn u64_to_balance(
         input: u64,
     ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-    > {
+        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
+    >{
         input.try_into().ok()
     }
 }
@@ -1969,7 +1966,12 @@ where
     }
 }
 
-use frame_support::{inherent::Vec, sp_std::vec};
+use frame_support::sp_std::vec;
+
+// TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
+// used not 25 lines below
+#[allow(unused)]
+use sp_std::vec::Vec;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {

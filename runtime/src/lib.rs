@@ -40,8 +40,8 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
     construct_runtime, parameter_types,
     traits::{
-        ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, PrivilegeCmp, Randomness,
-        StorageInfo,
+        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, PrivilegeCmp,
+        Randomness, StorageInfo,
     },
     weights::{
         constants::{
@@ -85,6 +85,8 @@ pub type Hash = sp_core::H256;
 // Member type for membership
 type MemberCount = u32;
 
+pub type Nonce = u32;
+
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
 // of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -121,7 +123,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 144,
+    spec_version: 145,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -185,16 +187,10 @@ impl frame_system::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     // The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = AccountIdLookup<AccountId, ()>;
-    // The index type for storing how many extrinsics an account has signed.
-    type Index = Index;
-    // The index type for blocks.
-    type BlockNumber = BlockNumber;
     // The type for hashing blocks and tries.
     type Hash = Hash;
     // The hashing algorithm used.
     type Hashing = BlakeTwo256;
-    // The header type.
-    type Header = generic::Header<BlockNumber, BlakeTwo256>;
     // The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     // The ubiquitous origin type.
@@ -222,6 +218,8 @@ impl frame_system::Config for Runtime {
     // The set code logic, just the default since we're not a parachain.
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Nonce = Nonce;
+    type Block = Block;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -230,26 +228,19 @@ impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<32>;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 impl pallet_grandpa::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
-    type KeyOwnerProofSystem = ();
-
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-
-    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        GrandpaId,
-    )>>::IdentificationTuple;
-
-    type HandleEquivocation = ();
+    type KeyOwnerProof = sp_core::Void;
 
     type WeightInfo = ();
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
+
+    type EquivocationReportSystem = ();
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -282,6 +273,11 @@ impl pallet_balances::Config for Runtime {
     type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
+
+    type RuntimeHoldReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
@@ -471,6 +467,8 @@ impl pallet_membership::Config<SenateMembership> for Runtime {
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+
+    type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -976,10 +974,6 @@ impl pallet_admin_utils::Config for Runtime {
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
-    where
-        Block = Block,
-        NodeBlock = opaque::Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system,
         RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
@@ -1073,6 +1067,14 @@ impl_runtime_apis! {
     impl sp_api::Metadata<Block> for Runtime {
         fn metadata() -> OpaqueMetadata {
             OpaqueMetadata::new(Runtime::metadata().into())
+        }
+
+        fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+            Runtime::metadata_at_version(version)
+        }
+
+        fn metadata_versions() -> sp_std::vec::Vec<u32> {
+            Runtime::metadata_versions()
         }
     }
 

@@ -4,7 +4,6 @@ use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::U64F64;
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 

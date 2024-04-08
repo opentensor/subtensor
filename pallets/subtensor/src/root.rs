@@ -18,7 +18,6 @@
 use super::*;
 use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
-use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
@@ -608,10 +607,10 @@ impl<T: Config> Pallet<T> {
         let members = T::SenateMembers::members();
         let member_count = members.len() as u32;
         let vote_weight = Weight::from_parts(20_528_275, 4980)
-            .saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
+            .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
+            .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
 
         Ok((
             Some(vote_weight),
@@ -691,12 +690,9 @@ impl<T: Config> Pallet<T> {
         };
 
         // --- 5. Perform the lock operation.
-        ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()) == true,
-            Error::<T>::BalanceWithdrawalError
-        );
-        Self::set_subnet_locked_balance(netuid_to_register, lock_amount);
-        Self::set_network_last_lock(lock_amount);
+        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap())?;
+        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
+        Self::set_network_last_lock(actual_lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
