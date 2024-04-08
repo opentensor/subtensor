@@ -1294,8 +1294,8 @@ pub mod pallet {
         // 		- The new stake proportion that this hotkey takes from delegations.
         //
         // # Event:
-        // 	* DelegateAdded;
-        // 		- On successfully setting a hotkey as a delegate.
+        // 	* TakeDecreased;
+        // 		- On successfully setting a decreased take for this hotkey.
         //
         // # Raises:
         // 	* 'NotRegistered':
