@@ -2,7 +2,6 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -48,7 +47,9 @@ pub struct SubnetHyperparams {
     bonds_moving_avg: Compact<u64>,
     max_regs_per_block: Compact<u16>,
     serving_rate_limit: Compact<u64>,
-    max_validators: Compact<u16>
+    max_validators: Compact<u16>,
+    adjustment_alpha: Compact<u64>,
+    difficulty: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -59,7 +60,7 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
+        let difficulty: Compact<u64> = Self::get_difficulty_as_u64(netuid).into();
         let immunity_period = Self::get_immunity_period(netuid);
         let max_allowed_validators = Self::get_max_allowed_validators(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
@@ -130,7 +131,6 @@ impl<T: Config> Pallet<T> {
 
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
-        let difficulty = Self::get_difficulty_as_u64(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
         let min_allowed_weights = Self::get_min_allowed_weights(netuid);
         let max_weights_limit = Self::get_max_weight_limit(netuid);
@@ -149,6 +149,8 @@ impl<T: Config> Pallet<T> {
         let max_regs_per_block = Self::get_max_registrations_per_block(netuid);
         let serving_rate_limit = Self::get_serving_rate_limit(netuid);
         let max_validators = Self::get_max_allowed_validators(netuid);
+        let adjustment_alpha = Self::get_adjustment_alpha(netuid);
+        let difficulty = Self::get_difficulty_as_u64(netuid);
 
         return Some(SubnetHyperparams {
             rho: rho.into(),
@@ -170,7 +172,9 @@ impl<T: Config> Pallet<T> {
             bonds_moving_avg: bonds_moving_avg.into(),
             max_regs_per_block: max_regs_per_block.into(),
             serving_rate_limit: serving_rate_limit.into(),
-            max_validators: max_validators.into()
+            max_validators: max_validators.into(),
+            adjustment_alpha: adjustment_alpha.into(),
+            difficulty: difficulty.into(),
         });
     }
 }

@@ -6,6 +6,7 @@ members = [
     "pallets/commitments",
     "runtime",
 ]
+resolver = "2"
 
 [profile.release]
 panic = "unwind"

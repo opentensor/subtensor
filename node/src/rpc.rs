@@ -13,18 +13,18 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sc_finality_grandpa::FinalityProofProvider;
+use sc_consensus_grandpa::FinalityProofProvider;
 
 pub use sc_rpc_api::DenyUnsafe;
 
 /// Dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
     /// Voting round info.
-    pub shared_voter_state: sc_finality_grandpa::SharedVoterState,
+    pub shared_voter_state: sc_consensus_grandpa::SharedVoterState,
     /// Authority set info.
-    pub shared_authority_set: sc_finality_grandpa::SharedAuthoritySet<Hash, BlockNumber>,
+    pub shared_authority_set: sc_consensus_grandpa::SharedAuthoritySet<Hash, BlockNumber>,
     /// Receives notifications about justification events from Grandpa.
-    pub justification_stream: sc_finality_grandpa::GrandpaJustificationStream<Block>,
+    pub justification_stream: sc_consensus_grandpa::GrandpaJustificationStream<Block>,
     /// Executor to drive the subscription manager in the Grandpa RPC handler.
     pub subscription_executor: sc_rpc::SubscriptionTaskExecutor,
     /// Finality proof provider.
@@ -66,7 +66,7 @@ where
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use subtensor_custom_rpc::{SubtensorCustom, SubtensorCustomApiServer};
-    use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
+    use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 
     let mut module = RpcModule::new(());
     let FullDeps {

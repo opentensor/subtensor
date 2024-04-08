@@ -1,5 +1,14 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::{
+    storage::IterableStorageDoubleMap,
+    traits::{
+        tokens::{
+            fungible::{Balanced as _, Inspect as _, Mutate as _},
+            Fortitude, Precision, Preservation,
+        },
+        Imbalance,
+    },
+};
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -164,27 +173,36 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 7. Ensure the remove operation from the coldkey is a success.
+        // --- 7. Ensure we don't exceed stake rate limit
+        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         ensure!(
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()) == true,
-            Error::<T>::BalanceWithdrawalError
+            stakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 8. If we reach here, add the balance to the hotkey.
-        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_added);
+        // --- 8. Ensure the remove operation from the coldkey is a success.
+        let actual_amount_to_stake = Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
+
+        // --- 9. If we reach here, add the balance to the hotkey.
+        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 9. Emit the staking event.
+        // --- 10. Emit the staking event.
+        Self::set_stakes_this_interval_for_hotkey(
+            &hotkey,
+            stakes_this_interval + 1,
+            block,
+        );
         log::info!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
             hotkey,
-            stake_to_be_added
+            actual_amount_to_stake
         );
-        Self::deposit_event(Event::StakeAdded(hotkey, stake_to_be_added));
+        Self::deposit_event(Event::StakeAdded(hotkey, actual_amount_to_stake));
 
-        // --- 10. Ok and return.
+        // --- 11. Ok and return.
         Ok(())
     }
 
@@ -273,16 +291,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 7. We remove the balance from the hotkey.
+        // --- 7. Ensure we don't exceed stake rate limit
+        let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        ensure!(
+            unstakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::UnstakeRateLimitExceeded
+        );
+
+        // --- 8. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 9. Emit the unstaking event.
+        // --- 10. Emit the unstaking event.
+        Self::set_stakes_this_interval_for_hotkey(
+            &hotkey,
+            unstakes_this_interval + 1,
+            block,
+        );
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
@@ -290,7 +320,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 10. Done and ok.
+        // --- 11. Done and ok.
         Ok(())
     }
 
@@ -340,6 +370,37 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         return Stake::<T>::get(hotkey, coldkey);
+    }
+
+    // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
+    pub fn get_stakes_this_interval_for_hotkey(hotkey: &T::AccountId) -> u64 {
+        // Retrieve the configured stake interval duration from storage.
+        let stake_interval = StakeInterval::<T>::get();
+
+        // Obtain the current block number as an unsigned 64-bit integer.
+        let current_block = Self::get_current_block_as_u64();
+
+        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
+        let (stakes, block_last_staked_at) = TotalHotkeyStakesThisInterval::<T>::get(hotkey);
+
+        // Calculate the block number after which the stakes for the hotkey should be reset.
+        let block_to_reset_after = block_last_staked_at + stake_interval;
+
+        // If the current block number is beyond the reset point,
+        // it indicates the end of the staking interval for the hotkey.
+        if block_to_reset_after <= current_block {
+            // Reset the stakes for this hotkey for the current interval.
+            Self::set_stakes_this_interval_for_hotkey(hotkey, 0, block_last_staked_at);
+            // Return 0 as the stake amount since we've just reset the stakes.
+            return 0;
+        }
+
+        // If the staking interval has not yet ended, return the current stake amount.
+        stakes
+    }
+
+    pub fn get_target_stakes_per_interval() -> u64 {
+        return TargetStakesPerInterval::<T>::get();
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
@@ -421,7 +482,6 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(increment));
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -442,34 +502,34 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(decrement));
     }
 
     pub fn u64_to_balance(
         input: u64,
     ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
     > {
         input.try_into().ok()
     }
 
     pub fn add_balance_to_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
-        T::Currency::deposit_creating(&coldkey, amount); // Infallibe
+        // infallible
+        let _ = T::Currency::deposit(&coldkey, amount, Precision::BestEffort);
     }
 
     pub fn set_balance_on_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
-        T::Currency::make_free_balance_be(&coldkey, amount);
+        T::Currency::set_balance(&coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> bool {
         let current_balance = Self::get_coldkey_balance(coldkey);
         if amount > current_balance {
@@ -477,36 +537,49 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let new_potential_balance = current_balance - amount;
-        let can_withdraw = T::Currency::ensure_can_withdraw(
+        let can_withdraw = T::Currency::can_withdraw(
             &coldkey,
             amount,
-            WithdrawReasons::except(WithdrawReasons::TIP),
-            new_potential_balance,
         )
+        .into_result(false)
         .is_ok();
         can_withdraw
     }
 
     pub fn get_coldkey_balance(
         coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance {
-        return T::Currency::free_balance(&coldkey);
+    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance {
+        return T::Currency::reducible_balance(&coldkey, Preservation::Expendable, Fortitude::Polite);
     }
 
+    #[must_use = "Balance must be used to preserve total issuance of token"]
     pub fn remove_balance_from_coldkey_account(
         coldkey: &T::AccountId,
-        amount: <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance,
-    ) -> bool {
-        return match T::Currency::withdraw(
-            &coldkey,
-            amount,
-            WithdrawReasons::except(WithdrawReasons::TIP),
-            ExistenceRequirement::KeepAlive,
-        ) {
-            Ok(_result) => true,
-            Err(_error) => false,
-        };
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
+    ) -> Result<u64, DispatchError> {
+        let amount_u64: u64 = amount.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+
+        if amount_u64 == 0 {
+            return Ok(0);
+        }
+
+        let credit = T::Currency::withdraw(
+                &coldkey,
+                amount,
+                Precision::BestEffort,
+                Preservation::Preserve,
+                Fortitude::Polite,
+            )
+            .map_err(|_| Error::<T>::BalanceWithdrawalError)?
+            .peek();
+
+        let credit_u64: u64 = credit.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+
+        if credit_u64 == 0 {
+            return Err(Error::<T>::BalanceWithdrawalError.into());
+        }
+
+        Ok(credit_u64)
     }
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {

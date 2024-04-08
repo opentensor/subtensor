@@ -20,7 +20,6 @@
 // }
 
 // /*TO DO SAM: write test for LatuUpdate after it is set */
-
 // // --- add network tests ----
 // #[test]
 // fn test_add_network_dispatch_info_ok() {
@@ -36,7 +35,7 @@
 //         assert_eq!(
 //             call.get_dispatch_info(),
 //             DispatchInfo {
-//                 weight: frame_support::weights::Weight::from_ref_time(50000000),
+//                 weight: frame_support::weights::Weight::from_parts(50000000, 0),
 //                 class: DispatchClass::Operational,
 //                 pays_fee: Pays::No
 //             }
@@ -177,7 +176,7 @@
 //         assert_eq!(
 //             call.get_dispatch_info(),
 //             DispatchInfo {
-//                 weight: frame_support::weights::Weight::from_ref_time(28000000),
+//                 weight: frame_support::weights::Weight::from_parts(28000000, 0),
 //                 class: DispatchClass::Operational,
 //                 pays_fee: Pays::No
 //             }

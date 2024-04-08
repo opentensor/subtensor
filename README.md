@@ -1,32 +1,29 @@
-```commandline             _      _                                 
-███████╗██╗   ██╗██████╗ ████████╗███████╗███╗   ██╗███████╗ ██████╗ ██████╗ 
+```commandline             _      _
+███████╗██╗   ██╗██████╗ ████████╗███████╗███╗   ██╗███████╗ ██████╗ ██████╗
 ██╔════╝██║   ██║██╔══██╗╚══██╔══╝██╔════╝████╗  ██║██╔════╝██╔═══██╗██╔══██╗
 ███████╗██║   ██║██████╔╝   ██║   █████╗  ██╔██╗ ██║███████╗██║   ██║██████╔╝
 ╚════██║██║   ██║██╔══██╗   ██║   ██╔══╝  ██║╚██╗██║╚════██║██║   ██║██╔══██╗
 ███████║╚██████╔╝██████╔╝   ██║   ███████╗██║ ╚████║███████║╚██████╔╝██║  ██║
 ╚══════╝ ╚═════╝ ╚═════╝    ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝
-                                                                             
+
 ```
 
 # **Subtensor** <!-- omit in toc -->
 [![Discord Chat](https://img.shields.io/discord/308323056592486420.svg)](https://discord.gg/bittensor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-</div>
 This repository contains Bittensor's substrate-chain. Subtensor contains the trusted logic which:
 
-1. Runs Bittensor's consensus mechanism
-1. Advertises neuron information, IPs, etc
-1. and facilitates value transfer via TAO.
-
-</div>
+1. Runs Bittensor's [consensus mechanism](./docs/consensus.md);
+2. Advertises neuron information, IPs, etc.; and
+3. Facilitates value transfer via TAO.
 
 ## System Requirements
 
-* The binaries in ./bin/release are x86_64 binaries to be used with the Linux kernel.  
-* Subtensor needs ~286 MiB to run.                      
+* The binaries in ./bin/release are x86_64 binaries to be used with the Linux kernel.
+* Subtensor needs ~286 MiB to run.
 * Architectures other than x86_64 are currently not supported.
-* OSs other than Linux and MacOS are currently not supported.               
+* OSs other than Linux and MacOS are currently not supported.
 
 ## Architectures
 Subtensor support the following architectures:
@@ -49,8 +46,6 @@ Requirements:
 2) 9933 - RPC. This port is opened, but not used.
 3) 30333 - p2p socket. This port accepts connections from other subtensor nodes. Make sure your firewall(s) allow incoming traffic to this port.
 * It is assumed your default outgoing traffic policy is ACCEPT. If not, make sure outbound traffic to port 30333 is allowed.
-
-</div>
 
 ### Installation
 First, complete the [basic Rust setup instructions](./docs/rust-setup.md).
@@ -152,9 +147,8 @@ Running code coverage
 ```bash
 bash scripts/code-coverage.sh
 ```
-> Note; above requires `cargo-tarpaulin` is installed to the host, eg. `cargo install cargo-tarpaulin`
 
-</div>
+> Note; above requires `cargo-tarpaulin` is installed to the host, eg. `cargo install cargo-tarpaulin`
 > Development chain means that the state of our chain will be in a tmp folder while the nodes are
 > running. Also, **alice** account will be authority and sudo account as declared in the
 > [genesis state](https://github.com/substrate-developer-hub/substrate-node-template/blob/main/node/src/chain_spec.rs#L49).
@@ -195,7 +189,7 @@ local node template.
 ### Multi-Node Local Testnet
 
 If you want to see the multi-node consensus algorithm in action, refer to our
-[Simulate a network tutorial](https://docs.substrate.io/tutorials/get-started/simulate-network/).
+[Simulate a network tutorial](https://docs.substrate.io/tutorials/build-a-blockchain/simulate-network/).
 
 ## Template Structure
 

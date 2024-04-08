@@ -1,9 +1,9 @@
 use super::*;
 use frame_support::{
-    inherent::Vec,
     pallet_prelude::{Identity, OptionQuery},
+    sp_std::vec::Vec,
     storage_alias,
-    traits::{Get, GetStorageVersion, StorageVersion},
+    traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;
@@ -22,6 +22,45 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
+
+/// Performs migration to update the total issuance based on the sum of stakes and total balances.
+/// This migration is applicable only if the current storage version is 5, after which it updates the storage version to 6.
+///
+/// # Returns
+/// Weight of the migration process.
+pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
+    let mut weight = T::DbWeight::get().reads(1); // Initialize migration weight
+
+    // Execute migration if the current storage version is 5
+    if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
+        // Calculate the sum of all stake values
+        let stake_sum: u64 = Stake::<T>::iter()
+            .fold(0, |accumulator, (_, _, stake_value)| accumulator.saturating_add(stake_value));
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
+
+        // Calculate the sum of all stake values
+        let locked_sum: u64 = SubnetLocked::<T>::iter()
+            .fold(0, |accumulator, (_, locked_value)| accumulator.saturating_add(locked_value));
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0));
+
+        // Retrieve the total balance sum
+        let total_balance = T::Currency::total_issuance();
+        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+        // Compute the total issuance value
+        let total_issuance_value: u64 = stake_sum + total_balance + locked_sum;
+
+        // Update the total issuance in storage
+        TotalIssuance::<T>::put(total_issuance_value);
+    }
+
+    // Update the storage version to 6
+    StorageVersion::new(6).put::<Pallet<T>>();
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    weight // Return the computed weight of the migration process
+}
+
 pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) -> Weight {
     let new_storage_version = 3;
 
@@ -36,7 +75,8 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
         info!(target: LOG_TARGET_1, ">>> Migrating subnet 1 and 11 to foundation control {:?}", onchain_version);
 
         // We have to decode this using a byte slice as we don't have crypto-std
-        let coldkey_account: <T as frame_system::Config>::AccountId = <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
+        let coldkey_account: <T as frame_system::Config>::AccountId =
+            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
         info!("Foundation coldkey: {:?}", coldkey_account);
 
         let current_block = Pallet::<T>::get_current_block_as_u64();
@@ -78,7 +118,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
 
     // Set the root network as added.
     NetworksAdded::<T>::insert(root_netuid, true);
-    
+
     // Increment the number of total networks.
     TotalNetworks::<T>::mutate(|n| *n += 1);
 
@@ -112,11 +152,11 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i);
-        T::SenateMembers::remove_member(&hotkey_i);
+        T::TriumvirateInterface::remove_votes(&hotkey_i).unwrap();
+        T::SenateMembers::remove_member(&hotkey_i).unwrap();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-    }  
+    }
 
     weight
 }
@@ -133,7 +173,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 3 {:?}", onchain_version);
-        
+
         let netuid = 3;
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
@@ -195,7 +235,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
 
         // Update storage version.
         StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update version so we don't run this again.
-        // One write to storage version
+                                                                     // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         weight
@@ -217,7 +257,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(21) {
         info!(target: LOG_TARGET_1, ">>> Removing subnet 21 {:?}", onchain_version);
-        
+
         let netuid = 21;
 
         // We do this all manually as we don't want to call code related to giving subnet owner back their locked token cost.
@@ -279,7 +319,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
 
         // Update storage version.
         StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update version so we don't run this again.
-        // One write to storage version
+                                                                     // One write to storage version
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         weight
@@ -326,8 +366,8 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
                 info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
 
                 // We will assume all loaded emission is validator emissions,
-                //      so this will get distributed over delegatees (nominators), if there are any
-                //      This will NOT effect any servers that are not (also) a delegate validator.
+                // so this will get distributed over delegatees (nominators), if there are any
+                // This will NOT effect any servers that are not (also) a delegate validator.
                 // server_emission will be 0 for any alread loaded emission.
 
                 let mut new_netuid_emissions = Vec::new();
