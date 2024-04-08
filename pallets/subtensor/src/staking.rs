@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
             take
         );
 
-        // --- 2. Ensure we are delegating an known key.
+        // --- 2. Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
