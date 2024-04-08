@@ -15,22 +15,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use enumflags2::{bitflags, BitFlags};
 use frame_support::{
     traits::{ConstU32, Get},
     BoundedVec, CloneNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::{
     build::{Fields, Variants},
-    meta_type, Path, Type, TypeInfo, TypeParameter,
+    Path, Type, TypeInfo,
 };
 use sp_runtime::{
-    traits::{AppendZerosInput, AtLeast32BitUnsigned, Block, Zero},
+    traits::{AppendZerosInput, AtLeast32BitUnsigned},
     RuntimeDebug,
 };
-use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
+use sp_std::{fmt::Debug, iter::once, prelude::*};
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -318,16 +316,16 @@ pub struct Registration<
     pub info: CommitmentInfo<MaxFields>,
 }
 
-impl<
-        Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
-        MaxFields: Get<u32>,
-        Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
-    > Registration<Balance, MaxFields, Block>
-{
-    pub(crate) fn total_deposit(&self) -> Balance {
-        self.deposit
-    }
-}
+// impl<
+//         Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq + Zero + Add,
+//         MaxFields: Get<u32>,
+//         Block: Codec + Clone + Ord + Eq + AtLeast32BitUnsigned + MaxEncodedLen + Debug,
+//     > Registration<Balance, MaxFields, Block>
+// {
+//     pub(crate) fn total_deposit(&self) -> Balance {
+//         self.deposit
+//     }
+// }
 
 impl<
         Balance: Encode + Decode + MaxEncodedLen + Copy + Clone + Debug + Eq + PartialEq,
@@ -354,7 +352,7 @@ mod tests {
         let mut registry = scale_info::Registry::new();
         let type_id = registry.register_type(&scale_info::meta_type::<Data>());
         let registry: scale_info::PortableRegistry = registry.into();
-        let type_info = registry.resolve(type_id.id()).unwrap();
+        let type_info = registry.resolve(type_id.id).unwrap();
 
         let check_type_info = |data: &Data| {
             let variant_name = match data {
@@ -365,9 +363,9 @@ mod tests {
                 Data::ShaThree256(_) => "ShaThree256".to_string(),
                 Data::Raw(bytes) => format!("Raw{}", bytes.len()),
             };
-            if let scale_info::TypeDef::Variant(variant) = &type_info.type_def() {
+            if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
                 let variant = variant
-                    .variants()
+                    .variants
                     .iter()
                     .find(|v| v.name == variant_name)
                     .expect(&format!("Expected to find variant {}", variant_name));
@@ -375,10 +373,10 @@ mod tests {
                 let field_arr_len = variant
                     .fields
                     .first()
-                    .and_then(|f| registry.resolve(f.ty().id()))
+                    .and_then(|f| registry.resolve(f.ty.id))
                     .map(|ty| {
-                        if let scale_info::TypeDef::Array(arr) = &ty.type_def() {
-                            arr.len()
+                        if let scale_info::TypeDef::Array(arr) = &ty.type_def {
+                            arr.len
                         } else {
                             panic!("Should be an array type")
                         }

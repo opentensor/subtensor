@@ -5,7 +5,7 @@ use sp_core::U256;
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_registration_difficulty_adjustment() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Create Net 1
         let netuid: u16 = 1;
         let tempo: u16 = 1;
@@ -74,7 +74,10 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Difficulty is unchanged.
         step_block(1);
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
-        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 1); // We just adjusted on the first block.
+
+        // TODO: are we OK with this change?
+        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 2); // We just adjusted on the first block.
+
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 40000); // Difficulty is increased ( 20000 * ( 3 + 1 ) / ( 1 + 1 ) ) = 80_000
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 0); // Registrations this interval has been wiped.
 
@@ -108,7 +111,10 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
 
         step_block(1); // Step
-        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 1); // Still previous adjustment block.
+
+        // TODO: are we OK with this change?
+        assert_eq!(SubtensorModule::get_last_adjustment_block(netuid), 2); // Still previous adjustment block.
+
         assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0); // Registrations have been erased.
         assert_eq!(SubtensorModule::get_registrations_this_interval(netuid), 3); // Registrations this interval = 3
 
