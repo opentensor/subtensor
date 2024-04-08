@@ -1360,7 +1360,7 @@ pub mod pallet {
         // 	* 'hotkey' (T::AccountId):
         // 		- The hotkey we are delegating (must be owned by the coldkey.)
         //
-        // 	* 'take' (u64):
+        // 	* 'take' (u16):
         // 		- The new stake proportion that this hotkey takes from delegations.
         //
         // # Event:
