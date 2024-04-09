@@ -260,21 +260,6 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 			crate::rpc::create_full(deps).map_err(Into::into)
 		})
 	};
-    
-
-    // let rpc_extensions_builder = {
-    //     let client = client.clone();
-    //     let pool = transaction_pool.clone();
-
-        // Box::new(move |deny_unsafe, _| {
-        //     let deps = crate::rpc::FullDeps {
-        //         client: client.clone(),
-        //         pool: pool.clone(),
-        //         deny_unsafe,
-        //     };
-        //     crate::rpc::create_full(deps).map_err(Into::into)
-        // })
-    // };
 
     let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         network: network.clone(),
