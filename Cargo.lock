@@ -8477,6 +8477,7 @@ name = "subtensor-custom-rpc"
 version = "0.0.2"
 dependencies = [
  "jsonrpsee",
+ "log",
  "pallet-subtensor",
  "parity-scale-codec",
  "sc-client-api",

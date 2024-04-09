@@ -731,8 +731,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             Votes {
                 index,
                 threshold,
-                ayes: vec![],
-                nays: vec![],
+                ayes: sp_std::vec![],
+                nays: sp_std::vec![],
                 end,
             }
         };
