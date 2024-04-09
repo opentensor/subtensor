@@ -8455,6 +8455,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
+ "sp-core",
  "sp-rpc",
  "sp-runtime",
  "substrate-test-runtime-client",
@@ -8470,6 +8471,7 @@ dependencies = [
  "pallet-subtensor",
  "serde",
  "sp-api",
+ "sp-core",
 ]
 
 [[package]]

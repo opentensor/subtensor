@@ -14,8 +14,6 @@ use subtensor_custom_rpc::{
 };
 use substrate_test_runtime_client::runtime::{Block, Hash};
 use subtensor_custom_rpc::SubtensorCustomApiServer;
-use pallet_subtensor::stake_info::SubnetStakeInfo;
-use codec::{ Compact, Encode };
 
 pub struct TestApi {}
 pub struct TestRuntimeApi {}
@@ -24,8 +22,6 @@ sp_api::mock_impl_runtime_apis! {
     impl DelegateInfoRuntimeApi<Block> for TestRuntimeApi {
         #[advanced]
         fn get_delegates(&self, at: Hash) -> Result<Vec<u8>, sp_api::ApiError> {
-            // let result = SubtensorModule::get_delegates();
-            // result.encode()
             Ok(Vec::new())
         }
         fn get_delegate(&self, delegate_account_vec: Vec<u8>) -> Vec<u8> {
@@ -66,7 +62,7 @@ sp_api::mock_impl_runtime_apis! {
             unimplemented!()
         }
         #[advanced]
-        fn get_all_stake_info_for_coldkey(&self, _at: Hash, _coldkey_account_vec: Vec<u8>) -> Result<Vec<u8>, sp_api::ApiError> {
+        fn get_all_stake_info_for_coldkey(&self, _at: Hash, _coldkey_account_vec: Bytes) -> Result<Vec<u8>, sp_api::ApiError> {
 
             // Mock result from pallet as a SubnetStakeInfo with production AccountId
             // let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])

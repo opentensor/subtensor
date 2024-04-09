@@ -20,7 +20,7 @@ use pallet_registry::CanRegisterIdentity;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, Bytes, OpaqueMetadata};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -1386,7 +1386,7 @@ impl_runtime_apis! {
             result.encode()
         }
 
-        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Bytes ) -> Vec<u8> {
             let result = SubtensorModule::get_all_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }

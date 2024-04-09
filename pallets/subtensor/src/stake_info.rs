@@ -4,6 +4,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
+use sp_core::Bytes;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
@@ -196,7 +197,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// A vector of tuples, each containing a hotkey (`T::AccountId`), netuid (`u16`), and stake amount (`Compact<u64>`).
     pub fn get_all_stake_info_for_coldkey(
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_vec: Bytes,
     ) -> Vec<(T::AccountId, u16, Compact<u64>)> {
         if coldkey_account_vec.len() != 32 {
             return Vec::new(); // Invalid coldkey, return empty vector
