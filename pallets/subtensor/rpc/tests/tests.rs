@@ -9,26 +9,45 @@ use sp_runtime::{
 
 use sp_blockchain::HeaderBackend;
 use subtensor_custom_rpc::{
-    DelegateInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
+    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
     SubnetRegistrationRuntimeApi, SubtensorCustom,
 };
-pub type BlockNumber = u32;
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+use substrate_test_runtime_client::runtime::{Block, Hash};
+use subtensor_custom_rpc::SubtensorCustomApiServer;
+use pallet_subtensor::stake_info::SubnetStakeInfo;
+use codec::{ Compact, Encode };
 
 pub struct TestApi {}
 pub struct TestRuntimeApi {}
 
 sp_api::mock_impl_runtime_apis! {
     impl DelegateInfoRuntimeApi<Block> for TestRuntimeApi {
-        fn get_delegates() -> Vec<u8>{
-            unimplemented!()
+        #[advanced]
+        fn get_delegates(&self, at: Hash) -> Result<Vec<u8>, sp_api::ApiError> {
+            // let result = SubtensorModule::get_delegates();
+            // result.encode()
+            Ok(Vec::new())
         }
-        fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
+        fn get_delegate(&self, delegate_account_vec: Vec<u8>) -> Vec<u8> {
             unimplemented!()
         }
 
-        fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<u8> {
+        fn get_delegated(&self, delegatee_account_vec: Vec<u8>) -> Vec<u8> {
+            unimplemented!()
+        }
+    }
+
+    impl NeuronInfoRuntimeApi<Block> for TestRuntimeApi {
+        fn get_neurons(netuid: u16) -> Vec<u8> {
+            unimplemented!()
+        }
+        fn get_neuron(netuid: u16, uid: u16) -> Vec<u8> {
+            unimplemented!()
+        }
+        fn get_neurons_lite(netuid: u16) -> Vec<u8> {
+            unimplemented!()
+        }
+        fn get_neuron_lite(netuid: u16, uid: u16) -> Vec<u8> {
             unimplemented!()
         }
     }
@@ -46,8 +65,31 @@ sp_api::mock_impl_runtime_apis! {
         fn get_total_subnet_stake( netuid: u16 ) -> Vec<u8> {
             unimplemented!()
         }
-        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            unimplemented!()
+        #[advanced]
+        fn get_all_stake_info_for_coldkey(&self, _at: Hash, _coldkey_account_vec: Vec<u8>) -> Result<Vec<u8>, sp_api::ApiError> {
+
+            // Mock result from pallet as a SubnetStakeInfo with production AccountId
+            // let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])
+            // .expect("Failed to decode AccountId");
+
+            // let mut result = Vec::<(SubnetStakeInfo<pallet_subtensor::Config>, u16, Compact<u64>)>::new();
+            // result.push(SubnetStakeInfo{
+            //     hotkey: Default::default(),
+            //     netuid: 1,
+            //     stake: Compact(1),
+            // });
+
+            // Mock result from pallet as a tuple with u64 AccountId
+            let mut result = Vec::<(u64, u16, Compact<u64>)>::new();
+            for i in 0..10 {
+                result.push((
+                    i,
+                    i as u16,
+                    Compact(1),
+                ));
+            }
+
+            Ok(result.encode())
         }
     }
 
@@ -67,7 +109,7 @@ sp_api::mock_impl_runtime_apis! {
         fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
             unimplemented!()
         }
-}
+    }
 }
 
 impl ProvideRuntimeApi<Block> for TestApi {
@@ -121,11 +163,26 @@ impl<Block: BlockT> HeaderBackend<Block> for TestApi {
     }
 }
 
-// #[tokio::test]
-// async fn get_delegates_should_work() {
-//     let client = Arc::new(TestApi {});
-//     let api = SubtensorCustom::new(client.clone());
-//     let request = api.get_delegates();
-//     let response = request.await.unwrap();
-//     println!("response: {:?}", response);
-// }
+#[tokio::test]
+async fn get_delegates_should_work() {
+    let client = Arc::new(TestApi {});
+    let api = SubtensorCustom::new(client);
+    let request = api.get_delegates(None);
+    let response = request.unwrap();
+    println!("response: {:?}", response);
+}
+
+#[tokio::test]
+async fn get_all_stake_info_for_coldkey_should_work() {
+    let client = Arc::new(TestApi {});
+    let api = SubtensorCustom::new(client);
+
+    let magic_address = Vec::from([0xd2, 0xb7, 0x73, 0x64, 0xd1,
+        0xc3, 0xb4, 0x45, 0xcd, 0x69, 0xbd, 0x59, 0xf1, 0xa8, 0x7d, 0xcb,
+        0x26, 0xc9, 0xce, 0x3f, 0x46, 0x43, 0x7d, 0x55, 0xb8, 0x8b, 0x43,
+        0xf1, 0xc1, 0x77, 0xe7, 0x76]);
+
+    let request = api.get_all_stake_info_for_coldkey(magic_address, None);
+    let response = request.unwrap();
+    println!("response: {:?}", response);
+}
