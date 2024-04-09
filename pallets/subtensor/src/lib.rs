@@ -194,7 +194,7 @@ pub mod pallet {
         T::InitialSenateRequiredStakePercentage::get()
     }
 
-    #[pallet::storage] // --- ITEM ( tx_rate_limit )
+    #[pallet::storage]
     pub(super) type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
@@ -425,7 +425,7 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
 
-    #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
+    #[pallet::storage] // --- ITEM( maximum_number_of_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type TotalNetworks<T> = StorageValue<_, u16, ValueQuery>;
@@ -518,16 +518,16 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
+    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step
     pub type BlocksSinceLastStep<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
     pub type LastMechansimStepBlock<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultLastMechanismStepBlock<T>>;
-    #[pallet::storage]
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
-    #[pallet::storage]
+    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
@@ -547,7 +547,7 @@ pub mod pallet {
         pub ip_type: u8,      // --- Axon ip type, 4 for ipv4 and 6 for ipv6.
         pub protocol: u8,     // --- Axon protocol. TCP, UDP, other.
         pub placeholder1: u8, // --- Axon proto placeholder 1.
-        pub placeholder2: u8, // --- Axon proto placeholder 1.
+        pub placeholder2: u8, // --- Axon proto placeholder 2.
     }
 
     // --- Struct for Prometheus.
