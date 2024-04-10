@@ -293,6 +293,12 @@ pub mod pallet {
     }
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicTAOReserve | Returns the TAO reserve for a given netuid.
+    pub type DynamicTAOReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicSubReserve | Returns the dynamic sub-reserve for a given netuid.
+    pub type DynamicSubReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicK | Returns the dynamic K value for a given netuid.
+    pub type DynamicK<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -1704,8 +1710,8 @@ pub mod pallet {
         #[pallet::weight((Weight::from_ref_time(85_000_000)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::user_add_network(origin, hotkey)
         }
 
         #[pallet::call_index(60)]
@@ -1723,14 +1729,6 @@ pub mod pallet {
             }
 
             Err(Error::<T>::FaucetDisabled.into())
-        }
-
-        #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_ref_time(70_000_000)
-		.saturating_add(T::DbWeight::get().reads(5))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::user_remove_network(origin, netuid)
         }
     }
 

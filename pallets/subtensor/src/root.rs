@@ -194,276 +194,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NetworkRateLimitSet(limit));
     }
 
-    // Retrieves weight matrix associated with the root network.
-    //  Weights represent the preferences for each subnetwork.
-    //
-    // # Returns:
-    // A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
-    // 'j' with according to the preferences of key. Validator 'i' within the root network.
-    //
-    pub fn get_root_weights() -> Vec<Vec<I64F64>> {
-        // --- 0. The number of validators on the root network.
-        let n: usize = Self::get_num_root_validators() as usize;
-
-        // --- 1 The number of subnets to validate.
-        log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
-        let k: usize = Self::get_num_subnets() as usize;
-        log::debug!("n: {:?} k: {:?}", n, k);
-
-        // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
-        // by `n` (number of validators) and `k` (total number of subnets).
-        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
-        log::debug!("weights:\n{:?}\n", weights);
-
-        let subnet_list = Self::get_all_subnet_netuids();
-
-        // --- 3. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
-            )
-        {
-            // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
-            // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
-            // weight of `uid_i` with respect to `uid_j`.
-            for (netuid, weight_ij) in weights_i.iter() {
-                let option = subnet_list.iter().position(|item| item == netuid);
-
-                let idx = uid_i as usize;
-                if let Some(weight) = weights.get_mut(idx) {
-                    if let Some(netuid_idx) = option {
-                        weight[netuid_idx] = I64F64::from_num(*weight_ij);
-                    }
-                }
-            }
-        }
-
-        // --- 5. Return the filled weights matrix.
-        weights
-    }
-
-    // Computes and sets emission values for the root network which determine the emission for all subnets.
-    //
-    //
-    pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
-        if Self::subnet_staking_on() {
-            return Self::get_subnet_staking_emission_values(block_number);
-        } else {
-            return Self::get_root_network_emission_values(block_number);
-        }
-    }
-
-    pub fn get_subnet_staking_emission_values(_block_number: u64) -> Result<(), &'static str> {
-        // --- 0. Determines the total block emission across all the subnetworks. This is the
-        // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
-        log::debug!("block_emission:\n{:?}\n", block_emission);
-
-        // --- 1. Obtains the number of registered subnets.
-        let num_subnets: u16 = Self::get_all_subnet_netuids().len() as u16;
-        log::debug!("num subnets:\n{:?}\n", num_subnets);
-
-        // --- 2. Obtain the max subnet index.
-        let max_subnet_index: u16 = match Self::get_all_subnet_netuids().iter().max() {
-            Some(max) => *max,
-            None => return Err("No subnets found."), // Changed to return an error if no subnets are found
-        };
-        // --- 3. Sum all stake across subnets.
-        let mut sum_stake = I64F64::from_num(0.0); // Changed to mutable
-
-        // --- 4. Build a vector to store stake sum per subnet.
-        let mut normalized_total_stake = vec![I64F64::from_num(0.0); max_subnet_index as usize + 1]; // Adjusted size to include max index
-
-        // --- 5. Iterate over all stake values filling the vector.
-        for ((_, _, netuid), stake) in SubStake::<T>::iter() {
-            // --- 5.a. Skip Root: We don't sum the stake on the root network.
-            if netuid == 0 { continue; }
-            if netuid > max_subnet_index { 
-                return Err("Found stake value with no corresponding valid netuid.");
-            }
-
-            // --- 5.b Increment total recognized stake.
-            sum_stake = sum_stake.saturating_add(I64F64::from_num(stake)); // Fixed to actually update sum_stake
-
-            // --- 5.c Increment the total stake at this netuid index.
-            let stake_index = netuid as usize;
-            if stake_index < normalized_total_stake.len() {
-                normalized_total_stake[stake_index] = normalized_total_stake[stake_index].saturating_add(I64F64::from_num(stake));
-            } else {
-                return Err("Stake index out of bounds."); // Added error handling for out of bounds
-            }
-        }
-        log::debug!("Absolute Stake:\n{:?}\n", &normalized_total_stake);
-
-        // --- 6. Normalize stake values across all non-root netuids.
-        inplace_normalize_64(&mut normalized_total_stake);
-        log::debug!("Normalized Stake:\n{:?}\n", &normalized_total_stake);
-
-        // --- 7. Multiply stake proportions. Note that there is a chance that the normalization
-        // Returned a zero vector, so this calculation also returns 0. In this event the block step 
-        // returns a zero emission for every subnet and there is not issuance increase.
-        let emission_as_tao: Vec<I64F64> = normalized_total_stake
-            .iter()
-            .map(|v: &I64F64| *v * block_emission)
-            .collect();
-        log::debug!("Emission as TAO_f64:\n{:?}\n", &emission_as_tao);
-
-        // --- 8. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
-        log::debug!("Emission as TAO_u64:\n{:?}\n", &emission_u64);
-
-        // --- 9. Produce vec of emission for each netuid.
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut emission_values: Vec<u64> = Vec::with_capacity(all_netuids.len());
-        for &netuid in &all_netuids {
-            let netuid_idx = netuid as usize;
-            if netuid_idx < emission_u64.len() {
-                emission_values.push(emission_u64[netuid_idx]);
-            } else {
-                return Err("Emission value not found for netuid"); // Added error handling for out of bounds
-            }
-        }
-        log::debug!("netuids: {:?} emission_values: {:?}", all_netuids, emission_values);
-
-        // --- 10. Set emission values.
-        Self::set_emission_values(&all_netuids, emission_values)?;
-        Ok(())
-    }
-
-    pub fn get_root_network_emission_values(block_number: u64) -> Result<(), &'static str> {
-        // --- 0. The unique ID associated with the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
-
-        // --- 3. Check if we should update the emission values based on blocks since emission was last set.
-        let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
-        if blocks_until_next_epoch != 0 {
-            // Not the block to update emission values.
-            log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
-            return Err("Not the block to update emission values.");
-        }
-
-        // --- 1. Retrieves the number of root validators on subnets.
-        let n: u16 = Self::get_num_root_validators();
-        log::debug!("n:\n{:?}\n", n);
-        if n == 0 {
-            // No validators.
-            return Err("No validators to validate emission values.");
-        }
-
-        // --- 2. Obtains the number of registered subnets.
-        let k: u16 = Self::get_all_subnet_netuids().len() as u16;
-        log::debug!("k:\n{:?}\n", k);
-        if k == 0 {
-            // No networks to validate.
-            return Err("No networks to validate emission values.");
-        }
-
-        // --- 4. Determines the total block emission across all the subnetworks. This is the
-        // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
-        log::debug!("block_emission:\n{:?}\n", block_emission);
-
-        // --- 5. A collection of all registered hotkeys on the root network. Hotkeys
-        // pairs with network UIDs and stake values.
-        let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
-        for (uid_i, hotkey) in
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(root_netuid)
-        {
-            hotkeys.push((uid_i, hotkey));
-        }
-        log::debug!("hotkeys:\n{:?}\n", hotkeys);
-
-        // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
-        // Stakes are stored in a 64-bit fixed point representation for precise calculations.
-        let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in hotkeys.iter() {
-            stake_i64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
-        }
-        inplace_normalize_64(&mut stake_i64);
-        log::debug!("S:\n{:?}\n", &stake_i64);
-
-        // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
-        // n x k where is n is the number of registered peers and k is the number of subnets.
-        let weights: Vec<Vec<I64F64>> = Self::get_root_weights();
-        log::debug!("W:\n{:?}\n", &weights);
-
-        // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
-        // Ranks will have shape k, a score for each subnet.
-        let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
-        log::debug!("R:\n{:?}\n", &ranks);
-
-        // --- 10. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
-        // Trust will have shape k, a score for each subnet.
-        let total_networks = Self::get_num_subnets();
-        let mut trust = vec![I64F64::from_num(0); total_networks as usize];
-        let mut total_stake: I64F64 = I64F64::from_num(0);
-        for (idx, weights) in weights.iter().enumerate() {
-            let hotkey_stake = stake_i64[idx];
-            total_stake += hotkey_stake;
-            for (weight_idx, weight) in weights.iter().enumerate() {
-                if *weight > 0 {
-                    trust[weight_idx] += hotkey_stake;
-                }
-            }
-        }
-
-        log::debug!("T_before normalization:\n{:?}\n", &trust);
-        log::debug!("Total_stake:\n{:?}\n", &total_stake);
-
-        if total_stake == 0 {
-            return Err("No stake on network");
-        }
-
-        for trust_score in trust.iter_mut() {
-            match trust_score.checked_div(total_stake) {
-                Some(quotient) => {
-                    *trust_score = quotient;
-                }
-                None => {}
-            }
-        }
-
-        // --- 11. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
-        // Consensus will have shape k, a score for each subnet.
-        log::debug!("T:\n{:?}\n", &trust);
-        let one = I64F64::from_num(1);
-        let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
-        for (idx, trust_score) in trust.iter_mut().enumerate() {
-            let shifted_trust = *trust_score - I64F64::from_num(Self::get_float_kappa(0)); // Range( -kappa, 1 - kappa )
-            let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
-            let exponentiated_trust: I64F64 =
-                substrate_fixed::transcendental::exp(-temperatured_trust)
-                    .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
-
-            consensus[idx] = one / (one + exponentiated_trust);
-        }
-
-        log::debug!("C:\n{:?}\n", &consensus);
-        let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
-        for (idx, emission) in weighted_emission.iter_mut().enumerate() {
-            *emission = consensus[idx] * ranks[idx];
-        }
-        inplace_normalize_64(&mut weighted_emission);
-        log::debug!("Ei64:\n{:?}\n", &weighted_emission);
-
-        // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_as_tao: Vec<I64F64> = weighted_emission
-            .iter()
-            .map(|v: &I64F64| *v * block_emission)
-            .collect();
-
-        // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
-        log::debug!("Eu64:\n{:?}\n", &emission_u64);
-
-        // --- 13. Set the emission values for each subnet directly.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
-
-        return Self::set_emission_values(&netuids, emission_u64);
-    }
-
     // Registers a user's hotkey to the root network.
     //
     // This function is responsible for registering the hotkey of a user.
@@ -676,7 +406,10 @@ impl<T: Config> Pallet<T> {
     // 	* 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
     // 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     //
-    pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
+    pub fn user_add_network(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+    ) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
@@ -703,29 +436,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Determine the netuid to register.
         let netuid_to_register: u16 = {
-            log::debug!(
-                "subnet count: {:?}\nmax subnets: {:?}",
-                Self::get_num_subnets(),
-                Self::get_max_subnets()
-            );
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
-                // We subtract one because we don't want root subnet to count towards total
-                let mut next_available_netuid = 0;
-                loop {
-                    next_available_netuid += 1;
-                    if !Self::if_subnet_exist(next_available_netuid) {
-                        log::debug!("got subnet id: {:?}", next_available_netuid);
-                        break next_available_netuid;
-                    }
+            let mut next_available_netuid = 0;
+            loop {
+                next_available_netuid += 1;
+                if !Self::if_subnet_exist(next_available_netuid) {
+                    log::debug!("got subnet id: {:?}", next_available_netuid);
+                    break next_available_netuid;
                 }
-            } else {
-                let netuid_to_prune = Self::get_subnet_to_prune();
-                ensure!(netuid_to_prune > 0, Error::<T>::AllNetworksInImmunity);
-
-                Self::remove_network(netuid_to_prune);
-                log::debug!("remove_network: {:?}", netuid_to_prune,);
-                Self::deposit_event(Event::NetworkRemoved(netuid_to_prune));
-                netuid_to_prune
             }
         };
 
@@ -734,7 +451,6 @@ impl<T: Config> Pallet<T> {
             Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()) == true,
             Error::<T>::BalanceWithdrawalError
         );
-        Self::set_subnet_locked_balance(netuid_to_register, lock_amount);
         Self::set_network_last_lock(lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
@@ -745,7 +461,19 @@ impl<T: Config> Pallet<T> {
         let current_block_number: u64 = Self::get_current_block_as_u64();
         NetworkLastRegistered::<T>::set(current_block_number);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey);
+        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
+        DynamicSubReserve::<T>::insert(netuid_to_register, lock_amount * Self::get_num_subnets() as u64 );
+        DynamicK::<T>::insert(netuid_to_register, lock_amount * lock_amount * Self::get_num_subnets() as u64 );
+
+        // --- 8. Register this cold hot to the network and add it's stake.
+        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid_to_register);
+        Self::append_neuron( netuid_to_register, &hotkey, current_block_number );
+        Self::increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            netuid_to_register,
+            lock_amount * Self::get_num_subnets() as u64
+        );
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(
@@ -756,46 +484,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
 
         // --- 9. Return success.
-        Ok(())
-    }
-
-    // Facilitates the removal of a user's subnetwork.
-    //
-    // # Args:
-    // 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
-    //     * 'netuid': ('u16'): The unique identifier of the network to be removed.
-    //
-    // # Event:
-    // 	* 'NetworkRemoved': Emitted when a network is successfully removed.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist': If the specified network does not exist.
-    // 	* 'NotSubnetOwner': If the caller does not own the specified subnet.
-    //
-    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
-        // --- 1. Ensure the function caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
-
-        // --- 2. Ensure this subnet exists.
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        // --- 3. Ensure the caller owns this subnet.
-        ensure!(
-            SubnetOwner::<T>::get(netuid) == coldkey,
-            Error::<T>::NotSubnetOwner
-        );
-
-        // --- 4. Explicitly erase the network and all its parameters.
-        Self::remove_network(netuid);
-
-        // --- 5. Emit the NetworkRemoved event.
-        log::info!("NetworkRemoved( netuid:{:?} )", netuid);
-        Self::deposit_event(Event::NetworkRemoved(netuid));
-
-        // --- 6. Return success.
         Ok(())
     }
 

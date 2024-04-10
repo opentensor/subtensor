@@ -89,7 +89,7 @@ impl<T: Config> Pallet<T> {
         let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the global stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, 0 ) );
         }
         // Normalize the global stake values in-place.
         inplace_normalize_64(&mut global_stake_64);
@@ -445,7 +445,7 @@ impl<T: Config> Pallet<T> {
         let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the global stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, 0 ) );
         }
         // Normalize the global stake values in-place.
         inplace_normalize_64(&mut global_stake_64);

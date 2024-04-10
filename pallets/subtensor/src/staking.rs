@@ -181,18 +181,21 @@ impl<T: Config> Pallet<T> {
             Error::<T>::BalanceWithdrawalError
         );
 
-        // --- 9. If we reach here, add the balance to the hotkey.
+        // --- 9. Compute Dynamic Stake.
+        let dynamic_stake = Self::compute_dynamic_stake(&coldkey, &hotkey, netuid, stake_to_be_added );
+
+        // --- 10. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid,
-            stake_to_be_added,
+            dynamic_stake,
         );
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the staking event.
+        // --- 11. Emit the staking event.
         log::info!(
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             hotkey,
@@ -313,8 +316,11 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed,
         );
 
+        // --- 10. Compute Dynamic un stake.
+        let dynamic_unstake:u64 = Self::compute_dynamic_unstake(&coldkey, &hotkey, netuid, stake_to_be_removed);
+
         // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
+        Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance( dynamic_unstake ).unwrap() );
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -329,6 +335,80 @@ impl<T: Config> Pallet<T> {
 
         // --- 12. Done and ok.
         Ok(())
+    }
+
+    /// Computes the dynamic unstake amount based on the current reserves and the stake to be removed.
+    /// 
+    /// # Arguments
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier for the network.
+    /// * `stake_to_be_removed` - The amount of stake to be removed.
+    /// 
+    /// # Returns
+    /// * The amount of tao to be pulled out as a result of the unstake operation.
+    pub fn compute_dynamic_unstake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        stake_to_be_removed: u64,
+    ) -> u64 {
+        // Root network does not have dynamic stake.
+        if netuid != 0 {
+            return stake_to_be_removed;
+        }
+
+        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicSubReserve::<T>::get(netuid);
+        let k = DynamicK::<T>::get(netuid);
+
+        // Calculate the new dynamic reserve after adding the stake to be removed
+        let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
+        // Calculate the new tao reserve based on the new dynamic reserve
+        let new_tao_reserve = k / new_dynamic_reserve;
+        // Calculate the amount of tao to be pulled out based on the difference in tao reserves
+        let tao = tao_reserve.saturating_sub(new_tao_reserve);
+
+        tao
+    }
+
+    /// Computes the dynamic stake amount based on the current reserves and the stake to be added.
+    /// 
+    /// # Arguments
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier for the network.
+    /// * `stake_to_be_added` - The amount of stake to be added.
+    /// 
+    /// # Returns
+    /// * The amount of dynamic token to be pulled out as a result of the stake operation.
+    pub fn compute_dynamic_stake(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        stake_to_be_added: u64,
+    ) -> u64 {
+        // Root network does not have dynamic stake.
+        if netuid != 0 {
+            return stake_to_be_added;
+        }
+        
+        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicSubReserve::<T>::get(netuid);
+        let k = DynamicK::<T>::get(netuid);
+
+        // Calculate the new tao reserve after adding the stake
+        let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
+        // Calculate the new dynamic reserve based on the new tao reserve
+        let new_dynamic_reserve = k / new_tao_reserve;
+        // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
+        let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
+
+        // Update the reserves with the new values
+        DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+        DynamicSubReserve::<T>::insert(netuid, new_dynamic_reserve);
+
+        dynamic_token
     }
 
     // Returns true if the passed hotkey allow delegative staking.
