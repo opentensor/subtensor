@@ -14,6 +14,9 @@ use pallet_collective::Event as CollectiveEvent;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test senate
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
 

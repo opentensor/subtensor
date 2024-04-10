@@ -9,6 +9,9 @@ use sp_core::{H256, U256};
 
 mod mock;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test root
+
 #[allow(dead_code)]
 fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
     EventRecord {

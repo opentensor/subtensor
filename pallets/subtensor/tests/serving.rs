@@ -8,6 +8,9 @@ use frame_system::Config;
 use pallet_subtensor::Error;
 use sp_core::U256;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test serving
+
 mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
 

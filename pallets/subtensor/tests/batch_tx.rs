@@ -4,6 +4,9 @@ use sp_core::U256;
 mod mock;
 use mock::*;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test batch_tx
+
 #[test]
 fn test_batch_txs() {
     let alice = U256::from(0);

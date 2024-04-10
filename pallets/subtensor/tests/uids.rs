@@ -5,6 +5,9 @@ use sp_core::U256;
 
 mod mock;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test uids
+
 /********************************************
     tests for uids.rs file
 *********************************************/

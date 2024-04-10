@@ -10,6 +10,9 @@ use sp_core::U256;
 use sp_runtime::DispatchError;
 use substrate_fixed::types::I32F32;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test weights
+
 /***************************
   pub fn set_weights() tests
 *****************************/

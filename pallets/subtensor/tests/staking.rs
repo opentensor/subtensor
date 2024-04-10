@@ -11,6 +11,9 @@ use sp_core::{H256, U256};
     staking::add_subnet_stake() tests
 ************************************************************/
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test staking
+
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_add_subnet_stake_dispatch_info_ok() {
