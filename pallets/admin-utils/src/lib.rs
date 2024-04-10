@@ -53,7 +53,6 @@ pub mod pallet {
     }
 
     #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {}
 
     // Errors inform users that something went wrong.
@@ -100,6 +99,15 @@ pub mod pallet {
             ensure_root(origin)?;
             T::Subtensor::set_tx_rate_limit(tx_rate_limit);
             log::info!("TxRateLimitSet( tx_rate_limit: {:?} ) ", tx_rate_limit);
+            Ok(())
+        }
+
+        #[pallet::call_index(43)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_tx_rate_limit_delegate_take(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_tx_rate_limit_delegate_take(tx_rate_limit);
+            log::info!("TxRateLimitDelegateTakeSet( tx_rate_limit_delegate_take: {:?} ) ", tx_rate_limit);
             Ok(())
         }
 
@@ -788,6 +796,7 @@ impl<A, M> AuraInterface<A, M> for () {
 pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_default_take(default_take: u16);
     fn set_tx_rate_limit(rate_limit: u64);
+    fn set_tx_rate_limit_delegate_take(rate_limit: u64);
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
 

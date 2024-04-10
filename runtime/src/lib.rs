@@ -647,7 +647,7 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
-    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number (65535 * 0.18 = 11_796)
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -656,6 +656,7 @@ parameter_types! {
     pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorInitialTxRateLimitDelegateTake: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
@@ -704,6 +705,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+    type InitialTxRateLimitDelegateTake = SubtensorInitialTxRateLimitDelegateTake;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
@@ -739,6 +741,10 @@ impl
 
     fn set_tx_rate_limit(rate_limit: u64) {
         SubtensorModule::set_tx_rate_limit(rate_limit);
+    }
+
+    fn set_tx_rate_limit_delegate_take(rate_limit: u64) {
+        SubtensorModule::set_tx_rate_limit_delegate_take(rate_limit);
     }
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64) {

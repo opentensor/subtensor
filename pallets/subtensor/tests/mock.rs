@@ -1,3 +1,4 @@
+#![allow(non_snake_case, non_camel_case_types)]
 use frame_support::traits::{Hash, StorageMapShim};
 use frame_support::{
     assert_ok, parameter_types,
@@ -5,7 +6,6 @@ use frame_support::{
     weights,
 };
 use frame_system as system;
-use frame_system::Config;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -134,6 +134,7 @@ parameter_types! {
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxRateLimitDelegateTake: u64 = 0; // Disable delegate take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -345,6 +346,7 @@ impl pallet_subtensor::Config for Test {
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
+    type InitialTxRateLimitDelegateTake = InitialTxRateLimitDelegateTake;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -455,7 +457,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
+pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
