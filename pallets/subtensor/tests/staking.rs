@@ -456,6 +456,24 @@ fn test_add_stake_rate_limit_exceeded() {
     });
 }
 
+#[test]
+fn test_add_stake_err_stake_amount_is_zero() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_account_id = U256::from(435445);
+        let hotkey_account_id = U256::from(54544);
+        let amount = 0;
+
+        assert_eq!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                amount
+            ),
+            Err(Error::<Test>::StakeAmountIsZero.into())
+        );
+    });
+}
+
 // /***********************************************************
 // 	staking::remove_stake() tests
 // ************************************************************/

@@ -141,55 +141,61 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // --- 2. We convert the stake u64 into a balancer.
+         // --- 2. We check the stake amount, doesn't make sense to add nothing.
+        ensure!(
+            stake_to_be_added > 0,
+            Error::<T>::StakeAmountIsZero
+        );
+
+        // --- 3. We convert the stake u64 into a balancer.
         let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
         ensure!(
             stake_as_balance.is_some(),
             Error::<T>::CouldNotConvertToBalance
         );
 
-        // --- 3. Ensure the callers coldkey has enough stake to perform the transaction.
+        // --- 4. Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
+        // --- 5. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 6. Ensure we don't exceed tx rate limit
+        // --- 7. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 7. Ensure we don't exceed stake rate limit
+        // --- 8. Ensure we don't exceed stake rate limit
         let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         ensure!(
             stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+        // --- 9. Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake = Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
 
-        // --- 9. If we reach here, add the balance to the hotkey.
+        // --- 10. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the staking event.
+        // --- 11. Emit the staking event.
         Self::set_stakes_this_interval_for_hotkey(
             &hotkey,
             stakes_this_interval + 1,
@@ -202,7 +208,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, actual_amount_to_stake));
 
-        // --- 11. Ok and return.
+        // --- 12. Ok and return.
         Ok(())
     }
 
