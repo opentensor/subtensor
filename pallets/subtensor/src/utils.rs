@@ -1,10 +1,7 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
-use frame_support::inherent::Vec;
-use frame_support::pallet_prelude::DispatchResult;
-use substrate_fixed::types::I64F64;
 use sp_core::U256;
-
+use substrate_fixed::types::I64F64;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -142,8 +139,15 @@ impl<T: Config> Pallet<T> {
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
     }
-    pub fn set_stakes_this_interval_for_hotkey(hotkey: &T::AccountId, stakes_this_interval: u64, last_staked_block_number: u64) {
-        TotalHotkeyStakesThisInterval::<T>::insert(hotkey, (stakes_this_interval, last_staked_block_number));
+    pub fn set_stakes_this_interval_for_hotkey(
+        hotkey: &T::AccountId,
+        stakes_this_interval: u64,
+        last_staked_block_number: u64,
+    ) {
+        TotalHotkeyStakesThisInterval::<T>::insert(
+            hotkey,
+            (stakes_this_interval, last_staked_block_number),
+        );
     }
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
@@ -287,10 +291,10 @@ impl<T: Config> Pallet<T> {
         GlobalStakeWeight::<T>::get()
     }
     pub fn get_global_stake_weight_float() -> I64F64 {
-        I64F64::from_num( GlobalStakeWeight::<T>::get() ) / I64F64::from_num( u16::MAX )
+        I64F64::from_num(GlobalStakeWeight::<T>::get()) / I64F64::from_num(u16::MAX)
     }
-    pub fn set_global_stake_weight( global_stake_weight: u16 ) {
-        GlobalStakeWeight::<T>::put( global_stake_weight );
+    pub fn set_global_stake_weight(global_stake_weight: u16) {
+        GlobalStakeWeight::<T>::put(global_stake_weight);
     }
 
     // ========================
@@ -317,7 +321,7 @@ impl<T: Config> Pallet<T> {
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn coinbase(amount: u64 ){
+    pub fn coinbase(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {

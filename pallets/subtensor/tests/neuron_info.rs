@@ -78,7 +78,7 @@ fn test_get_neurons_empty() {
 
 #[test]
 fn test_get_neuron_subnet_staking_info() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
 
         let tempo: u16 = 2;
@@ -111,7 +111,7 @@ fn test_get_neuron_subnet_staking_info() {
 
 #[test]
 fn test_get_neuron_subnet_staking_info_multiple() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
 
         let tempo: u16 = 2;
@@ -161,7 +161,7 @@ fn test_get_neuron_subnet_staking_info_multiple() {
 
 #[test]
 fn test_get_neuron_stake_based_on_netuid() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid_root: u16 = 0; // Root network
         let netuid_sub: u16 = 1; // Subnetwork
 
@@ -230,7 +230,7 @@ fn test_get_neuron_stake_based_on_netuid() {
 
 #[test]
 fn test_adding_substake_affects_only_targeted_neuron() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -292,7 +292,7 @@ fn test_adding_substake_affects_only_targeted_neuron() {
 
 #[test]
 fn test_adding_substake_affects_only_targeted_neuron_with_get_neurons_lite() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 2;
         let modality: u16 = 2;
@@ -377,7 +377,7 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neurons_lite() {
 
 #[test]
 fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 2;
         let modality: u16 = 2;

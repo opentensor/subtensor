@@ -5,7 +5,6 @@ use frame_support::{
     weights,
 };
 use frame_system as system;
-use frame_system::Config;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{

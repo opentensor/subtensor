@@ -32,16 +32,10 @@ pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-fe
 
 
 [dev-dependencies]
-# subtensor-custom-rpc-api = { version = "0.0.2", path = "../runtime-api", default-features = false }
-substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-# sp_version = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-# sp_core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
+substrate-test-runtime-client = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
 
 tokio = { version = "1.24.1", features = ["macros", "time", "parking_lot"] }
-# subtensor-custom-rpc-runtime = { version = "0.0.2", path = "../runtime", default-features = false }
-# node-subtensor-runtime = { version = "4.0.0-dev", path = "../../runtime", default-features = false }
-# frame-system = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.39" }
 log = { version = "0.4.14", default-features = false }
 
 [features]

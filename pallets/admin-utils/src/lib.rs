@@ -767,7 +767,10 @@ pub mod pallet {
 
         #[pallet::call_index(43)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_global_stake_weight(origin: OriginFor<T>, global_stake_weight: u16) -> DispatchResult {
+        pub fn sudo_set_global_stake_weight(
+            origin: OriginFor<T>,
+            global_stake_weight: u16,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             T::Subtensor::set_global_stake_weight(global_stake_weight);
             Ok(())
@@ -775,7 +778,10 @@ pub mod pallet {
 
         #[pallet::call_index(44)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_subnet_staking(origin: OriginFor<T>, subnet_staking: bool) -> DispatchResult {
+        pub fn sudo_set_subnet_staking(
+            origin: OriginFor<T>,
+            subnet_staking: bool,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             T::Subtensor::set_subnet_staking(subnet_staking);
             Ok(())
@@ -824,8 +830,7 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
 
     fn get_root_netuid() -> u16;
     fn if_subnet_exist(netuid: u16) -> bool;
-    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16 );
-    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16 );
+    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16);
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool;
     fn increase_stake_on_coldkey_hotkey_account(
         coldkey: &AccountId,
@@ -870,6 +875,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64);
     fn init_new_network(netuid: u16, tempo: u16);
     fn set_weights_min_stake(min_stake: u64);
-    fn set_global_stake_weight( global_stake_weight: u16 );
-    fn set_subnet_staking( subnet_staking: bool );
+    fn set_global_stake_weight(global_stake_weight: u16);
+    fn set_subnet_staking(subnet_staking: bool);
 }

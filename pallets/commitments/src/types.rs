@@ -25,7 +25,7 @@ use scale_info::{
     Path, Type, TypeInfo,
 };
 use sp_runtime::{
-    traits::{AppendZerosInput, AtLeast32BitUnsigned, Zero},
+    traits::{AppendZerosInput, AtLeast32BitUnsigned},
     RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, prelude::*};

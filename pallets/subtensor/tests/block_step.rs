@@ -810,7 +810,7 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 // RUST_BACKTRACE=1 cargo test --package pallet-subtensor --test block_step test_subnet_staking_emission -- --nocapture
 #[test]
 fn test_subnet_staking_emission() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let delegate = U256::from(1);
         let nominator1 = U256::from(2);
         let nominator2 = U256::from(3);

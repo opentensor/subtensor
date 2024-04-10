@@ -508,19 +508,19 @@ fn test_remove_stake_under_limit() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2, 6000);
 
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
-            1,
             netuid,
+            1,
         ));
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
-            1,
             netuid,
+            1,
         ));
 
         let current_unstakes =
@@ -563,11 +563,12 @@ fn test_remove_stake_rate_limit_exceeded() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 2);
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, netuid, 2);
         assert_err!(
             SubtensorModule::remove_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
                 hotkey_account_id,
+                netuid,
                 2,
             ),
             Error::<Test>::UnstakeRateLimitExceeded
@@ -1187,7 +1188,11 @@ fn test_has_enough_stake_yes() {
             10000
         );
         assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_id, &hotkey_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &coldkey_id,
+                &hotkey_id,
+                netuid
+            ),
             10000
         );
         assert_eq!(
@@ -2222,44 +2227,126 @@ fn test_full_with_delegating_some_servers() {
 
 #[test]
 fn test_stao_delegation() {
-    new_test_ext().execute_with(|| {
-
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let delegate = U256::from(1);
         let nominator1 = U256::from(2);
         let nominator2 = U256::from(3);
-        
+
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, delegate, delegate, 124124);
         SubtensorModule::add_balance_to_coldkey_account(&delegate, 100000);
         SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100000);
         SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100000);
-        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, netuid, 100000 ));
-        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, 0));
-        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator1), delegate, netuid, 100000 ));
-        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator2), delegate, netuid, 100000 ));
-        assert!( SubtensorModule::hotkey_is_delegate( &delegate ) );
-        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate), 100000 * 3 );
-        assert_eq!( SubtensorModule::get_total_stake(), 100000 * 3 );
-        assert_eq!( SubtensorModule::get_total_stake_for_subnet(netuid), 100000 * 3 );
-        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_subnet( &delegate, netuid ), 100000 * 3 );
-        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &delegate ), 100000 );
-        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &nominator1 ), 100000 );
-        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &nominator2 ), 100000 );
-        assert_eq!( SubtensorModule::get_owning_coldkey_for_hotkey( &delegate ), delegate );
-        assert_eq!( SubtensorModule::hotkey_account_exists( &delegate ), true );
-        assert_eq!( SubtensorModule::hotkey_account_exists( &nominator1 ), false );
-        assert_eq!( SubtensorModule::hotkey_account_exists( &nominator2 ), false );
-        assert_eq!( SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey( &delegate, &delegate, netuid ), 100000 );
-        assert_eq!( SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey( &nominator1, &delegate, netuid ), 100000 );
-        assert_eq!( SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey( &nominator2, &delegate, netuid ), 100000 );
-        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &delegate), 100000 );
-        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1), 100000 );
-        assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1), 100000 );
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate,
+            netuid,
+            100000
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate,
+            0
+        ));
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            delegate,
+            netuid,
+            100000
+        ));
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator2),
+            delegate,
+            netuid,
+            100000
+        ));
+        assert!(SubtensorModule::hotkey_is_delegate(&delegate));
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&delegate),
+            100000 * 3
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 100000 * 3);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_subnet(netuid),
+            100000 * 3
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&delegate, netuid),
+            100000 * 3
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&delegate),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&nominator1),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&nominator2),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_owning_coldkey_for_hotkey(&delegate),
+            delegate
+        );
+        assert_eq!(SubtensorModule::hotkey_account_exists(&delegate), true);
+        assert_eq!(SubtensorModule::hotkey_account_exists(&nominator1), false);
+        assert_eq!(SubtensorModule::hotkey_account_exists(&nominator2), false);
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, netuid),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &nominator1,
+                &delegate,
+                netuid
+            ),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &nominator2,
+                &delegate,
+                netuid
+            ),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &delegate),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1),
+            100000
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&delegate, &nominator1),
+            100000
+        );
         SubtensorModule::emit_inflation_through_hotkey_account(&delegate, netuid, 0, 1000);
-        assert_eq!( SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey( &delegate, &delegate, netuid ), 100000 + 1000/3 + 1 ); // The +1 is from the residual.
-        assert_eq!( SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey( &nominator1, &delegate, netuid ), 100000 + 1000/3);
-        assert_eq!( SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey( &nominator2, &delegate, netuid ), 100000 + 1000/3);
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, netuid),
+            100000 + 1000 / 3 + 1
+        ); // The +1 is from the residual.
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &nominator1,
+                &delegate,
+                netuid
+            ),
+            100000 + 1000 / 3
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &nominator2,
+                &delegate,
+                netuid
+            ),
+            100000 + 1000 / 3
+        );
     })
 }
 
@@ -2500,19 +2587,35 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
 
         // Vefify stake for all coldkeys is 0
         assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &coldkey0_id,
+                &hotkey_id,
+                netuid
+            ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1_id, &hotkey_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &coldkey1_id,
+                &hotkey_id,
+                netuid
+            ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2_id, &hotkey_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &coldkey2_id,
+                &hotkey_id,
+                netuid
+            ),
             0
         );
         assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey3_id, &hotkey_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &coldkey3_id,
+                &hotkey_id,
+                netuid
+            ),
             0
         );
 
@@ -2571,7 +2674,11 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
 
         // Vefify stake for single coldkey is 0
         assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0_id, &hotkey_id, netuid),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &coldkey0_id,
+                &hotkey_id,
+                netuid
+            ),
             0
         );
 
@@ -2625,7 +2732,7 @@ fn test_faucet_ok() {
 // Run epochs for each subnet.
 // Check that the total stake is correct.
 fn test_subnet_stake_calculation() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         pallet_subtensor::migration::migrate_create_root_network::<Test>();
         // Setup constants
         const NUM_SUBNETS: u16 = 32;
@@ -2753,6 +2860,7 @@ fn test_subnet_stake_calculation() {
                 assert_ok!(SubtensorModule::remove_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                     hotkey,
+                    netuid,
                     ROOT_STAKE_PER_NEURON
                 ));
 
@@ -2784,7 +2892,7 @@ fn test_subnet_stake_calculation() {
 
 #[test]
 fn test_three_subnets_with_different_stakes() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         pallet_subtensor::migration::migrate_create_root_network::<Test>();
         // Setup constants
         const NUM_SUBNETS: u16 = 3; // Only 3 subnets
@@ -2826,8 +2934,9 @@ fn test_three_subnets_with_different_stakes() {
                 ));
 
                 // Assert individual stake amounts
-                let stake_for_neuron =
-                    SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+                let stake_for_neuron = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                    &coldkey, &hotkey, netuid,
+                );
                 assert_eq!(
                     stake_for_neuron,
                     STAKE_AMOUNTS[netuid as usize - 1],
@@ -2854,7 +2963,7 @@ fn test_three_subnets_with_different_stakes() {
 
 #[test]
 fn test_register_neurons_and_stake_different_amounts() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let start_nonce: u64 = 0;
@@ -2911,7 +3020,7 @@ fn test_register_neurons_and_stake_different_amounts() {
 
 #[test]
 fn test_substake_increases_stake_of_only_targeted_neuron() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
 

@@ -219,8 +219,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
-        (0, 0)  
-    } 
+        (0, 0)
+    }
 
     #[pallet::type_value]
     pub fn DefaultBlockEmission<T: Config>() -> u64 {
@@ -238,7 +238,20 @@ pub mod pallet {
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
- 
+    #[pallet::type_value]
+    pub fn DefaultAccountTake<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
+        T::InitialTargetStakesPerInterval::get()
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultStakeInterval<T: Config>() -> u64 {
+        360
+    }
+
     #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
     pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
@@ -295,14 +308,14 @@ pub mod pallet {
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<
-        _, 
+        _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>,    // hot
-            NMapKey<Blake2_128Concat, T::AccountId>,    // cold
-            NMapKey<Identity, u16>,                     // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
         ),
         u64,
-        ValueQuery
+        ValueQuery,
     >;
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
@@ -1023,8 +1036,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            
-
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -1383,10 +1394,10 @@ pub mod pallet {
             hotkey: T::AccountId,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake( origin, hotkey, Self::get_root_netuid(), amount_staked )
+            Self::do_add_stake(origin, hotkey, Self::get_root_netuid(), amount_staked)
         }
         #[pallet::call_index(63)]
-        #[pallet::weight((Weight::from_ref_time(65_000_000)
+        #[pallet::weight((Weight::from_parts(65_000_000,0)
 		.saturating_add(T::DbWeight::get().reads(8))
 		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
         pub fn add_subnet_stake(
@@ -1395,7 +1406,7 @@ pub mod pallet {
             netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake( origin, hotkey, netuid, amount_staked )
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         // ---- Remove stake from the staking account. The call must be made
@@ -1441,11 +1452,11 @@ pub mod pallet {
             netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake( origin, hotkey, Self::get_root_netuid(), amount_unstaked )
+            Self::do_remove_stake(origin, hotkey, Self::get_root_netuid(), amount_unstaked)
         }
         #[pallet::call_index(64)]
-        #[pallet::weight((Weight::from_ref_time(63_000_000)
-		.saturating_add(Weight::from_proof_size(43991))
+        #[pallet::weight((Weight::from_parts(63_000_000,0)
+		.saturating_add(Weight::from_parts(0, 43991))
 		.saturating_add(T::DbWeight::get().reads(14))
 		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
         pub fn remove_subnet_stake(
@@ -1454,7 +1465,7 @@ pub mod pallet {
             netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake( origin, hotkey, netuid, amount_unstaked )
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
         // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is

@@ -8,7 +8,7 @@ use sp_core::U256;
 
 #[test]
 fn test_get_stake_info_for_coldkey() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey = U256::from(0);
@@ -35,7 +35,7 @@ fn test_get_stake_info_for_coldkey() {
 
 #[test]
 fn test_get_stake_info_for_coldkeys() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey = U256::from(0);
@@ -62,7 +62,7 @@ fn test_get_stake_info_for_coldkeys() {
 
 #[test]
 fn test_get_stake_info_for_multiple_coldkeys() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
 
@@ -114,7 +114,7 @@ fn test_get_stake_info_for_multiple_coldkeys() {
 
 #[test]
 fn test_get_total_subnet_stake() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let coldkey = U256::from(0);
@@ -138,7 +138,7 @@ fn test_get_total_subnet_stake() {
 
 #[test]
 fn test_get_all_stake_info_for_coldkey() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid1: u16 = 1;
         let netuid2: u16 = 2;
         let tempo: u16 = 13;
@@ -182,7 +182,7 @@ fn test_get_all_stake_info_for_coldkey() {
 
 #[test]
 fn test_get_all_stake_info_for_coldkey_2() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid1: u16 = 1;
         let netuid2: u16 = 2;
         let tempo: u16 = 13;
@@ -226,6 +226,6 @@ fn test_get_all_stake_info_for_coldkey_2() {
         assert_eq!(all_stake_info.len(), 2); // Ensure we have two entries
 
         let total_stake: u64 = all_stake_info.iter().map(|info| info.2 .0).sum();
-        assert_eq!(total_stake, 15000); 
+        assert_eq!(total_stake, 15000);
     });
 }

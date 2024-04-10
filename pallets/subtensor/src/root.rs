@@ -38,8 +38,8 @@ impl<T: Config> Pallet<T> {
     pub fn subnet_staking_on() -> bool {
         SubnetStakingOn::<T>::get()
     }
-    pub fn set_subnet_staking( subnet_staking: bool ) {
-        SubnetStakingOn::<T>::put( subnet_staking );
+    pub fn set_subnet_staking(subnet_staking: bool) {
+        SubnetStakingOn::<T>::put(subnet_staking);
     }
 
     // Retrieves the unique identifier (UID) for the root network.
@@ -151,14 +151,13 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_block_emission() -> Result<u64, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance( Self::get_total_issuance() )
+        Self::get_block_emission_for_issuance(Self::get_total_issuance())
     }
 
     // Returns the block emission for an issuance value.
-    pub fn get_block_emission_for_issuance( issuance: u64 ) -> Result<u64, &'static str> {
-
+    pub fn get_block_emission_for_issuance(issuance: u64) -> Result<u64, &'static str> {
         // Convert issuance to a float for calculations below.
-        let total_issuance: I96F32 = I96F32::from_num( issuance );
+        let total_issuance: I96F32 = I96F32::from_num(issuance);
         // Check to prevent division by zero when the total supply is reached
         // and creating an issuance greater than the total supply.
         if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
@@ -313,7 +312,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnet_staking_emission_values(_block_number: u64) -> Result<(), &'static str> {
         // --- 0. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
+        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission()?);
         log::debug!("block_emission:\n{:?}\n", block_emission);
 
         // --- 1. Obtains the number of registered subnets.
@@ -334,8 +333,10 @@ impl<T: Config> Pallet<T> {
         // --- 5. Iterate over all stake values filling the vector.
         for ((_, _, netuid), stake) in SubStake::<T>::iter() {
             // --- 5.a. Skip Root: We don't sum the stake on the root network.
-            if netuid == 0 { continue; }
-            if netuid > max_subnet_index { 
+            if netuid == 0 {
+                continue;
+            }
+            if netuid > max_subnet_index {
                 return Err("Found stake value with no corresponding valid netuid.");
             }
 
@@ -345,7 +346,8 @@ impl<T: Config> Pallet<T> {
             // --- 5.c Increment the total stake at this netuid index.
             let stake_index = netuid as usize;
             if stake_index < normalized_total_stake.len() {
-                normalized_total_stake[stake_index] = normalized_total_stake[stake_index].saturating_add(I64F64::from_num(stake));
+                normalized_total_stake[stake_index] =
+                    normalized_total_stake[stake_index].saturating_add(I64F64::from_num(stake));
             } else {
                 return Err("Stake index out of bounds."); // Added error handling for out of bounds
             }
@@ -357,7 +359,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("Normalized Stake:\n{:?}\n", &normalized_total_stake);
 
         // --- 7. Multiply stake proportions. Note that there is a chance that the normalization
-        // Returned a zero vector, so this calculation also returns 0. In this event the block step 
+        // Returned a zero vector, so this calculation also returns 0. In this event the block step
         // returns a zero emission for every subnet and there is not issuance increase.
         let emission_as_tao: Vec<I64F64> = normalized_total_stake
             .iter()
@@ -380,7 +382,11 @@ impl<T: Config> Pallet<T> {
                 return Err("Emission value not found for netuid"); // Added error handling for out of bounds
             }
         }
-        log::debug!("netuids: {:?} emission_values: {:?}", all_netuids, emission_values);
+        log::debug!(
+            "netuids: {:?} emission_values: {:?}",
+            all_netuids,
+            emission_values
+        );
 
         // --- 10. Set emission values.
         Self::set_emission_values(&all_netuids, emission_values)?;
@@ -787,7 +793,8 @@ impl<T: Config> Pallet<T> {
         };
 
         // --- 5. Perform the lock operation.
-        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap())?;
+        let actual_lock_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap())?;
         Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
         Self::set_network_last_lock(actual_lock_amount);
 
