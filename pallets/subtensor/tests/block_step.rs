@@ -814,24 +814,39 @@ fn test_subnet_staking_emission() {
         let delegate = U256::from(1);
         let nominator1 = U256::from(2);
         let nominator2 = U256::from(3);
+        SubtensorModule::set_target_stakes_per_interval(20);
         add_network(1, 1, 0);
         add_network(2, 1, 0);
         add_network(3, 1, 0);
-        assert_eq!( SubtensorModule::get_num_subnets(), 3 );
+        assert_eq!(SubtensorModule::get_num_subnets(), 3);
         SubtensorModule::add_balance_to_coldkey_account(&delegate, 100000);
         SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100000);
         SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100000);
         register_ok_neuron(1, delegate, delegate, 124124);
         register_ok_neuron(2, delegate, delegate, 124124);
         register_ok_neuron(3, delegate, delegate, 124124);
-        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, 1, 10000 ));
-        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, 2, 1000 ));
-        assert_ok!(SubtensorModule::add_subnet_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate), delegate, 3, 100 ));
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate,
+            1,
+            10000
+        ));
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate,
+            2,
+            1000
+        ));
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate,
+            3,
+            100
+        ));
         SubtensorModule::get_subnet_staking_emission_values(0).unwrap();
-        assert_eq!( SubtensorModule::get_subnet_emission_value(1), 900_900_900 ); // (10000 / (100 + 1000 + 10000)) * 1000000000 ~= 900900900
-        assert_eq!( SubtensorModule::get_subnet_emission_value(2), 90_090_090 ); // (1000 / (100 + 1000 + 10000)) * 1000000000 ~= 90,090,090
-        assert_eq!( SubtensorModule::get_subnet_emission_value(3), 9_009_009 ); // (100 / (100 + 1000 + 10000)) * 1000000000 ~= 9,009,009
-        assert_eq!( 900_900_900 + 90_090_090 + 9_009_009, 999_999_999);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 900_900_900); // (10000 / (100 + 1000 + 10000)) * 1000000000 ~= 900900900
+        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 90_090_090); // (1000 / (100 + 1000 + 10000)) * 1000000000 ~= 90,090,090
+        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 9_009_009); // (100 / (100 + 1000 + 10000)) * 1000000000 ~= 9,009,009
+        assert_eq!(900_900_900 + 90_090_090 + 9_009_009, 999_999_999);
     });
 }
-
