@@ -1,6 +1,6 @@
 use super::*;
 
-use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
+use frame_support::pallet_prelude::DispatchResultWithPostInfo;
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
@@ -103,7 +103,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
 
         // The burn occurs here.
         Self::burn_tokens(actual_burn_amount);
@@ -395,7 +396,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 100_000_000_000_000_000;
-        Self::coinbase( 100_000_000_000 ); // We are creating tokens here from the coinbase.
+        Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
         let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
@@ -432,14 +433,14 @@ impl<T: Config> Pallet<T> {
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
-        
+
         let current_block: u64 = Self::get_current_block_as_u64();
         let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
         for neuron_uid_i in 0..neurons_n {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid_i);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
-            
+
             if min_score == pruning_score {
                 if current_block - block_at_registration < immunity_period {
                     //neuron is in immunity period
@@ -731,7 +732,8 @@ impl<T: Config> Pallet<T> {
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
             Error::<T>::NotEnoughBalance
         );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
         Self::burn_tokens(actual_burn_amount);
 
         Owner::<T>::remove(old_hotkey);

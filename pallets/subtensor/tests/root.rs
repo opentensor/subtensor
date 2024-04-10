@@ -2,7 +2,6 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use log::info;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 use sp_core::{Get, H256, U256};

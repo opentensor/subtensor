@@ -109,7 +109,7 @@ fn test_senate_join_works() {
                 &hotkey_account_id,
                 netuid
             ),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -183,7 +183,7 @@ fn test_senate_vote_works() {
                 &hotkey_account_id,
                 netuid
             ),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -358,7 +358,7 @@ fn test_senate_leave_works() {
                 &hotkey_account_id,
                 netuid
             ),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -433,7 +433,7 @@ fn test_senate_leave_vote_removal() {
                 &hotkey_account_id,
                 netuid
             ),
-            100_000
+            99999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
@@ -577,11 +577,13 @@ fn test_senate_not_leave_when_stake_removed() {
                 &hotkey_account_id,
                 netuid
             ),
-            stake_amount
+            // Need to account for existential deposit
+            stake_amount - 1
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_amount - 1 // Need to account for ED
+            // Need to account for existential deposit
+            stake_amount - 1
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -595,11 +597,13 @@ fn test_senate_not_leave_when_stake_removed() {
                 &hotkey_account_id,
                 netuid
             ),
-            stake_amount
+            // Need to account for existential deposit
+            stake_amount - 1
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_amount
+            // Need to account for existential deposit
+            stake_amount - 1
         );
 
         // step_block(100);

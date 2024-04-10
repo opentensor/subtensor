@@ -91,7 +91,7 @@ fn test_get_neuron_subnet_staking_info() {
 
         add_network(netuid, tempo, modality);
         register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, stake_amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, stake_amount + 5);
 
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -131,7 +131,8 @@ fn test_get_neuron_subnet_staking_info_multiple() {
             let coldkey = U256::from((index + 10) as u64);
 
             register_ok_neuron(netuid, hotkey, coldkey, 39420842 + index as u64);
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
+            // Adding more because of existential deposit
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount + 5);
 
             assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -222,7 +223,9 @@ fn test_get_neuron_stake_based_on_netuid() {
             "Subnetwork should have 1 stake entry"
         );
         assert_eq!(
-            neuron_sub.stake[0].1 .0, stake_amount_sub,
+            neuron_sub.stake[0].1 .0,
+            // Need to account for existential deposit
+            stake_amount_sub - 1,
             "Stake amount for subnetwork does not match"
         );
     });
@@ -241,6 +244,7 @@ fn test_adding_substake_affects_only_targeted_neuron() {
         let total_stake: u64 = neuron_count as u64 * 1000;
         let initial_stake: u64 = 1000;
 
+        SubtensorModule::set_target_stakes_per_interval(10000);
         SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
         SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
 
@@ -302,6 +306,7 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neurons_lite() {
         let neuron_count = 5;
         let initial_stake: u64 = 1000;
 
+        SubtensorModule::set_target_stakes_per_interval(10000);
         SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
         SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
 
@@ -387,6 +392,7 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
         let neuron_count = 5;
         let initial_stake: u64 = 1000;
 
+        SubtensorModule::set_target_stakes_per_interval(10000);
         SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
         SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
 

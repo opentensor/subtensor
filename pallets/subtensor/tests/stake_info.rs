@@ -28,7 +28,8 @@ fn test_get_stake_info_for_coldkey() {
                 .iter()
                 .map(|info| info.stake.0)
                 .sum::<u64>(),
-            10000
+            // Need to account for existential deposit
+            10000 - 1
         );
     });
 }
@@ -55,7 +56,8 @@ fn test_get_stake_info_for_coldkeys() {
                 .iter()
                 .map(|info| info.stake.0)
                 .sum::<u64>(),
-            10000
+            // Need to account for existential deposit
+            10000 - 1
         );
     });
 }
@@ -131,7 +133,8 @@ fn test_get_total_subnet_stake() {
         ));
         assert_eq!(
             SubtensorModule::get_total_subnet_stake(Compact(netuid).into()),
-            Compact(10000)
+            // Need to account for existential deposit
+            Compact(10000 - 1)
         );
     });
 }

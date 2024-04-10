@@ -191,28 +191,22 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+        // --- 9. Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
 
-        // --- 9. If we reach here, add the balance to the hotkey.
+        // --- 10. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid,
-            stake_to_be_added,
-        );
-        Self::increase_stake_on_coldkey_hotkey_account(
-            &coldkey,
-            &hotkey,
-            netuid,
-            stake_to_be_added,
+            actual_amount_to_stake,
         );
 
-        // Set last block for rate limiting
+        // -- 11. Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the staking event.
+        // --- 12. Emit the staking event.
         Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
         log::info!(
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
