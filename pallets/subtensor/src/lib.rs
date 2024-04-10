@@ -675,6 +675,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage] // --- MAP ( key ) --> last_block
+    pub(super) type LastTxBlockDelegateTake<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
     #[pallet::type_value]
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
@@ -1426,6 +1429,10 @@ pub mod pallet {
         //
         // 	* 'take' (u16):
         // 		- The new stake proportion that this hotkey takes from delegations.
+        //        The new value can be between 0 and 11_796 and should be strictly
+        //        lower than the previous value. It T is the new value (rational number),
+        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        //        [0.01 * 65535] = [655.35] = 655
         //        The new value can be between 0 and 11_796 and should be strictly
         //        lower than the previous value. It T is the new value (rational number),
         //        the the parameter is calculated as [65535 * T]. For example, 1% would be

@@ -52,6 +52,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 2. Ensure we are delegating a known key.
+        // --- 2. Ensure we are delegating a known key.
         // --- 3. Ensure that the coldkey is the owner.
         Self::do_account_checks(&coldkey, &hotkey)?;
 
@@ -236,7 +237,7 @@ impl<T: Config> Pallet<T> {
         // --- 6. Set the new take value.
         DelegatesTake::<T>::insert(hotkey.clone(), netuid, take);
 
-        // --- 7. Emit the take value.
+        // --- 5. Emit the take value.
         log::info!(
             "TakeIncreased( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
             coldkey,
@@ -842,6 +843,12 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
         return Owner::<T>::get(hotkey);
+    }
+
+    // Returns the hotkey take
+    //
+    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
+        Delegates::<T>::get(hotkey)
     }
 
     // Returns the hotkey take

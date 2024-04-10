@@ -1,4 +1,5 @@
 #![allow(non_snake_case, non_camel_case_types)]
+#![allow(non_snake_case, non_camel_case_types)]
 use frame_support::traits::Hash;
 use frame_support::{
     assert_ok, parameter_types,
@@ -466,6 +467,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
+pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
