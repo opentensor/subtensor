@@ -298,6 +298,28 @@ impl<T: Config> Pallet<T> {
     }
 
     // ========================
+    // ===== Take checks ======
+    // ========================
+    pub fn do_take_checks(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        // Ensure we are delegating a known key.
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // Ensure that the coldkey is the owner.
+        ensure!(
+            Self::coldkey_owns_hotkey(coldkey, hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        Ok(())
+    }
+
+    // ========================
     // ==== Rate Limiting =====
     // ========================
     pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
@@ -305,6 +327,12 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
         LastTxBlock::<T>::get(key)
+    }
+    pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
+        LastTxBlockDelegateTake::<T>::insert(key, block)
+    }
+    pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
+        LastTxBlockDelegateTake::<T>::get(key)
     }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
@@ -351,6 +379,13 @@ impl<T: Config> Pallet<T> {
     pub fn set_tx_rate_limit(tx_rate_limit: u64) {
         TxRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
+    }
+    pub fn get_tx_rate_limit_delegate_take() -> u64 {
+        TxRateLimitDelegateTake::<T>::get()
+    }
+    pub fn set_tx_rate_limit_delegate_take(tx_rate_limit: u64) {
+        TxRateLimitDelegateTake::<T>::put(tx_rate_limit);
+        Self::deposit_event(Event::TxRateLimitDelegateTakeSet(tx_rate_limit));
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {

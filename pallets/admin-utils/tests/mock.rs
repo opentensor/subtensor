@@ -79,6 +79,7 @@ parameter_types! {
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxRateLimitDelegateTake: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -143,6 +144,7 @@ impl pallet_subtensor::Config for Test {
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
+    type InitialTxRateLimitDelegateTake = InitialTxRateLimitDelegateTake;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -209,6 +211,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_tx_rate_limit(rate_limit: u64) {
         SubtensorModule::set_tx_rate_limit(rate_limit);
+    }
+
+    fn set_tx_rate_limit_delegate_take(rate_limit: u64) {
+        SubtensorModule::set_tx_rate_limit_delegate_take(rate_limit);
     }
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64) {
