@@ -15,8 +15,8 @@ pub struct StakeInfo<T: Config> {
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetStakeInfo<T: Config> {
-    hotkey: T::AccountId,
-    netuid: u16,
+    pub hotkey: T::AccountId,
+    pub netuid: u16,
     pub stake: Compact<u64>,
 }
 

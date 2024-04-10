@@ -4,7 +4,7 @@ use codec::Encode;
 use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
-use sp_core::U256;
+use sp_core::{ Bytes, U256 };
 
 #[test]
 fn test_get_stake_info_for_coldkey() {
@@ -170,7 +170,7 @@ fn test_get_all_stake_info_for_coldkey() {
         ));
 
         // Retrieve all stake info for the coldkey and assert the results
-        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(Bytes(coldkey.encode()));
         log::info!("all_stake_info: {:?}", all_stake_info);
         // Assuming the function returns a Vec<(AccountId, u16, Compact<u64>)>
         assert_eq!(all_stake_info.len(), 2); // Ensure we have two entries
@@ -196,7 +196,7 @@ fn test_get_all_stake_info_for_coldkey_2() {
         add_network(netuid2, tempo, 0);
 
         // Assert that stake info is 0 before adding stake
-        let initial_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+        let initial_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(Bytes(coldkey.encode()));
         log::info!("initial_stake_info: {:?}", initial_stake_info);
         let initial_total_stake: u64 = initial_stake_info.iter().map(|info| info.2 .0).sum();
         assert_eq!(initial_total_stake, 0, "Initial total stake should be 0");
@@ -220,12 +220,12 @@ fn test_get_all_stake_info_for_coldkey_2() {
         ));
 
         // Retrieve all stake info for the coldkey and assert the results
-        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(Bytes(coldkey.encode()));
         log::info!("all_stake_info: {:?}", all_stake_info);
         // Assuming the function returns a Vec<(AccountId, u16, Compact<u64>)>
         assert_eq!(all_stake_info.len(), 2); // Ensure we have two entries
 
         let total_stake: u64 = all_stake_info.iter().map(|info| info.2 .0).sum();
-        assert_eq!(total_stake, 15000); 
+        assert_eq!(total_stake, 15000);
     });
 }

@@ -30,7 +30,7 @@ sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-
 
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../runtime-api", default-features = false }
 pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
-
+node-subtensor-runtime = { version = "4.0.0-dev", path = "../../../runtime", default-features = false }
 
 [dev-dependencies]
 # subtensor-custom-rpc-api = { version = "0.0.2", path = "../runtime-api", default-features = false }

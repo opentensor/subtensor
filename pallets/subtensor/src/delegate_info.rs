@@ -10,14 +10,14 @@ use sp_core::hexdisplay::AsBytesRef;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DelegateInfo<T: Config> {
-    delegate_ss58: T::AccountId,
-    take: Compact<u16>,
-    nominators: Vec<(T::AccountId, Compact<u64>)>, // map of nominator_ss58 to stake amount
-    owner_ss58: T::AccountId,
-    registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
-    validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
-    return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
-    total_daily_return: Compact<u64>, // Delegators current daily return
+    pub delegate_ss58: T::AccountId,
+    pub take: Compact<u16>,
+    pub nominators: Vec<(T::AccountId, Compact<u64>)>, // map of nominator_ss58 to stake amount
+    pub owner_ss58: T::AccountId,
+    pub registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
+    pub validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
+    pub return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
+    pub total_daily_return: Compact<u64>, // Delegators current daily return
 }
 
 impl<T: Config> Pallet<T> {

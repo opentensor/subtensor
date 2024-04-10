@@ -68,7 +68,7 @@ impl Decode for Data {
         Ok(match b {
             0 => Data::None,
             n @ 1..=65 => {
-                let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
+                let mut r: BoundedVec<_, _> = sp_std::vec![0u8; n as usize - 1]
                     .try_into()
                     .expect("bound checked in match arm condition; qed");
                 input.read(&mut r[..])?;
@@ -89,7 +89,7 @@ impl Encode for Data {
             Data::None => vec![0u8; 1],
             Data::Raw(ref x) => {
                 let l = x.len().min(64);
-                let mut r = vec![l as u8 + 1; l + 1];
+                let mut r = sp_std::vec![l as u8 + 1; l + 1];
                 r[1..].copy_from_slice(&x[..l as usize]);
                 r
             }

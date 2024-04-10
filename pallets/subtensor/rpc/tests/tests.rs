@@ -1,3 +1,5 @@
+#![allow(non_snake_case)]
+
 use std::sync::Arc;
 
 use sp_api::{ApiRef, ProvideRuntimeApi};
@@ -6,6 +8,7 @@ use sp_runtime::{
     generic::{self},
     traits::{BlakeTwo256, Block as BlockT, Extrinsic, NumberFor, Verify, Zero},
 };
+use codec::{ Compact, Encode };
 
 use sp_blockchain::HeaderBackend;
 use subtensor_custom_rpc::{
@@ -14,22 +17,62 @@ use subtensor_custom_rpc::{
 };
 use substrate_test_runtime_client::runtime::{Block, Hash};
 use subtensor_custom_rpc::SubtensorCustomApiServer;
+use pallet_subtensor::{
+    stake_info::SubnetStakeInfo,
+    delegate_info::DelegateInfo,
+};
+use node_subtensor_runtime::Runtime;
+use sp_core::Bytes;
 
 pub struct TestApi {}
 pub struct TestRuntimeApi {}
 
+const ONE_KEY: [u8; 32] = [1; 32];
+
 sp_api::mock_impl_runtime_apis! {
     impl DelegateInfoRuntimeApi<Block> for TestRuntimeApi {
-        #[advanced]
-        fn get_delegates(&self, at: Hash) -> Result<Vec<u8>, sp_api::ApiError> {
-            Ok(Vec::new())
+        fn get_delegates(&self) -> Vec<u8> {
+            let mut result = Vec::new();
+            result.push(DelegateInfo::<Runtime> {
+                delegate_ss58: sp_runtime::AccountId32::from(ONE_KEY),
+                take: Compact(1),
+                nominators: Vec::new(),
+                owner_ss58: sp_runtime::AccountId32::from(ONE_KEY),
+                registrations: Vec::new(),
+                validator_permits: Vec::new(),
+                return_per_1000: Compact(123),
+                total_daily_return: Compact(456),
+            });
+
+            result.encode()
         }
-        fn get_delegate(&self, delegate_account_vec: Vec<u8>) -> Vec<u8> {
-            unimplemented!()
+        fn get_delegate(&self, _delegate_account_vec: Vec<u8>) -> Vec<u8> {
+            (Some(DelegateInfo::<Runtime> {
+                delegate_ss58: sp_runtime::AccountId32::from(ONE_KEY),
+                take: Compact(1),
+                nominators: Vec::new(),
+                owner_ss58: sp_runtime::AccountId32::from(ONE_KEY),
+                registrations: Vec::new(),
+                validator_permits: Vec::new(),
+                return_per_1000: Compact(123),
+                total_daily_return: Compact(456),
+            })).encode()
         }
 
-        fn get_delegated(&self, delegatee_account_vec: Vec<u8>) -> Vec<u8> {
-            unimplemented!()
+        fn get_delegated(&self, _delegatee_account_vec: Vec<u8>) -> Vec<u8> {
+            let mut result = Vec::new();
+            result.push(DelegateInfo::<Runtime> {
+                delegate_ss58: sp_runtime::AccountId32::from(ONE_KEY),
+                take: Compact(1),
+                nominators: Vec::new(),
+                owner_ss58: sp_runtime::AccountId32::from(ONE_KEY),
+                registrations: Vec::new(),
+                validator_permits: Vec::new(),
+                return_per_1000: Compact(123),
+                total_daily_return: Compact(456),
+            });
+
+            result.encode()
         }
     }
 
@@ -62,36 +105,26 @@ sp_api::mock_impl_runtime_apis! {
             unimplemented!()
         }
         #[advanced]
-        fn get_all_stake_info_for_coldkey(&self, _at: Hash, _coldkey_account_vec: Bytes) -> Result<Vec<u8>, sp_api::ApiError> {
+        fn get_all_stake_info_for_coldkey(&self, _at: Hash, coldkey_account_vec: Bytes) -> Result<Vec<u8>, sp_api::ApiError> {
+           // Mock result from pallet as a SubnetStakeInfo with production AccountId
+            let mut pubkey_array: [u8; 32] = [0; 32];
+            pubkey_array.copy_from_slice(&coldkey_account_vec[..32]);
+            let coldkey: node_subtensor_runtime::AccountId = sp_runtime::AccountId32::from(pubkey_array);
 
-            // Mock result from pallet as a SubnetStakeInfo with production AccountId
-            // let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])
-            // .expect("Failed to decode AccountId");
+            let mut result = Vec::<SubnetStakeInfo<Runtime>>::new();
+            result.push(SubnetStakeInfo{
+                hotkey: coldkey,
+                netuid: 1,
+                stake: Compact(1),
+            });
 
-            // let mut result = Vec::<(SubnetStakeInfo<pallet_subtensor::Config>, u16, Compact<u64>)>::new();
-            // result.push(SubnetStakeInfo{
-            //     hotkey: Default::default(),
-            //     netuid: 1,
-            //     stake: Compact(1),
-            // });
-
-            // Mock result from pallet as a tuple with u64 AccountId
-            let mut result = Vec::<(u64, u16, Compact<u64>)>::new();
-            for i in 0..10 {
-                result.push((
-                    i,
-                    i as u16,
-                    Compact(1),
-                ));
-            }
-
-            Ok(result.encode())
+             Ok(result.encode())
         }
     }
 
     impl SubnetRegistrationRuntimeApi<Block> for TestRuntimeApi {
         fn get_network_registration_cost() -> u64 {
-            unimplemented!()
+            0xCCCC
         }
     }
 
@@ -173,10 +206,10 @@ async fn get_all_stake_info_for_coldkey_should_work() {
     let client = Arc::new(TestApi {});
     let api = SubtensorCustom::new(client);
 
-    let magic_address = Vec::from([0xd2, 0xb7, 0x73, 0x64, 0xd1,
+    let magic_address = Bytes(Vec::from([0xd2, 0xb7, 0x73, 0x64, 0xd1,
         0xc3, 0xb4, 0x45, 0xcd, 0x69, 0xbd, 0x59, 0xf1, 0xa8, 0x7d, 0xcb,
         0x26, 0xc9, 0xce, 0x3f, 0x46, 0x43, 0x7d, 0x55, 0xb8, 0x8b, 0x43,
-        0xf1, 0xc1, 0x77, 0xe7, 0x76]);
+        0xf1, 0xc1, 0x77, 0xe7, 0x76]));
 
     let request = api.get_all_stake_info_for_coldkey(magic_address, None);
     let response = request.unwrap();

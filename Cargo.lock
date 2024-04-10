@@ -8449,6 +8449,7 @@ version = "0.0.2"
 dependencies = [
  "jsonrpsee",
  "log",
+ "node-subtensor-runtime",
  "pallet-subtensor",
  "parity-scale-codec",
  "sc-client-api",
