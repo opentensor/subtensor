@@ -18,7 +18,6 @@ pub use subtensor_custom_rpc_runtime_api::{
 
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
-
     #[method(name = "delegateInfo_getDelegate")]
     fn get_delegate(
         &self,

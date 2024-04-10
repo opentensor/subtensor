@@ -263,8 +263,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         return SubtensorModule::if_subnet_exist(netuid);
     }
 
-	fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16 )
-    {
+    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16) {
         return SubtensorModule::create_account_if_non_existent(coldkey, hotkey, netuid);
     }
 
@@ -272,9 +271,15 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
     }
 
-	fn increase_stake_on_coldkey_hotkey_account(coldkey: &AccountId, hotkey: &AccountId, netuid: u16, increment: u64)
-    {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid, increment);
+    fn increase_stake_on_coldkey_hotkey_account(
+        coldkey: &AccountId,
+        hotkey: &AccountId,
+        netuid: u16,
+        increment: u64,
+    ) {
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            coldkey, hotkey, netuid, increment,
+        );
     }
 
     fn u64_to_balance(input: u64) -> Option<Balance> {
@@ -428,11 +433,11 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::set_weights_min_stake(min_stake);
     }
 
-    fn set_global_stake_weight( global_stake_weight: u16 ) {
+    fn set_global_stake_weight(global_stake_weight: u16) {
         SubtensorModule::set_global_stake_weight(global_stake_weight);
     }
 
-    fn set_subnet_staking( subnet_staking: bool ) {
+    fn set_subnet_staking(subnet_staking: bool) {
         SubtensorModule::set_subnet_staking(subnet_staking);
     }
 }
