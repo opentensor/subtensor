@@ -34,7 +34,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         take: u16,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the coldkey signuture.
+        // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
@@ -47,26 +47,36 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure that the coldkey is the owner.
         Self::do_take_checks(&coldkey, &hotkey)?;
 
-        // --- 4. Ensure we are not already a delegate (dont allow changing delegate take here.)
+        // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
+        let max_take = T::InitialDefaultTake::get();
+        ensure!(
+            take <= max_take,
+            Error::<T>::InvalidTake
+        );
+
+        // --- 5. Ensure we are not already a delegate (dont allow changing delegate take here.)
         ensure!(
             !Self::hotkey_is_delegate(&hotkey),
             Error::<T>::AlreadyDelegate
         );
 
-        // --- 5. Ensure we don't exceed tx rate limit
+        // --- 6. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 6. Delegate the key.
+        // --- 7. Delegate the key.
         Self::delegate_hotkey(&hotkey, take);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 7. Emit the staking event.
+        // Also, set last block for take increase rate limiting
+        Self::set_last_tx_block_delegate_take(&coldkey, block);
+
+        // --- 8. Emit the staking event.
         log::info!(
             "DelegateAdded( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
             coldkey,
@@ -75,7 +85,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::DelegateAdded(coldkey, hotkey, take));
 
-        // --- 8. Ok and return.
+        // --- 9. Ok and return.
         Ok(())
     }
 
@@ -101,9 +111,6 @@ impl<T: Config> Pallet<T> {
     //
     // 	* 'NonAssociatedColdKey':
     // 		- The hotkey we are delegating is not owned by the calling coldket.
-    //
-    // 	* 'TxRateLimitExceeded':
-    // 		- Thrown if key has hit transaction rate limit
     //
     pub fn do_decrease_take(
         origin: T::RuntimeOrigin,
