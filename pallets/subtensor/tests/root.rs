@@ -207,11 +207,17 @@ fn test_root_set_weights() {
 
         // Set weights into diagonal matrix.
         for i in 0..n {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
+
+            SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
             let uids: Vec<u16> = vec![i as u16];
             let values: Vec<u16> = vec![1];
             assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 root_netuid,
+                hotkey,
                 uids,
                 values,
                 0,
@@ -321,12 +327,23 @@ fn test_root_set_weights_out_of_order_netuids() {
         let subnets = SubtensorModule::get_all_subnet_netuids();
         // Set weights into diagonal matrix.
         for (i, netuid) in subnets.iter().enumerate() {
-            let uids: Vec<u16> = vec![*netuid];
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i);
 
+            // Cannot register neuron for root
+            if *netuid == 0 {
+                SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+            } else {
+                SubtensorModule::set_network_pow_registration_allowed(*netuid, true);
+                register_ok_neuron(*netuid, hotkey, coldkey, 0);
+            }
+
+            let uids: Vec<u16> = vec![*netuid];
             let values: Vec<u16> = vec![1];
             assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 root_netuid,
+                hotkey,
                 uids,
                 values,
                 0,
@@ -504,8 +521,9 @@ fn test_network_pruning() {
             ));
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(hot),
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
                 root_netuid,
+                hot,
                 uids,
                 values,
                 0
@@ -640,8 +658,9 @@ fn test_weights_after_network_pruning() {
         log::info!("values set: {:?}", values);
         log::info!("In netuid: {:?}", root_netuid);
         assert_ok!(SubtensorModule::set_weights(
-            <<Test as Config>::RuntimeOrigin>::signed(hot),
+            <<Test as Config>::RuntimeOrigin>::signed(cold),
             root_netuid,
+            hot,
             uids,
             values,
             0
