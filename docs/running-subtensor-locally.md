@@ -202,4 +202,4 @@ To run an archive node connected to the testchain, execute the below command:
 ``` 
 
 ## Running on cloud
-We have not tested these installation scripts on any cloud service. In addition, if you are using Runpod cloud service, then note that this service is already [containerized](https://docs.runpod.io/pods/overview). Hence, the only option available to you is to compile from the source, as described in the above [Compiling your own binary](#compiling-your-own-binary) section. Note that these scripts have not been tested on Runpod.
+We have not tested these installation scripts on any cloud service. In addition, if you are using Runpod cloud service, then note that this service is already [containerized](https://docs.runpod.io/pods/overview). Hence, the only option available to you is to compile from the source, as described in the above [Method 2: Using Source Code](#method-2-using-source-code) section. Note that these scripts have not been tested on Runpod.
