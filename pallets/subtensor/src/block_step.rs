@@ -39,39 +39,35 @@ impl<T: Config> Pallet<T> {
 
     pub fn run_coinbase( block_number:u64 ) {
 
-        let block_emission: u64 = Self::get_block_emission();
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut prices = Vec::new();
-        let mut total_price:I64F64 = I64F64::from_num(0.0);
+        let mut prices: Vec<(u16, I64F64)> = Vec::new();
+        let mut total_prices:I64F64 = I64F64::from_num(0.0);
 
         // Compute the uniswap price for each netuid
         for netuid in netuids.iter() {
-            let tao_reserve:u64 = DynamicTAOReserve::<T>::get(netuid);
-            let sub_reserve:u64 = DynamicSubReserve::<T>::get(netuid);
-            if sub_reserve > 0 { // Avoid division by zero
-                let price = I64F64::from_num(tao_reserve)/ I64F64::from_num(sub_reserve);
-                prices.push((netuid, price));
-                total_price += price;
-            }
+            if *netuid == Self::get_root_netuid() { continue }
+            if !Self::is_subnet_dynamic( *netuid ) { continue }
+            let price = Self::get_tao_per_alpha_price( *netuid );
+            prices.push((*netuid, price));
+            total_prices += price;
         }
 
-        // Normalize the prices and distribute TAO
+        // Check if alpha prices exceed TAO market cap.
+        let tao_block_emission: u64;
+        if total_prices <= I64F64::from_num(1.0) {
+            tao_block_emission = Self::get_block_emission();
+        } else {
+            tao_block_emission = 0;
+        }
+
         for (netuid, price) in prices.iter() {
-            let normalized_price: I64F64 = price / I64F64::from_num(total_price);
-            let new_tao_emission: u64 = (normalized_price * I64F64::from_num(block_emission)).to_num::<u64>();
-            let new_dynamic_emission: u64 = Self::get_block_emission();
-            let new_dynamic_reserve_emission: u64 = Self::get_block_emission();
-
-            let current_tao_reserve: u64 = DynamicTAOReserve::<T>::get(netuid);
-            let current_dynamic_reserve: u64 = DynamicSubReserve::<T>::get(netuid);
-
-            let new_tao_reserve: u64 = current_tao_reserve + new_tao_emission;
-            let new_dynamic_reserve: u64 = current_dynamic_reserve + new_dynamic_emission;
-            let new_dynamic_k: u64 = new_tao_reserve * current_dynamic_reserve;
-
-            DynamicK::<T>::insert( netuid, new_dynamic_k );
-            DynamicTAOReserve::<T>::insert( netuid, new_tao_reserve );
-            PendingEmission::<T>::mutate( netuid, |emission| *emission += new_dynamic_reserve_emission );
+            let normalized_alpha_price: I64F64 = price / I64F64::from_num( total_prices );
+            let new_tao_emission:u64 = ( normalized_alpha_price * I64F64::from_num( tao_block_emission ) ).to_num::<u64>();
+            let new_alpha_emission: u64 = Self::get_block_emission();
+            DynamicTAOReserve::<T>::mutate( netuid, |reserve| *reserve += new_tao_emission );
+            DynamicAlphaReserve::<T>::mutate( netuid, |reserve| *reserve += new_alpha_emission );
+            PendingAlphaEmission::<T>::mutate( netuid, |emission| *emission += new_alpha_emission );
+            DynamicK::<T>::insert( netuid, (DynamicTAOReserve::<T>::get(netuid) as u128) * (DynamicAlphaReserve::<T>::get(netuid) as u128) );
             TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add( new_tao_emission ));
         }
 
@@ -83,14 +79,13 @@ impl<T: Config> Pallet<T> {
             if Self::blocks_until_next_epoch( *netuid, tempo, block_number ) == 0 {
 
                 // Get the emission to distribute for this subnet.
-                let emission_to_drain: u64 = PendingEmission::<T>::get(netuid);
-                PendingEmission::<T>::insert(netuid, 0);
-
+                let alpha_emission: u64 = PendingAlphaEmission::<T>::get(netuid);
+    
                 // Run the epoch mechanism and return emission tuples for hotkeys in the network.
-                let emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::epoch( *netuid, emission_to_drain );
+                let alpha_emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::epoch( *netuid, alpha_emission );
 
                 // --- Emit the tuples through the hotkeys.
-                for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
+                for (hotkey, server_amount, validator_amount) in alpha_emission_tuples.iter() {
                     Self::emit_inflation_through_hotkey_account(
                         &hotkey,
                         *netuid,
@@ -100,6 +95,8 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // Update counters.
+                PendingEmission::<T>::insert(netuid, 0);
+                PendingAlphaEmission::<T>::insert(netuid, 0);
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, block_number);
             } 
@@ -142,10 +139,11 @@ impl<T: Config> Pallet<T> {
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
-        let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-        log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_stake);
+        // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
+        let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate ); 
+        log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
-        if delegate_local_stake + delegate_global_stake != 0 {
+        if delegate_local_stake + delegate_global_dynamic_tao != 0 {
             for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
 
                 // 3.a Compute the stake weight percentage for the nominatore weight.
@@ -158,11 +156,11 @@ impl<T: Config> Pallet<T> {
                 };
                 log::debug!("nominator_local_emission_i: {:?}", nominator_local_emission_i);
 
-                let nominator_global_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( delegate, &nominator_i, 0); // Get Root stake.
-                let nominator_global_emission_i: I64F64 = if delegate_global_stake == 0 {
+                let nominator_global_stake: u64 = Self::get_coldkey_hotkey_global_dynamic_tao( &nominator_i, delegate ); // Get global stake.
+                let nominator_global_emission_i: I64F64 = if delegate_global_dynamic_tao == 0 {
                     I64F64::from_num(0)
                 } else {
-                    let nominator_global_percentage: I64F64 = I64F64::from_num( nominator_global_stake ) / I64F64::from_num( delegate_global_stake );
+                    let nominator_global_percentage: I64F64 = I64F64::from_num( nominator_global_stake ) / I64F64::from_num( delegate_global_dynamic_tao );
                     nominator_global_percentage * I64F64::from_num( remaining_validator_emission ) * global_stake_weight
                 };
                 log::debug!("nominator_global_emission_i: {:?}", nominator_global_emission_i);

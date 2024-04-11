@@ -410,10 +410,19 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
+
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
-        // --- 1. Rate limit for network registrations.
+        // --- 1. Ensure that the hotkey is not owned by another key.
+        if Owner::<T>::contains_key( &hotkey ) {
+            ensure!(
+                Self::coldkey_owns_hotkey( &coldkey, &hotkey ),
+                Error::<T>::NonAssociatedColdKey
+            );
+        }
+
+        // --- 2. Check rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
@@ -421,58 +430,62 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 2. Calculate and lock the required tokens.
+        // --- 3. Calculate and lock the required tokens to register a network.
         let lock_amount: u64 = Self::get_network_lock_cost();
         let lock_as_balance = Self::u64_to_balance(lock_amount);
         log::debug!("network lock_amount: {:?}", lock_amount,);
-        ensure!(
-            lock_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()),
-            Error::<T>::NotEnoughBalanceToStake
-        );
+        ensure!( lock_as_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
+        ensure!( Self::can_remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()), Error::<T>::NotEnoughBalanceToStake );
 
-        // --- 4. Determine the netuid to register.
-        let netuid_to_register: u16 = {
-            let mut next_available_netuid = 0;
-            loop {
-                next_available_netuid += 1;
-                if !Self::if_subnet_exist(next_available_netuid) {
-                    log::debug!("got subnet id: {:?}", next_available_netuid);
-                    break next_available_netuid;
-                }
-            }
-        };
-
-        // --- 5. Perform the lock operation.
+        // --- 4. Remove the funds from the owner's account.
         ensure!(
             Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()) == true,
             Error::<T>::BalanceWithdrawalError
         );
         Self::set_network_last_lock(lock_amount);
 
-        // --- 6. Set initial and custom parameters for the network.
+        // --- 5. Determine the netuid to register by iterating through netuids to find next lowest netuid.
+        let netuid_to_register: u16 = {
+            let mut next_available_netuid = 0;
+            loop {
+                next_available_netuid += 1;
+                if !Self::if_subnet_exist(next_available_netuid) {
+                    break next_available_netuid;
+                }
+            }
+        };
+
+        // --- 6. Create a new network and set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
-        log::debug!("init_new_network: {:?}", netuid_to_register,);
-
-        // --- 7. Set netuid storage.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        NetworkLastRegistered::<T>::set(current_block_number);
-        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
-        DynamicSubReserve::<T>::insert(netuid_to_register, lock_amount * Self::get_num_subnets() as u64 );
-        DynamicK::<T>::insert(netuid_to_register, lock_amount * lock_amount * Self::get_num_subnets() as u64 );
+        NetworkLastRegistered::<T>::set( current_block_number );        
+        NetworkRegisteredAt::<T>::insert( netuid_to_register, current_block_number );
+        log::debug!("init_new_network: {:?}", netuid_to_register,);
+        
+        // --- 7. Set Subnet owner to the coldkey.
+        SubnetOwner::<T>::insert( netuid_to_register, coldkey.clone() );
 
-        // --- 8. Register this cold hot to the network and add it's stake.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid_to_register);
+        // --- 8. Instantiate initial token supply based on lock cost.
+        let initial_tao_reserve: u64 = lock_amount as u64;
+        let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
+        let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
+        let initial_dynamic_k: u128 = ( initial_tao_reserve as u128) * ( initial_dynamic_reserve as u128 );
+
+        DynamicTAOReserve::<T>::insert( netuid_to_register, initial_tao_reserve );
+        DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve );
+        DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k );
+        IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+
+        // --- 9. Register the owner to the network and expand size.
+        Self::create_account_if_non_existent( &coldkey, &hotkey, netuid_to_register );
         Self::append_neuron( netuid_to_register, &hotkey, current_block_number );
+
+        // --- 10. Distribute initial supply of tokens to the owners.
         Self::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid_to_register,
-            lock_amount * Self::get_num_subnets() as u64
+            initial_dynamic_outstanding
         );
 
         // --- 8. Emit the NetworkAdded event.
@@ -489,6 +502,7 @@ impl<T: Config> Pallet<T> {
 
     // Sets initial and custom parameters for a new network.
     pub fn init_new_network(netuid: u16, tempo: u16) {
+
         // --- 1. Set network to 0 size.
         SubnetworkN::<T>::insert(netuid, 0);
 

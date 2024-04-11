@@ -1,4 +1,5 @@
 use super::*;
+use substrate_fixed::types::I64F64;
 use frame_support::storage::IterableStorageDoubleMap;
 
 impl<T: Config> Pallet<T> {
@@ -354,20 +355,24 @@ impl<T: Config> Pallet<T> {
         stake_to_be_removed: u64,
     ) -> u64 {
         // Root network does not have dynamic stake.
-        if netuid != 0 {
+        if !Self::is_subnet_dynamic( netuid ) {
             return stake_to_be_removed;
         }
 
         let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
-        let dynamic_reserve = DynamicSubReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
         let k = DynamicK::<T>::get(netuid);
 
         // Calculate the new dynamic reserve after adding the stake to be removed
         let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
         // Calculate the new tao reserve based on the new dynamic reserve
-        let new_tao_reserve = k / new_dynamic_reserve;
+        let new_tao_reserve:u64 = ( k / ( new_dynamic_reserve as u128)) as u64;
         // Calculate the amount of tao to be pulled out based on the difference in tao reserves
         let tao = tao_reserve.saturating_sub(new_tao_reserve);
+
+        // Update the reserves with the new values
+        DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+        DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
 
         tao
     }
@@ -389,24 +394,25 @@ impl<T: Config> Pallet<T> {
         stake_to_be_added: u64,
     ) -> u64 {
         // Root network does not have dynamic stake.
-        if netuid != 0 {
+        if !Self::is_subnet_dynamic( netuid ) {
             return stake_to_be_added;
         }
+
         
         let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
-        let dynamic_reserve = DynamicSubReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
         let k = DynamicK::<T>::get(netuid);
 
         // Calculate the new tao reserve after adding the stake
         let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
         // Calculate the new dynamic reserve based on the new tao reserve
-        let new_dynamic_reserve = k / new_tao_reserve;
+        let new_dynamic_reserve:u64 = (k / ( new_tao_reserve as u128)) as u64;
         // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
         let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
 
         // Update the reserves with the new values
         DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
-        DynamicSubReserve::<T>::insert(netuid, new_dynamic_reserve);
+        DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
 
         dynamic_token
     }
@@ -427,6 +433,21 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_total_stake() -> u64 {
         return TotalStake::<T>::get();
+    }
+
+    // Getters for Dynamic terms
+    //
+    pub fn get_tao_reserve( netuid: u16 ) -> u64 {
+        DynamicTAOReserve::<T>::get( netuid )
+    }
+    pub fn get_alpha_reserve( netuid: u16 ) -> u64 {
+        DynamicAlphaReserve::<T>::get( netuid )
+    }
+    pub fn get_pool_k( netuid: u16 ) -> u128 {
+        DynamicK::<T>::get( netuid )
+    }
+    pub fn is_subnet_dynamic( netuid: u16 ) -> bool {
+        IsDynamic::<T>::get( netuid )
     }
 
     // Returns the total amount of stake under a subnet (delegative or otherwise)
@@ -552,6 +573,47 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
     ) -> u64 {
         Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
+    }
+
+    pub fn get_tao_per_alpha_price( netuid: u16 ) -> I64F64 {
+        let tao_reserve: u64 = DynamicTAOReserve::<T>::get( netuid );
+        let alpha_reserve: u64 = DynamicAlphaReserve::<T>::get( netuid );
+        if alpha_reserve == 0 {
+            return I64F64::from_num( 1.0 );
+        } else {
+            return I64F64::from_num( tao_reserve ) / I64F64::from_num( alpha_reserve );
+        }
+    }
+
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_global_dynamic_tao(
+        hotkey: &T::AccountId,
+    ) -> u64 {
+        let mut global_dynamic_tao: I64F64 = I64F64::from_num( 0.0 );
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid in netuids.iter() {
+            let alpha_stake: I64F64 = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, *netuid ) );
+            let tao_per_alpha_price: I64F64 = Self::get_tao_per_alpha_price( *netuid );
+            global_dynamic_tao += alpha_stake * tao_per_alpha_price;
+        }
+        return global_dynamic_tao.to_num::<u64>();
+    }
+
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_coldkey_hotkey_global_dynamic_tao(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> u64 {
+        let mut global_dynamic_tao: I64F64 = I64F64::from_num( 0.0 );
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid in netuids.iter() {
+            let alpha_stake: I64F64 = I64F64::from_num( Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, *netuid ) );
+            let tao_per_alpha_price: I64F64 = Self::get_tao_per_alpha_price( *netuid );
+            global_dynamic_tao += alpha_stake * tao_per_alpha_price;
+        }
+        return global_dynamic_tao.to_num::<u64>();
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.

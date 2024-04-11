@@ -295,10 +295,12 @@ pub mod pallet {
     pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> DynamicTAOReserve | Returns the TAO reserve for a given netuid.
     pub type DynamicTAOReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
-    #[pallet::storage] // --- MAP ( netuid ) --> DynamicSubReserve | Returns the dynamic sub-reserve for a given netuid.
-    pub type DynamicSubReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicAlphaReserve | Returns the dynamic sub-reserve for a given netuid.
+    pub type DynamicAlphaReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> DynamicK | Returns the dynamic K value for a given netuid.
-    pub type DynamicK<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    pub type DynamicK<T> = StorageMap<_, Identity, u16, u128, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> is_subnet_dynamic | Returns true if the network is using dynamic staking.
+    pub type IsDynamic<T> = StorageMap<_, Identity, u16, bool, ValueQuery>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -533,6 +535,9 @@ pub mod pallet {
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
+        #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
+    pub type PendingAlphaEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
     pub type BlocksSinceLastStep<T> =
