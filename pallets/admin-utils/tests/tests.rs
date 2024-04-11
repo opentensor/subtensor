@@ -951,10 +951,13 @@ fn test_sudo_set_tx_rate_limit() {
 
 #[test]
 fn test_sudo_set_tx_delegate_take_rate_limit() {
+fn test_sudo_set_tx_delegate_take_rate_limit() {
     new_test_ext().execute_with(|| {
         let to_be_set: u64 = 10;
         let init_value: u64 = SubtensorModule::get_tx_delegate_take_rate_limit();
+        let init_value: u64 = SubtensorModule::get_tx_delegate_take_rate_limit();
         assert_eq!(
+            AdminUtils::sudo_set_tx_delegate_take_rate_limit(
             AdminUtils::sudo_set_tx_delegate_take_rate_limit(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set

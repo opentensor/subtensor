@@ -170,6 +170,7 @@ pub mod pallet {
         type InitialTxRateLimit: Get<u64>;
         #[pallet::constant] // Initial delegate take transaction rate limit.
         type InitialTxDelegateTakeRateLimit: Get<u64>;
+        type InitialTxDelegateTakeRateLimit: Get<u64>;
         #[pallet::constant] // Initial percentage of total stake required to join senate.
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.

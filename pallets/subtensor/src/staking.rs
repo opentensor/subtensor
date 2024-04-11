@@ -44,6 +44,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
+        // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_become_delegate( origin:{:?} hotkey:{:?} )",
@@ -62,6 +63,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AlreadyDelegate
         );
 
+        // --- 6. Ensure we don't exceed tx rate limit
         // --- 6. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -88,6 +90,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::DelegateAdded(coldkey, hotkey, Self::get_default_take()));
 
+        // --- 9. Ok and return.
         // --- 9. Ok and return.
         Ok(())
     }
