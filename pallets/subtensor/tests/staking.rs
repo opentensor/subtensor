@@ -494,7 +494,6 @@ fn test_remove_stake_under_limit() {
         let call = pallet_subtensor::Call::remove_stake {
             hotkey: hotkey_account_id,
             amount_unstaked: 1,
-            netuid,
         };
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
@@ -557,7 +556,6 @@ fn test_remove_stake_rate_limit_exceeded() {
         let call = pallet_subtensor::Call::remove_stake {
             hotkey: hotkey_account_id,
             amount_unstaked: 1,
-            netuid,
         };
         let info: DispatchInfo =
             DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
@@ -3293,7 +3291,6 @@ fn test_subnet_stake_calculation() {
                 assert_ok!(SubtensorModule::remove_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                     hotkey,
-                    netuid,
                     ROOT_STAKE_PER_NEURON
                 ));
 

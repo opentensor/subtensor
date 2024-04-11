@@ -1,5 +1,5 @@
 #![allow(non_snake_case, non_camel_case_types)]
-use frame_support::traits::{Hash, StorageMapShim};
+use frame_support::traits::Hash;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
