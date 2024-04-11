@@ -41,8 +41,8 @@ use sp_version::RuntimeVersion;
 pub use frame_support::{
     construct_runtime, parameter_types,
     traits::{
-        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, KeyOwnerProofSystem, PrivilegeCmp,
-        Randomness, StorageInfo, InstanceFilter
+        ConstBool, ConstU128, ConstU32, ConstU64, ConstU8, InstanceFilter, KeyOwnerProofSystem,
+        PrivilegeCmp, Randomness, StorageInfo,
     },
     weights::{
         constants::{
