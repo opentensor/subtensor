@@ -102,7 +102,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::call_index(43)]
+        #[pallet::call_index(45)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_tx_delegate_take_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
             ensure_root(origin)?;

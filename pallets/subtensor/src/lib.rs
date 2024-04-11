@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
+#![allow(non_snake_case, non_camel_case_types)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -1026,6 +1027,7 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        InvalidTake, // --- Thrown when delegate take is being set out of bounds
     }
 
     // ==================
@@ -1395,7 +1397,7 @@ pub mod pallet {
         // 	* 'InvalidTransaction':
         // 		- The delegate is setting a take which is not lower than the previous.
         //
-        #[pallet::call_index(63)]
+        #[pallet::call_index(65)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
             Self::do_decrease_take(origin, hotkey, take)
@@ -1431,7 +1433,7 @@ pub mod pallet {
         // 	* 'InvalidTransaction':
         // 		- The delegate is setting a take which is not lower than the previous.
         //
-        #[pallet::call_index(64)]
+        #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn increase_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
             Self::do_decrease_take(origin, hotkey, take)

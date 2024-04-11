@@ -2735,7 +2735,7 @@ fn test_faucet_ok() {
 // Verify that InitialDefaultTake is between 50% and u16::MAX-1, this is important for other tests
 #[test]
 fn test_delegate_take_limit() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(InitialDefaultTake::get() >= u16::MAX/2, true);
         assert_eq!(InitialDefaultTake::get() <= u16::MAX-1, true);
     });
@@ -2744,7 +2744,7 @@ fn test_delegate_take_limit() {
 // Verify delegate take can be decreased
 #[test]
 fn test_delegate_take_can_be_decreased() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2778,7 +2778,7 @@ fn test_delegate_take_can_be_decreased() {
 // Verify delegate take can not be increased with do_decrease_take
 #[test]
 fn test_delegate_take_can_not_be_increased_with_decrease_take() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2815,7 +2815,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
 // Verify delegate take can be increased
 #[test]
 fn test_delegate_take_can_be_increased() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2849,7 +2849,7 @@ fn test_delegate_take_can_be_increased() {
 // Verify delegate take can not be decreased with increase_take
 #[test]
 fn test_delegate_take_can_not_be_decreased_with_increase_take() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2886,7 +2886,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
 // Verify delegate take can be increased up to InitialDefaultTake (18%)
 #[test]
 fn test_delegate_take_can_be_increased_to_limit() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2920,7 +2920,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 // Verify delegate take can not be set above InitialDefaultTake
 #[test]
 fn test_delegate_take_can_not_be_set_beyond_limit() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2953,7 +2953,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
 // Verify delegate take can not be increased above InitialDefaultTake (18%)
 #[test]
 fn test_delegate_take_can_not_be_increased_beyond_limit() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
@@ -2993,7 +2993,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
 // Verify delegate take affects emission distribution
 #[test]
 fn test_delegate_take_affects_distribution() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid = 1;
         // Make two accounts.
         let hotkey0 = U256::from(1);
@@ -3069,7 +3069,7 @@ fn test_delegate_take_affects_distribution() {
 // Verify changing delegate take also changes emission distribution
 #[test]
 fn test_changing_delegate_take_changes_distribution() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid = 1;
         // Make two accounts.
         let hotkey0 = U256::from(1);
