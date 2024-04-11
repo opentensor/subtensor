@@ -807,11 +807,13 @@ fn test_issance_bounds() {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
-        let total_issuance = (0..n_halvings).into_iter().fold(0, |total, _| {
-            let block_emission_10_500_000x: u64 =
-                SubtensorModule::get_block_emission_for_issuance(total).unwrap() * 10_500_000;
-            total + block_emission_10_500_000x
-        });
+        let total_issuance = (0..n_halvings)
+            .into_iter()
+            .fold(0, |total, _| {
+                let block_emission_10_500_000x: u64 =
+                    SubtensorModule::get_block_emission_for_issuance(total).unwrap() * 10_500_000;
+                total + block_emission_10_500_000x
+            });
         assert_eq!(total_issuance, 20_999_999_989_500_000);
     })
 }

@@ -3298,7 +3298,6 @@ fn test_subnet_stake_calculation() {
                 assert_ok!(SubtensorModule::remove_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                     hotkey,
-                    // netuid,
                     ROOT_STAKE_PER_NEURON
                 ));
 
