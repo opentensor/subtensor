@@ -72,7 +72,7 @@ benchmarks! {
       weights.push(id.clone());
     }
 
-  }: set_weights(RawOrigin::Signed( signer.clone() ), netuid, dests, weights, version_key)
+  }: set_weights(RawOrigin::Signed( signer.clone() ), netuid, signer.clone(), dests, weights, version_key)
 
 
   benchmark_become_delegate {
