@@ -320,6 +320,28 @@ impl<T: Config> Pallet<T> {
     }
 
     // ========================
+    // ===== Take checks ======
+    // ========================
+    pub fn do_take_checks(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> Result<(), Error<T>> {
+        // Ensure we are delegating a known key.
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // Ensure that the coldkey is the owner.
+        ensure!(
+            Self::coldkey_owns_hotkey(coldkey, hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        Ok(())
+    }
+
+    // ========================
     // ==== Rate Limiting =====
     // ========================
     pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
