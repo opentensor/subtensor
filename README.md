@@ -51,7 +51,11 @@ Requirements:
 
 ## For Subnet Development 
 
-For subnet incentive mechanism development and testing, you will need to run a local subtensor node. Follow the detailed step-by-step instructions provided in the document [Running subtensor locally](./docs/running-subtensor-locally.md) to run either a lite node or an archive node. Also see the [**Subtensor Nodes** section in Bittensor Developer Documentation](https://docs.bittensor.com/subtensor-nodes).
+If you are developing and testing subnet incentive mechanism, you will need to run a local subtensor node. Follow the detailed step-by-step instructions provided in the document [Running subtensor locally](./docs/running-subtensor-locally.md) to run either a lite node or an archive node. Also see the [**Subtensor Nodes** section in Bittensor Developer Documentation](https://docs.bittensor.com/subtensor-nodes).
+
+### Lite node vs Archive node
+
+For an explanation of lite node, archive node and how you can run your local subtensor node in these modes, see [Lite node vs archive node](https://docs.bittensor.com/subtensor-nodes#lite-node-vs-archive-node) section on [Bittensor Developer Docs](https://docs.bittensor.com/).
 
 ---
 
