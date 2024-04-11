@@ -2957,6 +2957,7 @@ fn test_delegate_take_can_be_increased_to_limit() {
 #[test]
 fn test_delegate_take_can_not_be_increased_beyond_limit() {
     new_test_ext(1).execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(3);
