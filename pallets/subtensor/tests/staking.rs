@@ -2732,6 +2732,15 @@ fn test_faucet_ok() {
     });
 }
 
+// Verify that InitialDefaultTake is between 50% and u16::MAX-1, this is important for other tests
+#[test]
+fn test_delegate_take_limit() {
+    new_test_ext().execute_with(|| {
+        assert_eq!(InitialDefaultTake::get() >= u16::MAX/2, true);
+        assert_eq!(InitialDefaultTake::get() <= u16::MAX-1, true);
+    });
+}
+
 // Verify delegate take can be decreased
 #[test]
 fn test_delegate_take_can_be_decreased() {
@@ -2748,7 +2757,7 @@ fn test_delegate_take_can_be_decreased() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 50% take
+        // Coldkey / hotkey 0 become delegates with 5% take
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
@@ -2905,6 +2914,39 @@ fn test_delegate_take_can_be_increased_to_limit() {
             InitialDefaultTake::get()
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), InitialDefaultTake::get());
+    });
+}
+
+// Verify delegate take can not be set above InitialDefaultTake
+#[test]
+fn test_delegate_take_can_not_be_set_beyond_limit() {
+    new_test_ext().execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+        let before = SubtensorModule::get_hotkey_take(&hotkey0);
+
+        // Coldkey / hotkey 0 attempt to become delegates with take above maximum
+        // (Disable this check if InitialDefaultTake is u16::MAX)
+        if InitialDefaultTake::get() != u16::MAX {
+            assert_eq!(
+                SubtensorModule::do_become_delegate(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                    hotkey0,
+                    InitialDefaultTake::get()+1
+                ),
+                Err(Error::<Test>::InvalidTake.into())
+            );
+        }
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
     });
 }
 

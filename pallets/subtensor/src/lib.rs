@@ -165,7 +165,7 @@ pub mod pallet {
         #[pallet::constant] // Initial transaction rate limit.
         type InitialTxRateLimit: Get<u64>;
         #[pallet::constant] // Initial delegate take transaction rate limit.
-        type InitialTxRateLimitDelegateTake: Get<u64>;
+        type InitialTxDelegateTakeRateLimit: Get<u64>;
         #[pallet::constant] // Initial percentage of total stake required to join senate.
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
@@ -613,8 +613,8 @@ pub mod pallet {
         T::InitialTxRateLimit::get()
     }
     #[pallet::type_value]
-    pub fn DefaultTxRateLimitDelegateTake<T: Config>() -> u64 {
-        T::InitialTxRateLimitDelegateTake::get()
+    pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
+        T::InitialTxDelegateTakeRateLimit::get()
     }
     #[pallet::type_value]
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
@@ -624,7 +624,7 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type TxRateLimitDelegateTake<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+    pub(super) type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
@@ -939,7 +939,7 @@ pub mod pallet {
         MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
         MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
         TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
-        TxRateLimitDelegateTakeSet(u64), // --- Event created when setting the transaction rate limit.
+        TxDelegateTakeRateLimitSet(u64), // --- Event created when setting the delegate take transaction rate limit.
         Sudid(DispatchResult),         // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.

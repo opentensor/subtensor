@@ -124,11 +124,11 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const InitialDefaultTake: u16 = 32_767; // 50% for tests (18% honest number is used in production (see runtime))
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
-    pub const InitialTxRateLimitDelegateTake: u64 = 0; // Disable delegate take rate limit for testing
+    pub const InitialTxDelegateTakeRateLimit: u64 = 0; // Disable delegate take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -341,7 +341,7 @@ impl pallet_subtensor::Config for Test {
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
-    type InitialTxRateLimitDelegateTake = InitialTxRateLimitDelegateTake;
+    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
