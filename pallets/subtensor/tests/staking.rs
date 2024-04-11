@@ -1827,6 +1827,7 @@ fn test_full_with_delegating() {
         step_block(3);
 
         // 100% take is not a valid business case, changing the rest of this test to 50%
+        // 100% take is not a valid business case, changing the rest of this test to 50%
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey3),
             hotkey3
