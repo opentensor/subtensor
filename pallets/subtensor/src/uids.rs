@@ -1,9 +1,7 @@
 use super::*;
-use frame_support::pallet_prelude::DispatchError;
 use frame_support::sp_std::vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
-use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
     // Returns the number of filled slots on a network.

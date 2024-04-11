@@ -4,8 +4,7 @@ use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
-use substrate_fixed::transcendental::{cos, ln, sqrt, PI};
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::types::I32F32;
 mod mock;
 
 pub fn fixed(val: f32) -> I32F32 {
@@ -44,42 +43,42 @@ fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
     return weights;
 }
 
-// Return as usize an I32F32 ratio of a usize input, avoiding the 0% and 100% extremes.
-fn non_extreme_fixed_ratio(ratio: I32F32, total: usize) -> usize {
-    if total == 0 {
-        return total;
-    }
-    let mut subset: usize = (ratio * I32F32::from_num(total)).to_num::<usize>();
-    if subset == 0 {
-        subset = 1;
-    } else if subset == total {
-        subset = total - 1;
-    }
-    return subset;
-}
+// // Return as usize an I32F32 ratio of a usize input, avoiding the 0% and 100% extremes.
+// fn non_extreme_fixed_ratio(ratio: I32F32, total: usize) -> usize {
+//     if total == 0 {
+//         return total;
+//     }
+//     let mut subset: usize = (ratio * I32F32::from_num(total)).to_num::<usize>();
+//     if subset == 0 {
+//         subset = 1;
+//     } else if subset == total {
+//         subset = total - 1;
+//     }
+//     return subset;
+// }
 
-// Box-Muller Transform converting two uniform random samples to a normal random sample.
-fn normal(size: usize, rng: &mut StdRng, dist: &Uniform<u16>) -> Vec<I32F32> {
-    let max: I32F32 = I32F32::from_num(u16::MAX);
-    let two: I32F32 = I32F32::from_num(2);
-    let eps: I32F32 = I32F32::from_num(0.000001);
-    let pi: I32F32 = I32F32::from_num(PI);
+// // Box-Muller Transform converting two uniform random samples to a normal random sample.
+// fn normal(size: usize, rng: &mut StdRng, dist: &Uniform<u16>) -> Vec<I32F32> {
+//     let max: I32F32 = I32F32::from_num(u16::MAX);
+//     let two: I32F32 = I32F32::from_num(2);
+//     let eps: I32F32 = I32F32::from_num(0.000001);
+//     let pi: I32F32 = I32F32::from_num(PI);
 
-    let uniform_u16: Vec<u16> = (0..(2 * size)).map(|_| rng.sample(&dist)).collect();
-    let uniform: Vec<I32F32> = uniform_u16
-        .iter()
-        .map(|&x| I32F32::from_num(x) / max)
-        .collect();
-    let mut normal: Vec<I32F32> = vec![I32F32::from_num(0); size as usize];
+//     let uniform_u16: Vec<u16> = (0..(2 * size)).map(|_| rng.sample(&dist)).collect();
+//     let uniform: Vec<I32F32> = uniform_u16
+//         .iter()
+//         .map(|&x| I32F32::from_num(x) / max)
+//         .collect();
+//     let mut normal: Vec<I32F32> = vec![I32F32::from_num(0); size as usize];
 
-    for i in 0..size {
-        let u1: I32F32 = uniform[i] + eps;
-        let u2: I32F32 = uniform[i + size] + eps;
-        normal[i] = sqrt::<I32F32, I32F32>(-two * ln::<I32F32, I32F32>(u1).expect("")).expect("")
-            * cos(two * pi * u2);
-    }
-    normal
-}
+//     for i in 0..size {
+//         let u1: I32F32 = uniform[i] + eps;
+//         let u2: I32F32 = uniform[i + size] + eps;
+//         normal[i] = sqrt::<I32F32, I32F32>(-two * ln::<I32F32, I32F32>(u1).expect("")).expect("")
+//             * cos(two * pi * u2);
+//     }
+//     normal
+// }
 
 // Returns validators and servers uids with either blockwise, regular, or random interleaving.
 fn distribute_nodes(
@@ -259,141 +258,141 @@ fn init_run_epochs(
     // }
 }
 
-// Generate a random graph that is split into a major and minor set, each setting specific weight on itself and the complement on the other.
-fn split_graph(
-    major_stake: I32F32,
-    major_weight: I32F32,
-    minor_weight: I32F32,
-    weight_stddev: I32F32,
-    validators_n: usize,
-    network_n: usize,
-    interleave: usize,
-) -> (
-    Vec<u16>,
-    Vec<u16>,
-    Vec<u16>,
-    Vec<u16>,
-    Vec<u16>,
-    Vec<u16>,
-    Vec<u64>,
-    Vec<Vec<(u16, u16)>>,
-    I32F32,
-) {
-    let servers_n: usize = network_n - validators_n;
-    let major_servers_n: usize = non_extreme_fixed_ratio(major_stake, servers_n);
-    let major_validators_n: usize = non_extreme_fixed_ratio(major_stake, validators_n);
+// // Generate a random graph that is split into a major and minor set, each setting specific weight on itself and the complement on the other.
+// fn split_graph(
+//     major_stake: I32F32,
+//     major_weight: I32F32,
+//     minor_weight: I32F32,
+//     weight_stddev: I32F32,
+//     validators_n: usize,
+//     network_n: usize,
+//     interleave: usize,
+// ) -> (
+//     Vec<u16>,
+//     Vec<u16>,
+//     Vec<u16>,
+//     Vec<u16>,
+//     Vec<u16>,
+//     Vec<u16>,
+//     Vec<u64>,
+//     Vec<Vec<(u16, u16)>>,
+//     I32F32,
+// ) {
+//     let servers_n: usize = network_n - validators_n;
+//     let major_servers_n: usize = non_extreme_fixed_ratio(major_stake, servers_n);
+//     let major_validators_n: usize = non_extreme_fixed_ratio(major_stake, validators_n);
 
-    let (validators, servers) = distribute_nodes(validators_n, network_n, interleave as usize);
-    let major_validators: Vec<u16> = (0..major_validators_n).map(|i| validators[i]).collect();
-    let minor_validators: Vec<u16> = (major_validators_n..validators_n)
-        .map(|i| validators[i])
-        .collect();
-    let major_servers: Vec<u16> = (0..major_servers_n).map(|i| servers[i]).collect();
-    let minor_servers: Vec<u16> = (major_servers_n..servers_n).map(|i| servers[i]).collect();
+//     let (validators, servers) = distribute_nodes(validators_n, network_n, interleave as usize);
+//     let major_validators: Vec<u16> = (0..major_validators_n).map(|i| validators[i]).collect();
+//     let minor_validators: Vec<u16> = (major_validators_n..validators_n)
+//         .map(|i| validators[i])
+//         .collect();
+//     let major_servers: Vec<u16> = (0..major_servers_n).map(|i| servers[i]).collect();
+//     let minor_servers: Vec<u16> = (major_servers_n..servers_n).map(|i| servers[i]).collect();
 
-    let zero: I32F32 = I32F32::from_num(0);
-    let one: I32F32 = I32F32::from_num(1);
-    let stddev: I32F32 = I32F32::from_num(0.3);
-    let total_stake: I64F64 = I64F64::from_num(21_000_000_000_000_000 as u64);
-    let mut rng = StdRng::seed_from_u64(0); // constant seed so weights over multiple runs are equal
-    let dist = Uniform::new(0, u16::MAX);
+//     let zero: I32F32 = I32F32::from_num(0);
+//     let one: I32F32 = I32F32::from_num(1);
+//     let stddev: I32F32 = I32F32::from_num(0.3);
+//     let total_stake: I64F64 = I64F64::from_num(21_000_000_000_000_000 as u64);
+//     let mut rng = StdRng::seed_from_u64(0); // constant seed so weights over multiple runs are equal
+//     let dist = Uniform::new(0, u16::MAX);
 
-    let mut stake: Vec<u64> = vec![0; network_n];
-    let mut stake_fixed: Vec<I32F32> = vec![zero; network_n];
-    for (ratio, vals) in vec![
-        (major_stake, &major_validators),
-        (one - major_stake, &minor_validators),
-    ] {
-        let mut sample = normal(vals.len(), &mut rng, &dist)
-            .iter()
-            .map(|x: &I32F32| {
-                let v: I32F32 = (stddev * x) + one;
-                if v < zero {
-                    zero
-                } else {
-                    v
-                }
-            })
-            .collect();
-        inplace_normalize(&mut sample);
-        for (i, &val) in vals.iter().enumerate() {
-            stake[val as usize] =
-                (I64F64::from_num(ratio) * I64F64::from_num(sample[i]) * total_stake)
-                    .to_num::<u64>();
-            stake_fixed[val as usize] =
-                I32F32::from_num(I64F64::from_num(ratio) * I64F64::from_num(sample[i]));
-        }
-    }
+//     let mut stake: Vec<u64> = vec![0; network_n];
+//     let mut stake_fixed: Vec<I32F32> = vec![zero; network_n];
+//     for (ratio, vals) in vec![
+//         (major_stake, &major_validators),
+//         (one - major_stake, &minor_validators),
+//     ] {
+//         let mut sample = normal(vals.len(), &mut rng, &dist)
+//             .iter()
+//             .map(|x: &I32F32| {
+//                 let v: I32F32 = (stddev * x) + one;
+//                 if v < zero {
+//                     zero
+//                 } else {
+//                     v
+//                 }
+//             })
+//             .collect();
+//         inplace_normalize(&mut sample);
+//         for (i, &val) in vals.iter().enumerate() {
+//             stake[val as usize] =
+//                 (I64F64::from_num(ratio) * I64F64::from_num(sample[i]) * total_stake)
+//                     .to_num::<u64>();
+//             stake_fixed[val as usize] =
+//                 I32F32::from_num(I64F64::from_num(ratio) * I64F64::from_num(sample[i]));
+//         }
+//     }
 
-    let mut weights: Vec<Vec<(u16, u16)>> = vec![vec![]; network_n as usize];
-    let mut weights_fixed: Vec<Vec<I32F32>> = vec![vec![zero; network_n]; network_n];
-    for (first, second, vals) in vec![
-        (major_weight, one - major_weight, &major_validators),
-        (one - minor_weight, minor_weight, &minor_validators),
-    ] {
-        for &val in vals {
-            for (weight, srvs) in vec![(first, &major_servers), (second, &minor_servers)] {
-                let mut sample: Vec<I32F32> = normal(srvs.len(), &mut rng, &dist)
-                    .iter()
-                    .map(|x: &I32F32| {
-                        let v: I32F32 = (weight_stddev * x) + one;
-                        if v < zero {
-                            zero
-                        } else {
-                            v
-                        }
-                    })
-                    .collect();
-                inplace_normalize(&mut sample);
+//     let mut weights: Vec<Vec<(u16, u16)>> = vec![vec![]; network_n as usize];
+//     let mut weights_fixed: Vec<Vec<I32F32>> = vec![vec![zero; network_n]; network_n];
+//     for (first, second, vals) in vec![
+//         (major_weight, one - major_weight, &major_validators),
+//         (one - minor_weight, minor_weight, &minor_validators),
+//     ] {
+//         for &val in vals {
+//             for (weight, srvs) in vec![(first, &major_servers), (second, &minor_servers)] {
+//                 let mut sample: Vec<I32F32> = normal(srvs.len(), &mut rng, &dist)
+//                     .iter()
+//                     .map(|x: &I32F32| {
+//                         let v: I32F32 = (weight_stddev * x) + one;
+//                         if v < zero {
+//                             zero
+//                         } else {
+//                             v
+//                         }
+//                     })
+//                     .collect();
+//                 inplace_normalize(&mut sample);
 
-                for (i, &srv) in srvs.iter().enumerate() {
-                    weights[val as usize].push((srv, fixed_proportion_to_u16(weight * sample[i])));
-                    weights_fixed[val as usize][srv as usize] = weight * sample[i];
-                }
-            }
-            inplace_normalize(&mut weights_fixed[val as usize]);
-        }
-    }
+//                 for (i, &srv) in srvs.iter().enumerate() {
+//                     weights[val as usize].push((srv, fixed_proportion_to_u16(weight * sample[i])));
+//                     weights_fixed[val as usize][srv as usize] = weight * sample[i];
+//                 }
+//             }
+//             inplace_normalize(&mut weights_fixed[val as usize]);
+//         }
+//     }
 
-    inplace_normalize(&mut stake_fixed);
+//     inplace_normalize(&mut stake_fixed);
 
-    // Calculate stake-weighted mean per server
-    let mut weight_mean: Vec<I32F32> = vec![zero; network_n];
-    for val in 0..network_n {
-        if stake_fixed[val] > zero {
-            for srv in 0..network_n {
-                weight_mean[srv] += stake_fixed[val] * weights_fixed[val][srv];
-            }
-        }
-    }
+//     // Calculate stake-weighted mean per server
+//     let mut weight_mean: Vec<I32F32> = vec![zero; network_n];
+//     for val in 0..network_n {
+//         if stake_fixed[val] > zero {
+//             for srv in 0..network_n {
+//                 weight_mean[srv] += stake_fixed[val] * weights_fixed[val][srv];
+//             }
+//         }
+//     }
 
-    // Calculate stake-weighted absolute standard deviation
-    let mut weight_dev: Vec<I32F32> = vec![zero; network_n];
-    for val in 0..network_n {
-        if stake_fixed[val] > zero {
-            for srv in 0..network_n {
-                weight_dev[srv] +=
-                    stake_fixed[val] * (weight_mean[srv] - weights_fixed[val][srv]).abs();
-            }
-        }
-    }
+//     // Calculate stake-weighted absolute standard deviation
+//     let mut weight_dev: Vec<I32F32> = vec![zero; network_n];
+//     for val in 0..network_n {
+//         if stake_fixed[val] > zero {
+//             for srv in 0..network_n {
+//                 weight_dev[srv] +=
+//                     stake_fixed[val] * (weight_mean[srv] - weights_fixed[val][srv]).abs();
+//             }
+//         }
+//     }
 
-    // Calculate rank-weighted mean of weight_dev
-    let avg_weight_dev: I32F32 =
-        weight_dev.iter().sum::<I32F32>() / weight_mean.iter().sum::<I32F32>();
+//     // Calculate rank-weighted mean of weight_dev
+//     let avg_weight_dev: I32F32 =
+//         weight_dev.iter().sum::<I32F32>() / weight_mean.iter().sum::<I32F32>();
 
-    (
-        validators,
-        servers,
-        major_validators,
-        minor_validators,
-        major_servers,
-        minor_servers,
-        stake,
-        weights,
-        avg_weight_dev,
-    )
-}
+//     (
+//         validators,
+//         servers,
+//         major_validators,
+//         minor_validators,
+//         major_servers,
+//         minor_servers,
+//         stake,
+//         weights,
+//         avg_weight_dev,
+//     )
+// }
 
 // Test consensus guarantees with an epoch on a graph with 4096 nodes, of which the first 128 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other. Asserts that the major emission ratio >= major stake ratio.
 // #[test]
@@ -440,7 +439,7 @@ fn split_graph(
 //             interleave as usize,
 //         );
 
-//         new_test_ext().execute_with(|| {
+//         new_test_ext(1).execute_with(|| {
 //             init_run_epochs(
 //                 netuid,
 //                 network_n,
@@ -482,7 +481,7 @@ fn split_graph(
 // Test an epoch on an empty graph.
 // #[test]
 // fn test_overflow() {
-//     new_test_ext().execute_with(|| {
+//     new_test_ext(1).execute_with(|| {
 //         log::info!("test_overflow:");
 //         let netuid: u16 = 1;
 //         add_network(netuid, 0, 0);
@@ -536,7 +535,7 @@ fn split_graph(
 // Test an epoch on an empty graph.
 // #[test]
 // fn test_nill_epoch_subtensor() {
-//     new_test_ext().execute_with(|| {
+//     new_test_ext(1).execute_with(|| {
 //         log::info!("test_nill_epoch:");
 //         SubtensorModule::epoch(0, 0);
 //     });
@@ -545,7 +544,7 @@ fn split_graph(
 // Test an epoch on a graph with a single item.
 #[test]
 fn test_1_graph() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         log::info!("test_1_graph:");
         let netuid: u16 = 1;
         let coldkey = U256::from(0);
@@ -568,7 +567,7 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]);
+        SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]).unwrap();
         assert_eq!(
             SubtensorModule::get_subnet_emission_value(netuid),
             1_000_000_000
@@ -593,7 +592,7 @@ fn test_1_graph() {
 // Test an epoch on a graph with two items.
 #[test]
 fn test_10_graph() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         log::info!("test_10_graph");
         // Function for adding a nodes to the graph.
         pub fn add_node(netuid: u16, coldkey: U256, hotkey: U256, uid: u16, stake_amount: u64) {
@@ -674,7 +673,7 @@ fn test_512_graph() {
             );
             let server: usize = servers[0] as usize;
             let validator: usize = validators[0] as usize;
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -754,7 +753,7 @@ fn test_512_graph_random_weights() {
             ) = (vec![], vec![], vec![], vec![], vec![], vec![]);
 
             // Dense epoch
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -784,7 +783,7 @@ fn test_512_graph_random_weights() {
             });
 
             // Sparse epoch (same random seed as dense)
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -848,7 +847,7 @@ fn test_4096_graph() {
         let validator: usize = validators[0] as usize;
         for server_self in vec![false, true] {
             // server-self weight off/on
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -907,7 +906,7 @@ fn test_4096_graph() {
 // #[test]
 #[allow(dead_code)]
 fn test_16384_graph_sparse() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let n: u16 = 16384;
         let validators_n: u16 = 512;
@@ -970,14 +969,14 @@ fn test_16384_graph_sparse() {
 // Test bonds exponential moving average over a sequence of epochs.
 #[test]
 fn test_bonds() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
 		let sparse: bool = true;
 		let n: u16 = 8;
 		let netuid: u16 = 1;
 		let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-		let block_number: u64 = 0;
 		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
+        let block_number = System::block_number();
 		add_network(netuid, tempo, 0);
 		SubtensorModule::set_max_allowed_uids( netuid, n );
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
@@ -1001,7 +1000,7 @@ fn test_bonds() {
 		SubtensorModule::set_max_allowed_validators(netuid, n);
 		assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), n);
 		SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
-		run_to_block( 1 ); // run to next block to ensure weights are set on nodes after their registration block
+        next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
 		// === Set weights [val->srv1: 0.1, val->srv2: 0.2, val->srv3: 0.3, val->srv4: 0.4]
 		for uid in 0..(n/2) as u64 {
@@ -1051,7 +1050,7 @@ fn test_bonds() {
 		// === Set self-weight only on val1
 		let uid = 0;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
-		run_to_block(2);
+        next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  n: 8
@@ -1098,7 +1097,7 @@ fn test_bonds() {
 		// === Set self-weight only on val2
 		let uid = 1;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
-		run_to_block(3);
+        next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  current_block: 3
@@ -1134,7 +1133,7 @@ fn test_bonds() {
 		// === Set self-weight only on val3
 		let uid = 2;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
-		run_to_block(4);
+        next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  current_block: 4
@@ -1169,7 +1168,7 @@ fn test_bonds() {
 
 		// === Set val3->srv4: 1
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), netuid, vec![7], vec![u16::MAX], 0));
-		run_to_block(5);
+        next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  current_block: 5
@@ -1202,7 +1201,7 @@ fn test_bonds() {
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
 
-		run_to_block(6);
+        next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  current_block: 6
@@ -1223,7 +1222,7 @@ fn test_bonds() {
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
 
-		run_to_block(7);
+        next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  current_block: 7
@@ -1244,7 +1243,7 @@ fn test_bonds() {
 		assert_eq!(bonds[2][7], 49150);
 		assert_eq!(bonds[3][7], 65535);
 
-		run_to_block(8);
+		next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
 		/*  current_block: 8
@@ -1265,12 +1264,13 @@ fn test_bonds() {
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]
 fn test_active_stake() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         let sparse: bool = true;
         let n: u16 = 4;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-        let block_number: u64 = 0;
+        let block_number: u64 = System::block_number();
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
@@ -1311,7 +1311,7 @@ fn test_active_stake() {
         SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-        run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
+        next_block(); // run to next block to ensure weights are set on nodes after their registration block
 
         // === Set weights [val1->srv1: 0.5, val1->srv2: 0.5, val2->srv1: 0.5, val2->srv2: 0.5]
         for uid in 0..(n / 2) as u64 {
@@ -1470,12 +1470,12 @@ fn test_active_stake() {
 // Test that epoch masks out outdated weights and bonds of validators on deregistered servers.
 #[test]
 fn test_outdated_weights() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 4;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-        let mut block_number: u64 = 0;
+        let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
@@ -1484,6 +1484,7 @@ fn test_outdated_weights() {
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
         // === Register [validator1, validator2, server1, server2]
         for key in 0..n as u64 {
@@ -1510,13 +1511,15 @@ fn test_outdated_weights() {
             );
         }
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
 
         // === Issue validator permits
         SubtensorModule::set_max_allowed_validators(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_validators(netuid), n);
         SubtensorModule::epoch(netuid, 1_000_000_000); // run first epoch to set allowed validators
-        run_to_block(1);
-        block_number += 1; // run to next block to ensure weights are set on nodes after their registration block
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 4);
+        block_number = next_block(); // run to next block to ensure weights are set on nodes after their registration block
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
 
         // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3, srv1->srv1: 1, srv2->srv2: 1]
         for uid in 0..(n / 2) as u64 {
@@ -1578,6 +1581,9 @@ fn test_outdated_weights() {
             0,
             &U256::from(new_key),
         );
+        assert_eq!(System::block_number(), block_number);
+        assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), n);
+        assert_eq!(SubtensorModule::get_registrations_this_block(netuid), 0);
         assert_ok!(SubtensorModule::register(
             <<Test as Config>::RuntimeOrigin>::signed(U256::from(new_key)),
             netuid,
@@ -1593,7 +1599,7 @@ fn test_outdated_weights() {
             SubtensorModule::get_hotkey_for_net_and_uid(netuid, deregistered_uid)
                 .expect("Not registered")
         );
-        run_to_block(2); // run to next block to outdate weights and bonds set on deregistered uid
+        next_block(); // run to next block to outdate weights and bonds set on deregistered uid
 
         // === Update weights from only uid=0
         assert_ok!(SubtensorModule::set_weights(
@@ -1649,7 +1655,7 @@ fn test_outdated_weights() {
 // Test the zero emission handling and fallback under zero effective weight conditions, to ensure non-zero effective emission.
 #[test]
 fn test_zero_weights() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let sparse: bool = true;
         let n: u16 = 2;
         let netuid: u16 = 1;
@@ -1867,7 +1873,7 @@ fn test_validator_permits() {
                         _ => 0,
                     };
                 }
-                new_test_ext().execute_with(|| {
+                new_test_ext(1).execute_with(|| {
                     let block_number: u64 = 0;
                     add_network(netuid, tempo, 0);
                     SubtensorModule::set_max_allowed_uids(netuid, network_n as u16);
@@ -2042,7 +2048,7 @@ fn test_validator_permits() {
 //                     interleave as usize,
 //                 );
 
-//                 new_test_ext().execute_with(|| {
+//                 new_test_ext(1).execute_with(|| {
 // 					init_run_epochs(netuid, network_n, &validators, &servers, epochs, 1, true, &stake, true, &weights, true, false, 0, true);
 
 // 					let mut major_emission: I64F64 = I64F64::from_num(0);

@@ -27,7 +27,7 @@ mod test {
 
 #[test]
 fn test_serving_subscribe_ok_dispatch_info_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -49,7 +49,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(19000000),
+                weight: frame_support::weights::Weight::from_parts(19000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -59,7 +59,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
 
 #[test]
 fn test_serving_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -97,7 +97,7 @@ fn test_serving_ok() {
 
 #[test]
 fn test_serving_set_metadata_update() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -162,7 +162,7 @@ fn test_serving_set_metadata_update() {
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_axon_serving_rate_limit_exceeded() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -244,7 +244,7 @@ fn test_axon_serving_rate_limit_exceeded() {
 
 #[test]
 fn test_axon_invalid_port() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -278,7 +278,7 @@ fn test_axon_invalid_port() {
 
 #[test]
 fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let version: u32 = 2;
         let ip: u128 = 1676056785;
@@ -294,7 +294,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(17000000),
+                weight: frame_support::weights::Weight::from_parts(17000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -304,7 +304,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
 
 #[test]
 fn test_prometheus_serving_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -333,7 +333,7 @@ fn test_prometheus_serving_ok() {
 
 #[test]
 fn test_prometheus_serving_set_metadata_update() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -380,7 +380,7 @@ fn test_prometheus_serving_set_metadata_update() {
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_prometheus_serving_rate_limit_exceeded() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -443,7 +443,7 @@ fn test_prometheus_serving_rate_limit_exceeded() {
 
 #[test]
 fn test_prometheus_invalid_port() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let hotkey_account_id = U256::from(1);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -471,28 +471,28 @@ fn test_prometheus_invalid_port() {
 
 #[test]
 fn test_serving_is_valid_ip_type_ok_ipv4() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(SubtensorModule::is_valid_ip_type(4), true);
     });
 }
 
 #[test]
 fn test_serving_is_valid_ip_type_ok_ipv6() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(SubtensorModule::is_valid_ip_type(6), true);
     });
 }
 
 #[test]
 fn test_serving_is_valid_ip_type_nok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(SubtensorModule::is_valid_ip_type(10), false);
     });
 }
 
 #[test]
 fn test_serving_is_valid_ip_address_ipv4() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(
             SubtensorModule::is_valid_ip_address(4, test::ipv4(8, 8, 8, 8)),
             true
@@ -502,7 +502,7 @@ fn test_serving_is_valid_ip_address_ipv4() {
 
 #[test]
 fn test_serving_is_valid_ip_address_ipv6() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(
             SubtensorModule::is_valid_ip_address(6, test::ipv6(1, 2, 3, 4, 5, 6, 7, 8)),
             true
@@ -516,7 +516,7 @@ fn test_serving_is_valid_ip_address_ipv6() {
 
 #[test]
 fn test_serving_is_invalid_ipv4_address() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(
             SubtensorModule::is_valid_ip_address(4, test::ipv4(0, 0, 0, 0)),
             false
@@ -538,7 +538,7 @@ fn test_serving_is_invalid_ipv4_address() {
 
 #[test]
 fn test_serving_is_invalid_ipv6_address() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(
             SubtensorModule::is_valid_ip_address(6, test::ipv6(0, 0, 0, 0, 0, 0, 0, 0)),
             false
