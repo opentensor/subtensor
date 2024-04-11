@@ -1828,11 +1828,12 @@ fn test_full_with_delegating() {
 
         step_block(3);
 
+        // 100% take is not a valid business case, changing the rest of this test to 50%
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey3),
             hotkey3,
-            u16::MAX
-        )); // Full take.
+            u16::MAX / 2
+        )); // 50% take.
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey3,
@@ -1872,20 +1873,20 @@ fn test_full_with_delegating() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, netuid, 0, 1000);
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3, netuid),
-            1000
-        );
+            1125
+        ); // 1000 + 50% * 1000 * 1000/4000 = 1125
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey3, netuid),
-            1000
-        );
+            1125
+        ); // 1000 + 50% * 1000 * 1000/4000 = 1125
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey3, netuid),
-            1000
-        );
+            1125
+        ); // 1000 + 50% * 1000 * 1000/4000 = 1125
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3, netuid),
-            2000
-        );
+            1625
+        ); // 1000 + 125 * 3 + 1000 * 1000/4000 = 1625
         assert_eq!(SubtensorModule::get_total_stake(), 11_500); // before + 1_000 = 10_500 + 1_000 = 11_500
     });
 }
@@ -3015,13 +3016,14 @@ fn test_delegate_take_affects_distribution() {
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
 
         // Stake 100 from coldkey/hotkey 0
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
+            netuid,
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             100
         );
 
@@ -3034,17 +3036,18 @@ fn test_delegate_take_affects_distribution() {
 
         // Hotkey 1 adds 100 delegated stake to coldkey/hotkey 0
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_total_stake(), 100);
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey0,
+            netuid,
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             100
         );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
@@ -3058,9 +3061,9 @@ fn test_delegate_take_affects_distribution() {
         // Total initial stake is 200
         // Delegate's initial stake is 100, which is 50% of total stake
         //  => Delegate will receive 50% of emission (200) + 50% take (100) of nominator reward (200)
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 400);
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 400);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             400
         ); // 100 + 50% * 400 + 50% * 200 = 400
     });
@@ -3091,13 +3094,14 @@ fn test_changing_delegate_take_changes_distribution() {
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
 
         // Stake 100 from coldkey/hotkey 0
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
+            netuid,
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             100
         );
 
@@ -3110,17 +3114,18 @@ fn test_changing_delegate_take_changes_distribution() {
 
         // Hotkey 1 adds 100 delegated stake to coldkey/hotkey 0
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             0
         );
         assert_eq!(SubtensorModule::get_total_stake(), 100);
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey0,
+            netuid,
             100
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             100
         );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
@@ -3141,9 +3146,9 @@ fn test_changing_delegate_take_changes_distribution() {
         // Total initial stake is 200
         // Delegate's initial stake is 100, which is 50% of total stake
         //  => Delegate will receive 50% of emission (200) + 10% take (20) of nominator reward (200)
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 400);
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 400);
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             320
         ); // 100 + 50% * 400 + 10% * 200 = 320
     });

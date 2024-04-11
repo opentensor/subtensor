@@ -155,7 +155,7 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
-    pub const InitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialTargetStakesPerInterval: u16 = 2;
 }
 
 // Configure collective pallet for council

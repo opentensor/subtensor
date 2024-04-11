@@ -65,7 +65,7 @@ fn test_sudo_set_min_difficulty() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_min_difficulty(netuid);
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
@@ -98,7 +98,7 @@ fn test_sudo_set_max_difficulty() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_max_difficulty(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_difficulty(
@@ -131,7 +131,7 @@ fn test_sudo_set_weights_version_key() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_weights_version_key(netuid);
         assert_eq!(
             AdminUtils::sudo_set_weights_version_key(
@@ -164,7 +164,7 @@ fn test_sudo_set_weights_set_rate_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_weights_set_rate_limit(netuid);
         assert_eq!(
             AdminUtils::sudo_set_weights_set_rate_limit(
@@ -203,7 +203,7 @@ fn test_sudo_set_adjustment_interval() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_adjustment_interval(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
@@ -236,7 +236,7 @@ fn test_sudo_set_adjustment_alpha() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_adjustment_alpha(netuid);
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
@@ -290,7 +290,7 @@ fn test_sudo_set_max_weight_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_max_weight_limit(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_weight_limit(
@@ -342,7 +342,7 @@ fn test_sudo_set_immunity_period() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_immunity_period(netuid);
         assert_eq!(
             AdminUtils::sudo_set_immunity_period(
@@ -375,7 +375,7 @@ fn test_sudo_set_min_allowed_weights() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_min_allowed_weights(netuid);
         assert_eq!(
             AdminUtils::sudo_set_min_allowed_weights(
@@ -408,7 +408,7 @@ fn test_sudo_set_max_allowed_uids() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
@@ -441,7 +441,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_max_allowed_uids(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
@@ -478,7 +478,7 @@ fn test_sudo_set_kappa() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_kappa(netuid);
         assert_eq!(
             AdminUtils::sudo_set_kappa(
@@ -511,7 +511,7 @@ fn test_sudo_set_rho() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_rho(netuid);
         assert_eq!(
             AdminUtils::sudo_set_rho(
@@ -544,7 +544,7 @@ fn test_sudo_set_activity_cutoff() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_activity_cutoff(netuid);
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
@@ -577,7 +577,7 @@ fn test_sudo_set_target_registrations_per_interval() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_target_registrations_per_interval(netuid);
         assert_eq!(
             AdminUtils::sudo_set_target_registrations_per_interval(
@@ -616,7 +616,7 @@ fn test_sudo_set_difficulty() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_difficulty_as_u64(netuid);
         assert_eq!(
             AdminUtils::sudo_set_difficulty(
@@ -649,7 +649,7 @@ fn test_sudo_set_max_allowed_validators() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u16 = SubtensorModule::get_max_allowed_validators(netuid);
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(
@@ -751,7 +751,7 @@ fn test_sudo_set_bonds_moving_average() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_bonds_moving_average(netuid);
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
@@ -787,7 +787,7 @@ fn test_sudo_set_rao_recycled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
         let init_value: u64 = SubtensorModule::get_rao_recycled(netuid);
 
         // Need to run from genesis block
@@ -852,7 +852,7 @@ fn test_sudo_set_subnet_limit() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
 
         let init_value: u16 = SubtensorModule::get_max_subnets();
         assert_eq!(
@@ -876,7 +876,7 @@ fn test_sudo_set_network_lock_reduction_interval() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u64 = 7200;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
 
         let init_value: u64 = SubtensorModule::get_lock_reduction_interval();
         assert_eq!(
@@ -900,7 +900,7 @@ fn test_sudo_set_network_pow_registration_allowed() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: bool = true;
-        add_network(netuid, 10);
+        add_network(netuid, 10, 0);
 
         let init_value: bool = SubtensorModule::get_network_pow_registration_allowed(netuid);
         assert_eq!(
