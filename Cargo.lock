@@ -8257,6 +8257,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-blockchain",
+ "sp-core",
  "sp-rpc",
  "sp-runtime",
  "subtensor-custom-rpc-runtime-api",
@@ -8269,8 +8270,12 @@ version = "0.0.2"
 dependencies = [
  "frame-support",
  "pallet-subtensor",
+ "parity-scale-codec",
+ "scale-info",
  "serde",
  "sp-api",
+ "sp-core",
+ "sp-runtime",
 ]
 
 [[package]]

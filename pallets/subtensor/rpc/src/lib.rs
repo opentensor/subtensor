@@ -11,11 +11,11 @@ use std::sync::Arc;
 
 use sp_api::ProvideRuntimeApi;
 
+use pallet_subtensor::types::TensorBytes;
 pub use subtensor_custom_rpc_runtime_api::{
     DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
     SubnetRegistrationRuntimeApi,
 };
-
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "delegateInfo_getDelegate")]
@@ -56,14 +56,14 @@ pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "subnetInfo_getSubnetStakeInfoForColdKey")]
     fn get_subnet_stake_info_for_cold_key(
         &self,
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_vec: TensorBytes,
         netuid: u16,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetStakeInfoForColdKeys")]
     fn get_subnet_stake_info_for_coldkeys(
         &self,
-        coldkey_account_vecs: Vec<Vec<u8>>,
+        coldkey_account_vecs: Vec<TensorBytes>,
         netuid: u16,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
@@ -72,7 +72,7 @@ pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "subnetInfo_getAllStakeInfoForColdKey")]
     fn get_all_stake_info_for_coldkey(
         &self,
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_vec: TensorBytes,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }
@@ -303,7 +303,7 @@ where
 
     fn get_subnet_stake_info_for_cold_key(
         &self,
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_vec: TensorBytes,
         netuid: u16,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
@@ -323,7 +323,7 @@ where
 
     fn get_subnet_stake_info_for_coldkeys(
         &self,
-        coldkey_account_vecs: Vec<Vec<u8>>,
+        coldkey_account_vecs: Vec<TensorBytes>,
         netuid: u16,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
@@ -361,7 +361,7 @@ where
 
     fn get_all_stake_info_for_coldkey(
         &self,
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_vec: TensorBytes,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();

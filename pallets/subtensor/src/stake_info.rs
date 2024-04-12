@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
+use crate::types::TensorBytes;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
@@ -15,6 +16,7 @@ pub struct StakeInfo<T: Config> {
 pub struct SubnetStakeInfo<T: Config> {
     hotkey: T::AccountId,
     netuid: u16,
+    // Made public so we can access it during our tests.
     pub stake: Compact<u64>,
 }
 
@@ -46,16 +48,21 @@ impl<T: Config> Pallet<T> {
         return stake_info;
     }
 
+    /// This function is used to retrieve the stake associated with a vector of coldkeys .
+    /// It iterates over the `Stake` storage map and returns the stake information for the UI.
+    ///
+    /// # Arguments:
+    /// * `coldkey_account_bytes`: Vec<TensorBytes> - The TensorBytes representing the coldkey account.
     pub fn get_stake_info_for_coldkeys(
-        coldkey_account_vecs: Vec<Vec<u8>>,
+        coldkey_account_bytes_vec: Vec<TensorBytes>,
     ) -> Vec<(T::AccountId, Vec<StakeInfo<T>>)> {
         let mut coldkeys: Vec<T::AccountId> = Vec::new();
-        for coldkey_account_vec in coldkey_account_vecs {
-            if coldkey_account_vec.len() != 32 {
+        for coldkey_account_bytes in coldkey_account_bytes_vec {
+            if coldkey_account_bytes.as_ref().len() != 32 {
                 continue; // Invalid coldkey
             }
             let coldkey: AccountIdOf<T> =
-                T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()).unwrap();
+                T::AccountId::decode(&mut coldkey_account_bytes.as_bytes_ref()).unwrap();
             coldkeys.push(coldkey);
         }
 
@@ -68,13 +75,18 @@ impl<T: Config> Pallet<T> {
         return stake_info;
     }
 
-    pub fn get_stake_info_for_coldkey(coldkey_account_vec: Vec<u8>) -> Vec<StakeInfo<T>> {
-        if coldkey_account_vec.len() != 32 {
+    /// This function is used to retrieve the all the stake associated with a coldkey
+    /// It iterates over the `Stake` storage map and returns the stake information for the UI.
+    ///
+    /// # Arguments:
+    /// * `coldkey_account_bytes`: TensorBytes - The TensorBytes representing the coldkey account.
+    pub fn get_stake_info_for_coldkey(coldkey_account_bytes: TensorBytes) -> Vec<StakeInfo<T>> {
+        if coldkey_account_bytes.as_ref().len() != 32 {
             return Vec::new(); // Invalid coldkey
         }
 
         let coldkey: AccountIdOf<T> =
-            T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()).unwrap();
+            T::AccountId::decode(&mut coldkey_account_bytes.as_bytes_ref()).unwrap();
         let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey]);
 
         if stake_info.len() == 0 {
@@ -88,17 +100,17 @@ impl<T: Config> Pallet<T> {
     /// It iterates over the `SubStake` storage map and returns the stake information for the UI.
     ///
     /// # Arguments:
-    /// * `coldkey_account_vec`: Vec<u8> - The vector representing the coldkey account.
+    /// * `coldkey_account_bytes`: TensorBytes - The TensorBytes representing the coldkey account.
     /// * `netuid`: u16 - The unique identifier of the network.
     pub fn get_subnet_stake_info_for_coldkey(
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_bytes: TensorBytes,
         netuid: u16,
     ) -> Vec<SubnetStakeInfo<T>> {
-        if coldkey_account_vec.len() != 32 {
+        if coldkey_account_bytes.as_ref().len() != 32 {
             return Vec::new(); // Invalid coldkey
         }
 
-        let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])
+        let coldkey: T::AccountId = T::AccountId::decode(&mut coldkey_account_bytes.as_bytes_ref())
             .expect("Failed to decode AccountId");
 
         // Filter `SubStake` storage map for entries matching the coldkey and netuid.
@@ -120,26 +132,27 @@ impl<T: Config> Pallet<T> {
     /// It iterates over the `SubStake` storage map and returns the stake mapped to the UI.
     ///
     /// # Args:
-    /// * 'coldkey_account_vecs': Vec<Vec<u8>>:
-    ///     - The vector of coldkey account vectors.
+    /// * 'coldkey_account_byte_vecs': Vec<TensorBytes>:
+    ///     - The vector of coldkey account TensorBytes.
     /// * 'netuid': u16:
     ///     - The network uid.
     ///
     /// # Returns:
     /// A vector of tuples, each containing a `T::AccountId` (coldkey) and a vector of `SubnetStakeInfo<T>`.
     pub fn get_subnet_stake_info_for_coldkeys(
-        coldkey_account_vecs: Vec<Vec<u8>>,
+        coldkey_account_byte_vecs: Vec<TensorBytes>,
         netuid: u16,
     ) -> Vec<(T::AccountId, Vec<SubnetStakeInfo<T>>)> {
         let mut results: Vec<(T::AccountId, Vec<SubnetStakeInfo<T>>)> = Vec::new();
 
-        for coldkey_account_vec in coldkey_account_vecs {
-            if coldkey_account_vec.len() != 32 {
+        for coldkey_account_vec in coldkey_account_byte_vecs {
+            if coldkey_account_vec.as_ref().len() != 32 {
                 continue; // Skip invalid coldkey
             }
 
-            let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])
-                .expect("Failed to decode AccountId");
+            let coldkey: T::AccountId =
+                T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref())
+                    .expect("Failed to decode AccountId");
 
             // Filter `SubStake` storage map for entries matching the coldkey and netuid.
             let mut subnet_stake_info: Vec<SubnetStakeInfo<T>> = Vec::new();
@@ -189,19 +202,19 @@ impl<T: Config> Pallet<T> {
     /// It iterates over the `SubStake` storage map and returns a vector of all stakes associated with the coldkey.
     ///
     /// # Args:
-    /// * 'coldkey_account_vec': Vec<u8>:
-    ///     - The coldkey account vector.
+    /// * 'coldkey_account_bytes': TensorBytes:
+    ///     - TensorBytes representation of the coldkey.
     ///
     /// # Returns:
     /// A vector of tuples, each containing a hotkey (`T::AccountId`), netuid (`u16`), and stake amount (`Compact<u64>`).
     pub fn get_all_stake_info_for_coldkey(
-        coldkey_account_vec: Vec<u8>,
+        coldkey_account_bytes: TensorBytes,
     ) -> Vec<(T::AccountId, u16, Compact<u64>)> {
-        if coldkey_account_vec.len() != 32 {
+        if coldkey_account_bytes.as_ref().len() != 32 {
             return Vec::new(); // Invalid coldkey, return empty vector
         }
 
-        let coldkey: T::AccountId = T::AccountId::decode(&mut &coldkey_account_vec[..])
+        let coldkey: T::AccountId = T::AccountId::decode(&mut coldkey_account_bytes.as_bytes_ref())
             .expect("Failed to decode AccountId");
 
         // Initialize a vector to hold all stake information.

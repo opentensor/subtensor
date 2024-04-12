@@ -41,6 +41,7 @@ mod registration;
 mod root;
 mod serving;
 mod staking;
+pub mod types;
 mod uids;
 mod utils;
 mod weights;
@@ -1449,7 +1450,6 @@ pub mod pallet {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, Self::get_root_netuid(), amount_unstaked)
