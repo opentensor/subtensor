@@ -12,6 +12,7 @@ use std::sync::Arc;
 use sp_api::ProvideRuntimeApi;
 
 use pallet_subtensor::types::TensorBytes;
+use pallet_subtensor::types::TensorBytes;
 pub use subtensor_custom_rpc_runtime_api::{
     DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
     SubnetRegistrationRuntimeApi,
@@ -132,7 +133,7 @@ where
 {
 
     fn get_substake_for_hotkey(
-        &self, 
+        &self,
         hotkey_bytes: Vec<u8>,
         at: Option<<Block as BlockT>::Hash>
     ) -> RpcResult<Vec<u8>> {
@@ -149,7 +150,7 @@ where
     }
 
     fn get_substake_for_coldkey(
-        &self, 
+        &self,
         coldkey_bytes: Vec<u8>,
         at: Option<<Block as BlockT>::Hash>
     ) -> RpcResult<Vec<u8>> {
@@ -166,7 +167,7 @@ where
     }
 
     fn get_substake_for_netuid(
-        &self, 
+        &self,
         netuid: u16,
         at: Option<<Block as BlockT>::Hash>
     ) -> RpcResult<Vec<u8>> {
@@ -363,7 +364,7 @@ where
                 Some(e.to_string()),
             ))
             .into()
-        })  
+        })
     }
 
     fn get_subnet_stake_info_for_cold_key(
