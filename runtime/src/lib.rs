@@ -500,7 +500,7 @@ impl pallet_multisig::Config for Runtime {
 // Proxy Pallet config
 parameter_types! {
     // One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
-    pub const ProxyDepositBase: Balance = deposit(1, 40);;
+    pub const ProxyDepositBase: Balance = deposit(1, 40);
     // Adding 32 bytes + sizeof(ProxyType) = 32 + 1
     pub const ProxyDepositFactor: Balance = deposit(0, 33);
     pub const MaxProxies: u32 = 20; // max num proxies per acct
@@ -663,8 +663,8 @@ impl pallet_scheduler::Config for Runtime {
 
 parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = (2) as Balance * 2_000 * 10_000_000 + (64 as Balance) * 100 * 1_000_000;
-    pub const PreimageByteDeposit: Balance = (0) as Balance * 2_000 * 10_000_000 + (1 as Balance) * 100 * 1_000_000;
+    pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+    pub const PreimageByteDeposit: Balance = deposit(0, 1);
 }
 
 impl pallet_preimage::Config for Runtime {
