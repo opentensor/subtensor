@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block_delegate_take(&coldkey), block),
+            !Self::exceeds_tx_delegate_take_rate_limit(Self::get_last_tx_block_delegate_take(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 

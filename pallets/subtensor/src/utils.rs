@@ -342,6 +342,14 @@ impl<T: Config> Pallet<T> {
 
         return current_block - prev_tx_block <= rate_limit;
     }
+    pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
+        let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
+        if rate_limit == 0 || prev_tx_block == 0 {
+            return false;
+        }
+
+        return current_block - prev_tx_block <= rate_limit;
+    }
 
     // ========================
     // === Token Management ===
