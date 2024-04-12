@@ -785,13 +785,13 @@ fn test_issance_bounds() {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
-        let mut total_issuance: u64 = 0;
-        for i in 0..n_halvings {
-            let block_emission_10_500_000x: u64 =
-                SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap()
-                    * 10_500_000;
-            total_issuance += block_emission_10_500_000x;
-        }
+        let total_issuance = (0..n_halvings)
+            .into_iter()
+            .fold(0, |total, _| {
+                let block_emission_10_500_000x: u64 =
+                    SubtensorModule::get_block_emission_for_issuance(total).unwrap() * 10_500_000;
+                total + block_emission_10_500_000x
+            });
         assert_eq!(total_issuance, 20_999_999_989_500_000);
     })
 }
@@ -868,7 +868,7 @@ fn test_get_emission_across_entire_issuance_range() {
         let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
         let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
         let halving_issuance: u64 = total_supply / 2;
-        let mut step: usize = original_emission as usize;
+        let step: usize = original_emission as usize;
 
         for issuance in (0..=total_supply).step_by(step) {
             SubtensorModule::set_total_issuance(issuance);
@@ -889,7 +889,7 @@ fn test_get_emission_across_entire_issuance_range() {
                 "Issuance: {}",
                 issuance_f64
             );
-            // step = expected_emission as usize;
+            assert_eq!(expected_emission <= usize::MAX as u64, true);
         }
     });
 }

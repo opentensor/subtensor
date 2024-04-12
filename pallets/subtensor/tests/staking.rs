@@ -1826,11 +1826,12 @@ fn test_full_with_delegating() {
 
         step_block(3);
 
+        // 100% take is not a valid business case, changing the rest of this test to 50%
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey3),
             hotkey3,
-            u16::MAX
-        )); // Full take.
+            u16::MAX / 2
+        )); // 50% take.
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey3,
@@ -1870,20 +1871,20 @@ fn test_full_with_delegating() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, netuid, 0, 1000);
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3, netuid),
-            1000
-        );
+            1125
+        ); // 1000 + 50% * 1000 * 1000/4000 = 1125
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey3, netuid),
-            1000
-        );
+            1125
+        ); // 1000 + 50% * 1000 * 1000/4000 = 1125
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey3, netuid),
-            1000
-        );
+            1125
+        ); // 1000 + 50% * 1000 * 1000/4000 = 1125
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3, netuid),
-            2000
-        );
+            1625
+        ); // 1000 + 125 * 3 + 1000 * 1000/4000 = 1625
         assert_eq!(SubtensorModule::get_total_stake(), 11_500); // before + 1_000 = 10_500 + 1_000 = 11_500
     });
 }
@@ -2730,6 +2731,431 @@ fn test_faucet_ok() {
     });
 }
 
+// Verify that InitialDefaultTake is between 50% and u16::MAX-1, this is important for other tests
+#[test]
+fn test_delegate_take_limit() {
+    new_test_ext(1).execute_with(|| {
+        assert_eq!(InitialDefaultTake::get() >= u16::MAX/2, true);
+        assert_eq!(InitialDefaultTake::get() <= u16::MAX-1, true);
+    });
+}
+
+// Verify delegate take can be decreased
+#[test]
+fn test_delegate_take_can_be_decreased() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 5% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 2
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 2);
+
+        // Coldkey / hotkey 0 decreases take to 10%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+    });
+}
+
+// Verify delegate take can not be increased with do_decrease_take
+#[test]
+fn test_delegate_take_can_not_be_increased_with_decrease_take() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 5% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 20
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+
+        // Coldkey / hotkey 0 tries to increase take to 10%
+        assert_eq!(
+            SubtensorModule::do_decrease_take(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                hotkey0,
+                u16::MAX / 10
+            ),
+            Err(Error::<Test>::InvalidTake.into())
+        );
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+    });
+}
+
+// Verify delegate take can be increased
+#[test]
+fn test_delegate_take_can_be_increased() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 5% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 20
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Coldkey / hotkey 0 decreases take to 10%
+        assert_ok!(SubtensorModule::do_increase_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+    });
+}
+
+// Verify delegate take can not be decreased with increase_take
+#[test]
+fn test_delegate_take_can_not_be_decreased_with_increase_take() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 10% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
+        // Coldkey / hotkey 0 tries to decrease take to 5%
+        assert_eq!(
+            SubtensorModule::do_increase_take(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                hotkey0,
+                u16::MAX / 20
+            ),
+            Err(Error::<Test>::InvalidTake.into())
+        );
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+    });
+}
+
+// Verify delegate take can be increased up to InitialDefaultTake (18%)
+#[test]
+fn test_delegate_take_can_be_increased_to_limit() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 10% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Coldkey / hotkey 0 tries to increase take to InitialDefaultTake+1
+        assert_ok!(SubtensorModule::do_increase_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            InitialDefaultTake::get()
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), InitialDefaultTake::get());
+    });
+}
+
+// Verify delegate take can not be set above InitialDefaultTake
+#[test]
+fn test_delegate_take_can_not_be_set_beyond_limit() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+        let before = SubtensorModule::get_hotkey_take(&hotkey0);
+
+        // Coldkey / hotkey 0 attempt to become delegates with take above maximum
+        // (Disable this check if InitialDefaultTake is u16::MAX)
+        if InitialDefaultTake::get() != u16::MAX {
+            assert_eq!(
+                SubtensorModule::do_become_delegate(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                    hotkey0,
+                    InitialDefaultTake::get()+1
+                ),
+                Err(Error::<Test>::InvalidTake.into())
+            );
+        }
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
+    });
+}
+
+// Verify delegate take can not be increased above InitialDefaultTake (18%)
+#[test]
+fn test_delegate_take_can_not_be_increased_beyond_limit() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 10% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
+        // Coldkey / hotkey 0 tries to increase take to InitialDefaultTake+1
+        // (Disable this check if InitialDefaultTake is u16::MAX)
+        if InitialDefaultTake::get() != u16::MAX {
+            assert_eq!(
+                SubtensorModule::do_increase_take(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                    hotkey0,
+                    InitialDefaultTake::get()+1
+                ),
+                Err(Error::<Test>::InvalidTake.into())
+            );
+        }
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+    });
+}
+
+// Verify delegate take affects emission distribution
+#[test]
+fn test_delegate_take_affects_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        // Make two accounts.
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+
+        let coldkey0 = U256::from(3);
+        let coldkey1 = U256::from(4);
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100000);
+
+        // Register the 2 neurons to a new network.
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
+
+        // Stake 100 from coldkey/hotkey 0
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid,
+            100
+        ));
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
+            100
+        );
+
+        // Coldkey / hotkey 0 become delegates with 50% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 2
+        ));
+
+        // Hotkey 1 adds 100 delegated stake to coldkey/hotkey 0
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 100);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid,
+            100
+        ));
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
+            100
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 200);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 200);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
+
+        // Lets emit inflation through this new key with distributed ownership.
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 400 validator emission, which should be distributed in-part to the nominators.
+        //
+        // Total initial stake is 200
+        // Delegate's initial stake is 100, which is 50% of total stake
+        //  => Delegate will receive 50% of emission (200) + 50% take (100) of nominator reward (200)
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 400);
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
+            400
+        ); // 100 + 50% * 400 + 50% * 200 = 400
+    });
+}
+
+// Verify changing delegate take also changes emission distribution
+#[test]
+fn test_changing_delegate_take_changes_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        // Make two accounts.
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+
+        let coldkey0 = U256::from(3);
+        let coldkey1 = U256::from(4);
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100000);
+
+        // Register the 2 neurons to a new network.
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
+
+        // Stake 100 from coldkey/hotkey 0
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid,
+            100
+        ));
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
+            100
+        );
+
+        // Coldkey / hotkey 0 become delegates with 50% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 2
+        ));
+
+        // Hotkey 1 adds 100 delegated stake to coldkey/hotkey 0
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 100);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid,
+            100
+        ));
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
+            100
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 200);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 200);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
+
+        // Coldkey / hotkey 0 decrease take to 10%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+
+        // Lets emit inflation through this new key with distributed ownership.
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 400 validator emission, which should be distributed in-part to the nominators.
+        //
+        // Total initial stake is 200
+        // Delegate's initial stake is 100, which is 50% of total stake
+        //  => Delegate will receive 50% of emission (200) + 10% take (20) of nominator reward (200)
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 400);
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
+            320
+        ); // 100 + 50% * 400 + 10% * 200 = 320
+    });
+}
+
 #[test]
 // Set up 32 subnets with a total of 1024 nodes each, and a root network with 1024 nodes.
 // Each subnet has a total of 1024 nodes, and a root network has 1024 nodes.
@@ -3095,5 +3521,53 @@ fn test_substake_increases_stake_of_only_targeted_neuron() {
                 i
             );
         }
+    });
+}
+
+// Test rate-limiting on increase_take
+#[test]
+fn test_rate_limits_enforced_on_increase_take() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with 5% take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 20
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+
+        // Coldkey / hotkey 0 increases take to 10%
+        assert_eq!(
+            SubtensorModule::do_increase_take(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                hotkey0,
+                u16::MAX / 10
+            ),
+            Err(Error::<Test>::TxRateLimitExceeded.into())
+        );
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Can increase after waiting
+        assert_ok!(SubtensorModule::do_increase_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
     });
 }
