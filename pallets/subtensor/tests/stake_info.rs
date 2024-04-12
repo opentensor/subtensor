@@ -4,6 +4,7 @@ use codec::Encode;
 use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
+use pallet_subtensor::types::TensorBytes;
 use sp_core::U256;
 
 #[test]
@@ -24,10 +25,13 @@ fn test_get_stake_info_for_coldkey() {
             10000
         ));
         assert_eq!(
-            SubtensorModule::get_subnet_stake_info_for_coldkey(coldkey.encode(), netuid)
-                .iter()
-                .map(|info| info.stake.0)
-                .sum::<u64>(),
+            SubtensorModule::get_subnet_stake_info_for_coldkey(
+                TensorBytes::from(coldkey.encode()),
+                netuid
+            )
+            .iter()
+            .map(|info| info.stake.0)
+            .sum::<u64>(),
             // Need to account for existential deposit
             10000 - 1
         );
@@ -52,10 +56,13 @@ fn test_get_stake_info_for_coldkeys() {
             10000
         ));
         assert_eq!(
-            SubtensorModule::get_subnet_stake_info_for_coldkey(coldkey.encode(), netuid)
-                .iter()
-                .map(|info| info.stake.0)
-                .sum::<u64>(),
+            SubtensorModule::get_subnet_stake_info_for_coldkey(
+                TensorBytes::from(coldkey.encode()),
+                netuid
+            )
+            .iter()
+            .map(|info| info.stake.0)
+            .sum::<u64>(),
             // Need to account for existential deposit
             10000 - 1
         );
@@ -97,18 +104,24 @@ fn test_get_stake_info_for_multiple_coldkeys() {
 
         // Assert individual stakes
         assert_eq!(
-            SubtensorModule::get_subnet_stake_info_for_coldkey(coldkey1.encode(), netuid)
-                .iter()
-                .map(|info| info.stake.0)
-                .sum::<u64>(),
+            SubtensorModule::get_subnet_stake_info_for_coldkey(
+                TensorBytes::from(coldkey1.encode()),
+                netuid
+            )
+            .iter()
+            .map(|info| info.stake.0)
+            .sum::<u64>(),
             5000
         );
 
         assert_eq!(
-            SubtensorModule::get_subnet_stake_info_for_coldkey(coldkey2.encode(), netuid)
-                .iter()
-                .map(|info| info.stake.0)
-                .sum::<u64>(),
+            SubtensorModule::get_subnet_stake_info_for_coldkey(
+                TensorBytes::from(coldkey2.encode()),
+                netuid
+            )
+            .iter()
+            .map(|info| info.stake.0)
+            .sum::<u64>(),
             3000
         );
     });
@@ -173,7 +186,8 @@ fn test_get_all_stake_info_for_coldkey() {
         ));
 
         // Retrieve all stake info for the coldkey and assert the results
-        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+        let all_stake_info =
+            SubtensorModule::get_all_stake_info_for_coldkey(TensorBytes::from(coldkey.encode()));
         log::info!("all_stake_info: {:?}", all_stake_info);
         // Assuming the function returns a Vec<(AccountId, u16, Compact<u64>)>
         assert_eq!(all_stake_info.len(), 2); // Ensure we have two entries
@@ -199,7 +213,8 @@ fn test_get_all_stake_info_for_coldkey_2() {
         add_network(netuid2, tempo, 0);
 
         // Assert that stake info is 0 before adding stake
-        let initial_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+        let initial_stake_info =
+            SubtensorModule::get_all_stake_info_for_coldkey(TensorBytes::from(coldkey.encode()));
         log::info!("initial_stake_info: {:?}", initial_stake_info);
         let initial_total_stake: u64 = initial_stake_info.iter().map(|info| info.2 .0).sum();
         assert_eq!(initial_total_stake, 0, "Initial total stake should be 0");
@@ -223,9 +238,9 @@ fn test_get_all_stake_info_for_coldkey_2() {
         ));
 
         // Retrieve all stake info for the coldkey and assert the results
-        let all_stake_info = SubtensorModule::get_all_stake_info_for_coldkey(coldkey.encode());
+        let all_stake_info =
+            SubtensorModule::get_all_stake_info_for_coldkey(TensorBytes::from(coldkey.encode()));
         log::info!("all_stake_info: {:?}", all_stake_info);
-        // Assuming the function returns a Vec<(AccountId, u16, Compact<u64>)>
         assert_eq!(all_stake_info.len(), 2); // Ensure we have two entries
 
         let total_stake: u64 = all_stake_info.iter().map(|info| info.2 .0).sum();

@@ -42,6 +42,7 @@ mod registration;
 mod root;
 mod serving;
 mod staking;
+pub mod types;
 mod uids;
 mod utils;
 mod weights;

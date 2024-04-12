@@ -12,15 +12,17 @@ use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
+use pallet_subtensor::types::TensorBytes;
 
 use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
+use frame_support::OpaqueMetadata;
 use pallet_registry::CanRegisterIdentity;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::crypto::KeyTypeId;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -1381,41 +1383,27 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block> for Runtime {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+        fn get_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }
 
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8> {
+        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<TensorBytes> ) -> Vec<u8> {
             let result = SubtensorModule::get_stake_info_for_coldkeys( coldkey_account_vecs );
             result.encode()
         }
 
-        fn get_subnet_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ,netuid: u16 ) -> Vec<u8> {
+        fn get_subnet_stake_info_for_coldkeys( coldkey_account_vecs: Vec<TensorBytes> ,netuid: u16 ) -> Vec<u8> {
             let result = SubtensorModule::get_subnet_stake_info_for_coldkeys( coldkey_account_vecs, netuid );
             result.encode()
         }
 
-        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+        fn get_all_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8> {
             let result = SubtensorModule::get_all_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }
 
-        // fn get_all_stake_info_for_coldkey(coldkey_account_vec: Vec<u8>) -> Vec<u8> {
-        //     let result = SubtensorModule::get_all_stake_info_for_coldkey(coldkey_account_vec.clone());
-        //     let encoded_result = result.encode();
-
-        //     // Log the size of the input and output
-        //     info!(
-        //         "get_all_stake_info_for_coldkey called with input size: {}, returning result size: {}",
-        //         coldkey_account_vec.len(),
-        //         encoded_result.len()
-        //     );
-
-        //     encoded_result
-        // }
-
-        fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8>, netuid: u16 ) -> Vec<u8> {
+        fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: TensorBytes, netuid: u16 ) -> Vec<u8> {
             let result = SubtensorModule::get_subnet_stake_info_for_coldkey( coldkey_account_vec, netuid );
             result.encode()
         }

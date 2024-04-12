@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 use alloc::vec::Vec;
+use pallet_subtensor::types::TensorBytes;
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
 // src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs
@@ -25,12 +26,12 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait StakeInfoRuntimeApi {
-        fn get_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
-        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>> ) -> Vec<u8>;
-        fn get_subnet_stake_info_for_coldkeys( coldkey_account_vecs: Vec<Vec<u8>>, netuid: u16 ) -> Vec<u8>;
-        fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> , netuid: u16) -> Vec<u8>;
+        fn get_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8>;
+        fn get_stake_info_for_coldkeys( coldkey_account_vecs: Vec<TensorBytes> ) -> Vec<u8>;
+        fn get_subnet_stake_info_for_coldkeys( coldkey_account_vecs: Vec<TensorBytes>, netuid: u16 ) -> Vec<u8>;
+        fn get_subnet_stake_info_for_coldkey( coldkey_account_vec: TensorBytes , netuid: u16) -> Vec<u8>;
         fn get_total_subnet_stake( netuid: u16 ) -> Vec<u8>;
-        fn get_all_stake_info_for_coldkey( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
+        fn get_all_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {
