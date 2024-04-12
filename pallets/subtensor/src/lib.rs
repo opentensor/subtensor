@@ -626,7 +626,7 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+    pub(super) type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;

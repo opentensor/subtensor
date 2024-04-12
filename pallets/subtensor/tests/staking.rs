@@ -2835,6 +2835,8 @@ fn test_delegate_take_can_be_increased() {
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
 
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
         // Coldkey / hotkey 0 decreases take to 10%
         assert_ok!(SubtensorModule::do_increase_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -2905,6 +2907,8 @@ fn test_delegate_take_can_be_increased_to_limit() {
             u16::MAX / 10
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultTake+1
         assert_ok!(SubtensorModule::do_increase_take(
@@ -3554,5 +3558,16 @@ fn test_rate_limits_enforced_on_increase_take() {
             Err(Error::<Test>::TxRateLimitExceeded.into())
         );
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Can increase after waiting
+        assert_ok!(SubtensorModule::do_increase_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
     });
 }
