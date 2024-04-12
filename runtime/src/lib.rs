@@ -88,6 +88,13 @@ type MemberCount = u32;
 
 pub type Nonce = u32;
 
+// Method used to calculate the fee of an extrinsic
+pub const fn deposit(items: u32, bytes: u32) -> Balance {
+    pub const ITEMS_FEE: Balance = 2_000 * 10_000;
+    pub const BYTES_FEE: Balance = 100 * 10_000;
+    items as Balance * ITEMS_FEE + bytes as Balance * BYTES_FEE
+}
+
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 // the specifics of the runtime. They can then be made to be agnostic over specific formats
 // of data like extrinsics, allowing for them to continue syncing the network through upgrades
@@ -474,9 +481,9 @@ impl pallet_sudo::Config for Runtime {
 
 parameter_types! {
     // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-    pub const DepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (88 as Balance) * 100 * 10_000;
+    pub const DepositBase: Balance = deposit(1, 88);
     // Additional storage item size of 32 bytes.
-    pub const DepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (32 as Balance) * 100 * 10_000;
+    pub const DepositFactor: Balance = deposit(0, 32);
     pub const MaxSignatories: u32 = 100;
 }
 
@@ -493,15 +500,15 @@ impl pallet_multisig::Config for Runtime {
 // Proxy Pallet config
 parameter_types! {
     // One storage item; key size sizeof(AccountId) = 32, value sizeof(Balance) = 8; 40 total
-    pub const ProxyDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (40 as Balance) * 100 * 10_000;
+    pub const ProxyDepositBase: Balance = deposit(1, 40);;
     // Adding 32 bytes + sizeof(ProxyType) = 32 + 1
-    pub const ProxyDepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (33 as Balance) * 100 * 10_000;
+    pub const ProxyDepositFactor: Balance = deposit(0, 33);
     pub const MaxProxies: u32 = 20; // max num proxies per acct
     pub const MaxPending: u32 = 15 * 5; // max blocks pending ~15min
     // 16 bytes
-    pub const AnnouncementDepositBase: Balance = (1) as Balance * 2_000 * 10_000 + (16 as Balance) * 100 * 10_000;
+    pub const AnnouncementDepositBase: Balance =  deposit(1, 16);
     // 68 bytes per announcement
-    pub const AnnouncementDepositFactor: Balance = (0) as Balance * 2_000 * 10_000 + (68 as Balance) * 100 * 10_000;
+    pub const AnnouncementDepositFactor: Balance = deposit(0, 68);
 }
 
 #[derive(
@@ -584,6 +591,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
             (ProxyType::Any, _) => true,
             (_, ProxyType::Any) => false,
             (ProxyType::NonTransfer, _) => true,
+            (ProxyType::Governance, ProxyType::Triumvirate | ProxyType::Senate) => true,
             _ => false,
         }
     }
