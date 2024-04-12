@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
     /// It iterates over the `Stake` storage map and returns the stake information for the UI.
     ///
     /// # Arguments:
-    /// * `coldkey_account_bytes`: Vec<TensorBytes> - The TensorBytes representing the coldkey account.
+    /// * `coldkey_account_bytes`: `Vec<TensorBytes>` - The TensorBytes representing the coldkey account.
     pub fn get_stake_info_for_coldkeys(
         coldkey_account_bytes_vec: Vec<TensorBytes>,
     ) -> Vec<(T::AccountId, Vec<StakeInfo<T>>)> {
@@ -79,7 +79,7 @@ impl<T: Config> Pallet<T> {
     /// It iterates over the `Stake` storage map and returns the stake information for the UI.
     ///
     /// # Arguments:
-    /// * `coldkey_account_bytes`: TensorBytes - The TensorBytes representing the coldkey account.
+    /// * `coldkey_account_bytes`: `TensorBytes` - The TensorBytes representing the coldkey account.
     pub fn get_stake_info_for_coldkey(coldkey_account_bytes: TensorBytes) -> Vec<StakeInfo<T>> {
         if coldkey_account_bytes.as_ref().len() != 32 {
             return Vec::new(); // Invalid coldkey
@@ -132,9 +132,9 @@ impl<T: Config> Pallet<T> {
     /// It iterates over the `SubStake` storage map and returns the stake mapped to the UI.
     ///
     /// # Args:
-    /// * 'coldkey_account_byte_vecs': Vec<TensorBytes>:
+    /// * 'coldkey_account_byte_vecs': `Vec<TensorBytes>`:
     ///     - The vector of coldkey account TensorBytes.
-    /// * 'netuid': u16:
+    /// * 'netuid': `u16``:
     ///     - The network uid.
     ///
     /// # Returns:

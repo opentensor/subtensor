@@ -27,9 +27,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Helper function which returns the number of blocks remaining before we will run the epoch on this
-    // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    //
+    /// Calculates the number of blocks until the next epoch for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The network identifier.
+    /// * `tempo` - The tempo of the network.
+    /// * `block_number` - The current block number.
+    ///
+    /// # Returns
+    ///
+    /// The number of blocks until the next epoch.
     pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
         // tempo | netuid | # first epoch block
         //   1        0               0
@@ -107,10 +115,98 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Iterates through networks queues more emission onto their pending storage.
-    // If a network has no blocks left until tempo, we run the epoch function and generate
-    // more token emission tuples for later draining onto accounts.
-    //
+    /// Generates emission for each network and adds it to the pending emission storage.
+    /// If a network has reached its tempo, it runs the epoch mechanism and generates emission tuples.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_number` - The current block number.
+    ///
+    /// # Sequence Diagram
+    ///
+    /// ```mermaid
+    /// sequenceDiagram
+    ///     participant BlockStep
+    ///     participant Tempo
+    ///     participant SubnetOwner
+    ///     participant PendingEmission
+    ///     participant LoadedEmission
+    ///
+    ///     BlockStep->>Tempo: Iterate over each network (netuid, tempo)
+    ///     loop For each network
+    ///         alt If netuid is root network
+    ///             BlockStep->>BlockStep: Skip (root emission is burned)
+    ///         else
+    ///             BlockStep->>BlockStep: Get subnet emission value
+    ///             BlockStep->>SubnetOwner: Check if network has an owner
+    ///             alt If network has an owner
+    ///                 BlockStep->>BlockStep: Calculate owner's cut
+    ///                 BlockStep->>BlockStep: Subtract owner's cut from remaining emission
+    ///                 BlockStep->>SubnetOwner: Add owner's cut to coldkey account balance
+    ///                 BlockStep->>BlockStep: Create new tokens from coinbase (owner's cut)
+    ///             end
+    ///             BlockStep->>PendingEmission: Add remaining emission to pending emission
+    ///             BlockStep->>BlockStep: Check if network has reached tempo
+    ///             alt If network has not reached tempo
+    ///                 BlockStep->>BlockStep: Increment blocks_since_last_step counter
+    ///             else
+    ///                 BlockStep->>PendingEmission: Retrieve pending emission (emission_to_drain)
+    ///                 BlockStep->>PendingEmission: Set pending emission to zero
+    ///                 BlockStep->>BlockStep: Run epoch mechanism (generate emission tuples)
+    ///                 BlockStep->>BlockStep: Calculate total emission from tuples
+    ///                 alt If total emission exceeds allowed emission_to_drain
+    ///                     BlockStep->>BlockStep: Skip to next iteration
+    ///                 else
+    ///                     BlockStep->>LoadedEmission: Concatenate new emission tuples with existing loaded emission
+    ///                     BlockStep->>BlockStep: Reset blocks_since_last_step counter to zero
+    ///                     BlockStep->>BlockStep: Update last_mechanism_step_block with current block number
+    ///                 end
+    ///             end
+    ///         end
+    ///     end
+    /// ```
+    ///
+    /// # Description
+    ///
+    /// The `generate_emission` function is responsible for generating emission for each network and adding it to the pending emission storage. It iterates over each network using the `Tempo` storage map, which maps a network ID (`netuid`) to its tempo value.
+    ///
+    /// For each network, the function performs the following steps:
+    ///
+    /// 1. If the network is the root network, it skips the emission generation since the root network's emission is burned.
+    ///
+    /// 2. For non-root networks, it retrieves the subnet emission value using `get_subnet_emission_value(netuid)`.
+    ///
+    /// 3. It checks if the network has an owner by calling `SubnetOwner::<T>::contains_key(netuid)`. If the network has an owner, it calculates the owner's cut of the emission, subtracts it from the remaining emission, adds the owner's cut to their coldkey account balance, and creates new tokens from the coinbase using the owner's cut amount.
+    ///
+    /// 4. The remaining emission (after the owner's cut, if applicable) is added to the network's pending emission using `PendingEmission::<T>::mutate()`.
+    ///
+    /// 5. It checks if the network has reached its tempo by calling `blocks_until_next_epoch(netuid, tempo, block_number)`.
+    ///
+    /// 6. If the network has not reached its tempo, it increments the `blocks_since_last_step` counter for the network using `set_blocks_since_last_step()` and continues to the next iteration.
+    ///
+    /// 7. If the network has reached its tempo, it retrieves the pending emission for
+    ///    the network from `PendingEmission::<T>::get(netuid)` and stores it in `emission_to_drain`.
+    ///    It then sets the pending emission for the network to zero using
+    ///    `PendingEmission::<T>::insert(netuid, 0)`.
+    ///
+    /// 8. The function runs the epoch mechanism for the network by calling `epoch(netuid, emission_to_drain)`,
+    ///    which returns a vector of emission tuples `(account_id, validator_emission, server_emission)`.
+    ///
+    /// 9. It calculates the total emission by summing the validator and server emissions from the emission tuples.
+    ///    If the total emission exceeds the allowed `emission_to_drain`, it skips to the next iteration.
+    ///
+    /// 10. If the total emission is within the allowed limit, it concatenates the new emission tuples with any
+    ///     existing loaded emission tuples for the network using `LoadedEmission::<T>::insert()`.
+    ///
+    /// 11. Finally, it resets the `blocks_since_last_step` counter for the network to zero using
+    ///     `set_blocks_since_last_step(netuid, 0)` and updates the `last_mechanism_step_block` for the network
+    ///     with the current `block_number` using `set_last_mechanism_step_block(netuid, block_number)`.
+    ///
+    /// The `generate_emission` function plays a crucial role in the emission generation process for each network.
+    /// It ensures that emission is generated based on the network's tempo, distributes the emission to the network
+    /// owner (if applicable), and adds the remaining emission to the network's pending emission. If a network has
+    /// reached its tempo, it triggers the epoch mechanism to generate emission tuples and updates the loaded emission
+    /// for the network.
     pub fn generate_emission(block_number: u64) {
         // --- 1. Iterate across each network and add pending emission into stash.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
@@ -144,7 +240,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 // We are creating tokens here from the coinbase.
-                Self::coinbase( cut.to_num::<u64>() );
+                Self::coinbase(cut.to_num::<u64>());
             }
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
@@ -203,9 +299,37 @@ impl<T: Config> Pallet<T> {
             Self::set_last_mechanism_step_block(netuid, block_number);
         }
     }
-    // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
-    // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
-    // is called after an epoch to distribute the newly minted stake according to delegation.
+
+    /// Distributes token inflation through the hotkey based on emission.
+    ///
+    /// The function ensures that the inflation is distributed onto the accounts in proportion to the stake
+    /// delegated minus the take. This function is called after an epoch to distribute the newly minted stake
+    /// according to delegation.
+    ///
+    /// # Arguments
+    ///
+    /// * `delegate` - The hotkey account to distribute the inflation through.
+    /// * `netuid` - The network identifier.
+    /// * `server_emission` - The amount of server emission to distribute.
+    /// * `validator_emission` - The amount of validator emission to distribute.
+    ///
+    /// # Diagram
+    ///
+    /// ```mermaid
+    /// graph TD
+    ///     A[Start] --> B{Is the hotkey a delegate?}
+    ///     B -->|No| C[Add total emission to hotkey's stake]
+    ///     C --> D[End]
+    ///     B -->|Yes| E[Compute delegate take from emission]
+    ///     E --> F[Compute remaining validator emission]
+    ///     F --> G{Iterate over nominators}
+    ///     G -->|For each nominator| H[Compute nominator's local and global stake percentages]
+    ///     H --> I[Compute nominator's local and global emission]
+    ///     I --> J[Increase nominator's stake by their emission]
+    ///     J --> G
+    ///     G -->|No more nominators| K[Increase delegate's stake by remaining emission and take]
+    ///     K --> D
+    /// ```
     pub fn emit_inflation_through_hotkey_account(
         delegate: &T::AccountId,
         netuid: u16,
@@ -213,54 +337,82 @@ impl<T: Config> Pallet<T> {
         validator_emission: u64,
     ) {
         // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
-        if !Self::hotkey_is_delegate( delegate ) {
+        if !Self::hotkey_is_delegate(delegate) {
             let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_stake_on_hotkey_account( 
-                delegate, 
-                netuid, 
-                total_delegate_emission
-            );
+            Self::increase_stake_on_hotkey_account(delegate, netuid, total_delegate_emission);
             return;
         }
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate )) / I64F64::from_num(u16::MAX);
-        let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
+        let take_proportion: I64F64 =
+            I64F64::from_num(Delegates::<T>::get(delegate)) / I64F64::from_num(u16::MAX);
+        let delegate_take: I64F64 = take_proportion * I64F64::from_num(validator_emission);
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
         let mut residual: u64 = remaining_validator_emission;
-            
 
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
-        let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
-        let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-        log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_stake);
+        let delegate_local_stake: u64 =
+            Self::get_total_stake_for_hotkey_and_subnet(delegate, netuid);
+        let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey(delegate);
+        log::debug!(
+            "global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}",
+            global_stake_weight,
+            delegate_local_stake,
+            delegate_global_stake
+        );
 
         if delegate_local_stake + delegate_global_stake != 0 {
-            for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
-
+            for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<
+                T::AccountId,
+                T::AccountId,
+                u64,
+            >>::iter_prefix(delegate)
+            {
                 // 3.a Compute the stake weight percentage for the nominatore weight.
-                let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &nominator_i, delegate, netuid );
+                let nominator_local_stake: u64 =
+                    Self::get_subnet_stake_for_coldkey_and_hotkey(&nominator_i, delegate, netuid);
                 let nominator_local_emission_i: I64F64 = if delegate_local_stake == 0 {
                     I64F64::from_num(0)
                 } else {
-                    let nominator_local_percentage: I64F64 = I64F64::from_num( nominator_local_stake ) / I64F64::from_num( delegate_local_stake );
-                    nominator_local_percentage * I64F64::from_num(remaining_validator_emission) * ( I64F64::from_num(1.0) - global_stake_weight )
+                    let nominator_local_percentage: I64F64 =
+                        I64F64::from_num(nominator_local_stake)
+                            / I64F64::from_num(delegate_local_stake);
+                    nominator_local_percentage
+                        * I64F64::from_num(remaining_validator_emission)
+                        * (I64F64::from_num(1.0) - global_stake_weight)
                 };
-                log::debug!("nominator_local_emission_i: {:?}", nominator_local_emission_i);
+                log::debug!(
+                    "nominator_local_emission_i: {:?}",
+                    nominator_local_emission_i
+                );
 
-                let nominator_global_stake: u64 = Self::get_total_stake_for_hotkey_and_coldkey( delegate, &nominator_i );
+                let nominator_global_stake: u64 =
+                    Self::get_total_stake_for_hotkey_and_coldkey(delegate, &nominator_i);
                 let nominator_global_emission_i: I64F64 = if delegate_global_stake == 0 {
                     I64F64::from_num(0)
                 } else {
-                    let nominator_global_percentage: I64F64 = I64F64::from_num( nominator_global_stake ) / I64F64::from_num( delegate_global_stake );
-                    nominator_global_percentage * I64F64::from_num( remaining_validator_emission ) * global_stake_weight
+                    let nominator_global_percentage: I64F64 =
+                        I64F64::from_num(nominator_global_stake)
+                            / I64F64::from_num(delegate_global_stake);
+                    nominator_global_percentage
+                        * I64F64::from_num(remaining_validator_emission)
+                        * global_stake_weight
                 };
-                log::debug!("nominator_global_emission_i: {:?}", nominator_global_emission_i);
-                let nominator_emission_u64: u64 = (nominator_global_emission_i + nominator_local_emission_i).to_num::<u64>();
+                log::debug!(
+                    "nominator_global_emission_i: {:?}",
+                    nominator_global_emission_i
+                );
+                let nominator_emission_u64: u64 =
+                    (nominator_global_emission_i + nominator_local_emission_i).to_num::<u64>();
 
                 // 3.b Increase the stake of the nominator.
-                log::debug!("nominator: {:?}, global_emission: {:?}, local_emission: {:?}", nominator_i, nominator_global_emission_i, nominator_local_emission_i);
+                log::debug!(
+                    "nominator: {:?}, global_emission: {:?}, local_emission: {:?}",
+                    nominator_i,
+                    nominator_global_emission_i,
+                    nominator_local_emission_i
+                );
                 residual -= nominator_emission_u64;
                 Self::increase_stake_on_coldkey_hotkey_account(
                     &nominator_i,
@@ -274,12 +426,11 @@ impl<T: Config> Pallet<T> {
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
         let total_delegate_emission: u64 = delegate_take_u64 + server_emission + residual;
-        log::debug!("total_delegate_emission: {:?}", delegate_take_u64 + server_emission);
-        Self::increase_stake_on_hotkey_account(
-            delegate,
-            netuid,
-            total_delegate_emission,
+        log::debug!(
+            "total_delegate_emission: {:?}",
+            delegate_take_u64 + server_emission
         );
+        Self::increase_stake_on_hotkey_account(delegate, netuid, total_delegate_emission);
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.

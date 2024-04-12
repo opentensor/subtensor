@@ -33,18 +33,18 @@ mod benchmarks;
 // =========================
 //	==== Pallet Imports =====
 // =========================
-mod block_step;
+pub mod block_step;
 
-mod epoch;
-mod math;
-mod registration;
-mod root;
-mod serving;
-mod staking;
+pub mod epoch;
+pub mod math;
+pub mod registration;
+pub mod root;
+pub mod serving;
+pub mod staking;
 pub mod types;
-mod uids;
-mod utils;
-mod weights;
+pub mod uids;
+pub mod utils;
+pub mod weights;
 
 pub mod delegate_info;
 pub mod neuron_info;

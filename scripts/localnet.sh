@@ -56,5 +56,5 @@ bob_start=(
     --discover-local
 )
 
-# (trap 'kill 0' SIGINT; ("${alice_start[@]}" 2>&1) & ("${bob_start[@]}" 2>&1))
-(trap 'kill 0' SIGINT; ("${alice_start[@]}" 2>&1 | tee alice.log) & ("${bob_start[@]}" 2>&1 | tee bob.log))
+(trap 'kill 0' SIGINT; ("${alice_start[@]}" 2>&1) & ("${bob_start[@]}" 2>&1))
+# (trap 'kill 0' SIGINT; ("${alice_start[@]}" 2>&1 | tee alice.log) & ("${bob_start[@]}" 2>&1 | tee bob.log))

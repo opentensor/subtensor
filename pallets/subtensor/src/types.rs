@@ -8,7 +8,7 @@ use sp_core::Bytes;
 use sp_runtime::codec::{Decode, Encode};
 
 /// Wrapper for Bytes that implements TypeInfo
-/// Needed as Bytes doesnt implement it anymore , and the node can't serialize Vec<u8>
+/// Needed as Bytes doesnt implement it anymore , and the node can't serialize `Vec<u8>`
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, Serialize, Deserialize)]
 pub struct TensorBytes(pub Bytes);
 
