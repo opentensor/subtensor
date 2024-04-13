@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 volumes:
   mainnet-lite-volume:
@@ -74,7 +74,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain raw_testspec.json \
+          --chain raw_spec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
@@ -92,7 +92,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain raw_testspec.json \
+          --chain raw_spec.json \
           --rpc-external --rpc-cors all \
           --ws-external --no-mdns \
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
