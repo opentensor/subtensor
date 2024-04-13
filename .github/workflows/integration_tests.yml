@@ -1,10 +1,20 @@
 name: Subtensor Integration Test
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
+  ## Run automatically for all PRs against main, regardless of what the changes are
+  ## to be safe and so we can more easily force re-run the CI when github is being
+  ## weird by using a blank commit
   push:
-    branches: [main]
+    branches: [main, development, staging]
+  ##
+  # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches: [main]
+    branches: [main, development, staging]
+
   workflow_dispatch:
     inputs:
       bittensor_branch:
@@ -25,11 +35,6 @@ jobs:
         with:
           python-version: 3.8
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
       - name: Start localnet
         run: |
           chmod +x scripts/localnet.sh
@@ -45,12 +50,12 @@ jobs:
       - name: Install Bittensor package
         run: |
           cd bittensor
-          pip install .
+          python3 -m pip install -e
 
       - name: Run integration test
         run: |
           python bittensor/tests/integration_tests/test_subtensor_integration.py
-    
+
     # This probably wont work , as I am not sure we use test converage.
     #   - name: Report test results
     #     if: always()
