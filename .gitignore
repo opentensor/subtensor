@@ -35,3 +35,7 @@ specs/*.json
 
 # VSCode configuration
 .vscode
+
+# Localnet data
+alice.log 
+bob.log
