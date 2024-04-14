@@ -39,6 +39,10 @@ alice_start=(
     --rpc-port 9934
     --validator
     --rpc-cors=all
+    --rpc-external
+    --unsafe-rpc-external
+    --rpc-methods=unsafe
+    --ws-external
     --allow-private-ipv4
     --discover-local
 )
