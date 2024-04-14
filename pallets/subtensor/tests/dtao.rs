@@ -26,7 +26,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the root price is 1.0.
         // -- that the root has zero k value.
         assert_eq!( SubtensorModule::get_network_lock_cost(), 100_000_000_000 ); // 100 TAO.
-        assert_eq!( SubtensorModule::get_coldkey_balance( &coldkey ), 100_000_000_000 ); // 0 TAO.
+        assert_eq!( SubtensorModule::get_coldkey_balance( &coldkey ), 100_000_000_000 ); // 100 TAO.
         assert_eq!( SubtensorModule::get_total_stake_for_hotkey_and_subnet( &hotkey, 0), 0 ); // 1 subnets * 100 TAO lock cost.
         assert_eq!( SubtensorModule::get_total_stake_for_subnet( 0 ), 0 );
         assert_eq!( SubtensorModule::get_tao_per_alpha_price(0), 1.0 );

@@ -64,6 +64,7 @@ impl<T: Config> Pallet<T> {
             let normalized_alpha_price: I64F64 = price / I64F64::from_num( total_prices );
             let new_tao_emission:u64 = ( normalized_alpha_price * I64F64::from_num( tao_block_emission ) ).to_num::<u64>();
             let new_alpha_emission: u64 = Self::get_block_emission();
+            EmissionValues::<T>::insert( *netuid, new_tao_emission );
             DynamicTAOReserve::<T>::mutate( netuid, |reserve| *reserve += new_tao_emission );
             DynamicAlphaReserve::<T>::mutate( netuid, |reserve| *reserve += new_alpha_emission );
             PendingAlphaEmission::<T>::mutate( netuid, |emission| *emission += new_alpha_emission );
