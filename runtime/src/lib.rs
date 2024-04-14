@@ -666,7 +666,7 @@ parameter_types! {
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
-    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 0;
 }
 
 impl pallet_subtensor::Config for Runtime {

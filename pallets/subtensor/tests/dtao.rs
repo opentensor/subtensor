@@ -151,6 +151,34 @@ fn test_add_subnet_stake_ok_no_emission() {
             step_block(1);
             log::info!("S1: {}, S2: {}", SubtensorModule::get_tao_per_alpha_price(1), SubtensorModule::get_tao_per_alpha_price(2));
         }
-
     });
+}
+
+#[test]
+fn test_stake_unstake() {
+    new_test_ext().execute_with(|| {
+        // init params.
+        let netuid: u16 = 1;
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+
+        // Register subnet.
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey, 100_000_000_000 ); // 100 TAO.
+        assert_ok!( SubtensorModule::register_network( <<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey ));
+        assert_eq!( SubtensorModule::get_tao_reserve(1), 100_000_000_000 );
+        assert_eq!( SubtensorModule::get_alpha_reserve(1), 100_000_000_000 );
+        assert_eq!( SubtensorModule::get_tao_per_alpha_price(1), 1.0 );
+
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey, 100_000_000_000 ); // 100 TAO.
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            1,
+            100_000_000_000
+        ));
+        assert_eq!( SubtensorModule::get_tao_reserve(1), 200_000_000_000 );
+        assert_eq!( SubtensorModule::get_alpha_reserve(1), 50_000_000_000 );
+        assert_eq!( SubtensorModule::get_tao_per_alpha_price(1), 4 ); // Price is increased from the stake operation.
+
+    })
 }
