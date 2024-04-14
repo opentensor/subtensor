@@ -657,7 +657,7 @@ parameter_types! {
     pub const SubtensorInitialBurn: u64 = 1_000_000_000; // 1 tao
     pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
-    pub const SubtensorInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorInitialTxRateLimit: u64 = 0;
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
@@ -666,7 +666,7 @@ parameter_types! {
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
-    pub const SubtensorInitialNetworkRateLimit: u64 = 0;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200; // 1 day.
 }
 
 impl pallet_subtensor::Config for Runtime {
