@@ -236,7 +236,7 @@ impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
         index: u32,
         approve: bool,
     ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
+        Triumvirate::do_vote(*hotkey, proposal, index, approve)
     }
 }
 

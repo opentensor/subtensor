@@ -108,7 +108,7 @@ impl<T: Config> Pallet<T> {
     // * 'bool': Whether the subnet exists.
     //
     pub fn if_subnet_exist(netuid: u16) -> bool {
-        return NetworksAdded::<T>::get(netuid);
+        NetworksAdded::<T>::get(netuid)
     }
 
     // Returns a list of subnet netuid equal to total networks.
@@ -120,9 +120,9 @@ impl<T: Config> Pallet<T> {
     // * 'Vec<u16>': Netuids of added subnets.
     //
     pub fn get_all_subnet_netuids() -> Vec<u16> {
-        return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+        <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
             .map(|(netuid, _)| netuid)
-            .collect();
+            .collect()
     }
     /// Calculates the block emission based on the total issuance.
     ///
@@ -421,7 +421,7 @@ impl<T: Config> Pallet<T> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
 
-        return Self::set_emission_values(&netuids, emission_u64);
+        Self::set_emission_values(&netuids, emission_u64)
     }
 
     // Registers a user's hotkey to the root network.
@@ -548,7 +548,7 @@ impl<T: Config> Pallet<T> {
 
                 if last_stake < current_stake {
                     T::SenateMembers::swap_member(last, &hotkey)?;
-                    T::TriumvirateInterface::remove_votes(&last)?;
+                    T::TriumvirateInterface::remove_votes(last)?;
                 }
             }
         } else {
@@ -589,13 +589,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure that the calling coldkey owns the associated hotkey.
         ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Self::coldkey_owns_hotkey(&coldkey, hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
         // --- 3. Ensure that the calling hotkey is a member of the senate.
         ensure!(
-            T::SenateMembers::is_member(&hotkey),
+            T::SenateMembers::is_member(hotkey),
             Error::<T>::NotSenateMember
         );
 
@@ -855,7 +855,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that we can convert this u64 to a balance.
         let reserved_amount_as_bal = Self::u64_to_balance(reserved_amount);
-        if !reserved_amount_as_bal.is_some() {
+        if reserved_amount_as_bal.is_none() {
             return;
         }
 
