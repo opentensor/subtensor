@@ -181,8 +181,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
-        let actual_amount_to_stake =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
+        let actual_amount_to_stake = Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
 
         // --- 9. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
@@ -191,7 +190,11 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 10. Emit the staking event.
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
+        Self::set_stakes_this_interval_for_hotkey(
+            &hotkey,
+            stakes_this_interval + 1,
+            block,
+        );
         log::info!(
             "StakeAdded( hotkey:{:?}, stake_to_be_added:{:?} )",
             hotkey,
@@ -305,7 +308,11 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 10. Emit the unstaking event.
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, unstakes_this_interval + 1, block);
+        Self::set_stakes_this_interval_for_hotkey(
+            &hotkey,
+            unstakes_this_interval + 1,
+            block,
+        );
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
@@ -501,7 +508,7 @@ impl<T: Config> Pallet<T> {
         input: u64,
     ) -> Option<
         <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
-    >{
+    > {
         input.try_into().ok()
     }
 
@@ -530,21 +537,19 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let can_withdraw = T::Currency::can_withdraw(&coldkey, amount)
-            .into_result(false)
-            .is_ok();
+        let can_withdraw = T::Currency::can_withdraw(
+            &coldkey,
+            amount,
+        )
+        .into_result(false)
+        .is_ok();
         can_withdraw
     }
 
     pub fn get_coldkey_balance(
         coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
-    {
-        return T::Currency::reducible_balance(
-            &coldkey,
-            Preservation::Expendable,
-            Fortitude::Polite,
-        );
+    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance {
+        return T::Currency::reducible_balance(&coldkey, Preservation::Expendable, Fortitude::Polite);
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
@@ -552,27 +557,23 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
-        let amount_u64: u64 = amount
-            .try_into()
-            .map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+        let amount_u64: u64 = amount.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
 
         if amount_u64 == 0 {
             return Ok(0);
         }
 
         let credit = T::Currency::withdraw(
-            &coldkey,
-            amount,
-            Precision::BestEffort,
-            Preservation::Preserve,
-            Fortitude::Polite,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
+                &coldkey,
+                amount,
+                Precision::BestEffort,
+                Preservation::Preserve,
+                Fortitude::Polite,
+            )
+            .map_err(|_| Error::<T>::BalanceWithdrawalError)?
+            .peek();
 
-        let credit_u64: u64 = credit
-            .try_into()
-            .map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+        let credit_u64: u64 = credit.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
 
         if credit_u64 == 0 {
             return Err(Error::<T>::BalanceWithdrawalError.into());

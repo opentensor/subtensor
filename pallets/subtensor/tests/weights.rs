@@ -1,6 +1,6 @@
 mod mock;
 use frame_support::{
-    assert_err, assert_ok,
+    assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
 use mock::*;
@@ -22,10 +22,8 @@ fn test_set_weights_dispatch_info_ok() {
         let weights = vec![1, 1];
         let netuid: u16 = 1;
         let version_key: u64 = 0;
-        let hotkey = U256::from(1);
         let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
             netuid,
-            hotkey,
             dests,
             weights,
             version_key,
@@ -52,15 +50,11 @@ fn test_weights_err_no_validator_permit() {
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 65555);
         register_ok_neuron(netuid, U256::from(2), U256::from(2), 75555);
 
-        // Create the account to prevent NonAssociatedColdKey err
-        SubtensorModule::create_account_if_non_existent(&U256::from(66), &hotkey_account_id);
-
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(66)),
+            RuntimeOrigin::signed(hotkey_account_id),
             netuid,
-            hotkey_account_id,
             weights_keys,
             weight_values,
             0,
@@ -74,9 +68,8 @@ fn test_weights_err_no_validator_permit() {
                 .expect("Not registered.");
         SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(66)),
+            RuntimeOrigin::signed(hotkey_account_id),
             netuid,
-            hotkey_account_id,
             weights_keys,
             weight_values,
             0,
@@ -112,9 +105,8 @@ fn test_set_weights_min_stake_failed() {
         SubtensorModule::set_weights_min_stake(100_000_000_000_000);
         assert_eq!(
             SubtensorModule::set_weights(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid,
-                hotkey,
                 dests.clone(),
                 weights.clone(),
                 version_key,
@@ -124,9 +116,8 @@ fn test_set_weights_min_stake_failed() {
         // Now passes
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid,
-            hotkey,
             dests.clone(),
             weights.clone(),
             version_key,
@@ -150,17 +141,15 @@ fn test_weights_version_key() {
         let weights_keys: Vec<u16> = vec![0];
         let weight_values: Vec<u16> = vec![1];
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid0,
-            hotkey,
             weights_keys.clone(),
             weight_values.clone(),
             0
         ));
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid1,
-            hotkey,
             weights_keys.clone(),
             weight_values.clone(),
             0
@@ -174,17 +163,15 @@ fn test_weights_version_key() {
 
         // Setting works with version key.
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid0,
-            hotkey,
             weights_keys.clone(),
             weight_values.clone(),
             key0
         ));
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid1,
-            hotkey,
             weights_keys.clone(),
             weight_values.clone(),
             key1
@@ -192,9 +179,8 @@ fn test_weights_version_key() {
 
         // validator:20313 >= network:12312 (accepted: validator newer)
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
+            RuntimeOrigin::signed(hotkey),
             netuid0,
-            hotkey,
             weights_keys.clone(),
             weight_values.clone(),
             key1
@@ -204,9 +190,8 @@ fn test_weights_version_key() {
         // validator:12312 < network:20313 (rejected: validator not updated)
         assert_eq!(
             SubtensorModule::set_weights(
-                RuntimeOrigin::signed(coldkey),
+                RuntimeOrigin::signed(hotkey),
                 netuid1,
-                hotkey,
                 weights_keys.clone(),
                 weight_values.clone(),
                 key0
@@ -244,9 +229,8 @@ fn test_weights_err_setting_weights_too_fast() {
         // Note that LastUpdate has default 0 for new uids, but if they have actually set weights on block 0
         // then they are allowed to set weights again once more without a wait restriction, to accommodate the default.
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(66)),
+            RuntimeOrigin::signed(hotkey_account_id),
             netuid,
-            hotkey_account_id,
             weights_keys.clone(),
             weight_values.clone(),
             0,
@@ -256,9 +240,8 @@ fn test_weights_err_setting_weights_too_fast() {
 
         for i in 1..100 {
             let result = SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(66)),
+                RuntimeOrigin::signed(hotkey_account_id),
                 netuid,
-                hotkey_account_id,
                 weights_keys.clone(),
                 weight_values.clone(),
                 0,
@@ -289,9 +272,8 @@ fn test_weights_err_weights_vec_not_equal_size() {
         let weights_keys: Vec<u16> = vec![1, 2, 3, 4, 5, 6];
         let weight_values: Vec<u16> = vec![1, 2, 3, 4, 5]; // Uneven sizes
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(66)),
+            RuntimeOrigin::signed(hotkey_account_id),
             1,
-            hotkey_account_id,
             weights_keys,
             weight_values,
             0,
@@ -339,9 +321,8 @@ fn test_weights_err_has_duplicate_ids() {
         let weights_keys: Vec<u16> = vec![1, 1, 1]; // Contains duplicates
         let weight_values: Vec<u16> = vec![1, 2, 3];
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(77)),
+            RuntimeOrigin::signed(hotkey_account_id),
             netuid,
-            hotkey_account_id,
             weights_keys,
             weight_values,
             0,
@@ -418,14 +399,8 @@ fn test_weights_err_max_weight_limit() {
         // Non self-weight fails.
         let uids: Vec<u16> = vec![1, 2, 3, 4];
         let values: Vec<u16> = vec![u16::MAX / 4, u16::MAX / 4, u16::MAX / 54, u16::MAX / 4];
-        let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(0)),
-            1,
-            U256::from(0),
-            uids,
-            values,
-            0,
-        );
+        let result =
+            SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(0)), 1, uids, values, 0);
         assert_eq!(result, Err(Error::<Test>::MaxWeightExceeded.into()));
 
         // Self-weight is a success.
@@ -434,7 +409,6 @@ fn test_weights_err_max_weight_limit() {
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(0)),
             1,
-            U256::from(0),
             uids,
             values,
             0
@@ -448,8 +422,7 @@ fn test_no_signature() {
     new_test_ext(0).execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
-        let result =
-            SubtensorModule::set_weights(RuntimeOrigin::none(), 1, U256::from(1), uids, values, 0);
+        let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin.into()));
     });
 }
@@ -467,16 +440,12 @@ fn test_set_weights_err_not_active() {
         SubtensorModule::get_uid_for_net_and_hotkey(netuid, &U256::from(666))
             .expect("Not registered.");
 
-        // Create the account to prevent NonAssociatedColdKey err
-        SubtensorModule::create_account_if_non_existent(&U256::from(2), &U256::from(1));
-
         let weights_keys: Vec<u16> = vec![0]; // Uid 0 is valid.
         let weight_values: Vec<u16> = vec![1];
         // This hotkey is NOT registered.
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(U256::from(1)),
             1,
-            U256::from(1),
             weights_keys,
             weight_values,
             0,
@@ -501,9 +470,8 @@ fn test_set_weights_err_invalid_uid() {
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(66)),
+            RuntimeOrigin::signed(hotkey_account_id),
             1,
-            hotkey_account_id,
             weight_keys,
             weight_values,
             0,
@@ -534,9 +502,8 @@ fn test_set_weight_not_enough_values() {
         let weight_keys: Vec<u16> = vec![1]; // not weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(account_id),
             1,
-            account_id,
             weight_keys,
             weight_values,
             0,
@@ -547,9 +514,8 @@ fn test_set_weight_not_enough_values() {
         let weight_keys: Vec<u16> = vec![0]; // self weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(account_id),
             1,
-            account_id,
             weight_keys,
             weight_values,
             0
@@ -560,98 +526,12 @@ fn test_set_weight_not_enough_values() {
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
         SubtensorModule::set_min_allowed_weights(netuid, 1);
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(account_id),
             1,
-            account_id,
             weight_keys,
             weight_values,
             0
         ));
-    });
-}
-
-// Tests that set weights fails if you sign with hotkey
-#[test]
-fn test_must_sign_with_coldkey_err() {
-    new_test_ext(0).execute_with(|| {
-        let weights_keys: Vec<u16> = vec![0, 1];
-        let weight_values: Vec<u16> = vec![1, 2];
-        let netuid: u16 = 1;
-        let coldkey = U256::from(66);
-        let hotkey_account_id = U256::from(55);
-
-        add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey, 100_000);
-
-        let neuron_uid: u16 =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
-                .expect("Not registered.");
-        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-
-        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
-
-        let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(hotkey_account_id),
-            netuid,
-            hotkey_account_id,
-            weights_keys.clone(),
-            weight_values.clone(),
-            0,
-        );
-        assert_err!(result, Error::<Test>::NonAssociatedColdKey);
-
-        let result_2 = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
-            netuid,
-            hotkey_account_id,
-            weights_keys,
-            weight_values,
-            0,
-        );
-        assert_ok!(result_2);
-    });
-}
-
-// Tests that set weights fails if the signing coldkey does not own the hotkey
-#[test]
-fn test_coldkey_must_own_hotkey_err() {
-    new_test_ext(0).execute_with(|| {
-        let weights_keys: Vec<u16> = vec![0, 1];
-        let weight_values: Vec<u16> = vec![1, 2];
-        let netuid: u16 = 1;
-        let unassociated_coldkey = U256::from(6);
-        let coldkey = U256::from(66);
-        let hotkey_account_id = U256::from(55);
-
-        add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey, 100_000);
-
-        let neuron_uid: u16 =
-            SubtensorModule::get_uid_for_net_and_hotkey(netuid, &hotkey_account_id)
-                .expect("Not registered.");
-        SubtensorModule::set_validator_permit_for_uid(netuid, neuron_uid, true);
-
-        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300_000);
-
-        let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(unassociated_coldkey),
-            netuid,
-            hotkey_account_id,
-            weights_keys.clone(),
-            weight_values.clone(),
-            0,
-        );
-        assert_err!(result, Error::<Test>::NonAssociatedColdKey);
-
-        let result_2 = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(coldkey),
-            netuid,
-            hotkey_account_id,
-            weights_keys,
-            weight_values,
-            0,
-        );
-        assert_ok!(result_2);
     });
 }
 
@@ -676,9 +556,8 @@ fn test_set_weight_too_many_uids() {
         let weight_keys: Vec<u16> = vec![0, 1, 2, 3, 4]; // more uids than neurons in subnet.
         let weight_values: Vec<u16> = vec![88, 102, 303, 1212, 11]; // random value.
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(U256::from(1)),
             1,
-            U256::from(1),
             weight_keys,
             weight_values,
             0,
@@ -689,9 +568,8 @@ fn test_set_weight_too_many_uids() {
         let weight_keys: Vec<u16> = vec![0, 1]; // Only on neurons that exist.
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
         assert_ok!(SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(U256::from(1)),
             1,
-            U256::from(1),
             weight_keys,
             weight_values,
             0
@@ -723,9 +601,8 @@ fn test_set_weights_sum_larger_than_u16_max() {
         assert!(weight_values.iter().map(|x| *x as u64).sum::<u64>() > (u16::MAX as u64));
 
         let result = SubtensorModule::set_weights(
-            RuntimeOrigin::signed(U256::from(2)),
+            RuntimeOrigin::signed(U256::from(1)),
             1,
-            U256::from(1),
             weight_keys,
             weight_values,
             0,
