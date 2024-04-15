@@ -297,6 +297,10 @@ pub mod pallet {
     pub type DynamicTAOReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> DynamicAlphaReserve | Returns the dynamic sub-reserve for a given netuid.
     pub type DynamicAlphaReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> issuance | Returns the total dynamic token issuance.
+    pub type DynamicAlphaIssuance<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> issuance | Returns the total dynamic token issuance outstanding.
+    pub type DynamicAlphaOutstanding<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> DynamicK | Returns the dynamic K value for a given netuid.
     pub type DynamicK<T> = StorageMap<_, Identity, u16, u128, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> is_subnet_dynamic | Returns true if the network is using dynamic staking.

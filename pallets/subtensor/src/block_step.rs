@@ -67,6 +67,7 @@ impl<T: Config> Pallet<T> {
             EmissionValues::<T>::insert( *netuid, new_tao_emission );
             DynamicTAOReserve::<T>::mutate( netuid, |reserve| *reserve += new_tao_emission );
             DynamicAlphaReserve::<T>::mutate( netuid, |reserve| *reserve += new_alpha_emission );
+            DynamicAlphaIssuance::<T>::mutate( netuid, |issuance| *issuance += new_alpha_emission );
             PendingAlphaEmission::<T>::mutate( netuid, |emission| *emission += new_alpha_emission );
             DynamicK::<T>::insert( netuid, (DynamicTAOReserve::<T>::get(netuid) as u128) * (DynamicAlphaReserve::<T>::get(netuid) as u128) );
             TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add( new_tao_emission ));
@@ -96,8 +97,9 @@ impl<T: Config> Pallet<T> {
                 }
 
                 // Update counters.
-                PendingEmission::<T>::insert(netuid, 0);
                 PendingAlphaEmission::<T>::insert(netuid, 0);
+                DynamicAlphaOutstanding::<T>::mutate( netuid, |reserve| *reserve += alpha_emission ); // Increment total alpha outstanding.
+                DynamicAlphaIssuance::<T>::mutate( netuid, |issuance| *issuance += alpha_emission ); // Increment total alpha issuance.
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, block_number);
             } 

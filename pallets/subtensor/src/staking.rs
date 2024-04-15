@@ -183,7 +183,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 9. Compute Dynamic Stake.
-        let dynamic_stake = Self::compute_dynamic_stake(&coldkey, &hotkey, netuid, stake_to_be_added );
+        let dynamic_stake = Self::compute_dynamic_stake( netuid, stake_to_be_added );
 
         // --- 10. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(
@@ -318,7 +318,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 10. Compute Dynamic un stake.
-        let dynamic_unstake:u64 = Self::compute_dynamic_unstake(&coldkey, &hotkey, netuid, stake_to_be_removed);
+        let dynamic_unstake:u64 = Self::compute_dynamic_unstake( netuid, stake_to_be_removed );
 
         // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance( dynamic_unstake ).unwrap() );
@@ -349,8 +349,6 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * The amount of tao to be pulled out as a result of the unstake operation.
     pub fn compute_dynamic_unstake(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
         netuid: u16,
         stake_to_be_removed: u64,
     ) -> u64 {
@@ -373,6 +371,7 @@ impl<T: Config> Pallet<T> {
         // Update the reserves with the new values
         DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
         DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+        DynamicAlphaOutstanding::<T>::mutate( netuid, |outstanding| *outstanding -= stake_to_be_removed ); // Decrement outstanding alpha.
 
         tao
     }
@@ -388,8 +387,6 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * The amount of dynamic token to be pulled out as a result of the stake operation.
     pub fn compute_dynamic_stake(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
         netuid: u16,
         stake_to_be_added: u64,
     ) -> u64 {
@@ -413,6 +410,7 @@ impl<T: Config> Pallet<T> {
         // Update the reserves with the new values
         DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
         DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+        DynamicAlphaOutstanding::<T>::mutate( netuid, |outstanding| *outstanding += dynamic_token ); // Increment outstanding alpha.
 
         dynamic_token
     }
