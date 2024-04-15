@@ -26,11 +26,11 @@ function run_command()
     if [[ "$F_NETWORK" == "mainnet" ]] && [[ "$F_NODE_TYPE" == "archive" ]]; then
         SPECIFIC_OPTIONS=$MAINNET_ARCHIVE_OPTIONS
     elif [[ "$F_NETWORK" == "mainnet" ]] && [[ "$F_NODE_TYPE" == "lite" ]]; then
-        SPECIFIC_OPTIONS=$MAINNET_LITE_OPTIONS 
+        SPECIFIC_OPTIONS=$MAINNET_LITE_OPTIONS
     elif [[ "$F_NETWORK" == "testnet" ]] && [[ "$F_NODE_TYPE" == "archive" ]]; then
-        SPECIFIC_OPTIONS=$TESTNET_ARCHIVE_OPTIONS 
+        SPECIFIC_OPTIONS=$TESTNET_ARCHIVE_OPTIONS
     elif [[ "$F_NETWORK" == "testnet" ]] && [[ "$F_NODE_TYPE" == "lite" ]]; then
-        SPECIFIC_OPTIONS=$TESTNET_LITE_OPTIONS 
+        SPECIFIC_OPTIONS=$TESTNET_LITE_OPTIONS
     fi
 
     if [ ! -f $F_BIN_PATH ]; then
@@ -39,10 +39,16 @@ function run_command()
         exit 1
     fi
 
+    if [[ "$F_NETWORK" == "testnet" ]]; then
+        CHAIN_FILE="./raw_testspec.json"
+    else
+        CHAIN_FILE="./raw_spec.json"
+    fi
+
     # Command to run subtensor
     $F_BIN_PATH \
         --base-path /tmp/blockchain \
-        --chain ./raw_spec.json \
+        --chain $CHAIN_FILE \
         --rpc-external --rpc-cors all \
         --ws-external --no-mdns \
         --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
