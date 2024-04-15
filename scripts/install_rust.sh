@@ -24,7 +24,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
         sudo pacman -S --noconfirm cmake pkgconf openssl git gcc clang
     else
         # Ubuntu (and other Debian-based distributions)
-        sudo apt update
+        sudo apt-get update
         sudo apt install -y cmake pkg-config libssl-dev git gcc build-essential clang libclang-dev
     fi
 else
