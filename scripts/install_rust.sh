@@ -25,7 +25,7 @@ if [[ "$(uname)" == "Darwin" ]]; then
     else
         # Ubuntu (and other Debian-based distributions)
         sudo apt-get update
-        sudo apt install -y cmake pkg-config libssl-dev git gcc build-essential clang libclang-dev
+        sudo apt-get install -y cmake pkg-config libssl-dev git gcc build-essential clang libclang-dev
     fi
 else
     echo "Unsupported operating system. Exiting."
