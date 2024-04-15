@@ -308,28 +308,83 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `delegate` - The hotkey account to distribute the inflation through.
-    /// * `netuid` - The network identifier.
-    /// * `server_emission` - The amount of server emission to distribute.
-    /// * `validator_emission` - The amount of validator emission to distribute.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `server_emission` - The amount of emission allocated for the server.
+    /// * `validator_emission` - The amount of emission allocated for the validator.
     ///
-    /// # Diagram
+    /// # Sequence Diagram
     ///
     /// ```mermaid
-    /// graph TD
-    ///     A[Start] --> B{Is the hotkey a delegate?}
-    ///     B -->|No| C[Add total emission to hotkey's stake]
-    ///     C --> D[End]
-    ///     B -->|Yes| E[Compute delegate take from emission]
-    ///     E --> F[Compute remaining validator emission]
-    ///     F --> G{Iterate over nominators}
-    ///     G -->|For each nominator| H[Compute nominator's local and global stake percentages]
-    ///     H --> I[Compute nominator's local and global emission]
-    ///     I --> J[Increase nominator's stake by their emission]
-    ///     J --> G
-    ///     G -->|No more nominators| K[Increase delegate's stake by remaining emission and take]
-    ///     K --> D
+    /// sequenceDiagram
+    ///     participant Function
+    ///     participant Hotkey
+    ///     participant Stakers
+    ///
+    ///     Function->>Hotkey: Check if hotkey is a delegate
+    ///     alt If hotkey is not a delegate
+    ///         Function->>Hotkey: Increase stake on hotkey account by server_emission + validator_emission
+    ///     else If hotkey is a delegate
+    ///         Function->>Function: Calculate delegate's proportional take from validator_emission
+    ///         Function->>Function: Calculate remaining validator_emission after subtracting delegate_take
+    ///         loop For each staker and their stake
+    ///             Function->>Function: Calculate proportional emission based on staker's stake
+    ///             Function->>Stakers: Increase stake on staker's account by stake_proportion
+    ///             Function->>Function: Subtract stake_proportion from remaining_validator_emission
+    ///         end
+    ///         Function->>Hotkey: Increase stake on hotkey account by delegate_take + remaining_validator_emission
+    ///         Function->>Hotkey: Increase stake on hotkey account by server_emission
+    ///     end
     /// ```
+    ///
+    /// # Description
+    ///
+    /// The `emit_inflation_through_hotkey_account` function distributes the `validator_emission` and `server_emission`
+    /// to the stakers and the delegate based on their stake proportions. Here's how it works:
+    ///
+    /// 1. It first checks if the `hotkey` is a delegate by calling `Self::hotkey_is_delegate(hotkey)`. If the `hotkey`
+    ///    is not a delegate, it simply increases the stake on the `hotkey` account by the sum of `server_emission` and
+    ///    `validator_emission` using `Self::increase_stake_on_hotkey_account(hotkey, server_emission + validator_emission)`
+    ///    and returns.
+    ///
+    /// 2. If the `hotkey` is a delegate, the function proceeds to distribute the `validator_emission` and `server_emission`
+    ///    separately.
+    ///
+    /// 3. It retrieves the total stake for the `hotkey` by calling `Self::get_total_stake_for_hotkey(hotkey)` and stores
+    ///    it in `total_hotkey_stake`.
+    ///
+    /// 4. It calculates the delegate's proportional take from the `validator_emission` by calling
+    ///    `Self::calculate_delegate_proportional_take(hotkey, validator_emission)` and stores it in `delegate_take`.
+    ///    This represents the portion of the `validator_emission` that the delegate keeps for themselves.
+    ///
+    /// 5. It calculates the remaining `validator_emission` after subtracting the `delegate_take` and stores it in
+    ///    `validator_emission_minus_take` and `remaining_validator_emission`.
+    ///
+    /// 6. It iterates over the stakers (cold keys) and their corresponding stakes for the given `hotkey` using
+    ///    `<Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey)`.
+    ///
+    /// 7. For each staker (`owning_coldkey_i`) and their stake (`stake_i`), it calculates the proportional emission
+    ///    based on their stake using `Self::calculate_stake_proportional_emission(stake_i, total_hotkey_stake, validator_emission_minus_take)`
+    ///    and stores it in `stake_proportion`.
+    ///
+    ///
+    /// 8. It increases the stake on the staker's account (`owning_coldkey_i`) for the given `hotkey` by the `stake_proportion`
+    ///    using `Self::increase_stake_on_coldkey_hotkey_account(&owning_coldkey_i, hotkey, stake_proportion)`.
+    ///
+    /// 9. It subtracts the `stake_proportion` from the `remaining_validator_emission` to keep track of the remaining
+    ///    emission to be distributed.
+    ///
+    /// 10. After iterating over all the stakers, it increases the stake on the `hotkey` account by the sum of `delegate_take`
+    ///     and `remaining_validator_emission` using `Self::increase_stake_on_hotkey_account(hotkey, delegate_take + remaining_validator_emission)`.
+    ///     This step is performed after the iteration to avoid affecting the stake proportions during the calculation.
+    ///
+    /// 11. Finally, it increases the stake on the `hotkey` account by the `server_emission` using
+    ///     `Self::increase_stake_on_hotkey_account(hotkey, server_emission)`. The `server_emission` is distributed
+    ///     entirely to the delegate (hotkey) owner.
+    ///
+    /// In summary, this function distributes the `validator_emission` and `server_emission` to the stakers and the delegate
+    /// based on their stake proportions. The delegate receives a proportional take from the `validator_emission` and the
+    /// entire `server_emission`. The remaining `validator_emission` is distributed among the stakers based on their stake
+    /// proportions.
     pub fn emit_inflation_through_hotkey_account(
         delegate: &T::AccountId,
         netuid: u16,
