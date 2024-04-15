@@ -1228,10 +1228,8 @@ fn test_burn_registration_increase_recycled_rao() {
         let coldkey_account_id = U256::from(667);
 
         // Give funds for burn. 1000 TAO
-        let _ = Balances::deposit_creating(
-            &coldkey_account_id,
-            Balance::from(1_000_000_000_000_u64),
-        );
+        let _ =
+            Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
         add_network(netuid, 13, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);

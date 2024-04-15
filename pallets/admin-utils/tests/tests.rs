@@ -791,8 +791,10 @@ fn test_sudo_set_rao_recycled() {
         assert_eq!(
             System::events()
                 .last()
-                .unwrap_or_else(|| panic!("Expected there to be events: {:?}",
-                        System::events().to_vec()))
+                .unwrap_or_else(|| panic!(
+                    "Expected there to be events: {:?}",
+                    System::events().to_vec()
+                ))
                 .event,
             RuntimeEvent::SubtensorModule(Event::RAORecycledForRegistrationSet(netuid, to_be_set))
         );

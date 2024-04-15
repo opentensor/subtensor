@@ -493,53 +493,59 @@ fn test_serving_is_valid_ip_type_nok() {
 #[test]
 fn test_serving_is_valid_ip_address_ipv4() {
     new_test_ext(1).execute_with(|| {
-        assert!(
-            SubtensorModule::is_valid_ip_address(4, test::ipv4(8, 8, 8, 8))
-        );
+        assert!(SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(8, 8, 8, 8)
+        ));
     });
 }
 
 #[test]
 fn test_serving_is_valid_ip_address_ipv6() {
     new_test_ext(1).execute_with(|| {
-        assert!(
-            SubtensorModule::is_valid_ip_address(6, test::ipv6(1, 2, 3, 4, 5, 6, 7, 8))
-        );
-        assert!(
-            SubtensorModule::is_valid_ip_address(6, test::ipv6(1, 2, 3, 4, 5, 6, 7, 8))
-        );
+        assert!(SubtensorModule::is_valid_ip_address(
+            6,
+            test::ipv6(1, 2, 3, 4, 5, 6, 7, 8)
+        ));
+        assert!(SubtensorModule::is_valid_ip_address(
+            6,
+            test::ipv6(1, 2, 3, 4, 5, 6, 7, 8)
+        ));
     });
 }
 
 #[test]
 fn test_serving_is_invalid_ipv4_address() {
     new_test_ext(1).execute_with(|| {
-        assert!(
-            !SubtensorModule::is_valid_ip_address(4, test::ipv4(0, 0, 0, 0))
-        );
-        assert!(
-            !SubtensorModule::is_valid_ip_address(4, test::ipv4(255, 255, 255, 255))
-        );
-        assert!(
-            !SubtensorModule::is_valid_ip_address(4, test::ipv4(127, 0, 0, 1))
-        );
-        assert!(
-            !SubtensorModule::is_valid_ip_address(4, test::ipv6(0xffff, 2, 3, 4, 5, 6, 7, 8))
-        );
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(0, 0, 0, 0)
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(255, 255, 255, 255)
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv4(127, 0, 0, 1)
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv6(0xffff, 2, 3, 4, 5, 6, 7, 8)
+        ));
     });
 }
 
 #[test]
 fn test_serving_is_invalid_ipv6_address() {
     new_test_ext(1).execute_with(|| {
-        assert!(
-            !SubtensorModule::is_valid_ip_address(6, test::ipv6(0, 0, 0, 0, 0, 0, 0, 0))
-        );
-        assert!(
-            !SubtensorModule::is_valid_ip_address(
-                4,
-                test::ipv6(0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff)
-            )
-        );
+        assert!(!SubtensorModule::is_valid_ip_address(
+            6,
+            test::ipv6(0, 0, 0, 0, 0, 0, 0, 0)
+        ));
+        assert!(!SubtensorModule::is_valid_ip_address(
+            4,
+            test::ipv6(0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff)
+        ));
     });
 }

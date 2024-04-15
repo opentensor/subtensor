@@ -1747,8 +1747,7 @@ pub mod pallet {
 /************************************************************
     CallType definition
 ************************************************************/
-#[derive(Debug, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, PartialEq, Default)]
 pub enum CallType {
     SetWeights,
     AddStake,
@@ -1768,7 +1767,7 @@ impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
- {
+{
     fn default() -> Self {
         Self::new()
     }

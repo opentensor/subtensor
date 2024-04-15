@@ -1856,11 +1856,8 @@ fn test_validator_permits() {
     for interleave in 0..3 {
         for (network_n, validators_n) in [(2, 1), (4, 2), (8, 4)] {
             for assignment in 0..=1 {
-                let (validators, servers) = distribute_nodes(
-                    validators_n as usize,
-                    network_n,
-                    interleave as usize,
-                );
+                let (validators, servers) =
+                    distribute_nodes(validators_n as usize, network_n, interleave as usize);
                 let correct: bool = true;
                 let mut stake: Vec<u64> = vec![0; network_n];
                 for validator in &validators {

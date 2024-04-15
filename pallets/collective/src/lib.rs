@@ -534,7 +534,7 @@ pub mod pallet {
                 Self::do_propose_proposed(who, threshold, proposal, length_bound, duration)?;
 
             Ok(Some(T::WeightInfo::propose_proposed(
-                proposal_len,  // B
+                proposal_len,         // B
                 members.len() as u32, // M
                 active_proposals,     // P2
             ))
