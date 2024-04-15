@@ -718,7 +718,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_not_zero() {
     new_test_ext(0).execute_with(|| {
         let max_allowed: u16 = 3;
 
-        let weights: Vec<u16> = Vec::from_iter((0..max_allowed));
+        let weights: Vec<u16> = Vec::from_iter(0..max_allowed);
 
         let expected = weights.clone();
         let result = SubtensorModule::normalize_weights(weights);
@@ -900,7 +900,7 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
-        let uids: Vec<u16> = Vec::from_iter((0..max_allowed));
+        let uids: Vec<u16> = Vec::from_iter(0..max_allowed);
 
         let expected = true;
         let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
@@ -933,7 +933,7 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
-        let uids: Vec<u16> = Vec::from_iter((0..(max_allowed + 1)));
+        let uids: Vec<u16> = Vec::from_iter(0..(max_allowed + 1));
 
         let expected = false;
         let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);

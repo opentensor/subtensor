@@ -155,8 +155,8 @@ fn test_total_issuance_global() {
 
         // Test the migration's effect on total issuance after adding balance to a coldkey account.
         let account_balance: u64 = 20000;
-        let hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
-        let coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
+        let _hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
+        let _coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
         assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Ensure the total issuance starts at 0 before the migration.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance); // Add a balance of 20000 to the coldkey account.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
