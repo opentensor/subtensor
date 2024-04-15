@@ -234,4 +234,34 @@ impl<T: Config> Pallet<T> {
         // Return the vector of all stake information.
         all_stake_info
     }
+
+    /// This function is used to retrieve all the subnet stake info associated with a coldkey across all subnets.
+    /// It iterates over the `SubStake` storage map and returns the stake information for the UI.
+    ///
+    /// # Arguments:
+    /// * `coldkey_account_bytes`: TensorBytes - The TensorBytes representing the coldkey account.
+    pub fn get_all_subnet_stake_info_for_coldkey(
+        coldkey_account_bytes: TensorBytes,
+    ) -> Vec<SubnetStakeInfo<T>> {
+        if coldkey_account_bytes.as_ref().len() != 32 {
+            return Vec::new(); // Invalid coldkey
+        }
+
+        let coldkey: T::AccountId = T::AccountId::decode(&mut coldkey_account_bytes.as_bytes_ref())
+            .expect("Failed to decode AccountId");
+
+        // Filter `SubStake` storage map for entries matching the coldkey across all subnets.
+        let mut all_subnet_stake_info: Vec<SubnetStakeInfo<T>> = Vec::new();
+        for ((hotkey, coldkey_iter, netuid), stake) in SubStake::<T>::iter() {
+            if coldkey == coldkey_iter {
+                all_subnet_stake_info.push(SubnetStakeInfo {
+                    hotkey,
+                    netuid,
+                    stake: Compact(stake),
+                });
+            }
+        }
+
+        all_subnet_stake_info
+    }
 }
