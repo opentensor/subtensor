@@ -1270,12 +1270,11 @@ pub mod pallet {
         pub fn set_weights(
             origin: OriginFor<T>,
             netuid: u16,
-            hotkey: T::AccountId,
             dests: Vec<u16>,
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_weights(origin, netuid, hotkey, dests, weights, version_key)
+            Self::do_set_weights(origin, netuid, dests, weights, version_key)
         }
 
         // --- Sets the key as a delegate.
