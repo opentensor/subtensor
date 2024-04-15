@@ -1,5 +1,5 @@
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
 use pallet_subtensor::migration;
@@ -175,7 +175,7 @@ fn test_root_set_weights() {
         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
         for i in 0..n {
             let hotkey_account_id: U256 = U256::from(i);
-            let coldkey_account_id: U256 = U256::from(i);
+            let coldkey_account_id: U256 = U256::from(i + 456);
             SubtensorModule::add_balance_to_coldkey_account(
                 &coldkey_account_id,
                 1_000_000_000_000_000,
@@ -201,17 +201,57 @@ fn test_root_set_weights() {
         for netuid in 1..n {
             log::debug!("Adding network with netuid: {}", netuid);
             assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid + 456))
             ));
+        }
+
+        // Test that signing with hotkey will fail.
+        for i in 0..n {
+            let hotkey = U256::from(i);
+            let uids: Vec<u16> = vec![i as u16];
+            let values: Vec<u16> = vec![1];
+            assert_err!(
+                SubtensorModule::set_root_weights(
+                    <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+                    root_netuid,
+                    hotkey,
+                    uids,
+                    values,
+                    0,
+                ),
+                Error::<Test>::NonAssociatedColdKey
+            );
+        }
+
+        // Test that signing an unassociated coldkey will fail.
+        let unassociated_coldkey = U256::from(612);
+        for i in 0..n {
+            let hotkey = U256::from(i);
+            let uids: Vec<u16> = vec![i as u16];
+            let values: Vec<u16> = vec![1];
+            assert_err!(
+                SubtensorModule::set_root_weights(
+                    <<Test as Config>::RuntimeOrigin>::signed(unassociated_coldkey),
+                    root_netuid,
+                    hotkey,
+                    uids,
+                    values,
+                    0,
+                ),
+                Error::<Test>::NonAssociatedColdKey
+            );
         }
 
         // Set weights into diagonal matrix.
         for i in 0..n {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i + 456);
             let uids: Vec<u16> = vec![i as u16];
             let values: Vec<u16> = vec![1];
-            assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+            assert_ok!(SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 root_netuid,
+                hotkey,
                 uids,
                 values,
                 0,
@@ -322,11 +362,14 @@ fn test_root_set_weights_out_of_order_netuids() {
         // Set weights into diagonal matrix.
         for (i, netuid) in subnets.iter().enumerate() {
             let uids: Vec<u16> = vec![*netuid];
-
             let values: Vec<u16> = vec![1];
-            assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+
+            let coldkey = U256::from(i);
+            let hotkey = U256::from(i);
+            assert_ok!(SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 root_netuid,
+                hotkey,
                 uids,
                 values,
                 0,
