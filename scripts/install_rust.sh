@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 echo "*** Checking if Rust is already installed"
 
