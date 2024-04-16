@@ -1207,10 +1207,12 @@ mod account_data_migration {
 
             for acc in account_ids {
                 // Ensure account exists in storage and decodes.
-                ensure!(
-                    frame_system::pallet::Account::<Runtime>::try_get(&acc).is_ok(),
-                    "account not found"
-                );
+                match frame_system::pallet::Account::<Runtime>::try_get(&acc) {
+                    Ok(d) => {
+                        ensure!(d.data.free > 0 || d.data.reserved > 0, "account has 0 bal");
+                    }
+                    _ => { panic!("account not found") }
+                };
 
                 // Ensure account provider is >0.
                 ensure!(
