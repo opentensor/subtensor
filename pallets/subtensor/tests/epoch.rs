@@ -227,7 +227,6 @@ fn init_run_epochs(
             assert_ok!(SubtensorModule::set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
-                hotkey,
                 vec![*uid],
                 vec![u16::MAX],
                 0
@@ -562,7 +561,6 @@ fn test_1_graph() {
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(uid)),
             netuid,
-            hot,
             vec![uid],
             vec![u16::MAX],
             0

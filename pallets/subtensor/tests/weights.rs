@@ -422,8 +422,7 @@ fn test_no_signature() {
     new_test_ext(0).execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
-        let result =
-            SubtensorModule::set_weights(RuntimeOrigin::none(), 1, U256::from(1), uids, values, 0);
+        let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin));
     });
 }
