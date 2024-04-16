@@ -24,7 +24,7 @@ fn test_sudo_set_default_take() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_default_take(), init_value);
         assert_ok!(AdminUtils::sudo_set_default_take(
@@ -47,7 +47,7 @@ fn test_sudo_set_serving_rate_limit() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_serving_rate_limit(
@@ -72,7 +72,7 @@ fn test_sudo_set_min_difficulty() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
@@ -105,7 +105,7 @@ fn test_sudo_set_max_difficulty() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_difficulty(
@@ -138,7 +138,7 @@ fn test_sudo_set_weights_version_key() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_weights_version_key(
@@ -171,7 +171,7 @@ fn test_sudo_set_weights_set_rate_limit() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_weights_set_rate_limit(
@@ -210,7 +210,7 @@ fn test_sudo_set_adjustment_interval() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
@@ -243,7 +243,7 @@ fn test_sudo_set_adjustment_alpha() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
@@ -273,7 +273,7 @@ fn test_sudo_subnet_owner_cut() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_subnet_owner_cut(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_owner_cut(
@@ -297,7 +297,7 @@ fn test_sudo_set_max_weight_limit() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_weight_limit(
@@ -326,7 +326,7 @@ fn test_sudo_set_issuance() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_ok!(AdminUtils::sudo_set_total_issuance(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -349,7 +349,7 @@ fn test_sudo_set_immunity_period() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_immunity_period(
@@ -382,7 +382,7 @@ fn test_sudo_set_min_allowed_weights() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_min_allowed_weights(
@@ -415,7 +415,7 @@ fn test_sudo_set_max_allowed_uids() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
@@ -448,7 +448,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
@@ -485,7 +485,7 @@ fn test_sudo_set_kappa() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_kappa(
@@ -518,7 +518,7 @@ fn test_sudo_set_rho() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_rho(
@@ -551,7 +551,7 @@ fn test_sudo_set_activity_cutoff() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
@@ -584,7 +584,7 @@ fn test_sudo_set_target_registrations_per_interval() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_target_registrations_per_interval(
@@ -623,7 +623,7 @@ fn test_sudo_set_difficulty() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_difficulty(
@@ -656,7 +656,7 @@ fn test_sudo_set_max_allowed_validators() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(
@@ -692,7 +692,7 @@ fn test_sudo_set_weights_min_stake() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_weights_min_stake(), init_value);
         assert_ok!(AdminUtils::sudo_set_weights_min_stake(
@@ -716,7 +716,7 @@ fn test_sudo_set_bonds_moving_average() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
@@ -756,7 +756,7 @@ fn test_sudo_set_rao_recycled() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_rao_recycled(
@@ -791,13 +791,10 @@ fn test_sudo_set_rao_recycled() {
         assert_eq!(
             System::events()
                 .last()
-                .expect(
-                    format!(
-                        "Expected there to be events: {:?}",
-                        System::events().to_vec()
-                    )
-                    .as_str()
-                )
+                .unwrap_or_else(|| panic!(
+                    "Expected there to be events: {:?}",
+                    System::events().to_vec()
+                ))
                 .event,
             RuntimeEvent::SubtensorModule(Event::RAORecycledForRegistrationSet(netuid, to_be_set))
         );
@@ -817,7 +814,7 @@ fn test_sudo_set_subnet_limit() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_max_subnets(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_limit(
@@ -841,7 +838,7 @@ fn test_sudo_set_network_lock_reduction_interval() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_lock_reduction_interval(), init_value);
         assert_ok!(AdminUtils::sudo_set_lock_reduction_interval(
@@ -866,7 +863,7 @@ fn test_sudo_set_network_pow_registration_allowed() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             SubtensorModule::get_network_pow_registration_allowed(netuid),

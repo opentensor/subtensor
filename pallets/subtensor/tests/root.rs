@@ -155,7 +155,7 @@ fn test_root_register_stake_based_pruning_works() {
                 Err(Error::<Test>::StakeTooLowForRoot.into())
             );
             // Check for unsuccessful registration.
-            assert!(!SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_err());
             // Check that they are NOT senate members
             assert!(!SubtensorModule::is_senate_member(&hot));
         }
@@ -598,7 +598,7 @@ fn test_weights_after_network_pruning() {
         SubtensorModule::set_network_immunity_period(3);
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_max_subnets(n as u16);
-        SubtensorModule::set_weights_set_rate_limit(root_netuid, 0 as u64);
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 0_u64);
 
         // No validators yet.
         assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
@@ -674,7 +674,7 @@ fn test_weights_after_network_pruning() {
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.
-        assert!(!SubtensorModule::if_subnet_exist((i as u16) + 1));
+        assert!(!SubtensorModule::if_subnet_exist(i + 1));
 
         log::info!(
             "Root network weights: {:?}",

@@ -88,7 +88,7 @@ impl Encode for Data {
             Data::Raw(ref x) => {
                 let l = x.len().min(128);
                 let mut r = vec![l as u8 + 1; l + 1];
-                r[1..].copy_from_slice(&x[..l as usize]);
+                r[1..].copy_from_slice(&x[..l]);
                 r
             }
             Data::BlakeTwo256(ref h) => once(130).chain(h.iter().cloned()).collect(),
@@ -368,7 +368,7 @@ mod tests {
                     .variants
                     .iter()
                     .find(|v| v.name == variant_name)
-                    .expect(&format!("Expected to find variant {}", variant_name));
+                    .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
 
                 let field_arr_len = variant
                     .fields

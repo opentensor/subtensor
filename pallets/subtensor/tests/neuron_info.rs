@@ -50,8 +50,8 @@ fn test_get_neurons_list() {
 
         let neuron_count = 1;
         for index in 0..neuron_count {
-            let hotkey = U256::from(0 + index);
-            let coldkey = U256::from(0 + index);
+            let hotkey = U256::from(index);
+            let coldkey = U256::from(index);
             let nonce: u64 = 39420842 + index;
             register_ok_neuron(netuid, hotkey, coldkey, nonce);
         }

@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_axon_info.block;
-        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
+        rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit
     }
 
     pub fn prometheus_passes_rate_limit(
@@ -233,22 +233,22 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_prometheus_info.block;
-        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
+        rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit
     }
 
     pub fn has_axon_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        return Axons::<T>::contains_key(netuid, hotkey);
+        Axons::<T>::contains_key(netuid, hotkey)
     }
 
     pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        return Prometheus::<T>::contains_key(netuid, hotkey);
+        Prometheus::<T>::contains_key(netuid, hotkey)
     }
 
     pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
         if Self::has_axon_info(netuid, hotkey) {
-            return Axons::<T>::get(netuid, hotkey).unwrap();
+            Axons::<T>::get(netuid, hotkey).unwrap()
         } else {
-            return AxonInfo {
+            AxonInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
@@ -257,27 +257,27 @@ impl<T: Config> Pallet<T> {
                 protocol: 0,
                 placeholder1: 0,
                 placeholder2: 0,
-            };
+            }
         }
     }
 
     pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
         if Self::has_prometheus_info(netuid, hotkey) {
-            return Prometheus::<T>::get(netuid, hotkey).unwrap();
+            Prometheus::<T>::get(netuid, hotkey).unwrap()
         } else {
-            return PrometheusInfo {
+            PrometheusInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
                 port: 0,
                 ip_type: 0,
-            };
+            }
         }
     }
 
     pub fn is_valid_ip_type(ip_type: u8) -> bool {
         let allowed_values: Vec<u8> = vec![4, 6];
-        return allowed_values.contains(&ip_type);
+        allowed_values.contains(&ip_type)
     }
 
     // @todo (Parallax 2-1-2021) : Implement exclusion of private IP ranges
@@ -310,7 +310,7 @@ impl<T: Config> Pallet<T> {
                 return false;
             } // IPv6 localhost
         }
-        return true;
+        true
     }
 
     pub fn validate_axon_data(axon_info: &AxonInfoOf) -> Result<bool, pallet::Error<T>> {
