@@ -1211,7 +1211,9 @@ mod account_data_migration {
                     Ok(d) => {
                         ensure!(d.data.free > 0 || d.data.reserved > 0, "account has 0 bal");
                     }
-                    _ => { panic!("account not found") }
+                    _ => {
+                        panic!("account not found")
+                    }
                 };
 
                 // Ensure account provider is >0.
