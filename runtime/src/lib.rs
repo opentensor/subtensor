@@ -1250,7 +1250,7 @@ mod account_data_migration {
                 pallet_balances::Pallet::<Runtime, ()>::ensure_upgraded(&acc);
             }
 
-            log::info!(target: TARGET, "Migrated ✅");
+            log::info!(target: TARGET, "Migrated {} accounts ✅", accounts.len());
 
             // R/W not important for solo chain.
             return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0u64, 0u64);
