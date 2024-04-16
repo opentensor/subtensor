@@ -125,6 +125,8 @@ std = [
 	"pallet-membership/std",
 	"pallet-registry/std",
 	"pallet-admin-utils/std",
+	"subtensor-custom-rpc-runtime-api/std",
+	"serde_json/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -142,6 +144,10 @@ runtime-benchmarks = [
 	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-admin-utils/runtime-benchmarks",
+	"pallet-multisig/runtime-benchmarks",
+	"pallet-preimage/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks"
 ]
 try-runtime = [
 	"frame-try-runtime/try-runtime",
@@ -162,4 +168,8 @@ try-runtime = [
 	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-preimage/try-runtime",
+	"sp-runtime/try-runtime",
+	"pallet-admin-utils/try-runtime",
+	"pallet-commitments/try-runtime",
+	"pallet-registry/try-runtime"
 ]
