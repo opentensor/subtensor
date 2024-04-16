@@ -60,6 +60,9 @@ pallet-membership = { version = "4.0.0-dev", default-features = false, git = "ht
 # Multisig
 pallet-multisig = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 
+# Proxy Pallet
+pallet-proxy = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+
 # Scheduler pallet
 pallet-scheduler = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
 pallet-preimage = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
@@ -106,6 +109,7 @@ std = [
 	"pallet-utility/std",
 	"pallet-sudo/std",
 	"pallet-multisig/std",
+	"pallet-proxy/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
 	"pallet-commitments/std",
@@ -139,6 +143,7 @@ runtime-benchmarks = [
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
+	"pallet-proxy/runtime-benchmarks",
 	"pallet-registry/runtime-benchmarks",
 	"pallet-commitments/runtime-benchmarks",
 	"pallet-admin-utils/runtime-benchmarks",
@@ -159,6 +164,7 @@ try-runtime = [
 	"pallet-subtensor/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-membership/try-runtime",
+	"pallet-proxy/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-preimage/try-runtime",
