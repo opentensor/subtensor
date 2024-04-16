@@ -356,7 +356,7 @@ fn test_burned_registration_ok() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             10000 - burn_cost
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)

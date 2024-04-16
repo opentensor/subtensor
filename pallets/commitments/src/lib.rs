@@ -295,13 +295,12 @@ where
     }
 
     fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
+        _maybe_pre: Option<Self::Pre>,
         _info: &DispatchInfoOf<Self::Call>,
         _post_info: &PostDispatchInfoOf<Self::Call>,
         _len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if let Some((call_type, _transaction_fee, _who)) = maybe_pre {}
         Ok(())
     }
 }

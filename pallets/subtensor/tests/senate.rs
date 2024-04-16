@@ -76,8 +76,8 @@ fn test_senate_join_works() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -145,8 +145,8 @@ fn test_senate_vote_works() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -254,8 +254,8 @@ fn test_senate_vote_not_member() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -315,8 +315,8 @@ fn test_senate_leave_works() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -385,8 +385,8 @@ fn test_senate_leave_vote_removal() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -522,8 +522,8 @@ fn test_senate_not_leave_when_stake_removed() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            { SubtensorModule::get_coldkey_balance(&coldkey_account_id) },
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
