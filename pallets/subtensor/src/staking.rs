@@ -327,7 +327,7 @@ impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
     //
     pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
-        return Delegates::<T>::contains_key(hotkey);
+        Delegates::<T>::contains_key(hotkey)
     }
 
     // Sets the hotkey as a delegate with take.
@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
     // Returns the total amount of stake in the staking table.
     //
     pub fn get_total_stake() -> u64 {
-        return TotalStake::<T>::get();
+        TotalStake::<T>::get()
     }
 
     // Increases the total amount of stake by the passed amount.
@@ -357,19 +357,19 @@ impl<T: Config> Pallet<T> {
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        return TotalHotkeyStake::<T>::get(hotkey);
+        TotalHotkeyStake::<T>::get(hotkey)
     }
 
     // Returns the total amount of stake held by the coldkey (delegative or otherwise)
     //
     pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        return TotalColdkeyStake::<T>::get(coldkey);
+        TotalColdkeyStake::<T>::get(coldkey)
     }
 
     // Returns the stake under the cold - hot pairing in the staking table.
     //
     pub fn get_stake_for_coldkey_and_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
-        return Stake::<T>::get(hotkey, coldkey);
+        Stake::<T>::get(hotkey, coldkey)
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
@@ -400,7 +400,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_target_stakes_per_interval() -> u64 {
-        return TargetStakesPerInterval::<T>::get();
+        TargetStakesPerInterval::<T>::get()
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
@@ -415,29 +415,29 @@ impl<T: Config> Pallet<T> {
     // Returns the coldkey owning this hotkey. This function should only be called for active accounts.
     //
     pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
-        return Owner::<T>::get(hotkey);
+        Owner::<T>::get(hotkey)
     }
 
     // Returns true if the hotkey account has been created.
     //
     pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {
-        return Owner::<T>::contains_key(hotkey);
+        Owner::<T>::contains_key(hotkey)
     }
 
     // Return true if the passed coldkey owns the hotkey.
     //
     pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
         if Self::hotkey_account_exists(hotkey) {
-            return Owner::<T>::get(hotkey) == *coldkey;
+            Owner::<T>::get(hotkey) == *coldkey
         } else {
-            return false;
+            false
         }
     }
 
     // Returns true if the cold-hot staking account has enough balance to fufil the decrement.
     //
     pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
-        return Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement;
+        Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
     }
 
     // Increases the stake on the hotkey account under its owning coldkey.
@@ -517,14 +517,14 @@ impl<T: Config> Pallet<T> {
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
-        let _ = T::Currency::deposit(&coldkey, amount, Precision::BestEffort);
+        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
 
     pub fn set_balance_on_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
-        T::Currency::set_balance(&coldkey, amount);
+        T::Currency::set_balance(coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -537,19 +537,24 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let can_withdraw = T::Currency::can_withdraw(
-            &coldkey,
+        
+        T::Currency::can_withdraw(
+            coldkey,
             amount,
         )
         .into_result(false)
-        .is_ok();
-        can_withdraw
+        .is_ok()
     }
 
     pub fn get_coldkey_balance(
         coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance {
-        return T::Currency::reducible_balance(&coldkey, Preservation::Expendable, Fortitude::Polite);
+    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
+    {
+        T::Currency::reducible_balance(
+            coldkey,
+            Preservation::Expendable,
+            Fortitude::Polite,
+        )
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
@@ -564,7 +569,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let credit = T::Currency::withdraw(
-                &coldkey,
+                coldkey,
                 amount,
                 Precision::BestEffort,
                 Preservation::Preserve,

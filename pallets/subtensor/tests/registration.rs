@@ -356,7 +356,7 @@ fn test_burned_registration_ok() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             10000 - burn_cost
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
@@ -982,7 +982,7 @@ fn test_registration_failed_no_signature() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(DispatchError::BadOrigin.into()));
+        assert_eq!(result, Err(DispatchError::BadOrigin));
     });
 }
 
@@ -1228,10 +1228,8 @@ fn test_burn_registration_increase_recycled_rao() {
         let coldkey_account_id = U256::from(667);
 
         // Give funds for burn. 1000 TAO
-        let _ = Balances::deposit_creating(
-            &coldkey_account_id,
-            Balance::from(1_000_000_000_000 as u64),
-        );
+        let _ =
+            Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
         add_network(netuid, 13, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);

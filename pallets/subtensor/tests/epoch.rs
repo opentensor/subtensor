@@ -23,11 +23,11 @@ pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
 #[allow(dead_code)]
 pub fn inplace_normalize(x: &mut Vec<I32F32>) {
     let x_sum: I32F32 = x.iter().sum();
-    if x_sum == I32F32::from_num(0.0 as f32) {
+    if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
     for i in 0..x.len() {
-        x[i] = x[i] / x_sum;
+        x[i] /= x_sum;
     }
 }
 
@@ -40,7 +40,7 @@ fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
     weights.iter_mut().for_each(|x| {
         *x = (*x as u64 * u16::max_value() as u64 / sum) as u16;
     });
-    return weights;
+    weights
 }
 
 // // Return as usize an I32F32 ratio of a usize input, avoiding the 0% and 100% extremes.
@@ -103,11 +103,11 @@ fn distribute_nodes(
         // random interleaving
         let mut permuted_uids: Vec<u16> = (0..network_n as u16).collect();
         permuted_uids.shuffle(&mut thread_rng());
-        validators = permuted_uids[0..validators_n as usize].into();
-        servers = permuted_uids[validators_n as usize..network_n as usize].into();
+        validators = permuted_uids[0..validators_n].into();
+        servers = permuted_uids[validators_n..network_n].into();
     }
 
-    return (validators, servers);
+    (validators, servers)
 }
 
 #[allow(dead_code)]
@@ -177,7 +177,7 @@ fn init_run_epochs(
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
             &U256::from(key),
             &U256::from(key),
-            stake as u64,
+            stake,
         );
     }
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -194,10 +194,10 @@ fn init_run_epochs(
     // === Set weights
     let mut rng = StdRng::seed_from_u64(random_seed); // constant seed so weights over multiple runs are equal
     let range = Uniform::new(0, u16::MAX);
-    let mut weights: Vec<u16> = vec![u16::MAX / n; servers.len() as usize];
+    let mut weights: Vec<u16> = vec![u16::MAX / n; servers.len()];
     for uid in validators {
         if random_weights {
-            weights = (0..servers.len()).map(|_| rng.sample(&range)).collect();
+            weights = (0..servers.len()).map(|_| rng.sample(range)).collect();
             weights = normalize_weights(weights);
             // assert_eq!(weights.iter().map(|x| *x as u64).sum::<u64>(), u16::MAX as u64); // normalized weight sum not always u16::MAX
         }
@@ -227,7 +227,7 @@ fn init_run_epochs(
             assert_ok!(SubtensorModule::set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
-                vec![*uid as u16],
+                vec![*uid],
                 vec![u16::MAX],
                 0
             )); // server self-weight
@@ -561,7 +561,7 @@ fn test_1_graph() {
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(U256::from(uid)),
             netuid,
-            vec![uid as u16],
+            vec![uid],
             vec![u16::MAX],
             0
         ));
@@ -664,7 +664,7 @@ fn test_512_graph() {
     let epochs: u16 = 3;
     log::info!("test_{network_n:?}_graph ({validators_n:?} validators)");
     for interleave in 0..3 {
-        for server_self in vec![false, true] {
+        for server_self in [false, true] {
             // server-self weight off/on
             let (validators, servers) = distribute_nodes(
                 validators_n as usize,
@@ -734,7 +734,7 @@ fn test_512_graph_random_weights() {
     let epochs: u16 = 1;
     log::info!("test_{network_n:?}_graph_random_weights ({validators_n:?} validators)");
     for interleave in 0..3 {
-        for server_self in vec![false, true] {
+        for server_self in [false, true] {
             // server-self weight off/on
             let (validators, servers) = distribute_nodes(
                 validators_n as usize,
@@ -845,7 +845,7 @@ fn test_4096_graph() {
         );
         let server: usize = servers[0] as usize;
         let validator: usize = validators[0] as usize;
-        for server_self in vec![false, true] {
+        for server_self in [false, true] {
             // server-self weight off/on
             new_test_ext(1).execute_with(|| {
                 init_run_epochs(
@@ -1329,7 +1329,7 @@ fn test_active_stake() {
             SubtensorModule::epoch_dense(netuid, 1_000_000_000);
         }
         let bonds = SubtensorModule::get_bonds(netuid);
-        for uid in 0..n as u16 {
+        for uid in 0..n {
             // log::info!("\n{uid}" );
             // uid_stats(netuid, uid);
             // log::info!("bonds: {:?}", bonds[uid as usize]);
@@ -1398,7 +1398,7 @@ fn test_active_stake() {
         for server in ((n / 2) as usize)..n as usize {
             assert_eq!(bonds[0][server], I32F32::from_num(65_535)); // floor(0.55*(2^16-1))/(2^16-1), then max-upscale
         }
-        for validator in 1..(n / 2) as u16 {
+        for validator in 1..(n / 2) {
             assert_eq!(
                 SubtensorModule::get_dividends_for_uid(netuid, validator),
                 29490
@@ -1711,13 +1711,13 @@ fn test_zero_weights() {
         B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
         ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
         E: [1000000000, 0]; P: [1, 0] */
-        for validator in 0..(n / 2) as u16 {
+        for validator in 0..(n / 2) {
             assert_eq!(
                 SubtensorModule::get_emission_for_uid(netuid, validator),
                 1000000000
             ); // Note E = 1 * 1_000_000_000
         }
-        for server in (n / 2)..n as u16 {
+        for server in (n / 2)..n {
             assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
             // no stake
         }
@@ -1747,13 +1747,13 @@ fn test_zero_weights() {
         B: [[], []]: B (outdatedmask): [[], []]; B (mask+norm): [[], []]
         ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0]
         E: [1000000000, 0]; P: [1, 0] */
-        for validator in 0..(n / 2) as u16 {
+        for validator in 0..(n / 2) {
             assert_eq!(
                 SubtensorModule::get_emission_for_uid(netuid, validator),
                 1000000000
             ); // Note E = 1 * 1_000_000_000
         }
-        for server in (n / 2)..n as u16 {
+        for server in (n / 2)..n {
             assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
             // no stake
         }
@@ -1802,13 +1802,13 @@ fn test_zero_weights() {
         B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
         ΔB: [[], []]; ΔB (norm): [[], []]; emaB: [[], []]; D: [0, 0];
         E: [1000000000, 0]; P: [1, 0] */
-        for validator in 0..(n / 2) as u16 {
+        for validator in 0..(n / 2) {
             assert_eq!(
                 SubtensorModule::get_emission_for_uid(netuid, validator),
                 1000000000
             ); // Note E = 1 * 1_000_000_000
         }
-        for server in (n / 2)..n as u16 {
+        for server in (n / 2)..n {
             assert_eq!(SubtensorModule::get_emission_for_uid(netuid, server), 0);
             // no stake
         }
@@ -1836,7 +1836,7 @@ fn test_zero_weights() {
         B: [[], []]; B (outdatedmask): [[], []]; B (mask+norm): [[], []];
         ΔB: [[(1, 1)], []]; ΔB (norm): [[(1, 1)], []]; emaB: [[(1, 1)], []]; D: [1, 0]; emaB (max-upscale): [[(1, 1)], []]
         E: [500000000, 500000000]; P: [0.5, 0.5] */
-        for validator in 0..n as u16 {
+        for validator in 0..n {
             assert_eq!(
                 SubtensorModule::get_emission_for_uid(netuid, validator),
                 1000000000 / (n as u64)
@@ -1852,13 +1852,10 @@ fn test_validator_permits() {
     let netuid: u16 = 1;
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     for interleave in 0..3 {
-        for (network_n, validators_n) in vec![(2, 1), (4, 2), (8, 4)] {
+        for (network_n, validators_n) in [(2, 1), (4, 2), (8, 4)] {
             for assignment in 0..=1 {
-                let (validators, servers) = distribute_nodes(
-                    validators_n as usize,
-                    network_n as usize,
-                    interleave as usize,
-                );
+                let (validators, servers) =
+                    distribute_nodes(validators_n as usize, network_n, interleave as usize);
                 let correct: bool = true;
                 let mut stake: Vec<u64> = vec![0; network_n];
                 for validator in &validators {

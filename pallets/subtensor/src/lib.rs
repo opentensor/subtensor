@@ -1162,16 +1162,16 @@ pub mod pallet {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
                     log::info!("Successfully ran block step.");
-                    return Weight::from_parts(110_634_229_000 as u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304 as u64))
-                        .saturating_add(T::DbWeight::get().writes(110 as u64));
+                    Weight::from_parts(110_634_229_000_u64, 0)
+                        .saturating_add(T::DbWeight::get().reads(8304_u64))
+                        .saturating_add(T::DbWeight::get().writes(110_u64))
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    return Weight::from_parts(110_634_229_000 as u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304 as u64))
-                        .saturating_add(T::DbWeight::get().writes(110 as u64));
+                    Weight::from_parts(110_634_229_000_u64, 0)
+                        .saturating_add(T::DbWeight::get().reads(8304_u64))
+                        .saturating_add(T::DbWeight::get().writes(110_u64))
                 }
             }
         }
@@ -1196,7 +1196,7 @@ pub mod pallet {
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
                 .saturating_add(migration::migration5_total_issuance::<T>(false));
 
-            return weight;
+            weight
         }
     }
 
@@ -1702,25 +1702,21 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // --- Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
-            if Uids::<T>::contains_key(netuid, &hotkey) {
+            if Uids::<T>::contains_key(netuid, hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-                let _stake = Self::get_total_stake_for_hotkey(&hotkey);
+                let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
-                    current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
+                    current_block_number - Self::get_last_update_for_uid(netuid, uid);
                 return default_priority + u32::max_value() as u64;
             }
-            return 0;
+            0
         }
 
         // --- Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            if Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake() {
-                return true;
-            } else {
-                return false;
-            }
+            Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
         }
 
         pub fn checked_allowed_register(netuid: u16) -> bool {
@@ -1751,7 +1747,7 @@ pub mod pallet {
 /************************************************************
     CallType definition
 ************************************************************/
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub enum CallType {
     SetWeights,
     AddStake,
@@ -1760,16 +1756,22 @@ pub enum CallType {
     Register,
     Serve,
     RegisterNetwork,
+    #[default]
     Other,
-}
-impl Default for CallType {
-    fn default() -> Self {
-        CallType::Other
-    }
 }
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+impl<T: Config + Send + Sync + TypeInfo> Default for SubtensorSignedExtension<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T: Config + Send + Sync + TypeInfo> SubtensorSignedExtension<T>
 where
@@ -1783,11 +1785,11 @@ where
     pub fn get_priority_vanilla() -> u64 {
         // Return high priority so that every extrinsic except set_weights function will
         // have a higher priority than the set_weights call
-        return u64::max_value();
+        u64::max_value()
     }
 
     pub fn get_priority_set_weights(who: &T::AccountId, netuid: u16) -> u64 {
-        return Pallet::<T>::get_priority_set_weights(who, netuid);
+        Pallet::<T>::get_priority_set_weights(who, netuid)
     }
 
     pub fn check_weights_min_stake(who: &T::AccountId) -> bool {
@@ -1837,12 +1839,12 @@ where
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
-                        priority: priority,
+                        priority,
                         longevity: 1,
                         ..Default::default()
                     })
                 } else {
-                    return Err(InvalidTransaction::Call.into());
+                    Err(InvalidTransaction::Call.into())
                 }
             }
             Some(Call::add_stake { hotkey, .. }) => {

@@ -256,19 +256,19 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn get_root_netuid() -> u16 {
-        return SubtensorModule::get_root_netuid();
+        SubtensorModule::get_root_netuid()
     }
 
     fn if_subnet_exist(netuid: u16) -> bool {
-        return SubtensorModule::if_subnet_exist(netuid);
+        SubtensorModule::if_subnet_exist(netuid)
     }
 
     fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId) {
-        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
+        SubtensorModule::create_account_if_non_existent(coldkey, hotkey)
     }
 
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool {
-        return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
+        SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
     }
 
     fn increase_stake_on_coldkey_hotkey_account(
@@ -280,7 +280,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn u64_to_balance(input: u64) -> Option<Balance> {
-        return SubtensorModule::u64_to_balance(input);
+        SubtensorModule::u64_to_balance(input)
     }
 
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
@@ -288,23 +288,23 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn get_current_block_as_u64() -> u64 {
-        return SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::get_current_block_as_u64()
     }
 
     fn get_subnetwork_n(netuid: u16) -> u16 {
-        return SubtensorModule::get_subnetwork_n(netuid);
+        SubtensorModule::get_subnetwork_n(netuid)
     }
 
     fn get_max_allowed_uids(netuid: u16) -> u16 {
-        return SubtensorModule::get_max_allowed_uids(netuid);
+        SubtensorModule::get_max_allowed_uids(netuid)
     }
 
     fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64) {
-        return SubtensorModule::append_neuron(netuid, new_hotkey, block_number);
+        SubtensorModule::append_neuron(netuid, new_hotkey, block_number)
     }
 
     fn get_neuron_to_prune(netuid: u16) -> u16 {
-        return SubtensorModule::get_neuron_to_prune(netuid);
+        SubtensorModule::get_neuron_to_prune(netuid)
     }
 
     fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64) {
@@ -371,7 +371,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
-        return SubtensorModule::ensure_subnet_owner_or_root(o, netuid);
+        SubtensorModule::ensure_subnet_owner_or_root(o, netuid)
     }
 
     fn set_rho(netuid: u16, rho: u16) {
@@ -419,7 +419,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool {
-        return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
+        SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey)
     }
 
     fn init_new_network(netuid: u16, tempo: u16) {

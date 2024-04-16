@@ -152,8 +152,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i).unwrap();
-        T::SenateMembers::remove_member(&hotkey_i).unwrap();
+        T::TriumvirateInterface::remove_votes(hotkey_i).unwrap();
+        T::SenateMembers::remove_member(hotkey_i).unwrap();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }
@@ -372,7 +372,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
                 let mut new_netuid_emissions = Vec::new();
                 for (server, validator_emission) in netuid_emissions {
-                    new_netuid_emissions.push((server, 0 as u64, validator_emission));
+                    new_netuid_emissions.push((server, 0_u64, validator_emission));
                 }
 
                 // One read (old) and write (new) per netuid

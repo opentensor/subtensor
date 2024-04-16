@@ -147,9 +147,9 @@ fn test_blocks_until_epoch() {
         }
 
         // Check general case.
-        for netuid in 0..30 as u16 {
-            for block in 0..30 as u64 {
-                for tempo in 1..30 as u16 {
+        for netuid in 0..30_u16 {
+            for block in 0..30_u64 {
+                for tempo in 1..30_u16 {
                     assert_eq!(
                         SubtensorModule::blocks_until_next_epoch(netuid, tempo, block),
                         tempo as u64 - (block + netuid as u64 + 1) % (tempo as u64 + 1)
