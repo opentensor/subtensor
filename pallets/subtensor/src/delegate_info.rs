@@ -1,16 +1,16 @@
-use super::*;
-use substrate_fixed::types::{U64F64};
-use frame_support::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageMap;
-use frame_support::pallet_prelude::{Decode, Encode};
-extern crate alloc;
+use alloc::collections::BTreeMap;
 use codec::Compact;
+use frame_support::pallet_prelude::{Decode, Encode};
 use sp_core::hexdisplay::AsBytesRef;
+use substrate_fixed::types::U64F64;
+use super::*;
+
+extern crate alloc;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DelegateInfo<T: Config> {
     delegate_ss58: T::AccountId,
-    take: Compact<u16>,
+    take: Vec<(Compact<u16>, Compact<u16>)>,
     nominators: Vec<(T::AccountId, Compact<u64>)>, // map of nominator_ss58 to stake amount
     owner_ss58: T::AccountId,
     registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on
@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
 
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
-        for (nominator, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate.clone() ) {
+        for (nominator, _) in Stake::<T>::iter_prefix( delegate.clone() ) {
             let mut total_staked_to_delegate_i: u64 = 0;
             for netuid_i in 0..(TotalNetworks::<T>::get()+1) {
                 total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &nominator, &delegate, netuid_i );
@@ -54,7 +54,8 @@ impl<T: Config> Pallet<T> {
         }
 
         let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
-        let take: Compact<u16> = <Delegates<T>>::get(delegate.clone()).into();
+        let take = <Delegates<T>>::iter_prefix(&delegate)
+            .map(|(netuid, take)| (Compact(netuid), Compact(take))).collect();
 
         let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
 
@@ -85,7 +86,7 @@ impl<T: Config> Pallet<T> {
         let delegate: AccountIdOf<T> =
             T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).unwrap();
         // Check delegate exists
-        if !<Delegates<T>>::contains_key(delegate.clone()) {
+        if <Delegates<T>>::iter_prefix(&delegate).next().is_none() {
             return None;
         }
 
@@ -94,15 +95,18 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
-        let mut delegates = Vec::<DelegateInfo<T>>::new();
-        for delegate in
-            <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys().into_iter()
-        {
-            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-            delegates.push(delegate_info);
-        }
-
-        return delegates;
+        let mut unique_delegates = BTreeMap::new();
+        <Delegates<T>>::iter()
+            .filter(|(delegate, _netuid, _take)| {
+                let delegate_as_vec = delegate.encode();
+                let handled = unique_delegates.contains_key(&delegate_as_vec);
+                unique_delegates.insert(delegate_as_vec, ());
+                !handled
+            })
+            .map(|(delegate, _, _)| {
+                Self::get_delegate_by_existing_account(delegate)
+            })
+            .collect()
     }
 
     pub fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, Compact<u64>)> {
@@ -113,22 +117,28 @@ impl<T: Config> Pallet<T> {
         let delegatee: AccountIdOf<T> =
             T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()).unwrap();
 
-        let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
-        for delegate in
-            <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys().into_iter()
-        {
-            let mut total_staked_to_delegate_i: u64 = 0;
-            for netuid_i in 0..(TotalNetworks::<T>::get()+1) {
-                total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &delegatee, &delegate, netuid_i );
-            }
-            if total_staked_to_delegate_i == 0 {
-                continue; // No stake to this delegate
-            }
-            // Staked to this delegate, so add to list
-            let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-            delegates.push((delegate_info, total_staked_to_delegate_i.into()));
-        }
+        let mut unique_delegates = BTreeMap::new();
+        <Delegates<T>>::iter()
+            .filter(|(delegate, _netuid, _take)| {
+                let delegate_as_vec = delegate.encode();
+                let handled = unique_delegates.contains_key(&delegate_as_vec);
+                unique_delegates.insert(delegate_as_vec, ());
+                !handled
+            })
+            .map(|(delegate, _, _)| {
+                let mut total_staked_to_delegate_i: u64 = 0;
+                for netuid_i in 0..=TotalNetworks::<T>::get() {
+                    total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &delegatee, &delegate, netuid_i );
+                }
+                (Self::get_delegate_by_existing_account(delegate), Compact(total_staked_to_delegate_i))
+            })
+            .filter(|(_, Compact(total_staked_to_delegate_i))| {
+                *total_staked_to_delegate_i != 0
+            })
+            .collect()
+    }
 
-        return delegates;
+    pub fn get_delegate_limit() -> u32 {
+        DelegateLimit::<T>::get()
     }
 }

@@ -660,7 +660,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 13. Force all members on root to become a delegate.
         if !Self::hotkey_is_delegate(&hotkey) {
-            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
+            Self::delegate_hotkey(&hotkey, 0u16, 11_796); // 0 is root ID, 18% cut defaulted.
         }
 
         // --- 14. Update the registration counters for both the block and interval.

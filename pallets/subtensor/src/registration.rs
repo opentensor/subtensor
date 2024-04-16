@@ -746,12 +746,13 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(2));
         }
 
-        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
-            Delegates::<T>::remove(old_hotkey);
-            Delegates::<T>::insert(new_hotkey, delegate_take);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
+        for (netuid, delegate_take) in Delegates::<T>::iter_prefix(old_hotkey) {
+            Delegates::<T>::insert(new_hotkey, netuid, delegate_take);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
+        let subnet_limit = SubnetLimit::<T>::get().into();
+        let _ = Delegates::<T>::clear_prefix(old_hotkey, subnet_limit, None);
+        weight.saturating_accrue(T::DbWeight::get().writes(subnet_limit.into()));
 
         if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
             LastTxBlock::<T>::remove(old_hotkey);

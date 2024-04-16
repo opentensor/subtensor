@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
@@ -215,29 +214,29 @@ impl<T: Config> Pallet<T> {
         // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
         if !Self::hotkey_is_delegate( delegate ) {
             let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_stake_on_hotkey_account( 
-                delegate, 
-                netuid, 
+            Self::increase_stake_on_hotkey_account(
+                delegate,
+                netuid,
                 total_delegate_emission
             );
             return;
         }
+
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate )) / I64F64::from_num(u16::MAX);
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate, netuid )) / I64F64::from_num(u16::MAX);
         let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
-        let mut residual: u64 = remaining_validator_emission;
-            
 
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
+        let mut residual: u64 = remaining_validator_emission;
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_stake);
 
         if delegate_local_stake + delegate_global_stake != 0 {
-            for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
+            for (nominator_i, _) in Stake::<T>::iter_prefix( delegate ) {
 
                 // 3.a Compute the stake weight percentage for the nominatore weight.
                 let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &nominator_i, delegate, netuid );
@@ -299,10 +298,10 @@ impl<T: Config> Pallet<T> {
 
     // Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
     //
-    pub fn calculate_delegate_proportional_take(hotkey: &T::AccountId, emission: u64) -> u64 {
+    pub fn calculate_delegate_proportional_take(hotkey: &T::AccountId, netuid: u16, emission: u64) -> u64 {
         if Self::hotkey_is_delegate(hotkey) {
             let take_proportion: I64F64 =
-                I64F64::from_num(Delegates::<T>::get(hotkey)) / I64F64::from_num(u16::MAX);
+                I64F64::from_num(Delegates::<T>::get(hotkey, netuid)) / I64F64::from_num(u16::MAX);
             let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
             return take_emission.to_num::<u64>();
         } else {
@@ -321,7 +320,7 @@ impl<T: Config> Pallet<T> {
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
-            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}", 
+            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
                 last_adjustment_block,
                 adjustment_interval,

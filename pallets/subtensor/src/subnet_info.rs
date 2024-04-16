@@ -177,4 +177,8 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
         });
     }
+
+    pub fn get_subnet_limit() -> u16 {
+        SubnetLimit::<T>::get()
+    }
 }

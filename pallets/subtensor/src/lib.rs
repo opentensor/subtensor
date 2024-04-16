@@ -160,6 +160,8 @@ pub mod pallet {
         type InitialMaxAllowedValidators: Get<u16>;
         #[pallet::constant] // Initial default delegation take.
         type InitialDefaultTake: Get<u16>;
+        #[pallet::constant] // Initial limit on number of nominators per subnet validator
+        type InitialDelegateLimit: Get<u32>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.
@@ -212,6 +214,10 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultDelegateLimit<T: Config>() -> u32 {
+        T::InitialDelegateLimit::get()
     }
     #[pallet::type_value]
     pub fn DefaultZeroU64<T: Config>() -> u64 {
@@ -285,9 +291,19 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
-    pub type Delegates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
+    #[pallet::storage] // --- ITEM ( delegate_limit ) --> Maximmu number of nominators per subnet validator
+    pub type DelegateLimit<T> = StorageValue<_, u32, ValueQuery, DefaultDelegateLimit<T>>;
+    #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet. And signals that this key is open for delegation.
+    pub type Delegates<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u16,
+        ValueQuery,
+        DefaultDefaultTake<T>
+    >;
     #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
@@ -1008,6 +1024,7 @@ pub mod pallet {
         BalanceSetError,          // --- Thrown when an error occurs while setting a balance.
         MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
         TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
+        TooManyNominations, // ---- Thrown when the limit of nominators per subnet validator is exceeded
         TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
         StakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for stakes.
         UnstakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for unstakes.
@@ -1347,7 +1364,10 @@ pub mod pallet {
         // 	* 'hotkey' (T::AccountId):
         // 		- The hotkey we are delegating (must be owned by the coldkey.)
         //
-        // 	* 'take' (u64):
+        //  * 'netuid' (u16):
+        //      - Subnet ID to become delegate for
+        //
+        // 	* 'take' (u16):
         // 		- The stake proportion that this hotkey takes from delegations.
         //
         // # Event:
@@ -1364,8 +1384,8 @@ pub mod pallet {
         //
         #[pallet::call_index(1)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId, netuid: u16, take: u16) -> DispatchResult {
+            Self::do_become_delegate(origin, hotkey, netuid, take)
         }
 
         // --- Allows delegates to decrease its take value.
@@ -1376,6 +1396,9 @@ pub mod pallet {
         //
         // 	* 'hotkey' (T::AccountId):
         // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'netuid' (u16):
+        // 		- Subnet ID to decrease take for
         //
         // 	* 'take' (u16):
         // 		- The new stake proportion that this hotkey takes from delegations.
@@ -1400,8 +1423,8 @@ pub mod pallet {
         //
         #[pallet::call_index(65)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn decrease_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
-            Self::do_decrease_take(origin, hotkey, take)
+        pub fn decrease_take(origin: OriginFor<T>, hotkey: T::AccountId, netuid: u16, take: u16) -> DispatchResult {
+            Self::do_decrease_take(origin, hotkey, netuid, take)
         }
 
         // --- Allows delegates to increase its take value. This call is rate-limited.
@@ -1412,6 +1435,9 @@ pub mod pallet {
         //
         // 	* 'hotkey' (T::AccountId):
         // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'netuid' (u16):
+        // 		- Subnet ID to decrease take for
         //
         // 	* 'take' (u16):
         // 		- The new stake proportion that this hotkey takes from delegations.
@@ -1436,8 +1462,8 @@ pub mod pallet {
         //
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn increase_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
-            Self::do_decrease_take(origin, hotkey, take)
+        pub fn increase_take(origin: OriginFor<T>, hotkey: T::AccountId, netuid: u16, take: u16) -> DispatchResult {
+            Self::do_increase_take(origin, hotkey, netuid, take)
         }
 
         // --- Adds stake to a hotkey. The call is made from the

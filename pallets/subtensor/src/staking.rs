@@ -21,8 +21,11 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The hotkey we are delegating (must be owned by the coldkey.)
     //
+    // 	* 'netuid' (u16):
+    // 		- Subnet ID to become delegate for
+    //
     // 	* 'take' (u16):
-    // 		- The stake proportion that this hotkey takes from delegations.
+    // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     //
     // # Event:
     // 	* DelegateAdded;
@@ -41,6 +44,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_become_delegate(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        netuid: u16,
         take: u16,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
@@ -77,7 +81,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Delegate the key.
-        Self::delegate_hotkey(&hotkey, take);
+        Self::delegate_hotkey(&hotkey, netuid, take);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -107,8 +111,11 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The hotkey we are delegating (must be owned by the coldkey.)
     //
+    // 	* 'netuid' (u16):
+    // 		- Subnet ID to decrease take for
+    //
     // 	* 'take' (u16):
-    // 		- The stake proportion that this hotkey takes from delegations.
+    // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     //
     // # Event:
     // 	* TakeDecreased;
@@ -124,6 +131,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_decrease_take(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        netuid: u16,
         take: u16,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
@@ -140,14 +148,14 @@ impl<T: Config> Pallet<T> {
         Self::do_take_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
-        let current_take: u16 = Delegates::<T>::get(&hotkey);
+        let current_take: u16 = Delegates::<T>::get(&hotkey, netuid);
         ensure!(
             take < current_take,
             Error::<T>::InvalidTake
         );
 
         // --- 4. Set the new take value.
-        Delegates::<T>::insert(hotkey.clone(), take);
+        Delegates::<T>::insert(hotkey.clone(), netuid, take);
 
         // --- 5. Emit the take value.
         log::info!(
@@ -171,8 +179,11 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The hotkey we are delegating (must be owned by the coldkey.)
     //
+    // 	* 'netuid' (u16):
+    // 		- Subnet ID to increase take for
+    //
     // 	* 'take' (u16):
-    // 		- The stake proportion that this hotkey takes from delegations.
+    // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     //
     // # Event:
     // 	* TakeDecreased;
@@ -191,6 +202,7 @@ impl<T: Config> Pallet<T> {
     pub fn do_increase_take(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        netuid: u16,
         take: u16,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
@@ -207,7 +219,7 @@ impl<T: Config> Pallet<T> {
         Self::do_take_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are strinctly increasing take
-        let current_take: u16 = Delegates::<T>::get(&hotkey);
+        let current_take: u16 = Delegates::<T>::get(&hotkey, netuid);
         ensure!(
             take > current_take,
             Error::<T>::InvalidTake
@@ -231,7 +243,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 6. Set the new take value.
-        Delegates::<T>::insert(hotkey.clone(), take);
+        Delegates::<T>::insert(hotkey.clone(), netuid, take);
 
         // --- 7. Emit the take value.
         log::info!(
@@ -328,25 +340,32 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 7. Ensure we don't exceed tx rate limit
+        // --- 7. Enforce the nominator limit
+        // let nominator_count: u32 = 0;
+        // ensure!(
+        //     nominator_count < DelegateLimit::<T>::get(),
+        //     Error::<T>::TooManyNominations
+        // );
+
+        // --- 8. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 8. Ensure we don't exceed stake rate limit
+        // --- 9. Ensure we don't exceed stake rate limit
         let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         ensure!(
             stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 9. Ensure the remove operation from the coldkey is a success.
+        // --- 10. Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake =
             Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
 
-        // --- 10. If we reach here, add the balance to the hotkey.
+        // --- 11. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -354,10 +373,10 @@ impl<T: Config> Pallet<T> {
             actual_amount_to_stake,
         );
 
-        // -- 11. Set last block for rate limiting
+        // -- 12. Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 12. Emit the staking event.
+        // --- 13. Emit the staking event.
         Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
         log::info!(
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
@@ -367,7 +386,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, netuid, stake_to_be_added));
 
-        // --- 11. Ok and return.
+        // --- 14. Ok and return.
         Ok(())
     }
 
@@ -508,13 +527,13 @@ impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
     //
     pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
-        return Delegates::<T>::contains_key(hotkey);
+        Delegates::<T>::iter_prefix(hotkey).next().is_some()
     }
 
     // Sets the hotkey as a delegate with take.
     //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
-        Delegates::<T>::insert(hotkey, take);
+    pub fn delegate_hotkey(hotkey: &T::AccountId, netuid: u16, take: u16) {
+        Delegates::<T>::insert(hotkey, netuid, take);
     }
 
     // Returns the total amount of stake in the staking table.
@@ -613,8 +632,8 @@ impl<T: Config> Pallet<T> {
 
     // Returns the hotkey take
     //
-    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
-        Delegates::<T>::get(hotkey)
+    pub fn get_delegate_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
+        Delegates::<T>::get(hotkey, netuid)
     }
 
     // Returns true if the hotkey account has been created.
@@ -697,31 +716,26 @@ impl<T: Config> Pallet<T> {
         if increment == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::insert(
-            coldkey,
-            TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),
-        );
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
-        );
-        TotalHotkeySubStake::<T>::insert(
-            hotkey,
-            netuid,
-            TotalHotkeySubStake::<T>::get(hotkey, netuid).saturating_add(increment),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
-        );
-        SubStake::<T>::insert(
-            (hotkey, coldkey, netuid),
+        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
+            *stake = stake.saturating_add(increment);
+        });
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
+            *stake = stake.saturating_add(increment);
+        });
+        TotalHotkeySubStake::<T>::mutate(hotkey,netuid, |stake| {
+            *stake = stake.saturating_add(increment);
+        });
+        Stake::<T>::mutate(hotkey, coldkey, |stake| {
+            *stake = stake.saturating_add(increment);
+        });
+        SubStake::<T>::insert((hotkey, coldkey, netuid),
             SubStake::<T>::try_get((hotkey, coldkey, netuid))
                 .unwrap_or(0)
                 .saturating_add(increment),
         );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
+        TotalStake::<T>::mutate(|stake| {
+            *stake = stake.saturating_add(increment);
+        });
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -735,31 +749,26 @@ impl<T: Config> Pallet<T> {
         if decrement == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::insert(
-            coldkey,
-            TotalColdkeyStake::<T>::get(coldkey).saturating_sub(decrement),
-        );
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
-        );
-        TotalHotkeySubStake::<T>::insert(
-            hotkey,
-            netuid,
-            TotalHotkeySubStake::<T>::get(hotkey, netuid).saturating_sub(decrement),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
-        );
-        SubStake::<T>::insert(
-            (hotkey, coldkey, netuid),
+        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
+            *stake = stake.saturating_sub(decrement);
+        });
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
+            *stake = stake.saturating_sub(decrement);
+        });
+        TotalHotkeySubStake::<T>::mutate(hotkey,netuid, |stake| {
+            *stake = stake.saturating_sub(decrement);
+        });
+        Stake::<T>::mutate(hotkey,coldkey, |stake| {
+            *stake = stake.saturating_sub(decrement);
+        });
+        SubStake::<T>::insert((hotkey, coldkey, netuid),
             SubStake::<T>::try_get((hotkey, coldkey, netuid))
                 .unwrap_or(0)
                 .saturating_sub(decrement),
         );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+        TotalStake::<T>::mutate(|stake| {
+            *stake = stake.saturating_sub(decrement);
+        });
     }
 
     pub fn u64_to_balance(

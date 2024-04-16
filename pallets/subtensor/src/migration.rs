@@ -1,11 +1,16 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use frame_support::{
-    pallet_prelude::{Identity, OptionQuery},
+    Blake2_128Concat,
     sp_std::vec::Vec,
     storage_alias,
-    traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
+    pallet_prelude::{
+        Identity,
+        OptionQuery,
+        ValueQuery,
+    },
+    traits::{ fungible::Inspect as _, Get, GetStorageVersion, StorageVersion },
 };
 use log::info;
 
@@ -544,4 +549,61 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
 
     log::info!("Final weight: {:?}", weight); // Debug print
     weight
+}
+
+pub mod v0_delegates_format {
+    use super::*;
+
+    #[storage_alias]
+    pub(super) type Delegates<T: Config> =
+        StorageMap<Pallet<T>, Blake2_128Concat, <T as frame_system::Config>::AccountId, u16, ValueQuery>;
+}
+
+pub fn migrate_to_v1_delegates<T: Config>() -> Weight {
+    use v0_delegates_format as v0;
+
+    // Check storage version
+    let mut weight = T::DbWeight::get().reads_writes(1, 0);
+
+    // Grab current version
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+    // Only runs if we haven't already updated version to 2.
+    if onchain_version < 2 {
+        info!(
+            target: LOG_TARGET,
+            ">>> Updating the Delegates from V0 to V1. Pallet version: {:?}", onchain_version
+        );
+
+        // We transform the storage values from the old into the new format.
+        // Translate the old storage values into the new format.
+        // Each take from v0 becomes a set of takes for v1, same for each registered subnet
+        let mut counter = 0;
+        v0::Delegates::<T>::iter()
+            .for_each(|(key0, take0)| {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+                SubnetworkN::<T>::iter_values()
+                    .for_each(|netid| {
+                        Delegates::<T>::insert(key0.clone(), netid, take0);
+                        weight.saturating_accrue(T::DbWeight::get().writes(1));
+                    });
+
+                counter += 1;
+                if counter % 100 == 0 {
+                    info!(
+                        target: LOG_TARGET,
+                        ">>> Updating the Delegates from V0 to V1: {} keys updated", counter
+                    );
+                }
+            });
+
+        // Update storage version.
+        StorageVersion::new(2).put::<Pallet<T>>(); // Update to version 2 so we don't run this again.
+        weight.saturating_accrue(T::DbWeight::get().writes(1)); // One write to storage version
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_1, "Delegates migration to pallet v2 already done!");
+        Weight::zero()
+    }
 }
