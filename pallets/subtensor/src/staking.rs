@@ -21,9 +21,6 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The hotkey we are delegating (must be owned by the coldkey.)
     //
-    // 	* 'netuid' (u16):
-    // 		- Subnet ID to become delegate for
-    //
     // 	* 'take' (u16):
     // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     //
@@ -44,7 +41,6 @@ impl<T: Config> Pallet<T> {
     pub fn do_become_delegate(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        netuid: u16,
         take: u16,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
@@ -81,7 +77,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Delegate the key.
-        Self::delegate_hotkey(&hotkey, netuid, take);
+        Self::delegate_hotkey(&hotkey, take);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -148,14 +144,15 @@ impl<T: Config> Pallet<T> {
         Self::do_take_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
-        let current_take: u16 = Delegates::<T>::get(&hotkey, netuid);
-        ensure!(
-            take < current_take,
-            Error::<T>::InvalidTake
-        );
+        if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
+            ensure!(
+                take < current_take,
+                Error::<T>::InvalidTake
+            );
+        }
 
         // --- 4. Set the new take value.
-        Delegates::<T>::insert(hotkey.clone(), netuid, take);
+        DelegatesTake::<T>::insert(hotkey.clone(), netuid, take);
 
         // --- 5. Emit the take value.
         log::info!(
@@ -219,11 +216,12 @@ impl<T: Config> Pallet<T> {
         Self::do_take_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are strinctly increasing take
-        let current_take: u16 = Delegates::<T>::get(&hotkey, netuid);
-        ensure!(
-            take > current_take,
-            Error::<T>::InvalidTake
-        );
+        if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
+            ensure!(
+                take > current_take,
+                Error::<T>::InvalidTake
+            );
+        }
 
         // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
         let max_take = T::InitialDefaultTake::get();
@@ -243,7 +241,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 6. Set the new take value.
-        Delegates::<T>::insert(hotkey.clone(), netuid, take);
+        DelegatesTake::<T>::insert(hotkey.clone(), netuid, take);
 
         // --- 7. Emit the take value.
         log::info!(
@@ -527,13 +525,13 @@ impl<T: Config> Pallet<T> {
     // Returns true if the passed hotkey allow delegative staking.
     //
     pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
-        Delegates::<T>::iter_prefix(hotkey).next().is_some()
+        Delegates::<T>::contains_key(hotkey)
     }
 
     // Sets the hotkey as a delegate with take.
     //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, netuid: u16, take: u16) {
-        Delegates::<T>::insert(hotkey, netuid, take);
+    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
+        Delegates::<T>::insert(hotkey, take);
     }
 
     // Returns the total amount of stake in the staking table.
@@ -633,7 +631,7 @@ impl<T: Config> Pallet<T> {
     // Returns the hotkey take
     //
     pub fn get_delegate_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
-        Delegates::<T>::get(hotkey, netuid)
+        DelegatesTake::<T>::get(hotkey, netuid)
     }
 
     // Returns true if the hotkey account has been created.

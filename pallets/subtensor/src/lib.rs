@@ -293,8 +293,12 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
     #[pallet::storage] // --- ITEM ( delegate_limit ) --> Maximmu number of nominators per subnet validator
     pub type DelegateLimit<T> = StorageValue<_, u32, ValueQuery, DefaultDelegateLimit<T>>;
-    #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet. And signals that this key is open for delegation.
-    pub type Delegates<T: Config> = StorageDoubleMap<
+
+    #[pallet::storage] // --- MAP ( hot, u16 ) --> take | Signals that this key is open for delegation.
+    pub type Delegates<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
+    #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet.
+    pub type DelegatesTake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
@@ -1364,9 +1368,6 @@ pub mod pallet {
         // 	* 'hotkey' (T::AccountId):
         // 		- The hotkey we are delegating (must be owned by the coldkey.)
         //
-        //  * 'netuid' (u16):
-        //      - Subnet ID to become delegate for
-        //
         // 	* 'take' (u16):
         // 		- The stake proportion that this hotkey takes from delegations.
         //
@@ -1384,8 +1385,8 @@ pub mod pallet {
         //
         #[pallet::call_index(1)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId, netuid: u16, take: u16) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, netuid, take)
+        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
         }
 
         // --- Allows delegates to decrease its take value.

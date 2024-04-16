@@ -1,7 +1,6 @@
-use alloc::collections::BTreeMap;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
-use sp_core::hexdisplay::AsBytesRef;
+use sp_core::{hexdisplay::AsBytesRef, Get};
 use substrate_fixed::types::U64F64;
 use super::*;
 
@@ -54,8 +53,21 @@ impl<T: Config> Pallet<T> {
         }
 
         let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
-        let take = <Delegates<T>>::iter_prefix(&delegate)
-            .map(|(netuid, take)| (Compact(netuid), Compact(take))).collect();
+        let take = NetworksAdded::<T>::iter()
+            .filter(|(_, added)| {
+                *added
+            })
+            .map(|(netuid, _)| {
+                (
+                    Compact(netuid),
+                    Compact(if let Ok(take) = <DelegatesTake<T>>::try_get(&delegate, netuid) {
+                        take
+                    } else {
+                        <DefaultDefaultTake<T>>::get()
+                    })
+                )
+            })
+            .collect();
 
         let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
 
@@ -86,7 +98,7 @@ impl<T: Config> Pallet<T> {
         let delegate: AccountIdOf<T> =
             T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).unwrap();
         // Check delegate exists
-        if <Delegates<T>>::iter_prefix(&delegate).next().is_none() {
+        if !<Delegates<T>>::contains_key(&delegate) {
             return None;
         }
 
@@ -95,15 +107,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
-        let mut unique_delegates = BTreeMap::new();
         <Delegates<T>>::iter()
-            .filter(|(delegate_id, _netuid, _take)| {
-                let delegate_as_vec = delegate_id.encode();
-                let handled = unique_delegates.contains_key(&delegate_as_vec);
-                unique_delegates.insert(delegate_as_vec, ());
-                !handled
-            })
-            .map(|(delegate_id, _, _)| {
+            .map(|(delegate_id, _)| {
                 Self::get_delegate_by_existing_account(delegate_id)
             })
             .collect()
@@ -117,15 +122,8 @@ impl<T: Config> Pallet<T> {
         let delegatee: AccountIdOf<T> =
             T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()).unwrap();
 
-        let mut unique_delegates = BTreeMap::new();
         <Delegates<T>>::iter()
-            .filter(|(delegate_id, _netuid, _take)| {
-                let delegate_as_vec = delegate_id.encode();
-                let handled = unique_delegates.contains_key(&delegate_as_vec);
-                unique_delegates.insert(delegate_as_vec, ());
-                !handled
-            })
-            .map(|(delegate_id, _, _)| {
+            .map(|(delegate_id, _)| {
                 let mut total_staked_to_delegate_i: u64 = 0;
                 for netuid_i in 0..=TotalNetworks::<T>::get() {
                     total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &delegatee, &delegate_id, netuid_i );

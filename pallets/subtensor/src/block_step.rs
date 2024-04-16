@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate, netuid )) / I64F64::from_num(u16::MAX);
+        let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get( delegate, netuid )) / I64F64::from_num(u16::MAX);
         let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
@@ -301,7 +301,7 @@ impl<T: Config> Pallet<T> {
     pub fn calculate_delegate_proportional_take(hotkey: &T::AccountId, netuid: u16, emission: u64) -> u64 {
         if Self::hotkey_is_delegate(hotkey) {
             let take_proportion: I64F64 =
-                I64F64::from_num(Delegates::<T>::get(hotkey, netuid)) / I64F64::from_num(u16::MAX);
+                I64F64::from_num(DelegatesTake::<T>::get(hotkey, netuid)) / I64F64::from_num(u16::MAX);
             let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
             return take_emission.to_num::<u64>();
         } else {
