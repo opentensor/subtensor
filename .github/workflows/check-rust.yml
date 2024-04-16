@@ -332,7 +332,7 @@ jobs:
           fi
 
   check-feature-propagation:
-    name: Check Cargo feature propatation with zepter
+    name: zepter run check
     runs-on: ubuntu-22.04
 
     steps:
