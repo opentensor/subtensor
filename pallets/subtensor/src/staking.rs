@@ -537,13 +537,13 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let can_withdraw = T::Currency::can_withdraw(
-            &coldkey,
+        
+        T::Currency::can_withdraw(
+            coldkey,
             amount,
         )
         .into_result(false)
-        .is_ok();
-        can_withdraw
+        .is_ok()
     }
 
     pub fn get_coldkey_balance(
@@ -569,7 +569,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let credit = T::Currency::withdraw(
-                &coldkey,
+                coldkey,
                 amount,
                 Precision::BestEffort,
                 Preservation::Preserve,

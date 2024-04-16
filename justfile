@@ -7,18 +7,9 @@ export TARGET := "x86_64-unknown-linux-gnu"
 export RUSTV := "nightly-2024-03-05"
 export RELEASE_NAME := "development"
 
-default:
-  @echo "Running all tasks..."
-  fmt
-  check
-  test
-  benchmarks
-  clippy
-  fix
-
 fmt:
   @echo "Running cargo fmt..."
-  cargo +{{RUSTV}} fmt --check --all
+  cargo +{{RUSTV}} fmt --all
 
 check:
   @echo "Running cargo check..."
@@ -37,6 +28,12 @@ clippy:
   cargo +{{RUSTV}} clippy -- -D clippy::panic \
                             -D clippy::todo \
                             -D clippy::unimplemented
+
+clippy-fix:
+  @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
+  cargo +{{RUSTV}} clippy --fix --allow-dirty -- -A clippy::panic \
+                                                      -A clippy::todo \
+                                                      -A clippy::unimplemented
 fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace
