@@ -553,6 +553,9 @@ pub mod pallet {
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
     #[pallet::storage]
+    pub type SubnetCreator<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
@@ -990,6 +993,7 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        SubnetCreatorLock, // --- Thrown when the subnet creator attempts to unstake within the first 6 months.
     }
 
     // ==================

@@ -463,7 +463,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("init_new_network: {:?}", netuid_to_register,);
         
         // --- 7. Set Subnet owner to the coldkey.
-        SubnetOwner::<T>::insert( netuid_to_register, coldkey.clone() );
+        SubnetOwner::<T>::insert( netuid_to_register, coldkey.clone() ); // Set the owner (which can change.)
+        SubnetCreator::<T>::insert( netuid_to_register, hotkey.clone() ); // Set the creator hotkey (which is forever.)
 
         // --- 8. Instantiate initial token supply based on lock cost.
         let initial_tao_reserve: u64 = lock_amount as u64;

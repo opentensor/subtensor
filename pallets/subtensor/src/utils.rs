@@ -566,6 +566,9 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
+    pub fn get_subnet_creator_hotkey(netuid: u16) -> T::AccountId {
+        SubnetCreator::<T>::get(netuid)
+    }
     pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
         SubnetOwner::<T>::get(netuid)
     }

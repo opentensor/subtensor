@@ -15,8 +15,14 @@ impl<T: Config> Pallet<T> {
         Self::adjust_registration_terms_for_networks();
         // --- 2. Mint and distribute TAO.
         Self::run_coinbase(block_number);
+        // --- 3. Adjust tempos
+        Self::adjust_subnet_tempos( block_number );
         // Return ok.
         Ok(())
+    }
+
+    pub fn adjust_subnet_tempos( block_number) {
+        if Self::blocks_until_next_epoch( )
     }
 
     // Helper function which returns the number of blocks remaining before we will run the epoch on this

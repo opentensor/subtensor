@@ -309,6 +309,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
+        let SIX_MONTHS_IN_BLOCKS: u64 = 7200 * 30 * 3;
+        if Self::get_subnet_creator_hotkey( netuid ) == hotkey {
+            ensure!(
+                block - Self::get_network_registered_block( netuid ) < SIX_MONTHS_IN_BLOCKS,
+                Error::<T>::SubnetCreatorLock
+            )
+        }
+
         // --- 9. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(
             &coldkey,
