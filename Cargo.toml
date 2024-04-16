@@ -2,8 +2,8 @@
 members = [
     "integration-tests",
     "node",
-    "pallets/subtensor",
     "pallets/commitments",
+    "pallets/subtensor",
     "runtime",
 ]
 resolver = "2"
