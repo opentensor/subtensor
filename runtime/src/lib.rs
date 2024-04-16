@@ -6,14 +6,17 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use codec::Encode;
+use codec::{Decode, Encode};
 
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
+use frame_support::{
+    pallet_prelude::{DispatchError, DispatchResult, Get},
+    traits::OnRuntimeUpgrade,
+};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
 use pallet_registry::CanRegisterIdentity;
@@ -263,7 +266,7 @@ pub const EXISTENTIAL_DEPOSIT: u64 = 500;
 
 impl pallet_balances::Config for Runtime {
     type MaxLocks = ConstU32<50>;
-    type MaxReserves = ();
+    type MaxReserves = ConstU32<50>;
     type ReserveIdentifier = [u8; 8];
     // The type for recording an account's balance.
     type Balance = Balance;
@@ -274,10 +277,10 @@ impl pallet_balances::Config for Runtime {
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 
-    type RuntimeHoldReason = ();
-    type FreezeIdentifier = ();
-    type MaxHolds = ();
-    type MaxFreezes = ();
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type FreezeIdentifier = RuntimeFreezeReason;
+    type MaxHolds = ConstU32<50>;
+    type MaxFreezes = ConstU32<50>;
 }
 
 pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
@@ -1017,6 +1020,119 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
+mod account_data_migration {
+    use super::*;
+    use frame_support::log;
+    use pallet_balances::ExtraFlags;
+
+    mod prev {
+        use super::*;
+        use frame_support::{pallet_prelude::ValueQuery, storage_alias, Blake2_128Concat};
+
+        #[derive(Encode, Decode, Clone, PartialEq, Eq, Default, Debug)]
+        pub struct AccountData<Balance> {
+            pub free: Balance,
+            pub reserved: Balance,
+            pub misc_frozen: Balance,
+            pub fee_frozen: Balance,
+        }
+
+        #[storage_alias]
+        pub type Account<T: frame_system::pallet::Config> = StorageMap<
+            frame_system::pallet::Pallet<T>,
+            Blake2_128Concat,
+            AccountId,
+            AccountData<Balance>,
+            ValueQuery,
+        >;
+    }
+
+    const TARGET: &'static str = "runtime::account_data_migration";
+    pub struct Migration;
+    impl OnRuntimeUpgrade for Migration {
+        /// Save pre-upgrade account ids to check are decodable post-upgrade.
+        #[cfg(feature = "try-runtime")]
+        fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+            let account_ids = prev::Account::<Runtime>::iter_keys().collect::<Vec<_>>();
+            log::info!(target: TARGET, "pre-upgrade");
+
+            Ok(account_ids.encode())
+        }
+
+        /// Ensures post-upgrade that
+        /// 1. Number of accounts has not changed.
+        /// 2. Each account exists in storage and decodes.
+        /// 3. Each account has a provider val >0.
+        #[cfg(feature = "try-runtime")]
+        fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+            use frame_support::ensure;
+            log::info!(target: TARGET, "Running post-upgrade...");
+
+            let pre_upgrade_account_ids: Vec<<Runtime as frame_system::Config>::AccountId> =
+                Decode::decode(&mut &state[..]).expect("pre_upgrade provides a valid state; qed");
+
+            // Ensure number of accounts has not changed.
+            let account_ids = prev::Account::<Runtime>::iter_keys().collect::<Vec<_>>();
+            ensure!(
+                pre_upgrade_account_ids.len() == account_ids.len(),
+                "number of accounts has changed"
+            );
+
+            for acc in account_ids {
+                // Ensure account exists in storage and decodes.
+                ensure!(
+                    frame_system::pallet::Account::<Runtime>::try_get(&acc).is_ok(),
+                    "account not found"
+                );
+
+                // Ensure account provider is >0.
+                ensure!(
+                    frame_system::Pallet::<Runtime>::providers(&acc) > 0,
+                    "provider == 0"
+                );
+            }
+
+            log::info!(target: TARGET, "post-upgrade success ✅");
+            Ok(())
+        }
+
+        /// Migrates AccountData storage to the new format, bumping providers where required.
+        fn on_runtime_upgrade() -> Weight {
+            // Pull the storage in the previous format into memory
+            let accounts = prev::Account::<Runtime>::iter().collect::<Vec<_>>();
+            log::info!(target: TARGET, "Migrating {} accounts...", accounts.len());
+
+            for (acc, data) in accounts.clone().into_iter() {
+                // Move account to new data format
+                let new_data = pallet_balances::AccountData {
+                    free: data.free,
+                    reserved: data.reserved,
+                    frozen: data.misc_frozen.saturating_add(data.fee_frozen),
+                    flags: ExtraFlags::old_logic(),
+                };
+                frame_system::pallet::Account::<Runtime>::mutate(acc.clone(), |a| {
+                    a.data = new_data;
+                });
+
+                // Ensure provider
+                if frame_system::Pallet::<Runtime>::providers(&acc) == 0 {
+                    frame_system::Pallet::<Runtime>::inc_providers(&acc);
+                }
+
+                // Ensure upgraded
+                pallet_balances::Pallet::<Runtime, ()>::ensure_upgraded(&acc);
+            }
+
+            log::info!(target: TARGET, "Migrated ✅");
+
+            // R/W not important for solo chain.
+            return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0u64, 0u64);
+        }
+    }
+}
+
+type Migrations = account_data_migration::Migration;
+
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
     generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
@@ -1029,6 +1145,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
