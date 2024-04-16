@@ -22,7 +22,11 @@ impl<T: Config> Pallet<T> {
     // 	* 'hotkey' (T::AccountId):
     // 		- The hotkey we are delegating (must be owned by the coldkey.)
     //
+    // 	* 'netuid' (u16):
+    // 		- Subnet ID to become delegate for
+    //
     // 	* 'take' (u16):
+    // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     //
     // # Event:
@@ -501,6 +505,13 @@ impl<T: Config> Pallet<T> {
         // --- 7. Remove balance.
         Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()).map_err(|_| Error::<T>::BalanceWithdrawalError)?;
 
+        // --- 8. Enforce the nominator limit
+        // let nominator_count: u32 = 0;
+        // ensure!(
+        //     nominator_count < DelegateLimit::<T>::get(),
+        //     Error::<T>::TooManyNominations
+        // );
+
         // --- 8. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -508,10 +519,21 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
+        // --- 9. Ensure we don't exceed stake rate limit
+        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        ensure!(
+            stakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::StakeRateLimitExceeded
+        );
+
         // --- 9. Compute Dynamic Stake.
         let dynamic_stake = Self::compute_dynamic_stake( netuid, stake_to_be_added );
 
-        // --- 10. If we reach here, add the balance to the hotkey.
+        // --- 10. Ensure the remove operation from the coldkey is a success.
+        let actual_amount_to_stake =
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
+
+        // --- 11. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -520,9 +542,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // -- 12. Set last block for rate limiting
+        // -- 12. Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 13. Emit the staking event.
+        Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
         log::info!(
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             hotkey,
@@ -531,6 +555,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, netuid, stake_to_be_added));
 
+        // --- 14. Ok and return.
         // --- 14. Ok and return.
         Ok(())
     }
@@ -758,8 +783,8 @@ impl<T: Config> Pallet<T> {
 
     // Sets the hotkey as a delegate with take.
     //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
-        Delegates::<T>::insert(hotkey, take);
+    pub fn delegate_hotkey(hotkey: &T::AccountId, netuid: u16, take: u16) {
+        Delegates::<T>::insert(hotkey, netuid, take);
     }
 
     // Returns the total amount of stake in the staking table.
@@ -850,8 +875,10 @@ impl<T: Config> Pallet<T> {
 
     // Returns the hotkey take
     //
-    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
-        Delegates::<T>::get(hotkey)
+    // Returns the hotkey take
+    //
+    pub fn get_delegate_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
+        DelegatesTake::<T>::get(hotkey, netuid)
     }
 
     // Returns the hotkey take

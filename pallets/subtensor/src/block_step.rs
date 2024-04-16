@@ -130,14 +130,15 @@ impl<T: Config> Pallet<T> {
             );
             return;
         }
+
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate )) / I64F64::from_num(u16::MAX);
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate, netuid )) / I64F64::from_num(u16::MAX);
         let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
-        let mut residual: u64 = remaining_validator_emission;
 
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
+        let mut residual: u64 = remaining_validator_emission;
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );

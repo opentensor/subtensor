@@ -10,6 +10,7 @@ extern crate alloc;
 pub struct DelegateInfo<T: Config> {
     delegate_ss58: T::AccountId,
     take: Vec<(Compact<u16>, Compact<u16>)>,
+    take: Vec<(Compact<u16>, Compact<u16>)>,
     nominators: Vec<(T::AccountId, Compact<u64>)>, // map of nominator_ss58 to stake amount
     owner_ss58: T::AccountId,
     registrations: Vec<Compact<u16>>, // Vec of netuid this delegate is registered on

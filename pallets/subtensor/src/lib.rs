@@ -163,6 +163,8 @@ pub mod pallet {
         type InitialDefaultTake: Get<u16>;
         #[pallet::constant] // Initial limit on number of nominators per subnet validator
         type InitialDelegateLimit: Get<u32>;
+        #[pallet::constant] // Initial limit on number of nominators per subnet validator
+        type InitialDelegateLimit: Get<u32>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.

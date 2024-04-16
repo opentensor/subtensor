@@ -132,6 +132,15 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(46)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_delegate_limit(origin: OriginFor<T>, delegate_limit: u32) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_delegate_limit(delegate_limit);
+            log::info!("TxDelegateLimitSet( set_delegate_limit: {:?} ) ", delegate_limit);
+            Ok(())
+        }
+
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::sudo_set_serving_rate_limit())]
         pub fn sudo_set_serving_rate_limit(
