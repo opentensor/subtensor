@@ -480,8 +480,11 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-    // One storage item; key size is 32; value is size 4+4+16+32 bytes = 56 bytes.
-    pub const DepositBase: Balance = deposit(1, 88);
+    // According to multisig pallet, key and value size be computed as follows:
+    // value size is `4 + sizeof((BlockNumber, Balance, AccountId))` bytes
+    // key size is `32 + sizeof(AccountId)` bytes.
+    // For our case, One storage item; key size is 32+32=64 bytes; value is size 4+4+8+32 bytes = 48 bytes.
+    pub const DepositBase: Balance = deposit(1, 112);
     // Additional storage item size of 32 bytes.
     pub const DepositFactor: Balance = deposit(0, 32);
     pub const MaxSignatories: u32 = 100;
