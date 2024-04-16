@@ -97,14 +97,14 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
         let mut unique_delegates = BTreeMap::new();
         <Delegates<T>>::iter()
-            .filter(|(delegate, _netuid, _take)| {
-                let delegate_as_vec = delegate.encode();
+            .filter(|(delegate_id, _netuid, _take)| {
+                let delegate_as_vec = delegate_id.encode();
                 let handled = unique_delegates.contains_key(&delegate_as_vec);
                 unique_delegates.insert(delegate_as_vec, ());
                 !handled
             })
-            .map(|(delegate, _, _)| {
-                Self::get_delegate_by_existing_account(delegate)
+            .map(|(delegate_id, _, _)| {
+                Self::get_delegate_by_existing_account(delegate_id)
             })
             .collect()
     }
@@ -119,21 +119,24 @@ impl<T: Config> Pallet<T> {
 
         let mut unique_delegates = BTreeMap::new();
         <Delegates<T>>::iter()
-            .filter(|(delegate, _netuid, _take)| {
-                let delegate_as_vec = delegate.encode();
+            .filter(|(delegate_id, _netuid, _take)| {
+                let delegate_as_vec = delegate_id.encode();
                 let handled = unique_delegates.contains_key(&delegate_as_vec);
                 unique_delegates.insert(delegate_as_vec, ());
                 !handled
             })
-            .map(|(delegate, _, _)| {
+            .map(|(delegate_id, _, _)| {
                 let mut total_staked_to_delegate_i: u64 = 0;
                 for netuid_i in 0..=TotalNetworks::<T>::get() {
-                    total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &delegatee, &delegate, netuid_i );
+                    total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey( &delegatee, &delegate_id, netuid_i );
                 }
-                (Self::get_delegate_by_existing_account(delegate), Compact(total_staked_to_delegate_i))
+                (delegate_id, Compact(total_staked_to_delegate_i))
             })
             .filter(|(_, Compact(total_staked_to_delegate_i))| {
                 *total_staked_to_delegate_i != 0
+            })
+            .map(|(delegate_id, total_delegate_stake)| {
+                (Self::get_delegate_by_existing_account(delegate_id), total_delegate_stake)
             })
             .collect()
     }
