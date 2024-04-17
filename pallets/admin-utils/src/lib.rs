@@ -104,19 +104,31 @@ pub mod pallet {
 
         #[pallet::call_index(45)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_tx_delegate_take_rate_limit(origin: OriginFor<T>, tx_rate_limit: u64) -> DispatchResult {
+        pub fn sudo_set_tx_delegate_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             T::Subtensor::set_tx_delegate_take_rate_limit(tx_rate_limit);
-            log::info!("TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ", tx_rate_limit);
+            log::info!(
+                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
+                tx_rate_limit
+            );
             Ok(())
         }
 
         #[pallet::call_index(46)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_delegate_limit(origin: OriginFor<T>, delegate_limit: u32) -> DispatchResult {
+        pub fn sudo_set_delegate_limit(
+            origin: OriginFor<T>,
+            delegate_limit: u32,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             T::Subtensor::set_delegate_limit(delegate_limit);
-            log::info!("TxDelegateLimitSet( set_delegate_limit: {:?} ) ", delegate_limit);
+            log::info!(
+                "TxDelegateLimitSet( set_delegate_limit: {:?} ) ",
+                delegate_limit
+            );
             Ok(())
         }
 

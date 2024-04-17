@@ -53,6 +53,8 @@ impl<T: Config> Pallet<T> {
         }
 
         let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
+
+        // Create a vector of tuples (netuid, take). If a take is not set in DelegatesTake, use default value
         let take = NetworksAdded::<T>::iter()
             .filter(|(_, added)| {
                 *added

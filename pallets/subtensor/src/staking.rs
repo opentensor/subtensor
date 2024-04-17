@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Enforce the nominator limit
-        // let nominator_count: u32 = 0;
+        // let nominator_count: u32 = 0; // TODO: get the number of nominators
         // ensure!(
         //     nominator_count < DelegateLimit::<T>::get(),
         //     Error::<T>::TooManyNominations
