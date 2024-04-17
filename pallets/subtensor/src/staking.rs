@@ -247,8 +247,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic add_weighted_stake.
-    // TODO(samuel): better description needed.
+
+    /// Adds or redistributes weighted stake across specified subnets for a given hotkey.
+    ///
+    /// This function allows a coldkey to allocate or reallocate stake across different subnets
+    /// based on provided weights. It first unstakes from all specified subnets, then redistributes
+    /// the stake according to the new weights. If there's any remainder from rounding errors or
+    /// unallocated stake, it is staked into the root network.
     //
     // # Args:
     // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
