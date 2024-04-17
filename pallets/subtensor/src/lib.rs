@@ -632,6 +632,11 @@ pub mod pallet {
     // Rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
+
+        // TODO we should figure out a better way of saying this is a dev net.
+        if cfg!(feature = "pow-faucet") {
+            return 0;
+        }
         T::InitialTxRateLimit::get()
     }
     #[pallet::type_value]
@@ -1523,6 +1528,7 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, Self::get_root_netuid(), amount_staked)
         }
+
         #[pallet::call_index(63)]
         #[pallet::weight((Weight::from_parts(65_000_000,0)
 		.saturating_add(T::DbWeight::get().reads(8))
@@ -1534,6 +1540,19 @@ pub mod pallet {
             amount_staked: u64,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
+        }
+        // TODO(const) this needs to be properly benchmarked (these values are copied from above.)
+        #[pallet::call_index(67)]
+        #[pallet::weight((Weight::from_parts(65_000_000,0)
+		.saturating_add(T::DbWeight::get().reads(8))
+		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        pub fn add_weighted_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuids: Vec<u16>,
+            values: Vec<u16>,
+        ) -> DispatchResult {
+            Self::do_add_weighted_stake(origin, hotkey, netuids, values )
         }
 
         // ---- Remove stake from the staking account. The call must be made
