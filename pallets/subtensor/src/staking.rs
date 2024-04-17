@@ -286,6 +286,7 @@ impl<T: Config> Pallet<T> {
     // 	* 'TxRateLimitExceeded':
     // 		- Thrown if key has hit transaction rate limit
     //
+    // TODO(greg) test this.
     pub fn do_add_weighted_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -314,10 +315,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 3. Get the stake on the hotkey account.
-        let total_stake: u64 = Self::get_total_stake_for_hotkey_and_coldkey( hotkey, coldkey );
-        // TODO(greg): check that this is non zero.     
-
         // --- 4. Check weights rate limit.
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -343,37 +340,52 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 8. Unstake from all subnets here.
-        for netuid in netuids.iter() {
+        let mut total_removed: u64 = 0;
+        for netuid_i in netuids.iter() {
+            
             // --- 8.a Get the stake on all of the subnets.
-            let netuid_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, netuid );
+            let netuid_stake_for_coldkey_i: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, *netuid_i );
 
+            // --- 8.b Remove this stake from this network.
+            Self::decrease_stake_on_coldkey_hotkey_account(
+                &coldkey,
+                &hotkey,
+                *netuid_i,
+                netuid_stake_for_coldkey_i,
+            );
+
+            // --- 8.c  Increment total removed.
+            total_removed += netuid_stake_for_coldkey_i
         }
 
-        // --- 13. Max-upscale the weights (a.k.a normalize them to 1.)
-        let mut total_stake_allocated: u64 = 0;
+        // --- 9. Get sum of stake weights being set.
         let value_sum: u64 = values.iter().map(|&val| val as u64).sum();
         let weights_sum: I64F64 = I64F64::from_num(value_sum);
 
-        // -- 14. Iterate over netuid value and stake to individual subnets proportional to weights.
+        // -- 10. Iterate over netuid value and stake to individual subnets proportional to weights.
+        let mut total_stake_allocated: u64 = 0;
+        let mut amounts_staked: Vec<u64> = vec![];
         for (netuid_i, weight_i) in netuids.iter().zip(values.iter()) {
 
-            // 14.a -- Normalize the weight.
+            // 10.a -- Normalize the weight.
             let normalized_weight:I64F64 = I64F64::from_num( *weight_i ) / weights_sum;
-            // 14.b -- Calculate effective stake as u64
-            let effective_stake: u64 = (normalized_weight * I64F64::from_num( actual_amount_to_stake )).to_num::<u64>();
-            // 14.c -- Set stake on subnet the effective stake.
+            // 10.b -- Calculate effective stake based on the total removed in the previous step.
+            let stake_to_be_added_netuid: u64 = (normalized_weight * I64F64::from_num( total_removed )).to_num::<u64>();
+            // 10.c -- Set stake on subnet the effective stake.
             Self::increase_stake_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
                 *netuid_i,
-                effective_stake,
+                stake_to_be_added_netuid,
             );
-            // 14.d -- Sum amounts for accounting remainder
-            total_stake_allocated += effective_stake;
+
+            // 10.d -- Sum amounts for accounting remainder
+            amounts_staked.push( stake_to_be_added_netuid ); 
+            total_stake_allocated += stake_to_be_added_netuid;
         }
 
-        // --- 15. Stake remainder to root network for accounting purposes.
-        let remainder_stake: u64 = actual_amount_to_stake - total_stake_allocated;
+        // --- 11. Stake remainder to root network for accounting purposes.
+        let remainder_stake: u64 = total_removed - total_stake_allocated;
         if remainder_stake > 0 {
             Self::increase_stake_on_coldkey_hotkey_account(
                 &coldkey,
@@ -387,15 +399,14 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 17. Emit the staking event.
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
         log::info!(
-            "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, valiues:{:?}, stake_to_be_added:{:?} )",
+            "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, valiues:{:?}, stakes:{:?} )",
             hotkey,
             netuids,
             values,
-            stake_to_be_added
+            amounts_staked
         );
-        Self::deposit_event(Event::StakeAdded(hotkey, 0, stake_to_be_added));
+        Self::deposit_event(Event::StakeAdded(hotkey, 0, total_removed)); // Restaking the total_removed amount.
 
         // --- 18. Ok and return.
         Ok(())
