@@ -343,11 +343,7 @@ pub mod pallet {
     >;
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
-        if cfg!(feature = "subnet-staking") {
-            return true;
-        } else {
-            return false;
-        }
+        return true;
     }
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
