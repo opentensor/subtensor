@@ -10,6 +10,7 @@ use frame_support::{
     },
 };
 use sp_core::Get;
+use substrate_fixed::types::{I64F64};
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -243,6 +244,174 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::TakeIncreased(coldkey, hotkey, take));
 
         // --- 8. Ok and return.
+        Ok(())
+    }
+
+    // ---- The implementation for the extrinsic add_weighted_stake.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The associated hotkey account.
+    //    
+    // 	* 'netuids' ( Vec<u16> ):
+    // 		- The netuids of the weights to be set on the chain.
+    //
+    // 	* 'values' ( Vec<u16> ):
+    // 		- The values of the weights to set on the chain. u16 normalized.
+    //
+    // 	* 'stake_to_be_added' (u64):
+    // 		- The amount of stake to be added to the hotkey staking account.
+    //
+    // # Event:
+    // 	* StakeAdded;
+    // 		- On the successfully adding stake to a global account.
+    //
+    // # Raises:
+    // 	* 'CouldNotConvertToBalance':
+    // 		- Unable to convert the passed stake value to a balance.
+    //
+    // 	* 'NotEnoughBalanceToStake':
+    // 		- Not enough balance on the coldkey to add onto the global account.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- The calling coldkey is not associated with this hotkey.
+    //
+    // 	* 'BalanceWithdrawalError':
+    // 		- Errors stemming from transaction pallet.
+    //
+    // 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
+    //
+    pub fn do_add_weighted_stake(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuids: Vec<u16>,
+        values: Vec<u16>,
+        stake_to_be_added: u64,
+    ) -> dispatch::DispatchResult {
+        // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_add_weighted_stake( origin:{:?} hotkey:{:?}, netuids:{:?}, values:{:?}, stake_to_be_added:{:?} )",
+            coldkey,
+            hotkey,
+            netuids,
+            values,
+            stake_to_be_added
+        );
+
+        // --- 3. We convert the stake u64 into a balance.
+        let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
+        ensure!(
+            stake_as_balance.is_some(),
+            Error::<T>::CouldNotConvertToBalance
+        );
+
+        // --- 4. Ensure the callers coldkey has enough stake to perform the transaction.
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
+            Error::<T>::NotEnoughBalanceToStake
+        );
+
+        // --- 5. Ensure that the hotkey account exists this is only possible through registration.
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        ensure!(
+            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // --- 7. Ensure we don't exceed tx rate limit
+        let block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            Error::<T>::TxRateLimitExceeded
+        );
+
+        // --- 8. Ensure we don't exceed stake rate limit
+        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        ensure!(
+            stakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::StakeRateLimitExceeded
+        );
+
+        // --- 9. Ensure the remove operation from the coldkey is a success.
+        let actual_amount_to_stake =
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
+
+        // --- 10. Check that the length of nuid list and value list are equal for this network.
+        ensure!(
+            Self::uids_match_values(&netuids, &values),
+            Error::<T>::WeightVecNotEqualSize
+        );
+
+        // --- 11. Ensure the passed netuids contain no duplicates.
+        ensure!(!Self::has_duplicate_uids(&netuids), Error::<T>::DuplicateUids);
+
+        // -- 12. Ensure that the netuids are valid.
+        for netuid in netuids.iter() {
+            ensure!(
+                Self::if_subnet_exist(*netuid),
+                Error::<T>::NetworkDoesNotExist
+            );
+        }
+
+        // --- 13. Max-upscale the weights (a.k.a normalize them to 1.)
+        let mut total_stake_allocated: u64 = 0;
+        let value_sum: u64 = values.iter().map(|&val| val as u64).sum();
+        let weights_sum: I64F64 = I64F64::from_num(value_sum);
+
+        // -- 14. Iterate over netuid value and stake to individual subnets proportional to weights.
+        for (netuid_i, weight_i) in netuids.iter().zip(values.iter()) {
+
+            // 14.a -- Normalize the weight.
+            let normalized_weight:I64F64 = I64F64::from_num( *weight_i ) / weights_sum;
+            // 14.b -- Calculate effective stake as u64
+            let effective_stake: u64 = (normalized_weight * I64F64::from_num( actual_amount_to_stake )).to_num::<u64>();
+            // 14.c -- Set stake on subnet the effective stake.
+            Self::increase_stake_on_coldkey_hotkey_account(
+                &coldkey,
+                &hotkey,
+                *netuid_i,
+                effective_stake,
+            );
+            // 14.d -- Sum amounts for accounting remainder
+            total_stake_allocated += effective_stake;
+        }
+
+        // --- 15. Stake remainder to root network for accounting purposes.
+        let remainder_stake: u64 = actual_amount_to_stake - total_stake_allocated;
+        if remainder_stake > 0 {
+            Self::increase_stake_on_coldkey_hotkey_account(
+                &coldkey,
+                &hotkey,
+                Self::get_root_netuid(),
+                remainder_stake,
+            );
+        }
+
+        // -- 16. Set last block for rate limiting
+        Self::set_last_tx_block(&coldkey, block);
+
+        // --- 17. Emit the staking event.
+        Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
+        log::info!(
+            "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, valiues:{:?}, stake_to_be_added:{:?} )",
+            hotkey,
+            netuids,
+            values,
+            stake_to_be_added
+        );
+        Self::deposit_event(Event::StakeAdded(hotkey, 0, stake_to_be_added));
+
+        // --- 18. Ok and return.
         Ok(())
     }
 
