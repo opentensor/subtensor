@@ -3534,6 +3534,7 @@ fn test_rate_limits_enforced_on_increase_take() {
 
         // Add balance
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+        
 
         // Register the neuron to a new network
         let netuid = 1;
@@ -3569,5 +3570,303 @@ fn test_rate_limits_enforced_on_increase_take() {
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
 
+    });
+
+
+
+}
+
+// #[test]
+// fn add_weighted_stake_success() {
+//     new_test_ext(1).execute_with(|| {
+//         // Setup
+//         let coldkey = U256::from(1);
+//         let hotkey = U256::from(2);
+//         let netuids = vec![1, 2];
+//         let values = vec![2, 1]; // Weights for the networks, summing to 1000 for simplicity
+
+//         // Add balance to the coldkey account
+//         let initial_balance = 100000;
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+//         log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
+
+//         // Add networks and register neurons
+//         for &netuid in &netuids {
+//             add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
+//             register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
+//             log::info!("Network {} added and neuron registered for hotkey {:?}, coldkey {:?}", netuid, hotkey, coldkey);
+//         }
+
+//         // Perform the weighted stake addition
+//         assert_ok!(SubtensorModule::add_weighted_stake(
+//             RuntimeOrigin::signed(coldkey),
+//             hotkey,
+//             netuids.clone(),
+//             values.clone()
+//         ));
+//         log::info!("Weighted stake added for hotkey {:?} across netuids {:?} with values {:?}", hotkey, netuids, values);
+
+//         // Assertions
+//         let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
+//         log::info!("Total stake after distribution: {}", total_stake);
+//         assert!(total_stake < initial_balance, "Stake should be less than initial balance due to distribution.");
+
+//         let total_weights: u16 = values.iter().sum();
+//         for (i, &netuid) in netuids.iter().enumerate() {
+//             let expected_stake = (initial_balance as u32 * values[i] as u32 / total_weights as u32) as u64;
+//             let stake = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+//             log::info!("Expected stake for netuid {}: {}, Actual stake: {}", netuid, expected_stake, stake);
+//             assert_eq!(stake, expected_stake, "Stake for netuid {} did not match the expected value.", netuid);
+//         }
+//     });
+// }
+
+// #[test]
+// fn test_add_weighted_stake_success() {
+//     new_test_ext(1).execute_with(|| {
+//         // Setup
+//         let coldkey = U256::from(1);
+//         let hotkey = U256::from(2);
+//         let netuids = vec![1, 2];
+//         let values = vec![2, 1]; // Weights for the networks
+
+//         // Add balance to the coldkey account
+//         let initial_balance = 100000;
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+//         log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
+
+//         // Add networks and register neurons
+//         for &netuid in &netuids {
+//             add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
+//             register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
+//             log::info!("Network {} added and neuron registered for hotkey {:?}, coldkey {:?}", netuid, hotkey, coldkey);
+
+//             // Initially add some stake to each subnet
+//             let initial_stake = 10000; // Arbitrary initial stake for simplicity
+//             assert_ok!(SubtensorModule::add_subnet_stake(
+//                 RuntimeOrigin::signed(coldkey),
+//                 hotkey,
+//                 netuid,
+//                 initial_stake,
+//             ));
+//             log::info!("Initial stake of {} added to netuid {}", initial_stake, netuid);
+//         }
+
+//         // Perform the weighted stake redistribution
+//         assert_ok!(SubtensorModule::add_weighted_stake(
+//             RuntimeOrigin::signed(coldkey),
+//             hotkey,
+//             netuids.clone(),
+//             values.clone()
+//         ));
+//         log::info!("Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}", hotkey, netuids, values);
+
+//         // Assertions
+//         let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
+//         log::info!("Total stake after redistribution: {}", total_stake);
+//         assert!(total_stake < initial_balance, "Stake should be less than initial balance due to redistribution.");
+
+//         let total_weights: u16 = values.iter().sum();
+//         for (i, &netuid) in netuids.iter().enumerate() {
+//             let expected_stake = (initial_balance as u32 * values[i] as u32 / total_weights as u32) as u64;
+//             let stake = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+//             log::info!("Expected redistributed stake for netuid {}: {}, Actual stake: {}", netuid, expected_stake, stake);
+//             assert_eq!(stake, expected_stake, "Redistributed stake for netuid {} did not match the expected value.", netuid);
+//         }
+//     });
+// }
+
+#[test]
+fn add_weighted_stake_success() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuids = vec![1, 2];
+        let values = vec![2, 1]; // Weights for the networks
+
+        // Add balance to the coldkey account
+        let initial_balance = 100000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+        log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
+
+        // Add networks and register neurons
+        let mut total_initial_stake = 0;
+        for &netuid in &netuids {
+            add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
+            register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
+            log::info!("Network {} added and neuron registered for hotkey {:?}, coldkey {:?}", netuid, hotkey, coldkey);
+
+            // Set registration limits for each network based on netuid
+            SubtensorModule::set_max_registrations_per_block(netuid, netuid as u16);
+            SubtensorModule::set_target_registrations_per_interval(netuid, netuid as u16);
+            log::info!("Set max and target registrations for netuid {} to {}", netuid, netuid);
+
+            // Initially add some stake to each subnet
+            let initial_stake = 10000; // Arbitrary initial stake for simplicity
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                initial_stake,
+            ));
+            total_initial_stake += initial_stake;
+            log::info!("Initial stake of {} added to netuid {}", initial_stake, netuid);
+        }
+
+        // Perform the weighted stake redistribution
+        assert_ok!(SubtensorModule::add_weighted_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuids.clone(),
+            values.clone()
+        ));
+        log::info!("Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}", hotkey, netuids, values);
+
+        // Assertions
+        let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
+        log::info!("Total stake after redistribution: {}", total_stake);
+        assert!(total_stake < initial_balance, "Stake should be less than initial balance due to redistribution.");
+
+        let total_weights: u16 = values.iter().sum();
+        for (i, &netuid) in netuids.iter().enumerate() {
+            let expected_stake = (total_initial_stake as u32 * values[i] as u32 / total_weights as u32) as u64;
+            let stake = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+            log::info!("Expected redistributed stake for netuid {}: {}, Actual stake: {}", netuid, expected_stake, stake);
+            assert_eq!(stake, expected_stake, "Redistributed stake for netuid {} did not match the expected value.", netuid);
+        }
+    });
+}
+
+#[test]
+fn test_add_weighted_stake_success_32_networks() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let num_networks = 32;
+        let netuids: Vec<u16> = (1..=num_networks).collect();
+        let values: Vec<u16> = vec![1; num_networks as usize]; // Equal weights for simplicity
+
+        // Add balance to the coldkey account
+        let initial_balance = 100000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+        log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
+        SubtensorModule::set_target_stakes_per_interval(1000);
+
+        // Add networks and register neurons
+        let mut total_initial_stake = 0;
+        let initial_stake_per_network = 1000; // Arbitrary initial stake for simplicity
+        for &netuid in &netuids {
+            add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
+            register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
+            log::info!("Network {} added and neuron registered for hotkey {:?}, coldkey {:?}", netuid, hotkey, coldkey);
+
+            // Set registration limits for each network based on netuid
+            SubtensorModule::set_max_registrations_per_block(netuid, 50);
+            SubtensorModule::set_target_registrations_per_interval(netuid, 50);
+            log::info!("Set max and target registrations for netuid {} to {}", netuid, netuid);
+
+            // Initially add some stake to each subnet
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                initial_stake_per_network,
+            ));
+            total_initial_stake += initial_stake_per_network;
+            log::info!("Initial stake of {} added to netuid {}", initial_stake_per_network, netuid);
+        }
+
+        // Perform the weighted stake redistribution
+        assert_ok!(SubtensorModule::add_weighted_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuids.clone(),
+            values.clone()
+        ));
+        log::info!("Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}", hotkey, netuids, values);
+
+        // Assertions
+        let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
+        log::info!("Total stake after redistribution: {}", total_stake);
+        assert!(total_stake < initial_balance, "Stake should be less than initial balance due to redistribution.");
+
+        let total_weights: u16 = values.iter().sum();
+        for (i, &netuid) in netuids.iter().enumerate() {
+            let expected_stake = (total_initial_stake as u32 * values[i] as u32 / total_weights as u32) as u64;
+            let stake = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+            log::info!("Expected redistributed stake for netuid {}: {}, Actual stake: {}", netuid, expected_stake, stake);
+            assert_eq!(stake, expected_stake, "Redistributed stake for netuid {} did not match the expected value.", netuid);
+        }
+    });
+} 
+
+#[test]
+fn add_weighted_stake_success_3_to_32_networks() {
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let num_networks = 32; // Total networks
+        let initial_stake_networks = 3; // Networks to initially stake
+        let netuids: Vec<u16> = (1..=num_networks).collect();
+        let values: Vec<u16> = vec![1; num_networks as usize]; // Equal weights for simplicity
+        const NUM_NEURONS: u16 = 10; // Number of neurons per network
+
+        // Add balance to the coldkey account
+        let initial_balance = 100000;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
+        SubtensorModule::set_target_stakes_per_interval(1000);
+
+        log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
+
+        // Add networks, register neurons, and set registration limits
+        let mut total_initial_stake = 0;
+        let initial_stake_per_network = 10000; // Arbitrary initial stake for simplicity
+        for &netuid in &netuids {
+            add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
+            register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
+            log::info!("Network {} added and neuron registered for hotkey {:?}, coldkey {:?}", netuid, hotkey, coldkey);
+
+            // Set registration limits for each network
+            SubtensorModule::set_max_registrations_per_block(netuid, 50);
+            SubtensorModule::set_target_registrations_per_interval(netuid, 50);
+            log::info!("Set max and target registrations for netuid {} to {}", netuid, NUM_NEURONS);
+
+            // Initially add some stake to each subnet (only for the first 3 networks)
+            if netuid <= initial_stake_networks {
+                assert_ok!(SubtensorModule::add_subnet_stake(
+                    RuntimeOrigin::signed(coldkey),
+                    hotkey,
+                    netuid,
+                    initial_stake_per_network,
+                ));
+                total_initial_stake += initial_stake_per_network;
+                log::info!("Initial stake of {} added to netuid {}", initial_stake_per_network, netuid);
+            }
+        }
+
+        // Perform the weighted stake redistribution across all 32 networks
+        assert_ok!(SubtensorModule::add_weighted_stake(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuids.clone(),
+            values.clone()
+        ));
+        log::info!("Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}", hotkey, netuids, values);
+
+        // Assertions
+        let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
+        log::info!("Total stake after redistribution: {}", total_stake);
+        assert!(total_stake < initial_balance, "Stake should be less than initial balance due to redistribution.");
+
+        let total_weights: u16 = values.iter().sum();
+        for (i, &netuid) in netuids.iter().enumerate() {
+            let expected_stake = (total_initial_stake as u32 * values[i] as u32 / total_weights as u32) as u64;
+            let stake = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
+            log::info!("Expected redistributed stake for netuid {}: {}, Actual stake: {}", netuid, expected_stake, stake);
+            assert_eq!(stake, expected_stake, "Redistributed stake for netuid {} did not match the expected value.", netuid);
+        }
     });
 }

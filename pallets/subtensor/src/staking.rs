@@ -405,7 +405,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 17. Emit the staking event.
         log::info!(
-            "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, valiues:{:?}, stakes:{:?} )",
+            "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, values:{:?}, stakes:{:?} )",
             hotkey,
             netuids,
             values,
