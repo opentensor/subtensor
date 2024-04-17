@@ -1508,9 +1508,8 @@ pub mod pallet {
             hotkey: T::AccountId,
             netuids: Vec<u16>,
             values: Vec<u16>,
-            amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_weighted_stake(origin, hotkey, netuids, values, amount_staked)
+            Self::do_add_weighted_stake(origin, hotkey, netuids, values )
         }
 
         // ---- Remove stake from the staking account. The call must be made

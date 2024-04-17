@@ -248,6 +248,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // ---- The implementation for the extrinsic add_weighted_stake.
+    // TODO(samuel): better description needed.
     //
     // # Args:
     // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
@@ -290,77 +291,62 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         netuids: Vec<u16>,
         values: Vec<u16>,
-        stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
         // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_add_weighted_stake( origin:{:?} hotkey:{:?}, netuids:{:?}, values:{:?}, stake_to_be_added:{:?} )",
+            "do_add_weighted_stake( origin:{:?} hotkey:{:?}, netuids:{:?}, values:{:?} )",
             coldkey,
             hotkey,
             netuids,
-            values,
-            stake_to_be_added
+            values
         );
 
-        // --- 3. We convert the stake u64 into a balance.
-        let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
-        ensure!(
-            stake_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-
-        // --- 4. Ensure the callers coldkey has enough stake to perform the transaction.
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
-            Error::<T>::NotEnoughBalanceToStake
-        );
-
-        // --- 5. Ensure that the hotkey account exists this is only possible through registration.
+        // --- 2. Ensure that the hotkey account exists.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 3. We are either moving nominated stake or we own the hotkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 7. Ensure we don't exceed tx rate limit
+        // --- 3. Get the stake on the hotkey account.
+        let total_stake: u64 = Self::get_total_stake_for_hotkey_and_coldkey( hotkey, coldkey );
+        // TODO(greg): check that this is non zero.     
+
+        // --- 4. Check weights rate limit.
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 8. Ensure we don't exceed stake rate limit
-        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
-        ensure!(
-            stakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::StakeRateLimitExceeded
-        );
-
-        // --- 9. Ensure the remove operation from the coldkey is a success.
-        let actual_amount_to_stake =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
-
-        // --- 10. Check that the length of nuid list and value list are equal for this network.
+        // --- 5. Check that the length of netuid list and value list are equal for this network.
         ensure!(
             Self::uids_match_values(&netuids, &values),
             Error::<T>::WeightVecNotEqualSize
         );
 
-        // --- 11. Ensure the passed netuids contain no duplicates.
+        // --- 6. Ensure the passed netuids contain no duplicates.
         ensure!(!Self::has_duplicate_uids(&netuids), Error::<T>::DuplicateUids);
 
-        // -- 12. Ensure that the netuids are valid.
+        // --- 7. Ensure that the netuids are valid.
         for netuid in netuids.iter() {
             ensure!(
                 Self::if_subnet_exist(*netuid),
                 Error::<T>::NetworkDoesNotExist
             );
+        }
+
+        // --- 8. Unstake from all subnets here.
+        for netuid in netuids.iter() {
+            // --- 8.a Get the stake on all of the subnets.
+            let netuid_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, netuid );
+
         }
 
         // --- 13. Max-upscale the weights (a.k.a normalize them to 1.)
