@@ -612,6 +612,11 @@ pub mod pallet {
     // Rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
+
+        // TODO we should figure out a better way of saying this is a dev net.
+        if cfg!(feature = "pow-faucet") {
+            return 0;
+        }
         T::InitialTxRateLimit::get()
     }
     #[pallet::type_value]
