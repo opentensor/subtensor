@@ -4,6 +4,9 @@ use frame_system::Config;
 use mock::*;
 use sp_core::U256;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test migration
+
 #[test]
 fn test_migration_fix_total_stake_maps() {
     new_test_ext(1).execute_with(|| {

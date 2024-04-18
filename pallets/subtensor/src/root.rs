@@ -22,7 +22,6 @@ use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use frame_support::IterableStorageNMap;
 use substrate_fixed::{
     transcendental::log2,
     types::{I64F64, I96F32},
@@ -739,11 +738,23 @@ impl<T: Config> Pallet<T> {
     // 	* 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
     // 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     //
-    pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
+    pub fn user_add_network(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+    ) -> dispatch::DispatchResult {
+
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
-        // --- 1. Rate limit for network registrations.
+        // --- 1. Ensure that the hotkey is not owned by another key.
+        if Owner::<T>::contains_key( &hotkey ) {
+            ensure!(
+                Self::coldkey_owns_hotkey( &coldkey, &hotkey ),
+                Error::<T>::NonAssociatedColdKey
+            );
+        }
+
+        // --- 2. Check rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
@@ -751,62 +762,62 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 2. Calculate and lock the required tokens.
+        // --- 3. Calculate and lock the required tokens to register a network.
         let lock_amount: u64 = Self::get_network_lock_cost();
         let lock_as_balance = Self::u64_to_balance(lock_amount);
         log::debug!("network lock_amount: {:?}", lock_amount,);
-        ensure!(
-            lock_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()),
-            Error::<T>::NotEnoughBalanceToStake
-        );
+        ensure!( lock_as_balance.is_some(), Error::<T>::CouldNotConvertToBalance );
+        ensure!( Self::can_remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()), Error::<T>::NotEnoughBalanceToStake );
 
-        // --- 4. Determine the netuid to register.
+        // --- 4. Remove the funds from the owner's account.
+        Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap())
+            .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
+        Self::set_network_last_lock(lock_amount);
+
+        // --- 5. Determine the netuid to register by iterating through netuids to find next lowest netuid.
         let netuid_to_register: u16 = {
-            log::debug!(
-                "subnet count: {:?}\nmax subnets: {:?}",
-                Self::get_num_subnets(),
-                Self::get_max_subnets()
-            );
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
-                // We subtract one because we don't want root subnet to count towards total
-                let mut next_available_netuid = 0;
-                loop {
-                    next_available_netuid += 1;
-                    if !Self::if_subnet_exist(next_available_netuid) {
-                        log::debug!("got subnet id: {:?}", next_available_netuid);
-                        break next_available_netuid;
-                    }
+            let mut next_available_netuid = 0;
+            loop {
+                next_available_netuid += 1;
+                if !Self::if_subnet_exist(next_available_netuid) {
+                    break next_available_netuid;
                 }
-            } else {
-                let netuid_to_prune = Self::get_subnet_to_prune();
-                ensure!(netuid_to_prune > 0, Error::<T>::AllNetworksInImmunity);
-
-                Self::remove_network(netuid_to_prune);
-                log::debug!("remove_network: {:?}", netuid_to_prune,);
-                Self::deposit_event(Event::NetworkRemoved(netuid_to_prune));
-                netuid_to_prune
             }
         };
 
-        // --- 5. Perform the lock operation.
-        let actual_lock_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap())?;
-        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
-
-        // --- 6. Set initial and custom parameters for the network.
+        // --- 6. Create a new network and set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
-        log::debug!("init_new_network: {:?}", netuid_to_register,);
-
-        // --- 7. Set netuid storage.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        NetworkLastRegistered::<T>::set(current_block_number);
-        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey);
+        NetworkLastRegistered::<T>::set( current_block_number );        
+        NetworkRegisteredAt::<T>::insert( netuid_to_register, current_block_number );
+        log::debug!("init_new_network: {:?}", netuid_to_register,);
+        
+        // --- 7. Set Subnet owner to the coldkey.
+        SubnetOwner::<T>::insert( netuid_to_register, coldkey.clone() ); // Set the owner (which can change.)
+        SubnetCreator::<T>::insert( netuid_to_register, hotkey.clone() ); // Set the creator hotkey (which is forever.)
+
+        // --- 8. Instantiate initial token supply based on lock cost.
+        let initial_tao_reserve: u64 = lock_amount as u64;
+        let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
+        let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
+        let initial_dynamic_k: u128 = ( initial_tao_reserve as u128) * ( initial_dynamic_reserve as u128 );
+
+        DynamicTAOReserve::<T>::insert( netuid_to_register, initial_tao_reserve );
+        DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve );
+        DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k );
+        IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+
+        // --- 9. Register the owner to the network and expand size.
+        Self::create_account_if_non_existent( &coldkey, &hotkey, netuid_to_register );
+        Self::append_neuron( netuid_to_register, &hotkey, current_block_number );
+
+        // --- 10. Distribute initial supply of tokens to the owners.
+        Self::increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            netuid_to_register,
+            initial_dynamic_outstanding
+        );
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(
@@ -820,48 +831,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Facilitates the removal of a user's subnetwork.
-    //
-    // # Args:
-    // 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
-    //     * 'netuid': ('u16'): The unique identifier of the network to be removed.
-    //
-    // # Event:
-    // 	* 'NetworkRemoved': Emitted when a network is successfully removed.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist': If the specified network does not exist.
-    // 	* 'NotSubnetOwner': If the caller does not own the specified subnet.
-    //
-    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
-        // --- 1. Ensure the function caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
-
-        // --- 2. Ensure this subnet exists.
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
-        // --- 3. Ensure the caller owns this subnet.
-        ensure!(
-            SubnetOwner::<T>::get(netuid) == coldkey,
-            Error::<T>::NotSubnetOwner
-        );
-
-        // --- 4. Explicitly erase the network and all its parameters.
-        Self::remove_network(netuid);
-
-        // --- 5. Emit the NetworkRemoved event.
-        log::info!("NetworkRemoved( netuid:{:?} )", netuid);
-        Self::deposit_event(Event::NetworkRemoved(netuid));
-
-        // --- 6. Return success.
-        Ok(())
-    }
-
     // Sets initial and custom parameters for a new network.
     pub fn init_new_network(netuid: u16, tempo: u16) {
+
         // --- 1. Set network to 0 size.
         SubnetworkN::<T>::insert(netuid, 0);
 
@@ -890,6 +862,7 @@ impl<T: Config> Pallet<T> {
         Self::set_min_burn(netuid, 1);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
+        Self::set_tempo(netuid, 10);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
@@ -937,131 +910,6 @@ impl<T: Config> Pallet<T> {
                 BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
-    }
-
-    // Removes a network (identified by netuid) and all associated parameters.
-    //
-    // This function is responsible for cleaning up all the data associated with a network.
-    // It ensures that all the storage values related to the network are removed, and any
-    // reserved balance is returned to the network owner.
-    //
-    // # Args:
-    // 	* 'netuid': ('u16'): The unique identifier of the network to be removed.
-    //
-    // # Note:
-    // This function does not emit any events, nor does it raise any errors. It silently
-    // returns if any internal checks fail.
-    //
-    pub fn remove_network(netuid: u16) {
-        // --- 1. Return balance to subnet owner.
-        let owner_coldkey = SubnetOwner::<T>::get(netuid);
-        let reserved_amount = Self::get_subnet_locked_balance(netuid);
-
-        // Ensure that we can convert this u64 to a balance.
-        let reserved_amount_as_bal = Self::u64_to_balance(reserved_amount);
-        if !reserved_amount_as_bal.is_some() {
-            return;
-        }
-
-        // --- 2. Remove network count.
-        SubnetworkN::<T>::remove(netuid);
-
-        // --- 3. Remove network modality storage.
-        NetworkModality::<T>::remove(netuid);
-
-        // --- 4. Remove netuid from added networks.
-        NetworksAdded::<T>::remove(netuid);
-
-        // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
-
-        // --- 7. Remove various network-related storages.
-        NetworkRegisteredAt::<T>::remove(netuid);
-
-        // --- 8. Remove incentive mechanism memory.
-        let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
-        let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
-        let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
-
-        // --- 8. Removes the weights for this subnet (do not remove).
-        let _ = Weights::<T>::clear_prefix(netuid, u32::max_value(), None);
-
-        // --- 9. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
-            )
-        {
-            // Create a new vector to hold modified weights.
-            let mut modified_weights = weights_i.clone();
-            // Iterate over each weight entry to potentially update it.
-            for (subnet_id, weight) in modified_weights.iter_mut() {
-                if subnet_id == &netuid {
-                    // If the condition matches, modify the weight
-                    *weight = 0; // Set weight to 0 for the matching subnet_id.
-                }
-            }
-            Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
-        }
-
-        // --- 10. Remove various network-related parameters.
-        Rank::<T>::remove(netuid);
-        Trust::<T>::remove(netuid);
-        Active::<T>::remove(netuid);
-        Emission::<T>::remove(netuid);
-        Incentive::<T>::remove(netuid);
-        Consensus::<T>::remove(netuid);
-        Dividends::<T>::remove(netuid);
-        PruningScores::<T>::remove(netuid);
-        LastUpdate::<T>::remove(netuid);
-        ValidatorPermit::<T>::remove(netuid);
-        ValidatorTrust::<T>::remove(netuid);
-
-        // --- 11. Erase network parameters.
-        Tempo::<T>::remove(netuid);
-        Kappa::<T>::remove(netuid);
-        Difficulty::<T>::remove(netuid);
-        MaxAllowedUids::<T>::remove(netuid);
-        ImmunityPeriod::<T>::remove(netuid);
-        ActivityCutoff::<T>::remove(netuid);
-        EmissionValues::<T>::remove(netuid);
-        MaxWeightsLimit::<T>::remove(netuid);
-        MinAllowedWeights::<T>::remove(netuid);
-        RegistrationsThisInterval::<T>::remove(netuid);
-        POWRegistrationsThisInterval::<T>::remove(netuid);
-        BurnRegistrationsThisInterval::<T>::remove(netuid);
-
-        // --- 12. Iterate over Substake and remove all stake.
-
-        for ((hotkey, coldkey, current_netuid), _stake) in
-            <SubStake<T> as IterableStorageNMap<_, _>>::iter()
-        {
-            // Check if the current entry's netuid matches the target netuid
-            if current_netuid == netuid {
-                // For each hotkey with the matching netuid, get the associated coldkey and the stake amount.
-                let stake_to_be_removed =
-                    Self::get_total_stake_for_hotkey_and_subnet(&hotkey, netuid);
-
-                // Convert the stake amount to the appropriate balance type.
-                if let Some(stake_as_balance) = Self::u64_to_balance(stake_to_be_removed) {
-                    // Decrease the stake on the hotkey account under its owning coldkey for the given netuid.
-                    Self::decrease_stake_on_coldkey_hotkey_account(
-                        &coldkey,
-                        &hotkey,
-                        netuid,
-                        stake_to_be_removed,
-                    );
-
-                    // Add the balance back to the coldkey account.
-                    Self::add_balance_to_coldkey_account(&coldkey, stake_as_balance);
-                }
-            }
-        }
-
-        // --- 13. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
-        Self::set_subnet_locked_balance(netuid, 0);
-        SubnetOwner::<T>::remove(netuid);
     }
 
     // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.

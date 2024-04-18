@@ -10,9 +10,6 @@ use sp_core::U256;
 #[test]
 fn test_get_stake_info_for_coldkey() {
     new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let coldkey = U256::from(0);
         let hotkey = U256::from(0);
         let _uid: u16 = 0;
         add_network(netuid, tempo, 0);
@@ -154,11 +151,8 @@ fn test_get_total_subnet_stake() {
 
 #[test]
 fn test_get_all_stake_info_for_coldkey() {
-    new_test_ext(1).execute_with(|| {
+    new_test_ext().execute_with(|| {
         let netuid1: u16 = 1;
-        let netuid2: u16 = 2;
-        let tempo: u16 = 13;
-
         // Create coldkey and multiple hotkeys
         let coldkey = U256::from(0);
         let hotkey1 = U256::from(1);

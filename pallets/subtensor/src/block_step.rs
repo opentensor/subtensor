@@ -1,8 +1,8 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
+use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
-use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -11,17 +11,8 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Calculate per-subnet emissions
-        match Self::root_epoch(block_number) {
-            Ok(_) => (),
-            Err(e) => {
-                log::trace!("Error while running root epoch: {:?}", e);
-            }
-        }
-        // --- 3. Drains emission tuples ( hotkey, amount ).
-        Self::drain_emission(block_number);
-        // --- 4. Generates emission tuples from epoch functions.
-        Self::generate_emission(block_number);
+        // --- 2. Mint and distribute TAO.
+        Self::run_coinbase(block_number);
         // Return ok.
         Ok(())
     }
@@ -44,164 +35,82 @@ impl<T: Config> Pallet<T> {
         return tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1);
     }
 
-    // Helper function returns the number of tuples to drain on a particular step based on
-    // the remaining tuples to sink and the block number
-    //
-    pub fn tuples_to_drain_this_block(
-        netuid: u16,
-        tempo: u16,
-        block_number: u64,
-        n_remaining: usize,
-    ) -> usize {
-        let blocks_until_epoch: u64 = Self::blocks_until_next_epoch(netuid, tempo, block_number);
-        if blocks_until_epoch / 2 == 0 {
-            return n_remaining;
-        } // drain all.
-        if tempo / 2 == 0 {
-            return n_remaining;
-        } // drain all
-        if n_remaining == 0 {
-            return 0;
-        } // nothing to drain at all.
-          // Else return enough tuples to drain all within half the epoch length.
-        let to_sink_via_tempo: usize = n_remaining / (tempo as usize / 2);
-        let to_sink_via_blocks_until_epoch: usize = n_remaining / (blocks_until_epoch as usize / 2);
-        if to_sink_via_tempo > to_sink_via_blocks_until_epoch {
-            return to_sink_via_tempo;
+    pub fn run_coinbase( block_number:u64 ) {
+
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let mut prices: Vec<(u16, I64F64)> = Vec::new();
+        let mut total_prices:I64F64 = I64F64::from_num(0.0);
+
+        // Compute the uniswap price for each netuid
+        for netuid in netuids.iter() {
+            if *netuid == Self::get_root_netuid() { continue }
+            if !Self::is_subnet_dynamic( *netuid ) { continue }
+            let price = Self::get_tao_per_alpha_price( *netuid );
+            prices.push((*netuid, price));
+            total_prices += price;
+        }
+
+        // Check if alpha prices exceed TAO market cap.
+        let tao_block_emission: u64;
+        if total_prices <= I64F64::from_num(1.0) {
+            tao_block_emission = Self::get_block_emission().unwrap();
         } else {
-            return to_sink_via_blocks_until_epoch;
+            tao_block_emission = 0;
         }
-    }
 
-    pub fn has_loaded_emission_tuples(netuid: u16) -> bool {
-        LoadedEmission::<T>::contains_key(netuid)
-    }
-    pub fn get_loaded_emission_tuples(netuid: u16) -> Vec<(T::AccountId, u64, u64)> {
-        LoadedEmission::<T>::get(netuid).unwrap()
-    }
-
-    // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
-    // and distributes small chunks of them at a time.
-    //
-    pub fn drain_emission(_: u64) {
-        // --- 1. We iterate across each network.
-        for (netuid, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            if !Self::has_loaded_emission_tuples(netuid) {
-                continue;
-            } // There are no tuples to emit.
-            let tuples_to_drain: Vec<(T::AccountId, u64, u64)> =
-                Self::get_loaded_emission_tuples(netuid);
-            let mut total_emitted: u64 = 0;
-            for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {
-                Self::emit_inflation_through_hotkey_account(
-                    &hotkey,
-                    netuid,
-                    *server_amount,
-                    *validator_amount,
-                );
-                total_emitted += *server_amount + *validator_amount;
-            }
-            LoadedEmission::<T>::remove(netuid);
-            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(total_emitted));
+        for (netuid, price) in prices.iter() {
+            let normalized_alpha_price: I64F64 = price / I64F64::from_num( total_prices );
+            let new_tao_emission:u64 = ( normalized_alpha_price * I64F64::from_num( tao_block_emission ) ).to_num::<u64>();
+            let new_alpha_emission: u64 = Self::get_block_emission().unwrap();
+            EmissionValues::<T>::insert( *netuid, new_tao_emission );
+            DynamicTAOReserve::<T>::mutate( netuid, |reserve| *reserve += new_tao_emission );
+            DynamicAlphaReserve::<T>::mutate( netuid, |reserve| *reserve += new_alpha_emission );
+            DynamicAlphaIssuance::<T>::mutate( netuid, |issuance| *issuance += new_alpha_emission );
+            PendingAlphaEmission::<T>::mutate( netuid, |emission| *emission += new_alpha_emission );
+            DynamicK::<T>::insert( netuid, (DynamicTAOReserve::<T>::get(netuid) as u128) * (DynamicAlphaReserve::<T>::get(netuid) as u128) );
+            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add( new_tao_emission ));
         }
-    }
 
-    // Iterates through networks queues more emission onto their pending storage.
-    // If a network has no blocks left until tempo, we run the epoch function and generate
-    // more token emission tuples for later draining onto accounts.
-    //
-    pub fn generate_emission(block_number: u64) {
-        // --- 1. Iterate across each network and add pending emission into stash.
-        for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            // Skip the root network.
-            if netuid == Self::get_root_netuid() {
-                // Root emission is burned.
-                continue;
-            }
+        // Iterate over network and run epochs.
+        for netuid in netuids.iter() {
 
-            // --- 2. Queue the emission due to this network.
-            let new_queued_emission: u64 = Self::get_subnet_emission_value(netuid);
-            log::debug!(
-                "generate_emission for netuid: {:?} with tempo: {:?} and emission: {:?}",
-                netuid,
-                tempo,
-                new_queued_emission,
-            );
+            // Check to see if this network has reached tempo.
+            let tempo: u16 = Self::get_tempo( *netuid );
+            if Self::blocks_until_next_epoch( *netuid, tempo, block_number ) == 0 {
 
-            let subnet_has_owner = SubnetOwner::<T>::contains_key(netuid);
-            let mut remaining = I96F32::from_num(new_queued_emission);
-            if subnet_has_owner {
-                let cut = remaining
-                    .saturating_mul(I96F32::from_num(Self::get_subnet_owner_cut()))
-                    .saturating_div(I96F32::from_num(u16::MAX));
+                // Get the emission to distribute for this subnet.
+                let alpha_emission: u64 = PendingAlphaEmission::<T>::get(netuid);
+    
+                // Run the epoch mechanism and return emission tuples for hotkeys in the network.
+                let alpha_emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::epoch( *netuid, alpha_emission );
 
-                remaining = remaining.saturating_sub(cut);
+                // --- Emit the tuples through the hotkeys.
+                for (hotkey, server_amount, validator_amount) in alpha_emission_tuples.iter() {
+                    Self::emit_inflation_through_hotkey_account(
+                        &hotkey,
+                        *netuid,
+                        *server_amount,
+                        *validator_amount,
+                    );
+                }
 
-                Self::add_balance_to_coldkey_account(
-                    &Self::get_subnet_owner(netuid),
-                    Self::u64_to_balance(cut.to_num::<u64>()).unwrap(),
-                );
-
-                // We are creating tokens here from the coinbase.
-                Self::coinbase( cut.to_num::<u64>() );
-            }
-            // --- 5. Add remaining amount to the network's pending emission.
-            PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
-            log::debug!(
-                "netuid_i: {:?} queued_emission: +{:?} ",
-                netuid,
-                new_queued_emission
-            );
-
-            // --- 6. Check to see if this network has reached tempo.
-            if Self::blocks_until_next_epoch(netuid, tempo, block_number) != 0 {
-                // --- 3.1 No epoch, increase blocks since last step and continue,
+                // Update counters.
+                PendingAlphaEmission::<T>::insert(netuid, 0);
+                DynamicAlphaOutstanding::<T>::mutate( netuid, |reserve| *reserve += alpha_emission ); // Increment total alpha outstanding.
+                DynamicAlphaIssuance::<T>::mutate( netuid, |issuance| *issuance += alpha_emission ); // Increment total alpha issuance.
+                Self::set_blocks_since_last_step(*netuid, 0);
+                Self::set_last_mechanism_step_block(*netuid, block_number);
+            } 
+            else {
                 Self::set_blocks_since_last_step(
-                    netuid,
-                    Self::get_blocks_since_last_step(netuid) + 1,
+                    *netuid,
+                    Self::get_blocks_since_last_step(*netuid) + 1,
                 );
                 continue;
             }
-
-            // --- 7 This network is at tempo and we are running its epoch.
-            // First drain the queued emission.
-            let emission_to_drain: u64 = PendingEmission::<T>::get(netuid);
-            PendingEmission::<T>::insert(netuid, 0);
-
-            // --- 8. Run the epoch mechanism and return emission tuples for hotkeys in the network.
-            let emission_tuples_this_block: Vec<(T::AccountId, u64, u64)> =
-                Self::epoch(netuid, emission_to_drain);
-            log::debug!(
-                "netuid_i: {:?} emission_to_drain: {:?} ",
-                netuid,
-                emission_to_drain
-            );
-
-            // --- 9. Check that the emission does not exceed the allowed total.
-            let emission_sum: u128 = emission_tuples_this_block
-                .iter()
-                .map(|(_account_id, ve, se)| *ve as u128 + *se as u128)
-                .sum();
-            if emission_sum > emission_to_drain as u128 {
-                continue;
-            } // Saftey check.
-
-            // --- 10. Sink the emission tuples onto the already loaded.
-            let mut concat_emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                emission_tuples_this_block.clone();
-            if Self::has_loaded_emission_tuples(netuid) {
-                // 10.a We already have loaded emission tuples, so we concat the new ones.
-                let mut current_emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                    Self::get_loaded_emission_tuples(netuid);
-                concat_emission_tuples.append(&mut current_emission_tuples);
-            }
-            LoadedEmission::<T>::insert(netuid, concat_emission_tuples);
-
-            // --- 11 Set counters.
-            Self::set_blocks_since_last_step(netuid, 0);
-            Self::set_last_mechanism_step_block(netuid, block_number);
         }
     }
+
     // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
     // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
     // is called after an epoch to distribute the newly minted stake according to delegation.
@@ -214,29 +123,29 @@ impl<T: Config> Pallet<T> {
         // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
         if !Self::hotkey_is_delegate( delegate ) {
             let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_stake_on_hotkey_account(
-                delegate,
-                netuid,
+            Self::increase_stake_on_hotkey_account( 
+                delegate, 
+                netuid, 
                 total_delegate_emission
             );
             return;
         }
-
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
-        let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get( delegate, netuid )) / I64F64::from_num(u16::MAX);
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate )) / I64F64::from_num(u16::MAX);
         let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
+        let mut residual: u64 = remaining_validator_emission;
 
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
-        let mut residual: u64 = remaining_validator_emission;
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
-        let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-        log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_stake);
+        // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
+        let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate ); 
+        log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
-        if delegate_local_stake + delegate_global_stake != 0 {
-            for (nominator_i, _) in Stake::<T>::iter_prefix( delegate ) {
+        if delegate_local_stake + delegate_global_dynamic_tao != 0 {
+            for (nominator_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( delegate ) {
 
                 // 3.a Compute the stake weight percentage for the nominatore weight.
                 let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &nominator_i, delegate, netuid );
@@ -248,11 +157,11 @@ impl<T: Config> Pallet<T> {
                 };
                 log::debug!("nominator_local_emission_i: {:?}", nominator_local_emission_i);
 
-                let nominator_global_stake: u64 = Self::get_total_stake_for_hotkey_and_coldkey( delegate, &nominator_i );
-                let nominator_global_emission_i: I64F64 = if delegate_global_stake == 0 {
+                let nominator_global_stake: u64 = Self::get_coldkey_hotkey_global_dynamic_tao( &nominator_i, delegate ); // Get global stake.
+                let nominator_global_emission_i: I64F64 = if delegate_global_dynamic_tao == 0 {
                     I64F64::from_num(0)
                 } else {
-                    let nominator_global_percentage: I64F64 = I64F64::from_num( nominator_global_stake ) / I64F64::from_num( delegate_global_stake );
+                    let nominator_global_percentage: I64F64 = I64F64::from_num( nominator_global_stake ) / I64F64::from_num( delegate_global_dynamic_tao );
                     nominator_global_percentage * I64F64::from_num( remaining_validator_emission ) * global_stake_weight
                 };
                 log::debug!("nominator_global_emission_i: {:?}", nominator_global_emission_i);

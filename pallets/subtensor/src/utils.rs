@@ -3,6 +3,7 @@ use crate::system::{ensure_root, ensure_signed_or_root};
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
+
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
         o: T::RuntimeOrigin,
@@ -136,19 +137,6 @@ impl<T: Config> Pallet<T> {
         WeightsMinStake::<T>::put(min_stake);
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
-    pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
-    }
-    pub fn set_stakes_this_interval_for_hotkey(
-        hotkey: &T::AccountId,
-        stakes_this_interval: u64,
-        last_staked_block_number: u64,
-    ) {
-        TotalHotkeyStakesThisInterval::<T>::insert(
-            hotkey,
-            (stakes_this_interval, last_staked_block_number),
-        );
-    }
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
@@ -255,6 +243,9 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
+    }
+    pub fn get_alpha_pending_emission(netuid: u16) -> u64 {
+        PendingAlphaEmission::<T>::get(netuid)
     }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
@@ -618,6 +609,9 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
+    pub fn get_subnet_creator_hotkey(netuid: u16) -> T::AccountId {
+        SubnetCreator::<T>::get(netuid)
+    }
     pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
         SubnetOwner::<T>::get(netuid)
     }

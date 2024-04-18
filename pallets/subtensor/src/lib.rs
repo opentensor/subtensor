@@ -282,12 +282,7 @@ pub mod pallet {
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
-    #[pallet::storage]
-    // --- MAP (hot) --> stake | Returns a tuple (u64: stakes, u64: block_number)
-    pub type TotalHotkeyStakesThisInterval<T: Config> =
-        StorageMap<_, Identity, T::AccountId, (u64, u64), ValueQuery, DefaultStakesPerInterval<T>>;
-
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -332,21 +327,37 @@ pub mod pallet {
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<
-        _,
+        _, 
         (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
-            NMapKey<Blake2_128Concat, T::AccountId>, // cold
-            NMapKey<Identity, u16>,                  // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>,    // hot
+            NMapKey<Blake2_128Concat, T::AccountId>,    // cold
+            NMapKey<Identity, u16>,                     // subnet
         ),
         u64,
-        ValueQuery,
+        ValueQuery
     >;
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
-        return true;
+        if cfg!(feature = "subnet-staking") {
+            return true;
+        } else {
+            return false;
+        }
     }
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
     pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicTAOReserve | Returns the TAO reserve for a given netuid.
+    pub type DynamicTAOReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicAlphaReserve | Returns the dynamic sub-reserve for a given netuid.
+    pub type DynamicAlphaReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> issuance | Returns the total dynamic token issuance.
+    pub type DynamicAlphaIssuance<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> issuance | Returns the total dynamic token issuance outstanding.
+    pub type DynamicAlphaOutstanding<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicK | Returns the dynamic K value for a given netuid.
+    pub type DynamicK<T> = StorageMap<_, Identity, u16, u128, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> is_subnet_dynamic | Returns true if the network is using dynamic staking.
+    pub type IsDynamic<T> = StorageMap<_, Identity, u16, bool, ValueQuery>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -585,7 +596,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step
+        #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
+    pub type PendingAlphaEmission<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
     pub type BlocksSinceLastStep<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
@@ -594,7 +608,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
+    #[pallet::storage]
+    pub type SubnetCreator<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
@@ -1055,6 +1072,7 @@ pub mod pallet {
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
         InvalidTake, // --- Thrown when delegate take is being set out of bounds
+        SubnetCreatorLock, // -- Thrown when the subnet creator attempts to remove their funds within the lock period.
     }
 
     // ==================
@@ -1612,6 +1630,7 @@ pub mod pallet {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
+
         // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
         // already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         //
@@ -1882,8 +1901,8 @@ pub mod pallet {
         #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::user_add_network(origin, hotkey)
         }
 
         #[pallet::call_index(60)]
@@ -1903,13 +1922,6 @@ pub mod pallet {
             Err(Error::<T>::FaucetDisabled.into())
         }
 
-        #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_parts(70_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(5))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::user_remove_network(origin, netuid)
-        }
     }
 
     // ---- Subtensor helper functions.
@@ -2058,27 +2070,13 @@ where
                     return Err(InvalidTransaction::Call.into());
                 }
             }
-            Some(Call::add_stake { hotkey, .. }) => {
-                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
-                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
-
-                if stakes_this_interval >= max_stakes_per_interval {
-                    return InvalidTransaction::ExhaustsResources.into();
-                }
-
+            Some(Call::add_stake { .. }) => {
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()
                 })
             }
-            Some(Call::remove_stake { hotkey, .. }) => {
-                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
-                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
-
-                if stakes_this_interval >= max_stakes_per_interval {
-                    return InvalidTransaction::ExhaustsResources.into();
-                }
-
+            Some(Call::remove_stake { .. }) => {
                 Ok(ValidTransaction {
                     priority: Self::get_priority_vanilla(),
                     ..Default::default()

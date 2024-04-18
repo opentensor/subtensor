@@ -11,6 +11,9 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 mod mock;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test registration
+
 /********************************************
     subscribing::subscribe() tests
 *********************************************/

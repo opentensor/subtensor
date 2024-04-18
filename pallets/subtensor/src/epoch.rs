@@ -83,12 +83,22 @@ impl<T: Config> Pallet<T> {
         }
         // Normalize the local stake values in-place.
         inplace_normalize_64(&mut local_stake_64);
+
+        // Get new owners.
+        let stake_for_owners: Vec<I32F32> = vec_fixed64_to_fixed32( local_stake_64.clone() );
+        let new_owners: Vec<bool> = is_topk(&stake_for_owners, 1 as usize);
+        for (uid, &is_largest_holder) in new_owners.iter().enumerate() {
+            if is_largest_holder {
+                SubnetOwner::<T>::insert( netuid, Self::get_owning_coldkey_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, uid as u16 ).unwrap() ) );
+                break
+            }
+        }
         
         // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the global stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, 0 ) );
         }
         // Normalize the global stake values in-place.
         inplace_normalize_64(&mut global_stake_64);
@@ -122,7 +132,6 @@ impl<T: Config> Pallet<T> {
         // Get new validator permits.
         let new_validator_permits: Vec<bool> = is_topk(&stake, max_allowed_validators as usize);
         log::trace!("new_validator_permits: {:?}", new_validator_permits);
-
         // ==================
         // == Active Stake ==
         // ==================
@@ -439,12 +448,23 @@ impl<T: Config> Pallet<T> {
         }
         // Normalize the local stake values in-place.
         inplace_normalize_64(&mut local_stake_64);
+
+        // Get new owners.
+        let stake_for_owners: Vec<I32F32> = vec_fixed64_to_fixed32( local_stake_64.clone() );
+        let new_owners: Vec<bool> = is_topk(&stake_for_owners, 1 as usize);
+        for (uid, &is_largest_holder) in new_owners.iter().enumerate() {
+            if is_largest_holder {
+                SubnetOwner::<T>::insert( netuid, Self::get_owning_coldkey_for_hotkey( &Self::get_hotkey_for_net_and_uid( netuid, uid as u16 ).unwrap() ) );
+                break
+            }
+        }
         
         // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         // Iterate over each hotkey to calculate and assign the global stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey( hotkey ) );
+            // global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, Self::root_netuid() ) );
+            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_global_dynamic_tao( hotkey ) );
         }
         // Normalize the global stake values in-place.
         inplace_normalize_64(&mut global_stake_64);

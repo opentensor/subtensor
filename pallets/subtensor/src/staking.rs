@@ -355,23 +355,22 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 8. Unstake from all subnets here.
-        let mut total_removed: u64 = 0;
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid_i in all_netuids.iter() {
             
             // --- 8.a Get the stake on all of the subnets.
             let netuid_stake_for_coldkey_i: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, *netuid_i );
 
-            // --- 8.b Remove this stake from this network.
+            // --- 8.b Compute the dynamic unstake amount.
+            let dynamic_unstake_amount:u64 = Self::compute_dynamic_unstake( netuid_i, netuid_stake_for_coldkey_i );
+
+            // --- 8.c Remove this stake from this network.
             Self::decrease_stake_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
                 *netuid_i,
-                netuid_stake_for_coldkey_i,
+                dynamic_unstake_amount,
             );
-
-            // --- 8.c  Increment total removed.
-            total_removed += netuid_stake_for_coldkey_i
         }
 
         // --- 9. Get sum of stake weights being set.
@@ -379,7 +378,6 @@ impl<T: Config> Pallet<T> {
         let weights_sum: I64F64 = I64F64::from_num(value_sum);
 
         // -- 10. Iterate over netuid value and stake to individual subnets proportional to weights.
-        let mut total_stake_allocated: u64 = 0;
         let mut amounts_staked: Vec<u64> = vec![];
         for (netuid_i, weight_i) in netuids.iter().zip(values.iter()) {
 
@@ -387,34 +385,23 @@ impl<T: Config> Pallet<T> {
             let normalized_weight:I64F64 = I64F64::from_num( *weight_i ) / weights_sum;
             // 10.b -- Calculate effective stake based on the total removed in the previous step.
             let stake_to_be_added_netuid: u64 = (normalized_weight * I64F64::from_num( total_removed )).to_num::<u64>();
+            // 10.c Compute the dynamic stake amount.
+            let dynamic_stake_amount_added:u64 = Self::compute_dynamic_stake( netuid_i, stake_to_be_added_netuid );
             // 10.c -- Set stake on subnet the effective stake.
             Self::increase_stake_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
                 *netuid_i,
-                stake_to_be_added_netuid,
+                dynamic_stake_amount_added,
             );
-
             // 10.d -- Sum amounts for accounting remainder
-            amounts_staked.push( stake_to_be_added_netuid ); 
-            total_stake_allocated += stake_to_be_added_netuid;
+            amounts_staked.push( dynamic_stake_amount_added ); 
         }
 
-        // --- 11. Stake remainder to root network for accounting purposes.
-        let remainder_stake: u64 = total_removed - total_stake_allocated;
-        if remainder_stake > 0 {
-            Self::increase_stake_on_coldkey_hotkey_account(
-                &coldkey,
-                &hotkey,
-                Self::get_root_netuid(),
-                remainder_stake,
-            );
-        }
-
-        // -- 16. Set last block for rate limiting
+        // -- 11. Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 17. Emit the staking event.
+        // --- 12. Emit the staking event.
         log::info!(
             "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, values:{:?}, stakes:{:?} )",
             hotkey,
@@ -424,7 +411,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, 0, total_removed)); // Restaking the total_removed amount.
 
-        // --- 18. Ok and return.
+        // --- 13. Ok and return.
         Ok(())
     }
 
@@ -492,30 +479,27 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CouldNotConvertToBalance
         );
 
-        // --- 4. Ensure the callers coldkey has enough stake to perform the transaction.
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
-            Error::<T>::NotEnoughBalanceToStake
-        );
 
-        // --- 5. Ensure that the hotkey account exists this is only possible through registration.
+        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 6. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 7. Enforce the nominator limit
-        // let nominator_count: u32 = 0; // TODO: get the number of nominators
-        // ensure!(
-        //     nominator_count < DelegateLimit::<T>::get(),
-        //     Error::<T>::TooManyNominations
-        // );
+        // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
+            Error::<T>::NotEnoughBalanceToStake
+        );
+
+        // --- 7. Remove balance.
+        Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()).map_err(|_| Error::<T>::BalanceWithdrawalError)?;
 
         // --- 8. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
@@ -524,30 +508,21 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 9. Ensure we don't exceed stake rate limit
-        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
-        ensure!(
-            stakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::StakeRateLimitExceeded
-        );
+        // --- 9. Compute Dynamic Stake.
+        let dynamic_stake = Self::compute_dynamic_stake( netuid, stake_to_be_added );
 
-        // --- 10. Ensure the remove operation from the coldkey is a success.
-        let actual_amount_to_stake =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
-
-        // --- 11. If we reach here, add the balance to the hotkey.
+        // --- 10. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid,
-            actual_amount_to_stake,
+            dynamic_stake,
         );
 
         // -- 12. Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
         // --- 13. Emit the staking event.
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, stakes_this_interval + 1, block);
         log::info!(
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             hotkey,
@@ -660,14 +635,17 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 7. Ensure we don't exceed stake rate limit
-        let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
-        ensure!(
-            unstakes_this_interval < Self::get_target_stakes_per_interval(),
-            Error::<T>::UnstakeRateLimitExceeded
-        );
 
         // --- 8. We remove the balance from the hotkey.
+        let SIX_MONTHS_IN_BLOCKS: u64 = 7200 * 30 * 3;
+        if Self::get_subnet_creator_hotkey( netuid ) == hotkey {
+            ensure!(
+                block - Self::get_network_registered_block( netuid ) > SIX_MONTHS_IN_BLOCKS,
+                Error::<T>::SubnetCreatorLock
+            )
+        }
+
+        // --- 9. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -675,14 +653,15 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed,
         );
 
-        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
+        // --- 10. Compute Dynamic un stake.
+        let dynamic_unstake:u64 = Self::compute_dynamic_unstake( netuid, stake_to_be_removed );
+
+        // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        Self::add_balance_to_coldkey_account(&coldkey, Self::u64_to_balance( dynamic_unstake ).unwrap() );
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the unstaking event.
-        Self::set_stakes_this_interval_for_hotkey(&hotkey, unstakes_this_interval + 1, block);
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
@@ -692,6 +671,83 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Done and ok.
         Ok(())
+    }
+
+    /// Computes the dynamic unstake amount based on the current reserves and the stake to be removed.
+    /// 
+    /// # Arguments
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier for the network.
+    /// * `stake_to_be_removed` - The amount of stake to be removed.
+    /// 
+    /// # Returns
+    /// * The amount of tao to be pulled out as a result of the unstake operation.
+    pub fn compute_dynamic_unstake(
+        netuid: u16,
+        stake_to_be_removed: u64,
+    ) -> u64 {
+        // Root network does not have dynamic stake.
+        if !Self::is_subnet_dynamic( netuid ) {
+            return stake_to_be_removed;
+        }
+
+        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+        let k = DynamicK::<T>::get(netuid);
+
+        // Calculate the new dynamic reserve after adding the stake to be removed
+        let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
+        // Calculate the new tao reserve based on the new dynamic reserve
+        let new_tao_reserve:u64 = ( k / ( new_dynamic_reserve as u128)) as u64;
+        // Calculate the amount of tao to be pulled out based on the difference in tao reserves
+        let tao = tao_reserve.saturating_sub(new_tao_reserve);
+
+        // Update the reserves with the new values
+        DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+        DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+        DynamicAlphaOutstanding::<T>::mutate( netuid, |outstanding| *outstanding -= stake_to_be_removed ); // Decrement outstanding alpha.
+
+        tao
+    }
+
+    /// Computes the dynamic stake amount based on the current reserves and the stake to be added.
+    /// 
+    /// # Arguments
+    /// * `coldkey` - The account ID of the coldkey.
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier for the network.
+    /// * `stake_to_be_added` - The amount of stake to be added.
+    /// 
+    /// # Returns
+    /// * The amount of dynamic token to be pulled out as a result of the stake operation.
+    pub fn compute_dynamic_stake(
+        netuid: u16,
+        stake_to_be_added: u64,
+    ) -> u64 {
+        // Root network does not have dynamic stake.
+        if !Self::is_subnet_dynamic( netuid ) {
+            return stake_to_be_added;
+        }
+
+        
+        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+        let k = DynamicK::<T>::get(netuid);
+
+        // Calculate the new tao reserve after adding the stake
+        let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
+        // Calculate the new dynamic reserve based on the new tao reserve
+        let new_dynamic_reserve:u64 = (k / ( new_tao_reserve as u128)) as u64;
+        // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
+        let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
+
+        // Update the reserves with the new values
+        DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+        DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+        DynamicAlphaOutstanding::<T>::mutate( netuid, |outstanding| *outstanding += dynamic_token ); // Increment outstanding alpha.
+
+        dynamic_token
     }
 
     // Returns true if the passed hotkey allow delegative staking.
@@ -710,6 +766,21 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_total_stake() -> u64 {
         return TotalStake::<T>::get();
+    }
+
+    // Getters for Dynamic terms
+    //
+    pub fn get_tao_reserve( netuid: u16 ) -> u64 {
+        DynamicTAOReserve::<T>::get( netuid )
+    }
+    pub fn get_alpha_reserve( netuid: u16 ) -> u64 {
+        DynamicAlphaReserve::<T>::get( netuid )
+    }
+    pub fn get_pool_k( netuid: u16 ) -> u128 {
+        DynamicK::<T>::get( netuid )
+    }
+    pub fn is_subnet_dynamic( netuid: u16 ) -> bool {
+        IsDynamic::<T>::get( netuid )
     }
 
     // Returns the total amount of stake under a subnet (delegative or otherwise)
@@ -743,38 +814,7 @@ impl<T: Config> Pallet<T> {
         return TotalHotkeySubStake::<T>::get(hotkey, netuid);
     }
 
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        return TotalColdkeyStake::<T>::get(coldkey);
-    }
 
-    // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
-    pub fn get_stakes_this_interval_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        // Retrieve the configured stake interval duration from storage.
-        let stake_interval = StakeInterval::<T>::get();
-
-        // Obtain the current block number as an unsigned 64-bit integer.
-        let current_block = Self::get_current_block_as_u64();
-
-        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
-        let (stakes, block_last_staked_at) = TotalHotkeyStakesThisInterval::<T>::get(hotkey);
-
-        // Calculate the block number after which the stakes for the hotkey should be reset.
-        let block_to_reset_after = block_last_staked_at + stake_interval;
-
-        // If the current block number is beyond the reset point,
-        // it indicates the end of the staking interval for the hotkey.
-        if block_to_reset_after <= current_block {
-            // Reset the stakes for this hotkey for the current interval.
-            Self::set_stakes_this_interval_for_hotkey(hotkey, 0, block_last_staked_at);
-            // Return 0 as the stake amount since we've just reset the stakes.
-            return 0;
-        }
-
-        // If the staking interval has not yet ended, return the current stake amount.
-        stakes
-    }
 
     pub fn get_target_stakes_per_interval() -> u64 {
         return TargetStakesPerInterval::<T>::get();
@@ -874,6 +914,47 @@ impl<T: Config> Pallet<T> {
         Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
     }
 
+    pub fn get_tao_per_alpha_price( netuid: u16 ) -> I64F64 {
+        let tao_reserve: u64 = DynamicTAOReserve::<T>::get( netuid );
+        let alpha_reserve: u64 = DynamicAlphaReserve::<T>::get( netuid );
+        if alpha_reserve == 0 {
+            return I64F64::from_num( 1.0 );
+        } else {
+            return I64F64::from_num( tao_reserve ) / I64F64::from_num( alpha_reserve );
+        }
+    }
+
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_global_dynamic_tao(
+        hotkey: &T::AccountId,
+    ) -> u64 {
+        let mut global_dynamic_tao: I64F64 = I64F64::from_num( 0.0 );
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid in netuids.iter() {
+            let alpha_stake: I64F64 = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, *netuid ) );
+            let tao_per_alpha_price: I64F64 = Self::get_tao_per_alpha_price( *netuid );
+            global_dynamic_tao += alpha_stake * tao_per_alpha_price;
+        }
+        return global_dynamic_tao.to_num::<u64>();
+    }
+
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_coldkey_hotkey_global_dynamic_tao(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> u64 {
+        let mut global_dynamic_tao: I64F64 = I64F64::from_num( 0.0 );
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid in netuids.iter() {
+            let alpha_stake: I64F64 = I64F64::from_num( Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, *netuid ) );
+            let tao_per_alpha_price: I64F64 = Self::get_tao_per_alpha_price( *netuid );
+            global_dynamic_tao += alpha_stake * tao_per_alpha_price;
+        }
+        return global_dynamic_tao.to_num::<u64>();
+    }
+
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
     // This function should be called rather than set_stake under account.
     //
@@ -886,26 +967,31 @@ impl<T: Config> Pallet<T> {
         if increment == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
-        TotalHotkeySubStake::<T>::mutate(hotkey,netuid, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
-        Stake::<T>::mutate(hotkey, coldkey, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
-        SubStake::<T>::insert((hotkey, coldkey, netuid),
+        TotalColdkeyStake::<T>::insert(
+            coldkey,
+            TotalColdkeyStake::<T>::get(coldkey).saturating_add(increment),
+        );
+        TotalHotkeyStake::<T>::insert(
+            hotkey,
+            TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
+        );
+        TotalHotkeySubStake::<T>::insert(
+            hotkey,
+            netuid,
+            TotalHotkeySubStake::<T>::get(hotkey, netuid).saturating_add(increment),
+        );
+        Stake::<T>::insert(
+            hotkey,
+            coldkey,
+            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
+        );
+        SubStake::<T>::insert(
+            (hotkey, coldkey, netuid),
             SubStake::<T>::try_get((hotkey, coldkey, netuid))
                 .unwrap_or(0)
                 .saturating_add(increment),
         );
-        TotalStake::<T>::mutate(|stake| {
-            *stake = stake.saturating_add(increment);
-        });
+        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -919,26 +1005,31 @@ impl<T: Config> Pallet<T> {
         if decrement == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        TotalHotkeySubStake::<T>::mutate(hotkey,netuid, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        Stake::<T>::mutate(hotkey,coldkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        SubStake::<T>::insert((hotkey, coldkey, netuid),
+        TotalColdkeyStake::<T>::insert(
+            coldkey,
+            TotalColdkeyStake::<T>::get(coldkey).saturating_sub(decrement),
+        );
+        TotalHotkeyStake::<T>::insert(
+            hotkey,
+            TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
+        );
+        TotalHotkeySubStake::<T>::insert(
+            hotkey,
+            netuid,
+            TotalHotkeySubStake::<T>::get(hotkey, netuid).saturating_sub(decrement),
+        );
+        Stake::<T>::insert(
+            hotkey,
+            coldkey,
+            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
+        );
+        SubStake::<T>::insert(
+            (hotkey, coldkey, netuid),
             SubStake::<T>::try_get((hotkey, coldkey, netuid))
                 .unwrap_or(0)
                 .saturating_sub(decrement),
         );
-        TotalStake::<T>::mutate(|stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
+        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
     }
 
     pub fn u64_to_balance(

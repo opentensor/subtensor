@@ -38,6 +38,9 @@ alice_start=(
     --rpc-port 9946
     --validator
     --rpc-cors=all
+    --rpc-external
+    --unsafe-rpc-external
+    --rpc-methods=unsafe
     --allow-private-ipv4
     --discover-local
 )
@@ -48,7 +51,7 @@ bob_start=(
     --chain="$FULL_PATH"
     --bob
     --port 30335
-    --rpc-port 9947
+    --rpc-port 9935
     --validator
     --allow-private-ipv4
     --discover-local
