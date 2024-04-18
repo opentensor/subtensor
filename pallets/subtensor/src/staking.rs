@@ -356,21 +356,25 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Unstake from all subnets here.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        let mut total_tao_unstaked: u64 = 0; 
         for netuid_i in all_netuids.iter() {
             
             // --- 8.a Get the stake on all of the subnets.
             let netuid_stake_for_coldkey_i: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, *netuid_i );
 
             // --- 8.b Compute the dynamic unstake amount.
-            let dynamic_unstake_amount:u64 = Self::compute_dynamic_unstake( netuid_i, netuid_stake_for_coldkey_i );
+            let dynamic_unstake_amount_tao:u64 = Self::compute_dynamic_unstake( *netuid_i, netuid_stake_for_coldkey_i );
 
             // --- 8.c Remove this stake from this network.
             Self::decrease_stake_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
                 *netuid_i,
-                dynamic_unstake_amount,
+                netuid_stake_for_coldkey_i,
             );
+
+            // --- 8.d Increment tao unstaked
+            total_tao_unstaked += dynamic_unstake_amount_tao;
         }
 
         // --- 9. Get sum of stake weights being set.
@@ -384,9 +388,9 @@ impl<T: Config> Pallet<T> {
             // 10.a -- Normalize the weight.
             let normalized_weight:I64F64 = I64F64::from_num( *weight_i ) / weights_sum;
             // 10.b -- Calculate effective stake based on the total removed in the previous step.
-            let stake_to_be_added_netuid: u64 = (normalized_weight * I64F64::from_num( total_removed )).to_num::<u64>();
+            let stake_to_be_added_netuid: u64 = (normalized_weight * I64F64::from_num( total_tao_unstaked )).to_num::<u64>();
             // 10.c Compute the dynamic stake amount.
-            let dynamic_stake_amount_added:u64 = Self::compute_dynamic_stake( netuid_i, stake_to_be_added_netuid );
+            let dynamic_stake_amount_added:u64 = Self::compute_dynamic_stake( *netuid_i, stake_to_be_added_netuid );
             // 10.c -- Set stake on subnet the effective stake.
             Self::increase_stake_on_coldkey_hotkey_account(
                 &coldkey,
@@ -409,7 +413,7 @@ impl<T: Config> Pallet<T> {
             values,
             amounts_staked
         );
-        Self::deposit_event(Event::StakeAdded(hotkey, 0, total_removed)); // Restaking the total_removed amount.
+        Self::deposit_event(Event::StakeAdded(hotkey, 0, total_tao_unstaked)); // Restaking the total_removed amount.
 
         // --- 13. Ok and return.
         Ok(())
