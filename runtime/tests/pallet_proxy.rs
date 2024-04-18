@@ -1,7 +1,7 @@
 use frame_support::assert_ok;
 use node_subtensor_runtime::{
-    AccountId, BalancesCall, BlockNumber, BuildStorage, Proxy, ProxyType,
-    Runtime, RuntimeCall, RuntimeOrigin, SubtensorModule, System, SystemCall,
+    AccountId, BalancesCall, BlockNumber, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall,
+    RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
 use sp_runtime::traits::{BlakeTwo256, Hash};
 const ACCOUNT: [u8; 32] = [1_u8; 32];
