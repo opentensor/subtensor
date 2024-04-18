@@ -34,7 +34,6 @@ alice_start=(
 	--chain="$FULL_PATH"
 	--alice
 	--port 30334
-	--ws-port 9946
 	--rpc-port 9934
 	--validator
 	--rpc-cors=all
@@ -48,7 +47,6 @@ bob_start=(
 	--chain="$FULL_PATH"
 	--bob
 	--port 30335
-	--ws-port 9947
 	--rpc-port 9935
 	--validator
 	--allow-private-ipv4
