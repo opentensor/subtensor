@@ -107,6 +107,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialDelegateLimit: u16 = 128;
 
 }
 
@@ -158,6 +159,8 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type InitialDelegateLimit = InitialDelegateLimit;
+
 }
 
 impl system::Config for Test {
@@ -445,6 +448,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_subnet_staking(subnet_staking: bool) {
         SubtensorModule::set_subnet_staking(subnet_staking);
+    }
+
+    fn set_delegate_limit(delegate_limit: u32) {
+        SubtensorModule::set_delegate_limit(delegate_limit);
     }
 }
 

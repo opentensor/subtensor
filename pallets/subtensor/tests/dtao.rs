@@ -1,8 +1,6 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
-use frame_system::{EventRecord, Phase};
-use substrate_fixed::types::I64F64;
 use sp_core::U256;
 mod mock;
 
@@ -12,11 +10,10 @@ mod mock;
 
 #[test]
 fn test_add_subnet_stake_ok_no_emission() {
-    new_test_ext().execute_with(|| {
-        let netuid: u16 = 1;
+    new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);
         let coldkey = U256::from(1);
-        
+
         SubtensorModule::add_balance_to_coldkey_account( &coldkey, 100_000_000_000 ); // 100 TAO.
         // Check
         // -- that the lock cost is 100 TAO.
@@ -39,7 +36,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         step_block(1);
         assert_ok!( SubtensorModule::register_network( <<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey ));
 
-        // Check: 
+        // Check:
         // -- that the lock cost is now doubled.
         // -- that the lock cost has been withdrawn from the balance.
         // -- that the owner of the new subnet is the coldkey.
@@ -72,7 +69,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         SubtensorModule::add_balance_to_coldkey_account( &coldkey, 200_000_000_000 ); // 100 TAO.
         assert_ok!( SubtensorModule::register_network( <<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey ));
 
-         // Check: 
+         // Check:
         // -- that the lock cost is now doubled.
         // -- that the lock cost has been withdrawn from the balance.
         // -- that the owner of the new subnet is the coldkey.
@@ -156,9 +153,8 @@ fn test_add_subnet_stake_ok_no_emission() {
 
 #[test]
 fn test_stake_unstake() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // init params.
-        let netuid: u16 = 1;
         let hotkey = U256::from(0);
         let coldkey = U256::from(1);
 

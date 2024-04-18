@@ -6,10 +6,6 @@ use frame_support::{
     weights,
 };
 use frame_system as system;
-<<<<<<< HEAD
-=======
-
->>>>>>> ddd
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -160,6 +156,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
+    pub const InitialDelegateLimit: u16 = 128;
 }
 
 // Configure collective pallet for council
@@ -359,6 +356,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type InitialDelegateLimit = InitialDelegateLimit;
 }
 
 impl pallet_utility::Config for Test {

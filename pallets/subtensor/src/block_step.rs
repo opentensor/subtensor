@@ -80,7 +80,7 @@ impl<T: Config> Pallet<T> {
 
                 // Get the emission to distribute for this subnet.
                 let alpha_emission: u64 = PendingAlphaEmission::<T>::get(netuid);
-    
+
                 // Run the epoch mechanism and return emission tuples for hotkeys in the network.
                 let alpha_emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::epoch( *netuid, alpha_emission );
 
@@ -100,7 +100,7 @@ impl<T: Config> Pallet<T> {
                 DynamicAlphaIssuance::<T>::mutate( netuid, |issuance| *issuance += alpha_emission ); // Increment total alpha issuance.
                 Self::set_blocks_since_last_step(*netuid, 0);
                 Self::set_last_mechanism_step_block(*netuid, block_number);
-            } 
+            }
             else {
                 Self::set_blocks_since_last_step(
                     *netuid,
@@ -123,9 +123,9 @@ impl<T: Config> Pallet<T> {
         // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
         if !Self::hotkey_is_delegate( delegate ) {
             let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_stake_on_hotkey_account( 
-                delegate, 
-                netuid, 
+            Self::increase_stake_on_hotkey_account(
+                delegate,
+                netuid,
                 total_delegate_emission
             );
             return;
@@ -141,7 +141,7 @@ impl<T: Config> Pallet<T> {
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-        let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate ); 
+        let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
         if delegate_local_stake + delegate_global_dynamic_tao != 0 {

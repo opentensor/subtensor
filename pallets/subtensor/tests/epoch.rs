@@ -765,7 +765,7 @@ fn test_512_graph_random_weights() {
             ) = (vec![], vec![], vec![], vec![], vec![], vec![]);
 
             // Dense epoch
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 SubtensorModule::set_global_stake_weight( 0 );
                 init_run_epochs(
                     netuid,
@@ -796,7 +796,7 @@ fn test_512_graph_random_weights() {
             });
 
             // Sparse epoch (same random seed as dense)
-            new_test_ext().execute_with(|| {
+            new_test_ext(1).execute_with(|| {
                 SubtensorModule::set_global_stake_weight( 0 );
                 init_run_epochs(
                     netuid,
