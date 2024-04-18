@@ -363,7 +363,7 @@ where
                 Some(e.to_string()),
             ))
             .into()
-        })
+        })  
     }
 
     fn get_subnet_stake_info_for_cold_key(
