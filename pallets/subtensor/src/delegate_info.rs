@@ -28,7 +28,7 @@ pub struct SubStakeElement<T: Config> {
 }
 
 impl<T: Config> Pallet<T> {
- 
+
     /// Returns all `SubStakeElement` instances associated with a given hotkey.
     ///
     /// This function takes a hotkey's bytes representation, decodes it to the `AccountId` type,
@@ -52,24 +52,22 @@ impl<T: Config> Pallet<T> {
         if hotkey_bytes.len() != 32 { return Vec::new(); }
         let hotkey: AccountIdOf<T> = T::AccountId::decode( &mut hotkey_bytes.as_bytes_ref() ).unwrap();
         let mut response: Vec<SubStakeElement<T>> = vec![];
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        for (coldkey_i, _) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey.clone() ) {
-            for netuid_i in all_netuids.iter() {
-                let stake_i = Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey_i, &hotkey, *netuid_i);
+        Self::get_all_subnet_netuids().into_iter().for_each(|netuid_i| {
+            Stake::<T>::iter_prefix( hotkey.clone() ).for_each(|(coldkey_i, _)| {
+                let stake_i = Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey_i, &hotkey, netuid_i);
                 if stake_i != 0 {
-                    let value = SubStakeElement {
+                    response.push(SubStakeElement {
                         hotkey: hotkey.clone(),
-                        coldkey: coldkey_i.clone(),
-                        netuid: (*netuid_i).into(),
-                        stake: stake_i.into() 
-                    };
-                    response.push( value )
+                        coldkey: coldkey_i,
+                        netuid: netuid_i.into(),
+                        stake: stake_i.into()
+                    });
                 }
-            }
-        }
+            })
+        });
         response
     }
-    
+
     /// Returns all `SubStakeElement` instances associated with a given coldkey.
     ///
     /// This function takes a coldkey's bytes representation, decodes it to the `AccountId` type,
