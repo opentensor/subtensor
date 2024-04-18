@@ -37,7 +37,7 @@ pub struct NeuronInfoLite<T: Config> {
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    pub stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    pub stake: Vec<(T::AccountId, Compact<u64>)>, // TODO: this needs to be mapped on to stake weight not just raw stake.
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,

@@ -1308,6 +1308,20 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::DelegateInfoRuntimeApi<Block> for Runtime {
+
+        fn get_substake_for_coldkey( coldkey_bytes: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_substake_for_coldkey( coldkey_bytes );
+            result.encode()
+        }
+        fn get_substake_for_hotkey( hotkey_bytes: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_substake_for_hotkey( hotkey_bytes );
+            result.encode()
+        }
+        fn get_substake_for_netuid( netuid: u16 ) -> Vec<u8> {
+            let result = SubtensorModule::get_substake_for_netuid( netuid );
+            result.encode()
+        }
+
         fn get_delegates() -> Vec<u8> {
             let result = SubtensorModule::get_delegates();
             result.encode()

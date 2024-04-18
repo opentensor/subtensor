@@ -571,6 +571,9 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
+        if cfg!(feature = "pow-faucet") {
+            return 4;
+        }
         T::InitialTempo::get()
     }
 

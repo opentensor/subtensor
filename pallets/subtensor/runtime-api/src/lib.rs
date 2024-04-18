@@ -7,6 +7,9 @@ use pallet_subtensor::types::TensorBytes;
 // src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs
 sp_api::decl_runtime_apis! {
     pub trait DelegateInfoRuntimeApi {
+        fn get_substake_for_hotkey( hotkey_bytes: Vec<u8>  ) -> Vec<u8>;
+        fn get_substake_for_coldkey( coldkey_bytes: Vec<u8>  ) -> Vec<u8>;
+        fn get_substake_for_netuid( netuid: u16 ) -> Vec<u8>;
         fn get_delegates() -> Vec<u8>;
         fn get_delegate( delegate_account_vec: Vec<u8> ) -> Vec<u8>;
         fn get_delegated( delegatee_account_vec: Vec<u8> ) -> Vec<u8>;

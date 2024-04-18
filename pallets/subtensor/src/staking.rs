@@ -356,7 +356,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Unstake from all subnets here.
         let mut total_removed: u64 = 0;
-        for netuid_i in netuids.iter() {
+        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        for netuid_i in all_netuids.iter() {
             
             // --- 8.a Get the stake on all of the subnets.
             let netuid_stake_for_coldkey_i: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( &coldkey, &hotkey, *netuid_i );
@@ -1026,15 +1027,16 @@ impl<T: Config> Pallet<T> {
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
         // Iterate through all coldkeys that have a stake on this hotkey account.
+        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for (coldkey_i, _) in
             <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
                 hotkey,
             )
         {
-            for netuid in 0..(TotalNetworks::<T>::get() + 1) {
+            for netuid_i in all_netuids.iter() {
                 // Get the stake on this uid.
                 let stake_i =
-                    Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, netuid);
+                    Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, *netuid_i);
 
                 // Convert to balance and add to the coldkey account.
                 let stake_i_as_balance = Self::u64_to_balance(stake_i);
@@ -1045,7 +1047,7 @@ impl<T: Config> Pallet<T> {
 
                     // Remove the stake from the coldkey - hotkey pairing.
                     Self::decrease_stake_on_coldkey_hotkey_account(
-                        &coldkey_i, hotkey, netuid, stake_i,
+                        &coldkey_i, hotkey, *netuid_i, stake_i,
                     );
 
                     // Add the balance to the coldkey account.
