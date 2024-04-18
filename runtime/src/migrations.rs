@@ -113,7 +113,7 @@ pub(crate) mod account_data_migration {
             log::info!(target: TARGET, "Migrated {} accounts ✅", accounts.len());
 
             // R/W not important for solo chain.
-            return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0u64, 0u64);
+            <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0u64, 0u64)
         }
 
         /// Ensures post-upgrade that every Account entry matches what is expected.
