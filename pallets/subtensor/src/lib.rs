@@ -327,7 +327,7 @@ pub mod pallet {
     >;
     #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<
-        _, 
+        _,
         (
             NMapKey<Blake2_128Concat, T::AccountId>,    // hot
             NMapKey<Blake2_128Concat, T::AccountId>,    // cold
@@ -1409,7 +1409,7 @@ pub mod pallet {
         #[pallet::call_index(1)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+            Self::do_become_delegate(origin, hotkey)
         }
 
         // --- Allows delegates to decrease its take value.

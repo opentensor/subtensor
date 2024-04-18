@@ -291,7 +291,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ===== Take checks ======
     // ========================
-    pub fn do_take_checks(
+    pub fn do_account_checks(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
     ) -> Result<(), Error<T>> {

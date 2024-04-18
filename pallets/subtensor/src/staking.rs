@@ -42,29 +42,20 @@ impl<T: Config> Pallet<T> {
     pub fn do_become_delegate(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        take: u16,
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
+            "do_become_delegate( origin:{:?} hotkey:{:?} )",
             coldkey,
-            hotkey,
-            take
+            hotkey
         );
 
         // --- 2. Ensure we are delegating a known key.
         // --- 3. Ensure that the coldkey is the owner.
-        Self::do_take_checks(&coldkey, &hotkey)?;
+        Self::do_account_checks(&coldkey, &hotkey)?;
 
-        // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
-        let max_take = T::InitialDefaultTake::get();
-        ensure!(
-            take <= max_take,
-            Error::<T>::InvalidTake
-        );
-
-        // --- 5. Ensure we are not already a delegate (dont allow changing delegate take here.)
+        // --- 5. Ensure we are not already a delegate
         ensure!(
             !Self::hotkey_is_delegate(&hotkey),
             Error::<T>::AlreadyDelegate
@@ -78,22 +69,23 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Delegate the key.
-        Self::delegate_hotkey(&hotkey, take);
+        // With introduction of DelegatesTake Delegates became just a flag.
+        // Probably there is a migration needed to convert it to bool or something down the road
+        Self::delegate_hotkey(&hotkey, Self::get_default_take());
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // Also, set last block for take increase rate limiting
+        // Also, set last block for take increase rate limiting, since default take is max
         Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 8. Emit the staking event.
         log::info!(
-            "DelegateAdded( coldkey:{:?}, hotkey:{:?}, take:{:?} )",
+            "DelegateAdded( coldkey:{:?}, hotkey:{:?} )",
             coldkey,
-            hotkey,
-            take
+            hotkey
         );
-        Self::deposit_event(Event::DelegateAdded(coldkey, hotkey, take));
+        Self::deposit_event(Event::DelegateAdded(coldkey, hotkey, Self::get_default_take()));
 
         // --- 9. Ok and return.
         Ok(())
@@ -142,7 +134,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
-        Self::do_take_checks(&coldkey, &hotkey)?;
+        Self::do_account_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
         if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
@@ -214,7 +206,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
-        Self::do_take_checks(&coldkey, &hotkey)?;
+        Self::do_account_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are strinctly increasing take
         if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
