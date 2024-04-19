@@ -4269,6 +4269,7 @@ dependencies = [
  "sp-runtime",
  "sp-session",
  "sp-std",
+ "sp-tracing",
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder",
