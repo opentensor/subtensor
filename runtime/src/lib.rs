@@ -432,7 +432,7 @@ type EnsureMajoritySenate =
     pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
 
 // We call pallet_collective TriumvirateCollective
-pub type TriumvirateCollective = pallet_collective::Instance1;
+type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Runtime {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
