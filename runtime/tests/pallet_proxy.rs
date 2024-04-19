@@ -121,7 +121,7 @@ fn call_add_stake() -> RuntimeCall {
     add_network(netuid, tempo);
     pallet_subtensor::Owner::<Runtime>::insert(AccountId::from(DELEGATE), AccountId::from(ACCOUNT));
 
-    SubtensorModule::register(
+    assert_ok!(SubtensorModule::register(
         RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
         netuid,
         block_number,
@@ -129,7 +129,7 @@ fn call_add_stake() -> RuntimeCall {
         work,
         AccountId::from(DELEGATE),
         AccountId::from(ACCOUNT),
-    );
+    ));
 
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {

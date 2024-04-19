@@ -6,9 +6,6 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-#[cfg(test)]
-mod tests;
-
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
