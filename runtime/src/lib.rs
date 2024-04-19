@@ -6,17 +6,23 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-// #[cfg(test)]
-// mod tests;
+#[cfg(test)]
+mod tests;
+
+mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 
+use migrations::account_data_migration;
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
+use frame_support::{
+    pallet_prelude::{DispatchError, DispatchResult, Get},
+    traits::OnRuntimeUpgrade,
+};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
 use pallet_registry::CanRegisterIdentity;
@@ -274,7 +280,7 @@ pub const EXISTENTIAL_DEPOSIT: u64 = 500;
 
 impl pallet_balances::Config for Runtime {
     type MaxLocks = ConstU32<50>;
-    type MaxReserves = ();
+    type MaxReserves = ConstU32<50>;
     type ReserveIdentifier = [u8; 8];
     // The type for recording an account's balance.
     type Balance = Balance;
@@ -285,10 +291,10 @@ impl pallet_balances::Config for Runtime {
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 
-    type RuntimeHoldReason = ();
-    type FreezeIdentifier = ();
-    type MaxHolds = ();
-    type MaxFreezes = ();
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type FreezeIdentifier = RuntimeFreezeReason;
+    type MaxHolds = ConstU32<50>;
+    type MaxFreezes = ConstU32<50>;
 }
 
 pub struct LinearWeightToFee<C>(sp_std::marker::PhantomData<C>);
@@ -1147,6 +1153,8 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
+type Migrations = account_data_migration::Migration;
+
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
     generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
@@ -1159,6 +1167,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
