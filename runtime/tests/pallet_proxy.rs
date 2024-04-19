@@ -183,7 +183,7 @@ fn verify_call_with_proxy_type(proxy_type: &ProxyType, call: &RuntimeCall) {
 }
 
 #[test]
-fn test_any_type_1() {
+fn test_proxy_pallet() {
     let proxy_types = [
         ProxyType::Any,
         ProxyType::Owner,
