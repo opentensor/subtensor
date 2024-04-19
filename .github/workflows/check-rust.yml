@@ -354,6 +354,7 @@ jobs:
         run: zepter run check
 
   check-devnet-migrations:
+    name: check devnet migrations
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -368,6 +369,7 @@ jobs:
           extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
 
   check-testnet-migrations:
+    name: check testnet migrations
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -382,6 +384,7 @@ jobs:
           extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
 
   check-finney-migrations:
+    name: check finney migrations
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
