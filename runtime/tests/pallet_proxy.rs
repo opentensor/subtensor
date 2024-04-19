@@ -101,15 +101,6 @@ fn call_senate() -> RuntimeCall {
 
 // staking call
 fn call_add_stake() -> RuntimeCall {
-    let block_number: u64 = 1;
-    let netuid: u16 = 2;
-    let (_, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-        netuid,
-        block_number,
-        0,
-        &AccountId::from(ACCOUNT),
-    );
-
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE).into(),
