@@ -1,6 +1,6 @@
-/// Init the on-chain storage versions of pallets added to the runtime prior to this being an automatic process.
 use crate::*;
 
+/// Init the on-chain storage versions of pallets added to the runtime prior to this being an automatic process.
 pub struct Migration;
 
 impl OnRuntimeUpgrade for Migration {
