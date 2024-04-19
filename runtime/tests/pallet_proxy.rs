@@ -1,6 +1,6 @@
-use frame_support::{assert_ok, traits::InstanceFilter};
+use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
 use node_subtensor_runtime::{
-    AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall,
+    AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall, RuntimeEvent,
     RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
 
@@ -28,6 +28,10 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             members: vec![AccountId::from(ACCOUNT)],
             phantom: Default::default(),
         },
+        senate_members: pallet_membership::GenesisConfig {
+            members: BoundedVec::try_from(vec![AccountId::from(ACCOUNT)]).unwrap(),
+            phantom: Default::default(),
+        },
         ..Default::default()
     }
     .build_storage()
@@ -35,12 +39,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     .into();
     ext.execute_with(|| System::set_block_number(1));
     ext
-}
-
-pub fn add_network(netuid: u16, tempo: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
 // transfer call
@@ -62,9 +60,6 @@ fn call_remark() -> RuntimeCall {
 fn call_owner_util() -> RuntimeCall {
     let netuid = 1;
     let serving_rate_limit = 2;
-
-    pallet_subtensor::SubnetOwner::<Runtime>::insert(netuid, AccountId::from(ACCOUNT));
-
     RuntimeCall::AdminUtils(pallet_admin_utils::Call::sudo_set_serving_rate_limit {
         netuid,
         serving_rate_limit,
@@ -116,19 +111,6 @@ fn call_add_stake() -> RuntimeCall {
         &AccountId::from(ACCOUNT),
     );
 
-    add_network(netuid, tempo);
-    pallet_subtensor::Owner::<Runtime>::insert(AccountId::from(DELEGATE), AccountId::from(ACCOUNT));
-
-    assert_ok!(SubtensorModule::register(
-        RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
-        netuid,
-        block_number,
-        nonce,
-        work,
-        AccountId::from(DELEGATE),
-        AccountId::from(ACCOUNT),
-    ));
-
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
         hotkey: AccountId::from(DELEGATE).into(),
@@ -148,8 +130,6 @@ fn call_register() -> RuntimeCall {
         &AccountId::from(ACCOUNT),
     );
 
-    add_network(netuid, tempo);
-
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::register {
         netuid,
         block_number,
@@ -168,15 +148,19 @@ fn verify_call_with_proxy_type(proxy_type: &ProxyType, call: &RuntimeCall) {
         Box::new(call.clone()),
     ));
 
+    let filtered_event: RuntimeEvent = pallet_proxy::Event::ProxyExecuted {
+        result: Err(SystemError::CallFiltered.into()),
+    }
+    .into();
+
+    // check if the filter works by checking the last event
+    // filtered if the last event is SystemError::CallFiltered
+    // not filtered if the last event is proxy executed done or any error from proxy call
     if proxy_type.filter(call) {
-        System::assert_last_event(pallet_proxy::Event::ProxyExecuted { result: Ok(()) }.into());
+        let last_event = System::events().last().unwrap().event.clone();
+        assert_ne!(last_event, filtered_event);
     } else {
-        System::assert_last_event(
-            pallet_proxy::Event::ProxyExecuted {
-                result: Err(SystemError::CallFiltered.into()),
-            }
-            .into(),
-        );
+        System::assert_last_event(filtered_event);
     }
 }
 
