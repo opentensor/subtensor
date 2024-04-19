@@ -103,8 +103,7 @@ fn call_senate() -> RuntimeCall {
 fn call_add_stake() -> RuntimeCall {
     let block_number: u64 = 1;
     let netuid: u16 = 2;
-    let tempo: u16 = 3;
-    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+    let (_, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
         netuid,
         block_number,
         0,
@@ -122,7 +121,6 @@ fn call_add_stake() -> RuntimeCall {
 fn call_register() -> RuntimeCall {
     let block_number: u64 = 1;
     let netuid: u16 = 2;
-    let tempo: u16 = 3;
     let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
         netuid,
         block_number,
