@@ -45,8 +45,9 @@ impl<T: Config> Pallet<T> {
             if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
                 // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
                 if stake < Self::get_nominator_min_required_stake() {
-                    // Remove the stake from the nominator account.
-                    Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+                    // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
+                    // Actually deletes the staking account.
+                    Self::empty_stake_on_coldkey_hotkey_account(&coldkey, &hotkey);
 
                     // Convert the removed stake back to balance and add it to the coldkey account.
                     let stake_as_balance = Self::u64_to_balance(stake);

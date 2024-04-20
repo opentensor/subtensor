@@ -526,6 +526,28 @@ impl<T: Config> Pallet<T> {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(decrement));
     }
 
+    /// Empties the stake associated with a given coldkey-hotkey account pairing.
+    /// This function retrieves the current stake for the specified coldkey-hotkey pairing,
+    /// then subtracts this stake amount from both the TotalColdkeyStake and TotalHotkeyStake.
+    /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
+    /// and TotalIssuance by subtracting the removed stake amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
+    /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
+    pub fn empty_stake_on_coldkey_hotkey_account(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) {
+        let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
+        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
+        Stake::<T>::remove(hotkey, coldkey);
+        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
+        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+    }
+    
     pub fn u64_to_balance(
         input: u64,
     ) -> Option<
