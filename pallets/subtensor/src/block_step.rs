@@ -35,11 +35,8 @@ impl<T: Config> Pallet<T> {
     /// Clears small nominations that are below the minimum required stake.
     /// This function is designed to run at specific intervals, every 1000 blocks, to ensure that
     /// the network does not retain nominator accounts with stakes that are too low. This helps in
-    /// maintaining the efficiency and security of the network.
+    /// reduce the computational complexity of running epochs.
     ///
-    /// # Arguments
-    ///
-    /// * `block_number` - The current block number, used to determine if the function should execute.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
         for (hotkey, coldkey, stake) in Stake::<T>::iter() {
