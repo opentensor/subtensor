@@ -23,8 +23,39 @@ impl<T: Config> Pallet<T> {
         Self::drain_emission(block_number);
         // --- 4. Generates emission tuples from epoch functions.
         Self::generate_emission(block_number);
+
+        // --- 5. Clear small accounts under limit after 1000 blocks.
+        if Self::blocks_until_next_epoch(1000, 1000, block_number) == 0 {
+            Self::clear_small_nominations();
+        }
         // Return ok.
         Ok(())
+    }
+
+    /// Clears small nominations that are below the minimum required stake.
+    /// This function is designed to run at specific intervals, every 1000 blocks, to ensure that
+    /// the network does not retain nominator accounts with stakes that are too low. This helps in
+    /// maintaining the efficiency and security of the network.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_number` - The current block number, used to determine if the function should execute.
+    pub fn clear_small_nominations() {
+        // Loop through all staking accounts to identify and clear nominations below the minimum stake.
+        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
+            // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
+            if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+                // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+                if stake < Self::get_nominator_min_required_stake() {
+                    // Remove the stake from the nominator account.
+                    Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+
+                    // Convert the removed stake back to balance and add it to the coldkey account.
+                    let stake_as_balance = Self::u64_to_balance(stake);
+                    Self::add_balance_to_coldkey_account(&coldkey, stake_as_balance.unwrap());
+                }
+            }
+        }
     }
 
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
