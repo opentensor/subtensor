@@ -369,6 +369,10 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    pub fn DefaultNominatorMinRequiredStake<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
     }
@@ -449,6 +453,8 @@ pub mod pallet {
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
     #[pallet::storage] // ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
+    #[pallet::storage] // ITEM( nominator_min_required_stake )
+    pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====

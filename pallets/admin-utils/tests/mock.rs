@@ -433,6 +433,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn set_weights_min_stake(min_stake: u64) {
         SubtensorModule::set_weights_min_stake(min_stake);
     }
+
+    fn set_nominator_min_required_stake(min_stake: u64) {
+        SubtensorModule::set_nominator_min_required_stake(min_stake);
+    }
 }
 
 impl pallet_admin_utils::Config for Test {
