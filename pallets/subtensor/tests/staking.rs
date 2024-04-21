@@ -2611,10 +2611,11 @@ fn test_fail_root_network_add_stake_below_minimum_threshold() {
         let hotkey = U256::from(1);
         let below_threshold_amount = 50_000; // Amount below the threshold
         let above_threshold_amount = 200_000_000; // Amount above the threshold
-        let minimum_threshold = InitialMinimumStakingThreshold::get();
+        let minimum_threshold = 10_000_000;
 
         // Add balances.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, above_threshold_amount);
+        SubtensorModule::set_minimum_staking_threshold(minimum_threshold);
 
         // Create network
         add_network(netuid, 0, 0);
@@ -2665,10 +2666,12 @@ fn test_fail_root_network_remove_stake_below_minimum_threshold() {
         let hotkey = U256::from(1);
         let initial_stake = 200_000_000; // Amount initially staked
         let remove_amount = 150_000_000; // Amount to remove, which will drop below the minimum threshold
-        let minimum_threshold = InitialMinimumStakingThreshold::get();
+        let minimum_threshold = 10_000_000;
 
         // Setup initial conditions
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
+        SubtensorModule::set_minimum_staking_threshold(minimum_threshold);
+
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         assert_ok!(SubtensorModule::add_stake(
