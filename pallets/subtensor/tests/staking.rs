@@ -2512,14 +2512,17 @@ fn test_fail_network_add_stake_below_minimum_threshold() {
         // Check if stake has increased to the correct amount
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            above_threshold_amount-1
+            above_threshold_amount - 1
         );
 
         // Check if balance has decreased correctly
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey), 1);
 
         // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), above_threshold_amount - 1);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            above_threshold_amount - 1
+        );
 
         // Ensure the total stake is above the minimum threshold
         assert!(SubtensorModule::get_total_stake() >= minimum_threshold);
