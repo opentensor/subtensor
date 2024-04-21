@@ -484,7 +484,8 @@ pub mod pallet {
     #[pallet::storage] // ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
     #[pallet::storage] // ITEM( nominator_min_required_stake )
-    pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
+    pub type NominatorMinRequiredStake<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -739,9 +740,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> scaling_law_power
     pub type ScalingLawPower<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T>>;
-        #[pallet::storage] // --- ITEM ( netuid ) --> validator_prune_len
-        pub type MinimumStakingThreshold <T> =
-        StorageValue<_,  u64, ValueQuery, DefaultMinimumStakingThreshold<T>>;
+    #[pallet::storage] // --- ITEM ( netuid ) --> validator_prune_len
+    pub type MinimumStakingThreshold<T> =
+        StorageValue<_, u64, ValueQuery, DefaultMinimumStakingThreshold<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> target_registrations_this_interval
     pub type TargetRegistrationsPerInterval<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T>>;
@@ -983,7 +984,7 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
-        InvalidTake, // -- Thrown when take being set is invalid.
+        InvalidTake,                // -- Thrown when take being set is invalid.
         StakeBelowMinimumThreshold, // -- Thrown when stake is below the minimum threshold.
     }
 

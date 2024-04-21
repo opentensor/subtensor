@@ -346,13 +346,16 @@ fn test_sudo_set_nominator_min_required_stake() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_nominator_min_required_stake(), to_be_set);
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            to_be_set
+        );
     });
 }
 
