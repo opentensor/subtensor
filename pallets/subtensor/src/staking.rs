@@ -178,22 +178,23 @@ impl<T: Config> Pallet<T> {
             total_stake_after_add >= MinimumStakingThreshold::<T>::get(),
             Error::<T>::StakeBelowMinimumThreshold
         );
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+           // --- 8. Ensure we don't exceed stake rate limit
+        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         ensure!(
             stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+        // --- 9. Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake = Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
 
-        // --- 9. If we reach here, add the balance to the hotkey.
+        // --- 10. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_added);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the staking event.
+        // --- 11. Emit the staking event.
         Self::set_stakes_this_interval_for_hotkey(
             &hotkey,
             stakes_this_interval + 1,
@@ -294,24 +295,30 @@ impl<T: Config> Pallet<T> {
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
+                // --- 7. Ensure we don't exceed stake rate limit
+                let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+                ensure!(
+                    unstakes_this_interval < Self::get_target_stakes_per_interval(),
+                    Error::<T>::UnstakeRateLimitExceeded
+                );
 
-                // --7. Check if total stake after adding will be above the minimum required stake
+                // --8. Check if total stake after adding will be above the minimum required stake
                 let total_stake_after_remove = TotalStake::<T>::get().saturating_sub(stake_to_be_removed);
                 ensure!(
                     total_stake_after_remove >= MinimumStakingThreshold::<T>::get(),
                     Error::<T>::StakeBelowMinimumThreshold
                 );
 
-        // --- 8. We remove the balance from the hotkey.
+        // --- 9. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the unstaking event.
+        // --- 11. Emit the unstaking event.
         Self::set_stakes_this_interval_for_hotkey(
             &hotkey,
             unstakes_this_interval + 1,
@@ -324,7 +331,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 11. Done and ok.
+        // --- 12. Done and ok.
         Ok(())
     }
 

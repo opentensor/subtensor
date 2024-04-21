@@ -796,7 +796,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
-    pub const SubtensorInitialMinimumStakingThreshold: u64 = 100_000_000;
+    pub const SubtensorInitialMinimumStakingThreshold: u64 = 10_000_000;
 }
 
 impl pallet_subtensor::Config for Runtime {
