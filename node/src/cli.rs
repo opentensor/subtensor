@@ -41,14 +41,6 @@ pub enum Subcommand {
     #[command(subcommand)]
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
-    // Try some command against runtime state.
-    #[cfg(feature = "try-runtime")]
-    TryRuntime(try_runtime_cli::TryRuntimeCmd),
-
-    // Try some command against runtime state. Note: `try-runtime` feature must be enabled.
-    #[cfg(not(feature = "try-runtime"))]
-    TryRuntime,
-
     // Db meta columns information.
     ChainInfo(sc_cli::ChainInfoCmd),
 }

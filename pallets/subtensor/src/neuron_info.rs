@@ -2,7 +2,6 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageDoubleMap;
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -61,9 +60,6 @@ impl<T: Config> Pallet<T> {
         let mut neurons = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let uid = uid;
-            let netuid = netuid;
-
             let _neuron = Self::get_neuron_subnet_exists(netuid, uid);
             let neuron;
             if _neuron.is_none() {
@@ -94,17 +90,17 @@ impl<T: Config> Pallet<T> {
 
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
 
-        let active = Self::get_active_for_uid(netuid, uid as u16);
-        let rank = Self::get_rank_for_uid(netuid, uid as u16);
-        let emission = Self::get_emission_for_uid(netuid, uid as u16);
-        let incentive = Self::get_incentive_for_uid(netuid, uid as u16);
-        let consensus = Self::get_consensus_for_uid(netuid, uid as u16);
-        let trust = Self::get_trust_for_uid(netuid, uid as u16);
-        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid as u16);
-        let dividends = Self::get_dividends_for_uid(netuid, uid as u16);
-        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid as u16);
-        let last_update = Self::get_last_update_for_uid(netuid, uid as u16);
-        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
+        let active = Self::get_active_for_uid(netuid, uid);
+        let rank = Self::get_rank_for_uid(netuid, uid);
+        let emission = Self::get_emission_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let consensus = Self::get_consensus_for_uid(netuid, uid);
+        let trust = Self::get_trust_for_uid(netuid, uid);
+        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
+        let dividends = Self::get_dividends_for_uid(netuid, uid);
+        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let weights = <Weights<T>>::get(netuid, uid)
             .iter()
@@ -158,7 +154,7 @@ impl<T: Config> Pallet<T> {
             pruning_score: pruning_score.into(),
         };
 
-        return Some(neuron);
+        Some(neuron)
     }
 
     pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
@@ -166,8 +162,8 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let neuron = Self::get_neuron_subnet_exists(netuid, uid);
-        neuron
+        
+        Self::get_neuron_subnet_exists(netuid, uid)
     }
 
     fn get_neuron_lite_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
@@ -186,17 +182,17 @@ impl<T: Config> Pallet<T> {
 
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
 
-        let active = Self::get_active_for_uid(netuid, uid as u16);
-        let rank = Self::get_rank_for_uid(netuid, uid as u16);
-        let emission = Self::get_emission_for_uid(netuid, uid as u16);
-        let incentive = Self::get_incentive_for_uid(netuid, uid as u16);
-        let consensus = Self::get_consensus_for_uid(netuid, uid as u16);
-        let trust = Self::get_trust_for_uid(netuid, uid as u16);
-        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid as u16);
-        let dividends = Self::get_dividends_for_uid(netuid, uid as u16);
-        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid as u16);
-        let last_update = Self::get_last_update_for_uid(netuid, uid as u16);
-        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
+        let active = Self::get_active_for_uid(netuid, uid);
+        let rank = Self::get_rank_for_uid(netuid, uid);
+        let emission = Self::get_emission_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let consensus = Self::get_consensus_for_uid(netuid, uid);
+        let trust = Self::get_trust_for_uid(netuid, uid);
+        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
+        let dividends = Self::get_dividends_for_uid(netuid, uid);
+        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let stake: Vec<(T::AccountId, Compact<u64>)> =
             <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
@@ -226,7 +222,7 @@ impl<T: Config> Pallet<T> {
             pruning_score: pruning_score.into(),
         };
 
-        return Some(neuron);
+        Some(neuron)
     }
 
     pub fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<T>> {
@@ -237,8 +233,6 @@ impl<T: Config> Pallet<T> {
         let mut neurons: Vec<NeuronInfoLite<T>> = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let uid = uid;
-
             let _neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
             let neuron;
             if _neuron.is_none() {
@@ -258,7 +252,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
-        neuron
+        
+        Self::get_neuron_lite_subnet_exists(netuid, uid)
     }
 }

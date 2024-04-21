@@ -9,6 +9,7 @@ use sp_runtime::{
     BuildStorage,
 };
 
+use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
 use pallet_subtensor::migration;
@@ -17,7 +18,7 @@ use pallet_subtensor::Error;
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
 
-    let mut ext: sp_io::TestExternalities = GenesisConfig {
+    let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
         senate_members: pallet_membership::GenesisConfig::<Test, pallet_membership::Instance2> {
             members: bounded_vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
             phantom: Default::default(),
@@ -75,8 +76,8 @@ fn test_senate_join_works() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -103,18 +104,18 @@ fn test_senate_join_works() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert!(Senate::is_member(&hotkey_account_id));
     });
 }
 
@@ -144,8 +145,8 @@ fn test_senate_vote_works() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -172,18 +173,18 @@ fn test_senate_vote_works() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert!(Senate::is_member(&hotkey_account_id));
 
         System::reset_events();
 
@@ -194,7 +195,7 @@ fn test_senate_vote_works() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -253,8 +254,8 @@ fn test_senate_vote_not_member() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -271,7 +272,7 @@ fn test_senate_vote_not_member() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -314,8 +315,8 @@ fn test_senate_leave_works() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -342,18 +343,18 @@ fn test_senate_leave_works() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert!(Senate::is_member(&hotkey_account_id));
     });
 }
 
@@ -384,8 +385,8 @@ fn test_senate_leave_vote_removal() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -412,18 +413,18 @@ fn test_senate_leave_vote_removal() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            100_000
+            99_999
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            100_000
+            99_999
         );
 
         assert_ok!(SubtensorModule::root_register(
             coldkey_origin.clone(),
             hotkey_account_id
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert!(Senate::is_member(&hotkey_account_id));
 
         let proposal = make_proposal(42);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
@@ -432,7 +433,7 @@ fn test_senate_leave_vote_removal() {
             RuntimeOrigin::signed(senate_hotkey),
             Box::new(proposal.clone()),
             proposal_len,
-            TryInto::<<Test as frame_system::Config>::BlockNumber>::try_into(100u64)
+            TryInto::<BlockNumberFor<Test>>::try_into(100u64)
                 .ok()
                 .expect("convert u64 to block number.")
         ));
@@ -485,7 +486,7 @@ fn test_senate_leave_vote_removal() {
         }
         // No longer a root member
         assert!(
-            !SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hotkey_account_id).is_ok()
+            SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hotkey_account_id).is_err()
         );
         assert_eq!(
             Triumvirate::has_voted(hash, 0, &hotkey_account_id),
@@ -505,6 +506,8 @@ fn test_senate_not_leave_when_stake_removed() {
         let burn_cost = 1000;
         let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
 
+        SubtensorModule::set_target_stakes_per_interval(2);
+
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
@@ -519,8 +522,8 @@ fn test_senate_not_leave_when_stake_removed() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
-            10000 - burn_cost
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            (10000 - burn_cost)
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
@@ -548,26 +551,26 @@ fn test_senate_not_leave_when_stake_removed() {
         ));
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            stake_amount
+            stake_amount - 1 // Need to account for ED
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_amount
+            stake_amount - 1 // Need to account for ED
         );
 
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert!(Senate::is_member(&hotkey_account_id));
 
         step_block(100);
 
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
-            stake_amount
+            stake_amount - 1
         ));
-        assert_eq!(Senate::is_member(&hotkey_account_id), true);
+        assert!(Senate::is_member(&hotkey_account_id));
     });
 }

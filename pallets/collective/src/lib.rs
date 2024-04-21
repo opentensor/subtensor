@@ -57,7 +57,7 @@ use frame_support::{
     traits::{
         Backing, ChangeMembers, EnsureOrigin, Get, GetBacking, InitializeMembers, StorageVersion,
     },
-    weights::{OldWeight, Weight},
+    weights::Weight,
 };
 
 #[cfg(test)]
@@ -177,7 +177,6 @@ pub mod pallet {
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub(super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
     #[pallet::without_storage_info]
     pub struct Pallet<T, I = ()>(PhantomData<(T, I)>);
@@ -200,7 +199,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The time-out for council motions.
-        type MotionDuration: Get<Self::BlockNumber>;
+        type MotionDuration: Get<BlockNumberFor<Self>>;
 
         /// Maximum number of proposals allowed to be active in parallel.
         type MaxProposals: Get<ProposalIndex>;
@@ -237,7 +236,6 @@ pub mod pallet {
         pub members: Vec<T::AccountId>,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
         fn default() -> Self {
             Self {
@@ -248,7 +246,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+    impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             use sp_std::collections::btree_set::BTreeSet;
             let members_set: BTreeSet<_> = self.members.iter().collect();
@@ -282,7 +280,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn voting)]
     pub type Voting<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Identity, T::Hash, Votes<T::AccountId, T::BlockNumber>, OptionQuery>;
+        StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
 
     /// Proposals so far.
     #[pallet::storage]
@@ -519,7 +517,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             proposal: Box<<T as Config<I>>::Proposal>,
             #[pallet::compact] length_bound: u32,
-            duration: T::BlockNumber,
+            duration: BlockNumberFor<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
             ensure!(T::CanPropose::can_propose(&who), Error::<T, I>::NotMember);
@@ -536,7 +534,7 @@ pub mod pallet {
                 Self::do_propose_proposed(who, threshold, proposal, length_bound, duration)?;
 
             Ok(Some(T::WeightInfo::propose_proposed(
-                proposal_len as u32,  // B
+                proposal_len,         // B
                 members.len() as u32, // M
                 active_proposals,     // P2
             ))
@@ -574,59 +572,8 @@ pub mod pallet {
             }
         }
 
-        /// Close a vote that is either approved, disapproved or whose voting period has ended.
-        ///
-        /// May be called by any signed account in order to finish voting and close the proposal.
-        ///
-        /// If called before the end of the voting period it will only close the vote if it is
-        /// has enough votes to be approved or disapproved.
-        ///
-        /// If called after the end of the voting period abstentions are counted as rejections
-        /// unless there is a prime member set and the prime member cast an approval.
-        ///
-        /// If the close operation completes successfully with disapproval, the transaction fee will
-        /// be waived. Otherwise execution of the approved operation will be charged to the caller.
-        ///
-        /// + `proposal_weight_bound`: The maximum amount of weight consumed by executing the closed
-        /// proposal.
-        /// + `length_bound`: The upper bound for the length of the proposal in storage. Checked via
-        /// `storage::read` so it is `size_of::<u32>() == 4` larger than the pure length.
-        ///
-        /// ## Complexity
-        /// - `O(B + M + P1 + P2)` where:
-        ///   - `B` is `proposal` size in bytes (length-fee-bounded)
-        ///   - `M` is members-count (code- and governance-bounded)
-        ///   - `P1` is the complexity of `proposal` preimage.
-        ///   - `P2` is proposal-count (code-bounded)
-        #[pallet::call_index(4)]
-        #[pallet::weight((
-			{
-				let b = *length_bound;
-				let m = T::MaxMembers::get();
-				let p1 = *proposal_weight_bound;
-				let p2 = T::MaxProposals::get();
-				T::WeightInfo::close_early_approved(b, m, p2)
-					.max(T::WeightInfo::close_early_disapproved(m, p2))
-					.max(T::WeightInfo::close_approved(b, m, p2))
-					.max(T::WeightInfo::close_disapproved(m, p2))
-					.saturating_add(p1.into())
-			},
-			DispatchClass::Operational
-		))]
-        #[allow(deprecated)]
-        #[deprecated(note = "1D weight is used in this extrinsic, please migrate to `close`")]
-        pub fn close_old_weight(
-            origin: OriginFor<T>,
-            proposal_hash: T::Hash,
-            #[pallet::compact] index: ProposalIndex,
-            #[pallet::compact] proposal_weight_bound: OldWeight,
-            #[pallet::compact] length_bound: u32,
-        ) -> DispatchResultWithPostInfo {
-            let proposal_weight_bound: Weight = proposal_weight_bound.into();
-            let _ = ensure_signed(origin)?;
-
-            Self::do_close(proposal_hash, index, proposal_weight_bound, length_bound)
-        }
+        // NOTE: call_index(4) was `close_old_weight` and was removed due to weights v1
+        // deprecation
 
         /// Disapprove a proposal, close, and remove it from the system, regardless of its current
         /// state.
@@ -702,6 +649,8 @@ pub mod pallet {
     }
 }
 
+use frame_system::pallet_prelude::BlockNumberFor;
+
 /// Return the weight of a dispatch call result as an `Option`.
 ///
 /// Will return the weight regardless of what the state of the result is.
@@ -752,7 +701,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         threshold: MemberCount,
         proposal: Box<<T as Config<I>>::Proposal>,
         length_bound: MemberCount,
-        duration: T::BlockNumber,
+        duration: BlockNumberFor<T>,
     ) -> Result<(u32, u32), DispatchError> {
         let proposal_len = proposal.encoded_size();
         ensure!(
@@ -806,7 +755,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         index: ProposalIndex,
         approve: bool,
     ) -> Result<bool, DispatchError> {
-        let mut voting = Self::voting(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+        let mut voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalMissing)?;
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
         let position_yes = voting.ayes.iter().position(|a| a == &who);
@@ -845,7 +794,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             no: no_votes,
         });
 
-        Voting::<T, I>::insert(&proposal, voting);
+        Voting::<T, I>::insert(proposal, voting);
 
         Ok(is_account_voting_first_time)
     }
@@ -857,7 +806,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         proposal_weight_bound: Weight,
         length_bound: u32,
     ) -> DispatchResultWithPostInfo {
-        let voting = Self::voting(&proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
+        let voting = Self::voting(proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
         let mut no_votes = voting.nays.len() as MemberCount;
@@ -1030,8 +979,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     // Removes a proposal from the pallet, cleaning up votes and the vector of proposals.
     fn remove_proposal(proposal_hash: T::Hash) -> u32 {
         // remove proposal and vote
-        ProposalOf::<T, I>::remove(&proposal_hash);
-        Voting::<T, I>::remove(&proposal_hash);
+        ProposalOf::<T, I>::remove(proposal_hash);
+        Voting::<T, I>::remove(proposal_hash);
         let num_proposals = Proposals::<T, I>::mutate(|proposals| {
             proposals.retain(|h| h != &proposal_hash);
             proposals.len() + 1 // calculate weight based on original length
@@ -1043,8 +992,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         for h in Self::proposals().into_iter() {
             <Voting<T, I>>::mutate(h, |v| {
                 if let Some(mut votes) = v.take() {
-                    votes.ayes = votes.ayes.into_iter().filter(|i| i != who).collect();
-                    votes.nays = votes.nays.into_iter().filter(|i| i != who).collect();
+                    votes.ayes.retain(|i| i != who);
+                    votes.nays.retain(|i| i != who);
                     *v = Some(votes);
                 }
             });
@@ -1058,7 +1007,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         index: ProposalIndex,
         who: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        let voting = Self::voting(&proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+        let voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalMissing)?;
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
         let position_yes = voting.ayes.iter().position(|a| a == who);
@@ -1098,16 +1047,8 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
         for h in Self::proposals().into_iter() {
             <Voting<T, I>>::mutate(h, |v| {
                 if let Some(mut votes) = v.take() {
-                    votes.ayes = votes
-                        .ayes
-                        .into_iter()
-                        .filter(|i| outgoing.binary_search(i).is_err())
-                        .collect();
-                    votes.nays = votes
-                        .nays
-                        .into_iter()
-                        .filter(|i| outgoing.binary_search(i).is_err())
-                        .collect();
+                    votes.ayes.retain(|i| outgoing.binary_search(i).is_err());
+                    votes.nays.retain(|i| outgoing.binary_search(i).is_err());
                     *v = Some(votes);
                 }
             });

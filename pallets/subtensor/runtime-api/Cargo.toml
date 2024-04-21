@@ -9,8 +9,8 @@ license = "MIT"
 publish = false
 
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 serde = { version = "1.0.132", features = ["derive"], default-features = false }
 
 # local 
@@ -18,5 +18,10 @@ pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-fe
 
 [features]
 default = ["std"]
-std = ["sp-api/std"]
+std = [
+	"sp-api/std",
+	"frame-support/std",
+	"pallet-subtensor/std",
+	"serde/std"
+]
 pow-faucet = []

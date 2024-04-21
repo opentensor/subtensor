@@ -2,11 +2,12 @@ use frame_support::traits::Currency;
 
 use crate::mock::*;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
-use frame_support::sp_runtime::DispatchError;
+use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::{AxonInfoOf, Error};
+use pallet_subtensor::{AxonInfoOf, Error, SubtensorSignedExtension};
 use sp_core::U256;
+use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 mod mock;
 
@@ -17,7 +18,7 @@ mod mock;
 // Tests a basic registration dispatch passes.
 #[test]
 fn test_registration_subscribe_ok_dispatch_info_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let nonce: u64 = 0;
         let netuid: u16 = 1;
@@ -35,7 +36,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_ref_time(91000000),
+                weight: frame_support::weights::Weight::from_parts(91000000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -45,14 +46,14 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
 
 #[test]
 fn test_registration_difficulty() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         assert_eq!(SubtensorModule::get_difficulty(1).as_u64(), 10000);
     });
 }
 
 #[test]
 fn test_registration_invalid_seal_hotkey() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -99,7 +100,7 @@ fn test_registration_invalid_seal_hotkey() {
 
 #[test]
 fn test_registration_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -153,13 +154,190 @@ fn test_registration_ok() {
     });
 }
 
+#[test]
+fn test_registration_under_limit() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let block_number: u64 = 0;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+
+        let max_registrants = 2;
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+
+        let (nonce, work) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+        let work_clone = work.clone();
+        let call = pallet_subtensor::Call::register {
+            netuid,
+            block_number,
+            nonce,
+            work: work_clone,
+            hotkey: hotkey_account_id,
+            coldkey: coldkey_account_id,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        //does not actually call register
+        let result = extension.validate(&who, &call.into(), &info, 10);
+        assert_ok!(result);
+
+        //actually call register
+        add_network(netuid, 13, 0);
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        let target_registrants = SubtensorModule::get_target_registrations_per_interval(netuid);
+        assert!(current_registrants <= target_registrants);
+    });
+}
+
+#[test]
+fn test_registration_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let block_number: u64 = 0;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+
+        let max_registrants = 1;
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+        SubtensorModule::set_registrations_this_interval(netuid, 1);
+
+        let (nonce, work) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+        let call = pallet_subtensor::Call::register {
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey: hotkey_account_id,
+            coldkey: coldkey_account_id,
+        };
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let result = extension.validate(&who, &call.into(), &info, 10);
+
+        // Expectation: The transaction should be rejected
+        assert_err!(result, InvalidTransaction::ExhaustsResources);
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        assert!(current_registrants <= max_registrants);
+    });
+}
+
 /********************************************
     registration::do_burned_registration tests
 *********************************************/
 
 #[test]
+fn test_burned_registration_under_limit() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+        let block_number: u64 = 0;
+
+        let (nonce, work) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        let max_registrants = 2;
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+
+        let call_burned_register: pallet_subtensor::Call<Test> =
+            pallet_subtensor::Call::burned_register {
+                netuid,
+                hotkey: hotkey_account_id,
+            };
+
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        //does not actually call register
+        let burned_register_result =
+            extension.validate(&who, &call_burned_register.into(), &info, 10);
+        assert_ok!(burned_register_result);
+
+        add_network(netuid, 13, 0);
+        //actually call register
+        assert_ok!(SubtensorModule::register(
+            <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+            netuid,
+            block_number,
+            nonce,
+            work,
+            hotkey_account_id,
+            coldkey_account_id
+        ));
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        let target_registrants = SubtensorModule::get_target_registrations_per_interval(netuid);
+        assert!(current_registrants <= target_registrants);
+    });
+}
+
+#[test]
+fn test_burned_registration_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey_account_id: U256 = U256::from(1);
+        let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
+        let max_registrants = 1;
+
+        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
+        SubtensorModule::set_registrations_this_interval(netuid, 1);
+
+        let call_burned_register: pallet_subtensor::Call<Test> =
+            pallet_subtensor::Call::burned_register {
+                netuid,
+                hotkey: hotkey_account_id,
+            };
+
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+        let extension = SubtensorSignedExtension::<Test>::new();
+        let burned_register_result =
+            extension.validate(&who, &call_burned_register.into(), &info, 10);
+
+        // Expectation: The transaction should be rejected
+        assert_err!(
+            burned_register_result,
+            InvalidTransaction::ExhaustsResources
+        );
+
+        let current_registrants = SubtensorModule::get_registrations_this_interval(netuid);
+        assert!(current_registrants <= max_registrants);
+    });
+}
+
+#[test]
 fn test_burned_registration_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
@@ -178,7 +356,7 @@ fn test_burned_registration_ok() {
         ));
         // Check if balance has  decreased to pay for the burn.
         assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey_account_id) as u64,
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             10000 - burn_cost
         ); // funds drained on reg.
            // Check if neuron has added to the specified network(netuid)
@@ -206,7 +384,7 @@ fn test_burned_registration_ok() {
 
 #[test]
 fn test_burn_adjustment() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -253,7 +431,7 @@ fn test_burn_adjustment() {
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_registration_too_many_registrations_per_block() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
@@ -449,7 +627,7 @@ fn test_registration_too_many_registrations_per_block() {
 
 #[test]
 fn test_registration_too_many_registrations_per_interval() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
@@ -640,7 +818,7 @@ fn test_registration_immunity_period() { //impl this test when epoch impl and ca
 
 #[test]
 fn test_registration_already_active_hotkey() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -690,7 +868,7 @@ fn test_registration_already_active_hotkey() {
 
 #[test]
 fn test_registration_invalid_seal() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -717,7 +895,8 @@ fn test_registration_invalid_seal() {
 
 #[test]
 fn test_registration_invalid_block_number() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         let block_number: u64 = 1;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -748,7 +927,7 @@ fn test_registration_invalid_block_number() {
 
 #[test]
 fn test_registration_invalid_difficulty() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -781,7 +960,7 @@ fn test_registration_invalid_difficulty() {
 
 #[test]
 fn test_registration_failed_no_signature() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 1;
         let netuid: u16 = 1;
         let hotkey_account_id = U256::from(1);
@@ -803,16 +982,17 @@ fn test_registration_failed_no_signature() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(DispatchError::BadOrigin.into()));
+        assert_eq!(result, Err(DispatchError::BadOrigin));
     });
 }
 
 #[test]
 fn test_registration_get_uid_to_prune_all_in_immunity_period() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         let netuid: u16 = 1;
         add_network(netuid, 0, 0);
-        log::info!("add netweork");
+        log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
@@ -832,10 +1012,11 @@ fn test_registration_get_uid_to_prune_all_in_immunity_period() {
 
 #[test]
 fn test_registration_get_uid_to_prune_none_in_immunity_period() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         let netuid: u16 = 1;
         add_network(netuid, 0, 0);
-        log::info!("add netweork");
+        log::info!("add network");
         register_ok_neuron(netuid, U256::from(0), U256::from(0), 39420842);
         register_ok_neuron(netuid, U256::from(1), U256::from(1), 12412392);
         SubtensorModule::set_pruning_score_for_uid(netuid, 0, 100);
@@ -857,7 +1038,7 @@ fn test_registration_get_uid_to_prune_none_in_immunity_period() {
 
 #[test]
 fn test_registration_pruning() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let block_number: u64 = 0;
         let tempo: u16 = 13;
@@ -933,7 +1114,7 @@ fn test_registration_pruning() {
 
 #[test]
 fn test_registration_get_neuron_metadata() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let block_number: u64 = 0;
         let tempo: u16 = 13;
@@ -969,7 +1150,7 @@ fn test_registration_get_neuron_metadata() {
 
 #[test]
 fn test_registration_add_network_size() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let netuid2: u16 = 2;
         let block_number: u64 = 0;
@@ -1039,7 +1220,7 @@ fn test_registration_add_network_size() {
 
 #[test]
 fn test_burn_registration_increase_recycled_rao() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let netuid2: u16 = 2;
 
@@ -1047,10 +1228,8 @@ fn test_burn_registration_increase_recycled_rao() {
         let coldkey_account_id = U256::from(667);
 
         // Give funds for burn. 1000 TAO
-        let _ = Balances::deposit_creating(
-            &coldkey_account_id,
-            Balance::from(1_000_000_000_000 as u64),
-        );
+        let _ =
+            Balances::deposit_creating(&coldkey_account_id, Balance::from(1_000_000_000_000_u64));
 
         add_network(netuid, 13, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 0);
@@ -1089,7 +1268,7 @@ fn test_burn_registration_increase_recycled_rao() {
 
 #[test]
 fn test_full_pass_through() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Create 3 networks.
         let netuid0: u16 = 1;
         let netuid1: u16 = 2;
@@ -1323,7 +1502,7 @@ fn test_full_pass_through() {
 
 // DEPRECATED #[test]
 // fn test_network_connection_requirement() {
-//     new_test_ext().execute_with(|| {
+//     new_test_ext(1).execute_with(|| {
 //         // Add a networks and connection requirements.
 //         let netuid_a: u16 = 0;
 //         let netuid_b: u16 = 1;
@@ -1507,7 +1686,7 @@ fn test_full_pass_through() {
 
 #[test]
 fn test_registration_origin_hotkey_mismatch() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -1539,7 +1718,7 @@ fn test_registration_origin_hotkey_mismatch() {
 
 #[test]
 fn test_registration_disabled() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -1573,7 +1752,7 @@ fn test_registration_disabled() {
 #[ignore]
 #[test]
 fn test_hotkey_swap_ok() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
@@ -1613,7 +1792,7 @@ fn test_hotkey_swap_ok() {
 #[ignore]
 #[test]
 fn test_hotkey_swap_not_owner() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
@@ -1649,7 +1828,7 @@ fn test_hotkey_swap_not_owner() {
 #[ignore]
 #[test]
 fn test_hotkey_swap_same_key() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
@@ -1683,7 +1862,7 @@ fn test_hotkey_swap_same_key() {
 #[ignore]
 #[test]
 fn test_hotkey_swap_registered_key() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);

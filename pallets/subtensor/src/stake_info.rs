@@ -1,7 +1,6 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
-use alloc::vec::Vec;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
@@ -16,7 +15,7 @@ impl<T: Config> Pallet<T> {
     fn _get_stake_info_for_coldkeys(
         coldkeys: Vec<T::AccountId>,
     ) -> Vec<(T::AccountId, Vec<StakeInfo<T>>)> {
-        if coldkeys.len() == 0 {
+        if coldkeys.is_empty() {
             return Vec::new(); // No coldkeys to check
         }
 
@@ -37,7 +36,7 @@ impl<T: Config> Pallet<T> {
             stake_info.push((coldkey_, stake_info_for_coldkey));
         }
 
-        return stake_info;
+        stake_info
     }
 
     pub fn get_stake_info_for_coldkeys(
@@ -53,13 +52,13 @@ impl<T: Config> Pallet<T> {
             coldkeys.push(coldkey);
         }
 
-        if coldkeys.len() == 0 {
+        if coldkeys.is_empty() {
             return Vec::new(); // Invalid coldkey
         }
 
-        let stake_info = Self::_get_stake_info_for_coldkeys(coldkeys);
+        
 
-        return stake_info;
+        Self::_get_stake_info_for_coldkeys(coldkeys)
     }
 
     pub fn get_stake_info_for_coldkey(coldkey_account_vec: Vec<u8>) -> Vec<StakeInfo<T>> {
@@ -71,10 +70,10 @@ impl<T: Config> Pallet<T> {
             T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()).unwrap();
         let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey]);
 
-        if stake_info.len() == 0 {
-            return Vec::new(); // Invalid coldkey
+        if stake_info.is_empty() {
+            Vec::new()// Invalid coldkey
         } else {
-            return stake_info.get(0).unwrap().1.clone();
+            return stake_info.first().unwrap().1.clone();
         }
     }
 }

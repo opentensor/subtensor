@@ -6,7 +6,7 @@ use sp_core::U256;
 
 #[test]
 fn test_loaded_emission() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let n: u16 = 100;
         let netuid: u16 = 1;
         let tempo: u16 = 10;
@@ -15,7 +15,7 @@ fn test_loaded_emission() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_adjustment_alpha(netuid, 58000); // Set to old value.
-        SubtensorModule::set_emission_values(&netuids, emission);
+        SubtensorModule::set_emission_values(&netuids, emission).unwrap();
         for i in 0..n {
             SubtensorModule::append_neuron(netuid, &U256::from(i), 0);
         }
@@ -86,7 +86,7 @@ fn test_loaded_emission() {
 
 #[test]
 fn test_tuples_to_drain_this_block() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // pub fn tuples_to_drain_this_block( netuid: u16, tempo: u16, block_number: u64, n_remaining: usize ) -> usize {
         assert_eq!(SubtensorModule::tuples_to_drain_this_block(0, 1, 0, 10), 10); // drain all epoch block.
         assert_eq!(SubtensorModule::tuples_to_drain_this_block(0, 0, 0, 10), 10); // drain all no tempo.
@@ -125,7 +125,7 @@ fn test_tuples_to_drain_this_block() {
 
 #[test]
 fn test_blocks_until_epoch() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Check tempo = 0 block = * netuid = *
         assert_eq!(SubtensorModule::blocks_until_next_epoch(0, 0, 0), 1000);
 
@@ -147,9 +147,9 @@ fn test_blocks_until_epoch() {
         }
 
         // Check general case.
-        for netuid in 0..30 as u16 {
-            for block in 0..30 as u64 {
-                for tempo in 1..30 as u16 {
+        for netuid in 0..30_u16 {
+            for block in 0..30_u64 {
+                for tempo in 1..30_u16 {
                     assert_eq!(
                         SubtensorModule::blocks_until_next_epoch(netuid, tempo, block),
                         tempo as u64 - (block + netuid as u64 + 1) % (tempo as u64 + 1)
@@ -165,7 +165,7 @@ fn test_blocks_until_epoch() {
 // *********************************************/
 #[test]
 fn test_burn_adjustment() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -215,7 +215,7 @@ fn test_burn_adjustment() {
 
 #[test]
 fn test_burn_adjustment_with_moving_average() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -269,7 +269,7 @@ fn test_burn_adjustment_case_a() {
     // ====================
     // There are too many registrations this interval and most of them are pow registrations
     // this triggers an increase in the pow difficulty.
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -362,7 +362,7 @@ fn test_burn_adjustment_case_b() {
     // ====================
     // There are too many registrations this interval and most of them are burn registrations
     // this triggers an increase in the burn cost.
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -444,7 +444,7 @@ fn test_burn_adjustment_case_c() {
     // ====================
     // There are not enough registrations this interval and most of them are POW registrations
     // this triggers a decrease in the burn cost
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -536,7 +536,7 @@ fn test_burn_adjustment_case_d() {
     // ====================
     // There are not enough registrations this interval and most of them are BURN registrations
     // this triggers a decrease in the POW difficulty
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -619,7 +619,7 @@ fn test_burn_adjustment_case_e() {
     // ====================
     // There are not enough registrations this interval and nobody registered either POW or BURN
     // this triggers a decrease in the BURN cost and POW difficulty
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -694,7 +694,7 @@ fn test_burn_adjustment_case_f() {
     // ====================
     // There are too many registrations this interval and the pow and burn registrations are equal
     // this triggers an increase in the burn cost and pow difficulty
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
@@ -769,7 +769,7 @@ fn test_burn_adjustment_case_e_zero_registrations() {
     // this triggers a decrease in the BURN cost and POW difficulty
 
     // BUT there are zero registrations this interval.
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
         let burn_cost: u64 = 1000;
