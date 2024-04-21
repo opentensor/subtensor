@@ -353,7 +353,10 @@ fn test_sudo_set_nominator_min_required_stake() {
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_nominator_min_required_stake(), to_be_set);
+        assert_eq!(
+            SubtensorModule::get_nominator_min_required_stake(),
+            to_be_set
+        );
     });
 }
 

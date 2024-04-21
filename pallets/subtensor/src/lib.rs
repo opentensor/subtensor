@@ -454,7 +454,8 @@ pub mod pallet {
     #[pallet::storage] // ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
     #[pallet::storage] // ITEM( nominator_min_required_stake )
-    pub type NominatorMinRequiredStake<T> = StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
+    pub type NominatorMinRequiredStake<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -877,7 +878,7 @@ pub mod pallet {
         NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        TakeDecreased( T::AccountId, T::AccountId, u16 ), // Event created when the take for a delegate is decreased.
+        TakeDecreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is decreased.
         HotkeySwapped {
             coldkey: T::AccountId,
             old_hotkey: T::AccountId,
@@ -1315,7 +1316,11 @@ pub mod pallet {
         //
         #[pallet::call_index(63)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn decrease_take(origin: OriginFor<T>, hotkey: T::AccountId, take: u16) -> DispatchResult {
+        pub fn decrease_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
             Self::do_decrease_take(origin, hotkey, take)
         }
 
@@ -1364,7 +1369,6 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, amount_staked)
         }
-
 
         // ---- Remove stake from the staking account. The call must be made
         // from the coldkey account attached to the neuron metadata. Only this key

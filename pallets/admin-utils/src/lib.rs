@@ -768,7 +768,10 @@ pub mod pallet {
 
         #[pallet::call_index(43)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_nominator_min_required_stake(origin: OriginFor<T>, min_stake: u64) -> DispatchResult {
+        pub fn sudo_set_nominator_min_required_stake(
+            origin: OriginFor<T>,
+            min_stake: u64,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             T::Subtensor::set_nominator_min_required_stake(min_stake);
             Ok(())
@@ -862,5 +865,4 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn init_new_network(netuid: u16, tempo: u16);
     fn set_weights_min_stake(min_stake: u64);
     fn set_nominator_min_required_stake(min_stake: u64);
-
 }
