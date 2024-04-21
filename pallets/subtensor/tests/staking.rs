@@ -2541,3 +2541,201 @@ fn test_clear_small_nominations() {
         assert_eq!( Balances::free_balance(cold2), 1);
     });
 }
+
+/// Test that the minimum staking threshold is enforced.
+/// Run this test using: cargo test --package pallet-subtensor --test staking test_minimum_staking_threshold
+#[test]
+fn test_fail_root_network_add_stake_below_minimum_threshold() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 0;
+        let coldkey = U256::from(0);
+        let hotkey = U256::from(1);
+        let below_threshold_amount = 50_000; // Amount below the threshold
+        let above_threshold_amount = 200_000_000; // Amount above the threshold
+        let minimum_threshold = InitialMinimumStakingThreshold::get();
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, above_threshold_amount);
+
+        // Create network
+        add_network(netuid, 0, 0);
+
+        // Register the neuron to a new network.
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to stake an amount below the minimum threshold
+        assert_noop!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                below_threshold_amount
+            ),
+            pallet_subtensor::Error::<Test>::StakeBelowMinimumThreshold
+        );
+
+        // Now stake an amount above the minimum threshold
+        assert_ok!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                above_threshold_amount
+            )
+        );
+
+        // Check if stake has increased to the correct amount
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            above_threshold_amount
+        );
+
+        // Check if balance has decreased correctly
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey), 0);
+
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), above_threshold_amount);
+
+        // Ensure the total stake is above the minimum threshold
+        assert!(SubtensorModule::get_total_stake() >= minimum_threshold);
+    });
+}
+
+/// Test that removing stake below the minimum threshold fails.
+#[test]
+fn test_fail_root_network_remove_stake_below_minimum_threshold() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 0;
+        let coldkey = U256::from(0);
+        let hotkey = U256::from(1);
+        let initial_stake = 200_000_000; // Amount initially staked
+        let remove_amount = 150_000_000; // Amount to remove, which will drop below the minimum threshold
+        let minimum_threshold = InitialMinimumStakingThreshold::get();
+
+        // Setup initial conditions
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            initial_stake
+        ));
+
+        assert_noop!(
+            SubtensorModule::remove_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                remove_amount
+            ),
+            Error::<Test>::StakeBelowMinimumThreshold
+        );
+
+        // Verify that the stake has not changed
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            initial_stake
+        );
+
+        // Ensure the total stake is still above the minimum threshold
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) >= minimum_threshold);
+    });
+}
+
+
+/// Test that the minimum staking threshold is enforced.
+/// Run this test using: cargo test --package pallet-subtensor --test staking test_minimum_staking_threshold
+#[test]
+fn test_fail_sub_network_add_stake_below_minimum_threshold() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey = U256::from(0);
+        let hotkey = U256::from(1);
+        let below_threshold_amount = 50_000; // Amount below the threshold
+        let above_threshold_amount = 200_000_000; // Amount above the threshold
+        let minimum_threshold = InitialMinimumStakingThreshold::get();
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, above_threshold_amount);
+
+        // Create network
+        add_network(netuid, 0, 0);
+
+        // Register the neuron to a new network.
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to stake an amount below the minimum threshold
+        assert_noop!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                below_threshold_amount
+            ),
+            pallet_subtensor::Error::<Test>::StakeBelowMinimumThreshold
+        );
+
+        // Now stake an amount above the minimum threshold
+        assert_ok!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                netuid,
+                above_threshold_amount
+            )
+        );
+
+        // Check if stake has increased to the correct amount
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            above_threshold_amount
+        );
+
+        // Check if balance has decreased correctly
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey), 0);
+
+        // Check if total stake has increased accordingly.
+        assert_eq!(SubtensorModule::get_total_stake(), above_threshold_amount);
+
+        // Ensure the total stake is above the minimum threshold
+        assert!(SubtensorModule::get_total_stake() >= minimum_threshold);
+    });
+}
+
+/// Test that removing stake below the minimum threshold fails.
+#[test]
+fn test_fail_sub_network_remove_stake_below_minimum_threshold() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey = U256::from(0);
+        let hotkey = U256::from(1);
+        let initial_stake = 200_000_000; // Amount initially staked
+        let remove_amount = 150_000_000; // Amount to remove, which will drop below the minimum threshold
+        let minimum_threshold = InitialMinimumStakingThreshold::get();
+
+        // Setup initial conditions
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            initial_stake
+        ));
+
+        assert_noop!(
+            SubtensorModule::remove_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                hotkey,
+                remove_amount
+            ),
+            Error::<Test>::StakeBelowMinimumThreshold
+        );
+
+        // Verify that the stake has not changed
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            initial_stake
+        );
+
+        // Ensure the total stake is still above the minimum threshold
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) >= minimum_threshold);
+    });
+}

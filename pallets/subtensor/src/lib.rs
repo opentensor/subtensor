@@ -146,6 +146,8 @@ pub mod pallet {
         type InitialValidatorPruneLen: Get<u64>;
         #[pallet::constant] // Initial scaling law power.
         type InitialScalingLawPower: Get<u16>;
+        #[pallet::constant] // Initial minimum staking threshold.
+        type InitialMinimumStakingThreshold: Get<u64>;
         #[pallet::constant] // Immunity Period Constant.
         type InitialImmunityPeriod: Get<u16>;
         #[pallet::constant] // Activity constant.
@@ -669,6 +671,10 @@ pub mod pallet {
         T::InitialScalingLawPower::get()
     }
     #[pallet::type_value]
+    pub fn DefaultMinimumStakingThreshold<T: Config>() -> u64 {
+        T::InitialMinimumStakingThreshold::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 {
         T::InitialTargetRegistrationsPerInterval::get()
     }
@@ -733,6 +739,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> scaling_law_power
     pub type ScalingLawPower<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultScalingLawPower<T>>;
+        #[pallet::storage] // --- ITEM ( netuid ) --> validator_prune_len
+        pub type MinimumStakingThreshold <T> =
+        StorageValue<_,  u64, ValueQuery, DefaultMinimumStakingThreshold<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> target_registrations_this_interval
     pub type TargetRegistrationsPerInterval<T> =
         StorageMap<_, Identity, u16, u16, ValueQuery, DefaultTargetRegistrationsPerInterval<T>>;
@@ -974,6 +983,8 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        InvalidTake, // -- Thrown when take being set is invalid.
+        StakeBelowMinimumThreshold, // -- Thrown when stake is below the minimum threshold.
     }
 
     // ==================
