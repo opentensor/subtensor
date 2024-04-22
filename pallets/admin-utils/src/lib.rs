@@ -779,7 +779,7 @@ pub mod pallet {
             log::trace!("Setting minimum stake to: {}", min_stake);
             T::Subtensor::set_nominator_min_required_stake(min_stake);
             if min_stake > prev_min_stake {
-                log::info!("Clearing small nominations");
+                log::trace!("Clearing small nominations");
                 T::Subtensor::clear_small_nominations();
             }
             log::trace!("Small nominations cleared");
