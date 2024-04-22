@@ -172,6 +172,7 @@ impl<T: Config> Pallet<T> {
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
+
         // --7. Check if total stake after adding will be above the minimum required stake. We only impose this limit for nominations
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
         let total_stake_after_add = TotalStake::<T>::get().saturating_add(stake_to_be_added);
@@ -180,6 +181,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeBelowMinimumThreshold
         );
         }
+        
            // --- 8. Ensure we don't exceed stake rate limit
         let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         
@@ -298,6 +300,7 @@ impl<T: Config> Pallet<T> {
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
+
         // --- 7. Ensure we don't exceed stake rate limit
         let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
         ensure!(
