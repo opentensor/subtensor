@@ -262,10 +262,17 @@ pub mod pallet {
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage]
-    // --- MAP (hot) --> stake | Returns a tuple (u64: stakes, u64: block_number)
-    pub type TotalHotkeyStakesThisInterval<T: Config> =
-        StorageMap<_, Identity, T::AccountId, (u64, u64), ValueQuery, DefaultStakesPerInterval<T>>;
-
+    // --- MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        (u64, u64),
+        ValueQuery,
+        DefaultStakesPerInterval<T>,
+    >;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -1848,32 +1855,14 @@ where
                     return Err(InvalidTransaction::Call.into());
                 }
             }
-            Some(Call::add_stake { hotkey, .. }) => {
-                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
-                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
-
-                if stakes_this_interval >= max_stakes_per_interval {
-                    return InvalidTransaction::ExhaustsResources.into();
-                }
-
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
-            Some(Call::remove_stake { hotkey, .. }) => {
-                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
-                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
-
-                if stakes_this_interval >= max_stakes_per_interval {
-                    return InvalidTransaction::ExhaustsResources.into();
-                }
-
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
+            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
+            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
