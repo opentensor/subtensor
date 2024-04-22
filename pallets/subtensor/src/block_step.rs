@@ -114,6 +114,7 @@ impl<T: Config> Pallet<T> {
     // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
     // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
     // is called after an epoch to distribute the newly minted stake according to delegation.
+    // TODO(greg): this calculation requires attention given the change to the calculation of global stake weight
     pub fn emit_inflation_through_hotkey_account(
         delegate: &T::AccountId,
         netuid: u16,
