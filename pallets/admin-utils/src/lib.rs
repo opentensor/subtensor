@@ -779,10 +779,13 @@ pub mod pallet {
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
+            let prev_min_stake = T::Subtensor::get_nominator_min_required_stake();
             log::info!("Setting minimum stake to: {}", min_stake);
             T::Subtensor::set_nominator_min_required_stake(min_stake);
-            log::info!("Clearing small nominations");
-            T::Subtensor::clear_small_nominations();
+            if min_stake > prev_min_stake {
+                log::info!("Clearing small nominations");
+                T::Subtensor::clear_small_nominations();
+            }
             log::info!("Small nominations cleared");
             Ok(())
         }
