@@ -38,7 +38,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_pool_k(0), 0);
         assert_eq!(SubtensorModule::is_subnet_dynamic(0), false);
 
-        // Register a network with this coldkey + hotkey for a lock cost of 1 TAO.
+        // Register a network with this coldkey + hotkey for a lock cost of 100 TAO.
         step_block(1);
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -49,7 +49,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the lock cost is now doubled.
         // -- that the lock cost has been withdrawn from the balance.
         // -- that the owner of the new subnet is the coldkey.
-        // -- that the new network as someone registered.
+        // -- that the new network has someone registered.
         // -- that the registered key is the hotkey.
         // -- that the hotkey is owned by the owning coldkey.
         // -- that the hotkey has stake on the new network equal to the lock cost. Alpha/TAO price of 1 to 1.
