@@ -41,4 +41,9 @@ sp_api::decl_runtime_apis! {
     pub trait SubnetRegistrationRuntimeApi {
         fn get_network_registration_cost() -> u64;
     }
+
+    pub trait DynamicPoolInfoRuntimeApi {
+        fn get_dynamic_pool_info(netuid: u16) -> Vec<u8>;
+        fn get_all_dynamic_pool_infos() -> Vec<u8>;
+    }
 }

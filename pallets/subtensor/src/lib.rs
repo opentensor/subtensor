@@ -51,6 +51,7 @@ pub mod delegate_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
+pub mod dynamic_pool_info;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;

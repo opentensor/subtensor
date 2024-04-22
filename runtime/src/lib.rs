@@ -1448,6 +1448,17 @@ impl_runtime_apis! {
             SubtensorModule::get_network_lock_cost()
         }
     }
+
+    impl subtensor_custom_rpc_runtime_api::DynamicPoolInfoRuntimeApi<Block> for Runtime {  
+        fn get_dynamic_pool_info(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_dynamic_pool_info(netuid);
+            result.encode()
+        }
+        fn get_all_dynamic_pool_infos() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_pool_infos();            
+            result.encode()
+        }
+    }
 }
 
 #[cfg(test)]
