@@ -39,9 +39,11 @@ Please ensure the following tasks are completed before requesting a review:
 - [ ] Any dependent changes have been merged and published in downstream modules
 
 ## Screenshots (if applicable)
-
+<!--
 Please include any relevant screenshots or GIFs that demonstrate the changes made.
+-->
 
 ## Additional Notes
-
+<!--
 Please provide any additional information or context that may be helpful for reviewers.
+-->
