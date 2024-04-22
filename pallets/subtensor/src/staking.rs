@@ -930,6 +930,7 @@ impl<T: Config> Pallet<T> {
 
     // Returns the stake under the cold - hot pairing in the staking table.
     //
+    // TODO: We could probably store this total as a state variable
     pub fn get_global_dynamic_tao(
         hotkey: &T::AccountId,
     ) -> u64 {

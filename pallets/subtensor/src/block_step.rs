@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
     //
     // Algorithm:
     //   0. Hotkey always receives server_emission completely.
-    //   1. If a hotkey is a not delegate, it gets everything. STOP.
+    //   1. If a hotkey is a not delegate, it gets 100% of both server and validator emission. STOP.
     //   2. Delegate gets it's take, i.e. a percentage of validator_emission specific to a given subnet (netuid)
     //
     //   remaining_validator_emission is what's left. Here is how it's distributed:
@@ -126,16 +126,21 @@ impl<T: Config> Pallet<T> {
     //      delegate_global_dynamic_tao (total delegate stake * alpha_price) are non-zero, then
     //      for each nominator nominating this delegate do:
     //      3.a Nominator reward comes in two parts: Local and Global
-    //          Local = remaining_validator_emission * (1 - global_stake_weight)
-    //                  (stake percentage of this nominator in this subnet) / delegate_local_stake
-    //          Global =
+    //          Local = (1 - global_stake_weight) * remaining_validator_emission
+    //                  (nominator Alpha in this subnet for hotkey) / (sum of all Alpha in this subnet for hotkey)
+    //          Global = global_stake_weight * remaining_validator_emission * (sum of nominator stake across all subnets) /
+    //                   (sum of everybody's stake across all subnets)
+    //          Global Stake Weight effectively is always 1 currently, so there is no local emission, but no matter what's
+    //          the ratio is set in the future, the sum of all rewards is always going to be remaining_validator_emission.
     //
-    //   Note: Greg is writing this doc up, will complete in the next commits.
-
-    // Questions:
+    // Questions/Comments:
     //   1. Can tao_per_alpha_price be zero if get_total_stake_for_hotkey_and_subnet is non-zero?
-    //   2. How are DynamicTAOReserve and DynamicAlphaReserve affected by staking operations? - Add tests.
-
+    //   2. TODO: Add tests for how DynamicTAOReserve and DynamicAlphaReserve are affected by staking operations
+    //   3. Is it theoretically possible that lock cost gets up to about 18M TAO for a single network? Will
+    //      it not overflow initial_dynamic_reserve?
+    //   4. Should residual after step 3 be non-zero in any case?
+    //   5. This algorithm re-purposes TotalHotkeySubStake and SubStake state variables to store Alpha (vs. TAO).
+    //
     pub fn emit_inflation_through_hotkey_account(
         delegate: &T::AccountId,
         netuid: u16,
@@ -163,8 +168,6 @@ impl<T: Config> Pallet<T> {
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-
-        // TODO: This is suboptimal. We only need to know if get_global_dynamic_tao is non-zero. Iteration over the full set of subnets is unnecessary.
         let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
