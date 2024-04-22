@@ -23,8 +23,6 @@ impl<T: Config> Pallet<T> {
         Self::drain_emission(block_number);
         // --- 4. Generates emission tuples from epoch functions.
         Self::generate_emission(block_number);
-
-
         // Return ok.
         Ok(())
     }
