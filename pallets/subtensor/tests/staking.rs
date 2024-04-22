@@ -2470,9 +2470,9 @@ fn test_faucet_ok() {
     });
 }
 
-///   This test ensures that the clear_small_nominations function works as expected.
-///   It creates a network with two hotkeys and two coldkeys, and then registers a nominator account for each hotkey.
-///   When we call set_nominator_min_required_stake, it should clear all small nominations that are below the minimum required stake.
+/// This test ensures that the clear_small_nominations function works as expected.
+/// It creates a network with two hotkeys and two coldkeys, and then registers a nominator account for each hotkey.
+/// When we call set_nominator_min_required_stake, it should clear all small nominations that are below the minimum required stake.
 /// Run this test using: cargo test --package pallet-subtensor --test staking test_clear_small_nominations
 #[test]
 fn test_clear_small_nominations() {
