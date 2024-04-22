@@ -114,6 +114,28 @@ impl<T: Config> Pallet<T> {
     // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
     // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
     // is called after an epoch to distribute the newly minted stake according to delegation.
+    //
+    // Algorithm:
+    //   0. Hotkey always receives server_emission completely.
+    //   1. If a hotkey is a not delegate, it gets everything. STOP.
+    //   2. Delegate gets it's take, i.e. a percentage of validator_emission specific to a given subnet (netuid)
+    //
+    //   remaining_validator_emission is what's left. Here is how it's distributed:
+    //
+    //   3. If either delegate_local_stake (total amount of stake under a hotkey for a subnet) or
+    //      delegate_global_dynamic_tao (total delegate stake * alpha_price) are non-zero, then
+    //      for each nominator nominating this delegate do:
+    //      3.a Nominator reward comes in two parts: Local and Global
+    //          Local = remaining_validator_emission * (1 - global_stake_weight)
+    //                  (stake percentage of this nominator in this subnet) / delegate_local_stake
+    //          Global =
+    //
+    //   Note: Greg is writing this doc up, will complete in the next commits.
+
+    // Questions:
+    //   1. Can tao_per_alpha_price be zero if get_total_stake_for_hotkey_and_subnet is non-zero?
+    //   2. How are DynamicTAOReserve and DynamicAlphaReserve affected by staking operations? - Add tests.
+
     pub fn emit_inflation_through_hotkey_account(
         delegate: &T::AccountId,
         netuid: u16,
@@ -131,7 +153,7 @@ impl<T: Config> Pallet<T> {
             return;
         }
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get( delegate )) / I64F64::from_num(u16::MAX);
+        let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get( delegate, netuid )) / I64F64::from_num(u16::MAX);
         let delegate_take: I64F64 = take_proportion * I64F64::from_num( validator_emission );
         let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
         let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
@@ -141,6 +163,8 @@ impl<T: Config> Pallet<T> {
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
         // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
+
+        // TODO: This is suboptimal. We only need to know if get_global_dynamic_tao is non-zero. Iteration over the full set of subnets is unnecessary.
         let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
@@ -179,7 +203,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
+        // --- 4. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
         let total_delegate_emission: u64 = delegate_take_u64 + server_emission + residual;
         log::debug!("total_delegate_emission: {:?}", delegate_take_u64 + server_emission);
