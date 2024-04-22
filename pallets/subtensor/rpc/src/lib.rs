@@ -13,8 +13,8 @@ use sp_api::ProvideRuntimeApi;
 
 use pallet_subtensor::types::TensorBytes;
 pub use subtensor_custom_rpc_runtime_api::{
-    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
-    SubnetRegistrationRuntimeApi, DynamicPoolInfoRuntimeApi,
+    DelegateInfoRuntimeApi, DynamicPoolInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi,
+    SubnetInfoRuntimeApi, SubnetRegistrationRuntimeApi,
 };
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
@@ -482,15 +482,14 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_dynamic_pool_info(at, netuid)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get dynamic pool info.",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.get_dynamic_pool_info(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get dynamic pool info.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
     }
 
     fn get_all_dynamic_pool_infos(
@@ -500,14 +499,13 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_all_dynamic_pool_infos(at)
-            .map_err(|e| {     
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get all dynamic pool infos.",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.get_all_dynamic_pool_infos(at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get all dynamic pool infos.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
     }
 }
