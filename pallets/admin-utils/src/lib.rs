@@ -781,8 +781,8 @@ pub mod pallet {
             if min_stake > prev_min_stake {
                 log::trace!("Clearing small nominations");
                 T::Subtensor::clear_small_nominations();
+                log::trace!("Small nominations cleared");
             }
-            log::trace!("Small nominations cleared");
             Ok(())
         }
     }
