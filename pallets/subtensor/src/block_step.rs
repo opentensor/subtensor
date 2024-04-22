@@ -27,6 +27,35 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+
+    /// Clears small nominations that are below the minimum required stake.
+    /// This function runs when ever we set the minimum required nominations to ensure that
+    /// the network does not retain nominator accounts with stakes that are too low. This helps in
+    /// reduce the computational complexity of running epochs.
+    ///
+    pub fn clear_small_nominations() {
+        // Loop through all staking accounts to identify and clear nominations below the minimum stake.
+        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
+
+            log::info!("Checking nomination for hotkey: {}, coldkey: {}, stake: {}", hotkey, coldkey, stake);
+            // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
+            if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+                log::info!("Account is not a nominator, skipping");
+                // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+                if stake < Self::get_nominator_min_required_stake() {
+                    log::info!("Stake is below minimum required, clearing");
+                    // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
+                    // Actually deletes the staking account.
+                    Self::empty_stake_on_coldkey_hotkey_account(&coldkey, &hotkey);
+
+                    // Convert the removed stake back to balance and add it to the coldkey account.
+                    let stake_as_balance = Self::u64_to_balance(stake);
+                    Self::add_balance_to_coldkey_account(&coldkey, stake_as_balance.unwrap());
+                }
+            }
+        }
+    }
+
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
     // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
     //

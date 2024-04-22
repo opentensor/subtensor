@@ -611,8 +611,4 @@ impl<T: Config> Pallet<T> {
     pub fn set_nominator_min_required_stake( min_stake: u64 ) {
         NominatorMinRequiredStake::<T>::put( min_stake );
     }
-
-    pub fn set_minimum_staking_threshold(min_stake: u64) {
-        MinimumStakingThreshold::<T>::put(min_stake);
-    }
 }

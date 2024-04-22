@@ -172,14 +172,17 @@ impl<T: Config> Pallet<T> {
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
-        // --7. Check if total stake after adding will be above the minimum required stake
+        // --7. Check if total stake after adding will be above the minimum required stake. We only impose this limit for nominations
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
         let total_stake_after_add = TotalStake::<T>::get().saturating_add(stake_to_be_added);
         ensure!(
-            total_stake_after_add >= MinimumStakingThreshold::<T>::get(),
+            total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
             Error::<T>::StakeBelowMinimumThreshold
         );
+        }
            // --- 8. Ensure we don't exceed stake rate limit
         let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        
         ensure!(
             stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
@@ -295,19 +298,21 @@ impl<T: Config> Pallet<T> {
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
             Error::<T>::TxRateLimitExceeded
         );
-                // --- 7. Ensure we don't exceed stake rate limit
-                let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
-                ensure!(
-                    unstakes_this_interval < Self::get_target_stakes_per_interval(),
-                    Error::<T>::UnstakeRateLimitExceeded
-                );
+        // --- 7. Ensure we don't exceed stake rate limit
+        let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        ensure!(
+            unstakes_this_interval < Self::get_target_stakes_per_interval(),
+            Error::<T>::UnstakeRateLimitExceeded
+        );
 
-                // --8. Check if total stake after adding will be above the minimum required stake
-                let total_stake_after_remove = TotalStake::<T>::get().saturating_sub(stake_to_be_removed);
-                ensure!(
-                    total_stake_after_remove >= MinimumStakingThreshold::<T>::get(),
-                    Error::<T>::StakeBelowMinimumThreshold
-                );
+        // --8. Check if total stake after adding will be above the minimum required stake. We only impose this limit for nominations
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+        let total_stake_after_remove = TotalStake::<T>::get().saturating_sub(stake_to_be_removed);
+        ensure!(
+            total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+            Error::<T>::StakeBelowMinimumThreshold
+        );
+        }
 
         // --- 9. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
@@ -513,6 +518,27 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+    }
+    /// Empties the stake associated with a given coldkey-hotkey account pairing.
+    /// This function retrieves the current stake for the specified coldkey-hotkey pairing,
+    /// then subtracts this stake amount from both the TotalColdkeyStake and TotalHotkeyStake.
+    /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
+    /// and TotalIssuance by subtracting the removed stake amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
+    /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
+    pub fn empty_stake_on_coldkey_hotkey_account(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) {
+        let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
+        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
+        Stake::<T>::remove(hotkey, coldkey);
+        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
+        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
     }
 
     pub fn u64_to_balance(

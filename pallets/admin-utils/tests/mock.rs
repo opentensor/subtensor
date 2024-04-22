@@ -156,7 +156,6 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
-    type InitialMinimumStakingThreshold = InitialMinimumStakingThreshold;
 }
 
 impl system::Config for Test {
@@ -435,8 +434,8 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::set_nominator_min_required_stake(min_stake);
     }
 
-    fn set_minimum_staking_threshold(min_stake: u64) {
-        SubtensorModule::set_minimum_staking_threshold(min_stake);
+    fn clear_small_nominations() {
+        SubtensorModule::clear_small_nominations();
     }
 }
 

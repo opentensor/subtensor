@@ -796,7 +796,6 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
-    pub const SubtensorInitialMinimumStakingThreshold: u64 = 10_000_000;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -846,7 +845,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
-    type InitialMinimumStakingThreshold = SubtensorInitialMinimumStakingThreshold;
 }
 
 use sp_runtime::BoundedVec;
@@ -1098,8 +1096,8 @@ impl
         SubtensorModule::set_nominator_min_required_stake(min_stake);
     }
 
-    fn set_minimum_staking_threshold(min_stake: u64) {
-        SubtensorModule::set_minimum_staking_threshold(min_stake);
+    fn clear_small_nominations() {
+        SubtensorModule::clear_small_nominations();
     }
 }
 

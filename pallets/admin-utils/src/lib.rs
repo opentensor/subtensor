@@ -765,6 +765,13 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Sets the minimum stake required for nominators , and clears small nominations
+        /// that are below the minimum required stake.
+        ///
+        /// # Arguments
+        ///
+        /// * `min_stake` - The minimum stake required for nominators.
+
         #[pallet::call_index(43)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_nominator_min_required_stake(
@@ -772,18 +779,11 @@ pub mod pallet {
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
+            log::info!("Setting minimum stake to: {}", min_stake);
             T::Subtensor::set_nominator_min_required_stake(min_stake);
-            Ok(())
-        }
-
-        #[pallet::call_index(44)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_minimum_staking_threshold(
-            origin: OriginFor<T>,
-            min_stake: u64,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            T::Subtensor::set_nominator_min_required_stake(min_stake);
+            log::info!("Clearing small nominations");
+            T::Subtensor::clear_small_nominations();
+            log::info!("Small nominations cleared");
             Ok(())
         }
     }
@@ -875,5 +875,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn init_new_network(netuid: u16, tempo: u16);
     fn set_weights_min_stake(min_stake: u64);
     fn set_nominator_min_required_stake(min_stake: u64);
-    fn set_minimum_staking_threshold(min_stake: u64);
+    fn clear_small_nominations();
 }

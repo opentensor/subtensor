@@ -14,6 +14,37 @@ pub fn add_network(netuid: u16, tempo: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
+pub fn register_ok_neuron(
+    netuid: u16,
+    hotkey_account_id: U256,
+    coldkey_account_id: U256,
+    start_nonce: u64,
+) {
+    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        netuid,
+        block_number,
+        start_nonce,
+        &hotkey_account_id,
+    );
+    let result = SubtensorModule::register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
+        netuid,
+        block_number,
+        nonce,
+        work,
+        hotkey_account_id,
+        coldkey_account_id,
+    );
+    assert_ok!(result);
+    log::info!(
+        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
+        netuid,
+        hotkey_account_id,
+        coldkey_account_id
+    );
+}
+
 #[test]
 fn test_sudo_set_default_take() {
     new_test_ext().execute_with(|| {
@@ -337,24 +368,110 @@ fn test_sudo_set_issuance() {
 }
 
 // Run this test using: cargo test --package pallet-admin-utils --test tests test_sudo_set_nominator_min_required_stake
+// #[test]
+// fn test_sudo_set_nominator_min_required_stake() {
+//     new_test_ext().execute_with(|| {
+//         let to_be_set: u64 = 10;
+//         assert_eq!(
+//             AdminUtils::sudo_set_nominator_min_required_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+//                 to_be_set
+//             ),
+//             Err(DispatchError::BadOrigin)
+//         );
+//         assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             to_be_set
+//         ));
+//         assert_eq!(
+//             SubtensorModule::get_nominator_min_required_stake(),
+//             to_be_set
+//         );
+//     });
+// }
+
 #[test]
 fn test_sudo_set_nominator_min_required_stake() {
     new_test_ext().execute_with(|| {
-        let to_be_set: u64 = 10;
-        assert_eq!(
-            AdminUtils::sudo_set_nominator_min_required_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
-                to_be_set
-            ),
-            Err(DispatchError::BadOrigin)
-        );
-        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
+        let netuid: u16 = 1;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(2);
+        // let hotkey2 = U256::from(3);
+        let coldkey2 = U256::from(4);
+
+        // Increase Staking Limit
+        SubtensorModule::set_target_stakes_per_interval(10);
+
+        // Setup network and register neuron for delegator
+        add_network(netuid, 10);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1,
+            0
+        ));
+
+        // Add initial stake
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1,
+            50
         ));
         assert_eq!(
-            SubtensorModule::get_nominator_min_required_stake(),
-            to_be_set
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
+            50
+        );
+
+        // Add stake for delegatee
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            50
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1),
+            50
+        );
+
+        // Set minimum required stake to a higher value than existing stake
+        let min_stake: u64 = 60;
+        assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            min_stake
+        ));
+
+        // Check that the stake below the minimum required stake is not cleared for delegatee
+        let current_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1);
+        assert_eq!(
+            current_stake, 50,
+            "Stake should not be cleared , as it is not a nomination {}",
+            current_stake
+        );
+
+        // Check that the stake below the minimum required stake has been cleared for nominator
+        let current_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1);
+        assert_eq!(
+            current_stake, 0,
+            "Stake should be cleared , as it is a nomination{}",
+            current_stake
+        );
+
+        // Check that the stake balance for the delegatee to unchanged
+        let current_balance = Balances::free_balance(coldkey1);
+        assert_eq!(
+            current_balance, 50,
+            "Balance should be 50 but found {}",
+            current_balance
+        );
+
+        // Check that the cleared stake has been returned to the coldkey's balance
+        let current_balance = Balances::free_balance(coldkey2);
+        assert_eq!(
+            current_balance, 100,
+            "Balance should be 100 but found {}",
+            current_balance
         );
     });
 }
