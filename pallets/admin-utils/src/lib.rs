@@ -765,17 +765,13 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the minimum stake required for nominators , and clears small nominations
+        /// Sets the minimum stake required for nominators, and clears small nominations
         /// that are below the minimum required stake.
-        ///
-        /// # Arguments
-        ///
-        /// * `min_stake` - The minimum stake required for nominators.
-
         #[pallet::call_index(43)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_nominator_min_required_stake(
             origin: OriginFor<T>,
+            /// The minimum stake required for nominators.
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
