@@ -433,6 +433,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::set_nominator_min_required_stake(min_stake);
     }
 
+    fn get_nominator_min_required_stake() -> u64 {
+        SubtensorModule::get_nominator_min_required_stake()
+    }
+
     fn clear_small_nominations() {
         SubtensorModule::clear_small_nominations();
     }

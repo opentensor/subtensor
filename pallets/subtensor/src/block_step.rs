@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
         for (hotkey, coldkey, stake) in Stake::<T>::iter() {
 
-            log::trace!("Checking nomination for hotkey: {}, coldkey: {}, stake: {}", hotkey, coldkey, stake);
+            log::trace!("Checking nomination for hotkey: {:?}, coldkey: {:?}, stake: {:?}", hotkey, coldkey, stake);
             // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
             if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
                 log::trace!("Account is not a nominator, skipping");

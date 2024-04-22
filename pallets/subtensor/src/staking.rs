@@ -528,9 +528,9 @@ impl<T: Config> Pallet<T> {
     /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
     /// and TotalIssuance by subtracting the removed stake amount.
     pub fn empty_stake_on_coldkey_hotkey_account(
-        /// A reference to the AccountId of the coldkey involved in the staking.
+        // A reference to the AccountId of the coldkey involved in the staking.
         coldkey: &T::AccountId,
-        /// A reference to the AccountId of the hotkey associated with the coldkey.
+        // A reference to the AccountId of the hotkey associated with the coldkey.
         hotkey: &T::AccountId,
     ) {
         let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);

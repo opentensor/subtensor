@@ -771,18 +771,18 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_nominator_min_required_stake(
             origin: OriginFor<T>,
-            /// The minimum stake required for nominators.
+            // The minimum stake required for nominators.
             min_stake: u64,
         ) -> DispatchResult {
             ensure_root(origin)?;
             let prev_min_stake = T::Subtensor::get_nominator_min_required_stake();
-            log::info!("Setting minimum stake to: {}", min_stake);
+            log::trace!("Setting minimum stake to: {}", min_stake);
             T::Subtensor::set_nominator_min_required_stake(min_stake);
             if min_stake > prev_min_stake {
                 log::info!("Clearing small nominations");
                 T::Subtensor::clear_small_nominations();
             }
-            log::info!("Small nominations cleared");
+            log::trace!("Small nominations cleared");
             Ok(())
         }
     }
@@ -873,6 +873,7 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64);
     fn init_new_network(netuid: u16, tempo: u16);
     fn set_weights_min_stake(min_stake: u64);
+    fn get_nominator_min_required_stake() -> u64;
     fn set_nominator_min_required_stake(min_stake: u64);
     fn clear_small_nominations();
 }
