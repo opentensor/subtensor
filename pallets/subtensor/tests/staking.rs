@@ -3089,7 +3089,6 @@ fn test_changing_delegate_take_changes_distribution() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100000);
 
         // Register the 2 neurons to a new network.
-        let netuid = 1;
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
@@ -3155,6 +3154,313 @@ fn test_changing_delegate_take_changes_distribution() {
         ); // 100 + 50% * 400 + 10% * 200 = 320
     });
 }
+
+#[test]
+fn test_can_set_different_take_per_subnet() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+        let netuid1 = 1;
+        let netuid2 = 2;
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Add networks
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+
+        // Register the neuron to networks
+        register_ok_neuron(netuid1, hotkey0, coldkey0, 124124);
+        register_ok_neuron(netuid2, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0
+        ));
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid1), InitialDefaultTake::get());
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid2), InitialDefaultTake::get());
+
+        // Decrease delegate take to 10% on subnet 1
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid1,
+            u16::MAX / 10
+        ));
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid1), u16::MAX / 10);
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid2), InitialDefaultTake::get());
+
+        // Decrease delegate take to 5% on subnet 2
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid2,
+            u16::MAX / 20
+        ));
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid1), u16::MAX / 10);
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid2), u16::MAX / 20);
+    });
+}
+
+#[test]
+fn test_different_subnet_take_different_distribution() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let netuid2 = 2;
+        // Make two accounts.
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+
+        let coldkey0 = U256::from(3);
+        let coldkey1 = U256::from(4);
+        SubtensorModule::set_max_registrations_per_block(netuid1, 4);
+        SubtensorModule::set_max_allowed_uids(netuid1, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+        SubtensorModule::set_max_registrations_per_block(netuid2, 4);
+        SubtensorModule::set_max_allowed_uids(netuid2, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100000);
+
+        // Register the 2 neurons to new networks.
+        add_network(netuid1, 0, 0);
+        add_network(netuid2, 0, 0);
+        register_ok_neuron(netuid1, hotkey0, coldkey0, 124124);
+        register_ok_neuron(netuid2, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0
+        ));
+
+        // Coldkey / hotkey 0 remains at 50% take on subnet 1
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid1), u16::MAX / 2);
+
+        // Coldkey / hotkey 0 sets the take on subnet 2 to 10%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid2,
+            u16::MAX / 10
+        ));
+
+        // Stake 100 from coldkey/hotkey 0 to subnet 1
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid1,
+            100
+        ));
+
+        // Stake 100 from coldkey/hotkey 0 to subnet 2
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid2,
+            100
+        ));
+
+        // Coldkey 1 adds 100 delegated stake to coldkey/hotkey 0 on subnet 1
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid1,
+            100
+        ));
+
+        // Coldkey 1 adds 100 delegated stake to coldkey/hotkey 0 on subnet 2
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid2,
+            100
+        ));
+
+        // Stake assertions
+        //   Subnet 1:
+        //           hot0    hot1
+        //   cold0   100     0
+        //   cold1   100     0
+        //
+        //   Subnet 2:
+        //           hot0    hot1
+        //   cold0   100     0
+        //   cold1   100     0
+        //   ----------------------
+        //   total   400  +  0     = 400
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid1),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid1),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid2),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid2),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid2),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid2),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 400);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 400);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
+
+        // Subnet 1 emission
+        //
+        // Emit inflation through hotkey0 on subnet 1.
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 400 validator emission, which should be distributed in-part to the nominators.
+        //
+        // Total subnet initial stake is 200
+        //
+        // Stake ratio of coldkey 0 on subnet 1: 50%
+        // Rewards
+        //              take               nomination
+        //     cold0    50%*400 = 200      50%*200 = 100
+        //     cold1    0                  50%*200 = 100
+        //
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, 400);
+
+        // New stake values
+        //   Subnet 1:
+        //           hot0    hot1
+        //   cold0   400     0
+        //   cold1   200     0
+        //
+        //   Subnet 2:
+        //           hot0    hot1
+        //   cold0   100     0
+        //   cold1   100     0
+        //   ----------------------
+        //   total   800  +  0     = 800
+        //
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid1),
+            400
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid1),
+            200
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid2),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid2),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid2),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid2),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 800);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 800);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
+
+        // Subnet 2 emission
+        //
+        // Emit inflation through hotkey0 on subnet 2.
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 400 validator emission, which should be distributed in-part to the nominators.
+        //
+        // Total subnet initial stake is 200
+        //
+        // Stake ratio of coldkey 0 on subnet 2: 50%
+        // Rewards
+        //              take               nomination
+        //     cold0    10%*400 = 40       50%*360 = 180
+        //     cold1    0                  50%*360 = 180
+        //
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid2, 0, 400);
+
+        // New stake values
+        //   Subnet 1:
+        //           hot0    hot1
+        //   cold0   400     0
+        //   cold1   200     0
+        //
+        //   Subnet 2:
+        //           hot0    hot1
+        //   cold0   320     0
+        //   cold1   280     0
+        //   ----------------------
+        //   total   1200 +  0     = 1200
+        //
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid1),
+            400
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid1),
+            200
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid2),
+            320
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid2),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid2),
+            280
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid2),
+            0
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), 1200);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 1200);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
+    });
+}
+
+
 
 #[test]
 // Set up 32 subnets with a total of 1024 nodes each, and a root network with 1024 nodes.
