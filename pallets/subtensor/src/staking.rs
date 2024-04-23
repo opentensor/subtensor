@@ -850,6 +850,50 @@ impl<T: Config> Pallet<T> {
         DelegatesTake::<T>::get(hotkey, netuid)
     }
 
+     /// Sets the delegator takes for subnets if the subnet exists.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `netuid` - The unique identifier for the network.
+    /// * `take` - The take rate to be set for the subnet.
+    ///
+    /// # Errors
+    /// Returns `Error::<T>::NetworkDoesNotExist` if the subnet does not exist.
+    pub fn set_delegate_take(hotkey: &T::AccountId, netuid: u16, take: u16) -> dispatch::DispatchResult {
+        // Check if the subnet exists before setting the take.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // Insert the take into the storage.
+        DelegatesTake::<T>::insert(hotkey, netuid, take);
+        Ok(())
+    }
+
+
+    /// Sets the delegator takes for multiple subnets if the subnets exist.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey.
+    /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
+    ///
+    /// # Errors
+    /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+    pub fn set_delegate_takes(hotkey: &T::AccountId, takes: Vec<(u16, u16)>) -> dispatch::DispatchResult {
+        for (netuid, take) in takes {
+            // Check if the subnet exists before setting the take.
+            ensure!(
+                Self::if_subnet_exist(netuid),
+                Error::<T>::NetworkDoesNotExist
+            );
+
+            // Insert the take into the storage.
+            DelegatesTake::<T>::insert(hotkey, netuid, take);
+        }
+        Ok(())
+    }
+
     // Returns true if the hotkey account has been created.
     //
     pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {

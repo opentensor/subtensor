@@ -556,7 +556,7 @@ fn test_1_graph() {
         let uid: u16 = 0;
         let stake_amount: u64 = 1;
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
-        SubtensorModule::set_global_stake_weight( 0 ); // Set the stake weight to 100% on this subnet alone.
+        SubtensorModule::set_global_stake_weight(0); // Set the stake weight to 100% on this subnet alone.
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
@@ -629,7 +629,7 @@ fn test_10_graph() {
         let n: usize = 10;
         let netuid: u16 = 1;
         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
-        SubtensorModule::set_global_stake_weight( 0 );
+        SubtensorModule::set_global_stake_weight(0);
         SubtensorModule::set_max_allowed_uids(netuid, n as u16);
         for i in 0..10 {
             add_node(netuid, U256::from(i), U256::from(i), i as u16, 1)
@@ -766,7 +766,7 @@ fn test_512_graph_random_weights() {
 
             // Dense epoch
             new_test_ext(1).execute_with(|| {
-                SubtensorModule::set_global_stake_weight( 0 );
+                SubtensorModule::set_global_stake_weight(0);
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -797,7 +797,7 @@ fn test_512_graph_random_weights() {
 
             // Sparse epoch (same random seed as dense)
             new_test_ext(1).execute_with(|| {
-                SubtensorModule::set_global_stake_weight( 0 );
+                SubtensorModule::set_global_stake_weight(0);
                 init_run_epochs(
                     netuid,
                     network_n,
@@ -849,7 +849,7 @@ fn test_4096_graph() {
     let network_n: u16 = 4096;
     let validators_n: u16 = 256;
     let epochs: u16 = 1;
-    SubtensorModule::set_global_stake_weight( 0 );
+    SubtensorModule::set_global_stake_weight(0);
     let max_stake_per_validator: u64 = 82_031_250_000_000; // 21_000_000_000_000_000 / 256
     log::info!("test_{network_n:?}_graph ({validators_n:?} validators)");
     for interleave in 0..3 {
@@ -929,7 +929,7 @@ fn test_16384_graph_sparse() {
         let servers: Vec<u16> = (validators_n..n).collect();
         let server: u16 = servers[0];
         let epochs: u16 = 1;
-        SubtensorModule::set_global_stake_weight( 0 );
+        SubtensorModule::set_global_stake_weight(0);
         log::info!("test_{n:?}_graph ({validators_n:?} validators)");
         init_run_epochs(
             netuid,
@@ -1292,7 +1292,7 @@ fn test_active_stake() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-        SubtensorModule::set_global_stake_weight( 0 );
+        SubtensorModule::set_global_stake_weight(0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
         SubtensorModule::set_target_registrations_per_interval(netuid, n);
         SubtensorModule::set_min_allowed_weights(netuid, 0);
@@ -1497,7 +1497,7 @@ fn test_outdated_weights() {
         let mut block_number: u64 = System::block_number();
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_global_stake_weight( 0 );
+        SubtensorModule::set_global_stake_weight(0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);
@@ -1684,7 +1684,7 @@ fn test_zero_weights() {
         let mut block_number: u64 = 0;
         let stake: u64 = 1;
         add_network(netuid, tempo, 0);
-        SubtensorModule::set_global_stake_weight( 0 );
+        SubtensorModule::set_global_stake_weight(0);
         SubtensorModule::set_max_allowed_uids(netuid, n);
         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
         SubtensorModule::set_max_registrations_per_block(netuid, n);

@@ -329,12 +329,12 @@ pub mod pallet {
     pub type SubStake<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>,    // hot
-            NMapKey<Blake2_128Concat, T::AccountId>,    // cold
-            NMapKey<Identity, u16>,                     // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
         ),
         u64,
-        ValueQuery
+        ValueQuery,
     >;
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
@@ -596,7 +596,7 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-        #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
+    #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
     pub type PendingAlphaEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
@@ -648,7 +648,6 @@ pub mod pallet {
     // Rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
-
         // TODO we should figure out a better way of saying this is a dev net.
         if cfg!(feature = "pow-faucet") {
             return 0;
@@ -1071,7 +1070,7 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
-        InvalidTake, // --- Thrown when delegate take is being set out of bounds
+        InvalidTake,       // --- Thrown when delegate take is being set out of bounds
         SubnetCreatorLock, // -- Thrown when the subnet creator attempts to remove their funds within the lock period.
     }
 
@@ -1569,7 +1568,7 @@ pub mod pallet {
             netuids: Vec<u16>,
             values: Vec<u16>,
         ) -> DispatchResult {
-            Self::do_add_weighted_stake(origin, hotkey, netuids, values )
+            Self::do_add_weighted_stake(origin, hotkey, netuids, values)
         }
 
         // ---- Remove stake from the staking account. The call must be made
@@ -1629,7 +1628,6 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
-
 
         // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
         // already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
@@ -1921,7 +1919,6 @@ pub mod pallet {
 
             Err(Error::<T>::FaucetDisabled.into())
         }
-
     }
 
     // ---- Subtensor helper functions.
@@ -2070,18 +2067,14 @@ where
                     return Err(InvalidTransaction::Call.into());
                 }
             }
-            Some(Call::add_stake { .. }) => {
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
-            Some(Call::remove_stake { .. }) => {
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
+            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
+            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
