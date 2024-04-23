@@ -5,13 +5,13 @@ use codec::Compact;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DynamicPoolInfo {
-    alpha_issuance: Compact<u64>,
-    alpha_outstanding: Compact<u64>,
-    alpha_reserve: Compact<u64>,
-    tao_reserve: Compact<u64>,
-    k: Compact<u128>,
-    price: Compact<u128>,
-    netuid: Compact<u16>,
+    pub alpha_issuance: Compact<u64>,
+    pub alpha_outstanding: Compact<u64>,
+    pub alpha_reserve: Compact<u64>,
+    pub tao_reserve: Compact<u64>,
+    pub k: Compact<u128>,
+    pub price: Compact<u128>,
+    pub netuid: Compact<u16>,
 }
 
 impl<T: Config> Pallet<T> {
