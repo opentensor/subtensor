@@ -898,15 +898,17 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn sets_a_lower_value() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() - 5 as u64;
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
-                to_be_set
+                10u64
             ));
-            assert_eq!(
-                SubtensorModule::get_nominator_min_required_stake(),
-                to_be_set
-            );
+            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 10u64);
+
+            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                5u64
+            ));
+            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 5u64);
         });
     }
 
