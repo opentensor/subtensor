@@ -167,8 +167,7 @@ impl<T: Config> Pallet<T> {
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
-        // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-        let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate );
+        let delegate_global_dynamic_tao = Self::get_hotkey_global_dynamic_tao( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
         if delegate_local_stake + delegate_global_dynamic_tao != 0 {
@@ -184,7 +183,7 @@ impl<T: Config> Pallet<T> {
                 };
                 log::debug!("nominator_local_emission_i: {:?}", nominator_local_emission_i);
 
-                let nominator_global_stake: u64 = Self::get_coldkey_hotkey_global_dynamic_tao( &nominator_i, delegate ); // Get global stake.
+                let nominator_global_stake: u64 = Self::get_nominator_global_dynamic_tao( &nominator_i, delegate ); // Get global stake.
                 let nominator_global_emission_i: I64F64 = if delegate_global_dynamic_tao == 0 {
                     I64F64::from_num(0)
                 } else {

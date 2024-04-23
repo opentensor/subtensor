@@ -931,31 +931,50 @@ impl<T: Config> Pallet<T> {
     // Returns the stake under the cold - hot pairing in the staking table.
     //
     // TODO: We could probably store this total as a state variable
-    pub fn get_global_dynamic_tao(
+    pub fn get_hotkey_global_dynamic_tao(
         hotkey: &T::AccountId,
     ) -> u64 {
         let mut global_dynamic_tao: I64F64 = I64F64::from_num( 0.0 );
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in netuids.iter() {
-            let alpha_stake: I64F64 = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, *netuid ) );
-            let tao_per_alpha_price: I64F64 = Self::get_tao_per_alpha_price( *netuid );
-            global_dynamic_tao += alpha_stake * tao_per_alpha_price;
+            if IsDynamic::<T>::get( *netuid ) {
+                // Computes the proportion of TAO owned by this netuid.
+                let other_subnet_token: I64F64 = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, *netuid ));
+                let other_dynamic_outstanding: I64F64 = I64F64::from_num( DynamicAlphaOutstanding::<T>::get( *netuid ) );
+                let other_tao_reserve: I64F64 = I64F64::from_num( DynamicTAOReserve::<T>::get( *netuid ) );
+                let my_proportion: I64F64 = other_subnet_token / other_dynamic_outstanding;
+                global_dynamic_tao += my_proportion * other_tao_reserve;                        
+            } else {
+                // Computes the amount of TAO owned in the non dynamic subnet.
+                let other_subnet_token_tao: u64 = Self::get_total_stake_for_hotkey_and_subnet( hotkey, *netuid );
+                global_dynamic_tao += I64F64::from_num( other_subnet_token_tao );
+            }
         }
         return global_dynamic_tao.to_num::<u64>();
     }
 
     // Returns the stake under the cold - hot pairing in the staking table.
     //
-    pub fn get_coldkey_hotkey_global_dynamic_tao(
+    pub fn get_nominator_global_dynamic_tao(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
     ) -> u64 {
+
         let mut global_dynamic_tao: I64F64 = I64F64::from_num( 0.0 );
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for netuid in netuids.iter() {
-            let alpha_stake: I64F64 = I64F64::from_num( Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, *netuid ) );
-            let tao_per_alpha_price: I64F64 = Self::get_tao_per_alpha_price( *netuid );
-            global_dynamic_tao += alpha_stake * tao_per_alpha_price;
+            if IsDynamic::<T>::get( *netuid ) {
+                // Computes the proportion of TAO owned by this netuid.
+                let other_subnet_token: I64F64 = I64F64::from_num( Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, *netuid ));
+                let other_dynamic_outstanding: I64F64 = I64F64::from_num( DynamicAlphaOutstanding::<T>::get( *netuid ) );
+                let other_tao_reserve: I64F64 = I64F64::from_num( DynamicTAOReserve::<T>::get( *netuid ) );
+                let my_proportion: I64F64 = other_subnet_token / other_dynamic_outstanding;
+                global_dynamic_tao += my_proportion * other_tao_reserve;                        
+            } else {
+                // Computes the amount of TAO owned in the non dynamic subnet.
+                let other_subnet_token_tao: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, *netuid );
+                global_dynamic_tao += I64F64::from_num( other_subnet_token_tao );
+            }
         }
         return global_dynamic_tao.to_num::<u64>();
     }
