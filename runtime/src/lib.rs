@@ -268,7 +268,7 @@ impl pallet_utility::Config for Runtime {
 }
 
 // Existential deposit.
-pub const EXISTENTIAL_DEPOSIT: u64 = 2_000_000;
+pub const EXISTENTIAL_DEPOSIT: u64 = 500;
 
 impl pallet_balances::Config for Runtime {
     type MaxLocks = ConstU32<50>;
