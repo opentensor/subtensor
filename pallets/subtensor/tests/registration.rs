@@ -155,6 +155,41 @@ fn test_registration_ok() {
 }
 
 #[test]
+fn test_registration_without_neuron_slot() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        //add network
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, 0);
+
+        // Subscribe and check extrinsic output
+        assert_noop!(
+            SubtensorModule::register(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                hotkey_account_id,
+                coldkey_account_id
+            ),
+            Error::<Test>::NoNeuronIdAvailable
+        );
+    });
+}
+
+#[test]
 fn test_registration_under_limit() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
