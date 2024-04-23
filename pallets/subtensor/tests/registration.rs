@@ -173,7 +173,6 @@ fn test_registration_without_neuron_slot() {
         add_network(netuid, tempo, 0);
         SubtensorModule::set_max_allowed_uids(netuid, 0);
 
-        // Subscribe and check extrinsic output
         assert_noop!(
             SubtensorModule::register(
                 <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
@@ -432,7 +431,6 @@ fn test_burn_registration_without_neuron_slot() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
         SubtensorModule::set_max_allowed_uids(netuid, 0);
 
-        // Subscribe and check extrinsic output
         assert_noop!(
             SubtensorModule::burned_register(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
