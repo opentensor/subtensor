@@ -305,7 +305,7 @@ where
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(1),
+            coeff_frac: Perbill::from_parts(1_000_000),
             negative: false,
             degree: 1,
         };
