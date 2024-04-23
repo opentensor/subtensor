@@ -1499,6 +1499,22 @@ pub mod pallet {
             Self::do_increase_take(origin, hotkey, netuid, take)
         }
 
+        /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take and respect the rate limit.
+        ///
+        /// # Arguments
+        /// * `hotkey` - The account ID of the hotkey.
+        /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
+        ///
+        /// # Errors
+        /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+        /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
+        /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
+        #[pallet::call_index(68)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn set_delegate_takes(origin: OriginFor<T>, hotkey: T::AccountId, takes: Vec<(u16, u16)>) -> DispatchResult {
+            Self::do_set_delegate_takes(origin, &hotkey, takes)
+        }
+
         // --- Adds stake to a hotkey. The call is made from the
         // coldkey account linked in the hotkey.
         // Only the associated coldkey is allowed to make staking and

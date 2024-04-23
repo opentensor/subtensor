@@ -4446,3 +4446,32 @@ fn set_delegate_takes_rejects_excessive_take() {
         );
     });
 }
+
+#[test]
+fn set_delegate_takes_enforces_rate_limit() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        let takes_initial = vec![(1u16, 10u16), (2u16, 15u16)];
+        let takes_second = vec![(1u16, 11u16), (2u16, 16u16)]; // Slightly increased takes
+
+        // Create subnets and register as delegates
+        let tempo: u16 = 13;
+        for (netuid, _) in &takes_initial {
+            add_network(*netuid, tempo, 0);
+            register_ok_neuron(*netuid, hotkey, coldkey, 0);
+        }
+
+        // First call to set_delegate_takes should succeed
+        assert_ok!(SubtensorModule::set_delegate_takes(
+            &hotkey.into(),
+            takes_initial.clone()
+        ));
+
+        // Second call to set_delegate_takes should fail due to rate limit
+        assert_err!(
+            SubtensorModule::set_delegate_takes(&hotkey.into(), takes_second),
+            Error::<Test>::TxRateLimitExceeded
+        );
+    });
+}

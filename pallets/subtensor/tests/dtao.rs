@@ -15,13 +15,13 @@ fn test_add_subnet_stake_ok_no_emission() {
         let coldkey = U256::from(1);
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000_000_000); // 100 TAO.
-                                                                                    // Check
-                                                                                    // -- that the lock cost is 100 TAO.
-                                                                                    // -- that the balance is 100 TAO.
-                                                                                    // -- that the root pool is empty.
-                                                                                    // -- that the root alpha pool is empty.
-                                                                                    // -- that the root price is 1.0.
-                                                                                    // -- that the root has zero k value.
+        // Check
+        // -- that the lock cost is 100 TAO.
+        // -- that the balance is 100 TAO.
+        // -- that the root pool is empty.
+        // -- that the root alpha pool is empty.
+        // -- that the root price is 1.0.
+        // -- that the root has zero k value.
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000); // 100 TAO.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey),

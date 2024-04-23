@@ -860,34 +860,58 @@ impl<T: Config> Pallet<T> {
     /// # Errors
     /// Returns `Error::<T>::NetworkDoesNotExist` if the subnet does not exist.
     /// Returns `Error::<T>::TakeExceedsDefault` if the take exceeds the initial default take.
-    pub fn set_delegate_take(hotkey: &T::AccountId, netuid: u16, take: u16) -> dispatch::DispatchResult {
+    pub fn do_set_delegate_take(origin: T::RuntimeOrigin, hotkey: &T::AccountId, netuid: u16, take: u16) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        log::trace!(
+            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            coldkey,
+            hotkey,
+            take
+        );
         // Check if the subnet exists before setting the take.
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::NetworkDoesNotExist
         );
 
-        // Ensure the take does not exceed the initial default take.
-        ensure!(
-            take <= T::InitialDefaultTake::get(),
-            Error::<T>::InvalidTake
-        );
+ 
+                // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
+                let max_take = T::InitialDefaultTake::get();
+                ensure!(
+                    take <= max_take,
+                    Error::<T>::InvalidTake
+                );
+        
+                // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
+                let block: u64 = Self::get_current_block_as_u64();
+                ensure!(
+                    !Self::exceeds_tx_delegate_take_rate_limit(Self::get_last_tx_block_delegate_take(&hotkey), block),
+                    Error::<T>::TxRateLimitExceeded
+                );
+        
+                // Set last block for rate limiting
+                Self::set_last_tx_block_delegate_take(&hotkey, block);
 
         // Insert the take into the storage.
         DelegatesTake::<T>::insert(hotkey, netuid, take);
         Ok(())
     }
 
-    /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
-    ///
-    /// # Errors
-    /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
-    /// Returns `Error::<T>::TakeExceedsDefault` if any take exceeds the initial default take.
-    pub fn set_delegate_takes(hotkey: &T::AccountId, takes: Vec<(u16, u16)>) -> dispatch::DispatchResult {
+
+    pub fn do_set_delegate_takes(origin: T::RuntimeOrigin, hotkey: &T::AccountId, takes: Vec<(u16, u16)>) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        log::trace!(
+            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            coldkey,
+            hotkey,
+            takes
+        );
+
+        // --- 2. Ensure we are delegating a known key.
+        //        Ensure that the coldkey is the owner.
+        Self::do_account_checks(&coldkey, &hotkey)?;
+        let block: u64 = Self::get_current_block_as_u64();
+
         for (netuid, take) in takes {
             // Check if the subnet exists before setting the take.
             ensure!(
@@ -896,16 +920,27 @@ impl<T: Config> Pallet<T> {
             );
 
             // Ensure the take does not exceed the initial default take.
+            let max_take = T::InitialDefaultTake::get();
             ensure!(
-                take <= T::InitialDefaultTake::get(),
+                take <= max_take,
                 Error::<T>::InvalidTake
+            );
+
+            // Enforce the rate limit (independently on do_add_stake rate limits)
+            ensure!(
+                !Self::exceeds_tx_delegate_take_rate_limit(Self::get_last_tx_block_delegate_take(&hotkey), block),
+                Error::<T>::TxRateLimitExceeded
             );
 
             // Insert the take into the storage.
             DelegatesTake::<T>::insert(hotkey, netuid, take);
         }
-        Ok(())
-    }
+
+    // Set last block for rate limiting after all takes are set
+    Self::set_last_tx_block_delegate_take(hotkey, block);
+
+    Ok(())
+}
 
     // Returns true if the hotkey account has been created.
     //
