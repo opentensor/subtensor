@@ -517,7 +517,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Performs the burn adjustment by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target * reg_target )
+    // Performs the burn adjustment by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target * reg_target )
     // We use I110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
     //
     pub fn adjust_burn(
