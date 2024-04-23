@@ -4,7 +4,7 @@ mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
-use pallet_subtensor::Error;
+use pallet_subtensor::*;
 use sp_core::{H256, U256};
 
 /***********************************************************
@@ -2538,6 +2538,13 @@ fn test_clear_small_nominations() {
         );
 
         // Set min nomination to 10
+        let total_cold1_stake_before = TotalColdkeyStake::<Test>::get(cold1);
+        let total_cold2_stake_before = TotalColdkeyStake::<Test>::get(cold2);
+        let total_hot1_stake_before = TotalHotkeyStake::<Test>::get(hot1);
+        let total_hot2_stake_before = TotalHotkeyStake::<Test>::get(hot2);
+        let _ = Stake::<Test>::try_get(&hot2, &cold1).unwrap(); // ensure exists before
+        let _ = Stake::<Test>::try_get(&hot1, &cold2).unwrap(); // ensure exists before
+        let total_stake_before = TotalStake::<Test>::get();
         SubtensorModule::set_nominator_min_required_stake(10);
 
         // Run clear all small nominations (removes delegations under 10)
@@ -2562,6 +2569,28 @@ fn test_clear_small_nominations() {
         // Balances have been added back into accounts.
         assert_eq!(Balances::free_balance(cold1), 9);
         assert_eq!(Balances::free_balance(cold2), 9);
+
+        // Internal storage is updated
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(cold2),
+            total_cold2_stake_before - 1
+        );
+        assert_eq!(
+            TotalHotkeyStake::<Test>::get(hot2),
+            total_hot2_stake_before - 1
+        );
+        Stake::<Test>::try_get(&hot2, &cold1).unwrap_err();
+        Stake::<Test>::try_get(&hot1, &cold2).unwrap_err();
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(cold1),
+            total_cold1_stake_before - 1
+        );
+        assert_eq!(
+            TotalHotkeyStake::<Test>::get(hot1),
+            total_hot1_stake_before - 1
+        );
+        Stake::<Test>::try_get(&hot2, &cold1).unwrap_err();
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before - 2);
     });
 }
 
