@@ -167,6 +167,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. If this is a nomination stake, check if total stake after adding will be above
         // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
             let total_stake_after_add =
                 Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
@@ -296,6 +298,8 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. If this is a nomination stake, check if total stake after removing will be above
         // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
             let total_stake_after_remove =
                 Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
