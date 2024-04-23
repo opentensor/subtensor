@@ -564,7 +564,7 @@ impl<T: Config> Pallet<T> {
 
     /// Clears small nominations for all accounts.
     ///
-    /// WARN: This is an O(N) operations, where N is the number of staking accounts. It should be
+    /// WARN: This is an O(N) operation, where N is the number of staking accounts. It should be
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
