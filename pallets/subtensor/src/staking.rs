@@ -157,15 +157,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 6. Ensure we don't exceed tx rate limit
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
-        );
-
-        // --- 7. Ensure we don't exceed stake rate limit
-        let stakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        // --- 6. Ensure we don't exceed stake rate limit
+        let stakes_this_interval = Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
             stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
@@ -181,10 +174,12 @@ impl<T: Config> Pallet<T> {
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_added);
 
         // Set last block for rate limiting
+        let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the staking event.
-        Self::set_stakes_this_interval_for_hotkey(
+        // --- 9. Emit the staking event.
+        Self::set_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey,
             &hotkey,
             stakes_this_interval + 1,
             block,
@@ -196,7 +191,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, stake_to_be_added));
 
-        // --- 11. Ok and return.
+        // --- 10. Ok and return.
         Ok(())
     }
 
@@ -278,31 +273,26 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CouldNotConvertToBalance
         );
 
-        // --- 6. Ensure we don't exceed tx rate limit
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
-        );
-
-        // --- 7. Ensure we don't exceed stake rate limit
-        let unstakes_this_interval = Self::get_stakes_this_interval_for_hotkey(&hotkey);
+        // --- 6. Ensure we don't exceed stake rate limit
+        let unstakes_this_interval = Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
             unstakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 8. We remove the balance from the hotkey.
+        // --- 7. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
+        let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the unstaking event.
-        Self::set_stakes_this_interval_for_hotkey(
+        // --- 9. Emit the unstaking event.
+        Self::set_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey,
             &hotkey,
             unstakes_this_interval + 1,
             block,
@@ -314,7 +304,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 11. Done and ok.
+        // --- 10. Done and ok.
         Ok(())
     }
 
@@ -367,7 +357,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
-    pub fn get_stakes_this_interval_for_hotkey(hotkey: &T::AccountId) -> u64 {
+    pub fn get_stakes_this_interval_for_coldkey_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         // Retrieve the configured stake interval duration from storage.
         let stake_interval = StakeInterval::<T>::get();
 
@@ -375,7 +365,7 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
 
         // Fetch the total stakes and the last block number when stakes were made for the hotkey.
-        let (stakes, block_last_staked_at) = TotalHotkeyStakesThisInterval::<T>::get(hotkey);
+        let (stakes, block_last_staked_at) = TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
 
         // Calculate the block number after which the stakes for the hotkey should be reset.
         let block_to_reset_after = block_last_staked_at + stake_interval;
@@ -384,7 +374,7 @@ impl<T: Config> Pallet<T> {
         // it indicates the end of the staking interval for the hotkey.
         if block_to_reset_after <= current_block {
             // Reset the stakes for this hotkey for the current interval.
-            Self::set_stakes_this_interval_for_hotkey(hotkey, 0, block_last_staked_at);
+            Self::set_stakes_this_interval_for_coldkey_hotkey(coldkey, hotkey, 0, block_last_staked_at);
             // Return 0 as the stake amount since we've just reset the stakes.
             return 0;
         }
