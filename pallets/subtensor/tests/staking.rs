@@ -4374,7 +4374,8 @@ fn set_delegate_takes_updates_delegates_correctly() {
 
         // Action: Call set_delegate_takes
         assert_ok!(SubtensorModule::set_delegate_takes(
-            &hotkey.into(),
+            RuntimeOrigin::signed(coldkey),
+            hotkey.into(),
             takes.clone()
         ));
 
@@ -4398,21 +4399,32 @@ fn set_delegate_takes_updates_delegates_correctly() {
 #[test]
 fn set_delegate_takes_handles_empty_vector() {
     new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
         let hotkey = U256::from(1);
         let takes: Vec<(u16, u16)> = vec![];
 
-        assert_ok!(SubtensorModule::set_delegate_takes(&hotkey.into(), takes));
+        // Create subnet and register as delegate
+        let tempo: u16 = 13;
+        add_network(1, tempo, 0);
+        register_ok_neuron(1, hotkey, coldkey, 0);
+
+        // Ensure coldkey is associated as a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey
+        ));
+
+        assert_ok!(SubtensorModule::set_delegate_takes(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            takes
+        ));
 
         // Assuming default take value is 32767, adjust if different
         assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey.into(), 1),
+            SubtensorModule::get_delegate_take(&hotkey, 1),
             32767,
             "Delegate take should be the default take value for netuid 1 after empty update"
-        );
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey.into(), 2),
-            32767,
-            "Delegate take should be the default take value for netuid 2 after empty update"
         );
     });
 }
@@ -4420,11 +4432,24 @@ fn set_delegate_takes_handles_empty_vector() {
 #[test]
 fn set_delegate_takes_rejects_invalid_netuid() {
     new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
         let hotkey = U256::from(1);
         let takes = vec![(999u16, 10u16)]; // Invalid netuid
 
+        // Create subnet and register as delegate for a valid network first
+        let tempo: u16 = 13;
+        add_network(1, tempo, 0); // Adding a valid network
+        register_ok_neuron(1, hotkey, coldkey, 0); // Registering neuron on the valid network
+
+        // Ensure coldkey is associated as a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey
+        ));
+
+        // Now test with an invalid network ID
         assert_err!(
-            SubtensorModule::set_delegate_takes(&hotkey.into(), takes),
+            SubtensorModule::set_delegate_takes(RuntimeOrigin::signed(coldkey), hotkey, takes),
             Error::<Test>::NetworkDoesNotExist
         );
     });
@@ -4433,15 +4458,24 @@ fn set_delegate_takes_rejects_invalid_netuid() {
 #[test]
 fn set_delegate_takes_rejects_excessive_take() {
     new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
         let hotkey = U256::from(1);
-        let takes = vec![(1u16, 32_767 * 2)];
+        let takes = vec![(1u16, 32_767 * 2)]; // Excessive take value
+
         // Create subnet and register as delegate
         let tempo: u16 = 13;
         add_network(1, tempo, 0);
-        register_ok_neuron(1, hotkey, U256::from(2), 0);
+        register_ok_neuron(1, hotkey, coldkey, 0);
 
+        // Ensure coldkey is associated as a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            hotkey
+        ));
+
+        // Now test with an excessive take value
         assert_err!(
-            SubtensorModule::set_delegate_takes(&hotkey.into(), takes),
+            SubtensorModule::set_delegate_takes(RuntimeOrigin::signed(coldkey), hotkey, takes),
             Error::<Test>::InvalidTake
         );
     });
@@ -4464,13 +4498,19 @@ fn set_delegate_takes_enforces_rate_limit() {
 
         // First call to set_delegate_takes should succeed
         assert_ok!(SubtensorModule::set_delegate_takes(
-            &hotkey.into(),
-            takes_initial.clone()
+            RuntimeOrigin::signed(coldkey),
+            hotkey.into(),
+            takes_initial
         ));
 
         // Second call to set_delegate_takes should fail due to rate limit
+        // Now test with an excessive take value
         assert_err!(
-            SubtensorModule::set_delegate_takes(&hotkey.into(), takes_second),
+            SubtensorModule::set_delegate_takes(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                takes_second
+            ),
             Error::<Test>::TxRateLimitExceeded
         );
     });

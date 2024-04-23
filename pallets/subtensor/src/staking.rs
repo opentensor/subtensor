@@ -850,54 +850,6 @@ impl<T: Config> Pallet<T> {
         DelegatesTake::<T>::get(hotkey, netuid)
     }
 
-    /// Sets the delegator takes for subnets if the subnet exists and does not exceed the initial default take.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier for the network.
-    /// * `take` - The take rate to be set for the subnet.
-    ///
-    /// # Errors
-    /// Returns `Error::<T>::NetworkDoesNotExist` if the subnet does not exist.
-    /// Returns `Error::<T>::TakeExceedsDefault` if the take exceeds the initial default take.
-    pub fn do_set_delegate_take(origin: T::RuntimeOrigin, hotkey: &T::AccountId, netuid: u16, take: u16) -> dispatch::DispatchResult {
-        let coldkey = ensure_signed(origin)?;
-        log::trace!(
-            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
-            coldkey,
-            hotkey,
-            take
-        );
-        // Check if the subnet exists before setting the take.
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
-        );
-
- 
-                // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
-                let max_take = T::InitialDefaultTake::get();
-                ensure!(
-                    take <= max_take,
-                    Error::<T>::InvalidTake
-                );
-        
-                // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
-                let block: u64 = Self::get_current_block_as_u64();
-                ensure!(
-                    !Self::exceeds_tx_delegate_take_rate_limit(Self::get_last_tx_block_delegate_take(&hotkey), block),
-                    Error::<T>::TxRateLimitExceeded
-                );
-        
-                // Set last block for rate limiting
-                Self::set_last_tx_block_delegate_take(&hotkey, block);
-
-        // Insert the take into the storage.
-        DelegatesTake::<T>::insert(hotkey, netuid, take);
-        Ok(())
-    }
-
-
     pub fn do_set_delegate_takes(origin: T::RuntimeOrigin, hotkey: &T::AccountId, takes: Vec<(u16, u16)>) -> dispatch::DispatchResult {
         let coldkey = ensure_signed(origin)?;
         log::trace!(

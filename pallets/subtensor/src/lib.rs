@@ -1511,7 +1511,11 @@ pub mod pallet {
         /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
         #[pallet::call_index(68)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
-        pub fn set_delegate_takes(origin: OriginFor<T>, hotkey: T::AccountId, takes: Vec<(u16, u16)>) -> DispatchResult {
+        pub fn set_delegate_takes(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            takes: Vec<(u16, u16)>,
+        ) -> DispatchResult {
             Self::do_set_delegate_takes(origin, &hotkey, takes)
         }
 
