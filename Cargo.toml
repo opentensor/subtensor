@@ -13,3 +13,8 @@ panic = "unwind"
 
 [profile.test]
 opt-level = 3
+
+[profile.production]
+inherits = "release"
+lto = true
+codegen-units = 1

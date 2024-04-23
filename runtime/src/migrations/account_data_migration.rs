@@ -2,6 +2,9 @@ use crate::*;
 use frame_support::log;
 use pallet_balances::ExtraFlags;
 
+#[cfg(feature = "try-runtime")]
+use sp_std::collections::btree_map::BTreeMap;
+
 mod prev {
     use super::*;
     use frame_support::{pallet_prelude::ValueQuery, storage_alias, Blake2_128Concat};
@@ -37,15 +40,27 @@ mod prev {
     >;
 }
 
+#[cfg(feature = "try-runtime")]
+#[derive(Encode, Decode)]
+enum PreUpgradeInfo {
+    MigrationAlreadyOccured,
+    MigrationShouldRun(
+        BTreeMap<AccountId, frame_system::AccountInfo<u32, pallet_balances::AccountData<Balance>>>,
+    ),
+}
+
 const TARGET: &'static str = "runtime::account_data_migration";
 pub struct Migration;
 impl OnRuntimeUpgrade for Migration {
     /// Save pre-upgrade account ids to check are decodable post-upgrade.
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-        use sp_std::collections::btree_map::BTreeMap;
-        log::info!(target: TARGET, "pre-upgrade");
+        // Skip migration if it already took place.
+        if migration_already_occured() {
+            return Ok(PreUpgradeInfo::MigrationAlreadyOccured.encode());
+        }
 
+        log::info!(target: TARGET, "pre-upgrade");
         // Save the expected post-migration account state.
         let mut expected_account: BTreeMap<
             AccountId,
@@ -77,11 +92,20 @@ impl OnRuntimeUpgrade for Migration {
             expected_account.insert(acc_id, expected_acc);
         }
 
-        Ok(expected_account.encode())
+        Ok(PreUpgradeInfo::MigrationShouldRun(expected_account).encode())
     }
 
     /// Migrates Account storage to the new format, and calls `ensure_upgraded` for them.
     fn on_runtime_upgrade() -> Weight {
+        // Skip migration if it already took place.
+        if migration_already_occured() {
+            log::warn!(
+            target: TARGET,
+            "Migration already completed and can be removed.",
+            );
+            return <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0u64, 0u64);
+        }
+
         // Pull the storage in the previous format into memory
         let accounts = prev::Account::<Runtime>::iter().collect::<Vec<_>>();
         log::info!(target: TARGET, "Migrating {} accounts...", accounts.len());
@@ -119,42 +143,63 @@ impl OnRuntimeUpgrade for Migration {
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
         use frame_support::ensure;
-        use sp_std::collections::btree_map::BTreeMap;
 
         log::info!(target: TARGET, "Running post-upgrade...");
 
-        let expected_accounts: BTreeMap<
-            AccountId,
-            frame_system::AccountInfo<u32, pallet_balances::AccountData<Balance>>,
-        > = Decode::decode(&mut &state[..]).expect("decoding state failed");
+        let pre_upgrade_data: PreUpgradeInfo =
+            Decode::decode(&mut &state[..]).expect("decoding state failed");
 
-        // Ensure the actual post-migration state matches the expected
-        for (acc_id, acc) in frame_system::pallet::Account::<Runtime>::iter() {
-            let expected = expected_accounts.get(&acc_id).expect("account not found");
+        match pre_upgrade_data {
+            PreUpgradeInfo::MigrationAlreadyOccured => Ok(()),
+            PreUpgradeInfo::MigrationShouldRun(expected_accounts) => {
+                // Ensure the actual post-migration state matches the expected
+                for (acc_id, acc) in frame_system::pallet::Account::<Runtime>::iter() {
+                    let expected = expected_accounts.get(&acc_id).expect("account not found");
 
-            // New system logic nukes the account if no providers or sufficients.
-            if acc.providers > 0 || acc.sufficients > 0 {
-                ensure!(acc.nonce == expected.nonce, "nonce mismatch");
-                ensure!(acc.consumers == expected.consumers, "consumers mismatch");
-                ensure!(acc.providers == expected.providers, "providers mismatch");
-                ensure!(
-                    acc.sufficients == expected.sufficients,
-                    "sufficients mismatch"
-                );
-                ensure!(acc.data.free == expected.data.free, "data.free mismatch");
-                ensure!(
-                    acc.data.reserved == expected.data.reserved,
-                    "data.reserved mismatch"
-                );
-                ensure!(
-                    acc.data.frozen == expected.data.frozen,
-                    "data.frozen mismatch"
-                );
-                ensure!(acc.data.flags == expected.data.flags, "data.flags mismatch");
+                    // New system logic nukes the account if no providers or sufficients.
+                    if acc.providers > 0 || acc.sufficients > 0 {
+                        ensure!(acc.nonce == expected.nonce, "nonce mismatch");
+                        ensure!(acc.consumers == expected.consumers, "consumers mismatch");
+                        ensure!(acc.providers == expected.providers, "providers mismatch");
+                        ensure!(
+                            acc.sufficients == expected.sufficients,
+                            "sufficients mismatch"
+                        );
+                        ensure!(acc.data.free == expected.data.free, "data.free mismatch");
+                        ensure!(
+                            acc.data.reserved == expected.data.reserved,
+                            "data.reserved mismatch"
+                        );
+                        ensure!(
+                            acc.data.frozen == expected.data.frozen,
+                            "data.frozen mismatch"
+                        );
+                        ensure!(acc.data.flags == expected.data.flags, "data.flags mismatch");
+                    }
+                }
+
+                log::info!(target: TARGET, "post-upgrade success ✅");
+                Ok(())
             }
         }
-
-        log::info!(target: TARGET, "post-upgrade success ✅");
-        Ok(())
     }
+}
+
+/// Check if the migration already took place. The migration is all-or-nothing, so if one
+/// account is migrated we know that the rest also must be migrated.
+///
+/// We can use the nonce to check if it's been migrated, because it being zero meant that
+/// the decode succeeded and this account has been migrated already.
+///
+/// Performance note: While this may appear poor for performance due to touching all keys,
+/// these keys will need to be touched anyway, so it's fine to just touch them loading them into
+/// the storage overlay here.
+fn migration_already_occured() -> bool {
+    for (_, acc) in frame_system::pallet::Account::<Runtime>::iter() {
+        if acc.nonce > 0 {
+            return true;
+        };
+    }
+
+    false
 }

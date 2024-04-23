@@ -352,3 +352,54 @@ jobs:
 
       - name: Check features
         run: zepter run check
+
+  check-finney-migrations:
+    name: check finney migrations
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Run Try Runtime Checks
+        uses: "paritytech/try-runtime-gha@v0.1.0"
+        with:
+          runtime-package: "node-subtensor-runtime"
+          node-uri: "wss://entrypoint-finney.opentensor.ai:443"
+          checks: "pre-and-post"
+          extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
+
+  # ----
+  # We can enable devnet and finney migrations once Polkadot v1.0 is deployed to finney, after
+  # which time all future migrations should be idempotent and won't start failing after the
+  # upgrade is deployed.
+  # ----
+  # check-devnet-migrations:
+  #   name: check devnet migrations
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v3
+  #
+  #     - name: Run Try Runtime Checks
+  #       uses: "paritytech/try-runtime-gha@v0.1.0"
+  #       with:
+  #         runtime-package: "node-subtensor-runtime"
+  #         node-uri: "wss://dev.chain.opentensor.ai:443"
+  #         checks: "pre-and-post"
+  #         extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
+  #
+  # check-testnet-migrations:
+  #   name: check testnet migrations
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v3
+  #
+  #     - name: Run Try Runtime Checks
+  #       uses: "paritytech/try-runtime-gha@v0.1.0"
+  #       with:
+  #         runtime-package: "node-subtensor-runtime"
+  #         node-uri: "wss://test.chain.opentensor.ai:443"
+  #         checks: "pre-and-post"
+  #         extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
+  #

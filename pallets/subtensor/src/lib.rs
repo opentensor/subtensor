@@ -74,7 +74,7 @@ pub mod pallet {
 
     // Tracks version for migrations. Should be monotonic with respect to the
     // order of migrations. (i.e. always increasing)
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
