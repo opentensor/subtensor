@@ -850,7 +850,7 @@ impl<T: Config> Pallet<T> {
         DelegatesTake::<T>::get(hotkey, netuid)
     }
 
-     /// Sets the delegator takes for subnets if the subnet exists.
+    /// Sets the delegator takes for subnets if the subnet exists and does not exceed the initial default take.
     ///
     /// # Arguments
     /// * `hotkey` - The account ID of the hotkey.
@@ -859,6 +859,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Errors
     /// Returns `Error::<T>::NetworkDoesNotExist` if the subnet does not exist.
+    /// Returns `Error::<T>::TakeExceedsDefault` if the take exceeds the initial default take.
     pub fn set_delegate_take(hotkey: &T::AccountId, netuid: u16, take: u16) -> dispatch::DispatchResult {
         // Check if the subnet exists before setting the take.
         ensure!(
@@ -866,13 +867,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkDoesNotExist
         );
 
+        // Ensure the take does not exceed the initial default take.
+        ensure!(
+            take <= T::InitialDefaultTake::get(),
+            Error::<T>::InvalidTake
+        );
+
         // Insert the take into the storage.
         DelegatesTake::<T>::insert(hotkey, netuid, take);
         Ok(())
     }
 
-
-    /// Sets the delegator takes for multiple subnets if the subnets exist.
+    /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take.
     ///
     /// # Arguments
     /// * `hotkey` - The account ID of the hotkey.
@@ -880,12 +886,19 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Errors
     /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+    /// Returns `Error::<T>::TakeExceedsDefault` if any take exceeds the initial default take.
     pub fn set_delegate_takes(hotkey: &T::AccountId, takes: Vec<(u16, u16)>) -> dispatch::DispatchResult {
         for (netuid, take) in takes {
             // Check if the subnet exists before setting the take.
             ensure!(
                 Self::if_subnet_exist(netuid),
                 Error::<T>::NetworkDoesNotExist
+            );
+
+            // Ensure the take does not exceed the initial default take.
+            ensure!(
+                take <= T::InitialDefaultTake::get(),
+                Error::<T>::InvalidTake
             );
 
             // Insert the take into the storage.

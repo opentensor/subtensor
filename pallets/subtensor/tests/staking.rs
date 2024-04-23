@@ -4363,7 +4363,7 @@ fn set_delegate_takes_updates_delegates_correctly() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
-        let takes = vec![(1u16, 10u16), (2u16, 15u16)];
+        let takes = vec![(1u16, 10u16), (2u16, 15u16)]; // Ensure these values are within the InitialDefaultTake limit
 
         // Create subnets and register as delegates
         let tempo: u16 = 13;
@@ -4373,7 +4373,10 @@ fn set_delegate_takes_updates_delegates_correctly() {
         }
 
         // Action: Call set_delegate_takes
-        assert_ok!(SubtensorModule::set_delegate_takes(&hotkey.into(), takes.clone()));
+        assert_ok!(SubtensorModule::set_delegate_takes(
+            &hotkey.into(),
+            takes.clone()
+        ));
 
         for (netuid, take) in takes {
             let actual_take = SubtensorModule::get_delegate_take(&hotkey.into(), netuid);
@@ -4384,11 +4387,9 @@ fn set_delegate_takes_updates_delegates_correctly() {
                 actual_take
             );
             assert_eq!(
-                actual_take,
-                take,
+                actual_take, take,
                 "The delegate take for netuid {} should be updated to {}",
-                netuid,
-                take
+                netuid, take
             );
         }
     });
@@ -4397,11 +4398,12 @@ fn set_delegate_takes_updates_delegates_correctly() {
 #[test]
 fn set_delegate_takes_handles_empty_vector() {
     new_test_ext(1).execute_with(|| {
-        let hotkey = U256::from(1); 
-        let takes: Vec<(u16, u16)> = vec![]; 
+        let hotkey = U256::from(1);
+        let takes: Vec<(u16, u16)> = vec![];
 
         assert_ok!(SubtensorModule::set_delegate_takes(&hotkey.into(), takes));
 
+        // Assuming default take value is 32767, adjust if different
         assert_eq!(
             SubtensorModule::get_delegate_take(&hotkey.into(), 1),
             32767,
@@ -4418,14 +4420,29 @@ fn set_delegate_takes_handles_empty_vector() {
 #[test]
 fn set_delegate_takes_rejects_invalid_netuid() {
     new_test_ext(1).execute_with(|| {
-
         let hotkey = U256::from(1);
-        let takes = vec![(999u16, 10u16)]; 
+        let takes = vec![(999u16, 10u16)]; // Invalid netuid
 
-       
         assert_err!(
             SubtensorModule::set_delegate_takes(&hotkey.into(), takes),
             Error::<Test>::NetworkDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn set_delegate_takes_rejects_excessive_take() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey = U256::from(1);
+        let takes = vec![(1u16, 32_767 * 2)];
+        // Create subnet and register as delegate
+        let tempo: u16 = 13;
+        add_network(1, tempo, 0);
+        register_ok_neuron(1, hotkey, U256::from(2), 0);
+
+        assert_err!(
+            SubtensorModule::set_delegate_takes(&hotkey.into(), takes),
+            Error::<Test>::InvalidTake
         );
     });
 }
