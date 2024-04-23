@@ -37,6 +37,23 @@ impl<T: Config> Pallet<T> {
         local_stake_64
     }
 
+    fn get_stakes( netuid: u16, hotkeys: &Vec<(u16, T::AccountId)> ) -> Vec<I32F32> {
+        // Get the stake weight alpha
+        let alpha: I64F64 = Self::get_global_stake_weight_float();
+
+        // Get local and global terms.
+        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights( netuid, &hotkeys );
+        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights( &hotkeys );
+
+        // Average local and global weights.
+        let averaged_stake_64: Vec<I64F64> = local_stake_weights.iter().zip( global_stake_weights.iter()).map(
+               |(local, global)| (I64F64::from_num(1.0) - alpha)*(*local) + alpha * (*global)
+        ).collect();
+
+        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
+        vec_fixed64_to_fixed32( averaged_stake_64 )
+    }
+
     // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     // (Dense version used only for testing purposes.)
     pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
@@ -101,20 +118,7 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Stake values. ==
         // ===================
-        // Get the stake weight alpha
-        let alpha: I64F64 = Self::get_global_stake_weight_float();
-
-        // Get local and global terms.
-        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights( netuid, &hotkeys );
-        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights( &hotkeys );
-
-        // Average local and global weights.
-        let averaged_stake_64: Vec<I64F64> = local_stake_weights.iter().zip( global_stake_weights.iter()).map(
-               |(local, global)| (I64F64::from_num(1.0) - alpha)*(*local) + alpha * (*global)
-        ).collect();
-   
-        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32( averaged_stake_64 );
+        let stake = Self::get_stakes( netuid, &hotkeys );
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -442,20 +446,7 @@ impl<T: Config> Pallet<T> {
         // ===========
         // == Stake ==
         // ===========
-        // Get the stake weight alpha
-        let alpha: I64F64 = Self::get_global_stake_weight_float();
-
-        // Get local and global terms.
-        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights( netuid, &hotkeys );
-        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights( &hotkeys );
-
-        // Average local and global weights.
-        let averaged_stake_64: Vec<I64F64> = local_stake_weights.iter().zip( global_stake_weights.iter()).map(
-               |(local, global)| (I64F64::from_num(1.0) - alpha)*(*local) + alpha * (*global)
-        ).collect();
-
-        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32( averaged_stake_64 );
+        let stake = Self::get_stakes( netuid, &hotkeys );
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
