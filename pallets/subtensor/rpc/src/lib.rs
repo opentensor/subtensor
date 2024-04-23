@@ -32,11 +32,18 @@ pub trait SubtensorCustomApi<BlockHash> {
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 
-
     #[method(name = "delegateInfo_getSubStakeForHotkey")]
-    fn get_substake_for_hotkey(&self, hotkey_bytes: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_substake_for_hotkey(
+        &self,
+        hotkey_bytes: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getSubStakeForColdkey")]
-    fn get_substake_for_coldkey(&self, coldkey_bytes: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_substake_for_coldkey(
+        &self,
+        coldkey_bytes: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getSubStakeForNetuid")]
     fn get_substake_for_netuid(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
@@ -130,15 +137,14 @@ where
     C::Api: SubnetRegistrationRuntimeApi<Block>,
     C::Api: StakeInfoRuntimeApi<Block>,
 {
-
     fn get_substake_for_hotkey(
-        &self, 
+        &self,
         hotkey_bytes: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_hotkey( at, hotkey_bytes ).map_err(|e| {
+        api.get_substake_for_hotkey(at, hotkey_bytes).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get delegates info.",
@@ -149,30 +155,31 @@ where
     }
 
     fn get_substake_for_coldkey(
-        &self, 
+        &self,
         coldkey_bytes: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_coldkey( at, coldkey_bytes ).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegates info.",
-                Some(e.to_string()),
-            ))
-            .into()
-        })
+        api.get_substake_for_coldkey(at, coldkey_bytes)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to get delegates info.",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
     }
 
     fn get_substake_for_netuid(
-        &self, 
+        &self,
         netuid: u16,
-        at: Option<<Block as BlockT>::Hash>
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_netuid( at, netuid ).map_err(|e| {
+        api.get_substake_for_netuid(at, netuid).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get delegates info.",
@@ -363,7 +370,7 @@ where
                 Some(e.to_string()),
             ))
             .into()
-        })  
+        })
     }
 
     fn get_subnet_stake_info_for_cold_key(

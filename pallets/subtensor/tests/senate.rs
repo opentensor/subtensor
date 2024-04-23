@@ -95,7 +95,10 @@ fn test_senate_join_works() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey_account_id, netuid), InitialDefaultTake::get());
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
+            InitialDefaultTake::get()
+        );
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
@@ -169,7 +172,10 @@ fn test_senate_vote_works() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey_account_id, netuid), InitialDefaultTake::get());
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
+            InitialDefaultTake::get()
+        );
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
@@ -418,7 +424,10 @@ fn test_senate_leave_vote_removal() {
             coldkey_origin.clone(),
             hotkey_account_id
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey_account_id, netuid), InitialDefaultTake::get());
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
+            InitialDefaultTake::get()
+        );
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
