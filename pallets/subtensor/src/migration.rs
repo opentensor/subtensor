@@ -1,4 +1,5 @@
 use super::*;
+use frame_support::traits::DefensiveResult;
 use frame_support::{
     inherent::Vec,
     pallet_prelude::{Identity, OptionQuery},
@@ -22,30 +23,37 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
-
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
 /// This migration is applicable only if the current storage version is 5, after which it updates the storage version to 6.
 ///
 /// # Returns
 /// Weight of the migration process.
-pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
+pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
     let mut weight = T::DbWeight::get().reads(1); // Initialize migration weight
 
     // Execute migration if the current storage version is 5
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
         // Calculate the sum of all stake values
-        let stake_sum: u64 = Stake::<T>::iter()
-            .fold(0, |accumulator, (_, _, stake_value)| accumulator.saturating_add(stake_value));
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
+        let stake_sum: u64 = Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
+            accumulator.saturating_add(stake_value)
+        });
+        weight = weight
+            .saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
 
         // Calculate the sum of all stake values
         let locked_sum: u64 = SubnetLocked::<T>::iter()
-            .fold(0, |accumulator, (_, locked_value)| accumulator.saturating_add(locked_value));
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0));
+            .fold(0, |accumulator, (_, locked_value)| {
+                accumulator.saturating_add(locked_value)
+            });
+        weight = weight.saturating_add(
+            T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0),
+        );
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
-        let total_balance_sum: u64 = total_balance.try_into().unwrap_or_else(|_| panic!("Conversion must be within range"));
+        let total_balance_sum: u64 = total_balance
+            .try_into()
+            .unwrap_or_else(|_| panic!("Conversion must be within range"));
         weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
         // Compute the total issuance value
@@ -153,8 +161,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i);
-        T::SenateMembers::remove_member(&hotkey_i);
+        T::TriumvirateInterface::remove_votes(&hotkey_i).defensive_ok();
+        T::SenateMembers::remove_member(&hotkey_i).defensive_ok();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }

@@ -2426,3 +2426,141 @@ fn test_faucet_ok() {
         ));
     });
 }
+
+/// This test ensures that the clear_small_nominations function works as expected.
+/// It creates a network with two hotkeys and two coldkeys, and then registers a nominator account for each hotkey.
+/// When we call set_nominator_min_required_stake, it should clear all small nominations that are below the minimum required stake.
+/// Run this test using: cargo test --package pallet-subtensor --test staking test_clear_small_nominations
+#[test]
+fn test_clear_small_nominations() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Create accounts.
+        let netuid = 1;
+        let hot1 = U256::from(1);
+        let hot2 = U256::from(2);
+        let cold1 = U256::from(3);
+        let cold2 = U256::from(4);
+
+        SubtensorModule::set_target_stakes_per_interval(10);
+        // Register hot1 and hot2 .
+        add_network(netuid, 0, 0);
+
+        // Register hot1.
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(cold1),
+            hot1,
+            0
+        ));
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+
+        // Register hot2.
+        register_ok_neuron(netuid, hot2, cold2, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(cold2),
+            hot2,
+            0
+        ));
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+
+        // Add stake cold1 --> hot1 (non delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold1),
+            hot1,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold1), 4);
+
+        // Add stake cold2 --> hot1 (is delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold2),
+            hot1,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold2), 4);
+
+        // Add stake cold1 --> hot2 (non delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold1),
+            hot2,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold1), 8);
+
+        // Add stake cold2 --> hot2 (is delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold2),
+            hot2,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold2), 8);
+
+        // Run clear all small nominations when min stake is zero (noop)
+        SubtensorModule::set_nominator_min_required_stake(0);
+        SubtensorModule::clear_small_nominations();
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            1
+        );
+
+        // Set min nomination to 10
+        SubtensorModule::set_nominator_min_required_stake(10);
+
+        // Run clear all small nominations (removes delegations under 10)
+        SubtensorModule::clear_small_nominations();
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            1
+        );
+
+        // Balances have been added back into accounts.
+        assert_eq!(Balances::free_balance(cold1), 9);
+        assert_eq!(Balances::free_balance(cold2), 9);
+    });
+}
