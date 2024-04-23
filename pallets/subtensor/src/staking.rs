@@ -165,6 +165,18 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
+        // --- 7. If this is a nomination stake, check if total stake after adding will be above
+        // the minimum required stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_add =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
+
+            ensure!(
+                total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
         // --- 8. Ensure the remove operation from the coldkey is a success.
         ensure!(
             Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()) == true,
@@ -282,17 +294,29 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 7. We remove the balance from the hotkey.
+        // --- 7. If this is a nomination stake, check if total stake after removing will be above
+        // the minimum required stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_remove =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
+
+            ensure!(
+                total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
+        // --- 8. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 9. Emit the unstaking event.
+        // --- 10. Emit the unstaking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
@@ -306,7 +330,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 10. Done and ok.
+        // --- 11. Done and ok.
         Ok(())
     }
 

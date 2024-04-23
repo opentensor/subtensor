@@ -405,7 +405,7 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultNominatorMinRequiredStake<T: Config>() -> u64 {
-        1_000_000_000 // TODO: Confirm this is the correct amount?
+        0
     }
     #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
@@ -981,6 +981,8 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        /// Thrown a stake would be below the minimum threshold for nominator validations
+        NomStakeBelowMinimumThreshold,
     }
 
     // ==================
