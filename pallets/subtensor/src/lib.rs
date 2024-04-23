@@ -34,20 +34,21 @@ mod benchmarks;
 // =========================
 //	==== Pallet Imports =====
 // =========================
-mod block_step;
+pub mod block_step;
 
-mod epoch;
-mod math;
-mod registration;
-mod root;
-mod serving;
-mod staking;
+pub mod epoch;
+pub mod math;
+pub mod registration;
+pub mod root;
+pub mod serving;
+pub mod staking;
 pub mod types;
-mod uids;
-mod utils;
-mod weights;
+pub mod uids;
+pub mod utils;
+pub mod weights;
 
 pub mod delegate_info;
+pub mod dynamic_pool_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
@@ -190,6 +191,8 @@ pub mod pallet {
         type InitialNetworkRateLimit: Get<u64>;
         #[pallet::constant] // Initial target stakes per interval issuance.
         type InitialTargetStakesPerInterval: Get<u64>;
+        #[pallet::constant] // Initial subnet lock period
+        type InitialSubnetOwnerLockPeriod: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -255,6 +258,11 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultSubnetOwnerLockPeriod<T: Config>() -> u64 {
+        T::InitialSubnetOwnerLockPeriod::get()
     }
 
     #[pallet::type_value]
@@ -358,6 +366,9 @@ pub mod pallet {
     pub type DynamicK<T> = StorageMap<_, Identity, u16, u128, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> is_subnet_dynamic | Returns true if the network is using dynamic staking.
     pub type IsDynamic<T> = StorageMap<_, Identity, u16, bool, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
+    pub type SubnetOwnerLockPeriod<T> =
+        StorageValue<_, u64, ValueQuery, DefaultSubnetOwnerLockPeriod<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====

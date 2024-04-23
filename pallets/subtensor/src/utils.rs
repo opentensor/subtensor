@@ -666,4 +666,45 @@ impl<T: Config> Pallet<T> {
     pub fn set_delegate_limit(delegate_limit: u32) {
         DelegateLimit::<T>::put(delegate_limit);
     }
+
+    pub fn get_subnet_owner_lock_period() -> u64 {
+        SubnetOwnerLockPeriod::<T>::get()
+    }
+
+    pub fn set_subnet_owner_lock_period(subnet_owner_lock_period: u64) {
+        SubnetOwnerLockPeriod::<T>::set(subnet_owner_lock_period);
+    }
+
+    /// Calculates the slippage for both staking and unstaking operations.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier for the network (subnet).
+    /// * `stake_change` - The amount of stake being added (positive) or removed (negative).
+    ///
+    /// # Returns
+    /// * `I64F64` - The slippage amount, which is the difference in price.
+    pub fn calculate_slippage(
+        netuid: u16,
+        stake_change: i64, // Positive for staking, negative for unstaking
+    ) -> I64F64 {
+        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+        let k = DynamicK::<T>::get(netuid);
+
+        // Calculate new reserves based on whether stake is being added or removed
+        let new_dynamic_reserve = if stake_change > 0 {
+            dynamic_reserve.saturating_add(stake_change as u64)
+        } else {
+            dynamic_reserve.saturating_sub(stake_change.abs() as u64)
+        };
+
+        let new_tao_reserve = (k / new_dynamic_reserve as u128) as u64;
+
+        let initial_price = I64F64::from_num(tao_reserve) / I64F64::from_num(dynamic_reserve);
+        let new_price = I64F64::from_num(new_tao_reserve) / I64F64::from_num(new_dynamic_reserve);
+
+        // Slippage is the difference in price
+        let slippage = initial_price - new_price;
+        slippage
+    }
 }

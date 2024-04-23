@@ -13,8 +13,8 @@ use sp_api::ProvideRuntimeApi;
 
 use pallet_subtensor::types::TensorBytes;
 pub use subtensor_custom_rpc_runtime_api::{
-    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
-    SubnetRegistrationRuntimeApi,
+    DelegateInfoRuntimeApi, DynamicPoolInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi,
+    SubnetInfoRuntimeApi, SubnetRegistrationRuntimeApi,
 };
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
@@ -95,6 +95,10 @@ pub trait SubtensorCustomApi<BlockHash> {
         coldkey_account_vec: TensorBytes,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name = "dynamicPoolInfo_getDynamicPoolInfo")]
+    fn get_dynamic_pool_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "dynamicPoolInfo_getAllDynamicPoolInfos")]
+    fn get_all_dynamic_pool_infos(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -136,6 +140,7 @@ where
     C::Api: SubnetInfoRuntimeApi<Block>,
     C::Api: SubnetRegistrationRuntimeApi<Block>,
     C::Api: StakeInfoRuntimeApi<Block>,
+    C::Api: DynamicPoolInfoRuntimeApi<Block>,
 {
     fn get_substake_for_hotkey(
         &self,
@@ -467,5 +472,40 @@ where
                 ))
                 .into()
             })
+    }
+
+    fn get_dynamic_pool_info(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_dynamic_pool_info(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get dynamic pool info.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_all_dynamic_pool_infos(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_all_dynamic_pool_infos(at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get all dynamic pool infos.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
     }
 }

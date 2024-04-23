@@ -61,6 +61,7 @@ where
     C::Api: subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block>,
     C::Api: subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block>,
     C::Api: subtensor_custom_rpc_runtime_api::StakeInfoRuntimeApi<Block>,
+    C::Api: subtensor_custom_rpc_runtime_api::DynamicPoolInfoRuntimeApi<Block>,
     B: sc_client_api::Backend<Block> + Send + Sync + 'static,
     P: TransactionPool + 'static,
 {
