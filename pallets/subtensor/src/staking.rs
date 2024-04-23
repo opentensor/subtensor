@@ -158,11 +158,26 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Ensure we don't exceed stake rate limit
-        let stakes_this_interval = Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
+        let stakes_this_interval =
+            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
             stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
         );
+
+        // --- 7. If this is a nomination stake, check if total stake after adding will be above
+        // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_add =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
+
+            ensure!(
+                total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
         ensure!(
@@ -274,23 +289,38 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Ensure we don't exceed stake rate limit
-        let unstakes_this_interval = Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
+        let unstakes_this_interval =
+            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
             unstakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 7. We remove the balance from the hotkey.
+        // --- 7. If this is a nomination stake, check if total stake after removing will be above
+        // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_remove =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
+
+            ensure!(
+                total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
+        // --- 8. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 9. Emit the unstaking event.
+        // --- 10. Emit the unstaking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
@@ -304,7 +334,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 10. Done and ok.
+        // --- 11. Done and ok.
         Ok(())
     }
 
@@ -357,7 +387,10 @@ impl<T: Config> Pallet<T> {
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
-    pub fn get_stakes_this_interval_for_coldkey_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
+    pub fn get_stakes_this_interval_for_coldkey_hotkey(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> u64 {
         // Retrieve the configured stake interval duration from storage.
         let stake_interval = StakeInterval::<T>::get();
 
@@ -365,7 +398,8 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
 
         // Fetch the total stakes and the last block number when stakes were made for the hotkey.
-        let (stakes, block_last_staked_at) = TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
+        let (stakes, block_last_staked_at) =
+            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
 
         // Calculate the block number after which the stakes for the hotkey should be reset.
         let block_to_reset_after = block_last_staked_at + stake_interval;
@@ -374,7 +408,12 @@ impl<T: Config> Pallet<T> {
         // it indicates the end of the staking interval for the hotkey.
         if block_to_reset_after <= current_block {
             // Reset the stakes for this hotkey for the current interval.
-            Self::set_stakes_this_interval_for_coldkey_hotkey(coldkey, hotkey, 0, block_last_staked_at);
+            Self::set_stakes_this_interval_for_coldkey_hotkey(
+                coldkey,
+                hotkey,
+                0,
+                block_last_staked_at,
+            );
             // Return 0 as the stake amount since we've just reset the stakes.
             return 0;
         }
@@ -486,6 +525,56 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+    }
+
+    /// Empties the stake associated with a given coldkey-hotkey account pairing.
+    /// This function retrieves the current stake for the specified coldkey-hotkey pairing,
+    /// then subtracts this stake amount from both the TotalColdkeyStake and TotalHotkeyStake.
+    /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
+    /// and TotalIssuance by subtracting the removed stake amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
+    /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
+    pub fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId) {
+        let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
+        TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
+        TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
+        Stake::<T>::remove(hotkey, coldkey);
+        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
+        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+    }
+
+    /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
+    pub fn clear_small_nomination_if_required(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        stake: u64,
+    ) {
+        // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            // If the stake is below the minimum required, it's considered a small nomination and needs to be cleared.
+            if stake < Self::get_nominator_min_required_stake() {
+                // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
+                // Actually deletes the staking account.
+                Self::empty_stake_on_coldkey_hotkey_account(&coldkey, &hotkey);
+                // Convert the removed stake back to balance and add it to the coldkey account.
+                let stake_as_balance = Self::u64_to_balance(stake);
+                Self::add_balance_to_coldkey_account(&coldkey, stake_as_balance.unwrap());
+            }
+        }
+    }
+
+    /// Clears small nominations for all accounts.
+    ///
+    /// WARN: This is an O(N) operation, where N is the number of staking accounts. It should be
+    /// used with caution.
+    pub fn clear_small_nominations() {
+        // Loop through all staking accounts to identify and clear nominations below the minimum stake.
+        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, stake);
+        }
     }
 
     pub fn u64_to_balance(

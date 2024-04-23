@@ -4,7 +4,7 @@ mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
-use pallet_subtensor::Error;
+use pallet_subtensor::*;
 use sp_core::{H256, U256};
 
 /***********************************************************
@@ -2425,4 +2425,275 @@ fn test_faucet_ok() {
             vec_work
         ));
     });
+}
+
+/// This test ensures that the clear_small_nominations function works as expected.
+/// It creates a network with two hotkeys and two coldkeys, and then registers a nominator account for each hotkey.
+/// When we call set_nominator_min_required_stake, it should clear all small nominations that are below the minimum required stake.
+/// Run this test using: cargo test --package pallet-subtensor --test staking test_clear_small_nominations
+#[test]
+fn test_clear_small_nominations() {
+    new_test_ext().execute_with(|| {
+        System::set_block_number(1);
+
+        // Create accounts.
+        let netuid = 1;
+        let hot1 = U256::from(1);
+        let hot2 = U256::from(2);
+        let cold1 = U256::from(3);
+        let cold2 = U256::from(4);
+
+        SubtensorModule::set_target_stakes_per_interval(10);
+        // Register hot1 and hot2 .
+        add_network(netuid, 0, 0);
+
+        // Register hot1.
+        register_ok_neuron(netuid, hot1, cold1, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(cold1),
+            hot1,
+            0
+        ));
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+
+        // Register hot2.
+        register_ok_neuron(netuid, hot2, cold2, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(cold2),
+            hot2,
+            0
+        ));
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+
+        // Add stake cold1 --> hot1 (non delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold1),
+            hot1,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold1), 4);
+
+        // Add stake cold2 --> hot1 (is delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold2),
+            hot1,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold2), 4);
+
+        // Add stake cold1 --> hot2 (non delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold1),
+            hot2,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold1), 8);
+
+        // Add stake cold2 --> hot2 (is delegation.)
+        SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(cold2),
+            hot2,
+            1
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            1
+        );
+        assert_eq!(Balances::free_balance(cold2), 8);
+
+        // Run clear all small nominations when min stake is zero (noop)
+        SubtensorModule::set_nominator_min_required_stake(0);
+        SubtensorModule::clear_small_nominations();
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            1
+        );
+
+        // Set min nomination to 10
+        let total_cold1_stake_before = TotalColdkeyStake::<Test>::get(cold1);
+        let total_cold2_stake_before = TotalColdkeyStake::<Test>::get(cold2);
+        let total_hot1_stake_before = TotalHotkeyStake::<Test>::get(hot1);
+        let total_hot2_stake_before = TotalHotkeyStake::<Test>::get(hot2);
+        let _ = Stake::<Test>::try_get(&hot2, &cold1).unwrap(); // ensure exists before
+        let _ = Stake::<Test>::try_get(&hot1, &cold2).unwrap(); // ensure exists before
+        let total_stake_before = TotalStake::<Test>::get();
+        SubtensorModule::set_nominator_min_required_stake(10);
+
+        // Run clear all small nominations (removes delegations under 10)
+        SubtensorModule::clear_small_nominations();
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+            1
+        );
+
+        // Balances have been added back into accounts.
+        assert_eq!(Balances::free_balance(cold1), 9);
+        assert_eq!(Balances::free_balance(cold2), 9);
+
+        // Internal storage is updated
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(cold2),
+            total_cold2_stake_before - 1
+        );
+        assert_eq!(
+            TotalHotkeyStake::<Test>::get(hot2),
+            total_hot2_stake_before - 1
+        );
+        Stake::<Test>::try_get(&hot2, &cold1).unwrap_err();
+        Stake::<Test>::try_get(&hot1, &cold2).unwrap_err();
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(cold1),
+            total_cold1_stake_before - 1
+        );
+        assert_eq!(
+            TotalHotkeyStake::<Test>::get(hot1),
+            total_hot1_stake_before - 1
+        );
+        Stake::<Test>::try_get(&hot2, &cold1).unwrap_err();
+        assert_eq!(TotalStake::<Test>::get(), total_stake_before - 2);
+    });
+}
+
+/// Test that the nominator minimum staking threshold is enforced when stake is added.
+#[test]
+fn test_add_stake_below_minimum_threshold() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(0);
+        let hotkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let minimum_threshold = 10_000_000;
+        let amount_below = 50_000;
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 100_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 100_000);
+        SubtensorModule::set_nominator_min_required_stake(minimum_threshold);
+        SubtensorModule::set_target_stakes_per_interval(10);
+
+        // Create network
+        add_network(netuid, 0, 0);
+
+        // Register the neuron to a new network.
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        assert_ok!(SubtensorModule::become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Coldkey staking on its own hotkey can stake below min threshold.
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1,
+            amount_below
+        ));
+
+        // Nomination stake cannot stake below min threshold.
+        assert_noop!(
+            SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+                hotkey1,
+                amount_below
+            ),
+            pallet_subtensor::Error::<Test>::NomStakeBelowMinimumThreshold
+        );
+    });
+}
+
+/// Test that the nominator minimum staking threshold is enforced when stake is removed.
+#[test]
+fn test_remove_stake_below_minimum_threshold() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(0);
+        let hotkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let initial_balance = 200_000_000;
+        let initial_stake = 100_000;
+        let minimum_threshold = 50_000;
+        let stake_amount_to_remove = 51_000;
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, initial_balance);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, initial_balance);
+        SubtensorModule::set_nominator_min_required_stake(minimum_threshold);
+        SubtensorModule::set_target_stakes_per_interval(10);
+
+        // Create network
+        add_network(netuid, 0, 0);
+
+        // Register the neuron to a new network.
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        assert_ok!(SubtensorModule::become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1,
+            initial_stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            initial_stake
+        ));
+
+        // Coldkey staking on its own hotkey can unstake below min threshold.
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1,
+            stake_amount_to_remove
+        ));
+
+        // Nomination stake cannot stake below min threshold.
+        assert_noop!(
+            SubtensorModule::remove_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+                hotkey1,
+                stake_amount_to_remove
+            ),
+            Error::<Test>::NomStakeBelowMinimumThreshold
+        );
+    })
 }
