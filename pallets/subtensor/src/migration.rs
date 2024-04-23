@@ -51,21 +51,25 @@ pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
-        let total_balance_sum: u64 = total_balance
-            .try_into()
-            .unwrap_or_else(|_| panic!("Conversion must be within range"));
-        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+        match TryInto::<u64>::try_into(total_balance) {
+            Ok(total_balance_sum) => {
+                weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
-        // Compute the total issuance value
-        let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
+                // Compute the total issuance value
+                let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
 
-        // Update the total issuance in storage
-        TotalIssuance::<T>::put(total_issuance_value);
+                // Update the total issuance in storage
+                TotalIssuance::<T>::put(total_issuance_value);
+
+                // Update the storage version to 6
+                StorageVersion::new(6).put::<Pallet<T>>();
+                weight = weight.saturating_add(T::DbWeight::get().writes(1));
+            }
+            Err(_) => {
+                log::error!("Failed to convert total balance to u64, bailing");
+            }
+        }
     }
-
-    // Update the storage version to 6
-    StorageVersion::new(6).put::<Pallet<T>>();
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     weight // Return the computed weight of the migration process
 }
