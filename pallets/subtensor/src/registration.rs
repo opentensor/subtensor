@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
         // Possibly there is no neuron slots at all.
         ensure!(
             Self::get_max_allowed_uids(netuid) != 0,
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::NoNeuronIdAvailable
         );
 
         if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
