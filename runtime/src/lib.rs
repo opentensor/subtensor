@@ -961,6 +961,18 @@ impl
     fn set_weights_min_stake(min_stake: u64) {
         SubtensorModule::set_weights_min_stake(min_stake);
     }
+
+    fn clear_small_nominations() {
+        SubtensorModule::clear_small_nominations();
+    }
+
+    fn set_nominator_min_required_stake(min_stake: u64) {
+        SubtensorModule::set_nominator_min_required_stake(min_stake);
+    }
+
+    fn get_nominator_min_required_stake() -> u64 {
+        SubtensorModule::get_nominator_min_required_stake()
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {
