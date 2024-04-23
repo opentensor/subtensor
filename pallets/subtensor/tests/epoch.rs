@@ -2101,102 +2101,23 @@ fn test_validator_permits() {
 
 
 
-
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // Test an epoch on a graph with a single item.
-// #[test]
-// fn test_1_graph() {
-//     new_test_ext(1).execute_with(|| {
-//         log::info!("test_1_graph:");
-//         let netuid: u16 = 1;
-//         let coldkey = U256::from(0);
-//         let hotkey = U256::from(0);
-//         let uid: u16 = 0;
-//         let stake_amount: u64 = 1;
-//         add_network(netuid, u16::MAX - 1, 0); // set higher tempo to avoid built-in epoch, then manual epoch instead
-//         SubtensorModule::set_global_stake_weight( 0 ); // Set the stake weight to 100% on this subnet alone.
-//         SubtensorModule::set_max_allowed_uids(netuid, 1);
-//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-//         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-//             &coldkey,
-//             &hotkey,
-//             netuid,
-//             stake_amount,
-//         );
-//         SubtensorModule::append_neuron(netuid, &hotkey, 0);
-//         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
-//         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
-//         assert_ok!(SubtensorModule::set_weights(
-//             RuntimeOrigin::signed(U256::from(uid)),
-//             netuid,
-//             vec![uid as u16],
-//             vec![u16::MAX],
-//             0
-//         ));
-//         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
-//         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-//         SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]).unwrap();
-//         assert_eq!(
-//             SubtensorModule::get_subnet_emission_value(netuid),
-//             1_000_000_000
-//         );
-//         SubtensorModule::epoch(netuid, 1_000_000_000);
-//         assert_eq!(
-//             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-//             stake_amount
-//         );
-//         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
-//         assert_eq!(SubtensorModule::get_trust_for_uid(netuid, uid), 0);
-//         assert_eq!(SubtensorModule::get_consensus_for_uid(netuid, uid), 0);
-//         assert_eq!(SubtensorModule::get_incentive_for_uid(netuid, uid), 0);
-//         assert_eq!(SubtensorModule::get_dividends_for_uid(netuid, uid), 0);
-//         assert_eq!(
-//             SubtensorModule::get_emission_for_uid(netuid, uid),
-//             1_000_000_000
-//         );
-//     });
-// }
-
-
 #[test]
 fn test_get_stakes_1_subnet_1_hotkey_1_nominator_0_global_0_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16);
+        setup_dynamic_network(1u16, 1u16, 1u16);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
         let gsw = SubtensorModule::get_global_stake_weights(&hotkey_tuples);
 
         assert_eq!(gsw.len(), 1);
-        assert_eq!(gsw[0], 0.0); // No stake == no TAO == weight is 0
+        assert_eq!(gsw[0], 1.0); // New network, one stake == TAO == weight is 1
     });
 }
 
 #[test]
 fn test_get_stakes_1_subnet_1_hotkey_1_nominator_0_global_1_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16);
+        setup_dynamic_network(1u16, 1u16, 1u16);
         add_dynamic_stake(1u16, 1u16, 1u16, 1_000_000_000u64);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
@@ -2210,8 +2131,8 @@ fn test_get_stakes_1_subnet_1_hotkey_1_nominator_0_global_1_stake() {
 #[test]
 fn test_get_stakes_2_subnets_2_hotkeys_2_nominators_0_global_1_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16);
+        setup_dynamic_network(1u16, 1u16, 1u16);
+        setup_dynamic_network(2u16, 2u16, 2u16);
         add_dynamic_stake(1u16, 1u16, 1u16, 1_000_000_000u64);
         add_dynamic_stake(2u16, 2u16, 2u16, 1_000_000_000u64);
 
@@ -2227,9 +2148,9 @@ fn test_get_stakes_2_subnets_2_hotkeys_2_nominators_0_global_1_stake() {
 #[test]
 fn test_get_stakes_1_subnet_2_hotkeys_2_nominators_0_global_uneven_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16);
-        // add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
-        // add_dynamic_stake(1u16, 1u16, 2u16, 300_000_000_000u64);
+        setup_dynamic_network(1u16, 1u16, 1u16);
+        add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
+        add_dynamic_stake(1u16, 1u16, 2u16, 300_000_000_000u64);
 
         let hotkey_tuples = vec![(0u16, U256::from(1)), (1u16, U256::from(2))];
         let gsw = SubtensorModule::get_global_stake_weights(&hotkey_tuples);
@@ -2242,5 +2163,19 @@ fn test_get_stakes_1_subnet_2_hotkeys_2_nominators_0_global_uneven_stake() {
         assert_eq!(gsw.len(), 2);
         assert_eq!(gsw[0], 0.5);
         assert_eq!(gsw[1], 0.5);
+    });
+}
+
+#[test]
+fn test_get_stakes_division_by_zero_is_checked() {
+    new_test_ext(1).execute_with(|| {
+        setup_dynamic_network(1u16, 1u16, 1u16);
+        SubtensorModule::set_alpha_outstanding( 1u16, 0 );
+
+        let hotkey_tuples = vec![(0u16, U256::from(1))];
+        let gsw = SubtensorModule::get_global_stake_weights(&hotkey_tuples);
+
+        assert_eq!(gsw.len(), 1);
+        assert_eq!(gsw[0], 1.0);
     });
 }

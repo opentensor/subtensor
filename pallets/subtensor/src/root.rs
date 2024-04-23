@@ -788,10 +788,10 @@ impl<T: Config> Pallet<T> {
         // --- 6. Create a new network and set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        NetworkLastRegistered::<T>::set( current_block_number );        
+        NetworkLastRegistered::<T>::set( current_block_number );
         NetworkRegisteredAt::<T>::insert( netuid_to_register, current_block_number );
         log::debug!("init_new_network: {:?}", netuid_to_register,);
-        
+
         // --- 7. Set Subnet owner to the coldkey.
         SubnetOwner::<T>::insert( netuid_to_register, coldkey.clone() ); // Set the owner (which can change.)
         SubnetCreator::<T>::insert( netuid_to_register, hotkey.clone() ); // Set the creator hotkey (which is forever.)
@@ -804,6 +804,7 @@ impl<T: Config> Pallet<T> {
 
         DynamicTAOReserve::<T>::insert( netuid_to_register, initial_tao_reserve );
         DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve );
+        DynamicAlphaOutstanding::<T>::insert( netuid_to_register, initial_dynamic_outstanding );
         DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k );
         IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
 

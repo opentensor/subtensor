@@ -960,14 +960,12 @@ impl<T: Config> Pallet<T> {
                 let other_subnet_token: I64F64 = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, *netuid ));
                 let other_dynamic_outstanding: I64F64 = I64F64::from_num( DynamicAlphaOutstanding::<T>::get( *netuid ) );
                 let other_tao_reserve: I64F64 = I64F64::from_num( DynamicTAOReserve::<T>::get( *netuid ) );
-                let my_proportion: I64F64 = other_subnet_token / other_dynamic_outstanding;
-
-                let d1: f32 = other_subnet_token.to_num();
-                let d2: f32 = other_dynamic_outstanding.to_num();
-                let d3: f32 = other_tao_reserve.to_num();
-                let d4: f32 = my_proportion.to_num();
-                print!("{d1}{d2}{d3}{d4}");
-
+                let my_proportion: I64F64 =
+                    if other_dynamic_outstanding != 0 {
+                        other_subnet_token / other_dynamic_outstanding
+                    } else {
+                        I64F64::from_num( 1.0 )
+                    };
                 global_dynamic_tao += my_proportion * other_tao_reserve;
             } else {
                 // Computes the amount of TAO owned in the non dynamic subnet.
@@ -993,7 +991,12 @@ impl<T: Config> Pallet<T> {
                 let other_subnet_token: I64F64 = I64F64::from_num( Self::get_subnet_stake_for_coldkey_and_hotkey( coldkey, hotkey, *netuid ));
                 let other_dynamic_outstanding: I64F64 = I64F64::from_num( DynamicAlphaOutstanding::<T>::get( *netuid ) );
                 let other_tao_reserve: I64F64 = I64F64::from_num( DynamicTAOReserve::<T>::get( *netuid ) );
-                let my_proportion: I64F64 = other_subnet_token / other_dynamic_outstanding;
+                let my_proportion: I64F64 =
+                    if other_dynamic_outstanding != 0 {
+                        other_subnet_token / other_dynamic_outstanding
+                    } else {
+                        I64F64::from_num( 1.0 )
+                    };
                 global_dynamic_tao += my_proportion * other_tao_reserve;
             } else {
                 // Computes the amount of TAO owned in the non dynamic subnet.
