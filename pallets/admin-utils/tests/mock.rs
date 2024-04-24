@@ -1,6 +1,6 @@
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{Everything, Hooks, StorageMapShim},
+    traits::{Everything, Hooks},
     weights,
 };
 use frame_system as system;
