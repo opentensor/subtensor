@@ -138,8 +138,8 @@ impl<T: Config> Pallet<T> {
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
     }
-    pub fn set_stakes_this_interval_for_hotkey(hotkey: &T::AccountId, stakes_this_interval: u64, last_staked_block_number: u64) {
-        TotalHotkeyStakesThisInterval::<T>::insert(hotkey, (stakes_this_interval, last_staked_block_number));
+    pub fn set_stakes_this_interval_for_coldkey_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId, stakes_this_interval: u64, last_staked_block_number: u64) {
+        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (stakes_this_interval, last_staked_block_number));
     }
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
@@ -603,5 +603,13 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
+    }
+
+    pub fn get_nominator_min_required_stake() -> u64 {
+        NominatorMinRequiredStake::<T>::get()
+    }
+
+    pub fn set_nominator_min_required_stake(min_stake: u64) {
+        NominatorMinRequiredStake::<T>::put(min_stake);
     }
 }
