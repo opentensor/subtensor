@@ -34,20 +34,21 @@ mod benchmarks;
 // =========================
 //	==== Pallet Imports =====
 // =========================
-mod block_step;
+pub mod block_step;
 
-mod epoch;
-mod math;
-mod registration;
-mod root;
-mod serving;
-mod staking;
+pub mod epoch;
+pub mod math;
+pub mod registration;
+pub mod root;
+pub mod serving;
+pub mod staking;
 pub mod types;
-mod uids;
-mod utils;
-mod weights;
+pub mod uids;
+pub mod utils;
+pub mod weights;
 
 pub mod delegate_info;
+pub mod dynamic_pool_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
@@ -190,6 +191,8 @@ pub mod pallet {
         type InitialNetworkRateLimit: Get<u64>;
         #[pallet::constant] // Initial target stakes per interval issuance.
         type InitialTargetStakesPerInterval: Get<u64>;
+        #[pallet::constant] // Initial subnet lock period
+        type InitialSubnetOwnerLockPeriod: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -255,6 +258,11 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultSubnetOwnerLockPeriod<T: Config>() -> u64 {
+        T::InitialSubnetOwnerLockPeriod::get()
     }
 
     #[pallet::type_value]
@@ -329,12 +337,12 @@ pub mod pallet {
     pub type SubStake<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>,    // hot
-            NMapKey<Blake2_128Concat, T::AccountId>,    // cold
-            NMapKey<Identity, u16>,                     // subnet
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Identity, u16>,                  // subnet
         ),
         u64,
-        ValueQuery
+        ValueQuery,
     >;
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
@@ -358,6 +366,9 @@ pub mod pallet {
     pub type DynamicK<T> = StorageMap<_, Identity, u16, u128, ValueQuery>;
     #[pallet::storage] // --- MAP ( netuid ) --> is_subnet_dynamic | Returns true if the network is using dynamic staking.
     pub type IsDynamic<T> = StorageMap<_, Identity, u16, bool, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
+    pub type SubnetOwnerLockPeriod<T> =
+        StorageValue<_, u64, ValueQuery, DefaultSubnetOwnerLockPeriod<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -596,7 +607,7 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-        #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
+    #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
     pub type PendingAlphaEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
@@ -648,7 +659,6 @@ pub mod pallet {
     // Rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
-
         // TODO we should figure out a better way of saying this is a dev net.
         if cfg!(feature = "pow-faucet") {
             return 0;
@@ -1073,7 +1083,7 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
-        InvalidTake, // --- Thrown when delegate take is being set out of bounds
+        InvalidTake,       // --- Thrown when delegate take is being set out of bounds
         SubnetCreatorLock, // -- Thrown when the subnet creator attempts to remove their funds within the lock period.
     }
 
@@ -1502,6 +1512,26 @@ pub mod pallet {
             Self::do_increase_take(origin, hotkey, netuid, take)
         }
 
+        /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take and respect the rate limit.
+        ///
+        /// # Arguments
+        /// * `hotkey` - The account ID of the hotkey.
+        /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
+        ///
+        /// # Errors
+        /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+        /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
+        /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
+        #[pallet::call_index(68)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn set_delegate_takes(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            takes: Vec<(u16, u16)>,
+        ) -> DispatchResult {
+            Self::do_set_delegate_takes(origin, &hotkey, takes)
+        }
+
         // --- Adds stake to a hotkey. The call is made from the
         // coldkey account linked in the hotkey.
         // Only the associated coldkey is allowed to make staking and
@@ -1571,7 +1601,7 @@ pub mod pallet {
             netuids: Vec<u16>,
             values: Vec<u16>,
         ) -> DispatchResult {
-            Self::do_add_weighted_stake(origin, hotkey, netuids, values )
+            Self::do_add_weighted_stake(origin, hotkey, netuids, values)
         }
 
         // ---- Remove stake from the staking account. The call must be made
@@ -1631,7 +1661,6 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
-
 
         // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
         // already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
@@ -1923,7 +1952,6 @@ pub mod pallet {
 
             Err(Error::<T>::FaucetDisabled.into())
         }
-
     }
 
     // ---- Subtensor helper functions.
@@ -2072,18 +2100,14 @@ where
                     return Err(InvalidTransaction::Call.into());
                 }
             }
-            Some(Call::add_stake { .. }) => {
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
-            Some(Call::remove_stake { .. }) => {
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
+            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
+            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);

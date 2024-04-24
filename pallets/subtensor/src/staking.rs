@@ -633,10 +633,10 @@ impl<T: Config> Pallet<T> {
 
 
         // --- 8. We remove the balance from the hotkey.
-        let SIX_MONTHS_IN_BLOCKS: u64 = 7200 * 30 * 3;
+        let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
         if Self::get_subnet_creator_hotkey( netuid ) == hotkey {
             ensure!(
-                block - Self::get_network_registered_block( netuid ) > SIX_MONTHS_IN_BLOCKS,
+                block - Self::get_network_registered_block( netuid ) > subnet_lock_period,
                 Error::<T>::SubnetCreatorLock
             )
         }
@@ -670,15 +670,32 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Computes the dynamic unstake amount based on the current reserves and the stake to be removed.
+    /// This function is used to dynamically adjust the reserves of a subnet when unstaking occurs,
+    /// ensuring that the reserve ratios are maintained according to the bonding curve defined by `k`.
     ///
     /// # Arguments
-    /// * `coldkey` - The account ID of the coldkey.
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier for the network.
-    /// * `stake_to_be_removed` - The amount of stake to be removed.
+    /// * `netuid` - The unique identifier for the network (subnet) from which the stake is being removed.
+    /// * `stake_to_be_removed` - The amount of stake (in terms of alpha tokens) to be removed from the subnet.
     ///
     /// # Returns
-    /// * The amount of tao to be pulled out as a result of the unstake operation.
+    /// * `u64` - The amount of tao tokens that will be released as a result of the unstake operation.
+    ///
+    /// # Details
+    /// The function first checks if the subnet identified by `netuid` supports dynamic staking. If not,
+    /// it simply returns the `stake_to_be_removed` as the amount of tao to be released, since no dynamic calculations are needed.
+    ///
+    /// For dynamic subnets, the function retrieves the current tao and alpha reserves (`tao_reserve` and `dynamic_reserve`),
+    /// along with the bonding curve constant `k`. It then calculates the new alpha reserve by adding the `stake_to_be_removed`
+    /// to the current alpha reserve. Using the bonding curve equation `tao_reserve = k / alpha_reserve`, it computes the new
+    /// tao reserve.
+    ///
+    /// The difference between the old and new tao reserves gives the amount of tao that will be released. This is calculated
+    /// by subtracting the new tao reserve from the old tao reserve. The function then updates the subnet's reserves in storage
+    /// and decrements the outstanding alpha by the amount of stake removed.
+    ///
+    /// # Panics
+    /// The function will panic if the new dynamic reserve calculation overflows, although this is highly unlikely due to the
+    /// use of saturating arithmetic operations.
     pub fn compute_dynamic_unstake(
         netuid: u16,
         stake_to_be_removed: u64,
@@ -708,15 +725,32 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Computes the dynamic stake amount based on the current reserves and the stake to be added.
+    /// This function is used to dynamically adjust the reserves of a subnet when staking occurs,
+    /// ensuring that the reserve ratios are maintained according to the bonding curve defined by `k`.
     ///
     /// # Arguments
-    /// * `coldkey` - The account ID of the coldkey.
-    /// * `hotkey` - The account ID of the hotkey.
-    /// * `netuid` - The unique identifier for the network.
-    /// * `stake_to_be_added` - The amount of stake to be added.
+    /// * `netuid` - The unique identifier for the network (subnet) where the stake is being added.
+    /// * `stake_to_be_added` - The amount of stake (in terms of alpha tokens) to be added to the subnet.
     ///
     /// # Returns
-    /// * The amount of dynamic token to be pulled out as a result of the stake operation.
+    /// * `u64` - The amount of dynamic token that will be pulled out as a result of the stake operation.
+    ///
+    /// # Details
+    /// The function first checks if the subnet identified by `netuid` supports dynamic staking. If not,
+    /// it simply returns the `stake_to_be_added` as the amount of dynamic token to be pulled out, since no dynamic calculations are needed.
+    ///
+    /// For dynamic subnets, the function retrieves the current tao and alpha reserves (`tao_reserve` and `dynamic_reserve`),
+    /// along with the bonding curve constant `k`. It then calculates the new tao reserve by adding the `stake_to_be_added`
+    /// to the current tao reserve. Using the bonding curve equation `dynamic_reserve = k / tao_reserve`, it computes the new
+    /// dynamic reserve.
+    ///
+    /// The difference between the old and new dynamic reserves gives the amount of dynamic token that will be pulled out. This is calculated
+    /// by subtracting the new dynamic reserve from the old dynamic reserve. The function then updates the subnet's reserves in storage
+    /// and increments the outstanding alpha by the amount of stake added.
+    ///
+    /// # Panics
+    /// The function will panic if the new tao reserve calculation overflows, although this is highly unlikely due to the
+    /// use of saturating arithmetic operations.
     pub fn compute_dynamic_stake(
         netuid: u16,
         stake_to_be_added: u64,
@@ -786,6 +820,12 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_pool_k( netuid: u16 ) -> u128 {
         DynamicK::<T>::get( netuid )
+    }
+    pub fn get_alpha_issuance( netuid: u16 ) -> u64 {
+        DynamicAlphaIssuance::<T>::get( netuid )
+    }
+    pub fn get_alpha_outstanding( netuid: u16 ) -> u64 {
+        DynamicAlphaOutstanding::<T>::get( netuid )
     }
     pub fn set_pool_k( netuid: u16, k: u128 ) {
         DynamicK::<T>::insert( netuid, k );
@@ -867,6 +907,50 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegate_take(hotkey: &T::AccountId, netuid: u16) -> u16 {
         DelegatesTake::<T>::get(hotkey, netuid)
     }
+
+    pub fn do_set_delegate_takes(origin: T::RuntimeOrigin, hotkey: &T::AccountId, takes: Vec<(u16, u16)>) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        log::trace!(
+            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            coldkey,
+            hotkey,
+            takes
+        );
+
+        // --- 2. Ensure we are delegating a known key.
+        //        Ensure that the coldkey is the owner.
+        Self::do_account_checks(&coldkey, &hotkey)?;
+        let block: u64 = Self::get_current_block_as_u64();
+
+        for (netuid, take) in takes {
+            // Check if the subnet exists before setting the take.
+            ensure!(
+                Self::if_subnet_exist(netuid),
+                Error::<T>::NetworkDoesNotExist
+            );
+
+            // Ensure the take does not exceed the initial default take.
+            let max_take = T::InitialDefaultTake::get();
+            ensure!(
+                take <= max_take,
+                Error::<T>::InvalidTake
+            );
+
+            // Enforce the rate limit (independently on do_add_stake rate limits)
+            ensure!(
+                !Self::exceeds_tx_delegate_take_rate_limit(Self::get_last_tx_block_delegate_take(&hotkey), block),
+                Error::<T>::TxRateLimitExceeded
+            );
+
+            // Insert the take into the storage.
+            DelegatesTake::<T>::insert(hotkey, netuid, take);
+        }
+
+    // Set last block for rate limiting after all takes are set
+    Self::set_last_tx_block_delegate_take(hotkey, block);
+
+    Ok(())
+}
 
     // Returns true if the hotkey account has been created.
     //

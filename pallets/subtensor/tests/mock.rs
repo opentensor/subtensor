@@ -157,6 +157,7 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
     pub const InitialDelegateLimit: u16 = 128;
+    pub const InitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3;
 }
 
 // Configure collective pallet for council
@@ -357,6 +358,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type InitialDelegateLimit = InitialDelegateLimit;
+    type InitialSubnetOwnerLockPeriod = InitialSubnetOwnerLockPeriod;
 }
 
 impl pallet_utility::Config for Test {
