@@ -1443,6 +1443,11 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_all_subnet_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }
+
+        fn get_total_stake_for_each_subnet() -> Vec<u8> {
+            let result = SubtensorModule::get_total_stake_for_each_subnet();
+            result.encode()
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {

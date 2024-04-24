@@ -36,6 +36,7 @@ sp_api::decl_runtime_apis! {
         fn get_total_subnet_stake( netuid: u16 ) -> Vec<u8>;
         fn get_all_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8>;
         fn get_all_subnet_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8>;
+        fn get_total_stake_for_each_subnet() -> Vec<u8>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {

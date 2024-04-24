@@ -95,6 +95,8 @@ pub trait SubtensorCustomApi<BlockHash> {
         coldkey_account_vec: TensorBytes,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name= "subnetInfo_getTotalStakeForEachSubnet")]
+    fn get_total_stake_for_each_subnet(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "dynamicPoolInfo_getDynamicPoolInfo")]
     fn get_dynamic_pool_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "dynamicPoolInfo_getAllDynamicPoolInfos")]
@@ -507,5 +509,19 @@ where
             ))
             .into()
         })
+    }
+
+    fn get_total_stake_for_each_subnet(&self,at:Option<<Block  as  BlockT>::Hash>) -> RpcResult<Vec<u8> > {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_total_stake_for_each_subnet(at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get total stake for each subnet.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })  
     }
 }
