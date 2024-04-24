@@ -37,7 +37,7 @@ impl<T: Config> Pallet<T> {
         local_stake_64
     }
 
-    fn get_stakes( netuid: u16, hotkeys: &Vec<(u16, T::AccountId)> ) -> Vec<I32F32> {
+    pub fn get_stakes( netuid: u16, hotkeys: &Vec<(u16, T::AccountId)> ) -> Vec<I32F32> {
         // Get the stake weight alpha
         let alpha: I64F64 = Self::get_global_stake_weight_float();
 
