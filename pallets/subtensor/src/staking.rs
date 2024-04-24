@@ -824,9 +824,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_alpha_issuance( netuid: u16 ) -> u64 {
         DynamicAlphaIssuance::<T>::get( netuid )
     }
-    pub fn get_alpha_outstanding( netuid: u16 ) -> u64 {
-        DynamicAlphaOutstanding::<T>::get( netuid )
-    }
     pub fn set_pool_k( netuid: u16, k: u128 ) {
         DynamicK::<T>::insert( netuid, k );
     }
