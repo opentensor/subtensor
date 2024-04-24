@@ -44,8 +44,8 @@ function run_command()
         --base-path /tmp/blockchain \
         --chain ./raw_spec.json \
         --rpc-external --rpc-cors all \
-        --ws-external --no-mdns \
-        --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+        --no-mdns \
+        --rpc-max-connections 10000 --in-peers 500 --out-peers 500 \
         $SPECIFIC_OPTIONS
 }
 
