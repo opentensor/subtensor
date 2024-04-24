@@ -3,6 +3,10 @@ use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
 use sp_core::U256;
+use substrate_fixed::types::I64F64;
+
+#[macro_use]
+mod helpers;
 
 // TODO: Apparently, run_coinbase doesn't change LoadedEmission, do we need this test?
 // #[test]
@@ -851,4 +855,68 @@ fn test_subnet_staking_emission() {
         assert_eq!(SubtensorModule::get_subnet_emission_value(3), 9_009_009); // (100 / (100 + 1000 + 10000)) * 1000000000 ~= 9,009,009
         assert_eq!(900_900_900 + 90_090_090 + 9_009_009, 999_999_999);
     });
+}
+
+
+
+#[test]
+fn test_run_coinbase_price_greater_than_1() {
+    new_test_ext(1).execute_with(|| {
+        // Create subnet with price 4
+        let netuid: u16 = 1;
+        setup_dynamic_network(netuid, 1u16, 1u16);
+        add_dynamic_stake(netuid, 1u16, 1u16, 100_000_000_000u64);
+        assert_eq!(SubtensorModule::get_tao_per_alpha_price(netuid), 4.0);
+
+        // Make some TAO
+        SubtensorModule::coinbase(100);
+        let total_issuance = SubtensorModule::get_total_issuance();
+        let block_emission = SubtensorModule::get_block_emission().unwrap();
+        assert_eq!(total_issuance, 100);
+        assert_eq!(block_emission > 0, true);
+
+        // Check that running run_coinbase behaves correctly
+        let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
+        let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
+        let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
+        SubtensorModule::run_coinbase(1);
+        let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
+        let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
+        let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
+
+        assert_eq!(tao_reserve_after == tao_reserve_before, true);
+        assert_eq!(alpha_reserve_after > alpha_reserve_before, true);
+        assert_eq!(pending_alpha_after > pending_alpha_before, true);
+    })
+}
+
+#[test]
+fn test_run_coinbase_price_less_than_1() {
+    new_test_ext(1).execute_with(|| {
+        // Create subnet with price 0.64 by unstaking 25 TAO
+        let netuid: u16 = 1;
+        setup_dynamic_network(netuid, 1u16, 1u16);
+        remove_dynamic_stake(netuid, 1u16, 1u16, 25_000_000_000u64);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(netuid), 0.64);
+
+        // Make some TAO
+        SubtensorModule::coinbase(100);
+        let total_issuance = SubtensorModule::get_total_issuance();
+        let block_emission = SubtensorModule::get_block_emission().unwrap();
+        assert_eq!(total_issuance, 100);
+        assert_eq!(block_emission > 0, true);
+
+        // Check that running run_coinbase behaves correctly
+        let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
+        let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
+        let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
+        SubtensorModule::run_coinbase(1);
+        let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
+        let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
+        let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
+
+        assert_eq!(tao_reserve_after > tao_reserve_before, true);
+        assert_eq!(alpha_reserve_after == alpha_reserve_before, true);
+        assert_eq!(pending_alpha_after == pending_alpha_before, true);
+    })
 }

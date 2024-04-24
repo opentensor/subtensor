@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 #[macro_export]
 macro_rules! assert_i64f64_approx_eq {
     ($left:expr, $right:expr $(,)?) => {{
@@ -13,6 +14,8 @@ macro_rules! assert_i64f64_approx_eq {
     }};
 }
 
+#[allow(dead_code)]
+#[macro_export]
 macro_rules! assert_i32f32_approx_eq {
     ($left:expr, $right:expr $(,)?) => {{
         const PRECISION: u64 = 10000;

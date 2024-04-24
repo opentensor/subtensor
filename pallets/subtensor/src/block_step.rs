@@ -52,16 +52,19 @@ impl<T: Config> Pallet<T> {
 
         // Check if alpha prices exceed TAO market cap.
         let tao_block_emission: u64;
+        let alpha_block_emission: u64;
         if total_prices <= I64F64::from_num(1.0) {
             tao_block_emission = Self::get_block_emission().unwrap();
+            alpha_block_emission = 0;
         } else {
             tao_block_emission = 0;
+            alpha_block_emission = Self::get_block_emission().unwrap();
         }
 
         for (netuid, price) in prices.iter() {
             let normalized_alpha_price: I64F64 = price / I64F64::from_num( total_prices );
             let new_tao_emission:u64 = ( normalized_alpha_price * I64F64::from_num( tao_block_emission ) ).to_num::<u64>();
-            let new_alpha_emission: u64 = Self::get_block_emission().unwrap();
+            let new_alpha_emission: u64 = alpha_block_emission;
             EmissionValues::<T>::insert( *netuid, new_tao_emission );
             DynamicTAOReserve::<T>::mutate( netuid, |reserve| *reserve += new_tao_emission );
             DynamicAlphaReserve::<T>::mutate( netuid, |reserve| *reserve += new_alpha_emission );

@@ -523,3 +523,18 @@ pub fn add_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64) {
         dynamic_stake,
     );
 }
+
+#[allow(dead_code)]
+pub fn remove_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64) {
+    let coldkey = U256::from( cold_id );
+    let hotkey = U256::from( hot_id );
+
+    let dynamic_unstake_amount_tao = SubtensorModule::compute_dynamic_unstake( netuid, amount );
+    SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+        &coldkey,
+        &hotkey,
+        netuid,
+        dynamic_unstake_amount_tao,
+    );
+
+}
