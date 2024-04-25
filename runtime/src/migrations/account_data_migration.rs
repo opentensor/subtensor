@@ -49,7 +49,7 @@ enum PreUpgradeInfo {
     ),
 }
 
-const TARGET: &'static str = "runtime::account_data_migration";
+const TARGET: &str = "runtime::account_data_migration";
 pub struct Migration;
 impl OnRuntimeUpgrade for Migration {
     /// Save pre-upgrade account ids to check are decodable post-upgrade.

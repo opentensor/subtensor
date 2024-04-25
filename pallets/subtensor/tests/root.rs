@@ -702,7 +702,7 @@ fn test_issance_bounds() {
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
         let mut total_issuance: u64 = 0;
-        for i in 0..n_halvings {
+        for _ in 0..n_halvings {
             let block_emission_10_500_000x: u64 =
                 SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap()
                     * 10_500_000;

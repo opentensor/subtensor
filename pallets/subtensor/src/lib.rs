@@ -262,10 +262,17 @@ pub mod pallet {
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage]
-    // --- MAP (hot) --> stake | Returns a tuple (u64: stakes, u64: block_number)
-    pub type TotalHotkeyStakesThisInterval<T: Config> =
-        StorageMap<_, Identity, T::AccountId, (u64, u64), ValueQuery, DefaultStakesPerInterval<T>>;
-
+    // --- MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        (u64, u64),
+        ValueQuery,
+        DefaultStakesPerInterval<T>,
+    >;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -397,6 +404,10 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    pub fn DefaultNominatorMinRequiredStake<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
     }
@@ -477,6 +488,9 @@ pub mod pallet {
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
     #[pallet::storage] // ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
+    #[pallet::storage] // ITEM( nominator_min_required_stake )
+    pub type NominatorMinRequiredStake<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -969,6 +983,8 @@ pub mod pallet {
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
         NoNeuronIdAvailable, // -- Thrown when no neuron id is available
+        /// Thrown a stake would be below the minimum threshold for nominator validations
+        NomStakeBelowMinimumThreshold,
     }
 
     // ==================
@@ -1705,7 +1721,7 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if Uids::<T>::contains_key(netuid, hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-                let _stake = Self::get_total_stake_for_hotkey(hotkey);
+                let _stake = Self::get_total_stake_for_hotkey(&hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid);
@@ -1848,32 +1864,14 @@ where
                     Err(InvalidTransaction::Call.into())
                 }
             }
-            Some(Call::add_stake { hotkey, .. }) => {
-                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
-                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
-
-                if stakes_this_interval >= max_stakes_per_interval {
-                    return InvalidTransaction::ExhaustsResources.into();
-                }
-
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
-            Some(Call::remove_stake { hotkey, .. }) => {
-                let stakes_this_interval = Pallet::<T>::get_stakes_this_interval_for_hotkey(hotkey);
-                let max_stakes_per_interval = Pallet::<T>::get_target_stakes_per_interval();
-
-                if stakes_this_interval >= max_stakes_per_interval {
-                    return InvalidTransaction::ExhaustsResources.into();
-                }
-
-                Ok(ValidTransaction {
-                    priority: Self::get_priority_vanilla(),
-                    ..Default::default()
-                })
-            }
+            Some(Call::add_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
+            Some(Call::remove_stake { .. }) => Ok(ValidTransaction {
+                priority: Self::get_priority_vanilla(),
+                ..Default::default()
+            }),
             Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);

@@ -74,7 +74,7 @@ fn call_propose() -> RuntimeCall {
     RuntimeCall::Triumvirate(pallet_collective::Call::propose {
         proposal: Box::new(call_remark()),
         length_bound: proposal_len,
-        duration: 100_000_000_u32.into(),
+        duration: 100_000_000_u32,
     })
 }
 
@@ -103,7 +103,7 @@ fn call_senate() -> RuntimeCall {
 fn call_add_stake() -> RuntimeCall {
     let amount_staked = 100;
     RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
-        hotkey: AccountId::from(DELEGATE).into(),
+        hotkey: AccountId::from(DELEGATE),
         amount_staked,
     })
 }

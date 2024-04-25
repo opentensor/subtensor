@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty ++
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost ++
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -404,7 +404,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost ++
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -414,7 +414,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty ++
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost --
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty --
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -456,7 +456,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost --
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -466,7 +466,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty --
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -490,10 +490,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Performs the difficulty adjustment by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target * reg_target )
+    // Calculates the upgraded difficulty by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target + reg_target )
     // We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
     //
-    pub fn adjust_difficulty(
+    pub fn upgraded_difficulty(
         netuid: u16,
         current_difficulty: u64,
         registrations_this_interval: u16,
@@ -517,10 +517,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Performs the burn adjustment by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target * reg_target )
+    // Calculates the upgraded burn by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target + reg_target )
     // We use I110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
     //
-    pub fn adjust_burn(
+    pub fn upgraded_burn(
         netuid: u16,
         current_burn: u64,
         registrations_this_interval: u16,

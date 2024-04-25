@@ -305,7 +305,7 @@ where
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         let coefficient = WeightToFeeCoefficient {
             coeff_integer: 0,
-            coeff_frac: Perbill::from_parts(1),
+            coeff_frac: Perbill::from_parts(1_000_000),
             negative: false,
             degree: 1,
         };
@@ -1090,6 +1090,18 @@ impl
 
     fn set_weights_min_stake(min_stake: u64) {
         SubtensorModule::set_weights_min_stake(min_stake);
+    }
+
+    fn clear_small_nominations() {
+        SubtensorModule::clear_small_nominations();
+    }
+
+    fn set_nominator_min_required_stake(min_stake: u64) {
+        SubtensorModule::set_nominator_min_required_stake(min_stake);
+    }
+
+    fn get_nominator_min_required_stake() -> u64 {
+        SubtensorModule::get_nominator_min_required_stake()
     }
 }
 
