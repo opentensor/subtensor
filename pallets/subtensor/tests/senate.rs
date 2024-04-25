@@ -196,7 +196,6 @@ fn test_senate_vote_works() {
             Box::new(proposal.clone()),
             proposal_len,
             TryInto::<BlockNumberFor<Test>>::try_into(100u64)
-                .ok()
                 .expect("convert u64 to block number.")
         ));
 
@@ -273,7 +272,6 @@ fn test_senate_vote_not_member() {
             Box::new(proposal.clone()),
             proposal_len,
             TryInto::<BlockNumberFor<Test>>::try_into(100u64)
-                .ok()
                 .expect("convert u64 to block number.")
         ));
 
@@ -434,7 +432,6 @@ fn test_senate_leave_vote_removal() {
             Box::new(proposal.clone()),
             proposal_len,
             TryInto::<BlockNumberFor<Test>>::try_into(100u64)
-                .ok()
                 .expect("convert u64 to block number.")
         ));
 

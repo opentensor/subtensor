@@ -784,7 +784,7 @@ fn test_get_emission_across_entire_issuance_range() {
         let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
         let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
         let halving_issuance: u64 = total_supply / 2;
-        let mut step: usize = original_emission as usize;
+        let step: usize = original_emission as usize;
 
         for issuance in (0..=total_supply).step_by(step) {
             SubtensorModule::set_total_issuance(issuance);
@@ -805,7 +805,6 @@ fn test_get_emission_across_entire_issuance_range() {
                 "Issuance: {}",
                 issuance_f64
             );
-            step = expected_emission as usize;
         }
     });
 }

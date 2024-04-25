@@ -165,8 +165,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i).defensive_ok();
-        T::SenateMembers::remove_member(&hotkey_i).defensive_ok();
+        T::TriumvirateInterface::remove_votes(hotkey_i).defensive_ok();
+        T::SenateMembers::remove_member(hotkey_i).defensive_ok();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }

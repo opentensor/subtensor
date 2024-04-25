@@ -74,16 +74,12 @@ pub fn vec_fixed64_to_u64(vec: Vec<I64F64>) -> Vec<u64> {
 
 #[allow(dead_code)]
 pub fn vec_u16_proportions_to_fixed(vec: Vec<u16>) -> Vec<I32F32> {
-    vec.into_iter()
-        .map(u16_proportion_to_fixed)
-        .collect()
+    vec.into_iter().map(u16_proportion_to_fixed).collect()
 }
 
 #[allow(dead_code)]
 pub fn vec_fixed_proportions_to_u16(vec: Vec<I32F32>) -> Vec<u16> {
-    vec.into_iter()
-        .map(fixed_proportion_to_u16)
-        .collect()
+    vec.into_iter().map(fixed_proportion_to_u16).collect()
 }
 
 #[allow(dead_code)]
@@ -136,12 +132,8 @@ pub fn check_vec_max_limited(vec: &Vec<u16>, max_limit: u16) -> bool {
     inplace_normalize(&mut vec_fixed);
     let max_value: Option<&I32F32> = vec_fixed.iter().max();
     match max_value {
-        Some(val) => {
-            *val <= max_limit_fixed
-        }
-        None => {
-            true
-        }
+        Some(val) => *val <= max_limit_fixed,
+        None => true,
     }
 }
 
@@ -1495,7 +1487,7 @@ mod tests {
 
     // Reshape vector to sparse matrix with specified number of input rows, cast f32 to I32F32.
     fn vec_to_sparse_mat_fixed(
-        vector: &Vec<f32>,
+        vector: &[f32],
         rows: usize,
         transpose: bool,
     ) -> Vec<Vec<(u16, I32F32)>> {
@@ -1534,10 +1526,7 @@ mod tests {
     fn test_math_vec_to_sparse_mat_fixed() {
         let vector: Vec<f32> = vec![0., 1., 2., 0., 10., 100.];
         let target: Vec<Vec<(u16, I32F32)>> = vec![
-            vec![
-                (1_u16, I32F32::from_num(1.)),
-                (2_u16, I32F32::from_num(2.)),
-            ],
+            vec![(1_u16, I32F32::from_num(1.)), (2_u16, I32F32::from_num(2.))],
             vec![
                 (1_u16, I32F32::from_num(10.)),
                 (2_u16, I32F32::from_num(100.)),
@@ -2668,18 +2657,7 @@ mod tests {
 
             let n: usize = 100;
             for majority in vec_to_fixed(&vec![
-                0.,
-                0.0000001,
-                0.25,
-                0.49,
-                0.49,
-                0.49,
-                0.5,
-                0.51,
-                0.51,
-                0.51,
-                0.9999999,
-                1.,
+                0., 0.0000001, 0.25, 0.49, 0.49, 0.49, 0.5, 0.51, 0.51, 0.51, 0.9999999, 1.,
             ]) {
                 for allow_equal in [false, true] {
                     let mut stake: Vec<I32F32> = vec![];
@@ -2691,9 +2669,8 @@ mod tests {
                                 1 => stake.push(one),
                                 _ => stake.push(zero),
                             }
-                            match rng.gen_range(0..2) {
-                                1 => last_score += one,
-                                _ => (),
+                            if rng.gen_range(0..2) == 1 {
+                                last_score += one
                             }
                             score.push(last_score);
                         } else {

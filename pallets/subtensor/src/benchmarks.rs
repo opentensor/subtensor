@@ -24,12 +24,12 @@ benchmarks! {
     let seed : u32 = 1;
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let start_nonce: u64 = (39420842u64 + 100u64*netuid as u64).into();
+    let start_nonce: u64 = 39420842u64 + 100u64*netuid as u64;
     let hotkey: T::AccountId = account("Alice", 0, seed);
     let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into());
+    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true);
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
     let coldkey: T::AccountId = account("Test", 0, seed);
@@ -46,7 +46,7 @@ benchmarks! {
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
-    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into() );
+    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true );
     Subtensor::<T>::set_max_registrations_per_block( netuid.try_into().unwrap(), 4096 );
     Subtensor::<T>::set_target_registrations_per_interval( netuid.try_into().unwrap(), 4096 );
 
@@ -55,10 +55,10 @@ benchmarks! {
     let mut weights: Vec<u16> = vec![];
     let signer : T::AccountId = account("Alice", 0, seed);
 
-    for id in 0..4096 as u16 {
+    for id in 0..4096_u16 {
       let hotkey: T::AccountId = account("Alice", 0, seed);
       let coldkey: T::AccountId = account("Test", 0, seed);
-      seed = seed +1;
+      seed += 1;
 
         Subtensor::<T>::set_burn(netuid, 1);
         let amoun_to_be_staked = Subtensor::<T>::u64_to_balance( 1000000 );
@@ -67,9 +67,9 @@ benchmarks! {
       Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone())?;
 
       let uid = Subtensor::<T>::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-      Subtensor::<T>::set_validator_permit_for_uid(netuid, uid.clone(), true);
-      dests.push(id.clone());
-      weights.push(id.clone());
+      Subtensor::<T>::set_validator_permit_for_uid(netuid, uid, true);
+      dests.push(id);
+      weights.push(id);
     }
 
   }: set_weights(RawOrigin::Signed( signer.clone() ), netuid, dests, weights, version_key)
@@ -89,7 +89,7 @@ benchmarks! {
       Subtensor::<T>::set_burn(netuid, 1);
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
 
-    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into());
+    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true);
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
 
     let coldkey: T::AccountId = account("Test", 0, seed);
@@ -113,7 +113,7 @@ benchmarks! {
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     Subtensor::<T>::set_burn(netuid, 1);
-    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into() );
+    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true );
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -141,7 +141,7 @@ benchmarks! {
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into() );
+    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true );
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
@@ -270,7 +270,7 @@ benchmarks! {
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     Subtensor::<T>::set_burn(netuid, 1);
-    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true.into());
+    Subtensor::<T>::set_network_registration_allowed( netuid.try_into().unwrap(), true);
 
     Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
     assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
