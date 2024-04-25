@@ -475,22 +475,14 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 }
 
 #[allow(dead_code)]
-pub fn user_add_network(coldkey: U256, hotkey: U256, netuid: u16) {
-    SubtensorModule::user_add_network(
-        <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
-        hotkey
-    );
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-}
-
-#[allow(dead_code)]
 pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16 ) {
     let lock_amount = SubtensorModule::get_network_lock_cost();
     let coldkey = U256::from( cold_id );
     let hotkey = U256::from( hot_id );
 
     add_network(netuid, tempo, 0);
+    register_ok_neuron(netuid, hotkey, coldkey, 11234);
+    SubtensorModule::append_neuron( netuid, &hotkey, 1 );
 
     let initial_tao_reserve: u64 = lock_amount as u64;
     let initial_dynamic_reserve: u64 = lock_amount * SubtensorModule::get_num_subnets() as u64;
@@ -514,10 +506,8 @@ pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16 ) 
 #[allow(dead_code)]
 pub fn setup_dynamic_network(netuid: u16, cold_id: u16, hot_id: u16) {
     SubtensorModule::set_global_stake_weight( 0 );
-    let hotkey = U256::from( hot_id );
-    add_dynamic_network( netuid, u16::MAX - 1, cold_id, hot_id );
+    add_dynamic_network( netuid, 10, cold_id, hot_id );
     SubtensorModule::set_max_allowed_uids( netuid, 1 );
-    SubtensorModule::append_neuron( netuid, &hotkey, 1 );
 }
 
 #[allow(dead_code)]

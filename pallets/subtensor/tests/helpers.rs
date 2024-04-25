@@ -29,3 +29,41 @@ macro_rules! assert_i32f32_approx_eq {
         assert_eq!(l_rounded, r_rounded);
     }};
 }
+
+#[allow(dead_code)]
+#[macro_export]
+macro_rules! assert_approx_eq {
+    ($left:expr, $right:expr $(,)?) => {{
+        const PRECISION: f64 = 100.;
+        let left = $left;
+        let right = $right;
+
+        let l_rounded = (PRECISION * left).round() / PRECISION;
+        let r_rounded = (PRECISION * right).round() / PRECISION;
+
+        assert_eq!(l_rounded, r_rounded);
+    }};
+}
+
+#[allow(dead_code)]
+#[macro_export]
+macro_rules! assert_substake_eq {
+    ($coldkey:expr, $hotkey:expr, $netuid:expr, $amount:expr $(,)?) => {{
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey($coldkey, $hotkey, $netuid),
+            $amount
+        );
+    }};
+}
+
+#[allow(dead_code)]
+#[macro_export]
+macro_rules! assert_substake_approx_eq {
+    ($coldkey:expr, $hotkey:expr, $netuid:expr, $amount:expr $(,)?) => {{
+        let subst = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey($coldkey, $hotkey, $netuid) as f64;
+        assert_approx_eq!(
+            subst / 1_000_000_000f64,
+            $amount
+        );
+    }};
+}
