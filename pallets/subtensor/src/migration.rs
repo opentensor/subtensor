@@ -548,3 +548,37 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
     log::info!("Final weight: {:?}", weight); // Debug print
     weight
 }
+
+pub fn migrate_nominator_counters<T: Config>() -> Weight {
+    let new_storage_version = 7;
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version); // Debug print
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: Initialize nominator counters."); // Debug print
+        Stake::<T>::iter().for_each(|(coldkey, hotkey, stake)| {
+            log::info!(
+                "Found: coldkey: {:?}, hotkey: {:?}",
+                coldkey,
+                hotkey
+            ); // Debug print before filtering
+            if stake > 0 {
+                // Ensure we're only counting non-zero stakes
+                log::info!(
+                    "Updating nominator counter for hotkey: {:?}",
+                    hotkey,
+                );
+                // Update NominatorCount for hotkey
+                NominatorCount::<T>::mutate(&hotkey, |count| *count += 1);
+                // Accrue read and write weights
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            }
+        });
+    } else {
+        log::info!("Migration to initialize nominator counters was already done!"); // Debug print
+    }
+
+    log::info!("Final weight: {:?}", weight); // Debug print
+    weight
+}

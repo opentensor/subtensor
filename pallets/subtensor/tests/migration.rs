@@ -354,3 +354,106 @@ fn test_migration_stake_to_substake() {
 fn set_stake_value(coldkey: U256, hotkey: U256, stake_amount: u64) {
     pallet_subtensor::Stake::<Test>::insert(coldkey, hotkey, stake_amount);
 }
+
+#[test]
+fn test_migration_init_nominator_counts_two_to_two() {
+    new_test_ext(1).execute_with(|| {
+        // We need to create the root network for this test
+        let root: u16 = 0;
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey1 = U256::from(1);
+        let coldkey1 = U256::from(100);
+        let stake_amount1 = 1000u64;
+
+        let hotkey2 = U256::from(2);
+        let coldkey2 = U256::from(200);
+        let stake_amount2 = 2000u64;
+
+        //add root network
+        add_network(root, tempo, 0);
+        //add subnet 1
+        add_network(netuid, tempo, 0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake_amount1);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake_amount2);
+
+        // Register neuron 1
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        // Register neuron 2
+        register_ok_neuron(netuid, hotkey2, coldkey2, 0);
+
+        // Due to the way update stake work , we need to isolate just adding stake to the
+        // Stake StorageMap. We therefore need to manipulate the Stake StorageMap directly.
+        set_stake_value(coldkey1, hotkey1, stake_amount1);
+        assert_eq!(
+            pallet_subtensor::Stake::<Test>::get(coldkey1, hotkey1),
+            stake_amount1
+        );
+
+        set_stake_value(coldkey2, hotkey2, stake_amount2);
+        assert_eq!(
+            pallet_subtensor::Stake::<Test>::get(coldkey2, hotkey2),
+            stake_amount2
+        );
+
+        assert_eq!(
+            pallet_subtensor::SubStake::<Test>::get((&hotkey1, &coldkey1, &0u16)),
+            0
+        );
+        assert_eq!(
+            pallet_subtensor::SubStake::<Test>::get((&hotkey2, &coldkey2, &0u16)),
+            0
+        );
+
+        // Run the migration
+        pallet_subtensor::migration::migrate_nominator_counters::<Test>();
+
+        // Verify that counters are correct
+        assert_eq!(
+            pallet_subtensor::NominatorCount::<Test>::get(&hotkey1),
+            1
+        );
+        assert_eq!(
+            pallet_subtensor::NominatorCount::<Test>::get(&hotkey2),
+            1
+        );
+    });
+}
+
+#[test]
+fn test_migration_init_nominator_counts_10_to_one() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(100);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100_000_000_000);
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_network(1, 1, 0);
+        register_ok_neuron(1, delegate, delegate, 124124);
+
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate
+        ));
+
+        // Nominate 10 times - ok
+        for i in 1..=10 {
+            let nominator = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator),
+                delegate,
+                1,
+                1_000_000_000
+            ));
+        }
+
+        // Run the migration
+        pallet_subtensor::migration::migrate_nominator_counters::<Test>();
+
+        // Verify that counters are correct
+        assert_eq!(
+            pallet_subtensor::NominatorCount::<Test>::get(&delegate),
+            10
+        );
+    });
+}
