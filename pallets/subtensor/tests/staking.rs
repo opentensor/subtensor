@@ -4415,3 +4415,220 @@ fn set_delegate_takes_enforces_rate_limit() {
         );
     });
 }
+
+#[test]
+fn test_add_stake_within_nominator_limit_ok() {
+    new_test_ext(1).execute_with(|| {
+        // Set the global nominator limit to 10
+        SubtensorModule::set_nominator_limit(10);
+        let delegate = U256::from(100);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100_000_000_000);
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_network(1, 1, 0);
+        register_ok_neuron(1, delegate, delegate, 124124);
+
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate
+        ));
+
+        // Nominate 10 times - ok
+        for i in 1..=10 {
+            let nominator = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator),
+                delegate,
+                1,
+                1_000_000_000
+            ));
+        }
+    });
+}
+
+#[test]
+fn test_add_stake_above_nominator_limit_fails() {
+    new_test_ext(1).execute_with(|| {
+        // Set the global nominator limit to 10
+        SubtensorModule::set_nominator_limit(10);
+        let delegate = U256::from(100);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100_000_000_000);
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_network(1, 1, 0);
+        register_ok_neuron(1, delegate, delegate, 124124);
+
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate
+        ));
+
+        // Nominate 10 times - ok
+        for i in 1..=10 {
+            let nominator = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator),
+                delegate,
+                1,
+                1_000_000_000
+            ));
+        }
+
+        // Nominate 11th time - fails
+        let nominator = U256::from(11);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000);
+        assert_err!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator),
+                delegate,
+                1,
+                1_000_000_000
+            ),
+            Error::<Test>::TooManyNominations
+        );
+    });
+}
+
+#[test]
+fn test_remove_stake_below_nominator_limit_nominates_ok() {
+    new_test_ext(1).execute_with(|| {
+        // Set the global nominator limit to 10
+        SubtensorModule::set_nominator_limit(10);
+        let delegate = U256::from(100);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100_000_000_000);
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_network(1, 1, 0);
+        register_ok_neuron(1, delegate, delegate, 124124);
+
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate
+        ));
+
+        // Nominate 10 times - ok
+        for i in 1..=10 {
+            let nominator = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator),
+                delegate,
+                1,
+                1_000_000_000
+            ));
+        }
+
+        // Nominate 11th time - fails
+        let nominator11 = U256::from(11);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator11, 100_000_000_000);
+        assert_err!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator11),
+                delegate,
+                1,
+                1_000_000_000
+            ),
+            Error::<Test>::TooManyNominations
+        );
+
+        // Remove one stake - can nominate again
+        let nominator1 = U256::from(1);
+        assert_ok!(SubtensorModule::remove_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            delegate,
+            1,
+            1_000_000_000
+        ));
+
+        // Nominate 11th time - ok now
+        let nominator11 = U256::from(11);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator11, 100_000_000_000);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator11),
+            delegate,
+            1,
+            1_000_000_000
+        ));
+    });
+}
+
+#[test]
+fn test_partial_remove_stake_nomination_fails() {
+    new_test_ext(1).execute_with(|| {
+        // Set the global nominator limit to 10
+        SubtensorModule::set_nominator_limit(10);
+        let delegate = U256::from(100);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100_000_000_000);
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_network(1, 1, 0);
+        register_ok_neuron(1, delegate, delegate, 124124);
+
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate),
+            delegate
+        ));
+
+        // Nominate 10 times - ok
+        for i in 1..=10 {
+            let nominator = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&nominator, 100_000_000_000);
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator),
+                delegate,
+                1,
+                1_000_000_000
+            ));
+        }
+
+        // Nominate 11th time - fails
+        let nominator11 = U256::from(11);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator11, 100_000_000_000);
+        assert_err!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator11),
+                delegate,
+                1,
+                1_000_000_000
+            ),
+            Error::<Test>::TooManyNominations
+        );
+
+        // Remove one stake - can nominate again
+        let nominator1 = U256::from(1);
+        assert_ok!(SubtensorModule::remove_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            delegate,
+            1,
+            999_999_999
+        ));
+
+        // Nominate 11th time - still fails
+        assert_err!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(nominator11),
+                delegate,
+                1,
+                1_000_000_000
+            ),
+            Error::<Test>::TooManyNominations
+        );
+
+        // Remove remaining stake - can nominate again
+        let nominator1 = U256::from(1);
+        assert_ok!(SubtensorModule::remove_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            delegate,
+            1,
+            1
+        ));
+
+        // Nominate 11th time - ok now
+        let nominator11 = U256::from(11);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator11, 100_000_000_000);
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator11),
+            delegate,
+            1,
+            1_000_000_000
+        ));
+    });
+}

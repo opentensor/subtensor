@@ -671,8 +671,8 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
     }
 
-    pub fn set_delegate_limit(delegate_limit: u32) {
-        DelegateLimit::<T>::put(delegate_limit);
+    pub fn set_nominator_limit(nominator_limit: u32) {
+        NominatorLimit::<T>::put(nominator_limit);
     }
 
     pub fn get_subnet_owner_lock_period() -> u64 {

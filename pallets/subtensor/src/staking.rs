@@ -488,6 +488,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
+        // --- 5.5 Enforce the nominator limit
+        let nominator_count: u32 = NominatorCount::<T>::get(&hotkey);
+        ensure!(
+            nominator_count < NominatorLimit::<T>::get(),
+            Error::<T>::TooManyNominations
+        );
+
         // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
@@ -1110,6 +1117,10 @@ impl<T: Config> Pallet<T> {
             *stake = stake.saturating_add(increment);
         });
         Stake::<T>::mutate(hotkey, coldkey, |stake| {
+            // Increase the nominator counter for this hotkey
+            if *stake == DefaultZeroU64::<T>::get() {
+                NominatorCount::<T>::mutate(&hotkey, |count| *count += 1);
+            }
             *stake = stake.saturating_add(increment);
         });
         SubStake::<T>::insert(
@@ -1143,6 +1154,14 @@ impl<T: Config> Pallet<T> {
         });
         Stake::<T>::mutate(hotkey, coldkey, |stake| {
             *stake = stake.saturating_sub(decrement);
+            // Decrease the nominator counter for this hotkey
+            if *stake == DefaultZeroU64::<T>::get() {
+                if NominatorCount::<T>::get(&hotkey) == 1 {
+                    NominatorCount::<T>::remove(&hotkey);
+                } else {
+                    NominatorCount::<T>::mutate(&hotkey, |count| *count -= 1 );
+                }
+            }
         });
         SubStake::<T>::insert(
             (hotkey, coldkey, netuid),

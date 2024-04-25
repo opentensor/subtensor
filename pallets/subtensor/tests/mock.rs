@@ -156,7 +156,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
-    pub const InitialDelegateLimit: u16 = 128;
+    pub const InitialNominatorLimit: u16 = 128;
     pub const InitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3;
 }
 
@@ -357,7 +357,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
-    type InitialDelegateLimit = InitialDelegateLimit;
+    type InitialNominatorLimit = InitialNominatorLimit;
     type InitialSubnetOwnerLockPeriod = InitialSubnetOwnerLockPeriod;
 }
 

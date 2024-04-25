@@ -162,7 +162,7 @@ pub mod pallet {
         #[pallet::constant] // Initial default delegation take.
         type InitialDefaultTake: Get<u16>;
         #[pallet::constant] // Initial limit on number of nominators per subnet validator
-        type InitialDelegateLimit: Get<u32>;
+        type InitialNominatorLimit: Get<u32>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.
@@ -219,11 +219,15 @@ pub mod pallet {
         T::InitialDefaultTake::get()
     }
     #[pallet::type_value]
-    pub fn DefaultDelegateLimit<T: Config>() -> u32 {
-        T::InitialDelegateLimit::get()
+    pub fn DefaultNominatorLimit<T: Config>() -> u32 {
+        T::InitialNominatorLimit::get()
     }
     #[pallet::type_value]
     pub fn DefaultZeroU64<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
+    pub fn DefaultZeroU32<T: Config>() -> u32 {
         0
     }
     #[pallet::type_value]
@@ -294,8 +298,11 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-    #[pallet::storage] // --- ITEM ( delegate_limit ) --> Maximmu number of nominators per subnet validator
-    pub type DelegateLimit<T> = StorageValue<_, u32, ValueQuery, DefaultDelegateLimit<T>>;
+    #[pallet::storage] // --- ITEM ( delegate_limit ) --> Maximum number of nominators per hotkey
+    pub type NominatorLimit<T> = StorageValue<_, u32, ValueQuery, DefaultNominatorLimit<T>>;
+    #[pallet::storage] // --- MAP ( hot ) --> count | Number of nominators per hotkey
+    pub type NominatorCount<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u32, ValueQuery, DefaultZeroU32<T>>;
 
     #[pallet::storage] // --- MAP ( hot, u16 ) --> take | Signals that this key is open for delegation.
     pub type Delegates<T: Config> =
@@ -893,7 +900,7 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight
     pub(super) type StakeWeight<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;    
+        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> active
     pub(super) type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;

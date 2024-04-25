@@ -119,15 +119,15 @@ pub mod pallet {
 
         #[pallet::call_index(46)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_delegate_limit(
+        pub fn sudo_set_nominator_limit(
             origin: OriginFor<T>,
-            delegate_limit: u32,
+            nominator_limit: u32,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            T::Subtensor::set_delegate_limit(delegate_limit);
+            T::Subtensor::set_nominator_limit(nominator_limit);
             log::info!(
-                "TxDelegateLimitSet( set_delegate_limit: {:?} ) ",
-                delegate_limit
+                "TxNominatorLimitSet( set_nominator_limit: {:?} ) ",
+                nominator_limit
             );
             Ok(())
         }
@@ -840,7 +840,7 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_default_take(default_take: u16);
     fn set_tx_rate_limit(rate_limit: u64);
     fn set_tx_delegate_take_rate_limit(rate_limit: u64);
-    fn set_delegate_limit(delegate_limit: u32);
+    fn set_nominator_limit(nominator_limit: u32);
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
 
