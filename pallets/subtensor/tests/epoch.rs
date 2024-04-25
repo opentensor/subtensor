@@ -4,7 +4,7 @@ use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
-use substrate_fixed::types::{ I32F32, I64F64 };
+use substrate_fixed::types::{I32F32, I64F64};
 mod mock;
 
 #[macro_use]
@@ -2005,7 +2005,7 @@ fn test_validator_permits() {
 fn test_get_stakes_division_by_zero_is_checked() {
     new_test_ext(1).execute_with(|| {
         setup_dynamic_network(1u16, 1u16, 1u16);
-        SubtensorModule::set_alpha_outstanding( 1u16, 0 );
+        SubtensorModule::set_alpha_outstanding(1u16, 0);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
         let gsw = SubtensorModule::get_global_stake_weights(&hotkey_tuples);
@@ -2253,7 +2253,6 @@ fn test_lsw_2_subnets_2_hotkeys_2_nominators_uneven_cross_stake() {
     });
 }
 
-
 #[test]
 fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_0_global() {
     new_test_ext(1).execute_with(|| {
@@ -2282,7 +2281,7 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_1_global() 
     new_test_ext(1).execute_with(|| {
         setup_dynamic_network(1u16, 1u16, 1u16);
         setup_dynamic_network(2u16, 2u16, 2u16);
-        SubtensorModule::set_global_stake_weight( u16::MAX );
+        SubtensorModule::set_global_stake_weight(u16::MAX);
 
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 200_000_000_000u64);
@@ -2307,7 +2306,7 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_05_global()
     new_test_ext(1).execute_with(|| {
         setup_dynamic_network(1u16, 1u16, 1u16);
         setup_dynamic_network(2u16, 2u16, 2u16);
-        SubtensorModule::set_global_stake_weight( u16::MAX / 2 );
+        SubtensorModule::set_global_stake_weight(u16::MAX / 2);
 
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 200_000_000_000u64);

@@ -410,14 +410,8 @@ fn test_migration_init_nominator_counts_two_to_two() {
         pallet_subtensor::migration::migrate_nominator_counters::<Test>();
 
         // Verify that counters are correct
-        assert_eq!(
-            pallet_subtensor::NominatorCount::<Test>::get(&hotkey1),
-            1
-        );
-        assert_eq!(
-            pallet_subtensor::NominatorCount::<Test>::get(&hotkey2),
-            1
-        );
+        assert_eq!(pallet_subtensor::NominatorCount::<Test>::get(&hotkey1), 1);
+        assert_eq!(pallet_subtensor::NominatorCount::<Test>::get(&hotkey2), 1);
     });
 }
 
@@ -451,9 +445,6 @@ fn test_migration_init_nominator_counts_10_to_one() {
         pallet_subtensor::migration::migrate_nominator_counters::<Test>();
 
         // Verify that counters are correct
-        assert_eq!(
-            pallet_subtensor::NominatorCount::<Test>::get(&delegate),
-            10
-        );
+        assert_eq!(pallet_subtensor::NominatorCount::<Test>::get(&delegate), 10);
     });
 }

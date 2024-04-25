@@ -857,8 +857,6 @@ fn test_subnet_staking_emission() {
     });
 }
 
-
-
 #[test]
 fn test_run_coinbase_price_greater_than_1() {
     new_test_ext(1).execute_with(|| {

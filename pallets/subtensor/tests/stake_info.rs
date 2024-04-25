@@ -415,7 +415,7 @@ fn test_get_total_stake_for_each_subnet_double_stake() {
             ));
 
             // Add stake to another subnet
-            let netuid = ((i+1) % 32 + 1) as u16;
+            let netuid = ((i + 1) % 32 + 1) as u16;
             assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
                 *hotkey,
