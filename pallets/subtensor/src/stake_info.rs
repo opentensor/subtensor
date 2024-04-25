@@ -264,4 +264,34 @@ impl<T: Config> Pallet<T> {
 
         all_subnet_stake_info
     }
+
+    /// This function returns the total stake for each subnet.
+    /// It iterates over the `SubStake` storage map and calculates the sum of stakes for each subnet.
+    ///
+    /// # Returns:
+    /// A vector of tuples, each containing the subnet UID (`u16`) and the total stake (`Compact<u64>`) for that subnet.
+    pub fn get_total_stake_for_each_subnet() -> Vec<(u16, Compact<u64>)> {
+        // Initialize a vector to store the total stake for each subnet.
+        let mut subnet_stakes: Vec<(u16, u64)> = Vec::new();
+
+        // Iterate over the `SubStake` storage map and calculate the total stake for each subnet.
+        for ((_, _, subnet), stake) in SubStake::<T>::iter() {
+            // Check if the subnet already exists in the vector.
+            if let Some(index) = subnet_stakes.iter().position(|(s, _)| *s == subnet) {
+                // If the subnet exists, update its total stake.
+                subnet_stakes[index].1 += stake;
+            } else {
+                // If the subnet doesn't exist, add a new entry to the vector.
+                subnet_stakes.push((subnet, stake));
+            }
+        }
+
+        // Convert the vector of tuples to the desired output format.
+        let total_stakes: Vec<(u16, Compact<u64>)> = subnet_stakes
+            .into_iter()
+            .map(|(subnet, total_stake)| (subnet, Compact(total_stake)))
+            .collect();
+
+        total_stakes
+    }
 }

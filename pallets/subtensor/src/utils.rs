@@ -140,6 +140,14 @@ impl<T: Config> Pallet<T> {
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
+    pub fn get_stake_weight_for_uid(netuid: u16, uid: u16) -> u16 {
+        let vec = StakeWeight::<T>::get(netuid);
+        if (uid as usize) < vec.len() {
+            return vec[uid as usize];
+        } else {
+            return 0;
+        }
+    }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         if (uid as usize) < vec.len() {
@@ -665,6 +673,14 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_delegate_limit(delegate_limit: u32) {
         DelegateLimit::<T>::put(delegate_limit);
+    }
+
+    pub fn get_subnet_owner_lock_period() -> u64 {
+        SubnetOwnerLockPeriod::<T>::get()
+    }
+
+    pub fn set_subnet_owner_lock_period(subnet_owner_lock_period: u64) {
+        SubnetOwnerLockPeriod::<T>::set(subnet_owner_lock_period);
     }
 
     /// Calculates the slippage for both staking and unstaking operations.

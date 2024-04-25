@@ -209,7 +209,7 @@ fn test_root_set_weights() {
             log::debug!("Adding network with netuid: {}", netuid);
             assert_ok!(SubtensorModule::register_network(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid)),
-                U256::from(netuid+1000)
+                U256::from(netuid + 1000)
             ));
         }
 
@@ -315,7 +315,7 @@ fn test_root_set_weights_out_of_order_netuids() {
             if netuid % 2 == 0 {
                 assert_ok!(SubtensorModule::register_network(
                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid)),
-                    U256::from(netuid+1000)
+                    U256::from(netuid + 1000)
                 ));
             } else {
                 add_network(netuid as u16 * 10, 1000, 0)

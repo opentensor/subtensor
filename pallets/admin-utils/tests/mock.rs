@@ -160,7 +160,6 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type InitialDelegateLimit = InitialDelegateLimit;
-
 }
 
 impl system::Config for Test {

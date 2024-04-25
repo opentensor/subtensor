@@ -52,16 +52,19 @@ impl<T: Config> Pallet<T> {
 
         // Check if alpha prices exceed TAO market cap.
         let tao_block_emission: u64;
+        let alpha_block_emission: u64;
         if total_prices <= I64F64::from_num(1.0) {
             tao_block_emission = Self::get_block_emission().unwrap();
+            alpha_block_emission = 0;
         } else {
             tao_block_emission = 0;
+            alpha_block_emission = Self::get_block_emission().unwrap();
         }
 
         for (netuid, price) in prices.iter() {
             let normalized_alpha_price: I64F64 = price / I64F64::from_num( total_prices );
             let new_tao_emission:u64 = ( normalized_alpha_price * I64F64::from_num( tao_block_emission ) ).to_num::<u64>();
-            let new_alpha_emission: u64 = Self::get_block_emission().unwrap();
+            let new_alpha_emission: u64 = alpha_block_emission;
             EmissionValues::<T>::insert( *netuid, new_tao_emission );
             DynamicTAOReserve::<T>::mutate( netuid, |reserve| *reserve += new_tao_emission );
             DynamicAlphaReserve::<T>::mutate( netuid, |reserve| *reserve += new_alpha_emission );
@@ -167,8 +170,7 @@ impl<T: Config> Pallet<T> {
         // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
         let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
         let delegate_local_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet( delegate, netuid );
-        // let delegate_global_stake: u64 = Self::get_total_stake_for_hotkey( delegate );
-        let delegate_global_dynamic_tao = Self::get_global_dynamic_tao( delegate );
+        let delegate_global_dynamic_tao = Self::get_hotkey_global_dynamic_tao( delegate );
         log::debug!("global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}", global_stake_weight, delegate_local_stake, delegate_global_dynamic_tao);
 
         if delegate_local_stake + delegate_global_dynamic_tao != 0 {
@@ -184,7 +186,7 @@ impl<T: Config> Pallet<T> {
                 };
                 log::debug!("nominator_local_emission_i: {:?}", nominator_local_emission_i);
 
-                let nominator_global_stake: u64 = Self::get_coldkey_hotkey_global_dynamic_tao( &nominator_i, delegate ); // Get global stake.
+                let nominator_global_stake: u64 = Self::get_nominator_global_dynamic_tao( &nominator_i, delegate ); // Get global stake.
                 let nominator_global_emission_i: I64F64 = if delegate_global_dynamic_tao == 0 {
                     I64F64::from_num(0)
                 } else {

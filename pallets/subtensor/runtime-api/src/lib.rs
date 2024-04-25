@@ -36,9 +36,15 @@ sp_api::decl_runtime_apis! {
         fn get_total_subnet_stake( netuid: u16 ) -> Vec<u8>;
         fn get_all_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8>;
         fn get_all_subnet_stake_info_for_coldkey( coldkey_account_vec: TensorBytes ) -> Vec<u8>;
+        fn get_total_stake_for_each_subnet() -> Vec<u8>;
     }
 
     pub trait SubnetRegistrationRuntimeApi {
         fn get_network_registration_cost() -> u64;
+    }
+
+    pub trait DynamicPoolInfoRuntimeApi {
+        fn get_dynamic_pool_info(netuid: u16) -> Vec<u8>;
+        fn get_all_dynamic_pool_infos() -> Vec<u8>;
     }
 }

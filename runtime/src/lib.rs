@@ -674,6 +674,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3; // 3 months
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -725,6 +726,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type InitialSubnetOwnerLockPeriod = SubtensorInitialSubnetOwnerLockPeriod;
 }
 
 use sp_runtime::BoundedVec;
@@ -1441,11 +1443,27 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_all_subnet_stake_info_for_coldkey( coldkey_account_vec );
             result.encode()
         }
+
+        fn get_total_stake_for_each_subnet() -> Vec<u8> {
+            let result = SubtensorModule::get_total_stake_for_each_subnet();
+            result.encode()
+        }
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
             SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::DynamicPoolInfoRuntimeApi<Block> for Runtime {
+        fn get_dynamic_pool_info(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_dynamic_pool_info(netuid);
+            result.encode()
+        }
+        fn get_all_dynamic_pool_infos() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_pool_infos();
+            result.encode()
         }
     }
 }

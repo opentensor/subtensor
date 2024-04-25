@@ -334,3 +334,102 @@ fn test_get_all_subnet_stake_info_for_coldkey_32_subnets() {
         assert_eq!(total_stake, expected_total_stake);
     });
 }
+
+#[test]
+fn test_get_total_stake_for_each_subnet_single_stake() {
+    new_test_ext(1).execute_with(|| {
+        let tempo: u16 = 13;
+
+        // Create coldkey and hotkeys
+        let coldkey = U256::from(0);
+        let mut hotkeys = Vec::new();
+
+        // Create 32 subnets and register neurons
+        for i in 1..=32 {
+            let netuid = i;
+            let hotkey = U256::from(i);
+            hotkeys.push(hotkey);
+
+            add_network(netuid, tempo, 0);
+            register_ok_neuron(netuid, hotkey, coldkey, 39420840 + i as u64);
+        }
+
+        // Add balance to the coldkey account
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 320000);
+
+        // Add subnet stake for each subnet
+        for (i, hotkey) in hotkeys.iter().enumerate() {
+            let netuid = (i + 1) as u16;
+            let stake_amount = (1000 + netuid) as u64;
+
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
+                *hotkey,
+                netuid,
+                stake_amount
+            ));
+        }
+
+        // Retrieve total stake info for each subnet
+        let total_stake = SubtensorModule::get_total_stake_for_each_subnet();
+        assert_eq!(total_stake.len(), 32); // Ensure we have 32 entries
+
+        total_stake.iter().for_each(|&s| {
+            assert_eq!(s.1, Compact((1000 + s.0) as u64));
+        });
+    });
+}
+
+#[test]
+fn test_get_total_stake_for_each_subnet_double_stake() {
+    new_test_ext(1).execute_with(|| {
+        let tempo: u16 = 13;
+
+        // Create coldkey and hotkeys
+        let coldkey = U256::from(0);
+        let mut hotkeys = Vec::new();
+
+        // Create 32 subnets and register neurons
+        for i in 1..=32 {
+            let netuid = i;
+            let hotkey = U256::from(i);
+            hotkeys.push(hotkey);
+
+            add_network(netuid, tempo, 0);
+            register_ok_neuron(netuid, hotkey, coldkey, 39420840 + i as u64);
+        }
+
+        // Add balance to the coldkey account
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 320000);
+
+        // Add subnet stake for each subnet
+        for (i, hotkey) in hotkeys.iter().enumerate() {
+            let netuid = (i + 1) as u16;
+            let stake_amount = 1000;
+
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
+                *hotkey,
+                netuid,
+                stake_amount
+            ));
+
+            // Add stake to another subnet
+            let netuid = ((i+1) % 32 + 1) as u16;
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as frame_system::Config>::RuntimeOrigin>::signed(coldkey),
+                *hotkey,
+                netuid,
+                stake_amount
+            ));
+        }
+
+        // Retrieve total stake info for each subnet
+        let total_stake = SubtensorModule::get_total_stake_for_each_subnet();
+        assert_eq!(total_stake.len(), 32); // Ensure we have 32 entries
+
+        total_stake.iter().for_each(|&s| {
+            assert_eq!(s.1, Compact(2000u64));
+        });
+    });
+}

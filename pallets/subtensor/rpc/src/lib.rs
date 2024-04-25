@@ -13,8 +13,8 @@ use sp_api::ProvideRuntimeApi;
 
 use pallet_subtensor::types::TensorBytes;
 pub use subtensor_custom_rpc_runtime_api::{
-    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi, SubnetInfoRuntimeApi,
-    SubnetRegistrationRuntimeApi,
+    DelegateInfoRuntimeApi, DynamicPoolInfoRuntimeApi, NeuronInfoRuntimeApi, StakeInfoRuntimeApi,
+    SubnetInfoRuntimeApi, SubnetRegistrationRuntimeApi,
 };
 #[rpc(client, server)]
 pub trait SubtensorCustomApi<BlockHash> {
@@ -32,11 +32,18 @@ pub trait SubtensorCustomApi<BlockHash> {
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 
-
     #[method(name = "delegateInfo_getSubStakeForHotkey")]
-    fn get_substake_for_hotkey(&self, hotkey_bytes: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_substake_for_hotkey(
+        &self,
+        hotkey_bytes: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getSubStakeForColdkey")]
-    fn get_substake_for_coldkey(&self, coldkey_bytes: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_substake_for_coldkey(
+        &self,
+        coldkey_bytes: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getSubStakeForNetuid")]
     fn get_substake_for_netuid(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
@@ -88,6 +95,12 @@ pub trait SubtensorCustomApi<BlockHash> {
         coldkey_account_vec: TensorBytes,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
+    #[method(name= "subnetInfo_getTotalStakeForEachSubnet")]
+    fn get_total_stake_for_each_subnet(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "dynamicPoolInfo_getDynamicPoolInfo")]
+    fn get_dynamic_pool_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "dynamicPoolInfo_getAllDynamicPoolInfos")]
+    fn get_all_dynamic_pool_infos(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -129,16 +142,16 @@ where
     C::Api: SubnetInfoRuntimeApi<Block>,
     C::Api: SubnetRegistrationRuntimeApi<Block>,
     C::Api: StakeInfoRuntimeApi<Block>,
+    C::Api: DynamicPoolInfoRuntimeApi<Block>,
 {
-
     fn get_substake_for_hotkey(
-        &self, 
+        &self,
         hotkey_bytes: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_hotkey( at, hotkey_bytes ).map_err(|e| {
+        api.get_substake_for_hotkey(at, hotkey_bytes).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get delegates info.",
@@ -149,30 +162,31 @@ where
     }
 
     fn get_substake_for_coldkey(
-        &self, 
+        &self,
         coldkey_bytes: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_coldkey( at, coldkey_bytes ).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegates info.",
-                Some(e.to_string()),
-            ))
-            .into()
-        })
+        api.get_substake_for_coldkey(at, coldkey_bytes)
+            .map_err(|e| {
+                CallError::Custom(ErrorObject::owned(
+                    Error::RuntimeError.into(),
+                    "Unable to get delegates info.",
+                    Some(e.to_string()),
+                ))
+                .into()
+            })
     }
 
     fn get_substake_for_netuid(
-        &self, 
+        &self,
         netuid: u16,
-        at: Option<<Block as BlockT>::Hash>
+        at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_netuid( at, netuid ).map_err(|e| {
+        api.get_substake_for_netuid(at, netuid).map_err(|e| {
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get delegates info.",
@@ -363,7 +377,7 @@ where
                 Some(e.to_string()),
             ))
             .into()
-        })  
+        })
     }
 
     fn get_subnet_stake_info_for_cold_key(
@@ -460,5 +474,54 @@ where
                 ))
                 .into()
             })
+    }
+
+    fn get_dynamic_pool_info(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_dynamic_pool_info(at, netuid).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get dynamic pool info.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_all_dynamic_pool_infos(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_all_dynamic_pool_infos(at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get all dynamic pool infos.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_total_stake_for_each_subnet(&self,at:Option<<Block  as  BlockT>::Hash>) -> RpcResult<Vec<u8> > {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_total_stake_for_each_subnet(at).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get total stake for each subnet.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })  
     }
 }
