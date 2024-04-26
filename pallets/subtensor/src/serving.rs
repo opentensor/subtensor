@@ -276,7 +276,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_valid_ip_type(ip_type: u8) -> bool {
-        let allowed_values: Vec<u8> = vec![4, 6];
+        let allowed_values = [4, 6];
         return allowed_values.contains(&ip_type);
     }
 

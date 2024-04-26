@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
             if last_set_weights == 0 {
                 return true;
             } // (Storage default) Never set weights.
-            return current_block - last_set_weights >= Self::get_weights_set_rate_limit(netuid);
+            return (current_block - last_set_weights) >= Self::get_weights_set_rate_limit(netuid);
         }
         // --- 3. Non registered peers cant pass.
         return false;
@@ -335,7 +335,8 @@ impl<T: Config> Pallet<T> {
         if weights.len() != 1 {
             return false;
         }
-        if uid != uids[0] {
+        let Some(first_uid) = uids.first() else { return false; };
+        if uid != *first_uid {
             return false;
         }
         return true;
