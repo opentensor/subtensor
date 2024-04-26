@@ -1878,6 +1878,9 @@ fn test_validator_permits() {
     let netuid: u16 = 1;
     let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     for interleave in 0..3 {
+        // network_n - total number of neurons in the network
+        // validators_n - number of validators among these neurons
+        // servers - neurons that don't have validator permit
         for (network_n, validators_n) in vec![(2, 1), (4, 2), (8, 4)] {
             for assignment in 0..=1 {
                 let (validators, servers) = distribute_nodes(
@@ -1938,7 +1941,7 @@ fn test_validator_permits() {
                         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                             &U256::from(key),
                             &U256::from(key),
-                            0,
+                            netuid,
                             stake[key as usize],
                         );
                     }
@@ -1973,7 +1976,7 @@ fn test_validator_permits() {
                         SubtensorModule::increase_stake_on_coldkey_hotkey_account(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
-                            0,
+                            netuid,
                             2 * network_n as u64,
                         );
                     }
