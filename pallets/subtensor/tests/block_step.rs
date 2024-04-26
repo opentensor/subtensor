@@ -920,3 +920,333 @@ fn test_run_coinbase_price_less_than_1() {
         assert_eq!(pending_alpha_after == pending_alpha_before, true);
     })
 }
+
+#[test]
+fn test_10_subnet_take_basic_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+        let coldkey1 = U256::from(4);
+
+        // Create networks.
+        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
+        setup_dynamic_network(netuid1, 3u16, 1u16);
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey0, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey1, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &hotkey0, 1000_000_000_000 );
+
+        // The tests below assume lock costs of LC1 = 100
+        assert_eq!(lock_cost_1, 100_000_000_000);
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: LC1     (100)
+        //
+        // DynamicTAOReserve (get_tao_reserve) assertions
+        //   Subnet 1: 100
+        //
+        // DynamicAlphaReserve (get_alpha_reserve) assertions
+        //   Subnet 1: 100
+        //
+        // DynamicAlphaOutstanding (get_alpha_outstading) assertions
+        //   Subnet 1: 100
+        //
+        assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 100_000_000_000);
+
+        // Coldkey / hotkey 0 become a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0
+        ));
+
+        // Coldkey / hotkey 0 sets the take on subnet 1 to 10%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid1,
+            u16::MAX / 10
+        ));
+
+        // Nominate 100 from coldkey/hotkey 1 to hotkey0 on subnet 1
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid1,
+            100_000_000_000
+        ));
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: 100
+        //             cold1, hot0: 50
+        //
+        // DynamicTAOReserve (get_tao_reserve) assertions
+        //   Subnet 1: 200
+        //
+        // DynamicAlphaReserve (get_alpha_reserve) assertions
+        //   Subnet 1: 50
+        //
+        // DynamicAlphaOutstanding (get_alpha_outstading) assertions
+        //   Subnet 1: 150
+        //
+        assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
+        assert_substake_eq!(&coldkey1, &hotkey0, netuid1, 50_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 200_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 50_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 150_000_000_000);
+
+        // Emission
+        //
+        // Emit inflation through run_coinbase
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 200 validator emission, which should be distributed in-part to the nominators.
+        //
+        let emission = 200_000_000_000;
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: 350 - 110 = 240
+        //             cold1, hot0: 110
+        //
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 240.);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 110.);
+    });
+}
+
+#[test]
+fn test_20_subnet_take_basic_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+        let coldkey1 = U256::from(4);
+
+        // Create networks.
+        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
+        setup_dynamic_network(netuid1, 3u16, 1u16);
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey0, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey1, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &hotkey0, 1000_000_000_000 );
+
+        // The tests below assume lock costs of LC1 = 100
+        assert_eq!(lock_cost_1, 100_000_000_000);
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: LC1     (100)
+        //
+        // DynamicTAOReserve (get_tao_reserve) assertions
+        //   Subnet 1: 100
+        //
+        // DynamicAlphaReserve (get_alpha_reserve) assertions
+        //   Subnet 1: 100
+        //
+        // DynamicAlphaOutstanding (get_alpha_outstading) assertions
+        //   Subnet 1: 100
+        //
+        assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 100_000_000_000);
+
+        // Coldkey / hotkey 0 become a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0
+        ));
+
+        // Coldkey / hotkey 0 sets the take on subnet 1 to 20%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid1,
+            u16::MAX / 5
+        ));
+
+        // Nominate 100 from coldkey/hotkey 1 to hotkey0 on subnet 1
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid1,
+            100_000_000_000
+        ));
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: 100
+        //             cold1, hot0: 50
+        //
+        // DynamicTAOReserve (get_tao_reserve) assertions
+        //   Subnet 1: 200
+        //
+        // DynamicAlphaReserve (get_alpha_reserve) assertions
+        //   Subnet 1: 50
+        //
+        // DynamicAlphaOutstanding (get_alpha_outstading) assertions
+        //   Subnet 1: 150
+        //
+        assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
+        assert_substake_eq!(&coldkey1, &hotkey0, netuid1, 50_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 200_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 50_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 150_000_000_000);
+
+        // Emission
+        //
+        // Emit inflation through run_coinbase
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 200 validator emission, which should be distributed in-part to the nominators.
+        //
+        let emission = 200_000_000_000;
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: 350 - 103.3333 ~ 246.67
+        //             cold1, hot0: 103.3333
+        //
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 246.67);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 103.33);
+    });
+}
+
+#[test]
+fn test_two_subnets_take_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1 = 1;
+        let netuid2 = 2;
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+        let coldkey0 = U256::from(3);
+        let coldkey1 = U256::from(4);
+
+        // Create networks.
+        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
+        setup_dynamic_network(netuid1, 3u16, 1u16);
+        let lock_cost_2 = SubtensorModule::get_network_lock_cost();
+        setup_dynamic_network(netuid2, 3u16, 2u16);
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey0, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &coldkey1, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &hotkey0, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account( &hotkey1, 1000_000_000_000 );
+
+        // The tests below assume lock costs of LC1 = LC2 = 100
+        assert_eq!(lock_cost_1, 100_000_000_000);
+        assert_eq!(lock_cost_2, 100_000_000_000);
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: LC1     (100)
+        //
+        // DynamicTAOReserve (get_tao_reserve) assertions
+        //   Subnet 1: 100
+        //   Subnet 2: 100
+        //
+        // DynamicAlphaReserve (get_alpha_reserve) assertions
+        //   Subnet 1: 100
+        //   Subnet 2: 200
+        //
+        // DynamicAlphaOutstanding (get_alpha_outstading) assertions
+        //   Subnet 1: 100
+        //   Subnet 2: 200
+        //
+        assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
+        assert_substake_eq!(&coldkey0, &hotkey1, netuid2, 200_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid2), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid2), 200_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid2), 200_000_000_000);
+
+        // Hotkey 0 becomes a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0
+        ));
+
+        // Hotkey 1 becomes a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey1
+        ));
+
+        // Hotkey 0 sets the take on subnet 1 to 10%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid1,
+            u16::MAX / 10
+        ));
+
+        // Hotkey 1 sets the take on subnet 2 to 20%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey1,
+            netuid2,
+            u16::MAX / 5
+        ));
+
+        // Nominate 100 from coldkey1 to hotkey0 on subnet 1
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey0,
+            netuid1,
+            100_000_000_000
+        ));
+
+        // Nominate 100 from coldkey1 to hotkey1 on subnet 2
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1,
+            netuid2,
+            100_000_000_000
+        ));
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: 100
+        //             cold1, hot0: 50
+        //   Subnet 2, cold0, hot1: 200
+        //             cold1, hot1: 100
+        //
+        // DynamicTAOReserve (get_tao_reserve) assertions
+        //   Subnet 1: 200
+        //
+        // DynamicAlphaReserve (get_alpha_reserve) assertions
+        //   Subnet 1: 50
+        //
+        // DynamicAlphaOutstanding (get_alpha_outstading) assertions
+        //   Subnet 1: 150
+        //
+        assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
+        assert_substake_eq!(&coldkey1, &hotkey0, netuid1, 50_000_000_000);
+        assert_substake_eq!(&coldkey0, &hotkey1, netuid2, 200_000_000_000);
+        assert_substake_eq!(&coldkey1, &hotkey1, netuid2, 100_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 200_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 50_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 150_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(netuid2), 200_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_reserve(netuid2), 100_000_000_000);
+        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid2), 300_000_000_000);
+
+        // Emission
+        //
+        // Emit inflation through run_coinbase
+        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
+        // We will emit 100 validator emission through each of hotkeys, which should be
+        // distributed in-part to the nominators.
+        //
+        let emission = 100_000_000_000;
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid2, 0, emission);
+
+        // SubStake (Alpha balance)
+        //   Subnet 1, cold0, hot0: 170
+        //             cold1, hot0: 80
+        //   Subnet 2, cold0, hot1: 273.34
+        //             cold1, hot1: 126.67
+        //
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 170.);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 80.);
+        assert_substake_approx_eq!(&coldkey0, &hotkey1, netuid2, 273.33);
+        assert_substake_approx_eq!(&coldkey1, &hotkey1, netuid2, 126.67);
+    });
+}

@@ -481,6 +481,8 @@ pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16 ) 
     let hotkey = U256::from( hot_id );
 
     add_network(netuid, tempo, 0);
+    register_ok_neuron(netuid, hotkey, coldkey, 11234);
+    SubtensorModule::append_neuron( netuid, &hotkey, 1 );
 
     let initial_tao_reserve: u64 = lock_amount as u64;
     let initial_dynamic_reserve: u64 = lock_amount * SubtensorModule::get_num_subnets() as u64;
@@ -504,10 +506,8 @@ pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16 ) 
 #[allow(dead_code)]
 pub fn setup_dynamic_network(netuid: u16, cold_id: u16, hot_id: u16) {
     SubtensorModule::set_global_stake_weight( 0 );
-    let hotkey = U256::from( hot_id );
-    add_dynamic_network( netuid, u16::MAX - 1, cold_id, hot_id );
+    add_dynamic_network( netuid, 10, cold_id, hot_id );
     SubtensorModule::set_max_allowed_uids( netuid, 1 );
-    SubtensorModule::append_neuron( netuid, &hotkey, 1 );
 }
 
 #[allow(dead_code)]
