@@ -3,7 +3,7 @@ use frame_support::traits::Currency;
 use crate::mock::*;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::{transaction_validity::InvalidTransaction, DispatchError};
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::{AxonInfoOf, Error, SubtensorSignedExtension};
 use sp_core::U256;
@@ -150,6 +150,40 @@ fn test_registration_ok() {
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
             0
+        );
+    });
+}
+
+#[test]
+fn test_registration_without_neuron_slot() {
+    new_test_ext(1).execute_with(|| {
+        let block_number: u64 = 0;
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id: U256 = U256::from(1);
+        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+            netuid,
+            block_number,
+            129123813,
+            &hotkey_account_id,
+        );
+
+        //add network
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, 0);
+
+        assert_noop!(
+            SubtensorModule::register(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                hotkey_account_id,
+                coldkey_account_id
+            ),
+            Error::<Test>::NoNeuronIdAvailable
         );
     });
 }
@@ -378,6 +412,32 @@ fn test_burned_registration_ok() {
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
             0
+        );
+    });
+}
+
+#[test]
+fn test_burn_registration_without_neuron_slot() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let hotkey_account_id = U256::from(1);
+        let burn_cost = 1000;
+        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
+                                                  //add network
+        SubtensorModule::set_burn(netuid, burn_cost);
+        add_network(netuid, tempo, 0);
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+        SubtensorModule::set_max_allowed_uids(netuid, 0);
+
+        assert_noop!(
+            SubtensorModule::burned_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                netuid,
+                hotkey_account_id
+            ),
+            Error::<Test>::NoNeuronIdAvailable
         );
     });
 }
