@@ -161,8 +161,6 @@ pub mod pallet {
         type InitialMaxAllowedValidators: Get<u16>;
         #[pallet::constant] // Initial default delegation take.
         type InitialDefaultTake: Get<u16>;
-        #[pallet::constant] // Initial limit on number of nominators per subnet validator
-        type InitialDelegateLimit: Get<u32>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.
@@ -217,10 +215,6 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
-    }
-    #[pallet::type_value]
-    pub fn DefaultDelegateLimit<T: Config>() -> u32 {
-        T::InitialDelegateLimit::get()
     }
     #[pallet::type_value]
     pub fn DefaultZeroU64<T: Config>() -> u64 {
@@ -294,8 +288,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-    #[pallet::storage] // --- ITEM ( delegate_limit ) --> Maximmu number of nominators per subnet validator
-    pub type DelegateLimit<T> = StorageValue<_, u32, ValueQuery, DefaultDelegateLimit<T>>;
 
     #[pallet::storage] // --- MAP ( hot, u16 ) --> take | Signals that this key is open for delegation.
     pub type Delegates<T: Config> =
@@ -893,7 +885,7 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight
     pub(super) type StakeWeight<T: Config> =
-        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;    
+        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> active
     pub(super) type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
@@ -1062,7 +1054,6 @@ pub mod pallet {
         BalanceSetError,          // --- Thrown when an error occurs while setting a balance.
         MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
         TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
-        TooManyNominations, // ---- Thrown when the limit of nominators per subnet validator is exceeded
         TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
         StakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for stakes.
         UnstakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for unstakes.
