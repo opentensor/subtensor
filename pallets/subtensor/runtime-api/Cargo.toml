@@ -18,5 +18,10 @@ pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-fe
 
 [features]
 default = ["std"]
-std = ["sp-api/std"]
+std = [
+	"sp-api/std",
+	"frame-support/std",
+	"pallet-subtensor/std",
+	"serde/std"
+]
 pow-faucet = []

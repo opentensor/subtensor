@@ -75,14 +75,14 @@ pub fn vec_fixed64_to_u64(vec: Vec<I64F64>) -> Vec<u64> {
 #[allow(dead_code)]
 pub fn vec_u16_proportions_to_fixed(vec: Vec<u16>) -> Vec<I32F32> {
     vec.into_iter()
-        .map(|e| u16_proportion_to_fixed(e))
+        .map(u16_proportion_to_fixed)
         .collect()
 }
 
 #[allow(dead_code)]
 pub fn vec_fixed_proportions_to_u16(vec: Vec<I32F32>) -> Vec<u16> {
     vec.into_iter()
-        .map(|e| fixed_proportion_to_u16(e))
+        .map(fixed_proportion_to_u16)
         .collect()
 }
 
@@ -156,10 +156,7 @@ where
         return Some(T::default());
     };
     while let Some(i) = iter.next() {
-        match sum.checked_add(i) {
-            Some(val) => sum = val,
-            None => return None,
-        }
+        sum = sum.checked_add(i)?;
     }
     Some(sum)
 }
@@ -167,7 +164,7 @@ where
 // Return true when vector sum is zero.
 #[allow(dead_code)]
 pub fn is_zero(vector: &Vec<I32F32>) -> bool {
-    let vector_sum: I32F32 = sum(&vector);
+    let vector_sum: I32F32 = sum(vector);
     vector_sum == I32F32::from_num(0)
 }
 
@@ -231,10 +228,10 @@ pub fn is_topk(vector: &Vec<I32F32>, k: usize) -> Vec<bool> {
 #[allow(dead_code)]
 pub fn normalize(x: &Vec<I32F32>) -> Vec<I32F32> {
     let x_sum: I32F32 = sum(x);
-    if x_sum != I32F32::from_num(0.0 as f32) {
+    if x_sum != I32F32::from_num(0.0_f32) {
         return x.iter().map(|xi| xi / x_sum).collect();
     } else {
-        return x.clone();
+        x.clone()
     }
 }
 
@@ -242,19 +239,19 @@ pub fn normalize(x: &Vec<I32F32>) -> Vec<I32F32> {
 #[allow(dead_code)]
 pub fn inplace_normalize(x: &mut Vec<I32F32>) {
     let x_sum: I32F32 = x.iter().sum();
-    if x_sum == I32F32::from_num(0.0 as f32) {
+    if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    x.into_iter().for_each(|elem| *elem /= x_sum);
+    x.into_iter().for_each(|value| *value /= x_sum);
 }
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place, using the sum arg.
 #[allow(dead_code)]
 pub fn inplace_normalize_using_sum(x: &mut Vec<I32F32>, x_sum: I32F32) {
-    if x_sum == I32F32::from_num(0.0 as f32) {
+    if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    x.into_iter().for_each(|elem| *elem /= x_sum);
+    x.into_iter().for_each(|value| *value /= x_sum);
 }
 
 // Normalizes (sum to 1 except 0) the I64F64 input vector directly in-place.
@@ -361,7 +358,7 @@ pub fn inplace_col_normalize_sparse(sparse_matrix: &mut Vec<Vec<(u16, I32F32)>>,
     }
     for sparse_row in sparse_matrix {
         for (j, value) in sparse_row {
-            if col_sum[*j as usize] == I32F32::from_num(0.0 as f32) {
+            if col_sum[*j as usize] == I32F32::from_num(0.0_f32) {
                 continue;
             }
             *value /= col_sum[*j as usize];
@@ -386,7 +383,7 @@ pub fn inplace_col_normalize(x: &mut Vec<Vec<I32F32>>) {
         .collect()
     });
     x.into_iter().for_each(|row| {
-        row.into_iter().zip(&col_sums).filter(|(_, col_sum)| **col_sum != I32F32::from_num(0)).for_each(|(m_val, col_sum)| {
+        row.into_iter().zip(&col_sums).filter(|(_, col_sum)| **col_sum != I32F32::from_num(0_f32)).for_each(|(m_val, col_sum)| {
             *m_val /= col_sum;
         });
     });
@@ -405,7 +402,7 @@ pub fn inplace_col_max_upscale_sparse(sparse_matrix: &mut Vec<Vec<(u16, I32F32)>
     }
     for sparse_row in sparse_matrix {
         for (j, value) in sparse_row {
-            if col_max[*j as usize] == I32F32::from_num(0.0 as f32) {
+            if col_max[*j as usize] == I32F32::from_num(0.0_f32) {
                 continue;
             }
             *value /= col_max[*j as usize];
@@ -423,7 +420,7 @@ pub fn inplace_col_max_upscale(x: &mut Vec<Vec<I32F32>>) {
         return;
     }
     let cols = first_row.len();
-    let col_maxes = x.into_iter().fold(vec![I32F32::from_num(0); cols], |acc, row| {
+    let col_maxes = x.into_iter().fold(vec![I32F32::from_num(0_f32); cols], |acc, row| {
         row.into_iter().zip(acc).map(|(m_val, acc_val)| {
             acc_val.max(*m_val)
         })
@@ -555,8 +552,7 @@ pub fn row_hadamard(matrix: &Vec<Vec<I32F32>>, vector: &Vec<I32F32>) -> Vec<Vec<
     let Some(first_row) = matrix.first() else {
         return vec![vec![]];
     };
-    let cols = first_row.len();
-    if cols == 0 {
+    if first_row.is_empty() {
         return vec![vec![]];
     }
     matrix.into_iter().zip(vector).map(|(row, vec_val)| {
@@ -588,7 +584,7 @@ pub fn matmul(matrix: &Vec<Vec<I32F32>>, vector: &Vec<I32F32>) -> Vec<I32F32> {
         return vec![];
     }
     assert!(matrix.len() == vector.len());
-    matrix.into_iter().zip(vector).fold(vec![I32F32::from_num(0); cols], |acc, (row, vec_val)| {
+    matrix.into_iter().zip(vector).fold(vec![I32F32::from_num(0_f32); cols], |acc, (row, vec_val)| {
         row.into_iter().zip(acc).map(|(m_val, acc_val)| {
             acc_val + vec_val * m_val
         })
@@ -629,7 +625,7 @@ pub fn matmul_transpose(matrix: &Vec<Vec<I32F32>>, vector: &Vec<I32F32>) -> Vec<
     }
     assert!(first_row.len() == vector.len());
     matrix.into_iter().map(|row| {
-        row.into_iter().zip(vector).fold(I32F32::from_num(0), |acc, (velem, melem)| {
+        row.into_iter().zip(vector).fold(I32F32::from_num(0.0), |acc, (velem, melem)| {
             // Compute dividends: d_j = SUM(i) b_ji * inc_i
             // result_j = SUM(i) vector_i * matrix_ji
             // result_i = SUM(j) vector_j * matrix_ij
@@ -828,7 +824,7 @@ pub fn weighted_median(
     }
     if (partition_lo + lo_stake <= minority) && (minority < partition_hi - hi_stake) {
         return pivot;
-    } else if (minority < partition_lo + lo_stake) && (lower.len() > 0) {
+    } else if (minority < partition_lo + lo_stake) && (!lower.is_empty()) {
         return weighted_median(
             stake,
             score,
@@ -837,7 +833,7 @@ pub fn weighted_median(
             partition_lo,
             partition_lo + lo_stake,
         );
-    } else if (partition_hi - hi_stake <= minority) && (upper.len() > 0) {
+    } else if (partition_hi - hi_stake <= minority) && (!upper.is_empty()) {
         return weighted_median(
             stake,
             score,
@@ -871,7 +867,7 @@ pub fn weighted_median_col(
                 use_score.push(score[r][c]);
             }
         }
-        if use_stake.len() > 0 {
+        if !use_stake.is_empty() {
             inplace_normalize(&mut use_stake);
             let stake_sum: I32F32 = use_stake.iter().sum();
             let minority: I32F32 = stake_sum - majority;
@@ -933,10 +929,10 @@ pub fn weighted_median_col_sparse(
 pub fn hadamard(mat1: &Vec<Vec<I32F32>>, mat2: &Vec<Vec<I32F32>>) -> Vec<Vec<I32F32>> {
     assert!(mat1.len() == mat2.len());
     let Some(first_row) = mat1.first() else {
-        return vec![vec![]; 1];
+        return vec![vec![]];
     };
     if first_row.is_empty() {
-        return vec![vec![]; 1];
+        return vec![vec![]];
     }
     mat1.iter().zip(mat2).map(|(row1, row2)| {
         assert!(row1.len() == row2.len());
@@ -981,7 +977,7 @@ pub fn hadamard_sparse(
 #[allow(dead_code)]
 pub fn mat_ema(new: &Vec<Vec<I32F32>>, old: &Vec<Vec<I32F32>>, alpha: I32F32) -> Vec<Vec<I32F32>> {
     let Some(first_row) = new.first() else {
-        return vec![vec![]; 1];
+        return vec![vec![]];
     };
     if first_row.is_empty() {
         return vec![vec![]; 1];
@@ -1267,7 +1263,7 @@ mod tests {
         // let prod_96: I96F32 = (I96F32::from_num(max_32) + one) * I96F32::from_num(max_u64); // overflows
         let _prod_110: I110F18 = I110F18::from_num(max_32) * I110F18::from_num(max_u64);
 
-        let bonds_moving_average_val: u64 = 900_000 as u64;
+        let bonds_moving_average_val: u64 = 900_000_u64;
         let bonds_moving_average: I64F64 =
             I64F64::from_num(bonds_moving_average_val) / I64F64::from_num(1_000_000);
         let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num(bonds_moving_average);
@@ -1380,15 +1376,15 @@ mod tests {
         let cols: usize = vector.len() / rows;
         let mut mat: Vec<Vec<I32F32>> = vec![];
         if transpose {
-            for col in 0..cols as usize {
+            for col in 0..cols {
                 let mut vals: Vec<I32F32> = vec![];
-                for row in 0..rows as usize {
+                for row in 0..rows {
                     vals.push(I32F32::from_num(vector[row * cols + col]));
                 }
                 mat.push(vals);
             }
         } else {
-            for row in 0..rows as usize {
+            for row in 0..rows {
                 mat.push(
                     vector[row * cols..(row + 1) * cols]
                         .iter()
@@ -1433,9 +1429,9 @@ mod tests {
         let cols: usize = vector.len() / rows;
         let mut mat: Vec<Vec<(u16, I32F32)>> = vec![];
         if transpose {
-            for col in 0..cols as usize {
+            for col in 0..cols {
                 let mut row_vec: Vec<(u16, I32F32)> = vec![];
-                for row in 0..rows as usize {
+                for row in 0..rows {
                     if vector[row * cols + col] > 0. {
                         row_vec.push((row as u16, I32F32::from_num(vector[row * cols + col])));
                     }
@@ -1443,9 +1439,9 @@ mod tests {
                 mat.push(row_vec);
             }
         } else {
-            for row in 0..rows as usize {
+            for row in 0..rows {
                 let mut row_vec: Vec<(u16, I32F32)> = vec![];
-                for col in 0..cols as usize {
+                for col in 0..cols {
                     if vector[row * cols + col] > 0. {
                         row_vec.push((col as u16, I32F32::from_num(vector[row * cols + col])));
                     }
@@ -1461,12 +1457,12 @@ mod tests {
         let vector: Vec<f32> = vec![0., 1., 2., 0., 10., 100.];
         let target: Vec<Vec<(u16, I32F32)>> = vec![
             vec![
-                (1 as u16, I32F32::from_num(1.)),
-                (2 as u16, I32F32::from_num(2.)),
+                (1_u16, I32F32::from_num(1.)),
+                (2_u16, I32F32::from_num(2.)),
             ],
             vec![
-                (1 as u16, I32F32::from_num(10.)),
-                (2 as u16, I32F32::from_num(100.)),
+                (1_u16, I32F32::from_num(10.)),
+                (2_u16, I32F32::from_num(100.)),
             ],
         ];
         let mat = vec_to_sparse_mat_fixed(&vector, 2, false);
@@ -1479,12 +1475,12 @@ mod tests {
         let target: Vec<Vec<(u16, I32F32)>> = vec![
             vec![],
             vec![
-                (0 as u16, I32F32::from_num(1.)),
-                (1 as u16, I32F32::from_num(10.)),
+                (0_u16, I32F32::from_num(1.)),
+                (1_u16, I32F32::from_num(10.)),
             ],
             vec![
-                (0 as u16, I32F32::from_num(2.)),
-                (1 as u16, I32F32::from_num(100.)),
+                (0_u16, I32F32::from_num(2.)),
+                (1_u16, I32F32::from_num(100.)),
             ],
         ];
         let mat = vec_to_sparse_mat_fixed(&vector, 2, true);
@@ -2597,17 +2593,17 @@ mod tests {
                 0.,
                 0.0000001,
                 0.25,
-                0.48999999999999,
                 0.49,
-                0.49000000000001,
+                0.49,
+                0.49,
                 0.5,
-                0.509999999999,
                 0.51,
-                0.5100000000001,
+                0.51,
+                0.51,
                 0.9999999,
                 1.,
             ]) {
-                for allow_equal in vec![false, true] {
+                for allow_equal in [false, true] {
                     let mut stake: Vec<I32F32> = vec![];
                     let mut score: Vec<I32F32> = vec![];
                     let mut last_score: I32F32 = zero;
@@ -2655,7 +2651,7 @@ mod tests {
                             }
                         }
                     }
-                    if medians.len() == 0 {
+                    if medians.is_empty() {
                         medians.push(zero);
                     }
                     let stake_idx: Vec<usize> = (0..stake.len()).collect();
@@ -3109,7 +3105,7 @@ mod tests {
         assert_eq!(fixed64_to_fixed32(I64F64::from_num(expected)), expected);
 
         let expected = u32::MAX / 2;
-        let input = u64::try_from(expected).unwrap();
+        let input = u64::from(expected);
         assert_eq!(fixed64_to_fixed32(I64F64::from_num(input)), expected);
     }
 

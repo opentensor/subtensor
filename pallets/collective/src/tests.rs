@@ -673,7 +673,7 @@ fn removal_of_old_voters_votes_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -684,7 +684,7 @@ fn removal_of_old_voters_votes_works() {
         );
         Collective::change_members_sorted(&[4], &[1], &[2, 3, 4]);
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -708,7 +708,7 @@ fn removal_of_old_voters_votes_works() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 1, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, false));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 1,
                 threshold: 2,
@@ -719,7 +719,7 @@ fn removal_of_old_voters_votes_works() {
         );
         Collective::change_members_sorted(&[], &[3], &[2, 4]);
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 1,
                 threshold: 2,
@@ -749,7 +749,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 0, true));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -765,7 +765,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             MaxMembers::get()
         ));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -789,7 +789,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
         assert_ok!(Collective::vote(RuntimeOrigin::signed(2), hash, 1, true));
         assert_ok!(Collective::vote(RuntimeOrigin::signed(3), hash, 1, false));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 1,
                 threshold: 2,
@@ -805,7 +805,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             MaxMembers::get()
         ));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 1,
                 threshold: 2,
@@ -833,9 +833,9 @@ fn propose_works() {
                 .expect("convert u64 to block number.")
         ));
         assert_eq!(*Collective::proposals(), vec![hash]);
-        assert_eq!(Collective::proposal_of(&hash), Some(proposal));
+        assert_eq!(Collective::proposal_of(hash), Some(proposal));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -1017,7 +1017,7 @@ fn motions_vote_after_works() {
         ));
         // Initially there a no votes when the motion is proposed.
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -1029,7 +1029,7 @@ fn motions_vote_after_works() {
         // Cast first aye vote.
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, true));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -1046,7 +1046,7 @@ fn motions_vote_after_works() {
         // Cast a nay vote.
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,
@@ -1105,7 +1105,7 @@ fn motions_all_first_vote_free_works() {
                 .expect("convert u64 to block number.")
         ));
         assert_eq!(
-            Collective::voting(&hash),
+            Collective::voting(hash),
             Some(Votes {
                 index: 0,
                 threshold: 2,

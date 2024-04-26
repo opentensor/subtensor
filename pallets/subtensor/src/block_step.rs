@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
         if tempo == 0 {
             return 1000;
         }
-        return tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1);
+        tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
     // Helper function returns the number of tuples to drain on a particular step based on
@@ -68,9 +68,9 @@ impl<T: Config> Pallet<T> {
         let to_sink_via_tempo: usize = n_remaining / (tempo as usize / 2);
         let to_sink_via_blocks_until_epoch: usize = n_remaining / (blocks_until_epoch as usize / 2);
         if to_sink_via_tempo > to_sink_via_blocks_until_epoch {
-            return to_sink_via_tempo;
+            to_sink_via_tempo
         } else {
-            return to_sink_via_blocks_until_epoch;
+            to_sink_via_blocks_until_epoch
         }
     }
 
@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
             let mut total_emitted: u64 = 0;
             for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {
                 Self::emit_inflation_through_hotkey_account(
-                    &hotkey,
+                    hotkey,
                     *server_amount,
                     *validator_amount,
                 );
@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the
         // coldkey - hotkey account as normal.
         if !Self::hotkey_is_delegate(hotkey) {
-            Self::increase_stake_on_hotkey_account(&hotkey, server_emission + validator_emission);
+            Self::increase_stake_on_hotkey_account(hotkey, server_emission + validator_emission);
             return;
         }
         // Then this is a delegate, we distribute validator_emission, then server_emission.
@@ -241,7 +241,7 @@ impl<T: Config> Pallet<T> {
             );
             Self::increase_stake_on_coldkey_hotkey_account(
                 &owning_coldkey_i,
-                &hotkey,
+                hotkey,
                 stake_proportion,
             );
             log::debug!(
@@ -256,14 +256,14 @@ impl<T: Config> Pallet<T> {
         // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
         Self::increase_stake_on_hotkey_account(
-            &hotkey,
+            hotkey,
             delegate_take + remaining_validator_emission,
         );
         log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take);
         // Also emit the server_emission to the hotkey
         // The server emission is distributed in-full to the delegate owner.
         // We do this after 4. for the same reason as above.
-        Self::increase_stake_on_hotkey_account(&hotkey, server_emission);
+        Self::increase_stake_on_hotkey_account(hotkey, server_emission);
     }
 
     // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
@@ -319,7 +319,7 @@ impl<T: Config> Pallet<T> {
         };
         let stake_proportion: I64F64 = I64F64::from_num(stake) / I64F64::from_num(total_stake);
         let proportional_emission: I64F64 = I64F64::from_num(emission) * stake_proportion;
-        return proportional_emission.to_num::<u64>();
+        proportional_emission.to_num::<u64>()
     }
 
     // Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
@@ -329,9 +329,9 @@ impl<T: Config> Pallet<T> {
             let take_proportion: I64F64 =
                 I64F64::from_num(Delegates::<T>::get(hotkey)) / I64F64::from_num(u16::MAX);
             let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
-            return take_emission.to_num::<u64>();
+            take_emission.to_num::<u64>()
         } else {
-            return 0;
+            0
         }
     }
 
@@ -378,7 +378,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty ++
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -391,7 +391,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost ++
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -404,7 +404,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost ++
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -414,7 +414,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty ++
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -430,7 +430,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost --
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty --
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -456,7 +456,7 @@ impl<T: Config> Pallet<T> {
                         // burn_cost --
                         Self::set_burn(
                             netuid,
-                            Self::adjust_burn(
+                            Self::upgraded_burn(
                                 netuid,
                                 current_burn,
                                 registrations_this_interval,
@@ -466,7 +466,7 @@ impl<T: Config> Pallet<T> {
                         // pow_difficulty --
                         Self::set_difficulty(
                             netuid,
-                            Self::adjust_difficulty(
+                            Self::upgraded_difficulty(
                                 netuid,
                                 current_difficulty,
                                 registrations_this_interval,
@@ -490,10 +490,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Performs the difficulty adjustment by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target * reg_target )
+    // Calculates the upgraded difficulty by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target + reg_target )
     // We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
     //
-    pub fn adjust_difficulty(
+    pub fn upgraded_difficulty(
         netuid: u16,
         current_difficulty: u64,
         registrations_this_interval: u16,
@@ -509,7 +509,7 @@ impl<T: Config> Pallet<T> {
         let next_value: I110F18 = alpha * I110F18::from_num(current_difficulty)
             + (I110F18::from_num(1.0) - alpha) * updated_difficulty;
         if next_value >= I110F18::from_num(Self::get_max_difficulty(netuid)) {
-            return Self::get_max_difficulty(netuid);
+            Self::get_max_difficulty(netuid)
         } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
             return Self::get_min_difficulty(netuid);
         } else {
@@ -517,10 +517,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Performs the burn adjustment by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target * reg_target )
+    // Calculates the upgraded burn by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target + reg_target )
     // We use I110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
     //
-    pub fn adjust_burn(
+    pub fn upgraded_burn(
         netuid: u16,
         current_burn: u64,
         registrations_this_interval: u16,
@@ -536,7 +536,7 @@ impl<T: Config> Pallet<T> {
         let next_value: I110F18 = alpha * I110F18::from_num(current_burn)
             + (I110F18::from_num(1.0) - alpha) * updated_burn;
         if next_value >= I110F18::from_num(Self::get_max_burn_as_u64(netuid)) {
-            return Self::get_max_burn_as_u64(netuid);
+            Self::get_max_burn_as_u64(netuid)
         } else if next_value <= I110F18::from_num(Self::get_min_burn_as_u64(netuid)) {
             return Self::get_min_burn_as_u64(netuid);
         } else {

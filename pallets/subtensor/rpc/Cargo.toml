@@ -32,5 +32,12 @@ pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-fe
 
 [features]
 default = ["std"]
-std = ["sp-api/std", "sp-runtime/std", "subtensor-custom-rpc-runtime-api/std"]
+std = [
+	"sp-api/std",
+	"sp-runtime/std",
+	"subtensor-custom-rpc-runtime-api/std",
+	"pallet-subtensor/std",
+	"codec/std",
+	"serde/std"
+]
 pow-faucet = []
