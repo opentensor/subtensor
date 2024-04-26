@@ -877,12 +877,20 @@ fn test_run_coinbase_price_greater_than_1() {
 
         // Check that running run_coinbase behaves correctly
         let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
+        log::info!("Tao reserve before: {:?}", tao_reserve_before);
         let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
+        log::info!("Alpha reserve before: {:?}", alpha_reserve_before);
         let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
+        log::info!("Pending alpha before: {:?}", pending_alpha_before);
         SubtensorModule::run_coinbase(1);
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
+        log::info!("Tao reserve after: {:?}", tao_reserve_after);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
+        log::info!("Alpha reserve after: {:?}", alpha_reserve_after);
         let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
+        log::info!("Pending alpha after: {:?}", pending_alpha_after);
+        log::info!("Tao emissions: {:?}", SubtensorModule::get_subnet_emission_value(netuid));
+
 
         assert_eq!(tao_reserve_after == tao_reserve_before, true);
         assert_eq!(alpha_reserve_after > alpha_reserve_before, true);
@@ -914,6 +922,8 @@ fn test_run_coinbase_price_less_than_1() {
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
         let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
+        log::info!("Subnet emissions: {:?}", SubtensorModule::get_subnet_emission_value(netuid));
+        log::info!("Subnet emissions from Subnet Info: {:?}", SubtensorModule::get_subnet_info(netuid).unwrap().emission_values);
 
         assert_eq!(tao_reserve_after > tao_reserve_before, true);
         assert_eq!(alpha_reserve_after == alpha_reserve_before, true);

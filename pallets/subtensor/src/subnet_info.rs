@@ -21,7 +21,7 @@ pub struct SubnetInfo<T: Config> {
     tempo: Compact<u16>,
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
-    emission_values: Compact<u64>,
+    pub emission_values: Compact<u64>,
     burn: Compact<u64>,
     owner: T::AccountId,
 }

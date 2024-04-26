@@ -25,12 +25,7 @@ impl<T: Config> Pallet<T> {
         let alpha_reserve: u64 = Self::get_alpha_reserve(netuid);        
         let tao_reserve: u64 = Self::get_tao_reserve(netuid);
         let k: u128 = Self::get_pool_k(netuid);
-        // We can't divide by zero, so we set the price to 1 if alpha_reserve is zero.
-        let price: u128 = if alpha_reserve > 0 {
-            (tao_reserve / alpha_reserve).into()
-        } else {
-            1
-        };
+        let price = Self::get_tao_per_alpha_price(netuid).to_num::<u128>();
 
         // Return the dynamic pool info.
         Some(DynamicPoolInfo {
