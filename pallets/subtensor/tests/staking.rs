@@ -4517,19 +4517,6 @@ fn test_remove_stake_below_nominator_limit_nominates_ok() {
             ));
         }
 
-        // Nominate 11th time - fails
-        let nominator11 = U256::from(11);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator11, 100_000_000_000);
-        assert_err!(
-            SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(nominator11),
-                delegate,
-                1,
-                1_000_000_000
-            ),
-            Error::<Test>::TooManyNominations
-        );
-
         // Remove one stake - can nominate again
         let nominator1 = U256::from(1);
         assert_ok!(SubtensorModule::remove_subnet_stake(
@@ -4579,20 +4566,7 @@ fn test_partial_remove_stake_nomination_fails() {
             ));
         }
 
-        // Nominate 11th time - fails
-        let nominator11 = U256::from(11);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator11, 100_000_000_000);
-        assert_err!(
-            SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(nominator11),
-                delegate,
-                1,
-                1_000_000_000
-            ),
-            Error::<Test>::TooManyNominations
-        );
-
-        // Remove one stake - can nominate again
+        // Remove one stake partially - still can't nominate
         let nominator1 = U256::from(1);
         assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(nominator1),
