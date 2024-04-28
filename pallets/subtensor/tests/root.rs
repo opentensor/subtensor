@@ -569,17 +569,17 @@ fn test_network_prune_results() {
         step_block(3);
 
         // lowest emission
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64])
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64])
             .unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 2u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64])
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64])
             .unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 3u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64])
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64])
             .unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 1u16);
     });

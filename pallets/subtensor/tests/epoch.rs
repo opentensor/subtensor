@@ -217,7 +217,7 @@ fn init_run_epochs(
             assert_ok!(SubtensorModule::set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
-                servers.clone(),
+                servers.to_vec(),
                 weights.clone(),
                 0
             ));
@@ -568,7 +568,7 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]).unwrap();
+        SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
         assert_eq!(
             SubtensorModule::get_subnet_emission_value(netuid),
             1_000_000_000
