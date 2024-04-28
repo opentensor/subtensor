@@ -681,8 +681,7 @@ impl<T: Config> Pallet<T> {
         };
 
         // --- 5. Perform the lock operation.
-        let actual_lock_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
         Self::set_network_last_lock(actual_lock_amount);
 

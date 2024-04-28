@@ -1224,7 +1224,9 @@ mod tests {
         let target: Vec<u16> = vec![65535, 65535];
         let result: Vec<u16> = vec_max_upscale_to_u16(&vector);
         assert_vec_compare_u16(&result, &target);
-        let vector: Vec<I32F32> = vec_to_fixed(&[0.000001, 0.000006, 0.000007, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4]);
+        let vector: Vec<I32F32> = vec_to_fixed(&[
+            0.000001, 0.000006, 0.000007, 0.0001, 0.001, 0.01, 0.1, 0.2, 0.3, 0.4,
+        ]);
         let target: Vec<u16> = vec![0, 1, 1, 16, 164, 1638, 16384, 32768, 49151, 65535];
         let result: Vec<u16> = vec_max_upscale_to_u16(&vector);
         assert_vec_compare_u16(&result, &target);
@@ -1618,25 +1620,29 @@ mod tests {
             .iter()
             .map(|t: &I32F32| sigmoid_safe(*t, I32F32::max_value(), I32F32::max_value()))
             .collect();
-        let target: Vec<I32F32> = vec_to_fixed(&[0.0000000019,
+        let target: Vec<I32F32> = vec_to_fixed(&[
             0.0000000019,
             0.0000000019,
             0.0000000019,
             0.0000000019,
             0.0000000019,
-            0.5]);
+            0.0000000019,
+            0.5,
+        ]);
         assert_eq!(&consensus, &target);
         let consensus: Vec<I32F32> = trust
             .iter()
             .map(|t: &I32F32| sigmoid_safe(*t, I32F32::min_value(), I32F32::min_value()))
             .collect();
-        let target: Vec<I32F32> = vec_to_fixed(&[0.5,
+        let target: Vec<I32F32> = vec_to_fixed(&[
+            0.5,
             0.0000000019,
             0.0000000019,
             0.0000000019,
             0.0000000019,
             0.0000000019,
-            0.0000000019]);
+            0.0000000019,
+        ]);
         assert_eq!(&consensus, &target);
         let consensus: Vec<I32F32> = trust
             .iter()
@@ -1710,8 +1716,7 @@ mod tests {
             true, false, true, false, true, false, true, false, true, false,
         ];
         assert_eq!(&result, &target);
-        let vector: Vec<I32F32> =
-            vec_to_fixed(&[0.9, 0., 0.8, 0.1, 0.7, 0.2, 0.6, 0.3, 0.5, 0.4]);
+        let vector: Vec<I32F32> = vec_to_fixed(&[0.9, 0., 0.8, 0.1, 0.7, 0.2, 0.6, 0.3, 0.5, 0.4]);
         let result = is_topk(&vector, 5);
         let target: Vec<bool> = vec![
             true, false, true, false, true, false, true, false, true, false,
@@ -2677,7 +2682,9 @@ mod tests {
             );
 
             let n: usize = 100;
-            for majority in vec_to_fixed(&[0., 0.0000001, 0.25, 0.49, 0.49, 0.49, 0.5, 0.51, 0.51, 0.51, 0.9999999, 1.]) {
+            for majority in vec_to_fixed(&[
+                0., 0.0000001, 0.25, 0.49, 0.49, 0.49, 0.5, 0.51, 0.51, 0.51, 0.9999999, 1.,
+            ]) {
                 for allow_equal in [false, true] {
                     let mut stake: Vec<I32F32> = vec![];
                     let mut score: Vec<I32F32> = vec![];
