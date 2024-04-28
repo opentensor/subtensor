@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
 
                 Self::add_balance_to_coldkey_account(
                     &Self::get_subnet_owner(netuid),
-                    cut.to_num::<u64>().into(),
+                    cut.to_num::<u64>(),
                 );
 
                 // We are creating tokens here from the coinbase.

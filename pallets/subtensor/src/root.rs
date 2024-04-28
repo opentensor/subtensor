@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
     // # Returns:
     // * 'bool': 'true' if any of the UIDs are invalid, 'false' otherwise.
     //
-    pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
+    pub fn contains_invalid_root_uids(netuids: &[u16]) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
                 log::debug!(
@@ -205,7 +205,7 @@ impl<T: Config> Pallet<T> {
     // Sets the emission values for each netuid
     //
     //
-    pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
+    pub fn set_emission_values(netuids: &[u16], emission: Vec<u64>) -> Result<(), &'static str> {
         log::debug!(
             "set_emission_values: netuids: {:?} emission:{:?}",
             netuids,
@@ -646,10 +646,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
-        let lock_as_balance = lock_amount.into();
-        log::debug!("network lock_amount: {:?}", lock_amount,);
+        log::debug!("network lock_amount: {:?}", lock_amount);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_as_balance),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -683,7 +682,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Perform the lock operation.
         let actual_lock_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance)?;
+            Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
         Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
         Self::set_network_last_lock(actual_lock_amount);
 
@@ -846,9 +845,6 @@ impl<T: Config> Pallet<T> {
         let owner_coldkey = SubnetOwner::<T>::get(netuid);
         let reserved_amount = Self::get_subnet_locked_balance(netuid);
 
-        // Ensure that we can convert this u64 to a balance.
-        let reserved_amount_as_bal = reserved_amount.into();
-
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
 
@@ -918,7 +914,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         // --- 12. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal);
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
     }

@@ -143,8 +143,8 @@ fn uid_stats(netuid: u16, uid: u16) {
 fn init_run_epochs(
     netuid: u16,
     n: u16,
-    validators: &Vec<u16>,
-    servers: &Vec<u16>,
+    validators: &[u16],
+    servers: &[u16],
     epochs: u16,
     stake_per_validator: u64,
     server_self: bool,

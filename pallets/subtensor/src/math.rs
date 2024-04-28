@@ -119,14 +119,14 @@ pub fn vec_max_upscale_to_u16(vec: &Vec<I32F32>) -> Vec<u16> {
 
 #[allow(dead_code)]
 // Max-upscale u16 vector and convert to u16 so max_value = u16::MAX. Assumes u16 vector input.
-pub fn vec_u16_max_upscale_to_u16(vec: &Vec<u16>) -> Vec<u16> {
+pub fn vec_u16_max_upscale_to_u16(vec: &[u16]) -> Vec<u16> {
     let vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     vec_max_upscale_to_u16(&vec_fixed)
 }
 
 #[allow(dead_code)]
 // Checks if u16 vector, when normalized, has a max value not greater than a u16 ratio max_limit.
-pub fn check_vec_max_limited(vec: &Vec<u16>, max_limit: u16) -> bool {
+pub fn check_vec_max_limited(vec: &[u16], max_limit: u16) -> bool {
     let max_limit_fixed: I32F32 = I32F32::from_num(max_limit) / I32F32::from_num(u16::MAX);
     let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     inplace_normalize(&mut vec_fixed);
@@ -1131,7 +1131,7 @@ mod tests {
         }
     }
 
-    fn assert_vec_compare_u16(va: &Vec<u16>, vb: &Vec<u16>) {
+    fn assert_vec_compare_u16(va: &[u16], vb: &[u16]) {
         assert!(va.len() == vb.len());
         for i in 0..va.len() {
             assert_eq!(va[i], vb[i]);

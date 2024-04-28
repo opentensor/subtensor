@@ -94,16 +94,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost_as_u64 = Self::get_burn_as_u64(netuid);
-        let registration_cost_as_balance = registration_cost_as_u64.into();
+        let registration_cost = Self::get_burn_as_u64(netuid);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
             Error::<T>::NotEnoughBalanceToStake
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
         let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // The burn occurs here.
         Self::burn_tokens(actual_burn_amount);
@@ -397,8 +396,7 @@ impl<T: Config> Pallet<T> {
         let balance_to_add: u64 = 100_000_000_000;
         Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
-        let balance_to_be_added_as_balance = balance_to_add.into();
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance);
+        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
         // --- 6. Deposit successful event.
         log::info!(
@@ -726,13 +724,11 @@ impl<T: Config> Pallet<T> {
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = 1_000_000_000u64;
-        let swap_cost_as_balance = swap_cost.into();
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalance
         );
-        let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);
 
         Owner::<T>::remove(old_hotkey);

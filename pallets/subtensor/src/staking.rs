@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_add_stake( origin:{:?} hotkey:{:?}, stake_to_be_added:{:?} )",
@@ -141,28 +141,25 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // --- 2. We convert the stake u64 into a balance.
-        let stake_as_balance = stake_to_be_added.into();
-
-        // --- 3. Ensure the callers coldkey has enough stake to perform the transaction.
+        // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
+        // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 6. Ensure we don't exceed stake rate limit
+        // Ensure we don't exceed stake rate limit
         let stakes_this_interval =
             Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
@@ -170,7 +167,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 7. If this is a nomination stake, check if total stake after adding will be above
+        // If this is a nomination stake, check if total stake after adding will be above
         // the minimum required stake.
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
@@ -184,18 +181,18 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 8. Ensure the remove operation from the coldkey is a success.
+        // Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance)?;
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
-        // --- 9. If we reach here, add the balance to the hotkey.
+        // If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the staking event.
+        // Emit the staking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
@@ -209,7 +206,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeAdded(hotkey, actual_amount_to_stake));
 
-        // --- 11. Ok and return.
+        // Ok and return.
         Ok(())
     }
 
@@ -251,7 +248,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         stake_to_be_removed: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )",
@@ -260,34 +257,31 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed
         );
 
-        // --- 2. Ensure that the hotkey account exists this is only possible through registration.
+        // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
             Error::<T>::NotRegistered
         );
 
-        // --- 3. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- Ensure that the stake amount to be removed is above zero.
+        // Ensure that the stake amount to be removed is above zero.
         ensure!(
             stake_to_be_removed > 0,
             Error::<T>::NotEnoughStaketoWithdraw
         );
 
-        // --- 4. Ensure that the hotkey has enough stake to withdraw.
+        // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
             Self::has_enough_stake(&coldkey, &hotkey, stake_to_be_removed),
             Error::<T>::NotEnoughStaketoWithdraw
         );
 
-        // --- 5. Ensure that we can conver this u64 to a balance.
-        let stake_to_be_added_as_currency = stake_to_be_removed.into();
-
-        // --- 6. Ensure we don't exceed stake rate limit
+        // Ensure we don't exceed stake rate limit
         let unstakes_this_interval =
             Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
@@ -295,7 +289,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 7. If this is a nomination stake, check if total stake after removing will be above
+        // If this is a nomination stake, check if total stake after removing will be above
         // the minimum required stake.
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
@@ -309,17 +303,17 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        // --- 8. We remove the balance from the hotkey.
+        // We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency);
+        // We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_removed);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the unstaking event.
+        // Emit the unstaking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
@@ -333,7 +327,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 11. Done and ok.
+        // Done and ok.
         Ok(())
     }
 
@@ -559,8 +553,7 @@ impl<T: Config> Pallet<T> {
                 // Actually deletes the staking account.
                 Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
                 // Convert the removed stake back to balance and add it to the coldkey account.
-                let stake_as_balance = stake.into();
-                Self::add_balance_to_coldkey_account(coldkey, stake_as_balance);
+                Self::add_balance_to_coldkey_account(coldkey, stake);
             }
         }
     }
@@ -655,15 +648,13 @@ impl<T: Config> Pallet<T> {
                 hotkey,
             )
         {
-            // Convert to balance and add to the coldkey account.
-            let stake_i_as_balance = stake_i.into();
             // Stake is successfully converted to balance.
 
             // Remove the stake from the coldkey - hotkey pairing.
             Self::decrease_stake_on_coldkey_hotkey_account(&delegate_coldkey_i, hotkey, stake_i);
 
             // Add the balance to the coldkey account.
-            Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i_as_balance);
+            Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
         }
     }
 }
