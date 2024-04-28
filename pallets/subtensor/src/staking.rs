@@ -612,11 +612,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
-        let amount_u64: u64 = amount
-            .try_into()
-            .map_err(|_| Error::<T>::CouldNotConvertToU64)?;
-
-        if amount_u64 == 0 {
+        if amount == 0 {
             return Ok(0);
         }
 
@@ -630,15 +626,11 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();
 
-        let credit_u64: u64 = credit
-            .try_into()
-            .map_err(|_| Error::<T>::CouldNotConvertToU64)?;
-
-        if credit_u64 == 0 {
+        if credit == 0 {
             return Err(Error::<T>::BalanceWithdrawalError.into());
         }
 
-        Ok(credit_u64)
+        Ok(credit)
     }
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
