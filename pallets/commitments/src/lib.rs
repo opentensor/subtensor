@@ -258,12 +258,11 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
-        match call.is_sub_type() {
-            _ => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-        }
+        call.is_sub_type();
+        Ok(ValidTransaction {
+            priority: Self::get_priority_vanilla(),
+            ..Default::default()
+        })
     }
 
     // NOTE: Add later when we put in a pre and post dispatch step.

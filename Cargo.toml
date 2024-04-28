@@ -8,6 +8,9 @@ members = [
 ]
 resolver = "2"
 
+[workspace.lints.clippy]
+type_complexity = "allow"
+
 [profile.release]
 panic = "unwind"
 

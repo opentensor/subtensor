@@ -8,7 +8,7 @@ use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use sp_runtime::traits::{Bounded};
+use sp_runtime::traits::Bounded;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -64,7 +64,8 @@ mod benchmarks {
             RawOrigin::Signed(caller.clone()).into(),
             vali_account.clone(),
             Box::new(create_identity_info::<T>(0)),
-        );
+        )
+        .unwrap();
 
         #[extrinsic_call]
         _(RawOrigin::Signed(caller.clone()), vali_account);
