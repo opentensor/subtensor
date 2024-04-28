@@ -71,9 +71,9 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --check --all
 
-  # runs cargo check --workspace
-  cargo-check:
-    name: cargo check
+  # runs cargo clippy --workspace --all-targets --all-features
+  cargo-clippy:
+    name: cargo clippy
     runs-on: SubtensorCI
     strategy:
       matrix:
@@ -117,8 +117,8 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: cargo check --workspace
-        run: cargo check --workspace
+      - name: cargo clippy --workspace --all-targets --all-features
+        run: cargo clippy --workspace --all-targets --all-features
 
   # runs cargo test --workspace
   cargo-test:
