@@ -227,14 +227,6 @@ where
         // have a higher priority than the set_weights call
         u64::max_value()
     }
-
-    pub fn u64_to_balance(
-        input: u64,
-    ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-    > {
-        input.try_into().ok()
-    }
 }
 
 impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for CommitmentsSignedExtension<T> {

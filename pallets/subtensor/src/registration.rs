@@ -95,14 +95,15 @@ impl<T: Config> Pallet<T> {
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         let registration_cost_as_u64 = Self::get_burn_as_u64(netuid);
-        let registration_cost_as_balance = Self::u64_to_balance(registration_cost_as_u64).unwrap();
+        let registration_cost_as_balance = registration_cost_as_u64.into();
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance),
             Error::<T>::NotEnoughBalanceToStake
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
 
         // The burn occurs here.
         Self::burn_tokens(actual_burn_amount);
@@ -396,8 +397,8 @@ impl<T: Config> Pallet<T> {
         let balance_to_add: u64 = 100_000_000_000;
         Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
-        let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
+        let balance_to_be_added_as_balance = balance_to_add.into();
+        Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance);
 
         // --- 6. Deposit successful event.
         log::info!(
@@ -431,14 +432,14 @@ impl<T: Config> Pallet<T> {
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
-        
+
         let current_block: u64 = Self::get_current_block_as_u64();
         let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
         for neuron_uid_i in 0..neurons_n {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid_i);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
-            
+
             if min_score == pruning_score {
                 if current_block - block_at_registration < immunity_period {
                     //neuron is in immunity period
@@ -725,12 +726,13 @@ impl<T: Config> Pallet<T> {
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = 1_000_000_000u64;
-        let swap_cost_as_balance = Self::u64_to_balance(swap_cost).unwrap();
+        let swap_cost_as_balance = swap_cost.into();
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
             Error::<T>::NotEnoughBalance
         );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
         Self::burn_tokens(actual_burn_amount);
 
         Owner::<T>::remove(old_hotkey);

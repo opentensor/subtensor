@@ -836,7 +836,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
         hotkey: &AccountId,
         increment: u64,
     );
-    fn u64_to_balance(input: u64) -> Option<Balance>;
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance);
     fn get_current_block_as_u64() -> u64;
     fn get_subnetwork_n(netuid: u16) -> u16;

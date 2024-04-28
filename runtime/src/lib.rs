@@ -941,10 +941,6 @@ impl
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
     }
 
-    fn u64_to_balance(input: u64) -> Option<Balance> {
-        SubtensorModule::u64_to_balance(input)
-    }
-
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
         SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
     }

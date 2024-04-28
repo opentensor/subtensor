@@ -141,16 +141,12 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // --- 2. We convert the stake u64 into a balancer.
-        let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
-        ensure!(
-            stake_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
+        // --- 2. We convert the stake u64 into a balance.
+        let stake_as_balance = stake_to_be_added.into();
 
         // --- 3. Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -190,7 +186,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
         let actual_amount_to_stake =
-            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())?;
+            Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance)?;
 
         // --- 9. If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, actual_amount_to_stake);
@@ -289,11 +285,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 5. Ensure that we can conver this u64 to a balance.
-        let stake_to_be_added_as_currency = Self::u64_to_balance(stake_to_be_removed);
-        ensure!(
-            stake_to_be_added_as_currency.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
+        let stake_to_be_added_as_currency = stake_to_be_removed.into();
 
         // --- 6. Ensure we don't exceed stake rate limit
         let unstakes_this_interval =
@@ -321,7 +313,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
         // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
+        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
@@ -567,8 +559,8 @@ impl<T: Config> Pallet<T> {
                 // Actually deletes the staking account.
                 Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
                 // Convert the removed stake back to balance and add it to the coldkey account.
-                let stake_as_balance = Self::u64_to_balance(stake);
-                Self::add_balance_to_coldkey_account(coldkey, stake_as_balance.unwrap());
+                let stake_as_balance = stake.into();
+                Self::add_balance_to_coldkey_account(coldkey, stake_as_balance);
             }
         }
     }
@@ -582,14 +574,6 @@ impl<T: Config> Pallet<T> {
         for (hotkey, coldkey, stake) in Stake::<T>::iter() {
             Self::clear_small_nomination_if_required(&hotkey, &coldkey, stake);
         }
-    }
-
-    pub fn u64_to_balance(
-        input: u64,
-    ) -> Option<
-        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
-    >{
-        input.try_into().ok()
     }
 
     pub fn add_balance_to_coldkey_account(
@@ -672,25 +656,14 @@ impl<T: Config> Pallet<T> {
             )
         {
             // Convert to balance and add to the coldkey account.
-            let stake_i_as_balance = Self::u64_to_balance(stake_i);
-            if stake_i_as_balance.is_none() {
-                continue; // Don't unstake if we can't convert to balance.
-            } else {
-                // Stake is successfully converted to balance.
+            let stake_i_as_balance = stake_i.into();
+            // Stake is successfully converted to balance.
 
-                // Remove the stake from the coldkey - hotkey pairing.
-                Self::decrease_stake_on_coldkey_hotkey_account(
-                    &delegate_coldkey_i,
-                    hotkey,
-                    stake_i,
-                );
+            // Remove the stake from the coldkey - hotkey pairing.
+            Self::decrease_stake_on_coldkey_hotkey_account(&delegate_coldkey_i, hotkey, stake_i);
 
-                // Add the balance to the coldkey account.
-                Self::add_balance_to_coldkey_account(
-                    &delegate_coldkey_i,
-                    stake_i_as_balance.unwrap(),
-                );
-            }
+            // Add the balance to the coldkey account.
+            Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i_as_balance);
         }
     }
 }
