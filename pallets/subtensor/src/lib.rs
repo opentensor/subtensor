@@ -182,6 +182,8 @@ pub mod pallet {
         type InitialSubnetLimit: Get<u16>;
         #[pallet::constant] // Initial network creation rate limit
         type InitialNetworkRateLimit: Get<u64>;
+        #[pallet::constant] // Initial target stakes per interval issuance.
+        type InitialTargetStakesPerInterval: Get<u64>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
@@ -200,12 +202,20 @@ pub mod pallet {
     // ==== Staking + Accounts ====
     // ============================
     #[pallet::type_value]
+    pub fn TotalSupply<T: Config>() -> u64 {
+        21_000_000_000_000_000 // Rao => 21_000_000 Tao
+    }
+    #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
     }
     #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
+    }
+    #[pallet::type_value]
+    pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
+        (0, 0)
     }
     #[pallet::type_value]
     pub fn DefaultBlockEmission<T: Config>() -> u64 {
@@ -223,6 +233,14 @@ pub mod pallet {
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
     }
+    #[pallet::type_value]
+    pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
+        T::InitialTargetStakesPerInterval::get()
+    }
+    #[pallet::type_value]
+    pub fn DefaultStakeInterval<T: Config>() -> u64 {
+        360
+    }
 
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -232,12 +250,29 @@ pub mod pallet {
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
+    #[pallet::storage] // --- ITEM (target_stakes_per_interval)
+    pub type TargetStakesPerInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
+    #[pallet::storage] // --- ITEM (default_stake_interval)
+    pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+    #[pallet::storage]
+    // --- MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        (u64, u64),
+        ValueQuery,
+        DefaultStakesPerInterval<T>,
+    >;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -369,6 +404,10 @@ pub mod pallet {
         0
     }
     #[pallet::type_value]
+    pub fn DefaultNominatorMinRequiredStake<T: Config>() -> u64 {
+        0
+    }
+    #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
     }
@@ -449,6 +488,9 @@ pub mod pallet {
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
     #[pallet::storage] // ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
+    #[pallet::storage] // ITEM( nominator_min_required_stake )
+    pub type NominatorMinRequiredStake<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -920,7 +962,9 @@ pub mod pallet {
         MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
         TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
         TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-        RegistrationDisabled, // --- Thrown when registration is disabled
+        StakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for stakes.
+        UnstakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for unstakes.
+        RegistrationDisabled,     // --- Thrown when registration is disabled
         TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
         BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
         HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
@@ -937,6 +981,8 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        /// Thrown a stake would be below the minimum threshold for nominator validations
+        NomStakeBelowMinimumThreshold,
     }
 
     // ==================
@@ -963,8 +1009,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            use crate::MemberManagement;
-
             // Set initial total issuance from balances
             TotalIssuance::<T>::put(self.balances_issuance);
 
@@ -1166,7 +1210,8 @@ pub mod pallet {
                     hex,
                 ))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
-                .saturating_add(migration::migrate_delete_subnet_21::<T>());
+                .saturating_add(migration::migrate_delete_subnet_21::<T>())
+                .saturating_add(migration::migration5_total_issuance::<T>(false));
 
             return weight;
         }
@@ -1676,7 +1721,7 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if Uids::<T>::contains_key(netuid, &hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-                let stake = Self::get_total_stake_for_hotkey(&hotkey);
+                let _stake = Self::get_total_stake_for_hotkey(&hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid as u16);
@@ -1825,10 +1870,20 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
-            Some(Call::register { .. }) => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
+            Some(Call::register { netuid, .. } | Call::burned_register { netuid, .. }) => {
+                let registrations_this_interval =
+                    Pallet::<T>::get_registrations_this_interval(*netuid);
+                let max_registrations_per_interval =
+                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
+                if registrations_this_interval >= max_registrations_per_interval {
+                    // If the registration limit for the interval is exceeded, reject the transaction
+                    return InvalidTransaction::ExhaustsResources.into();
+                }
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
+            }
             Some(Call::register_network { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()

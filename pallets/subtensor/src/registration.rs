@@ -1,5 +1,4 @@
 use super::*;
-use crate::system::ensure_root;
 use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_system::ensure_signed;
@@ -401,9 +400,10 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 100_000_000_000;
+        Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
+
         let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(balance_to_add));
 
         // --- 6. Deposit successful event.
         log::info!(

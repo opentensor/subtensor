@@ -5,7 +5,6 @@ use frame_support::{
     weights,
 };
 use frame_system as system;
-use frame_system::Config;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -160,6 +159,7 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
+    pub const InitialTargetStakesPerInterval: u16 = 1;
 }
 
 // Configure collective pallet for council
@@ -357,6 +357,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
+    type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
 }
 
 impl pallet_utility::Config for Test {
@@ -455,7 +456,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16, modality: u16) {
+pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);

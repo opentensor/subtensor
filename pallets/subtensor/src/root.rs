@@ -23,7 +23,10 @@ use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use substrate_fixed::types::{I32F32, I64F64};
+use substrate_fixed::{
+    transcendental::log2,
+    types::{I64F64, I96F32},
+};
 
 impl<T: Config> Pallet<T> {
     // Retrieves the unique identifier (UID) for the root network.
@@ -121,6 +124,61 @@ impl<T: Config> Pallet<T> {
         return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
             .map(|(netuid, _)| netuid)
             .collect();
+    }
+    /// Calculates the block emission based on the total issuance.
+    ///
+    /// This function computes the block emission by applying a logarithmic function
+    /// to the total issuance of the network. The formula used takes into account
+    /// the current total issuance and adjusts the emission rate accordingly to ensure
+    /// a smooth issuance curve. The emission rate decreases as the total issuance increases,
+    /// following a logarithmic decay.
+    ///
+    /// # Returns
+    /// * 'Result<u64, &'static str>': The calculated block emission rate or error.
+    ///
+    pub fn get_block_emission() -> Result<u64, &'static str> {
+        // Convert the total issuance to a fixed-point number for calculation.
+        Self::get_block_emission_for_issuance( Self::get_total_issuance() )
+    }
+
+    // Returns the block emission for an issuance value.
+    pub fn get_block_emission_for_issuance( issuance: u64 ) -> Result<u64, &'static str> {
+
+        // Convert issuance to a float for calculations below.
+        let total_issuance: I96F32 = I96F32::from_num( issuance );
+        // Check to prevent division by zero when the total supply is reached
+        // and creating an issuance greater than the total supply.
+        if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
+            return Ok(0);
+        }
+        // Calculate the logarithmic residual of the issuance against half the total supply.
+        let residual: I96F32 = log2(
+            I96F32::from_num(1.0)
+                / (I96F32::from_num(1.0)
+                    - total_issuance
+                        / (I96F32::from_num(2.0) * I96F32::from_num(10_500_000_000_000_000.0))),
+        )
+        .map_err(|_| "Logarithm calculation failed")?;
+        // Floor the residual to smooth out the emission rate.
+        let floored_residual: I96F32 = residual.floor();
+        // Calculate the final emission rate using the floored residual.
+        // Convert floored_residual to an integer
+        let floored_residual_int: u64 = floored_residual.to_num::<u64>();
+        // Multiply 2.0 by itself floored_residual times to calculate the power of 2.
+        let mut multiplier: I96F32 = I96F32::from_num(1.0);
+        for _ in 0..floored_residual_int {
+            multiplier *= I96F32::from_num(2.0);
+        }
+        let block_emission_percentage: I96F32 = I96F32::from_num(1.0) / multiplier;
+        // Calculate the actual emission based on the emission rate
+        let block_emission: I96F32 =
+            block_emission_percentage * I96F32::from_num(DefaultBlockEmission::<T>::get());
+        // Convert to u64
+        let block_emission_u64: u64 = block_emission.to_num::<u64>();
+        if BlockEmission::<T>::get() != block_emission_u64 {
+            BlockEmission::<T>::put(block_emission_u64);
+        }
+        Ok(block_emission_u64)
     }
 
     // Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
@@ -243,7 +301,7 @@ impl<T: Config> Pallet<T> {
         if blocks_until_next_epoch != 0 {
             // Not the block to update emission values.
             log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
-            return Err("Not the block to update emission values.");
+            return Err("");
         }
 
         // --- 1. Retrieves the number of root validators on subnets.
@@ -264,7 +322,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Determines the total block emission across all the subnetworks. This is the
         // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission());
+        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission()?);
         log::debug!("block_emission:\n{:?}\n", block_emission);
 
         // --- 5. A collection of all registered hotkeys on the root network. Hotkeys

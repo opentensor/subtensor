@@ -1,5 +1,5 @@
 use frame_support::{
-    parameter_types,
+    assert_ok, parameter_types,
     traits::{Everything, Hooks, StorageMapShim},
     weights,
 };
@@ -110,6 +110,8 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
+    pub const InitialTargetStakesPerInterval: u16 = 1;
+
 }
 
 impl pallet_subtensor::Config for Test {
@@ -158,6 +160,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkLockReductionInterval = InitialNetworkLockReductionInterval;
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
+    type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
 }
 
 impl system::Config for Test {
@@ -433,6 +436,18 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn set_weights_min_stake(min_stake: u64) {
         SubtensorModule::set_weights_min_stake(min_stake);
     }
+
+    fn set_nominator_min_required_stake(min_stake: u64) {
+        SubtensorModule::set_nominator_min_required_stake(min_stake);
+    }
+
+    fn get_nominator_min_required_stake() -> u64 {
+        SubtensorModule::get_nominator_min_required_stake()
+    }
+
+    fn clear_small_nominations() {
+        SubtensorModule::clear_small_nominations();
+    }
 }
 
 impl pallet_admin_utils::Config for Test {
@@ -463,4 +478,43 @@ pub(crate) fn run_to_block(n: u64) {
         System::on_initialize(System::block_number());
         SubtensorModule::on_initialize(System::block_number());
     }
+}
+
+#[allow(dead_code)]
+pub fn register_ok_neuron(
+    netuid: u16,
+    hotkey_account_id: U256,
+    coldkey_account_id: U256,
+    start_nonce: u64,
+) {
+    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        netuid,
+        block_number,
+        start_nonce,
+        &hotkey_account_id,
+    );
+    let result = SubtensorModule::register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
+        netuid,
+        block_number,
+        nonce,
+        work,
+        hotkey_account_id,
+        coldkey_account_id,
+    );
+    assert_ok!(result);
+    log::info!(
+        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
+        netuid,
+        hotkey_account_id,
+        coldkey_account_id
+    );
+}
+
+#[allow(dead_code)]
+pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
