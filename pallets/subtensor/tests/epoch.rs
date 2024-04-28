@@ -162,7 +162,6 @@ fn init_run_epochs(
     // === Register uids
     SubtensorModule::set_max_allowed_uids(netuid, n);
     for key in 0..n {
-        // let stake: u64;
         let stake = if use_input_stake {
             input_stake[key as usize]
         } else if validators.contains(&key) {
