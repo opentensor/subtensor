@@ -372,6 +372,7 @@ impl<T: Config> Pallet<T> {
                 // --- 5. Adjust burn + pow
                 // There are six cases to consider. A, B, C, D, E, F
                 if registrations_this_interval > target_registrations_this_interval {
+                    #[allow(clippy::comparison_chain)]
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // A. There are too many registrations this interval and most of them are pow registrations
                         // this triggers an increase in the pow difficulty.
@@ -424,6 +425,7 @@ impl<T: Config> Pallet<T> {
                     }
                 } else {
                     // Not enough registrations this interval.
+                    #[allow(clippy::comparison_chain)]
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations
                         // this triggers a decrease in the burn cost
