@@ -437,9 +437,6 @@ impl<T: Config> Pallet<T> {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid_i);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
-
-            // Too dangerous to remove this comparison change while enabling clippy. allow it for
-            // now.
             #[allow(clippy::comparison_chain)]
             if min_score == pruning_score {
                 if current_block - block_at_registration < immunity_period {
