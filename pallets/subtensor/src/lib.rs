@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
+#![allow(clippy::too_many_arguments)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -1721,7 +1722,7 @@ pub mod pallet {
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if Uids::<T>::contains_key(netuid, hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
-                let _stake = Self::get_total_stake_for_hotkey(&hotkey);
+                let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid);
@@ -1811,14 +1812,6 @@ where
 
     pub fn check_weights_min_stake(who: &T::AccountId) -> bool {
         Pallet::<T>::check_weights_min_stake(who)
-    }
-
-    pub fn u64_to_balance(
-        input: u64,
-    ) -> Option<
-        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
-    >{
-        input.try_into().ok()
     }
 }
 

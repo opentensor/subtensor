@@ -881,13 +881,13 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn can_only_be_called_by_admin() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5 as u64;
+            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
             assert_eq!(
                 AdminUtils::sudo_set_nominator_min_required_stake(
                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                     to_be_set
                 ),
-                Err(DispatchError::BadOrigin.into())
+                Err(DispatchError::BadOrigin)
             );
         });
     }
@@ -912,7 +912,7 @@ mod sudo_set_nominator_min_required_stake {
     #[test]
     fn sets_a_higher_value() {
         new_test_ext().execute_with(|| {
-            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5 as u64;
+            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
             assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 to_be_set

@@ -17,7 +17,6 @@ use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
 use sc_service::PartialComponents;
 
-
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
         "Subtensor Node".into()

@@ -21,13 +21,13 @@ pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place.
 #[allow(dead_code)]
-pub fn inplace_normalize(x: &mut Vec<I32F32>) {
+pub fn inplace_normalize(x: &mut [I32F32]) {
     let x_sum: I32F32 = x.iter().sum();
     if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    for i in 0..x.len() {
-        x[i] /= x_sum;
+    for i in x.iter_mut() {
+        *i /= x_sum;
     }
 }
 
@@ -139,17 +139,18 @@ fn uid_stats(netuid: u16, uid: u16) {
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn init_run_epochs(
     netuid: u16,
     n: u16,
-    validators: &Vec<u16>,
-    servers: &Vec<u16>,
+    validators: &[u16],
+    servers: &[u16],
     epochs: u16,
     stake_per_validator: u64,
     server_self: bool,
-    input_stake: &Vec<u64>,
+    input_stake: &[u64],
     use_input_stake: bool,
-    input_weights: &Vec<Vec<(u16, u16)>>,
+    input_weights: &[Vec<(u16, u16)>],
     use_input_weights: bool,
     random_weights: bool,
     random_seed: u64,
@@ -161,16 +162,15 @@ fn init_run_epochs(
     // === Register uids
     SubtensorModule::set_max_allowed_uids(netuid, n);
     for key in 0..n {
-        let stake: u64;
-        if use_input_stake {
-            stake = input_stake[key as usize];
+        let stake = if use_input_stake {
+            input_stake[key as usize]
+        } else if validators.contains(&key) {
+            stake_per_validator
         } else {
-            stake = if validators.contains(&key) {
-                stake_per_validator
-            } else {
-                0
-            }; // only validators receive stake
-        }
+            // only validators receive stake
+            0
+        };
+
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
         SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
@@ -216,7 +216,7 @@ fn init_run_epochs(
             assert_ok!(SubtensorModule::set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
-                servers.clone(),
+                servers.to_vec(),
                 weights.clone(),
                 0
             ));
@@ -567,7 +567,7 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]).unwrap();
+        SubtensorModule::set_emission_values(&[netuid], vec![1_000_000_000]).unwrap();
         assert_eq!(
             SubtensorModule::get_subnet_emission_value(netuid),
             1_000_000_000
@@ -682,9 +682,9 @@ fn test_512_graph() {
                     epochs,
                     max_stake_per_validator,
                     server_self,
-                    &vec![],
+                    &[],
                     false,
-                    &vec![],
+                    &[],
                     false,
                     false,
                     0,
@@ -743,6 +743,7 @@ fn test_512_graph_random_weights() {
             );
             let server: usize = servers[0] as usize;
             let validator: usize = validators[0] as usize;
+            #[allow(clippy::type_complexity)]
             let (mut rank, mut incentive, mut dividend, mut emission, mut bondv, mut bonds): (
                 Vec<u16>,
                 Vec<u16>,
@@ -762,9 +763,9 @@ fn test_512_graph_random_weights() {
                     epochs,
                     1,
                     server_self,
-                    &vec![],
+                    &[],
                     false,
-                    &vec![],
+                    &[],
                     false,
                     true,
                     interleave as u64,
@@ -792,9 +793,9 @@ fn test_512_graph_random_weights() {
                     epochs,
                     1,
                     server_self,
-                    &vec![],
+                    &[],
                     false,
-                    &vec![],
+                    &[],
                     false,
                     true,
                     interleave as u64,
@@ -856,9 +857,9 @@ fn test_4096_graph() {
                     epochs,
                     max_stake_per_validator,
                     server_self,
-                    &vec![],
+                    &[],
                     false,
-                    &vec![],
+                    &[],
                     false,
                     false,
                     0,
@@ -923,9 +924,9 @@ fn test_16384_graph_sparse() {
             epochs,
             1,
             false,
-            &vec![],
+            &[],
             false,
-            &vec![],
+            &[],
             false,
             false,
             0,
@@ -1342,12 +1343,13 @@ fn test_active_stake() {
                 250000000
             ); // Note E = 0.5 / (n/2) * 1_000_000_000 = 250_000_000
         }
-        for validator in 0..(n / 2) as usize {
-            for on_validator in 0..(n / 2) as usize {
-                assert_eq!(bonds[validator][on_validator], 0);
+        for bond in bonds.iter().take((n / 2) as usize) {
+            // for on_validator in 0..(n / 2) as usize {
+            for i in bond.iter().take((n / 2) as usize) {
+                assert_eq!(*i, 0);
             }
-            for server in ((n / 2) as usize)..n as usize {
-                assert_eq!(bonds[validator][server], I32F32::from_num(65_535)); // floor(0.5*(2^16-1))/(2^16-1), then max-upscale to 65_535
+            for i in bond.iter().take(n as usize).skip((n / 2) as usize) {
+                assert_eq!(*i, I32F32::from_num(65_535)); // floor(0.5*(2^16-1))/(2^16-1), then max-upscale to 65_535
             }
         }
         let activity_cutoff: u64 = SubtensorModule::get_activity_cutoff(netuid) as u64;

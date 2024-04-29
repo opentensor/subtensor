@@ -12,6 +12,7 @@ mod test {
     use std::net::{Ipv4Addr, Ipv6Addr};
 
     // Generates an ipv6 address based on 8 ipv6 words and returns it as u128
+    #[allow(clippy::too_many_arguments)]
     pub fn ipv6(a: u16, b: u16, c: u16, d: u16, e: u16, f: u16, g: u16, h: u16) -> u128 {
         Ipv6Addr::new(a, b, c, d, e, f, g, h).into()
     }

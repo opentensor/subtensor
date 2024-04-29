@@ -8,9 +8,7 @@ use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 
-use frame_support::traits::Get;
-use sp_runtime::traits::{Bounded, StaticLookup};
-use sp_std::mem::size_of;
+use sp_runtime::traits::Bounded;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -18,7 +16,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 // This creates an `IdentityInfo` object with `num_fields` extra fields.
 // All data is pre-populated with some arbitrary bytes.
-fn create_identity_info<T: Config>(num_fields: u32) -> IdentityInfo<T::MaxAdditionalFields> {
+fn create_identity_info<T: Config>(_num_fields: u32) -> IdentityInfo<T::MaxAdditionalFields> {
     let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
     IdentityInfo {
@@ -66,7 +64,8 @@ mod benchmarks {
             RawOrigin::Signed(caller.clone()).into(),
             vali_account.clone(),
             Box::new(create_identity_info::<T>(0)),
-        );
+        )
+        .unwrap();
 
         #[extrinsic_call]
         _(RawOrigin::Signed(caller.clone()), vali_account);

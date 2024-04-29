@@ -165,8 +165,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(&hotkey_i).defensive_ok();
-        T::SenateMembers::remove_member(&hotkey_i).defensive_ok();
+        T::TriumvirateInterface::remove_votes(hotkey_i).defensive_ok();
+        T::SenateMembers::remove_member(hotkey_i).defensive_ok();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }
@@ -361,7 +361,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
         for netuid in curr_loaded_emission {
             // Iterates over the netuids
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if let Err(_) = old::LoadedEmission::<T>::try_get(netuid) {
+            if old::LoadedEmission::<T>::try_get(netuid).is_err() {
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
                 old::LoadedEmission::<T>::remove(netuid);
                 log::warn!(

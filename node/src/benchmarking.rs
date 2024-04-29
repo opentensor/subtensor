@@ -89,7 +89,7 @@ impl frame_benchmarking_cli::ExtrinsicBuilder for TransferKeepAliveBuilder {
             acc,
             BalancesCall::transfer_keep_alive {
                 dest: self.dest.clone().into(),
-                value: self.value.into(),
+                value: self.value,
             }
             .into(),
             nonce,
