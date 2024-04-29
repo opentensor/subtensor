@@ -1,33 +1,28 @@
 use frame_support::{
     assert_ok, parameter_types,
-    traits::{Everything, Hooks, StorageMapShim},
+    traits::{Everything, Hooks},
     weights,
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::H256;
 use sp_core::U256;
+use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    DispatchError,
+    BuildStorage, DispatchError,
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
         System: frame_system,
         Balances: pallet_balances,
         AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>}
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -67,7 +62,7 @@ parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_ref_time(1024));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -170,41 +165,39 @@ impl system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = U256;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Block = Block;
+    type Nonce = u64;
 }
 
 impl pallet_balances::Config for Test {
-    type Balance = Balance;
+    type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
+    type Balance = u64;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type MaxLocks = ();
+    type ExistentialDeposit = ConstU64<1>;
+    type AccountStore = System;
     type WeightInfo = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type RuntimeHoldReason = ();
+    type MaxHolds = ();
 }
 
 pub struct SubtensorIntrf;
@@ -263,19 +256,19 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn get_root_netuid() -> u16 {
-        return SubtensorModule::get_root_netuid();
+        SubtensorModule::get_root_netuid()
     }
 
     fn if_subnet_exist(netuid: u16) -> bool {
-        return SubtensorModule::if_subnet_exist(netuid);
+        SubtensorModule::if_subnet_exist(netuid)
     }
 
     fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId) {
-        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
+        SubtensorModule::create_account_if_non_existent(coldkey, hotkey)
     }
 
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool {
-        return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
+        SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
     }
 
     fn increase_stake_on_coldkey_hotkey_account(
@@ -286,32 +279,28 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
     }
 
-    fn u64_to_balance(input: u64) -> Option<Balance> {
-        return SubtensorModule::u64_to_balance(input);
-    }
-
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
         SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
     }
 
     fn get_current_block_as_u64() -> u64 {
-        return SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::get_current_block_as_u64()
     }
 
     fn get_subnetwork_n(netuid: u16) -> u16 {
-        return SubtensorModule::get_subnetwork_n(netuid);
+        SubtensorModule::get_subnetwork_n(netuid)
     }
 
     fn get_max_allowed_uids(netuid: u16) -> u16 {
-        return SubtensorModule::get_max_allowed_uids(netuid);
+        SubtensorModule::get_max_allowed_uids(netuid)
     }
 
     fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64) {
-        return SubtensorModule::append_neuron(netuid, new_hotkey, block_number);
+        SubtensorModule::append_neuron(netuid, new_hotkey, block_number)
     }
 
     fn get_neuron_to_prune(netuid: u16) -> u16 {
-        return SubtensorModule::get_neuron_to_prune(netuid);
+        SubtensorModule::get_neuron_to_prune(netuid)
     }
 
     fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64) {
@@ -378,7 +367,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
-        return SubtensorModule::ensure_subnet_owner_or_root(o, netuid);
+        SubtensorModule::ensure_subnet_owner_or_root(o, netuid)
     }
 
     fn set_rho(netuid: u16, rho: u16) {
@@ -426,7 +415,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool {
-        return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
+        SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey)
     }
 
     fn init_new_network(netuid: u16, tempo: u16) {
@@ -460,13 +449,15 @@ impl pallet_admin_utils::Config for Test {
     type WeightInfo = ();
 }
 
-#[allow(dead_code)]
+// Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
+    let t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
 }
 
 #[allow(dead_code)]
@@ -513,7 +504,7 @@ pub fn register_ok_neuron(
 }
 
 #[allow(dead_code)]
-pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
+pub fn add_network(netuid: u16, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
