@@ -783,6 +783,7 @@ dependencies = [
  "js-sys",
  "num-integer",
  "num-traits",
+ "serde",
  "time 0.1.45",
  "wasm-bindgen",
  "winapi",
@@ -7153,8 +7154,14 @@ version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89df7a26519371a3cce44fbb914c2819c84d9b897890987fa3ab096491cc0ea8"
 dependencies = [
+ "base64 0.13.1",
+ "chrono",
+ "hex",
+ "indexmap",
  "serde",
+ "serde_json",
  "serde_with_macros",
+ "time 0.3.17",
 ]
 
 [[package]]
@@ -8134,6 +8141,7 @@ source = "git+https://github.com/encointer/substrate-fixed.git?tag=v0.5.9#a4fb46
 dependencies = [
  "parity-scale-codec",
  "scale-info",
+ "serde",
  "typenum 1.16.0 (git+https://github.com/encointer/typenum?tag=v1.16.0)",
 ]
 
