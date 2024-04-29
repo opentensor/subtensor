@@ -8,12 +8,12 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use node_subtensor_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Index, Hash};
+use node_subtensor_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use sc_consensus_grandpa::FinalityProofProvider;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sc_consensus_grandpa::FinalityProofProvider;
 
 pub use sc_rpc_api::DenyUnsafe;
 
@@ -64,9 +64,9 @@ where
     P: TransactionPool + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+    use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
     use subtensor_custom_rpc::{SubtensorCustom, SubtensorCustomApiServer};
-    use sc_consensus_grandpa_rpc::{Grandpa, GrandpaApiServer};
 
     let mut module = RpcModule::new(());
     let FullDeps {
@@ -99,7 +99,7 @@ where
             justification_stream,
             finality_provider,
         )
-            .into_rpc(),
+        .into_rpc(),
     )?;
 
     // Extend this RPC with a custom API by using the following syntax.

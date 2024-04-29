@@ -8,6 +8,9 @@ description = "A pallet that adds custom RPC calls to subtensor"
 license = "MIT"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
   "derive",

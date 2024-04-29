@@ -94,14 +94,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost_as_u64 = Self::get_burn_as_u64(netuid);
+        let registration_cost = Self::get_burn_as_u64(netuid);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost_as_u64),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
             Error::<T>::NotEnoughBalanceToStake
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_u64)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // The burn occurs here.
         Self::burn_tokens(actual_burn_amount);
@@ -429,14 +430,14 @@ impl<T: Config> Pallet<T> {
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
-        
+
         let current_block: u64 = Self::get_current_block_as_u64();
         let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
         for neuron_uid_i in 0..neurons_n {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid_i);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
-            
+            #[allow(clippy::comparison_chain)]
             if min_score == pruning_score {
                 if current_block - block_at_registration < immunity_period {
                     //neuron is in immunity period

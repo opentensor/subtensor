@@ -611,7 +611,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
 
         // Get max-upscaled unnormalized weights.
         let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid);
-        let weights_set: &Vec<I32F32> = &all_weights[neuron_uid as usize];
+        let weights_set: &[I32F32] = &all_weights[neuron_uid as usize];
         assert_eq!(weights_set[0], I32F32::from_num(u16::MAX));
         assert_eq!(weights_set[1], I32F32::from_num(u16::MAX));
     });

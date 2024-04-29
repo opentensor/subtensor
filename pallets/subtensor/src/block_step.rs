@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 // We are creating tokens here from the coinbase.
-                Self::coinbase( cut.to_num::<u64>() );
+                Self::coinbase(cut.to_num::<u64>());
             }
             // --- 5. Add remaining amount to the network's pending emission.
             PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
@@ -340,7 +340,7 @@ impl<T: Config> Pallet<T> {
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);
             let current_block: u64 = Self::get_current_block_as_u64();
-            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}", 
+            log::debug!("netuid: {:?} last_adjustment_block: {:?} adjustment_interval: {:?} current_block: {:?}",
                 netuid,
                 last_adjustment_block,
                 adjustment_interval,
@@ -366,6 +366,7 @@ impl<T: Config> Pallet<T> {
                 // --- 5. Adjust burn + pow
                 // There are six cases to consider. A, B, C, D, E, F
                 if registrations_this_interval > target_registrations_this_interval {
+                    #[allow(clippy::comparison_chain)]
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // A. There are too many registrations this interval and most of them are pow registrations
                         // this triggers an increase in the pow difficulty.
@@ -418,6 +419,7 @@ impl<T: Config> Pallet<T> {
                     }
                 } else {
                     // Not enough registrations this interval.
+                    #[allow(clippy::comparison_chain)]
                     if pow_registrations_this_interval > burn_registrations_this_interval {
                         // C. There are not enough registrations this interval and most of them are pow registrations
                         // this triggers a decrease in the burn cost

@@ -73,7 +73,7 @@ impl<T: Config> Pallet<T> {
         let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey]);
 
         if stake_info.is_empty() {
-            Vec::new()// Invalid coldkey
+            Vec::new() // Invalid coldkey
         } else {
             let Some(first) = stake_info.first() else {
                 return Vec::new();

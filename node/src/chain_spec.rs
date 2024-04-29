@@ -495,6 +495,7 @@ fn localnet_genesis(
 }
 
 // Configure initial storage state for FRAME modules.
+#[allow(clippy::too_many_arguments)]
 fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -554,6 +555,7 @@ fn testnet_genesis(
 }
 
 // Configure initial storage state for FRAME modules.
+#[allow(clippy::too_many_arguments)]
 fn finney_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,

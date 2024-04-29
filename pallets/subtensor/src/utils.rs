@@ -145,8 +145,17 @@ impl<T: Config> Pallet<T> {
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
     }
-    pub fn set_stakes_this_interval_for_coldkey_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId, stakes_this_interval: u64, last_staked_block_number: u64) {
-        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (stakes_this_interval, last_staked_block_number));
+    pub fn set_stakes_this_interval_for_coldkey_hotkey(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        stakes_this_interval: u64,
+        last_staked_block_number: u64,
+    ) {
+        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
+            coldkey,
+            hotkey,
+            (stakes_this_interval, last_staked_block_number),
+        );
     }
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
@@ -263,7 +272,7 @@ impl<T: Config> Pallet<T> {
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn coinbase(amount: u64 ){
+    pub fn coinbase(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {

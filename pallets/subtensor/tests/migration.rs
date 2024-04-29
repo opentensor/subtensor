@@ -208,7 +208,7 @@ fn test_total_issuance_global() {
         // Set emission values for the network and verify.
         let emission: u64 = 1_000_000_000;
         SubtensorModule::set_tempo(netuid, 1);
-        SubtensorModule::set_emission_values(&vec![netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
+        SubtensorModule::set_emission_values(&[netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), emission); // Verify the emission value is set correctly for the network.
         assert_eq!(
             SubtensorModule::get_total_issuance(),

@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Checks for any invalid uids on this network.
-    pub fn contains_invalid_uids(netuid: u16, uids: &Vec<u16>) -> bool {
+    pub fn contains_invalid_uids(netuid: u16, uids: &[u16]) -> bool {
         for uid in uids {
             if !Self::is_uid_exist_on_network(netuid, *uid) {
                 log::debug!(
@@ -237,12 +237,12 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns true if the passed uids have the same length of the passed values.
-    pub fn uids_match_values(uids: &Vec<u16>, values: &Vec<u16>) -> bool {
+    pub fn uids_match_values(uids: &[u16], values: &[u16]) -> bool {
         uids.len() == values.len()
     }
 
     // Returns true if the items contain duplicates.
-    pub fn has_duplicate_uids(items: &Vec<u16>) -> bool {
+    pub fn has_duplicate_uids(items: &[u16]) -> bool {
         let mut parsed: Vec<u16> = Vec::new();
         for item in items {
             if parsed.contains(item) {
@@ -254,12 +254,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns True if setting self-weight or has validator permit.
-    pub fn check_validator_permit(
-        netuid: u16,
-        uid: u16,
-        uids: &Vec<u16>,
-        weights: &Vec<u16>,
-    ) -> bool {
+    pub fn check_validator_permit(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Check self weight. Allowed to set single value for self weight.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
@@ -269,7 +264,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns True if the uids and weights are have a valid length for uid on network.
-    pub fn check_length(netuid: u16, uid: u16, uids: &Vec<u16>, weights: &Vec<u16>) -> bool {
+    pub fn check_length(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         let subnet_n: usize = Self::get_subnetwork_n(netuid) as usize;
         let min_allowed_length: usize = Self::get_min_allowed_weights(netuid) as usize;
         let min_allowed: usize = {
@@ -306,7 +301,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns False if the weights exceed the max_weight_limit for this network.
-    pub fn max_weight_limited(netuid: u16, uid: u16, uids: &Vec<u16>, weights: &Vec<u16>) -> bool {
+    pub fn max_weight_limited(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Allow self weights to exceed max weight limit.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
@@ -323,7 +318,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns true if the uids and weights correspond to a self weight on the uid.
-    pub fn is_self_weight(uid: u16, uids: &Vec<u16>, weights: &Vec<u16>) -> bool {
+    pub fn is_self_weight(uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         if weights.len() != 1 {
             return false;
         }
@@ -335,7 +330,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns False is the number of uids exceeds the allowed number of uids for this network.
-    pub fn check_len_uids_within_allowed(netuid: u16, uids: &Vec<u16>) -> bool {
+    pub fn check_len_uids_within_allowed(netuid: u16, uids: &[u16]) -> bool {
         let subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
         // we should expect at most subnetwork_n uids.
         uids.len() <= subnetwork_n as usize
