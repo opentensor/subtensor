@@ -643,10 +643,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
-<<<<<<< HEAD
-=======
         log::debug!("network lock_amount: {:?}", lock_amount);
->>>>>>> origin/development
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount),
             Error::<T>::NotEnoughBalanceToStake
