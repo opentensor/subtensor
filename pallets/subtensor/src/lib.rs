@@ -1317,8 +1317,6 @@ pub mod pallet {
         // 		- The network version key to check if the validator is up to date.
         //
         // # Event:
-        // 	* 'WeightVecNotEqualSize':
-        // 		- Attempting to set weights with uids not of same length.
         //
         // 	* WeightsSet;
         // 		- On successfully setting the weights on chain.
