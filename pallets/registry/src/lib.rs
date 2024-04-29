@@ -135,7 +135,7 @@ pub mod pallet {
             <IdentityOf<T>>::insert(&identified, id);
             Self::deposit_event(Event::IdentitySet { who: identified });
 
-            Ok(())
+            Ok(().into())
         }
 
         #[pallet::call_index(1)]

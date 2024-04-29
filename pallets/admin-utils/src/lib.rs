@@ -231,7 +231,7 @@ pub mod pallet {
 
         #[pallet::call_index(9)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1))
 				.saturating_add(T::DbWeight::get().reads(1)),
 			DispatchClass::Operational,
@@ -399,8 +399,8 @@ pub mod pallet {
 
         #[pallet::call_index(19)]
         #[pallet::weight((
-			Weight::from_parts(4_000_000, 0)
-				.saturating_add(Weight::from_parts(0, 0))
+			Weight::from_ref_time(4_000_000)
+				.saturating_add(Weight::from_proof_size(0))
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -422,7 +422,7 @@ pub mod pallet {
 
         #[pallet::call_index(20)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -604,7 +604,7 @@ pub mod pallet {
 
         #[pallet::call_index(28)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -624,7 +624,7 @@ pub mod pallet {
 
         #[pallet::call_index(29)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -667,7 +667,7 @@ pub mod pallet {
 
         #[pallet::call_index(35)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -687,7 +687,7 @@ pub mod pallet {
 
         #[pallet::call_index(36)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -707,7 +707,7 @@ pub mod pallet {
 
         #[pallet::call_index(37)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -723,7 +723,7 @@ pub mod pallet {
 
         #[pallet::call_index(38)]
         #[pallet::weight((
-			Weight::from_parts(14_000_000, 0)
+			Weight::from_ref_time(14_000_000)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -836,6 +836,7 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
         hotkey: &AccountId,
         increment: u64,
     );
+    fn u64_to_balance(input: u64) -> Option<Balance>;
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance);
     fn get_current_block_as_u64() -> u64;
     fn get_subnetwork_n(netuid: u16) -> u16;

@@ -1,10 +1,10 @@
 use super::*;
 use frame_support::traits::DefensiveResult;
 use frame_support::{
+    inherent::Vec,
     pallet_prelude::{Identity, OptionQuery},
-    sp_std::vec::Vec,
     storage_alias,
-    traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
+    traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;
@@ -165,8 +165,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        T::TriumvirateInterface::remove_votes(hotkey_i).defensive_ok();
-        T::SenateMembers::remove_member(hotkey_i).defensive_ok();
+        T::TriumvirateInterface::remove_votes(&hotkey_i).defensive_ok();
+        T::SenateMembers::remove_member(&hotkey_i).defensive_ok();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }
@@ -361,7 +361,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
         for netuid in curr_loaded_emission {
             // Iterates over the netuids
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if old::LoadedEmission::<T>::try_get(netuid).is_err() {
+            if let Err(_) = old::LoadedEmission::<T>::try_get(netuid) {
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
                 old::LoadedEmission::<T>::remove(netuid);
                 log::warn!(
@@ -379,13 +379,13 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
                 info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
 
                 // We will assume all loaded emission is validator emissions,
-                // so this will get distributed over delegatees (nominators), if there are any
-                // This will NOT effect any servers that are not (also) a delegate validator.
+                //      so this will get distributed over delegatees (nominators), if there are any
+                //      This will NOT effect any servers that are not (also) a delegate validator.
                 // server_emission will be 0 for any alread loaded emission.
 
                 let mut new_netuid_emissions = Vec::new();
                 for (server, validator_emission) in netuid_emissions {
-                    new_netuid_emissions.push((server, 0_u64, validator_emission));
+                    new_netuid_emissions.push((server, 0 as u64, validator_emission));
                 }
 
                 // One read (old) and write (new) per netuid

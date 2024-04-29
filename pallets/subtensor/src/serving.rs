@@ -1,4 +1,5 @@
 use super::*;
+use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 
 impl<T: Config> Pallet<T> {
@@ -223,7 +224,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_axon_info.block;
-        rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit
+        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
     }
 
     pub fn prometheus_passes_rate_limit(
@@ -233,22 +234,22 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_prometheus_info.block;
-        rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit
+        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
     }
 
     pub fn has_axon_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        Axons::<T>::contains_key(netuid, hotkey)
+        return Axons::<T>::contains_key(netuid, hotkey);
     }
 
     pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        Prometheus::<T>::contains_key(netuid, hotkey)
+        return Prometheus::<T>::contains_key(netuid, hotkey);
     }
 
     pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
         if Self::has_axon_info(netuid, hotkey) {
-            Axons::<T>::get(netuid, hotkey).unwrap()
+            return Axons::<T>::get(netuid, hotkey).unwrap();
         } else {
-            AxonInfo {
+            return AxonInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
@@ -257,27 +258,27 @@ impl<T: Config> Pallet<T> {
                 protocol: 0,
                 placeholder1: 0,
                 placeholder2: 0,
-            }
+            };
         }
     }
 
     pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
         if Self::has_prometheus_info(netuid, hotkey) {
-            Prometheus::<T>::get(netuid, hotkey).unwrap()
+            return Prometheus::<T>::get(netuid, hotkey).unwrap();
         } else {
-            PrometheusInfo {
+            return PrometheusInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
                 port: 0,
                 ip_type: 0,
-            }
+            };
         }
     }
 
     pub fn is_valid_ip_type(ip_type: u8) -> bool {
         let allowed_values: Vec<u8> = vec![4, 6];
-        allowed_values.contains(&ip_type)
+        return allowed_values.contains(&ip_type);
     }
 
     // @todo (Parallax 2-1-2021) : Implement exclusion of private IP ranges
@@ -310,11 +311,11 @@ impl<T: Config> Pallet<T> {
                 return false;
             } // IPv6 localhost
         }
-        true
+        return true;
     }
 
     pub fn validate_axon_data(axon_info: &AxonInfoOf) -> Result<bool, pallet::Error<T>> {
-        if axon_info.port.clamp(0, u16::MAX) == 0 {
+        if axon_info.port.clamp(0, u16::MAX) <= 0 {
             return Err(Error::<T>::InvalidPort);
         }
 
@@ -324,7 +325,7 @@ impl<T: Config> Pallet<T> {
     pub fn validate_prometheus_data(
         prom_info: &PrometheusInfoOf,
     ) -> Result<bool, pallet::Error<T>> {
-        if prom_info.port.clamp(0, u16::MAX) == 0 {
+        if prom_info.port.clamp(0, u16::MAX) <= 0 {
             return Err(Error::<T>::InvalidPort);
         }
 

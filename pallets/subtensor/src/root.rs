@@ -18,6 +18,7 @@
 use super::*;
 use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
+use frame_support::inherent::Vec;
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
@@ -108,7 +109,7 @@ impl<T: Config> Pallet<T> {
     // * 'bool': Whether the subnet exists.
     //
     pub fn if_subnet_exist(netuid: u16) -> bool {
-        NetworksAdded::<T>::get(netuid)
+        return NetworksAdded::<T>::get(netuid);
     }
 
     // Returns a list of subnet netuid equal to total networks.
@@ -120,9 +121,9 @@ impl<T: Config> Pallet<T> {
     // * 'Vec<u16>': Netuids of added subnets.
     //
     pub fn get_all_subnet_netuids() -> Vec<u16> {
-        <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+        return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
             .map(|(netuid, _)| netuid)
-            .collect()
+            .collect();
     }
     /// Calculates the block emission based on the total issuance.
     ///
@@ -137,13 +138,14 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn get_block_emission() -> Result<u64, &'static str> {
         // Convert the total issuance to a fixed-point number for calculation.
-        Self::get_block_emission_for_issuance(Self::get_total_issuance())
+        Self::get_block_emission_for_issuance( Self::get_total_issuance() )
     }
 
     // Returns the block emission for an issuance value.
-    pub fn get_block_emission_for_issuance(issuance: u64) -> Result<u64, &'static str> {
+    pub fn get_block_emission_for_issuance( issuance: u64 ) -> Result<u64, &'static str> {
+
         // Convert issuance to a float for calculations below.
-        let total_issuance: I96F32 = I96F32::from_num(issuance);
+        let total_issuance: I96F32 = I96F32::from_num( issuance );
         // Check to prevent division by zero when the total supply is reached
         // and creating an issuance greater than the total supply.
         if total_issuance >= I96F32::from_num(TotalSupply::<T>::get()) {
@@ -189,7 +191,7 @@ impl<T: Config> Pallet<T> {
     // # Returns:
     // * 'bool': 'true' if any of the UIDs are invalid, 'false' otherwise.
     //
-    pub fn contains_invalid_root_uids(netuids: &[u16]) -> bool {
+    pub fn contains_invalid_root_uids(netuids: &Vec<u16>) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
                 log::debug!(
@@ -205,7 +207,7 @@ impl<T: Config> Pallet<T> {
     // Sets the emission values for each netuid
     //
     //
-    pub fn set_emission_values(netuids: &[u16], emission: Vec<u64>) -> Result<(), &'static str> {
+    pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
         log::debug!(
             "set_emission_values: netuids: {:?} emission:{:?}",
             netuids,
@@ -375,8 +377,11 @@ impl<T: Config> Pallet<T> {
         }
 
         for trust_score in trust.iter_mut() {
-            if let Some(quotient) = trust_score.checked_div(total_stake) {
-                *trust_score = quotient;
+            match trust_score.checked_div(total_stake) {
+                Some(quotient) => {
+                    *trust_score = quotient;
+                }
+                None => {}
             }
         }
 
@@ -417,7 +422,7 @@ impl<T: Config> Pallet<T> {
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
         log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
 
-        Self::set_emission_values(&netuids, emission_u64)
+        return Self::set_emission_values(&netuids, emission_u64);
     }
 
     // Registers a user's hotkey to the root network.
@@ -544,7 +549,7 @@ impl<T: Config> Pallet<T> {
 
                 if last_stake < current_stake {
                     T::SenateMembers::swap_member(last, &hotkey)?;
-                    T::TriumvirateInterface::remove_votes(last)?;
+                    T::TriumvirateInterface::remove_votes(&last)?;
                 }
             }
         } else {
@@ -585,13 +590,13 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure that the calling coldkey owns the associated hotkey.
         ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, hotkey),
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
         // --- 3. Ensure that the calling hotkey is a member of the senate.
         ensure!(
-            T::SenateMembers::is_member(hotkey),
+            T::SenateMembers::is_member(&hotkey),
             Error::<T>::NotSenateMember
         );
 
@@ -603,10 +608,10 @@ impl<T: Config> Pallet<T> {
         let members = T::SenateMembers::members();
         let member_count = members.len() as u32;
         let vote_weight = Weight::from_parts(20_528_275, 4980)
-            .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
+            .saturating_add(Weight::from_ref_time(48_856).saturating_mul(member_count.into()))
             .saturating_add(T::DbWeight::get().reads(2_u64))
             .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
+            .saturating_add(Weight::from_proof_size(128).saturating_mul(member_count.into()));
 
         Ok((
             Some(vote_weight),
@@ -646,9 +651,14 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Calculate and lock the required tokens.
         let lock_amount: u64 = Self::get_network_lock_cost();
-        log::debug!("network lock_amount: {:?}", lock_amount);
+        let lock_as_balance = Self::u64_to_balance(lock_amount);
+        log::debug!("network lock_amount: {:?}", lock_amount,);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_amount),
+            lock_as_balance.is_some(),
+            Error::<T>::CouldNotConvertToBalance
+        );
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -681,9 +691,12 @@ impl<T: Config> Pallet<T> {
         };
 
         // --- 5. Perform the lock operation.
-        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
+        ensure!(
+            Self::remove_balance_from_coldkey_account(&coldkey, lock_as_balance.unwrap()) == true,
+            Error::<T>::BalanceWithdrawalError
+        );
+        Self::set_subnet_locked_balance(netuid_to_register, lock_amount);
+        Self::set_network_last_lock(lock_amount);
 
         // --- 6. Set initial and custom parameters for the network.
         Self::init_new_network(netuid_to_register, 360);
@@ -844,6 +857,12 @@ impl<T: Config> Pallet<T> {
         let owner_coldkey = SubnetOwner::<T>::get(netuid);
         let reserved_amount = Self::get_subnet_locked_balance(netuid);
 
+        // Ensure that we can convert this u64 to a balance.
+        let reserved_amount_as_bal = Self::u64_to_balance(reserved_amount);
+        if !reserved_amount_as_bal.is_some() {
+            return;
+        }
+
         // --- 2. Remove network count.
         SubnetworkN::<T>::remove(netuid);
 
@@ -913,7 +932,7 @@ impl<T: Config> Pallet<T> {
         BurnRegistrationsThisInterval::<T>::remove(netuid);
 
         // --- 12. Add the balance back to the owner.
-        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount_as_bal.unwrap());
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
     }

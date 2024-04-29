@@ -1,22 +1,24 @@
 use node_subtensor_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig,
-    SenateMembersConfig, Signature, SubtensorModuleConfig, SudoConfig, SystemConfig,
-    TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
+    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SenateMembersConfig,
+    Signature, SubtensorModuleConfig, SudoConfig, SystemConfig, TriumvirateConfig,
+    TriumvirateMembersConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{bounded_vec, sr25519, Pair, Public};
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 use std::env;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
-/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<RuntimeGenesisConfig>;
+// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
+// These functions are unused in production compiles, util functions for unit testing
+#[allow(dead_code)]
 /// Generate a crypto pair from seed.
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
     TPublic::Pair::from_string(&format!("//{}", seed), None)
@@ -24,8 +26,10 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
+#[allow(dead_code)]
 type AccountPublic = <Signature as Verify>::Signer;
 
+#[allow(dead_code)]
 /// Generate an account ID from seed.
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
@@ -34,6 +38,7 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
+#[allow(dead_code)]
 /// Generate an Aura authority key.
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
@@ -90,14 +95,14 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         Vec<(sp_runtime::AccountId32, (u64, u16))>,
     )> = Vec::new();
     for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str).unwrap();
+        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
         let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
         let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -109,7 +114,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
-        let key = <sr25519::Public as Ss58Codec>::from_ss58check(key_str).unwrap();
+        let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
@@ -266,14 +271,14 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         Vec<(sp_runtime::AccountId32, (u64, u16))>,
     )> = Vec::new();
     for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str).unwrap();
+        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
         let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
         let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -285,7 +290,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
-        let key = <sr25519::Public as Ss58Codec>::from_ss58check(key_str).unwrap();
+        let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
@@ -409,7 +414,7 @@ fn localnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     _enable_println: bool,
-) -> RuntimeGenesisConfig {
+) -> GenesisConfig {
     let mut balances = vec![
         (
             get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -446,11 +451,10 @@ fn localnet_genesis(
         }
     }
 
-    RuntimeGenesisConfig {
+    GenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
-            ..Default::default()
         },
         balances: BalancesConfig { balances },
         aura: AuraConfig {
@@ -461,7 +465,6 @@ fn localnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
-            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
@@ -492,7 +495,6 @@ fn localnet_genesis(
 }
 
 // Configure initial storage state for FRAME modules.
-#[allow(clippy::too_many_arguments)]
 fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -502,12 +504,11 @@ fn testnet_genesis(
     _stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
     _balances: Vec<(AccountId, u64)>,
     _balances_issuance: u64,
-) -> RuntimeGenesisConfig {
-    RuntimeGenesisConfig {
+) -> GenesisConfig {
+    GenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
-            ..Default::default()
         },
         balances: BalancesConfig {
             // Configure sudo balance
@@ -525,7 +526,6 @@ fn testnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
-            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(
@@ -552,7 +552,6 @@ fn testnet_genesis(
 }
 
 // Configure initial storage state for FRAME modules.
-#[allow(clippy::too_many_arguments)]
 fn finney_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -562,17 +561,16 @@ fn finney_genesis(
     stakes: Vec<(AccountId, Vec<(AccountId, (u64, u16))>)>,
     balances: Vec<(AccountId, u64)>,
     balances_issuance: u64,
-) -> RuntimeGenesisConfig {
-    RuntimeGenesisConfig {
+) -> GenesisConfig {
+    GenesisConfig {
         system: SystemConfig {
             // Add Wasm runtime to storage.
             code: wasm_binary.to_vec(),
-            ..Default::default()
         },
         balances: BalancesConfig {
             // Configure endowed accounts with initial balance of 1 << 60.
             //balances: balances.iter().cloned().map(|k| k).collect(),
-            balances: balances.to_vec(),
+            balances: balances.iter().cloned().map(|k| k).collect(),
         },
         aura: AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -582,7 +580,6 @@ fn finney_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
-            ..Default::default()
         },
         sudo: SudoConfig {
             key: Some(
@@ -592,8 +589,8 @@ fn finney_genesis(
         },
         transaction_payment: Default::default(),
         subtensor_module: SubtensorModuleConfig {
-            stakes,
-            balances_issuance,
+            stakes: stakes,
+            balances_issuance: balances_issuance,
         },
         triumvirate: TriumvirateConfig {
             // Add initial authorities as collective members

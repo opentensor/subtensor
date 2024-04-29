@@ -7,9 +7,6 @@ edition = "2021"
 license = "Unlicense"
 repository = "https://github.com/opentensor/subtensor"
 
-[lints]
-workspace = true
-
 [dependencies]
 
 ##
