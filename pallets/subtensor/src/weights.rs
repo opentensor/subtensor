@@ -121,17 +121,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IncorrectNetworkVersionKey
         );
 
-        // --- 9. Get the neuron uid of associated hotkey on network netuid.
+        // --- 8. Get the neuron uid of associated hotkey on network netuid.
         
-        let net_neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey);
-        ensure!(
-            net_neuron_uid.is_ok(),
-            net_neuron_uid
-                .err()
-                .unwrap_or(Error::<T>::NotRegistered.into())
-        );
-
-        let neuron_uid = net_neuron_uid.unwrap();
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let current_block: u64 = Self::get_current_block_as_u64();
