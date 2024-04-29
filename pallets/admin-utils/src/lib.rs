@@ -785,6 +785,21 @@ pub mod pallet {
             }
             Ok(())
         }
+
+        #[pallet::call_index(45)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_tx_delegate_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_tx_delegate_take_rate_limit(tx_rate_limit);
+            log::info!(
+                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
+                tx_rate_limit
+            );
+            Ok(())
+        }
     }
 }
 
@@ -808,6 +823,7 @@ impl<A, M> AuraInterface<A, M> for () {
 pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_default_take(default_take: u16);
     fn set_tx_rate_limit(rate_limit: u64);
+    fn set_tx_delegate_take_rate_limit(rate_limit: u64);
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
 

@@ -19,6 +19,7 @@ use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use scale_info::TypeInfo;
+use sp_core::Get;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
@@ -165,6 +166,8 @@ pub mod pallet {
         type InitialServingRateLimit: Get<u64>;
         #[pallet::constant] // Initial transaction rate limit.
         type InitialTxRateLimit: Get<u64>;
+        #[pallet::constant] // Initial delegate take transaction rate limit.
+        type InitialTxDelegateTakeRateLimit: Get<u64>;
         #[pallet::constant] // Initial percentage of total stake required to join senate.
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
@@ -582,14 +585,23 @@ pub mod pallet {
         T::InitialTxRateLimit::get()
     }
     #[pallet::type_value]
+    pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
+        T::InitialTxDelegateTakeRateLimit::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
     }
 
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+    #[pallet::storage] // --- ITEM ( tx_rate_limit )
+    pub(super) type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlock<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage] // --- MAP ( key ) --> last_block
+    pub(super) type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
     #[pallet::type_value]
@@ -899,6 +911,7 @@ pub mod pallet {
         MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
         MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
         TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
+        TxDelegateTakeRateLimitSet(u64), // --- Event created when setting the delegate take transaction rate limit.
         Sudid(DispatchResult),         // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
@@ -914,6 +927,8 @@ pub mod pallet {
         NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
+        TakeDecreased( T::AccountId, T::AccountId, u16 ), // Event created when the take for a delegate is decreased.
+        TakeIncreased( T::AccountId, T::AccountId, u16 ), // Event created when the take for a delegate is increased.
         HotkeySwapped {
             coldkey: T::AccountId,
             old_hotkey: T::AccountId,
@@ -986,6 +1001,7 @@ pub mod pallet {
         NoNeuronIdAvailable, // -- Thrown when no neuron id is available
         /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
+        InvalidTake, // --- Thrown when delegate take is being set out of bounds
     }
 
     // ==================
@@ -1323,6 +1339,89 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+        }
+
+        // --- Allows delegates to decrease its take value.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'netuid' (u16):
+        // 		- Subnet ID to decrease take for
+        //
+        // 	* 'take' (u16):
+        // 		- The new stake proportion that this hotkey takes from delegations.
+        //        The new value can be between 0 and 11_796 and should be strictly
+        //        lower than the previous value. It T is the new value (rational number),
+        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        //        [0.01 * 65535] = [655.35] = 655
+        //
+        // # Event:
+        // 	* TakeDecreased;
+        // 		- On successfully setting a decreased take for this hotkey.
+        //
+        // # Raises:
+        // 	* 'NotRegistered':
+        // 		- The hotkey we are delegating is not registered on the network.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- The hotkey we are delegating is not owned by the calling coldkey.
+        //
+        // 	* 'InvalidTransaction':
+        // 		- The delegate is setting a take which is not lower than the previous.
+        //
+        #[pallet::call_index(65)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn decrease_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
+            Self::do_decrease_take(origin, hotkey, take)
+        }
+
+        // --- Allows delegates to increase its take value. This call is rate-limited.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'take' (u16):
+        // 		- The new stake proportion that this hotkey takes from delegations.
+        //        The new value can be between 0 and 11_796 and should be strictly
+        //        greater than the previous value. It T is the new value (rational number),
+        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        //        [0.01 * 65535] = [655.35] = 655
+        //
+        // # Event:
+        // 	* TakeDecreased;
+        // 		- On successfully setting a decreased take for this hotkey.
+        //
+        // # Raises:
+        // 	* 'NotRegistered':
+        // 		- The hotkey we are delegating is not registered on the network.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- The hotkey we are delegating is not owned by the calling coldkey.
+        //
+        // 	* 'InvalidTransaction':
+        // 		- The delegate is setting a take which is not lower than the previous.
+        //
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn increase_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
+            Self::do_increase_take(origin, hotkey, take)
         }
 
         // --- Adds stake to a hotkey. The call is made from the

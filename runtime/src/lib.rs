@@ -786,6 +786,7 @@ parameter_types! {
     pub const SubtensorInitialMinBurn: u64 = 1_000_000_000; // 1 tao
     pub const SubtensorInitialMaxBurn: u64 = 100_000_000_000; // 100 tao
     pub const SubtensorInitialTxRateLimit: u64 = 1000;
+    pub const SubtensorInitialTxDelegateTakeRateLimit: u64 = 216000; // 30 days at 12 seconds per block
     pub const SubtensorInitialRAORecycledForRegistration: u64 = 0; // 0 rao
     pub const SubtensorInitialSenateRequiredStakePercentage: u64 = 1; // 1 percent of total stake
     pub const SubtensorInitialNetworkImmunity: u64 = 7 * 7200;
@@ -835,6 +836,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialMaxBurn = SubtensorInitialMaxBurn;
     type InitialMinBurn = SubtensorInitialMinBurn;
     type InitialTxRateLimit = SubtensorInitialTxRateLimit;
+    type InitialTxDelegateTakeRateLimit = SubtensorInitialTxDelegateTakeRateLimit;
     type InitialRAORecycledForRegistration = SubtensorInitialRAORecycledForRegistration;
     type InitialSenateRequiredStakePercentage = SubtensorInitialSenateRequiredStakePercentage;
     type InitialNetworkImmunityPeriod = SubtensorInitialNetworkImmunity;
@@ -871,6 +873,10 @@ impl
 
     fn set_tx_rate_limit(rate_limit: u64) {
         SubtensorModule::set_tx_rate_limit(rate_limit);
+    }
+
+    fn set_tx_delegate_take_rate_limit(rate_limit: u64) {
+        SubtensorModule::set_tx_delegate_take_rate_limit(rate_limit);
     }
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64) {
