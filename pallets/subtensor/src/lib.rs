@@ -1869,7 +1869,7 @@ where
                 let registrations_this_interval =
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
-                    Pallet::<T>::get_target_registrations_per_interval(*netuid);
+                    Pallet::<T>::get_target_registrations_per_interval(*netuid) * 3;
                 if registrations_this_interval >= max_registrations_per_interval {
                     // If the registration limit for the interval is exceeded, reject the transaction
                     return InvalidTransaction::ExhaustsResources.into();
