@@ -596,7 +596,8 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
-    pub(super) type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
+    pub(super) type TxDelegateTakeRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
@@ -912,7 +913,7 @@ pub mod pallet {
         MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
         TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
         TxDelegateTakeRateLimitSet(u64), // --- Event created when setting the delegate take transaction rate limit.
-        Sudid(DispatchResult),         // --- Event created when a sudo call is done.
+        Sudid(DispatchResult),           // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),                // --- Event created when setting tempo on a network
@@ -927,8 +928,8 @@ pub mod pallet {
         NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        TakeDecreased( T::AccountId, T::AccountId, u16 ), // Event created when the take for a delegate is decreased.
-        TakeIncreased( T::AccountId, T::AccountId, u16 ), // Event created when the take for a delegate is increased.
+        TakeDecreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is decreased.
+        TakeIncreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is increased.
         HotkeySwapped {
             coldkey: T::AccountId,
             old_hotkey: T::AccountId,

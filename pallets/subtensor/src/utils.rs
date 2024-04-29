@@ -288,10 +288,7 @@ impl<T: Config> Pallet<T> {
     // ========================
     // ===== Take checks ======
     // ========================
-    pub fn do_take_checks(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) -> Result<(), Error<T>> {
+    pub fn do_take_checks(coldkey: &T::AccountId, hotkey: &T::AccountId) -> Result<(), Error<T>> {
         // Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(hotkey),

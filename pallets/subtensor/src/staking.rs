@@ -70,10 +70,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 5.1 Ensure take is within the 0 ..= InitialDefaultTake (18%) range
         let max_take = T::InitialDefaultTake::get();
-        ensure!(
-            take <= max_take,
-            Error::<T>::InvalidTake
-        );
+        ensure!(take <= max_take, Error::<T>::InvalidTake);
 
         // --- 6. Delegate the key.
         Self::delegate_hotkey(&hotkey, take);
@@ -138,10 +135,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
         if let Ok(current_take) = Delegates::<T>::try_get(&hotkey) {
-            ensure!(
-                take < current_take,
-                Error::<T>::InvalidTake
-            );
+            ensure!(take < current_take, Error::<T>::InvalidTake);
         }
 
         // --- 4. Set the new take value.
@@ -206,23 +200,20 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are strinctly increasing take
         if let Ok(current_take) = Delegates::<T>::try_get(&hotkey) {
-            ensure!(
-                take > current_take,
-                Error::<T>::InvalidTake
-            );
+            ensure!(take > current_take, Error::<T>::InvalidTake);
         }
 
         // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
         let max_take = T::InitialDefaultTake::get();
-        ensure!(
-            take <= max_take,
-            Error::<T>::InvalidTake
-        );
+        ensure!(take <= max_take, Error::<T>::InvalidTake);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
-            !Self::exceeds_tx_delegate_take_rate_limit(Self::get_last_tx_block_delegate_take(&coldkey), block),
+            !Self::exceeds_tx_delegate_take_rate_limit(
+                Self::get_last_tx_block_delegate_take(&coldkey),
+                block
+            ),
             Error::<T>::TxRateLimitExceeded
         );
 

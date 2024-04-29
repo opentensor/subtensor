@@ -2705,8 +2705,8 @@ fn test_remove_stake_below_minimum_threshold() {
 #[test]
 fn test_delegate_take_limit() {
     new_test_ext(1).execute_with(|| {
-        assert_eq!(InitialDefaultTake::get() >= u16::MAX/2, true);
-        assert_eq!(InitialDefaultTake::get() <= u16::MAX-1, true);
+        assert_eq!(InitialDefaultTake::get() >= u16::MAX / 2, true);
+        assert_eq!(InitialDefaultTake::get() <= u16::MAX - 1, true);
     });
 }
 
@@ -2886,7 +2886,10 @@ fn test_delegate_take_can_be_increased_to_limit() {
             hotkey0,
             InitialDefaultTake::get()
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), InitialDefaultTake::get());
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            InitialDefaultTake::get()
+        );
     });
 }
 
@@ -2914,7 +2917,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
                 SubtensorModule::do_become_delegate(
                     <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                     hotkey0,
-                    InitialDefaultTake::get()+1
+                    InitialDefaultTake::get() + 1
                 ),
                 Err(Error::<Test>::InvalidTake.into())
             );
@@ -2954,7 +2957,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
                 SubtensorModule::do_increase_take(
                     <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                     hotkey0,
-                    InitialDefaultTake::get()+1
+                    InitialDefaultTake::get() + 1
                 ),
                 Err(Error::<Test>::InvalidTake.into())
             );
@@ -3007,6 +3010,5 @@ fn test_rate_limits_enforced_on_increase_take() {
             u16::MAX / 10
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
-
     });
 }

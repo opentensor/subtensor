@@ -1073,11 +1073,17 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
             ),
             Err(DispatchError::BadOrigin.into())
         );
-        assert_eq!(SubtensorModule::get_tx_delegate_take_rate_limit(), init_value);
+        assert_eq!(
+            SubtensorModule::get_tx_delegate_take_rate_limit(),
+            init_value
+        );
         assert_ok!(AdminUtils::sudo_set_tx_delegate_take_rate_limit(
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_tx_delegate_take_rate_limit(), to_be_set);
+        assert_eq!(
+            SubtensorModule::get_tx_delegate_take_rate_limit(),
+            to_be_set
+        );
     });
 }
