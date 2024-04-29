@@ -4,6 +4,7 @@ use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::U64F64;
 extern crate alloc;
+use alloc::vec::Vec;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
@@ -41,7 +42,7 @@ impl<T: Config> Pallet<T> {
 
         for netuid in registrations.iter() {
             let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
-            if _uid.is_err() {
+            if !_uid.is_ok() {
                 continue; // this should never happen
             } else {
                 let uid = _uid.expect("Delegate's UID should be ok");
@@ -94,17 +95,19 @@ impl<T: Config> Pallet<T> {
         }
 
         let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-        Some(delegate_info)
+        return Some(delegate_info);
     }
 
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
         let mut delegates = Vec::<DelegateInfo<T>>::new();
-        for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
+        for delegate in
+            <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys().into_iter()
+        {
             let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
             delegates.push(delegate_info);
         }
 
-        delegates
+        return delegates;
     }
 
     pub fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, Compact<u64>)> {
@@ -116,7 +119,9 @@ impl<T: Config> Pallet<T> {
             T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()).unwrap();
 
         let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
-        for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
+        for delegate in
+            <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys().into_iter()
+        {
             let staked_to_this_delegatee =
                 Self::get_stake_for_coldkey_and_hotkey(&delegatee.clone(), &delegate.clone());
             if staked_to_this_delegatee == 0 {
@@ -127,6 +132,6 @@ impl<T: Config> Pallet<T> {
             delegates.push((delegate_info, staked_to_this_delegatee.into()));
         }
 
-        delegates
+        return delegates;
     }
 }

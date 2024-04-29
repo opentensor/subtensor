@@ -2,22 +2,13 @@
 members = [
     "integration-tests",
     "node",
-    "pallets/commitments",
     "pallets/subtensor",
+    "pallets/commitments",
     "runtime",
 ]
-resolver = "2"
-
-[workspace.lints.clippy]
-type_complexity = "allow"
 
 [profile.release]
 panic = "unwind"
 
 [profile.test]
 opt-level = 3
-
-[profile.production]
-inherits = "release"
-lto = true
-codegen-units = 1
