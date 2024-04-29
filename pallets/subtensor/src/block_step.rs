@@ -183,6 +183,12 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 total_delegate_emission
             );
+            let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey( hotkey );
+            let tao_server_emission: u64 = Self::compute_dynamic_unstake(
+                netuid,
+                server_emission,
+            );
+            Self::add_balance_to_coldkey_account( &coldkey, Self::u64_to_balance( tao_server_emission ).unwrap() );
             return;
         }
         // 2. Else the key is a delegate, first compute the delegate take from the emission.
@@ -235,13 +241,20 @@ impl<T: Config> Pallet<T> {
 
         // --- 4. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
-        let total_delegate_emission: u64 = delegate_take_u64 + server_emission + residual;
+        let total_delegate_emission: u64 = delegate_take_u64  + residual;
         log::debug!("total_delegate_emission: {:?}", delegate_take_u64 + server_emission);
         Self::increase_stake_on_hotkey_account(
             delegate,
             netuid,
             total_delegate_emission,
         );
+        let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey( hotkey );
+        let tao_server_emission: u64 = Self::compute_dynamic_unstake(
+            netuid,
+            server_emission,
+        );
+        Self::add_balance_to_coldkey_account( &coldkey, Self::u64_to_balance( tao_server_emission ).unwrap() );
+
     }
 
     // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
