@@ -702,8 +702,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n];
-        for neuron_uid in 0..n {
-            stake_64[neuron_uid] = I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(
+        for (neuron_uid, neuron_stake) in stake_64.iter_mut().enumerate().take(n) {
+            *neuron_stake = I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(
                 netuid,
                 neuron_uid as u16,
             ));
@@ -716,10 +716,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut block_at_registration: Vec<u64> = vec![0; n];
-        for neuron_uid in 0..n {
+        for (neuron_uid, block) in block_at_registration.iter_mut().enumerate().take(n) {
             if Keys::<T>::contains_key(netuid, neuron_uid as u16) {
-                block_at_registration[neuron_uid] =
-                    Self::get_neuron_block_at_registration(netuid, neuron_uid as u16);
+                *block = Self::get_neuron_block_at_registration(netuid, neuron_uid as u16);
             }
         }
         block_at_registration

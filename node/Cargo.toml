@@ -10,6 +10,9 @@ publish = false
 repository = "https://github.com/opentensor/subtensor"
 build = "build.rs"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -85,6 +88,10 @@ runtime-benchmarks = [
 	"node-subtensor-runtime/runtime-benchmarks",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"sc-service/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"pallet-commitments/runtime-benchmarks"
 ]
 pow-faucet = []
 
@@ -93,4 +100,8 @@ pow-faucet = []
 try-runtime = [
 	"node-subtensor-runtime/try-runtime",
 	"try-runtime-cli/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-transaction-payment/try-runtime",
+	"sp-runtime/try-runtime",
+	"pallet-commitments/try-runtime"
 ]

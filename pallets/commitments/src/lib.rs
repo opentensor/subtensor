@@ -162,7 +162,7 @@ pub mod pallet {
             <LastCommitment<T>>::insert(netuid, &who, cur_block);
             Self::deposit_event(Event::Commitment { netuid, who });
 
-            Ok(().into())
+            Ok(())
         }
     }
 }
@@ -181,15 +181,11 @@ impl<A> CanCommit<A> for () {
 /************************************************************
     CallType definition
 ************************************************************/
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub enum CallType {
     SetCommitment,
+    #[default]
     Other,
-}
-impl Default for CallType {
-    fn default() -> Self {
-        CallType::Other
-    }
 }
 
 use {
@@ -207,6 +203,16 @@ use {
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
+impl<T: Config + Send + Sync + TypeInfo> Default for CommitmentsSignedExtension<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T: Config + Send + Sync + TypeInfo> CommitmentsSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
@@ -219,15 +225,7 @@ where
     pub fn get_priority_vanilla() -> u64 {
         // Return high priority so that every extrinsic except set_weights function will
         // have a higher priority than the set_weights call
-        return u64::max_value();
-    }
-
-    pub fn u64_to_balance(
-        input: u64,
-    ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-    > {
-        input.try_into().ok()
+        u64::max_value()
     }
 }
 
@@ -260,12 +258,11 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
-        match call.is_sub_type() {
-            _ => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-        }
+        call.is_sub_type();
+        Ok(ValidTransaction {
+            priority: Self::get_priority_vanilla(),
+            ..Default::default()
+        })
     }
 
     // NOTE: Add later when we put in a pre and post dispatch step.
@@ -289,17 +286,12 @@ where
     }
 
     fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
+        _maybe_pre: Option<Self::Pre>,
         _info: &DispatchInfoOf<Self::Call>,
         _post_info: &PostDispatchInfoOf<Self::Call>,
         _len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
-            match call_type {
-                _ => (),
-            }
-        }
         Ok(())
     }
 }

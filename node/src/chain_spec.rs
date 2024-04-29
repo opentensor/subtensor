@@ -90,14 +90,14 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         Vec<(sp_runtime::AccountId32, (u64, u16))>,
     )> = Vec::new();
     for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str).unwrap();
         let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
         let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str).unwrap();
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -109,7 +109,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
-        let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
+        let key = <sr25519::Public as Ss58Codec>::from_ss58check(key_str).unwrap();
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
@@ -266,14 +266,14 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         Vec<(sp_runtime::AccountId32, (u64, u16))>,
     )> = Vec::new();
     for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(&coldkey_str).unwrap();
+        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str).unwrap();
         let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
         let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str).unwrap();
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -285,7 +285,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
-        let key = <sr25519::Public as Ss58Codec>::from_ss58check(&key_str).unwrap();
+        let key = <sr25519::Public as Ss58Codec>::from_ss58check(key_str).unwrap();
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
@@ -492,6 +492,7 @@ fn localnet_genesis(
 }
 
 // Configure initial storage state for FRAME modules.
+#[allow(clippy::too_many_arguments)]
 fn testnet_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -551,6 +552,7 @@ fn testnet_genesis(
 }
 
 // Configure initial storage state for FRAME modules.
+#[allow(clippy::too_many_arguments)]
 fn finney_genesis(
     wasm_binary: &[u8],
     initial_authorities: Vec<(AuraId, GrandpaId)>,
@@ -570,7 +572,7 @@ fn finney_genesis(
         balances: BalancesConfig {
             // Configure endowed accounts with initial balance of 1 << 60.
             //balances: balances.iter().cloned().map(|k| k).collect(),
-            balances: balances.iter().cloned().map(|k| k).collect(),
+            balances: balances.to_vec(),
         },
         aura: AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
@@ -590,8 +592,8 @@ fn finney_genesis(
         },
         transaction_payment: Default::default(),
         subtensor_module: SubtensorModuleConfig {
-            stakes: stakes,
-            balances_issuance: balances_issuance,
+            stakes,
+            balances_issuance,
         },
         triumvirate: TriumvirateConfig {
             // Add initial authorities as collective members

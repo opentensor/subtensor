@@ -18,10 +18,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_adjustment_alpha(netuid, 58000);
         SubtensorModule::set_target_registrations_per_interval(netuid, 2);
         SubtensorModule::set_adjustment_interval(netuid, 100);
-        assert_eq!(
-            SubtensorModule::get_network_registration_allowed(netuid),
-            true
-        ); // Default registration allowed.
+        assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Default registration allowed.
 
         // Set values and check.
         SubtensorModule::set_difficulty(netuid, 20000);
@@ -38,10 +35,7 @@ fn test_registration_difficulty_adjustment() {
         ); // Check set adjustment interval.
         assert_eq!(SubtensorModule::get_max_registrations_per_block(netuid), 3); // Check set registrations per block.
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), 3); // Check set registrations per block.
-        assert_eq!(
-            SubtensorModule::get_network_registration_allowed(netuid),
-            true
-        ); // Check set registration allowed
+        assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Check set registration allowed
 
         // Lets register 3 neurons...
         let hotkey0 = U256::from(0);

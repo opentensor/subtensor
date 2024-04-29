@@ -155,7 +155,7 @@ fn test_root_register_stake_based_pruning_works() {
                 Err(Error::<Test>::StakeTooLowForRoot.into())
             );
             // Check for unsuccessful registration.
-            assert!(!SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_err());
             // Check that they are NOT senate members
             assert!(!SubtensorModule::is_senate_member(&hot));
         }
@@ -612,18 +612,15 @@ fn test_network_prune_results() {
         step_block(3);
 
         // lowest emission
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64])
-            .unwrap();
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 2u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64])
-            .unwrap();
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 3u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64])
-            .unwrap();
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 1u16);
     });
 }
@@ -641,7 +638,7 @@ fn test_weights_after_network_pruning() {
         SubtensorModule::set_network_immunity_period(3);
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_max_subnets(n as u16);
-        SubtensorModule::set_weights_set_rate_limit(root_netuid, 0 as u64);
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 0_u64);
 
         // No validators yet.
         assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
@@ -717,7 +714,7 @@ fn test_weights_after_network_pruning() {
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.
-        assert!(!SubtensorModule::if_subnet_exist((i as u16) + 1));
+        assert!(!SubtensorModule::if_subnet_exist(i + 1));
 
         log::info!(
             "Root network weights: {:?}",
@@ -745,7 +742,7 @@ fn test_issance_bounds() {
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
         let mut total_issuance: u64 = 0;
-        for i in 0..n_halvings {
+        for _ in 0..n_halvings {
             let block_emission_10_500_000x: u64 =
                 SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap()
                     * 10_500_000;
@@ -827,9 +824,11 @@ fn test_get_emission_across_entire_issuance_range() {
         let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
         let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
         let halving_issuance: u64 = total_supply / 2;
-        let mut step: usize = original_emission as usize;
 
-        for issuance in (0..=total_supply).step_by(step) {
+        let mut issuance = 0;
+
+        // Issuance won't reach total supply.
+        while issuance <= 20_900_000_000_000_000 {
             SubtensorModule::set_total_issuance(issuance);
 
             let issuance_f64 = issuance as f64;
@@ -848,7 +847,8 @@ fn test_get_emission_across_entire_issuance_range() {
                 "Issuance: {}",
                 issuance_f64
             );
-            step = expected_emission as usize;
+
+            issuance += expected_emission;
         }
     });
 }

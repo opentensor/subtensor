@@ -95,11 +95,11 @@ fn test_set_weights_min_stake_failed() {
 
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
-        assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), false);
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
-        assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), false);
+        assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
-        assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), true);
+        assert!(SubtensorModule::check_weights_min_stake(&hotkey));
 
         // Check that it fails at the pallet level.
         SubtensorModule::set_weights_min_stake(100_000_000_000_000);
@@ -423,7 +423,7 @@ fn test_no_signature() {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
         let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
-        assert_eq!(result, Err(DispatchError::BadOrigin.into()));
+        assert_eq!(result, Err(DispatchError::BadOrigin));
     });
 }
 
@@ -611,7 +611,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
 
         // Get max-upscaled unnormalized weights.
         let all_weights: Vec<Vec<I32F32>> = SubtensorModule::get_weights(netuid);
-        let weights_set: &Vec<I32F32> = &all_weights[neuron_uid as usize];
+        let weights_set: &[I32F32] = &all_weights[neuron_uid as usize];
         assert_eq!(weights_set[0], I32F32::from_num(u16::MAX));
         assert_eq!(weights_set[1], I32F32::from_num(u16::MAX));
     });
@@ -629,7 +629,7 @@ fn test_check_length_allows_singleton() {
         SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
 
         let expected = true;
@@ -651,7 +651,7 @@ fn test_check_length_weights_length_exceeds_min_allowed() {
         SubtensorModule::set_min_allowed_weights(netuid, min_allowed_weights);
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
 
         let expected = true;
@@ -684,7 +684,7 @@ fn test_check_length_to_few_weights() {
 
         let uids: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
         let weights: Vec<u16> = Vec::from_iter((0..2).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
 
         let expected = false;
         let result = SubtensorModule::check_length(netuid, uid, &uids, &weights);
@@ -717,7 +717,7 @@ fn test_normalize_weights_does_not_mutate_when_sum_not_zero() {
     new_test_ext(0).execute_with(|| {
         let max_allowed: u16 = 3;
 
-        let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|weight| weight));
+        let weights: Vec<u16> = Vec::from_iter(0..max_allowed);
 
         let expected = weights.clone();
         let result = SubtensorModule::normalize_weights(weights);
@@ -734,7 +734,7 @@ fn test_max_weight_limited_allow_self_weights_to_exceed_max_weight_limit() {
 
         let netuid: u16 = 1;
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = vec![0];
 
         let expected = true;
@@ -755,7 +755,7 @@ fn test_max_weight_limited_when_weight_limit_is_u16_max() {
 
         let netuid: u16 = 1;
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|_id| u16::MAX));
 
         let expected = true;
@@ -777,7 +777,7 @@ fn test_max_weight_limited_when_max_weight_is_within_limit() {
 
         let netuid: u16 = 1;
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit - id));
 
         SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
@@ -801,7 +801,7 @@ fn test_max_weight_limited_when_guard_checks_are_not_triggered() {
 
         let netuid: u16 = 1;
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| max_weight_limit + id));
 
         SubtensorModule::set_max_weight_limit(netuid, max_weight_limit);
@@ -823,7 +823,7 @@ fn test_is_self_weight_weights_length_not_one() {
         let max_allowed: u16 = 3;
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
 
         let expected = false;
@@ -843,7 +843,7 @@ fn test_is_self_weight_uid_not_in_uids() {
         let max_allowed: u16 = 3;
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[1].clone();
+        let uid: u16 = uids[1];
         let weights: Vec<u16> = vec![0];
 
         let expected = false;
@@ -864,7 +864,7 @@ fn test_is_self_weight_uid_in_uids() {
         let max_allowed: u16 = 1;
 
         let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|id| id + 1));
-        let uid: u16 = uids[0].clone();
+        let uid: u16 = uids[0];
         let weights: Vec<u16> = vec![0];
 
         let expected = true;
@@ -899,7 +899,7 @@ fn test_check_len_uids_within_allowed_within_network_pool() {
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
-        let uids: Vec<u16> = Vec::from_iter((0..max_allowed).map(|uid| uid));
+        let uids: Vec<u16> = Vec::from_iter(0..max_allowed);
 
         let expected = true;
         let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);
@@ -932,7 +932,7 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
         SubtensorModule::set_max_allowed_uids(netuid, max_allowed);
         SubtensorModule::set_max_registrations_per_block(netuid, max_registrations_per_block);
 
-        let uids: Vec<u16> = Vec::from_iter((0..(max_allowed + 1)).map(|uid| uid));
+        let uids: Vec<u16> = Vec::from_iter(0..(max_allowed + 1));
 
         let expected = false;
         let result = SubtensorModule::check_len_uids_within_allowed(netuid, &uids);

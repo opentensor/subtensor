@@ -1,12 +1,12 @@
 use super::*;
-use frame_support::pallet_prelude::DispatchResultWithPostInfo;
+use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
 use sp_runtime::MultiAddress;
 use system::pallet_prelude::BlockNumberFor;
 
-const LOG_TARGET: &'static str = "runtime::subtensor::registration";
+const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
@@ -94,15 +94,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost_as_u64 = Self::get_burn_as_u64(netuid);
-        let registration_cost_as_balance = Self::u64_to_balance(registration_cost_as_u64).unwrap();
+        let registration_cost = Self::get_burn_as_u64(netuid);
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
             Error::<T>::NotEnoughBalanceToStake
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
 
         // The burn occurs here.
         Self::burn_tokens(actual_burn_amount);
@@ -123,7 +123,7 @@ impl<T: Config> Pallet<T> {
         // Possibly there is no neuron slots at all.
         ensure!(
             Self::get_max_allowed_uids(netuid) != 0,
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::NoNeuronIdAvailable
         );
 
         if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
@@ -291,7 +291,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
         let seal: H256 = Self::create_seal_hash(block_number, nonce, &hotkey);
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-        UsedWork::<T>::insert(&work.clone(), current_block_number);
+        UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // DEPRECATED --- 8. Ensure that the key passes the registration requirement
         // ensure!(
@@ -315,7 +315,7 @@ impl<T: Config> Pallet<T> {
         // Possibly there is no neuron slots at all.
         ensure!(
             Self::get_max_allowed_uids(netuid) != 0,
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::NoNeuronIdAvailable
         );
 
         if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
@@ -390,14 +390,13 @@ impl<T: Config> Pallet<T> {
         // --- 4. Check Work is the product of the nonce, the block number, and hotkey. Add this as used work.
         let seal: H256 = Self::create_seal_hash(block_number, nonce, &coldkey);
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
-        UsedWork::<T>::insert(&work.clone(), current_block_number);
+        UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
         let balance_to_add: u64 = 100_000_000_000;
-        Self::coinbase( 100_000_000_000 ); // We are creating tokens here from the coinbase.
+        Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
-        let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
-        Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
+        Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
         // --- 6. Deposit successful event.
         log::info!(
@@ -413,9 +412,9 @@ impl<T: Config> Pallet<T> {
 
     pub fn vec_to_hash(vec_hash: Vec<u8>) -> H256 {
         let de_ref_hash = &vec_hash; // b: &Vec<u8>
-        let de_de_ref_hash: &[u8] = &de_ref_hash; // c: &[u8]
+        let de_de_ref_hash: &[u8] = de_ref_hash; // c: &[u8]
         let real_hash: H256 = H256::from_slice(de_de_ref_hash);
-        return real_hash;
+        real_hash
     }
 
     // Determine which peer to prune from the network by finding the element with the lowest pruning score out of
@@ -431,14 +430,14 @@ impl<T: Config> Pallet<T> {
         if neurons_n == 0 {
             return 0; // If there are no neurons in this network.
         }
-        
+
         let current_block: u64 = Self::get_current_block_as_u64();
         let immunity_period: u64 = Self::get_immunity_period(netuid) as u64;
         for neuron_uid_i in 0..neurons_n {
             let pruning_score: u16 = Self::get_pruning_score_for_uid(netuid, neuron_uid_i);
             let block_at_registration: u64 =
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
-            
+            #[allow(clippy::comparison_chain)]
             if min_score == pruning_score {
                 if current_block - block_at_registration < immunity_period {
                     //neuron is in immunity period
@@ -471,13 +470,13 @@ impl<T: Config> Pallet<T> {
                 uid_with_min_score_in_immunity_period,
                 u16::MAX,
             );
-            return uid_with_min_score_in_immunity_period;
+            uid_with_min_score_in_immunity_period
         } else {
             // We replace the pruning score here with u16 max to ensure that all peers always have a
             // pruning score. In the event that every peer has been pruned this function will prune
             // the last element in the network continually.
             Self::set_pruning_score_for_uid(netuid, uid_with_min_score, u16::MAX);
-            return uid_with_min_score;
+            uid_with_min_score
         }
     }
 
@@ -486,7 +485,7 @@ impl<T: Config> Pallet<T> {
     // overflows the bounds of U256, then the product (and thus the hash)
     // was too high.
     pub fn hash_meets_difficulty(hash: &H256, difficulty: U256) -> bool {
-        let bytes: &[u8] = &hash.as_bytes();
+        let bytes: &[u8] = hash.as_bytes();
         let num_hash: U256 = U256::from(bytes);
         let (value, overflowed) = num_hash.overflowing_mul(difficulty);
 
@@ -509,7 +508,7 @@ impl<T: Config> Pallet<T> {
             .expect("convert u64 to block number.");
         let block_hash_at_number: <T as frame_system::Config>::Hash =
             system::Pallet::<T>::block_hash(block_number);
-        let vec_hash: Vec<u8> = block_hash_at_number.as_ref().into_iter().cloned().collect();
+        let vec_hash: Vec<u8> = block_hash_at_number.as_ref().to_vec();
         let deref_vec_hash: &[u8] = &vec_hash; // c: &[u8]
         let real_hash: H256 = H256::from_slice(deref_vec_hash);
 
@@ -521,13 +520,13 @@ impl<T: Config> Pallet<T> {
             real_hash
         );
 
-        return real_hash;
+        real_hash
     }
 
     pub fn hash_to_vec(hash: H256) -> Vec<u8> {
         let hash_as_bytes: &[u8] = hash.as_bytes();
-        let hash_as_vec: Vec<u8> = hash_as_bytes.iter().cloned().collect();
-        return hash_as_vec;
+        let hash_as_vec: Vec<u8> = hash_as_bytes.to_vec();
+        hash_as_vec
     }
 
     pub fn hash_block_and_hotkey(block_hash_bytes: &[u8], hotkey: &T::AccountId) -> H256 {
@@ -605,7 +604,7 @@ impl<T: Config> Pallet<T> {
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(full_bytes);
         let seal_hash: H256 = H256::from_slice(&keccak_256_seal_hash_vec);
 
-        return seal_hash;
+        seal_hash
     }
 
     pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {
@@ -673,7 +672,7 @@ impl<T: Config> Pallet<T> {
 			seal_hash
 		);
 
-        return seal_hash;
+        seal_hash
     }
 
     // Helper function for creating nonce and work.
@@ -685,13 +684,13 @@ impl<T: Config> Pallet<T> {
     ) -> (u64, Vec<u8>) {
         let difficulty: U256 = Self::get_difficulty(netuid);
         let mut nonce: u64 = start_nonce;
-        let mut work: H256 = Self::create_seal_hash(block_number, nonce, &hotkey);
+        let mut work: H256 = Self::create_seal_hash(block_number, nonce, hotkey);
         while !Self::hash_meets_difficulty(&work, difficulty) {
-            nonce = nonce + 1;
-            work = Self::create_seal_hash(block_number, nonce, &hotkey);
+            nonce += 1;
+            work = Self::create_seal_hash(block_number, nonce, hotkey);
         }
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
-        return (nonce, vec_work);
+        (nonce, vec_work)
     }
 
     pub fn do_swap_hotkey(
@@ -725,12 +724,11 @@ impl<T: Config> Pallet<T> {
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = 1_000_000_000u64;
-        let swap_cost_as_balance = Self::u64_to_balance(swap_cost).unwrap();
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalance
         );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);
 
         Owner::<T>::remove(old_hotkey);

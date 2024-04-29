@@ -8,6 +8,9 @@ description = "A pallet that adds custom RPC calls to subtensor"
 license = "MIT"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
   "derive",
@@ -32,5 +35,12 @@ pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-fe
 
 [features]
 default = ["std"]
-std = ["sp-api/std", "sp-runtime/std", "subtensor-custom-rpc-runtime-api/std"]
+std = [
+	"sp-api/std",
+	"sp-runtime/std",
+	"subtensor-custom-rpc-runtime-api/std",
+	"pallet-subtensor/std",
+	"codec/std",
+	"serde/std"
+]
 pow-faucet = []

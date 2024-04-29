@@ -155,8 +155,8 @@ fn test_total_issuance_global() {
 
         // Test the migration's effect on total issuance after adding balance to a coldkey account.
         let account_balance: u64 = 20000;
-        let hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
-        let coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
+        let _hotkey_account_id_1 = U256::from(1); // Define a hotkey account ID for further operations.
+        let _coldkey_account_id_1 = U256::from(1); // Define a coldkey account ID for further operations.
         assert_eq!(SubtensorModule::get_total_issuance(), lockcost); // Ensure the total issuance starts at 0 before the migration.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance); // Add a balance of 20000 to the coldkey account.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
@@ -208,7 +208,7 @@ fn test_total_issuance_global() {
         // Set emission values for the network and verify.
         let emission: u64 = 1_000_000_000;
         SubtensorModule::set_tempo(netuid, 1);
-        SubtensorModule::set_emission_values(&vec![netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
+        SubtensorModule::set_emission_values(&[netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), emission); // Verify the emission value is set correctly for the network.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
@@ -252,12 +252,12 @@ fn test_migration_delete_subnet_3() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 3
         add_network(3, 1, 0);
-        assert_eq!(SubtensorModule::if_subnet_exist(3), true);
+        assert!(SubtensorModule::if_subnet_exist(3));
 
         // Run the migration to transfer ownership
         pallet_subtensor::migration::migrate_delete_subnet_3::<Test>();
 
-        assert_eq!(SubtensorModule::if_subnet_exist(3), false);
+        assert!(!SubtensorModule::if_subnet_exist(3));
     })
 }
 
@@ -266,11 +266,11 @@ fn test_migration_delete_subnet_21() {
     new_test_ext(1).execute_with(|| {
         // Create subnet 21
         add_network(21, 1, 0);
-        assert_eq!(SubtensorModule::if_subnet_exist(21), true);
+        assert!(SubtensorModule::if_subnet_exist(21));
 
         // Run the migration to transfer ownership
         pallet_subtensor::migration::migrate_delete_subnet_21::<Test>();
 
-        assert_eq!(SubtensorModule::if_subnet_exist(21), false);
+        assert!(!SubtensorModule::if_subnet_exist(21));
     })
 }

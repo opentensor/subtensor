@@ -8,12 +8,6 @@ use sp_core::U256;
 mod mock;
 use mock::*;
 
-pub fn add_network(netuid: u16, tempo: u16) {
-    SubtensorModule::init_new_network(netuid, tempo);
-    SubtensorModule::set_network_registration_allowed(netuid, true);
-    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
-}
-
 #[test]
 fn test_sudo_set_default_take() {
     new_test_ext().execute_with(|| {
@@ -24,7 +18,7 @@ fn test_sudo_set_default_take() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_default_take(), init_value);
         assert_ok!(AdminUtils::sudo_set_default_take(
@@ -47,7 +41,7 @@ fn test_sudo_set_serving_rate_limit() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_serving_rate_limit(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_serving_rate_limit(
@@ -72,7 +66,7 @@ fn test_sudo_set_min_difficulty() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_min_difficulty(
@@ -105,7 +99,7 @@ fn test_sudo_set_max_difficulty() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_difficulty(
@@ -138,7 +132,7 @@ fn test_sudo_set_weights_version_key() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_weights_version_key(
@@ -171,7 +165,7 @@ fn test_sudo_set_weights_set_rate_limit() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_weights_set_rate_limit(
@@ -210,7 +204,7 @@ fn test_sudo_set_adjustment_interval() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_adjustment_interval(
@@ -243,7 +237,7 @@ fn test_sudo_set_adjustment_alpha() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_adjustment_alpha(
@@ -273,7 +267,7 @@ fn test_sudo_subnet_owner_cut() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_subnet_owner_cut(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_owner_cut(
@@ -297,7 +291,7 @@ fn test_sudo_set_max_weight_limit() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_weight_limit(
@@ -326,7 +320,7 @@ fn test_sudo_set_issuance() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_ok!(AdminUtils::sudo_set_total_issuance(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -349,7 +343,7 @@ fn test_sudo_set_immunity_period() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_immunity_period(
@@ -382,7 +376,7 @@ fn test_sudo_set_min_allowed_weights() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_min_allowed_weights(
@@ -415,7 +409,7 @@ fn test_sudo_set_max_allowed_uids() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
@@ -448,7 +442,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_uids(
@@ -485,7 +479,7 @@ fn test_sudo_set_kappa() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_kappa(
@@ -518,7 +512,7 @@ fn test_sudo_set_rho() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_rho(
@@ -551,7 +545,7 @@ fn test_sudo_set_activity_cutoff() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_activity_cutoff(
@@ -584,7 +578,7 @@ fn test_sudo_set_target_registrations_per_interval() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_target_registrations_per_interval(
@@ -623,7 +617,7 @@ fn test_sudo_set_difficulty() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_difficulty(
@@ -656,7 +650,7 @@ fn test_sudo_set_max_allowed_validators() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_max_allowed_validators(
@@ -692,7 +686,7 @@ fn test_sudo_set_weights_min_stake() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_weights_min_stake(), init_value);
         assert_ok!(AdminUtils::sudo_set_weights_min_stake(
@@ -716,7 +710,7 @@ fn test_sudo_set_bonds_moving_average() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_bonds_moving_average(
@@ -756,7 +750,7 @@ fn test_sudo_set_rao_recycled() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             AdminUtils::sudo_set_rao_recycled(
@@ -791,13 +785,10 @@ fn test_sudo_set_rao_recycled() {
         assert_eq!(
             System::events()
                 .last()
-                .expect(
-                    format!(
-                        "Expected there to be events: {:?}",
-                        System::events().to_vec()
-                    )
-                    .as_str()
-                )
+                .unwrap_or_else(|| panic!(
+                    "Expected there to be events: {:?}",
+                    System::events().to_vec()
+                ))
                 .event,
             RuntimeEvent::SubtensorModule(Event::RAORecycledForRegistrationSet(netuid, to_be_set))
         );
@@ -817,7 +808,7 @@ fn test_sudo_set_subnet_limit() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_max_subnets(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_limit(
@@ -841,7 +832,7 @@ fn test_sudo_set_network_lock_reduction_interval() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_lock_reduction_interval(), init_value);
         assert_ok!(AdminUtils::sudo_set_lock_reduction_interval(
@@ -866,7 +857,7 @@ fn test_sudo_set_network_pow_registration_allowed() {
                 netuid,
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             SubtensorModule::get_network_pow_registration_allowed(netuid),
@@ -882,4 +873,190 @@ fn test_sudo_set_network_pow_registration_allowed() {
             to_be_set
         );
     });
+}
+
+mod sudo_set_nominator_min_required_stake {
+    use super::*;
+
+    #[test]
+    fn can_only_be_called_by_admin() {
+        new_test_ext().execute_with(|| {
+            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            assert_eq!(
+                AdminUtils::sudo_set_nominator_min_required_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(0)),
+                    to_be_set
+                ),
+                Err(DispatchError::BadOrigin)
+            );
+        });
+    }
+
+    #[test]
+    fn sets_a_lower_value() {
+        new_test_ext().execute_with(|| {
+            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                10u64
+            ));
+            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 10u64);
+
+            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                5u64
+            ));
+            assert_eq!(SubtensorModule::get_nominator_min_required_stake(), 5u64);
+        });
+    }
+
+    #[test]
+    fn sets_a_higher_value() {
+        new_test_ext().execute_with(|| {
+            let to_be_set: u64 = SubtensorModule::get_nominator_min_required_stake() + 5_u64;
+            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                to_be_set
+            ));
+            assert_eq!(
+                SubtensorModule::get_nominator_min_required_stake(),
+                to_be_set
+            );
+        });
+    }
+
+    #[test]
+    fn clears_staker_nominations_below_min() {
+        new_test_ext().execute_with(|| {
+            System::set_block_number(1);
+
+            // Create accounts.
+            let netuid = 1;
+            let hot1 = U256::from(1);
+            let hot2 = U256::from(2);
+            let cold1 = U256::from(3);
+            let cold2 = U256::from(4);
+
+            SubtensorModule::set_target_stakes_per_interval(10);
+            // Register network.
+            add_network(netuid, 0);
+
+            // Register hot1.
+            register_ok_neuron(netuid, hot1, cold1, 0);
+            assert_ok!(SubtensorModule::do_become_delegate(
+                <<Test as Config>::RuntimeOrigin>::signed(cold1),
+                hot1,
+                0
+            ));
+            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+
+            // Register hot2.
+            register_ok_neuron(netuid, hot2, cold2, 0);
+            assert_ok!(SubtensorModule::do_become_delegate(
+                <<Test as Config>::RuntimeOrigin>::signed(cold2),
+                hot2,
+                0
+            ));
+            assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+
+            // Add stake cold1 --> hot1 (non delegation.)
+            SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(cold1),
+                hot1,
+                1
+            ));
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                1
+            );
+            assert_eq!(Balances::free_balance(cold1), 4);
+
+            // Add stake cold2 --> hot1 (is delegation.)
+            SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(cold2),
+                hot1,
+                1
+            ));
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                1
+            );
+            assert_eq!(Balances::free_balance(cold2), 4);
+
+            // Add stake cold1 --> hot2 (non delegation.)
+            SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(cold1),
+                hot2,
+                1
+            ));
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                1
+            );
+            assert_eq!(Balances::free_balance(cold1), 8);
+
+            // Add stake cold2 --> hot2 (is delegation.)
+            SubtensorModule::add_balance_to_coldkey_account(&cold2, 5);
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(cold2),
+                hot2,
+                1
+            ));
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                1
+            );
+            assert_eq!(Balances::free_balance(cold2), 8);
+
+            // Set min stake to 0 (noop)
+            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                0u64
+            ));
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                1
+            );
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                1
+            );
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                1
+            );
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                1
+            );
+
+            // Set min nomination to 10: should clear (cold2, hot1) and (cold1, hot2).
+            assert_ok!(AdminUtils::sudo_set_nominator_min_required_stake(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                10u64
+            ));
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                1
+            );
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                0
+            );
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                0
+            );
+            assert_eq!(
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                1
+            );
+
+            // Balances have been added back into accounts.
+            assert_eq!(Balances::free_balance(cold1), 9);
+            assert_eq!(Balances::free_balance(cold2), 9);
+        });
+    }
 }

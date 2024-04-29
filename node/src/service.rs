@@ -192,7 +192,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let (network, system_rpc_tx, tx_handler_controller, network_starter, sync_service) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
-            net_config: net_config,
+            net_config,
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
             spawn_handle: task_manager.spawn_handle(),
@@ -222,14 +222,14 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         );
     }
 
-	let finality_proof_provider = sc_consensus_grandpa::FinalityProofProvider::new_for_service(
-		backend.clone(),
-		Some(grandpa_link.shared_authority_set().clone()),
-	);
-	let rpc_backend = backend.clone();
-	let justification_stream = grandpa_link.justification_stream();
-	let shared_authority_set = grandpa_link.shared_authority_set().clone();
-	let shared_voter_state = SharedVoterState::empty();
+    let finality_proof_provider = sc_consensus_grandpa::FinalityProofProvider::new_for_service(
+        backend.clone(),
+        Some(grandpa_link.shared_authority_set().clone()),
+    );
+    let rpc_backend = backend.clone();
+    let justification_stream = grandpa_link.justification_stream();
+    let shared_authority_set = grandpa_link.shared_authority_set().clone();
+    let shared_voter_state = SharedVoterState::empty();
 
     let role = config.role.clone();
     let force_authoring = config.force_authoring;
@@ -238,28 +238,29 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
 
-	let rpc_extensions_builder = {
-		let client = client.clone();
-		let pool = transaction_pool.clone();
+    let rpc_extensions_builder = {
+        let client = client.clone();
+        let pool = transaction_pool.clone();
 
-		Box::new(move |deny_unsafe, subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
-			let deps =
-				crate::rpc::FullDeps {
-					client: client.clone(),
-					pool: pool.clone(),
-					deny_unsafe,
-					grandpa: crate::rpc::GrandpaDeps {
-						shared_voter_state: shared_voter_state.clone(),
-						shared_authority_set: shared_authority_set.clone(),
-						justification_stream: justification_stream.clone(),
-						subscription_executor: subscription_executor.clone(),
-						finality_provider: finality_proof_provider.clone(),
-					},
-					backend: rpc_backend.clone(),
-				};
-			crate::rpc::create_full(deps).map_err(Into::into)
-		})
-	};
+        Box::new(
+            move |deny_unsafe, subscription_executor: sc_rpc::SubscriptionTaskExecutor| {
+                let deps = crate::rpc::FullDeps {
+                    client: client.clone(),
+                    pool: pool.clone(),
+                    deny_unsafe,
+                    grandpa: crate::rpc::GrandpaDeps {
+                        shared_voter_state: shared_voter_state.clone(),
+                        shared_authority_set: shared_authority_set.clone(),
+                        justification_stream: justification_stream.clone(),
+                        subscription_executor: subscription_executor.clone(),
+                        finality_provider: finality_proof_provider.clone(),
+                    },
+                    backend: rpc_backend.clone(),
+                };
+                crate::rpc::create_full(deps).map_err(Into::into)
+            },
+        )
+    };
 
     let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         network: network.clone(),

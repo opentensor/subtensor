@@ -9,6 +9,9 @@ license = "Unlicense"
 publish = false
 repository = "https://github.com/opentensor/subtensor"
 
+[lints]
+workspace = true
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
@@ -42,6 +45,8 @@ std = [
 	"frame-system/std",
 	"scale-info/std",
 	"sp-std/std",
+	"sp-runtime/std",
+	"enumflags2/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
@@ -49,4 +54,8 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
-try-runtime = ["frame-support/try-runtime"]
+try-runtime = [
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"sp-runtime/try-runtime"
+]
