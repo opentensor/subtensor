@@ -987,7 +987,6 @@ pub mod pallet {
         NoNeuronIdAvailable, // -- Thrown when no neuron id is available
         /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
-
     }
 
     // ==================

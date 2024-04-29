@@ -605,10 +605,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Check that this is the root network.
-        ensure!(
-            netuid == Self::get_root_netuid(),
-            Error::<T>::NotRootSubnet
-        );
+        ensure!(netuid == Self::get_root_netuid(), Error::<T>::NotRootSubnet);
 
         // --- 5. Check that the length of uid list and value list are equal for this network.
         ensure!(
