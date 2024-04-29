@@ -713,6 +713,7 @@ parameter_types! {
 
 impl pallet_registry::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeHoldReason = RuntimeHoldReason;
     type Currency = Balances;
     type CanRegister = AllowIdentityReg;
     type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
@@ -939,10 +940,6 @@ impl
         increment: u64,
     ) {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
-    }
-
-    fn u64_to_balance(input: u64) -> Option<Balance> {
-        SubtensorModule::u64_to_balance(input)
     }
 
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
