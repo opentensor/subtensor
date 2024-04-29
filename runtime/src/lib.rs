@@ -644,7 +644,6 @@ parameter_types! {
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
     pub const SubtensorInitialTempo: u16 = 99;
-    pub const SubtensorInitialDelegateLimit: u32 = 128; // Limits the number of nominators per subnet validator
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
@@ -696,7 +695,6 @@ impl pallet_subtensor::Config for Runtime {
     type InitialValidatorPruneLen = SubtensorInitialValidatorPruneLen;
     type InitialScalingLawPower = SubtensorInitialScalingLawPower;
     type InitialTempo = SubtensorInitialTempo;
-    type InitialDelegateLimit = SubtensorInitialDelegateLimit;
     type InitialDifficulty = SubtensorInitialDifficulty;
     type InitialAdjustmentInterval = SubtensorInitialAdjustmentInterval;
     type InitialAdjustmentAlpha = SubtensorInitialAdjustmentAlpha;
@@ -884,10 +882,6 @@ impl
 
     fn set_tempo(netuid: u16, tempo: u16) {
         SubtensorModule::set_tempo(netuid, tempo);
-    }
-
-    fn set_delegate_limit(limit: u32) {
-        SubtensorModule::set_delegate_limit(limit);
     }
 
     fn set_subnet_owner_cut(subnet_owner_cut: u16) {
