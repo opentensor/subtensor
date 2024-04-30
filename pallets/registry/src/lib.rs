@@ -39,7 +39,8 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         // Currency type that will be used to place deposits on neurons
-        type Currency: fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+        type Currency: fungible::Mutate<Self::AccountId>
+            + fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
         // Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
