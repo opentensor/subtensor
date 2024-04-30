@@ -2695,5 +2695,12 @@ fn test_remove_stake_below_minimum_threshold() {
             ),
             Error::<Test>::NomStakeBelowMinimumThreshold
         );
+
+        // Nomination stake can still remove their entire stake
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            initial_stake
+        ));
     })
 }
