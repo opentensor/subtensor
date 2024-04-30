@@ -264,14 +264,16 @@ pub fn inplace_normalize_64(x: &mut [I64F64]) {
 #[allow(dead_code)]
 pub fn vecdiv(x: &[I32F32], y: &[I32F32]) -> Vec<I32F32> {
     assert_eq!(x.len(), y.len());
-    x.iter().zip(y).map(|(x_i, y_i)| {
-        if *y_i != 0 {
-            x_i / y_i
-        } else {
-            I32F32::from_num(0)
-        }
-    })
-    .collect()
+    x.iter()
+        .zip(y)
+        .map(|(x_i, y_i)| {
+            if *y_i != 0 {
+                x_i / y_i
+            } else {
+                I32F32::from_num(0)
+            }
+        })
+        .collect()
 }
 
 // Normalizes (sum to 1 except 0) each row (dim=0) of a matrix in-place.
@@ -313,7 +315,10 @@ pub fn row_sum(x: &[Vec<I32F32>]) -> Vec<I32F32> {
 // Sum across each row (dim=0) of a sparse matrix.
 #[allow(dead_code)]
 pub fn row_sum_sparse(sparse_matrix: &[Vec<(u16, I32F32)>]) -> Vec<I32F32> {
-    sparse_matrix.into_iter().map(|row| row.into_iter().map(|(_, value)| value).sum()).collect()
+    sparse_matrix
+        .into_iter()
+        .map(|row| row.into_iter().map(|(_, value)| value).sum())
+        .collect()
 }
 
 // Sum across each column (dim=1) of a matrix.
@@ -326,9 +331,13 @@ pub fn col_sum(x: &[Vec<I32F32>]) -> Vec<I32F32> {
     if cols == 0 {
         return vec![];
     }
-    x.into_iter().fold(vec![I32F32::from_num(0); cols], |acc, next_row| {
-        acc.into_iter().zip(next_row).map(|(acc_elem, next_elem)| acc_elem + next_elem).collect()
-    })
+    x.into_iter()
+        .fold(vec![I32F32::from_num(0); cols], |acc, next_row| {
+            acc.into_iter()
+                .zip(next_row)
+                .map(|(acc_elem, next_elem)| acc_elem + next_elem)
+                .collect()
+        })
 }
 
 // Sum across each column (dim=1) of a sparse matrix.
@@ -372,16 +381,21 @@ pub fn inplace_col_normalize(x: &mut [Vec<I32F32>]) {
         return;
     }
     let cols = first_row.len();
-    let col_sums = x.into_iter().fold(vec![I32F32::from_num(0.0); cols], |acc, row| {
-        row.into_iter().zip(acc).map(|(&mut m_val, acc_val)| {
-            acc_val + m_val
-        })
-        .collect()
-    });
-    x.into_iter().for_each(|row| {
-        row.into_iter().zip(&col_sums).filter(|(_, col_sum)| **col_sum != I32F32::from_num(0_f32)).for_each(|(m_val, col_sum)| {
-            *m_val /= col_sum;
+    let col_sums = x
+        .into_iter()
+        .fold(vec![I32F32::from_num(0.0); cols], |acc, row| {
+            row.into_iter()
+                .zip(acc)
+                .map(|(&mut m_val, acc_val)| acc_val + m_val)
+                .collect()
         });
+    x.into_iter().for_each(|row| {
+        row.into_iter()
+            .zip(&col_sums)
+            .filter(|(_, col_sum)| **col_sum != I32F32::from_num(0_f32))
+            .for_each(|(m_val, col_sum)| {
+                *m_val /= col_sum;
+            });
     });
 }
 
@@ -416,16 +430,21 @@ pub fn inplace_col_max_upscale(x: &mut [Vec<I32F32>]) {
         return;
     }
     let cols = first_row.len();
-    let col_maxes = x.into_iter().fold(vec![I32F32::from_num(0_f32); cols], |acc, row| {
-        row.into_iter().zip(acc).map(|(m_val, acc_val)| {
-            acc_val.max(*m_val)
-        })
-        .collect()
-    });
-    x.into_iter().for_each(|row| {
-        row.into_iter().zip(&col_maxes).filter(|(_, col_max)| **col_max != I32F32::from_num(0)).for_each(|(m_val, col_max)| {
-            *m_val /= col_max;
+    let col_maxes = x
+        .into_iter()
+        .fold(vec![I32F32::from_num(0_f32); cols], |acc, row| {
+            row.into_iter()
+                .zip(acc)
+                .map(|(m_val, acc_val)| acc_val.max(*m_val))
+                .collect()
         });
+    x.into_iter().for_each(|row| {
+        row.into_iter()
+            .zip(&col_maxes)
+            .filter(|(_, col_max)| **col_max != I32F32::from_num(0))
+            .for_each(|(m_val, col_max)| {
+                *m_val /= col_max;
+            });
     });
 }
 
@@ -437,9 +456,12 @@ pub fn inplace_mask_vector(mask: &[bool], vector: &mut [I32F32]) {
     }
     assert_eq!(mask.len(), vector.len());
     let zero: I32F32 = I32F32::from_num(0.0);
-    mask.into_iter().zip(vector).filter(|(m, _)| **m).for_each(|(_, v_elem)| {
-        *v_elem = zero;
-    });
+    mask.into_iter()
+        .zip(vector)
+        .filter(|(m, _)| **m)
+        .for_each(|(_, v_elem)| {
+            *v_elem = zero;
+        });
 }
 
 // Apply mask to matrix, mask=true will mask out, i.e. set to 0.
@@ -453,11 +475,17 @@ pub fn inplace_mask_matrix(mask: &[Vec<bool>], matrix: &mut Vec<Vec<I32F32>>) {
     }
     assert_eq!(mask.len(), matrix.len());
     let zero: I32F32 = I32F32::from_num(0.0);
-    mask.into_iter().zip(matrix).for_each(|(mask_row, matrix_row)| {
-        mask_row.into_iter().zip(matrix_row).filter(|(mask_elem, _)| **mask_elem).for_each(|(_, matrix_elem)| {
-            *matrix_elem = zero;
+    mask.into_iter()
+        .zip(matrix)
+        .for_each(|(mask_row, matrix_row)| {
+            mask_row
+                .into_iter()
+                .zip(matrix_row)
+                .filter(|(mask_elem, _)| **mask_elem)
+                .for_each(|(_, matrix_elem)| {
+                    *matrix_elem = zero;
+                });
         });
-    });
 }
 
 // Apply row mask to matrix, mask=true will mask out, i.e. set to 0.
@@ -469,11 +497,14 @@ pub fn inplace_mask_rows(mask: &[bool], matrix: &mut [Vec<I32F32>]) {
     let cols = first_row.len();
     assert_eq!(mask.len(), matrix.len());
     let zero: I32F32 = I32F32::from_num(0);
-    matrix.into_iter().zip(mask).for_each(|(row_elem, mask_row)| {
-        if *mask_row {
-            *row_elem = vec![zero; cols];
-        }
-    });
+    matrix
+        .into_iter()
+        .zip(mask)
+        .for_each(|(row_elem, mask_row)| {
+            if *mask_row {
+                *row_elem = vec![zero; cols];
+            }
+        });
 }
 
 // Mask out the diagonal of the input matrix in-place.
@@ -503,23 +534,32 @@ pub fn mask_rows_sparse(
     sparse_matrix: &[Vec<(u16, I32F32)>],
 ) -> Vec<Vec<(u16, I32F32)>> {
     assert_eq!(sparse_matrix.len(), mask.len());
-    mask.into_iter().zip(sparse_matrix).map(|(mask_elem, sparse_row)| {
-        if *mask_elem {
-            vec![]
-        } else {
-            sparse_row.clone()
-        }
-    })
-    .collect()
+    mask.into_iter()
+        .zip(sparse_matrix)
+        .map(|(mask_elem, sparse_row)| {
+            if *mask_elem {
+                vec![]
+            } else {
+                sparse_row.clone()
+            }
+        })
+        .collect()
 }
 
 // Return a new sparse matrix with a masked out diagonal of input sparse matrix.
 #[allow(dead_code)]
 pub fn mask_diag_sparse(sparse_matrix: &[Vec<(u16, I32F32)>]) -> Vec<Vec<(u16, I32F32)>> {
-    sparse_matrix.into_iter().enumerate().map(|(i, sparse_row)| {
-        sparse_row.into_iter().filter(|(j, _)| i != (*j as usize)).copied().collect()
-    })
-    .collect()
+    sparse_matrix
+        .into_iter()
+        .enumerate()
+        .map(|(i, sparse_row)| {
+            sparse_row
+                .into_iter()
+                .filter(|(j, _)| i != (*j as usize))
+                .copied()
+                .collect()
+        })
+        .collect()
 }
 
 // Remove cells from sparse matrix where the mask function of two vectors is true.
@@ -551,10 +591,11 @@ pub fn row_hadamard(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32
     if first_row.is_empty() {
         return vec![vec![]];
     }
-    matrix.into_iter().zip(vector).map(|(row, vec_val)| {
-        row.into_iter().map(|m_val| vec_val * m_val).collect()
-    })
-    .collect()
+    matrix
+        .into_iter()
+        .zip(vector)
+        .map(|(row, vec_val)| row.into_iter().map(|m_val| vec_val * m_val).collect())
+        .collect()
 }
 
 // Row-wise sparse matrix-vector hadamard product.
@@ -563,10 +604,16 @@ pub fn row_hadamard_sparse(
     sparse_matrix: &[Vec<(u16, I32F32)>],
     vector: &[I32F32],
 ) -> Vec<Vec<(u16, I32F32)>> {
-    sparse_matrix.into_iter().zip(vector).map(|(sparse_row, vec_val)| {
-        sparse_row.into_iter().map(|(j, value)| (*j, *value * *vec_val)).collect()
-    })
-    .collect()
+    sparse_matrix
+        .into_iter()
+        .zip(vector)
+        .map(|(sparse_row, vec_val)| {
+            sparse_row
+                .into_iter()
+                .map(|(j, value)| (*j, *value * *vec_val))
+                .collect()
+        })
+        .collect()
 }
 
 // Row-wise matrix-vector product, column-wise sum: result_j = SUM(i) vector_i * matrix_ij.
@@ -580,15 +627,20 @@ pub fn matmul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32> {
         return vec![];
     }
     assert!(matrix.len() == vector.len());
-    matrix.into_iter().zip(vector).fold(vec![I32F32::from_num(0_f32); cols], |acc, (row, vec_val)| {
-        row.into_iter().zip(acc).map(|(m_val, acc_val)| {
-            // Compute ranks: r_j = SUM(i) w_ij * s_i
-            // Compute trust scores: t_j = SUM(i) w_ij * s_i
-            // result_j = SUM(i) vector_i * matrix_ij
-            acc_val + vec_val * m_val
-        })
-        .collect()
-    })
+    matrix.into_iter().zip(vector).fold(
+        vec![I32F32::from_num(0_f32); cols],
+        |acc, (row, vec_val)| {
+            row.into_iter()
+                .zip(acc)
+                .map(|(m_val, acc_val)| {
+                    // Compute ranks: r_j = SUM(i) w_ij * s_i
+                    // Compute trust scores: t_j = SUM(i) w_ij * s_i
+                    // result_j = SUM(i) vector_i * matrix_ij
+                    acc_val + vec_val * m_val
+                })
+                .collect()
+        },
+    )
 }
 
 // Row-wise matrix-vector product, column-wise sum: result_j = SUM(i) vector_i * matrix_ij.
@@ -602,15 +654,20 @@ pub fn matmul_64(matrix: &[Vec<I64F64>], vector: &[I64F64]) -> Vec<I64F64> {
         return vec![];
     }
     assert!(matrix.len() == vector.len());
-    matrix.into_iter().zip(vector).fold(vec![I64F64::from_num(0.0); cols], |acc, (row, vec_val)| {
-        row.into_iter().zip(acc).map(|(m_val, acc_val)| {
-            // Compute ranks: r_j = SUM(i) w_ij * s_i
-            // Compute trust scores: t_j = SUM(i) w_ij * s_i
-            // result_j = SUM(i) vector_i * matrix_ij
-            acc_val + vec_val * m_val
+    matrix
+        .into_iter()
+        .zip(vector)
+        .fold(vec![I64F64::from_num(0.0); cols], |acc, (row, vec_val)| {
+            row.into_iter()
+                .zip(acc)
+                .map(|(m_val, acc_val)| {
+                    // Compute ranks: r_j = SUM(i) w_ij * s_i
+                    // Compute trust scores: t_j = SUM(i) w_ij * s_i
+                    // result_j = SUM(i) vector_i * matrix_ij
+                    acc_val + vec_val * m_val
+                })
+                .collect()
         })
-        .collect()
-    })
 }
 
 // Column-wise matrix-vector product, row-wise sum: result_i = SUM(j) vector_j * matrix_ij.
@@ -623,15 +680,19 @@ pub fn matmul_transpose(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32
         return vec![];
     }
     assert!(first_row.len() == vector.len());
-    matrix.into_iter().map(|row| {
-        row.into_iter().zip(vector).fold(I32F32::from_num(0.0), |acc, (velem, melem)| {
-            // Compute dividends: d_j = SUM(i) b_ji * inc_i
-            // result_j = SUM(i) vector_i * matrix_ji
-            // result_i = SUM(j) vector_j * matrix_ij
-            acc + (velem * melem)
+    matrix
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .zip(vector)
+                .fold(I32F32::from_num(0.0), |acc, (velem, melem)| {
+                    // Compute dividends: d_j = SUM(i) b_ji * inc_i
+                    // result_j = SUM(i) vector_i * matrix_ji
+                    // result_i = SUM(j) vector_j * matrix_ij
+                    acc + (velem * melem)
+                })
         })
-    })
-    .collect()
+        .collect()
 }
 
 // Row-wise sparse_matrix-vector product, column-wise sum: result_j = SUM(i) vector_i * matrix_ij.
@@ -675,9 +736,11 @@ pub fn matmul_transpose_sparse(
 #[allow(dead_code)]
 pub fn inplace_col_clip(x: &mut [Vec<I32F32>], col_threshold: &[I32F32]) {
     x.into_iter().for_each(|row| {
-        row.into_iter().zip(col_threshold).for_each(|(value, threshold)| {
-            *value = *threshold.min(value);
-        });
+        row.into_iter()
+            .zip(col_threshold)
+            .for_each(|(value, threshold)| {
+                *value = *threshold.min(value);
+            });
     });
 }
 
@@ -710,17 +773,13 @@ pub fn clip(
     upper: I32F32,
     lower: I32F32,
 ) -> Vec<Vec<I32F32>> {
-    x.into_iter().map(|row| {
-        row.into_iter().map(|elem| {
-            if *elem >= threshold {
-                upper
-            } else {
-                lower
-            }
+    x.into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(|elem| if *elem >= threshold { upper } else { lower })
+                .collect()
         })
         .collect()
-    })
-    .collect()
 }
 
 // Set inplace matrix values below threshold to lower, and equal-above to upper.
@@ -728,11 +787,7 @@ pub fn clip(
 pub fn inplace_clip(x: &mut [Vec<I32F32>], threshold: I32F32, upper: I32F32, lower: I32F32) {
     x.into_iter().for_each(|row| {
         row.into_iter().for_each(|elem| {
-            *elem = if *elem >= threshold {
-                upper
-            } else {
-                lower
-            };
+            *elem = if *elem >= threshold { upper } else { lower };
         });
     });
 }
@@ -746,17 +801,20 @@ pub fn clip_sparse(
     upper: I32F32,
     lower: I32F32,
 ) -> Vec<Vec<(u16, I32F32)>> {
-    sparse_matrix.into_iter().map(|row| {
-        row.into_iter().map(|(j, value)| {
-            if *value < threshold {
-                (*j, lower)
-            } else {
-                (*j, upper)
-            }
+    sparse_matrix
+        .into_iter()
+        .map(|row| {
+            row.into_iter()
+                .map(|(j, value)| {
+                    if *value < threshold {
+                        (*j, lower)
+                    } else {
+                        (*j, upper)
+                    }
+                })
+                .collect()
         })
         .collect()
-    })
-    .collect()
 }
 
 // Stake-weighted median score finding algorithm, based on a mid pivot binary search.
@@ -935,11 +993,16 @@ pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> 
     if first_row.is_empty() {
         return vec![vec![]];
     }
-    mat1.iter().zip(mat2).map(|(row1, row2)| {
-        assert!(row1.len() == row2.len());
-        row1.iter().zip(row2).map(|(elem1, elem2)| elem1 * elem2).collect()
-    })
-    .collect()
+    mat1.iter()
+        .zip(mat2)
+        .map(|(row1, row2)| {
+            assert!(row1.len() == row2.len());
+            row1.iter()
+                .zip(row2)
+                .map(|(elem1, elem2)| elem1 * elem2)
+                .collect()
+        })
+        .collect()
 }
 
 // Element-wise product of two sparse matrices.
@@ -984,13 +1047,16 @@ pub fn mat_ema(new: &[Vec<I32F32>], old: &[Vec<I32F32>], alpha: I32F32) -> Vec<V
         return vec![vec![]; 1];
     }
     let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha;
-    new.iter().zip(old).map(|(new_row, old_row)| {
-        new_row.iter().zip(old_row).map(|(new_elem, old_elem)| {
-            alpha * new_elem + one_minus_alpha * old_elem
+    new.iter()
+        .zip(old)
+        .map(|(new_row, old_row)| {
+            new_row
+                .iter()
+                .zip(old_row)
+                .map(|(new_elem, old_elem)| alpha * new_elem + one_minus_alpha * old_elem)
+                .collect()
         })
         .collect()
-    })
-    .collect()
 }
 
 // Return sparse matrix exponential moving average: `alpha * a_ij + one_minus_alpha * b_ij`.
@@ -1027,10 +1093,14 @@ pub fn mat_ema_sparse(
 // Return sparse matrix only with elements >= threshold of an input sparse matrix.
 #[allow(dead_code)]
 pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<(u16, I32F32)>> {
-    w.into_iter().map(|row| {
-        row.into_iter().filter(|(_, weight)| *weight >= threshold).copied().collect()
-    })
-    .collect()
+    w.into_iter()
+        .map(|row| {
+            row.into_iter()
+                .filter(|(_, weight)| *weight >= threshold)
+                .copied()
+                .collect()
+        })
+        .collect()
 }
 
 #[cfg(test)]

@@ -47,10 +47,9 @@ impl<T: Config> Pallet<T> {
             if coldkey_account_vec.len() != 32 {
                 continue; // Invalid coldkey
             }
-            let Ok(coldkey) =
-                T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
-                    continue;
-                };
+            let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
+                continue;
+            };
             coldkeys.push(coldkey);
         }
 
@@ -66,10 +65,9 @@ impl<T: Config> Pallet<T> {
             return Vec::new(); // Invalid coldkey
         }
 
-        let Ok(coldkey) =
-            T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
-                return Vec::new();
-            };
+        let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
+            return Vec::new();
+        };
         let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey]);
 
         if stake_info.is_empty() {

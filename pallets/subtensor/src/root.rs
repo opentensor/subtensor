@@ -263,7 +263,11 @@ impl<T: Config> Pallet<T> {
             for (netuid, weight_ij) in &weights_i {
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
-                    if let Some((w, _)) = weight.into_iter().zip(&subnet_list).find(|(_, subnet)| *subnet == netuid) {
+                    if let Some((w, _)) = weight
+                        .into_iter()
+                        .zip(&subnet_list)
+                        .find(|(_, subnet)| *subnet == netuid)
+                    {
                         *w = I64F64::from_num(*weight_ij);
                     }
                 }
@@ -394,7 +398,9 @@ impl<T: Config> Pallet<T> {
 
         log::debug!("C:\n{:?}\n", &consensus);
         let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
-        for ((emission, consensus_i), rank) in weighted_emission.iter_mut().zip(&consensus).zip(&ranks) {
+        for ((emission, consensus_i), rank) in
+            weighted_emission.iter_mut().zip(&consensus).zip(&ranks)
+        {
             *emission = *consensus_i * (*rank);
         }
         inplace_normalize_64(&mut weighted_emission);

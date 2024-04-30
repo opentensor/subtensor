@@ -641,17 +641,10 @@ impl<T: Config> Pallet<T> {
             )
         {
             // Remove the stake from the coldkey - hotkey pairing.
-            Self::decrease_stake_on_coldkey_hotkey_account(
-                &delegate_coldkey_i,
-                hotkey,
-                stake_i,
-            );
+            Self::decrease_stake_on_coldkey_hotkey_account(&delegate_coldkey_i, hotkey, stake_i);
 
             // Add the balance to the coldkey account.
-            Self::add_balance_to_coldkey_account(
-                &delegate_coldkey_i,
-                stake_i,
-            );
+            Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
         }
     }
 }

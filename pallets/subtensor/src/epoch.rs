@@ -60,7 +60,8 @@ impl<T: Config> Pallet<T> {
         // ===========
 
         let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid).collect();
+            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+                .collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
@@ -306,24 +307,35 @@ impl<T: Config> Pallet<T> {
 
         // Column max-upscale EMA bonds for storage: max_i w_ij = 1.
         inplace_col_max_upscale(&mut ema_bonds);
-        new_validator_permits.iter().zip(validator_permits).zip(ema_bonds).enumerate().for_each(|(i, ((new_permit, validator_permit), ema_bond))| {
-            // Set bonds only if uid retains validator permit, otherwise clear bonds.
-            if *new_permit {
-                let new_bonds_row: Vec<(u16, u16)> = (0..n)
-                    .zip(vec_fixed_proportions_to_u16(ema_bond.clone()))
-                    .collect();
-                Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
-            } else if validator_permit {
-                // Only overwrite the intersection.
-                let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
-                Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
-            }
-        });
+        new_validator_permits
+            .iter()
+            .zip(validator_permits)
+            .zip(ema_bonds)
+            .enumerate()
+            .for_each(|(i, ((new_permit, validator_permit), ema_bond))| {
+                // Set bonds only if uid retains validator permit, otherwise clear bonds.
+                if *new_permit {
+                    let new_bonds_row: Vec<(u16, u16)> = (0..n)
+                        .zip(vec_fixed_proportions_to_u16(ema_bond.clone()))
+                        .collect();
+                    Bonds::<T>::insert(netuid, i as u16, new_bonds_row);
+                } else if validator_permit {
+                    // Only overwrite the intersection.
+                    let new_empty_bonds_row: Vec<(u16, u16)> = vec![];
+                    Bonds::<T>::insert(netuid, i as u16, new_empty_bonds_row);
+                }
+            });
 
-        hotkeys.into_iter().map(|(uid_i, hotkey)| {
-            (hotkey, server_emission[uid_i as usize], validator_emission[uid_i as usize])
-        })
-        .collect()
+        hotkeys
+            .into_iter()
+            .map(|(uid_i, hotkey)| {
+                (
+                    hotkey,
+                    server_emission[uid_i as usize],
+                    validator_emission[uid_i as usize],
+                )
+            })
+            .collect()
     }
 
     // Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and
@@ -380,7 +392,8 @@ impl<T: Config> Pallet<T> {
         // ===========
 
         let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid).collect();
+            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+                .collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // Access network stake as normalized vector.
@@ -675,10 +688,16 @@ impl<T: Config> Pallet<T> {
             });
 
         // Emission tuples ( hotkeys, server_emission, validator_emission )
-        hotkeys.into_iter().map(|(uid_i, hotkey)| {
-            (hotkey, server_emission[uid_i as usize], validator_emission[uid_i as usize])
-        })
-        .collect()
+        hotkeys
+            .into_iter()
+            .map(|(uid_i, hotkey)| {
+                (
+                    hotkey,
+                    server_emission[uid_i as usize],
+                    validator_emission[uid_i as usize],
+                )
+            })
+            .collect()
     }
 
     pub fn get_float_rho(netuid: u16) -> I32F32 {
@@ -690,10 +709,11 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> {
         let n = Self::get_subnetwork_n(netuid);
-        let mut stake_64: Vec<I64F64> = (0..n).map(|neuron_uid| I64F64::from_num(
-            Self::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
-        ))
-        .collect();
+        let mut stake_64: Vec<I64F64> = (0..n)
+            .map(|neuron_uid| {
+                I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(netuid, neuron_uid))
+            })
+            .collect();
         inplace_normalize_64(&mut stake_64);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
         stake
@@ -701,14 +721,15 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
         let n = Self::get_subnetwork_n(netuid);
-        let block_at_registration: Vec<u64> = (0..n).map(|neuron_uid| {
-            if Keys::<T>::contains_key(netuid, neuron_uid) {
-                Self::get_neuron_block_at_registration(netuid, neuron_uid)
-            } else {
-                0
-            }
-        })
-        .collect();
+        let block_at_registration: Vec<u64> = (0..n)
+            .map(|neuron_uid| {
+                if Keys::<T>::contains_key(netuid, neuron_uid) {
+                    Self::get_neuron_block_at_registration(netuid, neuron_uid)
+                } else {
+                    0
+                }
+            })
+            .collect();
         block_at_registration
     }
 

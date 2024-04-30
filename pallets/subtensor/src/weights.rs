@@ -122,7 +122,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Get the neuron uid of associated hotkey on network netuid.
-        
+
         let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
@@ -322,7 +322,9 @@ impl<T: Config> Pallet<T> {
         if weights.len() != 1 {
             return false;
         }
-        let Some(first_uid) = uids.first() else { return false; };
+        let Some(first_uid) = uids.first() else {
+            return false;
+        };
         if uid != *first_uid {
             return false;
         }

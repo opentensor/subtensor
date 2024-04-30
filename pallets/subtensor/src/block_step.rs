@@ -86,7 +86,7 @@ impl<T: Config> Pallet<T> {
         for (netuid, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
             let Some(tuples_to_drain) = Self::get_loaded_emission_tuples(netuid) else {
                 // There are no tuples to emit.
-                continue
+                continue;
             };
             let mut total_emitted: u64 = 0;
             for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {

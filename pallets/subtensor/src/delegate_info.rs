@@ -108,10 +108,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, Compact<u64>)> {
-        let Ok(delegatee) =
-            T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()) else {
-                return Vec::new(); // No delegates for invalid account
-            };
+        let Ok(delegatee) = T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()) else {
+            return Vec::new(); // No delegates for invalid account
+        };
 
         let mut delegates: Vec<(DelegateInfo<T>, Compact<u64>)> = Vec::new();
         for delegate in <Delegates<T> as IterableStorageMap<T::AccountId, u16>>::iter_keys() {
