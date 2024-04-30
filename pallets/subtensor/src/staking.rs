@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
+use sp_runtime::traits::Zero;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -305,7 +306,8 @@ impl<T: Config> Pallet<T> {
                 Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
 
             ensure!(
-                total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+                total_stake_after_remove.is_zero()
+                    || total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold
             );
         }
