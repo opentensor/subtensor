@@ -13,10 +13,107 @@ impl<T: Config> Pallet<T> {
         Self::adjust_registration_terms_for_networks();
         // --- 2. Mint and distribute TAO.
         Self::run_coinbase(block_number);
+        // Adjust Tempos every 1000 blocks
+        if Self::dynamic_tempos_on() && Self::blocks_until_next_epoch( 0, 1000, block_number ) == 0 {
+            Self::adjust_tempos();
+        }
+
         // Return ok.
         Ok(())
     }
 
+    // Turn on for dynamic tempos for dev chains.
+    pub fn dynamic_tempo_on() -> bool {
+        if cfg!(feature = "pow-faucet") {
+            return true;
+        } else {
+            return false;
+        }
+    }  
+
+    /// Adjusts the tempo for each network based on their relative prices to ensure operations
+    /// are performed more frequently on networks with higher prices.
+    ///
+    /// This function calculates a value `bi` for each network, which represents the number of blocks
+    /// that progress before an operation is performed on the network. Networks with higher prices
+    /// will have operations performed more frequently. The average operation frequency across all
+    /// networks is aimed to be every `K` blocks.
+    pub fn adjust_tempos() {
+        // Retrieve all network UIDs.
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+
+        // Compute and collect prices for each dynamic subnet, excluding the root subnet.
+        let mut prices: Vec<I64F64> = Vec::new();
+        for netuid in netuids.iter() {
+            if *netuid == Self::get_root_netuid() || !Self::is_subnet_dynamic(*netuid) {
+                continue;
+            }
+            let price = Self::get_tao_per_alpha_price(*netuid);
+            prices.push(price);
+        }
+
+        // Assuming `K` is a predefined constant representing the average desired operation interval in blocks.
+        let k: I64F64 = I64F64::from_num(10); // Replace 1.0 with the actual value of `K` if available.
+
+        // Calculate tempos using the extracted prices and netuids.
+        match Self::calculate_tempos(&netuids, k, &prices) {
+            Ok(tempos) => {
+                // Set the calculated tempos for each network.
+                for (netuid, tempo) in tempos.iter() {
+                    Self::set_tempo(*netuid, *tempo);
+                }
+            },
+            Err(e) => {
+                log::error!("Failed to calculate tempos: {}", e);
+            }
+        }
+    }
+
+    /// Calculates the tempos for each network based on the given prices and a constant `K`.
+    ///
+    /// # Arguments
+    /// * `netuids` - A reference to a vector of network UIDs.
+    /// * `k` - The constant representing the average desired operation interval in blocks.
+    /// * `prices` - A reference to a vector of prices for each network.
+    ///
+    /// # Returns
+    /// * A result containing either a vector of tuples where each tuple contains a network UID and its corresponding tempo, or an error string if there's a mismatch in vector sizes or other issues.
+    pub fn calculate_tempos(netuids: &Vec<u16>, k: I64F64, prices: &Vec<I64F64>) -> Result<Vec<(u16, u16)>, &'static str> {
+        // Check for mismatched vector sizes
+        if netuids.len() != prices.len() {
+            return Err("Mismatched vector sizes: netuids and prices must have the same length.");
+        }
+
+        // Check for empty vectors
+        if netuids.is_empty() || prices.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Calculate total price to find relative frequencies
+        let total_price: I64F64 = prices.iter().sum();
+        if total_price == I64F64::from_num(0.0) {
+            return Ok(netuids.iter().map(|&uid| (uid, 0)).collect()); // If sum of prices is zero, return zero tempos
+        }
+
+        // Calculate relative frequencies based on prices
+        let relative_frequencies: Vec<I64F64> = prices.iter()
+            .map(|&price| price / total_price) // relative frequency = price_i / total_price
+            .collect();
+
+        // Calculate total relative frequency to normalize it to K
+        let total_relative_frequency: I64F64 = relative_frequencies.iter().sum();
+        let normalization_factor: I64F64 = k / total_relative_frequency;
+
+        // Calculate tempos based on normalized relative frequencies
+        let tempos: Vec<(u16, u16)> = netuids.iter().zip(relative_frequencies.iter())
+            .map(|(&uid, &rel_freq)| {
+                let tempo = (normalization_factor / rel_freq).to_num::<u16>();
+                (uid, tempo)
+            })
+            .collect();
+
+        Ok(tempos)
+    }
     // Helper function which returns the number of blocks remaining before we will run the epoch on this
     // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
     //
@@ -183,7 +280,7 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 total_delegate_emission
             );
-            let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey( hotkey );
+            let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey( delegate );
             let tao_server_emission: u64 = Self::compute_dynamic_unstake(
                 netuid,
                 server_emission,
@@ -248,7 +345,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             total_delegate_emission,
         );
-        let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey( hotkey );
+        let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey( delegate );
         let tao_server_emission: u64 = Self::compute_dynamic_unstake(
             netuid,
             server_emission,
