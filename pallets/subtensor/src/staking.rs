@@ -552,7 +552,7 @@ impl<T: Config> Pallet<T> {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
                 Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
-                // Convert the removed stake back to balance and add it to the coldkey account.
+                // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, stake);
             }
         }
@@ -640,8 +640,6 @@ impl<T: Config> Pallet<T> {
                 hotkey,
             )
         {
-            // Stake is successfully converted to balance.
-
             // Remove the stake from the coldkey - hotkey pairing.
             Self::decrease_stake_on_coldkey_hotkey_account(&delegate_coldkey_i, hotkey, stake_i);
 

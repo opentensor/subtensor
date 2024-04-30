@@ -1,3 +1,6 @@
+// Allowed since it's actually better to panic during chain setup when there is an error
+#![allow(clippy::unwrap_used)]
+
 use node_subtensor_runtime::{
     AccountId, AuraConfig, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig,
     SenateMembersConfig, Signature, SubtensorModuleConfig, SudoConfig, SystemConfig,
@@ -90,14 +93,16 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         Vec<(sp_runtime::AccountId32, (u64, u16))>,
     )> = Vec::new();
     for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str).unwrap();
+        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str)
+            .map_err(|e| e.to_string())?;
         let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
         let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str)
+                .map_err(|e| e.to_string())?;
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -109,7 +114,8 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
-        let key = <sr25519::Public as Ss58Codec>::from_ss58check(key_str).unwrap();
+        let key =
+            <sr25519::Public as Ss58Codec>::from_ss58check(key_str).map_err(|e| e.to_string())?;
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
@@ -266,14 +272,16 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         Vec<(sp_runtime::AccountId32, (u64, u16))>,
     )> = Vec::new();
     for (coldkey_str, hotkeys) in old_state.stakes.iter() {
-        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str).unwrap();
+        let coldkey = <sr25519::Public as Ss58Codec>::from_ss58check(coldkey_str)
+            .map_err(|e| e.to_string())?;
         let coldkey_account = sp_runtime::AccountId32::from(coldkey);
 
         let mut processed_hotkeys: Vec<(sp_runtime::AccountId32, (u64, u16))> = Vec::new();
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str)
+                .map_err(|e| e.to_string())?;
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -285,7 +293,8 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     let mut balances_issuance: u64 = 0;
     let mut processed_balances: Vec<(sp_runtime::AccountId32, u64)> = Vec::new();
     for (key_str, amount) in old_state.balances.iter() {
-        let key = <sr25519::Public as Ss58Codec>::from_ss58check(key_str).unwrap();
+        let key =
+            <sr25519::Public as Ss58Codec>::from_ss58check(key_str).map_err(|e| e.to_string())?;
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));

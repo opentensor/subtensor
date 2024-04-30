@@ -232,7 +232,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed")
     }
     #[pallet::type_value]
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
@@ -514,7 +515,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed")
     }
     #[pallet::type_value]
     pub fn DefaultSubnetLocked<T: Config>() -> u64 {
@@ -785,7 +787,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultKey<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed")
     }
 
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> uid
@@ -1727,8 +1730,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // --- Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
-            if Uids::<T>::contains_key(netuid, hotkey) {
-                let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
+            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =

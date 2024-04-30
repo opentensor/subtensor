@@ -74,11 +74,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn has_loaded_emission_tuples(netuid: u16) -> bool {
-        LoadedEmission::<T>::contains_key(netuid)
-    }
-    pub fn get_loaded_emission_tuples(netuid: u16) -> Vec<(T::AccountId, u64, u64)> {
-        LoadedEmission::<T>::get(netuid).unwrap()
+    pub fn get_loaded_emission_tuples(netuid: u16) -> Option<Vec<(T::AccountId, u64, u64)>> {
+        LoadedEmission::<T>::get(netuid)
     }
 
     // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
@@ -87,11 +84,10 @@ impl<T: Config> Pallet<T> {
     pub fn drain_emission(_: u64) {
         // --- 1. We iterate across each network.
         for (netuid, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            if !Self::has_loaded_emission_tuples(netuid) {
+            let Some(tuples_to_drain) = Self::get_loaded_emission_tuples(netuid) else {
+                // There are no tuples to emit.
                 continue;
-            } // There are no tuples to emit.
-            let tuples_to_drain: Vec<(T::AccountId, u64, u64)> =
-                Self::get_loaded_emission_tuples(netuid);
+            };
             let mut total_emitted: u64 = 0;
             for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {
                 Self::emit_inflation_through_hotkey_account(
@@ -189,10 +185,8 @@ impl<T: Config> Pallet<T> {
             // --- 10. Sink the emission tuples onto the already loaded.
             let mut concat_emission_tuples: Vec<(T::AccountId, u64, u64)> =
                 emission_tuples_this_block.clone();
-            if Self::has_loaded_emission_tuples(netuid) {
+            if let Some(mut current_emission_tuples) = Self::get_loaded_emission_tuples(netuid) {
                 // 10.a We already have loaded emission tuples, so we concat the new ones.
-                let mut current_emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                    Self::get_loaded_emission_tuples(netuid);
                 concat_emission_tuples.append(&mut current_emission_tuples);
             }
             LoadedEmission::<T>::insert(netuid, concat_emission_tuples);

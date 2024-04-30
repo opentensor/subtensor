@@ -5,6 +5,7 @@ use mock::*;
 use sp_core::U256;
 
 #[test]
+#[allow(clippy::unwrap_used)]
 fn test_loaded_emission() {
     new_test_ext(1).execute_with(|| {
         let n: u16 = 100;
@@ -19,7 +20,7 @@ fn test_loaded_emission() {
         for i in 0..n {
             SubtensorModule::append_neuron(netuid, &U256::from(i), 0);
         }
-        assert!(!SubtensorModule::has_loaded_emission_tuples(netuid));
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid).is_none());
 
         // Try loading at block 0
         let block: u64 = 0;
@@ -28,7 +29,7 @@ fn test_loaded_emission() {
             8
         );
         SubtensorModule::generate_emission(block);
-        assert!(!SubtensorModule::has_loaded_emission_tuples(netuid));
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid).is_none());
 
         // Try loading at block = 9;
         let block: u64 = 8;
@@ -37,9 +38,11 @@ fn test_loaded_emission() {
             0
         );
         SubtensorModule::generate_emission(block);
-        assert!(SubtensorModule::has_loaded_emission_tuples(netuid));
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid).is_some());
         assert_eq!(
-            SubtensorModule::get_loaded_emission_tuples(netuid).len(),
+            SubtensorModule::get_loaded_emission_tuples(netuid)
+                .unwrap()
+                .len(),
             n as usize
         );
 
@@ -47,37 +50,32 @@ fn test_loaded_emission() {
         // None remaining because we are at epoch.
         let block: u64 = 8;
         SubtensorModule::drain_emission(block);
-        assert!(!SubtensorModule::has_loaded_emission_tuples(netuid));
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid).is_none());
 
         // Generate more emission.
         SubtensorModule::generate_emission(8);
         assert_eq!(
-            SubtensorModule::get_loaded_emission_tuples(netuid).len(),
+            SubtensorModule::get_loaded_emission_tuples(netuid)
+                .unwrap()
+                .len(),
             n as usize
         );
 
         for block in 9..19 {
             let mut n_remaining: usize = 0;
             let mut n_to_drain: usize = 0;
-            if SubtensorModule::has_loaded_emission_tuples(netuid) {
-                n_remaining = SubtensorModule::get_loaded_emission_tuples(netuid).len();
-                n_to_drain = SubtensorModule::tuples_to_drain_this_block(
-                    netuid,
-                    tempo,
-                    block,
-                    SubtensorModule::get_loaded_emission_tuples(netuid).len(),
-                );
+            if let Some(tuples) = SubtensorModule::get_loaded_emission_tuples(netuid) {
+                n_remaining = tuples.len();
+                n_to_drain =
+                    SubtensorModule::tuples_to_drain_this_block(netuid, tempo, block, tuples.len());
             }
             SubtensorModule::drain_emission(block); // drain it with 9 more blocks to go
-            if SubtensorModule::has_loaded_emission_tuples(netuid) {
-                assert_eq!(
-                    SubtensorModule::get_loaded_emission_tuples(netuid).len(),
-                    n_remaining - n_to_drain
-                );
+            if let Some(tuples) = SubtensorModule::get_loaded_emission_tuples(netuid) {
+                assert_eq!(tuples.len(), n_remaining - n_to_drain);
             }
-            log::info!("n_to_drain:{:?}", n_to_drain.clone());
+            log::info!("n_to_drain: {:?}", n_to_drain);
             log::info!(
-                "SubtensorModule::get_loaded_emission_tuples( netuid ).len():{:?}",
+                "SubtensorModule::get_loaded_emission_tuples( netuid ).len(): {:?}",
                 n_remaining - n_to_drain
             );
         }

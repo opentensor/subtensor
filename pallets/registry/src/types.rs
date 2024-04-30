@@ -88,8 +88,8 @@ impl Encode for Data {
             Data::None => vec![0u8; 1],
             Data::Raw(ref x) => {
                 let l = x.len().min(64);
-                let mut r = vec![l as u8 + 1; l + 1];
-                r[1..].copy_from_slice(&x[..l]);
+                let mut r = vec![l as u8 + 1];
+                r.extend_from_slice(&x[..]);
                 r
             }
             Data::BlakeTwo256(ref h) => once(66u8).chain(h.iter().cloned()).collect(),

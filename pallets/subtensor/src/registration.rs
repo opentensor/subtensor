@@ -529,134 +529,36 @@ impl<T: Config> Pallet<T> {
         hash_as_vec
     }
 
-    pub fn hash_block_and_hotkey(block_hash_bytes: &[u8], hotkey: &T::AccountId) -> H256 {
+    #[allow(clippy::indexing_slicing)]
+    pub fn hash_block_and_hotkey(block_hash_bytes: &[u8; 32], hotkey: &T::AccountId) -> H256 {
         // Get the public key from the account id.
         let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id(hotkey.clone());
         let binding = hotkey_pubkey.encode();
         // Skip extra 0th byte.
         let hotkey_bytes: &[u8] = binding[1..].as_ref();
-        let full_bytes: &[u8; 64] = &[
-            block_hash_bytes[0],
-            block_hash_bytes[1],
-            block_hash_bytes[2],
-            block_hash_bytes[3],
-            block_hash_bytes[4],
-            block_hash_bytes[5],
-            block_hash_bytes[6],
-            block_hash_bytes[7],
-            block_hash_bytes[8],
-            block_hash_bytes[9],
-            block_hash_bytes[10],
-            block_hash_bytes[11],
-            block_hash_bytes[12],
-            block_hash_bytes[13],
-            block_hash_bytes[14],
-            block_hash_bytes[15],
-            block_hash_bytes[16],
-            block_hash_bytes[17],
-            block_hash_bytes[18],
-            block_hash_bytes[19],
-            block_hash_bytes[20],
-            block_hash_bytes[21],
-            block_hash_bytes[22],
-            block_hash_bytes[23],
-            block_hash_bytes[24],
-            block_hash_bytes[25],
-            block_hash_bytes[26],
-            block_hash_bytes[27],
-            block_hash_bytes[28],
-            block_hash_bytes[29],
-            block_hash_bytes[30],
-            block_hash_bytes[31],
-            hotkey_bytes[0],
-            hotkey_bytes[1],
-            hotkey_bytes[2],
-            hotkey_bytes[3],
-            hotkey_bytes[4],
-            hotkey_bytes[5],
-            hotkey_bytes[6],
-            hotkey_bytes[7],
-            hotkey_bytes[8],
-            hotkey_bytes[9],
-            hotkey_bytes[10],
-            hotkey_bytes[11],
-            hotkey_bytes[12],
-            hotkey_bytes[13],
-            hotkey_bytes[14],
-            hotkey_bytes[15],
-            hotkey_bytes[16],
-            hotkey_bytes[17],
-            hotkey_bytes[18],
-            hotkey_bytes[19],
-            hotkey_bytes[20],
-            hotkey_bytes[21],
-            hotkey_bytes[22],
-            hotkey_bytes[23],
-            hotkey_bytes[24],
-            hotkey_bytes[25],
-            hotkey_bytes[26],
-            hotkey_bytes[27],
-            hotkey_bytes[28],
-            hotkey_bytes[29],
-            hotkey_bytes[30],
-            hotkey_bytes[31],
-        ];
-        let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(full_bytes);
-        let seal_hash: H256 = H256::from_slice(&keccak_256_seal_hash_vec);
+        let mut full_bytes = [0u8; 64];
+        let (first_half, second_half) = full_bytes.split_at_mut(32);
+        first_half.copy_from_slice(block_hash_bytes);
+        // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
+        second_half.copy_from_slice(&hotkey_bytes[..32]);
+        let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(&full_bytes[..]);
+        let seal_hash = H256::from_slice(&keccak_256_seal_hash_vec);
 
         seal_hash
     }
 
     pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {
-        let nonce = U256::from(nonce_u64);
+        let nonce = nonce_u64.to_be_bytes();
         let block_hash_at_number: H256 = Self::get_block_hash_from_u64(block_number_u64);
-        let block_hash_bytes: &[u8] = block_hash_at_number.as_bytes();
+        let block_hash_bytes: &[u8; 32] = block_hash_at_number.as_fixed_bytes();
         let binding = Self::hash_block_and_hotkey(block_hash_bytes, hotkey);
-        let block_and_hotkey_hash_bytes: &[u8] = binding.as_bytes();
+        let block_and_hotkey_hash_bytes: &[u8; 32] = binding.as_fixed_bytes();
 
-        let full_bytes: &[u8; 40] = &[
-            nonce.byte(0),
-            nonce.byte(1),
-            nonce.byte(2),
-            nonce.byte(3),
-            nonce.byte(4),
-            nonce.byte(5),
-            nonce.byte(6),
-            nonce.byte(7),
-            block_and_hotkey_hash_bytes[0],
-            block_and_hotkey_hash_bytes[1],
-            block_and_hotkey_hash_bytes[2],
-            block_and_hotkey_hash_bytes[3],
-            block_and_hotkey_hash_bytes[4],
-            block_and_hotkey_hash_bytes[5],
-            block_and_hotkey_hash_bytes[6],
-            block_and_hotkey_hash_bytes[7],
-            block_and_hotkey_hash_bytes[8],
-            block_and_hotkey_hash_bytes[9],
-            block_and_hotkey_hash_bytes[10],
-            block_and_hotkey_hash_bytes[11],
-            block_and_hotkey_hash_bytes[12],
-            block_and_hotkey_hash_bytes[13],
-            block_and_hotkey_hash_bytes[14],
-            block_and_hotkey_hash_bytes[15],
-            block_and_hotkey_hash_bytes[16],
-            block_and_hotkey_hash_bytes[17],
-            block_and_hotkey_hash_bytes[18],
-            block_and_hotkey_hash_bytes[19],
-            block_and_hotkey_hash_bytes[20],
-            block_and_hotkey_hash_bytes[21],
-            block_and_hotkey_hash_bytes[22],
-            block_and_hotkey_hash_bytes[23],
-            block_and_hotkey_hash_bytes[24],
-            block_and_hotkey_hash_bytes[25],
-            block_and_hotkey_hash_bytes[26],
-            block_and_hotkey_hash_bytes[27],
-            block_and_hotkey_hash_bytes[28],
-            block_and_hotkey_hash_bytes[29],
-            block_and_hotkey_hash_bytes[30],
-            block_and_hotkey_hash_bytes[31],
-        ];
-        let sha256_seal_hash_vec: [u8; 32] = sha2_256(full_bytes);
+        let mut full_bytes = [0u8; 40];
+        let (first_chunk, second_chunk) = full_bytes.split_at_mut(8);
+        first_chunk.copy_from_slice(&nonce);
+        second_chunk.copy_from_slice(block_and_hotkey_hash_bytes);
+        let sha256_seal_hash_vec: [u8; 32] = sha2_256(&full_bytes[..]);
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(&sha256_seal_hash_vec);
         let seal_hash: H256 = H256::from_slice(&keccak_256_seal_hash_vec);
 
