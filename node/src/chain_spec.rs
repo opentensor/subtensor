@@ -1,8 +1,10 @@
 use node_subtensor_runtime::{
     AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SenateMembersConfig,
     Signature, SubtensorModuleConfig, SudoConfig, SystemConfig, TriumvirateConfig,
-    TriumvirateMembersConfig, WASM_BINARY,
+    TriumvirateMembersConfig, WASM_BINARY, Block
 };
+use serde::{Serialize, Deserialize};
+use sc_chain_spec::ChainSpecExtension;
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
@@ -14,8 +16,20 @@ use std::env;
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+    /// Block numbers with known hashes.
+    pub fork_blocks: sc_client_api::ForkBlocks<Block>,
+    /// Known bad block hashes.
+    pub bad_blocks: sc_client_api::BadBlocks<Block>,
+    /// The light sync state extension used by the sync-state rpc.
+    pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+}
+
+
 // Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 // These functions are unused in production compiles, util functions for unit testing
 #[allow(dead_code)]
@@ -60,7 +74,7 @@ pub fn get_grandpa_from_ss58_addr(s: &str) -> GrandpaId {
 }
 
 // Includes for nakamoto genesis
-use serde::Deserialize;
+
 use serde_json as json;
 use std::{fs::File, path::PathBuf};
 
@@ -243,7 +257,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         // Properties
         Some(properties),
         // Extensions
-        None,
+        Default::default(),
     ))
 }
 
@@ -363,7 +377,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         // Properties
         Some(properties),
         // Extensions
-        None,
+        Default::default(),
     ))
 }
 
@@ -406,7 +420,7 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
         // Properties
         Some(properties),
         // Extensions
-        None,
+        Default::default(),
     ))
 }
 
