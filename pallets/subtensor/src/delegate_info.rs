@@ -257,8 +257,4 @@ impl<T: Config> Pallet<T> {
             })
             .collect()
     }
-
-    pub fn get_delegate_limit() -> u32 {
-        DelegateLimit::<T>::get()
-    }
 }

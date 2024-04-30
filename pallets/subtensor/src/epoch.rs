@@ -435,12 +435,9 @@ impl<T: Config> Pallet<T> {
         // =============
         // == Hotkeys ==
         // =============
-        let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
-        for (uid_i, hotkey) in
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
-        {
-            hotkeys.push((uid_i, hotkey));
-        }
+
+        // Keys stores (netuid, uid) --> hotkey association, which is initially added in append_neuron
+        let hotkeys = Keys::<T>::iter_prefix(netuid).collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // ===========
