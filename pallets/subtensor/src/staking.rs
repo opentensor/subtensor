@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
-use sp_runtime::traits::Zero;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -251,6 +250,27 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
+
+        // If this action would reduce a nomination stake below the minimum stake, then unstake all
+        // funds for the account.
+        let stake_to_be_removed = {
+            let attempted_stake_after_remove =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
+
+            if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) // check if nomination stake
+                && attempted_stake_after_remove > 0
+                && attempted_stake_after_remove < NominatorMinRequiredStake::<T>::get()
+            {
+                log::info!(
+                    "User provided 'stake_to_be_removed' ({}) would reduce stake below minimum threshold, unstaking entire user stake instead.",
+                    stake_to_be_removed
+                );
+                Stake::<T>::get(&hotkey, &coldkey)
+            } else {
+                stake_to_be_removed
+            }
+        };
+
         log::info!(
             "do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )",
             coldkey,
@@ -297,32 +317,17 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 7. If this is a nomination stake, check if total stake after removing will be above
-        // the minimum required stake.
-
-        // If coldkey is not owner of the hotkey, it's a nomination stake.
-        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_remove =
-                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
-
-            ensure!(
-                total_stake_after_remove.is_zero()
-                    || total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
-                Error::<T>::NomStakeBelowMinimumThreshold
-            );
-        }
-
-        // --- 8. We remove the balance from the hotkey.
+        // --- 7. We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // --- 9. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // --- 8. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_added_as_currency.unwrap());
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
 
-        // --- 10. Emit the unstaking event.
+        // --- 9. Emit the unstaking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
@@ -336,7 +341,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
 
-        // --- 11. Done and ok.
+        // --- 10. Done and ok.
         Ok(())
     }
 

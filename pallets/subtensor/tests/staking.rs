@@ -2686,17 +2686,28 @@ fn test_remove_stake_below_minimum_threshold() {
             stake_amount_to_remove
         ));
 
-        // Nomination stake cannot stake below min threshold.
-        assert_noop!(
-            SubtensorModule::remove_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
-                hotkey1,
-                stake_amount_to_remove
-            ),
-            Error::<Test>::NomStakeBelowMinimumThreshold
-        );
+        // Nomination unstaking an amount below the minimum threshold results in the entire stake
+        // being unstaked.
+        let bal_before = Balances::free_balance(coldkey2);
+        let staked_before = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1);
+        // check the premise of the test is correct
+        assert!(initial_stake - stake_amount_to_remove < minimum_threshold);
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            stake_amount_to_remove
+        ));
+        let bal_after = Balances::free_balance(coldkey2);
+        let staked_after = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1);
+        assert_eq!(bal_after, bal_before + staked_before);
+        assert_eq!(staked_after, 0);
 
-        // Nomination stake can still remove their entire stake
+        // Can remove entire nomination stake
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            initial_stake
+        ));
         assert_ok!(SubtensorModule::remove_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
             hotkey1,
