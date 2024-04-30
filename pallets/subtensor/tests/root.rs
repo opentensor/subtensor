@@ -31,6 +31,34 @@ fn test_root_register_network_exist() {
 }
 
 #[test]
+fn test_set_weights_not_root_error() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+
+        let dests = vec![0];
+        let weights = vec![1];
+        let version_key: u64 = 0;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 2143124);
+
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                RuntimeOrigin::signed(coldkey),
+                netuid,
+                hotkey,
+                dests.clone(),
+                weights.clone(),
+                version_key,
+            ),
+            Error::<Test>::NotRootSubnet
+        );
+    });
+}
+
+#[test]
 fn test_root_register_normal_on_root_fails() {
     new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
@@ -546,9 +574,10 @@ fn test_network_pruning() {
                 &hot
             ));
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(hot),
+            assert_ok!(SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
                 root_netuid,
+                hot,
                 uids,
                 values,
                 0
@@ -679,9 +708,10 @@ fn test_weights_after_network_pruning() {
         log::info!("uids set: {:?}", uids);
         log::info!("values set: {:?}", values);
         log::info!("In netuid: {:?}", root_netuid);
-        assert_ok!(SubtensorModule::set_weights(
-            <<Test as Config>::RuntimeOrigin>::signed(hot),
+        assert_ok!(SubtensorModule::set_root_weights(
+            <<Test as Config>::RuntimeOrigin>::signed(cold),
             root_netuid,
+            hot,
             uids,
             values,
             0
