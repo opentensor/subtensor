@@ -984,6 +984,7 @@ pub mod pallet {
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
         NotRootSubnet,
+        IsRoot,
         NoNeuronIdAvailable, // -- Thrown when no neuron id is available
         /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,

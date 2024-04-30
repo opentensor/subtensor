@@ -76,6 +76,8 @@ impl<T: Config> Pallet<T> {
             values
         );
 
+        ensure!(netuid != Self::get_root_netuid(), Error::<T>::IsRoot);
+
         // --- 2. Check that the length of uid list and value list are equal for this network.
         ensure!(
             Self::uids_match_values(&uids, &values),
@@ -89,19 +91,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
-        // For the root network this number is the number of subnets.
-        if netuid == Self::get_root_netuid() {
-            // --- 4.a. Ensure that the passed uids are valid for the network.
-            ensure!(
-                !Self::contains_invalid_root_uids(&uids),
-                Error::<T>::InvalidUid
-            );
-        } else {
-            ensure!(
-                Self::check_len_uids_within_allowed(netuid, &uids),
-                Error::<T>::TooManyUids
-            );
-        }
+        ensure!(
+            Self::check_len_uids_within_allowed(netuid, &uids),
+            Error::<T>::TooManyUids
+        );
 
         // --- 5. Check to see if the hotkey is registered to the passed network.
         ensure!(
@@ -141,23 +134,19 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
-        if netuid != Self::get_root_netuid() {
-            ensure!(
-                Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
-                Error::<T>::NoValidatorPermit
-            );
-        }
+        ensure!(
+            Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
+            Error::<T>::NoValidatorPermit
+        );
 
         // --- 11. Ensure the passed uids contain no duplicates.
         ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
 
         // --- 12. Ensure that the passed uids are valid for the network.
-        if netuid != Self::get_root_netuid() {
-            ensure!(
-                !Self::contains_invalid_uids(netuid, &uids),
-                Error::<T>::InvalidUid
-            );
-        }
+        ensure!(
+            !Self::contains_invalid_uids(netuid, &uids),
+            Error::<T>::InvalidUid
+        );
 
         // --- 13. Ensure that the weights have the required length.
         ensure!(
