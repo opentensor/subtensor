@@ -27,7 +27,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_max_registrations_per_block(netuid, 3);
         SubtensorModule::set_max_allowed_uids(netuid, 3);
         SubtensorModule::set_network_registration_allowed(netuid, true);
-        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Check set difficutly.
+        assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), 20000); // Check set difficultly.
         assert_eq!(SubtensorModule::get_adjustment_interval(netuid), 1); // Check set adjustment interval.
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),

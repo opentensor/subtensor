@@ -475,7 +475,7 @@ fn test_senate_leave_vote_removal() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates

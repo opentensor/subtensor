@@ -1552,7 +1552,7 @@ pub mod pallet {
         // 		- The work has been performed on a stale, future, or non existent block.
         //
         // 	* 'InvalidDifficulty':
-        // 		- The work does not match the difficutly.
+        // 		- The work does not match the difficultly.
         //
         // 	* 'InvalidSeal':
         // 		- The seal is incorrect.

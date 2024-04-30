@@ -406,7 +406,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
             proposal_len,
             TryInto::<BlockNumberFor<Test>>::try_into(3u64).expect("convert u64 to block number.")
         ));
-        // No votes, this proposal wont pass
+        // No votes, this proposal won't pass
         System::set_block_number(4);
         assert_ok!(Collective::close(
             RuntimeOrigin::signed(4),

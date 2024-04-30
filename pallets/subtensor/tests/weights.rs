@@ -510,7 +510,7 @@ fn test_set_weight_not_enough_values() {
         );
         assert_eq!(result, Err(Error::<Test>::NotSettingEnoughWeights.into()));
 
-        // Shouldnt fail because we setting a single value but it is the self weight.
+        // Shouldn't fail because we setting a single value but it is the self weight.
         let weight_keys: Vec<u16> = vec![0]; // self weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
         assert_ok!(SubtensorModule::set_weights(
@@ -564,7 +564,7 @@ fn test_set_weight_too_many_uids() {
         );
         assert_eq!(result, Err(Error::<Test>::TooManyUids.into()));
 
-        // Shouldnt fail because we are setting less weights than there are neurons.
+        // Shouldn't fail because we are setting less weights than there are neurons.
         let weight_keys: Vec<u16> = vec![0, 1]; // Only on neurons that exist.
         let weight_values: Vec<u16> = vec![10, 10]; // random value.
         assert_ok!(SubtensorModule::set_weights(
