@@ -221,9 +221,9 @@ impl<T: Config> Pallet<T> {
             log::error!("set_emission_values: netuids.len() != emission.len()");
             return Err("netuids and emission must have the same length");
         }
-        for (i, netuid_i) in netuids.iter().enumerate() {
-            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission[i]);
-            EmissionValues::<T>::insert(*netuid_i, emission[i]);
+        for (netuid_i, emission_i) in netuids.iter().zip(emission) {
+            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission_i);
+            EmissionValues::<T>::insert(*netuid_i, emission_i);
         }
         Ok(())
     }
@@ -260,13 +260,15 @@ impl<T: Config> Pallet<T> {
             // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
             // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
             // weight of `uid_i` with respect to `uid_j`.
-            for (netuid, weight_ij) in weights_i.iter() {
-                let option = subnet_list.iter().position(|item| item == netuid);
-
+            for (netuid, weight_ij) in &weights_i {
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
-                    if let Some(netuid_idx) = option {
-                        weight[netuid_idx] = I64F64::from_num(*weight_ij);
+                    if let Some((w, _)) = weight
+                        .into_iter()
+                        .zip(&subnet_list)
+                        .find(|(_, subnet)| *subnet == netuid)
+                    {
+                        *w = I64F64::from_num(*weight_ij);
                     }
                 }
             }
@@ -336,8 +338,8 @@ impl<T: Config> Pallet<T> {
         // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
         // Stakes are stored in a 64-bit fixed point representation for precise calculations.
         let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in hotkeys.iter() {
-            stake_i64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
+        for ((_, hotkey), stake) in hotkeys.iter().zip(&mut stake_i64) {
+            *stake = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
         }
         inplace_normalize_64(&mut stake_i64);
         log::debug!("S:\n{:?}\n", &stake_i64);
@@ -357,12 +359,11 @@ impl<T: Config> Pallet<T> {
         let total_networks = Self::get_num_subnets();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
-        for (idx, weights) in weights.iter().enumerate() {
-            let hotkey_stake = stake_i64[idx];
+        for (weights, hotkey_stake) in weights.iter().zip(stake_i64) {
             total_stake += hotkey_stake;
-            for (weight_idx, weight) in weights.iter().enumerate() {
+            for (weight, trust_score) in weights.iter().zip(&mut trust) {
                 if *weight > 0 {
-                    trust[weight_idx] += hotkey_stake;
+                    *trust_score += hotkey_stake;
                 }
             }
         }
@@ -385,20 +386,22 @@ impl<T: Config> Pallet<T> {
         log::debug!("T:\n{:?}\n", &trust);
         let one = I64F64::from_num(1);
         let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
-        for (idx, trust_score) in trust.iter_mut().enumerate() {
+        for (trust_score, consensus_i) in trust.iter_mut().zip(&mut consensus) {
             let shifted_trust = *trust_score - I64F64::from_num(Self::get_float_kappa(0)); // Range( -kappa, 1 - kappa )
             let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
             let exponentiated_trust: I64F64 =
                 substrate_fixed::transcendental::exp(-temperatured_trust)
                     .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
 
-            consensus[idx] = one / (one + exponentiated_trust);
+            *consensus_i = one / (one + exponentiated_trust);
         }
 
         log::debug!("C:\n{:?}\n", &consensus);
         let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
-        for (idx, emission) in weighted_emission.iter_mut().enumerate() {
-            *emission = consensus[idx] * ranks[idx];
+        for ((emission, consensus_i), rank) in
+            weighted_emission.iter_mut().zip(&consensus).zip(&ranks)
+        {
+            *emission = *consensus_i * (*rank);
         }
         inplace_normalize_64(&mut weighted_emission);
         log::debug!("Ei64:\n{:?}\n", &weighted_emission);
@@ -507,7 +510,7 @@ impl<T: Config> Pallet<T> {
             }
             subnetwork_uid = lowest_uid;
             let replaced_hotkey: T::AccountId =
-                Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid).unwrap();
+                Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid)?;
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(

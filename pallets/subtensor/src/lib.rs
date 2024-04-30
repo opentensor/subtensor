@@ -232,7 +232,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed")
     }
     #[pallet::type_value]
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
@@ -514,7 +515,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed")
     }
     #[pallet::type_value]
     pub fn DefaultSubnetLocked<T: Config>() -> u64 {
@@ -785,7 +787,8 @@ pub mod pallet {
     }
     #[pallet::type_value]
     pub fn DefaultKey<T: Config>() -> T::AccountId {
-        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes()).unwrap()
+        T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+            .expect("trailing zeroes always produce a valid account ID; qed")
     }
 
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> uid
@@ -1206,14 +1209,21 @@ pub mod pallet {
                 "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
             ];
             weight = weight
+                // Initializes storage version (to 1)
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
+                // Storage version v1 -> v2
                 .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
+                // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migrate_create_root_network::<T>())
+                // Storage version v2 -> v3
                 .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
                     hex,
                 ))
-                .saturating_add(migration::migrate_delete_subnet_3::<T>())
+                // Storage version v3 -> v4
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
+                // Storage version v4 -> v5
+                .saturating_add(migration::migrate_delete_subnet_3::<T>())
+                // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migration5_total_issuance::<T>(false));
 
             weight
@@ -1797,8 +1807,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         // --- Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
-            if Uids::<T>::contains_key(netuid, hotkey) {
-                let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
+            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =

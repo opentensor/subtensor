@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::sp_std::vec;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
@@ -245,8 +244,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
-        if Self::has_axon_info(netuid, hotkey) {
-            Axons::<T>::get(netuid, hotkey).unwrap()
+        if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
+            axons
         } else {
             AxonInfo {
                 block: 0,
@@ -262,8 +261,8 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
-        if Self::has_prometheus_info(netuid, hotkey) {
-            Prometheus::<T>::get(netuid, hotkey).unwrap()
+        if let Some(prometheus) = Prometheus::<T>::get(netuid, hotkey) {
+            prometheus
         } else {
             PrometheusInfo {
                 block: 0,
@@ -276,7 +275,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_valid_ip_type(ip_type: u8) -> bool {
-        let allowed_values: Vec<u8> = vec![4, 6];
+        let allowed_values = [4, 6];
         allowed_values.contains(&ip_type)
     }
 

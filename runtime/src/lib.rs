@@ -713,6 +713,7 @@ parameter_types! {
 
 impl pallet_registry::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeHoldReason = RuntimeHoldReason;
     type Currency = Balances;
     type CanRegister = AllowIdentityReg;
     type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;

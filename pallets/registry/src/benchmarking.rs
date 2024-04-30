@@ -6,6 +6,7 @@ use super::*;
 use crate::Pallet as Registry;
 use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
+use frame_support::traits::tokens::fungible::Mutate;
 use frame_system::RawOrigin;
 
 use sp_runtime::traits::Bounded;
@@ -40,7 +41,7 @@ mod benchmarks {
     fn set_identity() {
         // The target user
         let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+        let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
         #[extrinsic_call]
         _(
@@ -56,7 +57,7 @@ mod benchmarks {
     fn clear_identity() {
         // The target user
         let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+        let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
         let vali_account = account::<T::AccountId>("account", 0, 0u32);
 

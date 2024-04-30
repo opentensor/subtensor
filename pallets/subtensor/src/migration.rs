@@ -89,7 +89,8 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
 
         // We have to decode this using a byte slice as we don't have crypto-std
         let coldkey_account: <T as frame_system::Config>::AccountId =
-            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
+            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..])
+                .expect("coldkey is 32-byte array; qed");
         info!("Foundation coldkey: {:?}", coldkey_account);
 
         let current_block = Pallet::<T>::get_current_block_as_u64();

@@ -115,10 +115,8 @@ impl<T: Config> Pallet<T> {
     // Returns the stake of the uid on network or 0 if it doesnt exist.
     //
     pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
-        if Self::is_uid_exist_on_network(netuid, neuron_uid) {
-            Self::get_total_stake_for_hotkey(
-                &Self::get_hotkey_for_net_and_uid(netuid, neuron_uid).unwrap(),
-            )
+        if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
+            Self::get_total_stake_for_hotkey(&hotkey)
         } else {
             0
         }
