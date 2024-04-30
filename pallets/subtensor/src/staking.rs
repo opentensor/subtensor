@@ -453,7 +453,7 @@ impl<T: Config> Pallet<T> {
         // We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
 
-        // We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
+        // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_removed);
 
         // Set last block for rate limiting
