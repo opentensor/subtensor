@@ -17,8 +17,9 @@ use pallet_grandpa::{
 };
 
 use frame_support::{
+    dispatch::DispatchResultWithPostInfo,
     pallet_prelude::{DispatchError, DispatchResult, Get},
-    traits::OnRuntimeUpgrade,
+    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
 };
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
@@ -27,7 +28,7 @@ use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, RuntimeDebug};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -57,7 +58,7 @@ pub use frame_support::{
         IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
         WeightToFeePolynomial,
     },
-    RuntimeDebug, StorageValue,
+    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -199,6 +200,8 @@ impl frame_system::Config for Runtime {
     type AccountId = AccountId;
     // The aggregated dispatch type that is available for extrinsics.
     type RuntimeCall = RuntimeCall;
+    // The aggregated runtime tasks.
+    type RuntimeTask = RuntimeTask;
     // The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = AccountIdLookup<AccountId, ()>;
     // The type for hashing blocks and tries.
@@ -234,6 +237,11 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = Nonce;
     type Block = Block;
+    type SingleBlockMigrations = Migrations;
+    type MultiBlockMigrator = ();
+    type PreInherents = ();
+    type PostInherents = ();
+    type PostTransactions = ();
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -243,6 +251,7 @@ impl pallet_aura::Config for Runtime {
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<32>;
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
+    type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Runtime>;
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -253,6 +262,7 @@ impl pallet_grandpa::Config for Runtime {
     type WeightInfo = ();
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
+    type MaxNominators = ConstU32<20>;
 
     type EquivocationReportSystem = ();
 }
@@ -289,8 +299,8 @@ impl pallet_balances::Config for Runtime {
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 
     type RuntimeHoldReason = RuntimeHoldReason;
+    type RuntimeFreezeReason = RuntimeFreezeReason;
     type FreezeIdentifier = RuntimeFreezeReason;
-    type MaxHolds = ConstU32<50>;
     type MaxFreezes = ConstU32<50>;
 }
 
@@ -369,17 +379,17 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResult {
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
         let who = Address::Id(account.clone());
         SenateMembers::add_member(RawOrigin::Root.into(), who)
     }
 
-    fn remove_member(account: &AccountId) -> DispatchResult {
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
         let who = Address::Id(account.clone());
         SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
-    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResult {
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
@@ -674,6 +684,8 @@ parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
     pub const PreimageBaseDeposit: Balance = deposit(2, 64);
     pub const PreimageByteDeposit: Balance = deposit(0, 1);
+    pub const PreimageHoldReason: RuntimeHoldReason =
+        RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -681,8 +693,12 @@ impl pallet_preimage::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
-    type BaseDeposit = PreimageBaseDeposit;
-    type ByteDeposit = PreimageByteDeposit;
+    type Consideration = HoldConsideration<
+        AccountId,
+        Balances,
+        PreimageHoldReason,
+        LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+    >;
 }
 
 pub struct AllowIdentityReg;
@@ -1178,7 +1194,6 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -1209,7 +1224,7 @@ impl_runtime_apis! {
             Executive::execute_block(block);
         }
 
-        fn initialize_block(header: &<Block as BlockT>::Header) {
+        fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
             Executive::initialize_block(header)
         }
     }
@@ -1271,7 +1286,7 @@ impl_runtime_apis! {
         }
 
         fn authorities() -> Vec<AuraId> {
-            Aura::authorities().into_inner()
+            pallet_aura::Authorities::<Runtime>::get().into_inner()
         }
     }
 

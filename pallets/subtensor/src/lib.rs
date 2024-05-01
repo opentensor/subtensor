@@ -9,8 +9,7 @@ pub use pallet::*;
 use frame_system::{self as system, ensure_signed};
 
 use frame_support::{
-    dispatch,
-    dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
+    dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     traits::{tokens::fungible, IsSubType},
 };
@@ -22,6 +21,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
+    DispatchError,
 };
 use sp_std::marker::PhantomData;
 
@@ -61,12 +61,12 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        sp_std::vec,
-        sp_std::vec::Vec,
         traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::TrailingZeroInput;
+    use sp_std::vec;
+    use sp_std::vec::Vec;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1969,7 +1969,7 @@ where
     }
 }
 
-use frame_support::sp_std::vec;
+use sp_std::vec;
 
 // TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
 // used not 25 lines below
@@ -1979,13 +1979,13 @@ use sp_std::vec::Vec;
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
     /// Add member
-    fn add_member(account: &AccountId) -> DispatchResult;
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResult;
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult;
+    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Get all members
     fn members() -> Vec<AccountId>;
@@ -1999,18 +1999,18 @@ pub trait MemberManagement<AccountId> {
 
 impl<T> MemberManagement<T> for () {
     /// Add member
-    fn add_member(_: &T) -> DispatchResult {
-        Ok(())
+    fn add_member(_: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Remove a member
-    fn remove_member(_: &T) -> DispatchResult {
-        Ok(())
+    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResult {
-        Ok(())
+    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Get all members

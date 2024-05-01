@@ -9,16 +9,16 @@ impl OnRuntimeUpgrade for Migration {
         use frame_support::traits::StorageVersion;
 
         if Triumvirate::on_chain_storage_version() == StorageVersion::new(0) {
-            Triumvirate::current_storage_version().put::<Triumvirate>();
+            Triumvirate::in_code_storage_version().put::<Triumvirate>();
         }
         if TriumvirateMembers::on_chain_storage_version() == StorageVersion::new(0) {
-            TriumvirateMembers::current_storage_version().put::<TriumvirateMembers>();
+            TriumvirateMembers::in_code_storage_version().put::<TriumvirateMembers>();
         }
         if SenateMembers::on_chain_storage_version() == StorageVersion::new(0) {
-            SenateMembers::current_storage_version().put::<SenateMembers>();
+            SenateMembers::in_code_storage_version().put::<SenateMembers>();
         }
         if Scheduler::on_chain_storage_version() == StorageVersion::new(0) {
-            Scheduler::current_storage_version().put::<Scheduler>();
+            Scheduler::in_code_storage_version().put::<Scheduler>();
         }
 
         <Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 4)

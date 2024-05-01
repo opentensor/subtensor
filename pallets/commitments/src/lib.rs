@@ -190,12 +190,12 @@ pub enum CallType {
 
 use {
     frame_support::{
-        dispatch::{DispatchInfo, DispatchResult, Dispatchable, PostDispatchInfo},
+        dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
         pallet_prelude::{Decode, Encode, PhantomData, TypeInfo},
         traits::IsSubType,
     },
     sp_runtime::{
-        traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
+        traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
         transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
     },
 };

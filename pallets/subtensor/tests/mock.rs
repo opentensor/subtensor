@@ -1,3 +1,4 @@
+use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::traits::Hash;
 use frame_support::{
     assert_ok, parameter_types,
@@ -187,15 +188,15 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResult {
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
         SenateMembers::add_member(RawOrigin::Root.into(), *account)
     }
 
-    fn remove_member(account: &AccountId) -> DispatchResult {
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
         SenateMembers::remove_member(RawOrigin::Root.into(), *account)
     }
 
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
+    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
         SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
     }
 

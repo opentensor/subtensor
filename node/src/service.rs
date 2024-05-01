@@ -180,9 +180,10 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         &config.chain_spec,
     );
 
-    net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
-        grandpa_protocol_name.clone(),
-    ));
+    let (grandpa_protocol_config, grandpa_notification_service) =
+        sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+    net_config.add_notification_protocol(grandpa_protocol_config);
+
     let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
         grandpa_link.shared_authority_set().clone(),
@@ -199,6 +200,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             import_queue,
             block_announce_validator_builder: None,
             warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+            block_relay: None,
         })?;
 
     if config.offchain_worker.enabled {
@@ -337,7 +339,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         let grandpa_config = sc_consensus_grandpa::Config {
             // FIXME #1578 make this available through chainspec
             gossip_duration: Duration::from_millis(333),
-            justification_period: 512,
+            justification_generation_period: 512,
             name: Some(name),
             observer_enabled: false,
             keystore,
@@ -362,6 +364,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             telemetry: telemetry.as_ref().map(|x| x.handle()),
             offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
             sync: Arc::new(sync_service),
+            notification_service: grandpa_notification_service,
         };
 
         // the GRANDPA voter task is considered infallible, i.e.
