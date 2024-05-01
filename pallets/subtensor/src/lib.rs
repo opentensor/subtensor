@@ -102,6 +102,8 @@ pub mod pallet {
 
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
+        type SubnetOwnersMembers: crate::MemberManagement<Self::AccountId>;
+
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         // =================================

@@ -116,6 +116,7 @@ impl pallet_subtensor::Config for Test {
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
+    type SubnetOwnersMembers = ();
     type TriumvirateInterface = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;

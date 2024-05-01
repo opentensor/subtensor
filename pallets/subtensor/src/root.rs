@@ -693,7 +693,12 @@ impl<T: Config> Pallet<T> {
         let current_block_number: u64 = Self::get_current_block_as_u64();
         NetworkLastRegistered::<T>::set(current_block_number);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey);
+        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone());
+
+        // --- 7.1. Add the Owner to the governance group.
+        if !T::SubnetOwnersMembers::is_member(&coldkey) {
+            T::SubnetOwnersMembers::add_member(&coldkey)?;
+        } // else already a member
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(
@@ -916,6 +921,12 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
+
+        // --- 13. Remove the Owner from the governance group.
+        if !Self::is_subnet_owner(&owner_coldkey) {
+            // Only remove if they are not still an owner of another network.
+            T::SubnetOwnersMembers::remove_member(&owner_coldkey).ok();
+        }
     }
 
     // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.

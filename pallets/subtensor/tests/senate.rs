@@ -352,6 +352,7 @@ fn test_senate_leave_works() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
+
         assert!(Senate::is_member(&hotkey_account_id));
     });
 }

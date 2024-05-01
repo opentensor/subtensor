@@ -1,7 +1,7 @@
 use node_subtensor_runtime::{
     AccountId, AuraConfig, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig,
-    SenateMembersConfig, Signature, SubtensorModuleConfig, SudoConfig, SystemConfig,
-    TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
+    SenateMembersConfig, Signature, SubnetOwnersMembersConfig, SubtensorModuleConfig, SudoConfig,
+    SystemConfig, TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -488,6 +488,10 @@ fn localnet_genesis(
             ],
             phantom: Default::default(),
         },
+        subnet_owners_members: SubnetOwnersMembersConfig {
+            members: bounded_vec![],
+            phantom: Default::default(),
+        },
     }
 }
 
@@ -548,6 +552,10 @@ fn testnet_genesis(
             members: Default::default(),
             phantom: Default::default(),
         },
+        subnet_owners_members: SubnetOwnersMembersConfig {
+            members: Default::default(),
+            phantom: Default::default(),
+        },
     }
 }
 
@@ -605,6 +613,10 @@ fn finney_genesis(
             phantom: Default::default(),
         },
         senate_members: SenateMembersConfig {
+            members: Default::default(),
+            phantom: Default::default(),
+        },
+        subnet_owners_members: SubnetOwnersMembersConfig {
             members: Default::default(),
             phantom: Default::default(),
         },

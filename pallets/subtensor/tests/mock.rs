@@ -26,6 +26,8 @@ frame_support::construct_runtime!(
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
+        SubnetOwners: pallet_collective::<Instance3>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        SubnetOwnersMembers: pallet_membership::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>},
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
     }
@@ -168,6 +170,11 @@ parameter_types! {
     pub const SenateMaxMembers: u32 = 12;
 }
 
+// Configure collective pallet for Subnet Owners
+parameter_types! { // Based on the number of u16::MAX subnets
+    pub const SubnetOwnersMaxMembers: u32 = u16::MAX as u32;
+}
+
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
 pub struct CanProposeToTriumvirate;
 impl CanPropose<AccountId> for CanProposeToTriumvirate {
@@ -188,15 +195,21 @@ use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResult {
-        SenateMembers::add_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::add_member(RawOrigin::Root.into(), who)
     }
 
     fn remove_member(account: &AccountId) -> DispatchResult {
-        SenateMembers::remove_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
-        SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResult {
+        let remove = *rm;
+        let add = *add;
+
+        Triumvirate::remove_votes(rm)?;
+        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
     fn is_member(account: &AccountId) -> bool {
@@ -221,6 +234,51 @@ impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
 impl Get<MemberCount> for GetSenateMemberCount {
     fn get() -> MemberCount {
         SenateMaxMembers::get()
+    }
+}
+
+pub struct ManageSubnetOwnersMembers;
+impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
+    fn add_member(account: &AccountId) -> DispatchResult {
+        let who = *account;
+        SubnetOwnersMembers::add_member(RawOrigin::Root.into(), who)
+    }
+
+    fn remove_member(account: &AccountId) -> DispatchResult {
+        let who = *account;
+        SubnetOwnersMembers::remove_member(RawOrigin::Root.into(), who)
+    }
+
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResult {
+        let remove = *rm;
+        let add = *add;
+
+        Triumvirate::remove_votes(rm)?;
+        SubnetOwnersMembers::swap_member(RawOrigin::Root.into(), remove, add)
+    }
+
+    fn is_member(account: &AccountId) -> bool {
+        SubnetOwners::members().contains(account)
+    }
+
+    fn members() -> Vec<AccountId> {
+        SubnetOwners::members().into()
+    }
+
+    fn max_members() -> u32 {
+        SubnetOwnersMaxMembers::get()
+    }
+}
+
+pub struct GetSubnetOwnersMemberCount;
+impl GetVotingMembers<MemberCount> for GetSubnetOwnersMemberCount {
+    fn get_count() -> MemberCount {
+        SubnetOwners::members().len() as u32
+    }
+}
+impl Get<MemberCount> for GetSubnetOwnersMemberCount {
+    fn get() -> MemberCount {
+        SubnetOwnersMaxMembers::get()
     }
 }
 
@@ -305,6 +363,39 @@ impl pallet_membership::Config<SenateMembership> for Test {
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
 }
 
+// This is a dummy collective instance for managing SubnetOwnersMembers
+// Probably not the best solution, but fastest implementation
+type SubnetOwnersCollective = pallet_collective::Instance3;
+impl pallet_collective::Config<SubnetOwnersCollective> for Test {
+    type RuntimeOrigin = RuntimeOrigin;
+    type Proposal = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type MotionDuration = CouncilMotionDuration;
+    type MaxProposals = CouncilMaxProposals;
+    type MaxMembers = SubnetOwnersMaxMembers;
+    type DefaultVote = pallet_collective::PrimeDefaultVote;
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
+    type SetMembersOrigin = EnsureNever<AccountId>;
+    type CanPropose = ();
+    type CanVote = ();
+    type GetVotingMembers = ();
+}
+
+// We call our subnet owners membership SubnetOwnersMembership
+type SubnetOwnersMembership = pallet_membership::Instance3;
+impl pallet_membership::Config<SubnetOwnersMembership> for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type AddOrigin = EnsureRoot<AccountId>;
+    type RemoveOrigin = EnsureRoot<AccountId>;
+    type SwapOrigin = EnsureRoot<AccountId>;
+    type ResetOrigin = EnsureRoot<AccountId>;
+    type PrimeOrigin = EnsureRoot<AccountId>;
+    type MembershipInitialized = SubnetOwners;
+    type MembershipChanged = SubnetOwners;
+    type MaxMembers = SubnetOwnersMaxMembers;
+    type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
+}
+
 impl pallet_subtensor::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
@@ -312,6 +403,7 @@ impl pallet_subtensor::Config for Test {
     type SudoRuntimeCall = TestRuntimeCall;
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
+    type SubnetOwnersMembers = ManageSubnetOwnersMembers;
     type TriumvirateInterface = TriumvirateVotes;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
