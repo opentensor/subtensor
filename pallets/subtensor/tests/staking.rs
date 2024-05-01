@@ -2773,10 +2773,7 @@ fn test_can_set_zero_take_ok() {
             hotkey0,
             0
         ));
-        assert_eq!(
-            SubtensorModule::get_last_tx_block_delegate_take(&hotkey0),
-            0
-        );
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), 0);
     });
 }
 
