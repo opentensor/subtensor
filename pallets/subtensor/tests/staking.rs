@@ -2763,18 +2763,18 @@ fn test_can_set_zero_take_ok() {
         // Coldkey / hotkey 0 become delegates
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
+            hotkey0,
+            u16::MAX / 10
         ));
 
         // Coldkey / hotkey 0 decreases take to 0%
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            netuid,
             0
         ));
         assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
+            SubtensorModule::get_last_tx_block_delegate_take(&hotkey0),
             0
         );
     });
