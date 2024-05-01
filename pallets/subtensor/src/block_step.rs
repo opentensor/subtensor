@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Turn on for dynamic tempos for dev chains.
-    pub fn dynamic_tempo_on() -> bool {
+    pub fn dynamic_tempos_on() -> bool {
         if cfg!(feature = "pow-faucet") {
             return true;
         } else {
