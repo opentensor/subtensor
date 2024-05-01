@@ -2717,21 +2717,21 @@ fn test_delegate_take_can_be_decreased() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 5% take
+        // Coldkey / hotkey 0 become delegates with 10% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-            u16::MAX / 2
-        ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 2);
-
-        // Coldkey / hotkey 0 decreases take to 10%
-        assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             u16::MAX / 10
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
+        // Coldkey / hotkey 0 decreases take to 5%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 20
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
     });
 }
 
