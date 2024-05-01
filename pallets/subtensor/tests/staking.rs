@@ -2744,6 +2744,42 @@ fn test_delegate_take_can_be_decreased() {
     });
 }
 
+// Verify delegate take can be decreased
+#[test]
+fn test_can_set_zero_take_ok() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0
+        ));
+
+        // Coldkey / hotkey 0 decreases take to 0%
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            netuid,
+            0
+        ));
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey0, netuid),
+            0
+        );
+    });
+}
+
 // Verify delegate take can not be increased with do_decrease_take
 #[test]
 fn test_delegate_take_can_not_be_increased_with_decrease_take() {
