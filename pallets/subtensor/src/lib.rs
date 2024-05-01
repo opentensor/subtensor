@@ -19,7 +19,6 @@ use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
 use scale_info::TypeInfo;
-use sp_core::Get;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
@@ -160,6 +159,8 @@ pub mod pallet {
         type InitialMaxAllowedValidators: Get<u16>;
         #[pallet::constant] // Initial default delegation take.
         type InitialDefaultTake: Get<u16>;
+        #[pallet::constant] // Initial minimum delegation take.
+        type InitialMinTake: Get<u16>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.
@@ -214,6 +215,10 @@ pub mod pallet {
         T::InitialDefaultTake::get()
     }
     #[pallet::type_value]
+    pub fn DefaultMinTake<T: Config>() -> u16 {
+        T::InitialMinTake::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
     }
@@ -249,7 +254,9 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
-    pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
+    pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_take )
+    pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
@@ -935,6 +942,8 @@ pub mod pallet {
             old_hotkey: T::AccountId,
             new_hotkey: T::AccountId,
         }, // Event created when a hotkey is swapped
+        MaxDelegateTakeSet(u16), // Event emitted when maximum delegate take is set by sudo/admin transaction
+        MinDelegateTakeSet(u16), // Event emitted when minimum delegate take is set by sudo/admin transaction
     }
 
     // Errors inform users that something went wrong.

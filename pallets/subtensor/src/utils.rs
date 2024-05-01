@@ -346,11 +346,15 @@ impl<T: Config> Pallet<T> {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {
-        DefaultTake::<T>::get()
+        // Default to maximum
+        MaxTake::<T>::get()
     }
-    pub fn set_default_take(default_take: u16) {
-        DefaultTake::<T>::put(default_take);
+    pub fn set_max_take(default_take: u16) {
+        MaxTake::<T>::put(default_take);
         Self::deposit_event(Event::DefaultTakeSet(default_take));
+    }
+    pub fn get_min_take() -> u16 {
+        MinTake::<T>::get()
     }
 
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
@@ -379,6 +383,20 @@ impl<T: Config> Pallet<T> {
     pub fn set_tx_delegate_take_rate_limit(tx_rate_limit: u64) {
         TxDelegateTakeRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxDelegateTakeRateLimitSet(tx_rate_limit));
+    }
+    pub fn set_min_delegate_take(take: u16) {
+        MinTake::<T>::put(take);
+        Self::deposit_event(Event::MinDelegateTakeSet(take));
+    }
+    pub fn set_max_delegate_take(take: u16) {
+        MaxTake::<T>::put(take);
+        Self::deposit_event(Event::MaxDelegateTakeSet(take));
+    }
+    pub fn get_min_delegate_take() -> u16 {
+        MinTake::<T>::get()
+    }
+    pub fn get_max_delegate_take() -> u16 {
+        MaxTake::<T>::get()
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {

@@ -76,6 +76,7 @@ parameter_types! {
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const InitialMinTake: u16 = 0;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
@@ -139,6 +140,7 @@ impl pallet_subtensor::Config for Test {
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultTake = InitialDefaultTake;
+    type InitialMinTake = InitialMinTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
@@ -205,8 +207,12 @@ impl pallet_balances::Config for Test {
 pub struct SubtensorIntrf;
 
 impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> for SubtensorIntrf {
-    fn set_default_take(default_take: u16) {
-        SubtensorModule::set_default_take(default_take);
+    fn set_max_delegate_take(default_take: u16) {
+        SubtensorModule::set_max_delegate_take(default_take);
+    }
+
+    fn set_min_delegate_take(default_take: u16) {
+        SubtensorModule::set_min_delegate_take(default_take);
     }
 
     fn set_tx_rate_limit(rate_limit: u64) {

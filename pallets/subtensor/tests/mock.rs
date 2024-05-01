@@ -124,6 +124,7 @@ parameter_types! {
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialMinTake: u16 = 0;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
@@ -335,6 +336,7 @@ impl pallet_subtensor::Config for Test {
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultTake = InitialDefaultTake;
+    type InitialMinTake = InitialMinTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;

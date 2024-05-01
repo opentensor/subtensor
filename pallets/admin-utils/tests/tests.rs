@@ -1087,3 +1087,24 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
         );
     });
 }
+
+#[test]
+fn test_sudo_set_min_delegate_take() {
+    new_test_ext().execute_with(|| {
+        let to_be_set = u16::MAX / 100;
+        let init_value = SubtensorModule::get_min_delegate_take();
+        assert_eq!(
+            AdminUtils::sudo_set_min_delegate_take(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(SubtensorModule::get_min_delegate_take(), init_value);
+        assert_ok!(AdminUtils::sudo_set_min_delegate_take(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_min_delegate_take(), to_be_set);
+    });
+}

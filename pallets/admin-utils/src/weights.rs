@@ -34,7 +34,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_admin_utils`.
 pub trait WeightInfo {
 	fn swap_authorities(a: u32, ) -> Weight;
-	fn sudo_set_default_take() -> Weight;
+    fn sudo_set_min_delegate_take() -> Weight;
+    fn sudo_set_default_take() -> Weight;
 	fn sudo_set_serving_rate_limit() -> Weight;
 	fn sudo_set_max_difficulty() -> Weight;
 	fn sudo_set_min_difficulty() -> Weight;
@@ -83,6 +84,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
 	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
 	fn sudo_set_default_take() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `655`
+		//  Estimated: `655`
+		// Minimum execution time: 26_770_000 picoseconds.
+		Weight::from_parts(27_199_000, 655)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
+	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
+	fn sudo_set_min_delegate_take() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
 		//  Estimated: `655`
@@ -423,6 +434,16 @@ impl WeightInfo for () {
 	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
 	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
 	fn sudo_set_default_take() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `655`
+		//  Estimated: `655`
+		// Minimum execution time: 26_770_000 picoseconds.
+		Weight::from_parts(27_199_000, 655)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: SubtensorModule DefaultTake (r:0 w:1)
+	/// Proof Skipped: SubtensorModule DefaultTake (max_values: Some(1), max_size: None, mode: Measured)
+	fn sudo_set_min_delegate_take() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `655`
 		//  Estimated: `655`

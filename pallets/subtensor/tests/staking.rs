@@ -2737,7 +2737,7 @@ fn test_delegate_take_can_be_decreased() {
 
 // Verify delegate take can be decreased
 #[test]
-fn test_can_set_zero_take_ok() {
+fn test_can_set_min_take_ok() {
     new_test_ext(1).execute_with(|| {
         // Make account
         let hotkey0 = U256::from(1);
@@ -2758,11 +2758,11 @@ fn test_can_set_zero_take_ok() {
             u16::MAX / 10
         ));
 
-        // Coldkey / hotkey 0 decreases take to 0%
+        // Coldkey / hotkey 0 decreases take to min
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            0
+            SubtensorModule::get_min_take()
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), 0);
     });

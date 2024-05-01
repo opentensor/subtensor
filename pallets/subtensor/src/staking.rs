@@ -68,8 +68,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TxRateLimitExceeded
         );
 
-        // --- 5.1 Ensure take is within the 0 ..= InitialDefaultTake (18%) range
-        let max_take = T::InitialDefaultTake::get();
+        // --- 5.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let min_take = MinTake::<T>::get();
+        let max_take = MaxTake::<T>::get();
+        ensure!(take >= min_take, Error::<T>::InvalidTake);
         ensure!(take <= max_take, Error::<T>::InvalidTake);
 
         // --- 6. Delegate the key.
@@ -138,6 +140,10 @@ impl<T: Config> Pallet<T> {
             ensure!(take < current_take, Error::<T>::InvalidTake);
         }
 
+        // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let min_take = MinTake::<T>::get();
+        ensure!(take >= min_take, Error::<T>::InvalidTake);
+
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
 
@@ -203,8 +209,8 @@ impl<T: Config> Pallet<T> {
             ensure!(take > current_take, Error::<T>::InvalidTake);
         }
 
-        // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
-        let max_take = T::InitialDefaultTake::get();
+        // --- 4. Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let max_take = MaxTake::<T>::get();
         ensure!(take <= max_take, Error::<T>::InvalidTake);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)

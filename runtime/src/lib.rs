@@ -778,6 +778,7 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialMinTake: u16 = 0;
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -828,6 +829,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialPruningScore = SubtensorInitialPruningScore;
     type InitialMaxAllowedValidators = SubtensorInitialMaxAllowedValidators;
     type InitialDefaultTake = SubtensorInitialDefaultTake;
+    type InitialMinTake = SubtensorInitialMinTake;
     type InitialWeightsVersionKey = SubtensorInitialWeightsVersionKey;
     type InitialMaxDifficulty = SubtensorInitialMaxDifficulty;
     type InitialMinDifficulty = SubtensorInitialMinDifficulty;
@@ -867,8 +869,12 @@ impl
         RuntimeOrigin,
     > for SubtensorInterface
 {
-    fn set_default_take(default_take: u16) {
-        SubtensorModule::set_default_take(default_take);
+    fn set_max_delegate_take(max_take: u16) {
+        SubtensorModule::set_max_delegate_take(max_take);
+    }
+
+    fn set_min_delegate_take(max_take: u16) {
+        SubtensorModule::set_min_delegate_take(max_take);
     }
 
     fn set_tx_rate_limit(rate_limit: u64) {
