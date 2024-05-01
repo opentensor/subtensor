@@ -112,6 +112,10 @@ fn call_add_stake() -> RuntimeCall {
 fn call_register() -> RuntimeCall {
     let block_number: u64 = 1;
     let netuid: u16 = 2;
+
+    // lower diff first
+    SubtensorModule::set_difficulty(netuid, 100);
+
     let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
         netuid,
         block_number,
