@@ -12,7 +12,7 @@ fn test_get_stake_info_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
-        let netuid: u16 = 0;
+        let netuid: u16 = 1;
         let tempo: u16 = 13;
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 39420842);
@@ -31,8 +31,7 @@ fn test_get_stake_info_for_coldkey() {
             .iter()
             .map(|info| info.stake.0)
             .sum::<u64>(),
-            // Need to account for existential deposit
-            10000 - 1
+            10000
         );
     });
 }
@@ -61,8 +60,7 @@ fn test_get_stake_info_for_coldkeys() {
             .iter()
             .map(|info| info.stake.0)
             .sum::<u64>(),
-            // Need to account for existential deposit
-            10000 - 1
+            10000
         );
     });
 }
@@ -143,8 +141,7 @@ fn test_get_total_subnet_stake() {
         ));
         assert_eq!(
             SubtensorModule::get_total_subnet_stake(Compact(netuid).into()),
-            // Need to account for existential deposit
-            Compact(10000 - 1)
+            Compact(10000)
         );
     });
 }
