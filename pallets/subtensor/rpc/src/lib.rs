@@ -86,7 +86,7 @@ impl From<Error> for ErrorObjectOwned {
 impl From<Error> for i32 {
     fn from(e: Error) -> i32 {
         match e {
-            Error::RuntimeError(e) => 1,
+            Error::RuntimeError(_) => 1,
         }
     }
 }

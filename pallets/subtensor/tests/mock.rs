@@ -10,7 +10,7 @@ use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage, DispatchResult,
+    BuildStorage,
 };
 
 use pallet_collective::MemberCount;
