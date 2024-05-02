@@ -1298,30 +1298,11 @@ fn test_full_with_delegating() {
         SubtensorModule::set_max_allowed_uids(netuid, 4); // Allow all 4 to be registered at once
         SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
 
-        // Neither key can add stake because they dont have fundss.
-        assert_eq!(
-            SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey0,
-                netuid,
-                60000
-            ),
-            Err(Error::<Test>::NotEnoughBalanceToStake.into())
-        );
-        assert_eq!(
-            SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-                hotkey1,
-                netuid,
-                60000
-            ),
-            Err(Error::<Test>::NotEnoughBalanceToStake.into())
-        );
-
         // Add balances.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 60000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 60000);
 
+        // Neither key can add stake because they are not registered (registration check comes before balance check)
         // We have enough, but the keys are not registered.
         assert_eq!(
             SubtensorModule::add_subnet_stake(
@@ -1479,8 +1460,8 @@ fn test_full_with_delegating() {
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 100);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 100);
-        //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey0 ), 100 );
-        //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey1 ), 100 );
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey0), 100);
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey1), 100);
         assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Cant remove these funds because we are not delegating.
@@ -1583,48 +1564,99 @@ fn test_full_with_delegating() {
             netuid,
             300
         ));
+
+        let mut substake_cold0_hot0 = 200;
+        let mut substake_cold0_hot1 = 200;
+        let mut substake_cold1_hot0 = 300;
+        let mut substake_cold1_hot1 = 200;
+
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
-            200
+            substake_cold0_hot0
         );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
-            200
+            substake_cold0_hot1
         );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
-            300
+            substake_cold1_hot0
         );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
-            200
+            substake_cold1_hot1
         );
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 500);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 400);
-        //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey0 ), 400 );
-        //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey1 ), 500 );
-        assert_eq!(SubtensorModule::get_total_stake(), 900);
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey0),
+            substake_cold0_hot0 + substake_cold1_hot0
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey1),
+            substake_cold0_hot1 + substake_cold1_hot1
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&coldkey0),
+            substake_cold0_hot0 + substake_cold0_hot1
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&coldkey1),
+            substake_cold1_hot0 + substake_cold1_hot1
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            substake_cold0_hot0 + substake_cold0_hot1 + substake_cold1_hot0 + substake_cold1_hot1
+        );
 
         // Lets emit inflation through the hot and coldkeys.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 1000);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 1000);
+
+        let take0 = SubtensorModule::get_delegate_take(&hotkey0, netuid) as f32 / u16::MAX as f32;
+        let take1 = SubtensorModule::get_delegate_take(&hotkey1, netuid) as f32 / u16::MAX as f32;
+
+        let cold0hot0weight =
+            substake_cold0_hot0 as f32 / (substake_cold0_hot0 + substake_cold1_hot0) as f32;
+        let cold0hot1weight =
+            substake_cold0_hot1 as f32 / (substake_cold0_hot1 + substake_cold1_hot1) as f32;
+        let cold1hot0weight =
+            substake_cold1_hot0 as f32 / (substake_cold0_hot0 + substake_cold1_hot0) as f32;
+        let cold1hot1weight =
+            substake_cold1_hot1 as f32 / (substake_cold0_hot1 + substake_cold1_hot1) as f32;
+        let delegate_take_hot0 = 1000. * take0;
+        let delegate_take_hot1 = 1000. * take1;
+        let emission0_remainder = 1000. - delegate_take_hot0;
+        let emission1_remainder = 1000. - delegate_take_hot1;
+
+        // cold0 owns hot0, hence delegate_take_hot0 goes to cold0 substake. +1 for rounding errors
+        substake_cold0_hot0 +=
+            (delegate_take_hot0 + emission0_remainder * cold0hot0weight) as u64 + 1;
+        substake_cold1_hot0 += (emission0_remainder * cold1hot0weight) as u64;
+        substake_cold0_hot1 += (emission1_remainder * cold0hot1weight) as u64;
+        substake_cold1_hot1 +=
+            (delegate_take_hot1 + emission1_remainder * cold1hot1weight) as u64 + 1;
+        // initial + rewards, server emission goes to cold0 in dtao
+        let total_hot0 = substake_cold0_hot0 + substake_cold1_hot0;
+        let total_hot1 = substake_cold0_hot1 + substake_cold1_hot1;
+        // server emission doesn't go to total stake in dtao
+        let total = total_hot0 + total_hot1;
+
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
-            601
-        ); // 200 + 1000 x ( 200 / 500 ) = 200 + 400 = 600 ~= 601
+            substake_cold0_hot0
+        );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
-            700
-        ); // 200 + 1000 x ( 200 / 400 ) = 200 + 500 = 700
+            substake_cold0_hot1
+        );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
-            899
-        ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
+            substake_cold1_hot0
+        );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
-            700
-        ); // 200 + 1000 x ( 200 / 400 ) = 300 + 600 = 700
-        assert_eq!(SubtensorModule::get_total_stake(), 2900); // 600 + 700 + 900 + 700 = 2900
+            substake_cold1_hot1
+        );
+        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // // Try unstaking too much.
         assert_eq!(
@@ -1691,21 +1723,26 @@ fn test_full_with_delegating() {
         ));
 
         // All the amounts have been decreased.
+        substake_cold0_hot0 -= 100;
+        substake_cold1_hot0 -= 100;
+        substake_cold0_hot1 -= 100;
+        substake_cold1_hot1 -= 100;
+
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
-            501
+            substake_cold0_hot0
         );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1, netuid),
-            600
+            substake_cold0_hot1
         );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
-            799
+            substake_cold1_hot0
         );
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
-            600
+            substake_cold1_hot1
         );
 
         // Lets register and stake a new key.
