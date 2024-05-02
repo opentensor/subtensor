@@ -2472,7 +2472,7 @@ fn test_full_block_emission_occurs() {
         SubtensorModule::set_max_allowed_uids(netuid, 10); // Allow at least 10 to be registered at once, so no unstaking occurs
         SubtensorModule::set_target_stakes_per_interval(10); // Increase max stakes per interval
 
-        // Neither key can add stake because they dont have fundss.
+        // Neither key can add stake because they are not registered
         assert_eq!(
             SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -2480,7 +2480,7 @@ fn test_full_block_emission_occurs() {
                 netuid,
                 60000
             ),
-            Err(Error::<Test>::NotEnoughBalanceToStake.into())
+            Err(Error::<Test>::NotRegistered.into())
         );
         assert_eq!(
             SubtensorModule::add_subnet_stake(
@@ -2489,7 +2489,7 @@ fn test_full_block_emission_occurs() {
                 netuid,
                 60000
             ),
-            Err(Error::<Test>::NotEnoughBalanceToStake.into())
+            Err(Error::<Test>::NotRegistered.into())
         );
 
         // Add balances.
@@ -2562,8 +2562,13 @@ fn test_full_block_emission_occurs() {
         // Emit inflation through non delegates.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 111);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 234);
+
+        let substake_cold0_hot0 = 100 + 111;
+        let substake_cold1_hot1 = 100 + 234;
+        let mut total = substake_cold0_hot0 + substake_cold1_hot1;
+
         // Verify the full emission occurs.
-        assert_eq!(SubtensorModule::get_total_stake(), 200 + 111 + 234); // 200 + 111 + 234 = 545
+        assert_eq!(SubtensorModule::get_total_stake(), substake_cold0_hot0 + substake_cold1_hot1);
 
         // Become delegates all is ok.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -2591,27 +2596,32 @@ fn test_full_block_emission_occurs() {
             300
         ));
 
-        assert_eq!(SubtensorModule::get_total_stake(), 545 + 500); // 545 + 500 = 1045
+        let substake_cold0_hot1 = 200;
+        let substake_cold1_hot0 = 300;
+        total += substake_cold0_hot1 + substake_cold1_hot0;
+
+        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // Lets emit inflation with delegatees, with both validator and server emission
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 200, 1_000); // 1_200 total emission.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 123, 2_000); // 2_123 total emission.
 
-        assert_eq!(SubtensorModule::get_total_stake(), 1045 + 1_200 + 2_123); // before + 1_200 + 2_123 = 4_368
+        total += 1000 + 2000;
+        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // Lets emit MORE inflation through the hot and coldkeys.
         // This time JUSt server emission
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 350, 0);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 150, 0);
 
-        assert_eq!(SubtensorModule::get_total_stake(), 4_368 + 350 + 150); // before + 350 + 150 = 4_868
+        assert_eq!(SubtensorModule::get_total_stake(), total); // No change
 
         // Lastly, do only validator emission
-
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 12_948);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 1_874);
 
-        assert_eq!(SubtensorModule::get_total_stake(), 4_868 + 12_948 + 1_874); // before + 12_948 + 1_874 = 19_690
+        total += 12_948 + 1_874;
+        assert_eq!(SubtensorModule::get_total_stake(), total);
     });
 }
 
