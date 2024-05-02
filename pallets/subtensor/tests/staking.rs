@@ -4165,3 +4165,67 @@ fn set_delegate_takes_enforces_rate_limit() {
         );
     });
 }
+
+
+#[test]
+fn test_log_subnet_emission_values_dynamic_registration() {
+    new_test_ext(1).execute_with(|| {
+        let num_networks = 10; 
+        
+
+        // Create dynamic subnets through user registration
+        for i in 1..=num_networks {
+            let netuid = i;
+            let tempo = 13;
+            let block_number = 0;
+            let cold_id = i * 100; // Generate a unique cold ID for each network
+            let hot_id = cold_id + 1; // Generate a unique hot ID for each network
+            
+
+            // Add the network
+            add_network(netuid, tempo, 0);
+
+            // Create work for the user
+            let hotkey_account_id = U256::from(hot_id);
+            let coldkey_account_id = U256::from(cold_id);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 10000);
+
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                i as u64,
+                &hotkey_account_id,
+            );
+
+
+
+            // Register the user in the network by signing
+            assert_ok!(SubtensorModule::register(
+                <<Test as Config>::RuntimeOrigin>::signed(hotkey_account_id),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                hotkey_account_id,
+                coldkey_account_id
+            ));
+
+            // Become Delelegate
+            assert_ok!(SubtensorModule::do_become_delegate(
+                RuntimeOrigin::signed(coldkey_account_id),
+                hotkey_account_id
+            ));
+        }
+        run_to_block(1000);
+        // step_block(1000);
+        // Log the emission values for each subnet using subnet_info
+        for i in 1..=num_networks {
+            let netuid = i;
+            let subnet_info = SubtensorModule::get_subnet_info(netuid).unwrap();
+            let subnet_emission_value = SubtensorModule::get_subnet_emission_value(netuid);
+            log::info!("tao per alpha price = {:?}", SubtensorModule::get_tao_per_alpha_price(netuid));
+            log::info!("Subnet {}: Emission = {:?}", netuid, subnet_info.emission_values);
+            log::info!("Subnet {}: Emission Value = {:?}", netuid, subnet_emission_value);
+        }
+    });
+}

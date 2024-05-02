@@ -2,6 +2,7 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use sp_core::U256;
+use substrate_fixed::types::I64F64;
 mod mock;
 
 // To run just the tests in this file, use the following command:
@@ -213,7 +214,8 @@ fn test_stake_unstake() {
     })
 }
 
-
+// To run this test, use the following command:
+// cargo test -p pallet-subtensor --test dtao test_calculate_tempos
 fn round_to_significant_figures(num: u64, significant_figures: u32) -> u64 {
     if num == 0 {
         return 0;
@@ -223,4 +225,56 @@ fn round_to_significant_figures(num: u64, significant_figures: u32) -> u64 {
 
     // Scale down, round, and scale up
     ((num as f64 / scale as f64).round() as u64) * scale
+}
+#[test]
+fn test_calculate_tempos() {
+    new_test_ext(1).execute_with(|| {
+        let netuids = vec![1, 2, 3];
+        let k = I64F64::from_num(10); // Example constant K
+        let prices = vec![I64F64::from_num(100.0), I64F64::from_num(200.0), I64F64::from_num(300.0)];
+
+        let expected_tempos = vec![
+            (1, 60), // Calculated tempo for netuid 1
+            (2, 30), // Calculated tempo for netuid 2
+            (3, 20)  // Calculated tempo for netuid 3
+        ];
+
+        let tempos = SubtensorModule::calculate_tempos(&netuids, k, &prices).unwrap();
+        assert_eq!(tempos, expected_tempos, "Tempos calculated incorrectly");
+
+        // Edge case: Empty netuids and prices
+        let empty_netuids = vec![];
+        let empty_prices = vec![];
+        let empty_tempos = SubtensorModule::calculate_tempos(&empty_netuids, k, &empty_prices).unwrap();
+        assert!(empty_tempos.is_empty(), "Empty tempos should be an empty vector");
+
+        // Edge case: Zero prices
+        let zero_prices = vec![I64F64::from_num(0.0), I64F64::from_num(0.0), I64F64::from_num(0.0)];
+        let zero_tempos = SubtensorModule::calculate_tempos(&netuids, k, &zero_prices).unwrap();
+        assert_eq!(zero_tempos, vec![(1, 0), (2, 0), (3, 0)], "Zero prices should lead to zero tempos");
+
+        // Edge case: Negative prices
+        let negative_prices = vec![I64F64::from_num(-100.0), I64F64::from_num(-200.0), I64F64::from_num(-300.0)];
+        let negative_tempos = SubtensorModule::calculate_tempos(&netuids, k, &negative_prices).unwrap();
+        assert_eq!(negative_tempos, expected_tempos, "Negative prices should be treated as positive for tempo calculation");
+
+        // Edge case: Very large prices
+        let large_prices = vec![I64F64::from_num(1e12), I64F64::from_num(2e12), I64F64::from_num(3e12)];
+        let large_tempos = SubtensorModule::calculate_tempos(&netuids, k, &large_prices).unwrap();
+        assert_eq!(large_tempos, expected_tempos, "Large prices should scale similarly in tempo calculation");
+
+        // Edge case: Mismatched vector sizes
+        let mismatched_prices = vec![I64F64::from_num(100.0), I64F64::from_num(200.0)]; // Missing price for netuid 3
+        assert!(SubtensorModule::calculate_tempos(&netuids, k, &mismatched_prices).is_err(), "Mismatched vector sizes should result in an error");
+
+        // Edge case: Extremely small non-zero prices
+        let small_prices = vec![I64F64::from_num(1e-12), I64F64::from_num(1e-12), I64F64::from_num(1e-12)];
+        let small_tempos = SubtensorModule::calculate_tempos(&netuids, k, &small_prices).unwrap();
+        assert_eq!(small_tempos, vec![(1, 30), (2, 30), (3, 30)], "Extremely small prices should return same tempos");
+
+        // Edge case: Prices with high precision
+        let high_precision_prices = vec![I64F64::from_num(100.123456789), I64F64::from_num(200.123456789), I64F64::from_num(300.123456789)];
+        let high_precision_tempos = SubtensorModule::calculate_tempos(&netuids, k, &high_precision_prices).unwrap();
+        assert_eq!(high_precision_tempos, vec![(1, 59), (2, 30), (3, 20)], "High precision prices should affect tempo calculations");
+    });
 }
