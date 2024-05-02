@@ -141,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 ///
 /// Change this to adjust the block time.
 #[cfg(feature = "pow-faucet")]
-pub const MILLISECS_PER_BLOCK: u64 = 1000;
+pub const MILLISECS_PER_BLOCK: u64 = 4000;
 
 #[cfg(not(feature = "pow-faucet"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
