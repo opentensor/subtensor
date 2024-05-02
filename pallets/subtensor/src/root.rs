@@ -863,7 +863,6 @@ impl<T: Config> Pallet<T> {
         Self::set_min_burn(netuid, 1);
         Self::set_min_difficulty(netuid, u64::MAX);
         Self::set_max_difficulty(netuid, u64::MAX);
-        Self::set_tempo(netuid, 10);
 
         // Make network parameters explicit.
         if !Tempo::<T>::contains_key(netuid) {
