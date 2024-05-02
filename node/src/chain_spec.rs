@@ -2,9 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use node_subtensor_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig,
-    SenateMembersConfig, Signature, SubtensorModuleConfig, SudoConfig, SystemConfig,
-    TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
+    AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;

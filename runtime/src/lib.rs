@@ -18,7 +18,7 @@ use pallet_grandpa::{
 
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
-    pallet_prelude::{DispatchError, DispatchResult, Get},
+    pallet_prelude::{DispatchError, Get},
     traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
 };
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
