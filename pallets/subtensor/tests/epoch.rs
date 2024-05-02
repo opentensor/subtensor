@@ -2070,3 +2070,111 @@ fn test_validator_permits() {
 //     }
 //     println!("]");
 // }
+
+#[test]
+fn test_bond_growth_honest_vs_copier() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let max_stake_per_validator: u64 = 328_125_000_000_000;
+        let epochs: u16 = 16;
+        let network_n: u16 = 512;
+        let validators_n: u16 = 64;
+        let honest_hot_key: U256 = U256::from(8);
+        let copier_hot_key: U256 = U256::from(7);
+
+        let (validators, servers) = distribute_nodes(
+            validators_n as usize,
+            network_n as usize,
+            0_usize,
+        );
+
+        pallet_subtensor::migration::migrate_create_root_network::<Test>();
+        SubtensorModule::set_tempo(0, 1);
+
+        init_run_epochs(
+            netuid,
+            network_n,
+            &validators,
+            &servers,
+            epochs,
+            max_stake_per_validator,
+            false,
+            &[],
+            false,
+            &[],
+            false,
+            false,
+            0,
+            false,
+        );
+
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+
+        let n = 10;
+        SubtensorModule::set_max_registrations_per_block(0, n as u16);
+        SubtensorModule::set_target_registrations_per_interval(0, n as u16);
+        SubtensorModule::set_max_allowed_uids(0, n as u16);
+
+        for i in 1..=n {
+            let hotkey_account_id: U256 = U256::from(i);
+            let coldkey_account_id: U256 = U256::from(i + 456);
+            SubtensorModule::add_balance_to_coldkey_account(
+                &coldkey_account_id,
+                1_000_000_000_000_000,
+            );
+            assert_ok!(SubtensorModule::root_register(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+            ));
+            assert_ok!(SubtensorModule::add_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+                hotkey_account_id,
+                1000
+            ));
+        }
+
+        let mut honest_bonds: u64 = 0;
+        let mut honest_dividends: u64 = 0;
+        let mut copy_cat_bonds: u64 = 0;
+        let mut copy_cat_dividends: u64 = 0;
+
+        let weight_keys: Vec<u16> = vec![0, 1];
+        let weights: Vec<u16> = vec![10, 20];
+
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(honest_hot_key),
+            netuid,
+            weight_keys.clone(),
+            weights.clone(),
+            0,
+        ));
+
+
+        for epoch in 1..=epochs as usize {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+
+            if epoch == 1 {
+                assert_ok!(SubtensorModule::set_weights(
+                    RuntimeOrigin::signed(copier_hot_key),
+                    netuid,
+                    weight_keys.clone(),
+                    weights.clone(),
+                    0,
+                ));
+            }
+
+            for uid in 1..=(n / 2) {
+                honest_dividends += SubtensorModule::get_dividends_for_uid(netuid, uid) as u64;
+                honest_bonds += SubtensorModule::get_bonds(netuid)[uid as usize].iter().sum::<I32F32>().to_num::<u64>();
+            }
+            for uid in (n / 2)..n {
+                copy_cat_dividends += SubtensorModule::get_dividends_for_uid(netuid, uid) as u64;
+                copy_cat_bonds += SubtensorModule::get_bonds(netuid)[uid as usize].iter().sum::<I32F32>().to_num::<u64>();
+            }
+
+            let divergence = (honest_dividends - copy_cat_dividends) as f64 / honest_dividends.max(copy_cat_dividends) as f64 * 100.0;
+            log::info!("Epoch {}: Honest Dividends = {}, Honest Bonds = {}, Copy Cat Dividends = {}, Copy Cat Bonds = {}, Divergence = {:.2}%", epoch, honest_dividends, honest_bonds, copy_cat_dividends, copy_cat_bonds, divergence);
+            assert!(honest_dividends > copy_cat_dividends && honest_bonds > copy_cat_bonds);
+        }
+    });
+}
