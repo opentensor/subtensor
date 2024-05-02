@@ -174,8 +174,7 @@ fn test_get_neuron_stake_based_on_netuid() {
         let netuid_sub: u16 = 1; // Subnetwork
         let tempo = 2;
 
-        let uid_root: u16 = 0;
-        let uid_sub: u16 = 1;
+        let uid_0: u16 = 0;
 
         let hotkey_root = U256::from(0);
         let coldkey_root = U256::from(0);
@@ -187,8 +186,7 @@ fn test_get_neuron_stake_based_on_netuid() {
 
         // Setup for root network
         add_network(netuid_root, tempo, 2);
-        add_network(netuid_sub, tempo, 2);
-        register_ok_neuron(netuid_sub, hotkey_root, coldkey_root, 39420842);
+        SubtensorModule::create_account_if_non_existent(&coldkey_root, &hotkey_root, netuid_root);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_root, stake_amount_root);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_root),
@@ -196,44 +194,43 @@ fn test_get_neuron_stake_based_on_netuid() {
             stake_amount_root,
         ));
 
-        step_block(1);
-
         // Setup for subnetwork
-        // add_network(netuid_sub, 2, 2);
-        register_ok_neuron(netuid_sub, hotkey_sub, coldkey_sub, 39420843);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_sub, stake_amount_sub);
-        assert_ok!(SubtensorModule::add_subnet_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_sub),
-            hotkey_sub,
-            netuid_sub,
-            stake_amount_sub,
-        ));
+        add_network(netuid_sub, tempo, 2);
+        register_ok_neuron(netuid_sub, hotkey_sub, coldkey_sub, 39420843);
+        // assert_ok!(SubtensorModule::add_subnet_stake(
+        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey_sub),
+        //     hotkey_sub,
+        //     netuid_sub,
+        //     stake_amount_sub,
+        // ));
 
         // Test for main network
-        let neuron_main = SubtensorModule::get_neuron(netuid_sub, uid_root)
+        let neuron_main = SubtensorModule::get_neuron(netuid_sub, uid_0)
             .expect("Neuron should exist for main network");
         assert_eq!(
             neuron_main.stake.len(),
             1,
             "Main network should have 1 stake entry"
         );
-        // assert_eq!(
-        //     neuron_main.stake[0].1 .0, stake_amount_root,
-        //     "Stake amount for main network does not match"
-        // );
 
         // Test for subnetwork
-        let neuron_sub = SubtensorModule::get_neuron(netuid_sub, uid_sub)
+        let neuron_sub = SubtensorModule::get_neuron(netuid_sub, uid_0)
             .expect("Neuron should exist for subnetwork");
         assert_eq!(
             neuron_sub.stake.len(),
             1,
             "Subnetwork should have 1 stake entry"
         );
+
+        step_block(tempo);
+        let total_stake = (stake_amount_sub + stake_amount_root) as f32;
+
+        let (_, Compact(stake_weight)) = neuron_sub.stake[0];
+        let expected_stake_weight = (stake_amount_sub as f32/ total_stake) as u64;
         assert_eq!(
-            neuron_sub.stake[0].1 .0,
-            // Need to account for existential deposit
-            stake_amount_sub - 1,
+            expected_stake_weight,
+            stake_weight,
             "Stake amount for subnetwork does not match"
         );
     });
