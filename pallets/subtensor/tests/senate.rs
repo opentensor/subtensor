@@ -1,7 +1,8 @@
 mod mock;
 use mock::*;
 
-use frame_support::{assert_noop, assert_ok, codec::Encode};
+use codec::Encode;
+use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
 use sp_core::{bounded_vec, H256, U256};
 use sp_runtime::{

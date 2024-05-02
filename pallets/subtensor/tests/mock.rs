@@ -1,5 +1,5 @@
+use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
-use frame_support::traits::Hash;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
@@ -64,6 +64,7 @@ pub type Balance = u64;
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
@@ -77,10 +78,10 @@ impl pallet_balances::Config for Test {
 
     type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
-    type MaxHolds = ();
     type MaxFreezes = ();
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
@@ -226,14 +227,14 @@ impl Get<MemberCount> for GetSenateMemberCount {
 }
 
 pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
+impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
     fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
         Triumvirate::remove_votes(hotkey)
     }
 
     fn add_vote(
         hotkey: &AccountId,
-        proposal: Hash,
+        proposal: H256,
         index: u32,
         approve: bool,
     ) -> Result<bool, sp_runtime::DispatchError> {
