@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
                     if let Some((w, _)) = weight
-                        .into_iter()
+                        .iter_mut()
                         .zip(&subnet_list)
                         .find(|(_, subnet)| *subnet == netuid)
                     {

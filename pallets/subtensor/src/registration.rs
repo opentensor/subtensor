@@ -542,9 +542,9 @@ impl<T: Config> Pallet<T> {
         // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
         second_half.copy_from_slice(&hotkey_bytes[..32]);
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(&full_bytes[..]);
-        let seal_hash = H256::from_slice(&keccak_256_seal_hash_vec);
+        
 
-        seal_hash
+        H256::from_slice(&keccak_256_seal_hash_vec)
     }
 
     pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {
