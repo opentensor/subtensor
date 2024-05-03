@@ -159,7 +159,7 @@ fn verify_call_with_proxy_type(proxy_type: &ProxyType, call: &RuntimeCall) {
 
 #[test]
 fn test_proxy_pallet() {
-    let proxy_types = [
+    let _proxy_types = [
         ProxyType::Any,
         ProxyType::Owner,
         ProxyType::NonCritical,
@@ -172,7 +172,7 @@ fn test_proxy_pallet() {
         ProxyType::Registration,
     ];
 
-    let calls = [
+    let _calls = [
         call_transfer,
         call_remark,
         call_owner_util,
