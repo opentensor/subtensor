@@ -1660,13 +1660,18 @@ pub mod pallet {
         ///
         /// ## Complexity
         /// - O(1).
+        #[allow(deprecated)]
         #[pallet::call_index(52)]
-        #[pallet::weight((*_weight, call.get_dispatch_info().class, Pays::No))]
+        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::No))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
-            _weight: Weight,
+            weight: Weight,
         ) -> DispatchResultWithPostInfo {
+            // We dont need to check the weight witness, suppress warning.
+            // See https://github.com/paritytech/polkadot-sdk/pull/1818.
+            let _ = weight;
+
             // This is a public call, so we ensure that the origin is a council majority.
             T::CouncilOrigin::ensure_origin(origin)?;
 
