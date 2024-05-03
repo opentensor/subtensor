@@ -87,7 +87,8 @@ fn test_get_neuron_subnet_staking_info() {
         let uid: u16 = 0;
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(12);
-        let stake_amount: u64 = 1;
+        let stake_amount = 100;
+        let stake_weight = u16::MAX as u64;
 
         add_network(netuid, tempo, modality);
         register_ok_neuron(netuid, hotkey0, coldkey0, 39420842);
@@ -100,11 +101,13 @@ fn test_get_neuron_subnet_staking_info() {
             stake_amount,
         ));
 
+        step_block(tempo);
+
         let neuron = SubtensorModule::get_neuron_lite(netuid, uid);
         log::info!("neuron: {:?}", neuron);
         assert_eq!(
             neuron.unwrap().stake,
-            vec![(coldkey0, Compact(stake_amount))]
+            vec![(coldkey0, Compact(stake_weight))]
         );
     });
 }
