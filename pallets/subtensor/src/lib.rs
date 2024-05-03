@@ -1376,7 +1376,7 @@ pub mod pallet {
         // 	* 'take' (u16):
         // 		- The new stake proportion that this hotkey takes from delegations.
         //        The new value can be between 0 and 11_796 and should be strictly
-        //        lower than the previous value. It T is the new value (rational number),
+        //        lower than the previous value. If T is the new value (rational number),
         //        the the parameter is calculated as [65535 * T]. For example, 1% would be
         //        [0.01 * 65535] = [655.35] = 655
         //
@@ -1416,13 +1416,13 @@ pub mod pallet {
         // 	* 'take' (u16):
         // 		- The new stake proportion that this hotkey takes from delegations.
         //        The new value can be between 0 and 11_796 and should be strictly
-        //        greater than the previous value. It T is the new value (rational number),
+        //        greater than the previous value. If T is the new value (rational number),
         //        the the parameter is calculated as [65535 * T]. For example, 1% would be
         //        [0.01 * 65535] = [655.35] = 655
         //
         // # Event:
-        // 	* TakeDecreased;
-        // 		- On successfully setting a decreased take for this hotkey.
+        // 	* TakeIncreased;
+        // 		- On successfully setting a increased take for this hotkey.
         //
         // # Raises:
         // 	* 'NotRegistered':
@@ -1432,7 +1432,7 @@ pub mod pallet {
         // 		- The hotkey we are delegating is not owned by the calling coldkey.
         //
         // 	* 'InvalidTransaction':
-        // 		- The delegate is setting a take which is not lower than the previous.
+        // 		- The delegate is setting a take which is not greater than the previous.
         //
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
