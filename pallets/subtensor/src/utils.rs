@@ -367,14 +367,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::DefaultTakeSet(default_take));
     }
 
-    pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
-        SubnetLocked::<T>::insert(netuid, amount);
-    }
-
-    pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
-        SubnetLocked::<T>::get(netuid)
-    }
-
     // ========================
     // ========= Sudo =========
     // ========================

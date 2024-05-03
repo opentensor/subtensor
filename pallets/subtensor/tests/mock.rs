@@ -44,6 +44,9 @@ pub type BalanceCall = pallet_balances::Call<Test>;
 #[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
 
+#[allow(dead_code)]
+pub type PalletBalances = pallet_balances::Pallet<Test>;
+
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
@@ -112,7 +115,7 @@ parameter_types! {
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
-    pub const ExistentialDeposit: Balance = 1;
+    pub const ExistentialDeposit: Balance = 500; // use value that's currently on Finney
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;

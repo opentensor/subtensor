@@ -56,6 +56,7 @@ pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
 
         // Update the total issuance in storage
         TotalIssuance::<T>::put(total_issuance_value);
+        weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
 
     // Update the storage version to 6
