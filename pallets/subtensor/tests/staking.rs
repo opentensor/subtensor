@@ -81,7 +81,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         );
 
         // Check if balance has decreased
-        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 1);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), ExistentialDeposit::get());
 
         // Check if total stake has increased accordingly.
         assert_eq!(SubtensorModule::get_total_stake(), 10000);
@@ -3398,8 +3398,8 @@ fn test_subnet_stake_calculation() {
         // Setup constants
         const NUM_SUBNETS: u16 = 32;
         const NUM_NEURONS_PER_SUBNET: u16 = 10;
-        const ROOT_STAKE_PER_NEURON: u64 = 1000; // Stake at the root level per neuron
-        const SUBNET_STAKE_PER_NEURON: u64 = 100; // Stake at the subnet level per neuron
+        const ROOT_STAKE_PER_NEURON: u64 = 10000; // Stake at the root level per neuron
+        const SUBNET_STAKE_PER_NEURON: u64 = 1000; // Stake at the subnet level per neuron
 
         let root: u16 = 0;
         let tempo: u16 = 13;
@@ -3560,7 +3560,7 @@ fn test_three_subnets_with_different_stakes() {
         const NUM_SUBNETS: u16 = 3; // Only 3 subnets
         const NUM_NEURONS_PER_SUBNET: u16 = 10;
         // Different stake amounts for each subnet
-        const STAKE_AMOUNTS: [u64; NUM_SUBNETS as usize] = [100, 200, 300];
+        const STAKE_AMOUNTS: [u64; NUM_SUBNETS as usize] = [1000, 2000, 3000];
 
         let root: u16 = 0;
         let tempo: u16 = 13;
@@ -3640,7 +3640,7 @@ fn test_register_neurons_and_stake_different_amounts() {
         // Define the number of neurons and their stake amounts
         const NUM_NEURONS: u16 = 10;
         let stake_amounts: [u64; NUM_NEURONS as usize] =
-            [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
+            [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
 
         for i in 0..NUM_NEURONS {
             let hotkey = U256::from(i);

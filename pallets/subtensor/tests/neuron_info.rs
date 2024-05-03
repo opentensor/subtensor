@@ -87,7 +87,7 @@ fn test_get_neuron_subnet_staking_info() {
         let uid: u16 = 0;
         let hotkey0 = U256::from(1);
         let coldkey0 = U256::from(12);
-        let stake_amount = 100;
+        let stake_amount = 1000;
         let stake_weight = u16::MAX as u64;
 
         add_network(netuid, tempo, modality);
@@ -122,8 +122,8 @@ fn test_get_neuron_subnet_staking_info_multiple() {
 
         add_network(netuid, tempo, modality);
 
-        let stake_amounts: [u64; 5] = [1, 2, 3, 4, 5];
-        let total_stake = 15;
+        let stake_amounts: [u64; 5] = [1000, 2000, 3000, 4000, 5000];
+        let total_stake = 15000;
 
         SubtensorModule::set_max_registrations_per_block(netuid, 10);
         SubtensorModule::set_target_registrations_per_interval(netuid, 10);
@@ -181,11 +181,11 @@ fn test_get_neuron_stake_based_on_netuid() {
 
         let hotkey_root = U256::from(0);
         let coldkey_root = U256::from(0);
-        let stake_amount_root: u64 = 100;
+        let stake_amount_root: u64 = 1000;
 
         let hotkey_sub = U256::from(1);
         let coldkey_sub = U256::from(1);
-        let stake_amount_sub: u64 = 200;
+        let stake_amount_sub: u64 = 2000;
 
         // Setup for root network
         add_network(netuid_root, tempo, 2);

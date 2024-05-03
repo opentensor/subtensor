@@ -5,6 +5,9 @@ use sp_core::U256;
 use substrate_fixed::types::I64F64;
 mod mock;
 
+#[macro_use]
+mod helpers;
+
 // To run just the tests in this file, use the following command:
 // Use the following command to run the tests in this file with verbose logging:
 // RUST_LOG=debug cargo test -p pallet-subtensor --test dtao
@@ -14,8 +17,9 @@ fn test_add_subnet_stake_ok_no_emission() {
     new_test_ext(1).execute_with(|| {
         let hotkey = U256::from(0);
         let coldkey = U256::from(1);
+        let lock_cost = 100_000_000_000; // 100 TAO
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000_000_000); // 100 TAO.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_cost);
         // Check
         // -- that the lock cost is 100 TAO.
         // -- that the balance is 100 TAO.
@@ -23,11 +27,11 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the root alpha pool is empty.
         // -- that the root price is 1.0.
         // -- that the root has zero k value.
-        assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000); // 100 TAO.
+        assert_eq!(SubtensorModule::get_network_lock_cost(), lock_cost);
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey),
-            100_000_000_000
-        ); // 100 TAO.
+            lock_cost
+        );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey, 0),
             0
@@ -63,7 +67,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the new network is dynamic
         assert_eq!( SubtensorModule::get_network_lock_cost(), 200_000_000_000 ); // 200 TAO.
         // TODO:(sam)Decide how to deal with ED , as this account can only stake 199
-        assert_eq!( SubtensorModule::get_coldkey_balance( &coldkey ), 1 ); // 0 TAO.
+        assert_eq!( SubtensorModule::get_coldkey_balance( &coldkey ), ExistentialDeposit::get() ); // 0 TAO.
         assert_eq!( SubtensorModule::get_subnet_owner( 1 ), coldkey );
         assert_eq!( SubtensorModule::get_subnetwork_n( 1 ), 1 );
         assert_eq!( SubtensorModule::get_hotkey_for_net_and_uid( 1, 0 ).unwrap(), hotkey );
@@ -78,8 +82,8 @@ fn test_add_subnet_stake_ok_no_emission() {
         log::info!("Alpha Outstanding is {:?}", SubtensorModule::get_alpha_outstanding(1));
 
         // Register a new network
-        assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // 100 TAO.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 200_000_000_000); // 100 TAO.
+        assert_eq!(SubtensorModule::get_network_lock_cost(), lock_cost * 2);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_cost * 2);
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey
@@ -101,7 +105,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the new network is dynamic
         assert_eq!( SubtensorModule::get_network_lock_cost(), 400_000_000_000 ); // 4 TAO.
                 // TODO:(sam)Decide how to deal with ED , as this account can only stake 199
-        assert_eq!( SubtensorModule::get_coldkey_balance( &coldkey ), 1 ); // 0 TAO.
+        assert_eq!( SubtensorModule::get_coldkey_balance( &coldkey ), ExistentialDeposit::get() ); // 0 TAO.
         assert_eq!( SubtensorModule::get_subnet_owner( 2 ), coldkey );
         assert_eq!( SubtensorModule::get_subnetwork_n( 2 ), 1 );
         assert_eq!( SubtensorModule::get_hotkey_for_net_and_uid( 2, 0 ).unwrap(), hotkey );
@@ -125,10 +129,12 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the alpha reserve is 800 ALPHA
         // -- that the k factor is 100 TAO * 400 ALPHA. (unchanged)
         // TODO:(sam)Decide how to deal with ED , free balance will always be 1
-        assert_eq!(Balances::free_balance(coldkey), 1 );
+        assert_eq!(Balances::free_balance(coldkey), ExistentialDeposit::get());
         // We set this to zero , otherwise the alpha calculation is off due to the fact that many tempos will be run
         // over the default lock period (3 months)
         SubtensorModule::set_subnet_owner_lock_period(0);
+        assert_eq!( SubtensorModule::get_pool_k(2), 200_000_000_000 * 400_000_000_000 );
+        
         run_to_block(3);
         assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -137,41 +143,40 @@ fn test_add_subnet_stake_ok_no_emission() {
             400_000_000_000
         ));
         // assert_eq!( Balances::free_balance(coldkey), 100_000_000_000);
-        // Rounding to 3 decimal places as the actual value is 0.1249998051747815231  Consider using Arithmetic rounding
         // Also use more rigour calculation for slippage via K 
-        assert_eq!( format!("{:.3}", SubtensorModule::get_tao_per_alpha_price(2)), "0.125" );
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(2), 0.125);
         assert_eq!( round_to_significant_figures(SubtensorModule::get_tao_reserve(2), 3), 100_000_000_000 );
         // Yet another ugly approximation
         assert_eq!( round_to_significant_figures(SubtensorModule::get_alpha_reserve(2), 2), 800_000_000_000 );
 
         log::info!("Alpha Reserve is {:?}", SubtensorModule::get_alpha_reserve(2));
         log::info!("Tao Reserve is {:?}", SubtensorModule::get_tao_reserve(2));
-        // Yet another ugly approximation
-        assert_eq!( SubtensorModule::get_pool_k(2), 200_000_000_000 * 400_000_000_000 );
 
         // Let's run a block step.
+        // Alpha pending emission is not zero at start because we already ran to block 3 
+        // and had emissions
         // Check
         // -- that the pending emission for the 2 subnets is correct
         // -- that the pending alpha emission of the 2 subnets is correct.
-        assert_eq!(SubtensorModule::get_alpha_pending_emission(1), 0);
-        assert_eq!(SubtensorModule::get_alpha_pending_emission(2), 0);
-        assert_eq!(SubtensorModule::get_tao_per_alpha_price(1), 1.0);
-        assert_eq!(SubtensorModule::get_tao_per_alpha_price(2), 0.125);
+        let tao = 1_000_000_000;
+
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(1), 0.9901); // diluted because of emissions in run_to_block
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(2), 0.125);
         step_block(1);
-        assert_eq!(SubtensorModule::get_tao_reserve(1), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_tao_reserve(2), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_reserve(1), 101_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_reserve(2), 801_000_000_000);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1), 100_000_000_000u64);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(2).div_ceil(tao), 101);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 102);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 802);
         run_to_block(10);
-        assert_eq!(SubtensorModule::get_tao_reserve(1), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_tao_reserve(2), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_reserve(1), 109_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_reserve(2), 809_000_000_000);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1).div_ceil(tao), 100);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(2).div_ceil(tao), 101);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 108);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 808);
         run_to_block(30);
-        assert_eq!(SubtensorModule::get_tao_reserve(1), 112_269_348_487);
-        assert_eq!(SubtensorModule::get_tao_reserve(2), 101_730_651_499);
-        assert_eq!(SubtensorModule::get_alpha_reserve(1), 129_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_reserve(2), 829_000_000_000);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1).div_ceil(tao), 107);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(2).div_ceil(tao), 101);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 121);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 821);
 
         for _ in 0..100 {
             step_block(1);
