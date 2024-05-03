@@ -927,6 +927,7 @@ pub mod pallet {
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
+        /// the network does not exist.
         NetworkDoesNotExist,
         /// the network already exists.
         NetworkExist,
@@ -941,16 +942,14 @@ pub mod pallet {
         /// the caller requests setting or removing data from a neuron which does not exist in the active set.
         NotRegistered,
         /// unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
-        /// a stake,
         NonAssociatedColdKey,
         /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
         NotEnoughStaketoWithdraw,
         /// the caller requests to set weights but has less than WeightsMinStake
         NotEnoughStakeToSetWeights,
-        //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
+        /// the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
         NotEnoughBalanceToStake,
         /// but for some reason the requested amount could not be withdrawn from the coldkey account.
-        /// the caller tries to add stake,
         BalanceWithdrawalError,
         /// the caller attempts to set non-self weights without being a permitted validator.
         NoValidatorPermit,
@@ -1018,10 +1017,8 @@ pub mod pallet {
         TooManyRegistrationsThisInterval,
         /// a function is only available for benchmarking
         BenchmarkingOnly,
-        /// but it should be
         /// the hotkey passed is not the origin,
         HotkeyOriginMismatch,
-        // Senate errors
         /// attempting to do something to a senate member that is limited
         SenateMember,
         /// a hotkey attempts to do something only senate members can do
