@@ -138,7 +138,8 @@ std = [
 	"serde_json/std",
 	"sp-io/std",
 	"sp-tracing/std",
-	"log/std"
+	"log/std",
+	"sp-storage/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
