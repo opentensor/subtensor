@@ -1179,7 +1179,7 @@ type Migrations = (
     init_storage_versions::Migration,
     account_data_migration::Migration,
     pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_preimage::migration::v1::Migration<Runtime>,
+    pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1194,6 +1194,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    Migrations,
 >;
 
 #[cfg(feature = "runtime-benchmarks")]
