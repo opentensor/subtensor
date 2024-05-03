@@ -1,9 +1,7 @@
 // Allowed since it's actually better to panic during chain setup when there is an error
 #![allow(clippy::unwrap_used)]
 
-use node_subtensor_runtime::{
-    AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY,
-};
+use node_subtensor_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY};
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
@@ -351,19 +349,17 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
         .with_name("Bittensor")
         .with_id("bittensor")
         .with_chain_type(ChainType::Development)
-        .with_genesis_config(
-            localnet_genesis(
-                // Initial PoA authorities (Validators)
-                // aura | grandpa
-                vec![
-                    // Keys for debug
-                    authority_keys_from_seed("Alice"),
-                    authority_keys_from_seed("Bob"),
-                ],
-                // Pre-funded accounts
-                true,
-            )
-)
+        .with_genesis_config(localnet_genesis(
+            // Initial PoA authorities (Validators)
+            // aura | grandpa
+            vec![
+                // Keys for debug
+                authority_keys_from_seed("Alice"),
+                authority_keys_from_seed("Bob"),
+            ],
+            // Pre-funded accounts
+            true,
+        ))
         .with_properties(properties)
         .build())
 }
@@ -408,19 +404,19 @@ fn localnet_genesis(
         }
     }
 
-	let trimvirate_members: Vec<AccountId> = bounded_vec![
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("Bob"),
-                get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            ];
+    let trimvirate_members: Vec<AccountId> = bounded_vec![
+        get_account_id_from_seed::<sr25519::Public>("Alice"),
+        get_account_id_from_seed::<sr25519::Public>("Bob"),
+        get_account_id_from_seed::<sr25519::Public>("Charlie"),
+    ];
 
-	let senate_members: Vec<AccountId> = bounded_vec![
-                get_account_id_from_seed::<sr25519::Public>("Dave"),
-                get_account_id_from_seed::<sr25519::Public>("Eve"),
-                get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-            ];
+    let senate_members: Vec<AccountId> = bounded_vec![
+        get_account_id_from_seed::<sr25519::Public>("Dave"),
+        get_account_id_from_seed::<sr25519::Public>("Eve"),
+        get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+    ];
 
-	serde_json::json!({
+    serde_json::json!({
         "balances": { "balances": balances },
         "aura": {
             "authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>()
