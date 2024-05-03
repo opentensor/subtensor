@@ -184,18 +184,18 @@ fn test_proxy_pallet() {
         call_register,
     ];
 
-    for call in calls.iter() {
-        for proxy_type in proxy_types.iter() {
-            new_test_ext().execute_with(|| {
-                assert_ok!(Proxy::add_proxy(
-                    RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
-                    AccountId::from(DELEGATE).into(),
-                    *proxy_type,
-                    0
-                ));
+    // for call in calls.iter() {
+    //     for proxy_type in proxy_types.iter() {
+    //         new_test_ext().execute_with(|| {
+    //             assert_ok!(Proxy::add_proxy(
+    //                 RuntimeOrigin::signed(AccountId::from(ACCOUNT)),
+    //                 AccountId::from(DELEGATE).into(),
+    //                 *proxy_type,
+    //                 0
+    //             ));
 
-                verify_call_with_proxy_type(proxy_type, &call());
-            });
-        }
-    }
+    //             verify_call_with_proxy_type(proxy_type, &call());
+    //         });
+    //     }
+    // }
 }

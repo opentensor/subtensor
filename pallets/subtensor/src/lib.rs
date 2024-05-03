@@ -927,67 +927,128 @@ pub mod pallet {
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
-        NetworkDoesNotExist,                // --- Thrown when the network does not exist.
-        NetworkExist,                       // --- Thrown when the network already exists.
-        InvalidModality,  // --- Thrown when an invalid modality attempted on serve.
-        InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
-        InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
-        InvalidPort,   // --- Thrown when an invalid port is passed to the serve function.
-        NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
-        NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
-        NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
-        NotEnoughStakeToSetWeights, // ---- Thrown when the caller requests to set weights but has less than WeightsMinStake
-        NotEnoughBalanceToStake, //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
-        BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
-        NoValidatorPermit, // ---- Thrown when the caller attempts to set non-self weights without being a permitted validator.
-        WeightVecNotEqualSize, // ---- Thrown when the caller attempts to set the weight keys and values but these vectors have different size.
-        DuplicateUids, // ---- Thrown when the caller attempts to set weights with duplicate uids in the weight matrix.
-        InvalidUid, // ---- Thrown when a caller attempts to set weight to at least one uid that does not exist in the metagraph.
-        NotSettingEnoughWeights, // ---- Thrown when the dispatch attempts to set weights on chain with fewer elements than are allowed.
-        TooManyRegistrationsThisBlock, // ---- Thrown when registrations this block exceeds allowed number.
-        AlreadyRegistered, // ---- Thrown when the caller requests registering a neuron which already exists in the active set.
-        InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative.
-        InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
-        InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
-        MaxAllowedUIdsNotAllowed, // ---  Thrown if the value is invalid for MaxAllowedUids.
-        CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
-        CouldNotConvertToU64, // -- Thrown when the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
-        StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
-        MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
-        StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.
-        TempoHasNotSet,         // --- Thrown when tempo has not set.
-        InvalidTempo,           // --- Thrown when tempo is not valid.
-        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or received emission rates does not match number of networks.
-        InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
-        AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
-        SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
-        IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
-        ServingRateLimitExceeded, // --- Thrown when an axon or prometheus serving exceeds the rate limit for a registered neuron.
-        BalanceSetError,          // --- Thrown when an error occurs while setting a balance.
-        MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
-        TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
-        TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-        StakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for stakes.
-        UnstakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for unstakes.
-        RegistrationDisabled,     // --- Thrown when registration is disabled
-        TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
-        BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
-        HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
+        NetworkDoesNotExist,
+        /// the network already exists.
+        NetworkExist,
+        /// an invalid modality attempted on serve.
+        InvalidModality,
+        /// the user tries to serve an axon which is not of type        4 (IPv4) or 6 (IPv6).
+        InvalidIpType,
+        /// an invalid IP address is passed to the serve function.
+        InvalidIpAddress,
+        /// an invalid port is passed to the serve function.
+        InvalidPort,
+        /// the caller requests setting or removing data from a neuron which does not exist in the active set.
+        NotRegistered,
+        /// unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
+        /// a stake,
+        NonAssociatedColdKey,
+        /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
+        NotEnoughStaketoWithdraw,
+        /// the caller requests to set weights but has less than WeightsMinStake
+        NotEnoughStakeToSetWeights,
+        //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
+        NotEnoughBalanceToStake,
+        /// but for some reason the requested amount could not be withdrawn from the coldkey account.
+        /// the caller tries to add stake,
+        BalanceWithdrawalError,
+        /// the caller attempts to set non-self weights without being a permitted validator.
+        NoValidatorPermit,
+        /// the caller attempts to set the weight keys and values but these vectors have different size.
+        WeightVecNotEqualSize,
+        /// the caller attempts to set weights with duplicate uids in the weight matrix.
+        DuplicateUids,
+        /// a caller attempts to set weight to at least one uid that does not exist in the metagraph.
+        InvalidUid,
+        /// the dispatch attempts to set weights on chain with fewer elements than are allowed.
+        NotSettingEnoughWeights,
+        /// registrations this block exceeds allowed number.
+        TooManyRegistrationsThisBlock,
+        /// the caller requests registering a neuron which already exists in the active set.
+        AlreadyRegistered,
+        /// the supplied pow hash block is in the future or negative.
+        InvalidWorkBlock,
+        /// the supplied pow hash block does not meet the network difficulty.
+        InvalidDifficulty,
+        /// the supplied pow hash seal does not match the supplied work.
+        InvalidSeal,
+        /// the value is invalid for MaxAllowedUids.
+        MaxAllowedUIdsNotAllowed,
+        /// the dispatch attempts to convert between a u64 and T::balance but the call fails.
+        CouldNotConvertToBalance,
+        /// the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
+        CouldNotConvertToU64,
+        /// the caller requests adding stake for a hotkey to the total stake which already added.
+        StakeAlreadyAdded,
+        /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
+        MaxWeightExceeded,
+        /// the caller attempts to set a storage value outside of its allowed range.
+        StorageValueOutOfRange,
+        /// tempo has not set.
+        TempoHasNotSet,
+        /// tempo is not valid.
+        InvalidTempo,
+        /// number or received emission rates does not match number of networks.
+        EmissionValuesDoesNotMatchNetworks,
+        /// emission ratios are not valid (did not sum up to 10^9).
+        InvalidEmissionValues,
+        /// the hotkey attempts to become delegate when they are already.
+        AlreadyDelegate,
+        /// the hotkey attempts to set weights twice within net_tempo/2 blocks.
+        SettingWeightsTooFast,
+        /// a validator attempts to set weights from a validator with incorrect code base key.
+        IncorrectNetworkVersionKey,
+        /// an axon or prometheus serving exceeds the rate limit for a registered neuron.
+        ServingRateLimitExceeded,
+        /// an error occurs while setting a balance.
+        BalanceSetError,
+        /// number of accounts going to be registered exceeds MaxAllowedUids for the network.
+        MaxAllowedUidsExceeded,
+        /// the caller attempts to set weights with more uids than allowed.
+        TooManyUids,
+        /// a transactor exceeds the rate limit for transactions.
+        TxRateLimitExceeded,
+        /// a transactor exceeds the rate limit for stakes.
+        StakeRateLimitExceeded,
+        /// a transactor exceeds the rate limit for unstakes.
+        UnstakeRateLimitExceeded,
+        /// registration is disabled
+        RegistrationDisabled,
+        /// registration attempt exceeds allowed in interval
+        TooManyRegistrationsThisInterval,
+        /// a function is only available for benchmarking
+        BenchmarkingOnly,
+        /// but it should be
+        /// the hotkey passed is not the origin,
+        HotkeyOriginMismatch,
         // Senate errors
-        SenateMember, // --- Thrown when attempting to do something to a senate member that is limited
-        NotSenateMember, // --- Thrown when a hotkey attempts to do something only senate members can do
-        AlreadySenateMember, // --- Thrown when a hotkey attempts to join the senate while already being a member
-        BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
-        NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
-        IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
-        FaucetDisabled,         // --- Thrown when the faucet is disabled
+        /// attempting to do something to a senate member that is limited
+        SenateMember,
+        /// a hotkey attempts to do something only senate members can do
+        NotSenateMember,
+        /// a hotkey attempts to join the senate while already being a member
+        AlreadySenateMember,
+        /// a hotkey attempts to join the senate without enough stake
+        BelowStakeThreshold,
+        /// a hotkey attempts to join the senate without being a delegate first
+        NotDelegate,
+        /// an incorrect amount of Netuids are passed as input
+        IncorrectNetuidsLength,
+        /// the faucet is disabled
+        FaucetDisabled,
+        /// not subnet owner
         NotSubnetOwner,
+        /// operation not permitted on root subnet
         OperationNotPermittedOnRootSubnet,
-        StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
-        AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
+        /// a hotkey attempts to join the root subnet with too little stake
+        StakeTooLowForRoot,
+        /// all subnets are in the immunity period
+        AllNetworksInImmunity,
+        /// not enough balance
         NotEnoughBalance,
-        NoNeuronIdAvailable, // -- Thrown when no neuron id is available
-        /// Thrown a stake would be below the minimum threshold for nominator validations
+        /// no neuron id is available
+        NoNeuronIdAvailable,
+        /// a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
     }
 
