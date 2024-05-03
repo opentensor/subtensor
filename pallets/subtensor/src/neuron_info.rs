@@ -98,7 +98,8 @@ impl<T: Config> Pallet<T> {
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
         let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), Compact(stake_weight))];
+        let stake: Vec<(T::AccountId, Compact<u64>)> =
+            vec![(coldkey.clone(), Compact(stake_weight))];
 
         let weights = <Weights<T>>::get(netuid, uid)
             .iter()
@@ -178,7 +179,8 @@ impl<T: Config> Pallet<T> {
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
         let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), Compact(stake_weight))];
+        let stake: Vec<(T::AccountId, Compact<u64>)> =
+            vec![(coldkey.clone(), Compact(stake_weight))];
 
         let neuron = NeuronInfoLite {
             hotkey: hotkey,

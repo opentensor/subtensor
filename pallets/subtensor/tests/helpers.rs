@@ -61,10 +61,9 @@ macro_rules! assert_substake_eq {
 #[macro_export]
 macro_rules! assert_substake_approx_eq {
     ($coldkey:expr, $hotkey:expr, $netuid:expr, $amount:expr $(,)?) => {{
-        let subst = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey($coldkey, $hotkey, $netuid) as f64;
-        assert_approx_eq!(
-            subst / 1_000_000_000f64,
-            $amount
-        );
+        let subst =
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey($coldkey, $hotkey, $netuid)
+                as f64;
+        assert_approx_eq!(subst / 1_000_000_000f64, $amount);
     }};
 }

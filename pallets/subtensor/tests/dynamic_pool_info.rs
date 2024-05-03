@@ -13,10 +13,7 @@ fn test_dynamic_pool_info() {
         let lock_cost = SubtensorModule::get_network_lock_cost();
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 500_000_000_000_000); // 500 TAO.
-        log::info!(
-            "Network lock cost is {:?}",
-            lock_cost
-        );
+        log::info!("Network lock cost is {:?}", lock_cost);
 
         // Register a network
         assert_ok!(SubtensorModule::register_network(
@@ -44,7 +41,8 @@ fn test_dynamic_pool_info() {
             "Tao reserve should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.k.0, lock_cost as u128 * lock_cost as u128,
+            initial_pool_info.k.0,
+            lock_cost as u128 * lock_cost as u128,
             "K value should be initialized to lock_cost^2"
         ); // Alpha Reserve x Tao Reserve
         assert_eq!(

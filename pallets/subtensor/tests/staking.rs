@@ -81,7 +81,10 @@ fn test_add_subnet_stake_ok_no_emission() {
         );
 
         // Check if balance has decreased
-        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), ExistentialDeposit::get());
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey_account_id),
+            ExistentialDeposit::get()
+        );
 
         // Check if total stake has increased accordingly.
         assert_eq!(SubtensorModule::get_total_stake(), 10000);
@@ -2568,7 +2571,10 @@ fn test_full_block_emission_occurs() {
         let mut total = substake_cold0_hot0 + substake_cold1_hot1;
 
         // Verify the full emission occurs.
-        assert_eq!(SubtensorModule::get_total_stake(), substake_cold0_hot0 + substake_cold1_hot1);
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            substake_cold0_hot0 + substake_cold1_hot1
+        );
 
         // Become delegates all is ok.
         assert_ok!(SubtensorModule::do_become_delegate(

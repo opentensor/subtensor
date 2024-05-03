@@ -128,45 +128,46 @@ fn test_get_neuron_subnet_staking_info_multiple() {
         SubtensorModule::set_max_registrations_per_block(netuid, 10);
         SubtensorModule::set_target_registrations_per_interval(netuid, 10);
 
-        let expected_stakes: Vec<(U256, Compact<u64>)> = stake_amounts.iter().enumerate().map(|(index, &stake_amount)| {
-            let hotkey = U256::from(index as u64);
-            let coldkey = U256::from((index + 10) as u64);
+        let expected_stakes: Vec<(U256, Compact<u64>)> = stake_amounts
+            .iter()
+            .enumerate()
+            .map(|(index, &stake_amount)| {
+                let hotkey = U256::from(index as u64);
+                let coldkey = U256::from((index + 10) as u64);
 
-            register_ok_neuron(netuid, hotkey, coldkey, 39420842 + index as u64);
-            // Adding more because of existential deposit
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount + 5);
-            assert_ok!(SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                hotkey,
-                netuid,
-                stake_amount,
-            ));
-            let stake_weight = (u16::MAX as f32 * stake_amount as f32 / total_stake as f32) as u64;
+                register_ok_neuron(netuid, hotkey, coldkey, 39420842 + index as u64);
+                // Adding more because of existential deposit
+                SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount + 5);
+                assert_ok!(SubtensorModule::add_subnet_stake(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                    hotkey,
+                    netuid,
+                    stake_amount,
+                ));
+                let stake_weight =
+                    (u16::MAX as f32 * stake_amount as f32 / total_stake as f32) as u64;
 
-            (coldkey, Compact(stake_weight))
-        }).collect();
+                (coldkey, Compact(stake_weight))
+            })
+            .collect();
         log::info!("expected_stakes: {:?}", expected_stakes);
 
         step_block(2);
 
         // Retrieve and assert for each neuron
-        expected_stakes.iter().enumerate().for_each(|(index, &(expected_coldkey, Compact(expected_stake_weight)))| {
-            let uid: u16 = index as u16;
-            let neuron =
-                SubtensorModule::get_neuron_lite(netuid, uid).expect("Neuron should exist");
+        expected_stakes.iter().enumerate().for_each(
+            |(index, &(expected_coldkey, Compact(expected_stake_weight)))| {
+                let uid: u16 = index as u16;
+                let neuron =
+                    SubtensorModule::get_neuron_lite(netuid, uid).expect("Neuron should exist");
 
-            let (coldkey, Compact(stake_weight)) = neuron.stake[0];
+                let (coldkey, Compact(stake_weight)) = neuron.stake[0];
 
-            assert_eq!(
-                expected_coldkey,
-                coldkey,
-            );
-            // Divide by 10 to mask rounding errors
-            assert_eq!(
-                expected_stake_weight/10,
-                stake_weight/10,
-            );
-        });
+                assert_eq!(expected_coldkey, coldkey,);
+                // Divide by 10 to mask rounding errors
+                assert_eq!(expected_stake_weight / 10, stake_weight / 10,);
+            },
+        );
     });
 }
 
@@ -230,10 +231,9 @@ fn test_get_neuron_stake_based_on_netuid() {
         let total_stake = (stake_amount_sub + stake_amount_root) as f32;
 
         let (_, Compact(stake_weight)) = neuron_sub.stake[0];
-        let expected_stake_weight = (stake_amount_sub as f32/ total_stake) as u64;
+        let expected_stake_weight = (stake_amount_sub as f32 / total_stake) as u64;
         assert_eq!(
-            expected_stake_weight,
-            stake_weight,
+            expected_stake_weight, stake_weight,
             "Stake amount for subnetwork does not match"
         );
     });

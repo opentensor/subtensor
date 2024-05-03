@@ -857,8 +857,6 @@ fn test_subnet_staking_emission() {
     });
 }
 
-
-
 #[test]
 fn test_run_coinbase_price_greater_than_1() {
     new_test_ext(1).execute_with(|| {
@@ -889,8 +887,10 @@ fn test_run_coinbase_price_greater_than_1() {
         log::info!("Alpha reserve after: {:?}", alpha_reserve_after);
         let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
         log::info!("Pending alpha after: {:?}", pending_alpha_after);
-        log::info!("Tao emissions: {:?}", SubtensorModule::get_subnet_emission_value(netuid));
-
+        log::info!(
+            "Tao emissions: {:?}",
+            SubtensorModule::get_subnet_emission_value(netuid)
+        );
 
         assert_eq!(tao_reserve_after == tao_reserve_before, true);
         assert_eq!(alpha_reserve_after > alpha_reserve_before, true);
@@ -922,8 +922,16 @@ fn test_run_coinbase_price_less_than_1() {
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
         let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
-        log::info!("Subnet emissions: {:?}", SubtensorModule::get_subnet_emission_value(netuid));
-        log::info!("Subnet emissions from Subnet Info: {:?}", SubtensorModule::get_subnet_info(netuid).unwrap().emission_values);
+        log::info!(
+            "Subnet emissions: {:?}",
+            SubtensorModule::get_subnet_emission_value(netuid)
+        );
+        log::info!(
+            "Subnet emissions from Subnet Info: {:?}",
+            SubtensorModule::get_subnet_info(netuid)
+                .unwrap()
+                .emission_values
+        );
 
         assert_eq!(tao_reserve_after > tao_reserve_before, true);
         assert_eq!(alpha_reserve_after, alpha_reserve_before);
@@ -942,9 +950,9 @@ fn test_10_subnet_take_basic_ok() {
         // Create networks.
         let lock_cost_1 = SubtensorModule::get_network_lock_cost();
         setup_dynamic_network(netuid1, 3u16, 1u16);
-        SubtensorModule::add_balance_to_coldkey_account( &coldkey0, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &coldkey1, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &hotkey0, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
 
         // The tests below assume lock costs of LC1 = 100
         assert_eq!(lock_cost_1, 100_000_000_000);
@@ -964,7 +972,10 @@ fn test_10_subnet_take_basic_ok() {
         assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
         assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 100_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 100_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid1),
+            100_000_000_000
+        );
 
         // Coldkey / hotkey 0 become a delegate
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -1005,7 +1016,10 @@ fn test_10_subnet_take_basic_ok() {
         assert_substake_eq!(&coldkey1, &hotkey0, netuid1, 50_000_000_000);
         assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 200_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 50_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 150_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid1),
+            150_000_000_000
+        );
 
         // Emission
         //
@@ -1036,9 +1050,9 @@ fn test_20_subnet_take_basic_ok() {
         // Create networks.
         let lock_cost_1 = SubtensorModule::get_network_lock_cost();
         setup_dynamic_network(netuid1, 3u16, 1u16);
-        SubtensorModule::add_balance_to_coldkey_account( &coldkey0, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &coldkey1, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &hotkey0, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
 
         // The tests below assume lock costs of LC1 = 100
         assert_eq!(lock_cost_1, 100_000_000_000);
@@ -1058,7 +1072,10 @@ fn test_20_subnet_take_basic_ok() {
         assert_substake_eq!(&coldkey0, &hotkey0, netuid1, 100_000_000_000);
         assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 100_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 100_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid1),
+            100_000_000_000
+        );
 
         // Coldkey / hotkey 0 become a delegate
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -1099,7 +1116,10 @@ fn test_20_subnet_take_basic_ok() {
         assert_substake_eq!(&coldkey1, &hotkey0, netuid1, 50_000_000_000);
         assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 200_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 50_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 150_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid1),
+            150_000_000_000
+        );
 
         // Emission
         //
@@ -1134,10 +1154,10 @@ fn test_two_subnets_take_ok() {
         setup_dynamic_network(netuid1, 3u16, 1u16);
         let lock_cost_2 = SubtensorModule::get_network_lock_cost();
         setup_dynamic_network(netuid2, 3u16, 2u16);
-        SubtensorModule::add_balance_to_coldkey_account( &coldkey0, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &coldkey1, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &hotkey0, 1000_000_000_000 );
-        SubtensorModule::add_balance_to_coldkey_account( &hotkey1, 1000_000_000_000 );
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey1, 1000_000_000_000);
 
         // The tests below assume lock costs of LC1 = LC2 = 100
         assert_eq!(lock_cost_1, 100_000_000_000);
@@ -1162,10 +1182,16 @@ fn test_two_subnets_take_ok() {
         assert_substake_eq!(&coldkey0, &hotkey1, netuid2, 200_000_000_000);
         assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 100_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 100_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid1),
+            100_000_000_000
+        );
         assert_eq!(SubtensorModule::get_tao_reserve(netuid2), 100_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid2), 200_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid2), 200_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid2),
+            200_000_000_000
+        );
 
         // Hotkey 0 becomes a delegate
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -1232,10 +1258,16 @@ fn test_two_subnets_take_ok() {
         assert_substake_eq!(&coldkey1, &hotkey1, netuid2, 100_000_000_000);
         assert_eq!(SubtensorModule::get_tao_reserve(netuid1), 200_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid1), 50_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid1), 150_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid1),
+            150_000_000_000
+        );
         assert_eq!(SubtensorModule::get_tao_reserve(netuid2), 200_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(netuid2), 100_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_outstanding(netuid2), 300_000_000_000);
+        assert_eq!(
+            SubtensorModule::get_alpha_outstanding(netuid2),
+            300_000_000_000
+        );
 
         // Emission
         //

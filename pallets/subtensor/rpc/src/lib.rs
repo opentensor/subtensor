@@ -95,7 +95,7 @@ pub trait SubtensorCustomApi<BlockHash> {
         coldkey_account_vec: TensorBytes,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-    #[method(name= "subnetInfo_getTotalStakeForEachSubnet")]
+    #[method(name = "subnetInfo_getTotalStakeForEachSubnet")]
     fn get_total_stake_for_each_subnet(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "dynamicPoolInfo_getDynamicPoolInfo")]
     fn get_dynamic_pool_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
@@ -511,7 +511,10 @@ where
         })
     }
 
-    fn get_total_stake_for_each_subnet(&self,at:Option<<Block  as  BlockT>::Hash>) -> RpcResult<Vec<u8> > {
+    fn get_total_stake_for_each_subnet(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
@@ -522,6 +525,6 @@ where
                 Some(e.to_string()),
             ))
             .into()
-        })  
+        })
     }
 }

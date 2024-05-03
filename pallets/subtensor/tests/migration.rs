@@ -158,12 +158,18 @@ fn test_total_issuance_global() {
         SubtensorModule::set_max_allowed_uids(netuid, 2); // Set the maximum allowed unique identifiers for the network to 2.
         assert_eq!(SubtensorModule::get_total_issuance(), 0); // initial is zero.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Pick up lock.
-        assert_eq!(SubtensorModule::get_total_issuance(), lockcost + PalletBalances::total_issuance());
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            lockcost + PalletBalances::total_issuance()
+        );
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Test the migration's effect on total issuance after adding balance to a coldkey account.
         let account_balance: u64 = 20000;
-        assert_eq!(SubtensorModule::get_total_issuance(), lockcost + ExistentialDeposit::get()); // Ensure the total issuance starts at 0 before the migration.
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            lockcost + ExistentialDeposit::get()
+        ); // Ensure the total issuance starts at 0 before the migration.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, account_balance);
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Execute the migration to update total issuance.
         assert_eq!(
@@ -229,12 +235,18 @@ fn test_total_issuance_global() {
         run_to_block(2); // Advance to block number 2 to trigger the emission through the subnet.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
-            2 * account_balance + lockcost - burn_cost + new_stake + emission + ExistentialDeposit::get()
+            2 * account_balance + lockcost - burn_cost
+                + new_stake
+                + emission
+                + ExistentialDeposit::get()
         ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
         pallet_subtensor::migration::migration5_total_issuance::<Test>(true); // Test migration does not change amount.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
-            2 * account_balance + lockcost - burn_cost + new_stake + emission + ExistentialDeposit::get()
+            2 * account_balance + lockcost - burn_cost
+                + new_stake
+                + emission
+                + ExistentialDeposit::get()
         ); // Verify the total issuance reflects the staked amount and emission value that has been put through the epoch.
     })
 }

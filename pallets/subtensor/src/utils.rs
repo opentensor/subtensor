@@ -3,7 +3,6 @@ use crate::system::{ensure_root, ensure_signed_or_root};
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
-
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
         o: T::RuntimeOrigin,
