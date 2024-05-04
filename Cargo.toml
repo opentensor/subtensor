@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "integration-tests",
     "node",
     "pallets/commitments",
     "pallets/subtensor",
