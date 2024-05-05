@@ -1011,6 +1011,8 @@ pub mod pallet {
         StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
         AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
         NotEnoughBalance,
+        NotRootSubnet,
+        IsRoot,
         NoNeuronIdAvailable, // -- Thrown when no neuron id is available
         /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
@@ -1329,6 +1331,81 @@ pub mod pallet {
             version_key: u64,
         ) -> DispatchResult {
             Self::do_set_weights(origin, netuid, dests, weights, version_key)
+        }
+
+        // # Args:
+        // 	* `origin`: (<T as frame_system::Config>Origin):
+        // 		- The caller, a hotkey who wishes to set their weights.
+        //
+        // 	* `netuid` (u16):
+        // 		- The network uid we are setting these weights on.
+        //
+        // 	* `hotkey` (T::AccountId):
+        // 		- The hotkey associated with the operation and the calling coldkey.
+        //
+        // 	* `dests` (Vec<u16>):
+        // 		- The edge endpoint for the weight, i.e. j for w_ij.
+        //
+        // 	* 'weights' (Vec<u16>):
+        // 		- The u16 integer encoded weights. Interpreted as rational
+        // 		values in the range [0,1]. They must sum to in32::MAX.
+        //
+        // 	* 'version_key' ( u64 ):
+        // 		- The network version key to check if the validator is up to date.
+        //
+        // # Event:
+        //
+        // 	* WeightsSet;
+        // 		- On successfully setting the weights on chain.
+        //
+        // # Raises:
+        //
+        // 	* NonAssociatedColdKey;
+        // 		- Attempting to set weights on a non-associated cold key.
+        //
+        // 	* 'NetworkDoesNotExist':
+        // 		- Attempting to set weights on a non-existent network.
+        //
+        // 	* 'NotRootSubnet':
+        // 		- Attempting to set weights on a subnet that is not the root network.
+        //
+        // 	* 'WeightVecNotEqualSize':
+        // 		- Attempting to set weights with uids not of same length.
+        //
+        // 	* 'InvalidUid':
+        // 		- Attempting to set weights with invalid uids.
+        //
+        // 	* 'NotRegistered':
+        // 		- Attempting to set weights from a non registered account.
+        //
+        // 	* 'NotSettingEnoughWeights':
+        // 		- Attempting to set weights with fewer weights than min.
+        //
+        //  * 'IncorrectNetworkVersionKey':
+        //      - Attempting to set weights with the incorrect network version key.
+        //
+        //  * 'SettingWeightsTooFast':
+        //      - Attempting to set weights too fast.
+        //
+        // 	* 'NotSettingEnoughWeights':
+        // 		- Attempting to set weights with fewer weights than min.
+        //
+        // 	* 'MaxWeightExceeded':
+        // 		- Attempting to set weights with max value exceeding limit.
+        //
+        #[pallet::call_index(8)]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_root_weights(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
         }
 
         // --- Sets the key as a delegate.
@@ -1978,6 +2055,18 @@ where
                     })
                 } else {
                     Err(InvalidTransaction::Call.into())
+                }
+            }
+            Some(Call::set_root_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority: priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    return Err(InvalidTransaction::Call.into());
                 }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {

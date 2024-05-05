@@ -1,6 +1,6 @@
 mod mock;
 use frame_support::{
-    assert_ok,
+    assert_err, assert_ok,
     dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
 use mock::*;
@@ -32,6 +32,29 @@ fn test_set_weights_dispatch_info_ok() {
 
         assert_eq!(dispatch_info.class, DispatchClass::Normal);
         assert_eq!(dispatch_info.pays_fee, Pays::No);
+    });
+}
+
+#[test]
+fn test_set_weights_is_root_error() {
+    new_test_ext(0).execute_with(|| {
+        let root_netuid: u16 = 0;
+
+        let dests = vec![0];
+        let weights = vec![1];
+        let version_key: u64 = 0;
+        let hotkey = U256::from(1);
+
+        assert_err!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                root_netuid,
+                dests.clone(),
+                weights.clone(),
+                version_key,
+            ),
+            Error::<Test>::IsRoot
+        );
     });
 }
 
