@@ -15,7 +15,7 @@ mod events {
         StakeAdded(T::AccountId, u64),
         /// stake has been removed from the hotkey staking account onto the coldkey account.
         StakeRemoved(T::AccountId, u64),
-        // ---- Event created when a caller successfully sets their weights on a subnetwork.
+        /// a caller successfully sets their weights on a subnetwork.
         WeightsSet(u16, u16),
         /// a new neuron account has been registered to the chain.
         NeuronRegistered(u16, u16, T::AccountId),
@@ -61,7 +61,7 @@ mod events {
         PrometheusServed(u16, T::AccountId),
         /// emission ratios for all networks is set.
         EmissionValuesSet(),
-        // --- Event created to signal that a hotkey has become a delegate.
+        /// a hotkey has become a delegate.
         DelegateAdded(T::AccountId, T::AccountId, u16),
         /// the default take is set.
         DefaultTakeSet(u16),
