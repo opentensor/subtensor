@@ -10,7 +10,7 @@ fn is_pallet_error(segments: &Vec<String>) -> bool {
         "pallet_registry",
         "pallet_subtensor",
     ];
-    // segments for error like pallet name, pallet, Error
+
     if segments.len() != 3 {
         false
     } else {
@@ -33,14 +33,15 @@ fn test_metadata() {
             for ty in types.iter() {
                 let segments = &ty.ty.path.segments;
                 if is_pallet_error(segments) {
-                    // error should be enum type
+                    // error call and event should be enum type
                     assert!(matches!(ty.ty.type_def, TypeDef::Variant(_)));
                     match &ty.ty.type_def {
                         TypeDef::Variant(variants) => {
                             // check docs not empty
                             for variant in variants.variants.iter() {
+                                // print name make it easier to find out failed item
                                 println!("{}", variant.name);
-                                assert_eq!(variant.docs.len(), 1);
+                                assert!(variant.docs.len() > 0);
                                 assert_eq!(variant.docs[0].is_empty(), false);
                             }
                         }

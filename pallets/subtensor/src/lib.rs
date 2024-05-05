@@ -933,7 +933,7 @@ pub mod pallet {
         NetworkExist,
         /// an invalid modality attempted on serve.
         InvalidModality,
-        /// the user tries to serve an axon which is not of type        4 (IPv4) or 6 (IPv6).
+        /// the user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
         InvalidIpType,
         /// an invalid IP address is passed to the serve function.
         InvalidIpAddress,
@@ -941,7 +941,7 @@ pub mod pallet {
         InvalidPort,
         /// the caller requests setting or removing data from a neuron which does not exist in the active set.
         NotRegistered,
-        /// unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
+        /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
         NonAssociatedColdKey,
         /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
         NotEnoughStaketoWithdraw,
@@ -949,7 +949,7 @@ pub mod pallet {
         NotEnoughStakeToSetWeights,
         /// the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
         NotEnoughBalanceToStake,
-        /// but for some reason the requested amount could not be withdrawn from the coldkey account.
+        /// the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         BalanceWithdrawalError,
         /// the caller attempts to set non-self weights without being a permitted validator.
         NoValidatorPermit,
@@ -957,7 +957,7 @@ pub mod pallet {
         WeightVecNotEqualSize,
         /// the caller attempts to set weights with duplicate uids in the weight matrix.
         DuplicateUids,
-        /// a caller attempts to set weight to at least one uid that does not exist in the metagraph.
+        /// the caller attempts to set weight to at least one uid that does not exist in the metagraph.
         InvalidUid,
         /// the dispatch attempts to set weights on chain with fewer elements than are allowed.
         NotSettingEnoughWeights,
