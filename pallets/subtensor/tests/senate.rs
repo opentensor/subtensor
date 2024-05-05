@@ -1,7 +1,8 @@
 mod mock;
 use mock::*;
 
-use frame_support::{assert_noop, assert_ok, codec::Encode};
+use codec::Encode;
+use frame_support::{assert_noop, assert_ok};
 use frame_system::{EventRecord, Phase};
 use sp_core::{bounded_vec, H256, U256};
 use sp_runtime::{
@@ -87,11 +88,11 @@ fn test_senate_join_works() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 50% take.
+        // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
-            u16::MAX / 2
+            u16::MAX / 10
         ));
 
         let staker_coldkey = U256::from(7);
@@ -156,11 +157,11 @@ fn test_senate_vote_works() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 50% take.
+        // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
-            u16::MAX / 2
+            u16::MAX / 10
         ));
 
         let staker_coldkey = U256::from(7);
@@ -324,11 +325,11 @@ fn test_senate_leave_works() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 50% take.
+        // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
-            u16::MAX / 2
+            u16::MAX / 10
         ));
 
         let staker_coldkey = U256::from(7);
@@ -394,11 +395,11 @@ fn test_senate_leave_vote_removal() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 50% take.
+        // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
             coldkey_origin.clone(),
             hotkey_account_id,
-            u16::MAX / 2
+            u16::MAX / 10
         ));
 
         let staker_coldkey = U256::from(7);
@@ -530,11 +531,11 @@ fn test_senate_not_leave_when_stake_removed() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 50% take.
+        // Lets make this new key a delegate with a 10% take.
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id,
-            u16::MAX / 2
+            u16::MAX / 10
         ));
 
         let staker_coldkey = U256::from(7);

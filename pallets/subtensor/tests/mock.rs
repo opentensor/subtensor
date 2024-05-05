@@ -1,4 +1,5 @@
-use frame_support::traits::Hash;
+use frame_support::derive_impl;
+use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
@@ -9,7 +10,7 @@ use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
-    BuildStorage, DispatchResult,
+    BuildStorage,
 };
 
 use pallet_collective::MemberCount;
@@ -63,6 +64,7 @@ pub type Balance = u64;
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
@@ -76,10 +78,10 @@ impl pallet_balances::Config for Test {
 
     type RuntimeHoldReason = ();
     type FreezeIdentifier = ();
-    type MaxHolds = ();
     type MaxFreezes = ();
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
@@ -123,10 +125,12 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const InitialDefaultTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialMinTake: u16 = 0;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -153,7 +157,7 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
-    pub const InitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialTargetStakesPerInterval: u16 = 2;
 }
 
 // Configure collective pallet for council
@@ -187,15 +191,15 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResult {
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
         SenateMembers::add_member(RawOrigin::Root.into(), *account)
     }
 
-    fn remove_member(account: &AccountId) -> DispatchResult {
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
         SenateMembers::remove_member(RawOrigin::Root.into(), *account)
     }
 
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult {
+    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
         SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
     }
 
@@ -225,14 +229,14 @@ impl Get<MemberCount> for GetSenateMemberCount {
 }
 
 pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
+impl CollectiveInterface<AccountId, H256, u32> for TriumvirateVotes {
     fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
         Triumvirate::remove_votes(hotkey)
     }
 
     fn add_vote(
         hotkey: &AccountId,
-        proposal: Hash,
+        proposal: H256,
         index: u32,
         approve: bool,
     ) -> Result<bool, sp_runtime::DispatchError> {
@@ -334,11 +338,13 @@ impl pallet_subtensor::Config for Test {
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultTake = InitialDefaultTake;
+    type InitialMinTake = InitialMinTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
+    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;

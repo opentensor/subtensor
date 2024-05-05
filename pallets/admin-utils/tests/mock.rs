@@ -1,5 +1,5 @@
 use frame_support::{
-    assert_ok, parameter_types,
+    assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
@@ -76,9 +76,11 @@ parameter_types! {
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const InitialMinTake: u16 = 0;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxDelegateTakeRateLimit: u64 = 0; // Disable rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -138,11 +140,13 @@ impl pallet_subtensor::Config for Test {
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultTake = InitialDefaultTake;
+    type InitialMinTake = InitialMinTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
+    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -158,6 +162,7 @@ impl pallet_subtensor::Config for Test {
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
@@ -184,6 +189,7 @@ impl system::Config for Test {
     type Nonce = u64;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
@@ -197,18 +203,25 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
-    type MaxHolds = ();
 }
 
 pub struct SubtensorIntrf;
 
 impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> for SubtensorIntrf {
-    fn set_default_take(default_take: u16) {
-        SubtensorModule::set_default_take(default_take);
+    fn set_max_delegate_take(default_take: u16) {
+        SubtensorModule::set_max_delegate_take(default_take);
+    }
+
+    fn set_min_delegate_take(default_take: u16) {
+        SubtensorModule::set_min_delegate_take(default_take);
     }
 
     fn set_tx_rate_limit(rate_limit: u64) {
         SubtensorModule::set_tx_rate_limit(rate_limit);
+    }
+
+    fn set_tx_delegate_take_rate_limit(rate_limit: u64) {
+        SubtensorModule::set_tx_delegate_take_rate_limit(rate_limit);
     }
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64) {

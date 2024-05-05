@@ -4,9 +4,8 @@ pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use sp_runtime::DispatchError;
 use sp_runtime::{traits::Member, RuntimeAppPublic};
-
-use frame_support::dispatch::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -91,7 +90,7 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::sudo_set_default_take())]
         pub fn sudo_set_default_take(origin: OriginFor<T>, default_take: u16) -> DispatchResult {
             ensure_root(origin)?;
-            T::Subtensor::set_default_take(default_take);
+            T::Subtensor::set_max_delegate_take(default_take);
             log::info!("DefaultTakeSet( default_take: {:?} ) ", default_take);
             Ok(())
         }
@@ -788,6 +787,30 @@ pub mod pallet {
             }
             Ok(())
         }
+
+        #[pallet::call_index(45)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_tx_delegate_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_tx_delegate_take_rate_limit(tx_rate_limit);
+            log::info!(
+                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
+                tx_rate_limit
+            );
+            Ok(())
+        }
+
+        #[pallet::call_index(46)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_min_delegate_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_min_delegate_take(take);
+            log::info!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
+            Ok(())
+        }
     }
 }
 
@@ -809,8 +832,10 @@ impl<A, M> AuraInterface<A, M> for () {
 ///////////////////////////////////////////
 
 pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
-    fn set_default_take(default_take: u16);
+    fn set_min_delegate_take(take: u16);
+    fn set_max_delegate_take(take: u16);
     fn set_tx_rate_limit(rate_limit: u64);
+    fn set_tx_delegate_take_rate_limit(rate_limit: u64);
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
 

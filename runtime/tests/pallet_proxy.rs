@@ -1,10 +1,9 @@
+use codec::Encode;
 use frame_support::{assert_ok, traits::InstanceFilter, BoundedVec};
 use node_subtensor_runtime::{
     AccountId, BalancesCall, BuildStorage, Proxy, ProxyType, Runtime, RuntimeCall, RuntimeEvent,
     RuntimeGenesisConfig, RuntimeOrigin, SubtensorModule, System, SystemCall,
 };
-
-use frame_support::dispatch::Encode;
 
 const ACCOUNT: [u8; 32] = [1_u8; 32];
 const DELEGATE: [u8; 32] = [2_u8; 32];

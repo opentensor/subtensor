@@ -9,8 +9,7 @@ pub use pallet::*;
 use frame_system::{self as system, ensure_signed};
 
 use frame_support::{
-    dispatch,
-    dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
+    dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
     traits::{tokens::fungible, IsSubType},
 };
@@ -22,6 +21,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
+    DispatchError,
 };
 use sp_std::marker::PhantomData;
 
@@ -61,12 +61,12 @@ pub mod pallet {
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        sp_std::vec,
-        sp_std::vec::Vec,
         traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
     use sp_runtime::traits::TrailingZeroInput;
+    use sp_std::vec;
+    use sp_std::vec::Vec;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -159,12 +159,16 @@ pub mod pallet {
         type InitialMaxAllowedValidators: Get<u16>;
         #[pallet::constant] // Initial default delegation take.
         type InitialDefaultTake: Get<u16>;
+        #[pallet::constant] // Initial minimum delegation take.
+        type InitialMinTake: Get<u16>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.
         type InitialServingRateLimit: Get<u64>;
         #[pallet::constant] // Initial transaction rate limit.
         type InitialTxRateLimit: Get<u64>;
+        #[pallet::constant] // Initial delegate take transaction rate limit.
+        type InitialTxDelegateTakeRateLimit: Get<u64>;
         #[pallet::constant] // Initial percentage of total stake required to join senate.
         type InitialSenateRequiredStakePercentage: Get<u64>;
         #[pallet::constant] // Initial adjustment alpha on burn and pow.
@@ -211,6 +215,10 @@ pub mod pallet {
         T::InitialDefaultTake::get()
     }
     #[pallet::type_value]
+    pub fn DefaultMinTake<T: Config>() -> u16 {
+        T::InitialMinTake::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
     }
@@ -247,7 +255,9 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
-    pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
+    pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_take )
+    pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
     #[pallet::storage] // --- ITEM ( total_issuance )
@@ -584,14 +594,24 @@ pub mod pallet {
         T::InitialTxRateLimit::get()
     }
     #[pallet::type_value]
+    pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
+        T::InitialTxDelegateTakeRateLimit::get()
+    }
+    #[pallet::type_value]
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
     }
 
     #[pallet::storage] // --- ITEM ( tx_rate_limit )
     pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+    #[pallet::storage] // --- ITEM ( tx_rate_limit )
+    pub(super) type TxDelegateTakeRateLimit<T> =
+        StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlock<T: Config> =
+        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    #[pallet::storage] // --- MAP ( key ) --> last_block
+    pub(super) type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
     #[pallet::type_value]
@@ -902,7 +922,8 @@ pub mod pallet {
         MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
         MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
         TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
-        Sudid(DispatchResult),         // --- Event created when a sudo call is done.
+        TxDelegateTakeRateLimitSet(u64), // --- Event created when setting the delegate take transaction rate limit.
+        Sudid(DispatchResult),           // --- Event created when a sudo call is done.
         RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
         PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
         TempoSet(u16, u16),                // --- Event created when setting tempo on a network
@@ -917,11 +938,15 @@ pub mod pallet {
         NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
         SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
         NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
+        TakeDecreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is decreased.
+        TakeIncreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is increased.
         HotkeySwapped {
             coldkey: T::AccountId,
             old_hotkey: T::AccountId,
             new_hotkey: T::AccountId,
         }, // Event created when a hotkey is swapped
+        MaxDelegateTakeSet(u16), // Event emitted when maximum delegate take is set by sudo/admin transaction
+        MinDelegateTakeSet(u16), // Event emitted when minimum delegate take is set by sudo/admin transaction
     }
 
     // Errors inform users that something went wrong.
@@ -1017,7 +1042,7 @@ pub mod pallet {
         TooManyRegistrationsThisInterval,
         /// a function is only available for benchmarking
         BenchmarkingOnly,
-        /// the hotkey passed is not the origin,
+        /// the hotkey passed is not the origin, but it should be
         HotkeyOriginMismatch,
         /// attempting to do something to a senate member that is limited
         SenateMember,
@@ -1043,10 +1068,16 @@ pub mod pallet {
         AllNetworksInImmunity,
         /// not enough balance
         NotEnoughBalance,
+        /// a stake would be below the minimum threshold for nominator validations
+        NotRootSubnet,
+        /// netuid is not the root network
+        IsRoot,
         /// no neuron id is available
         NoNeuronIdAvailable,
-        /// a stake would be below the minimum threshold for nominator validations
+        /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
+        /// delegate take is being set out of bounds
+        InvalidTake,
     }
 
     // ==================
@@ -1363,6 +1394,81 @@ pub mod pallet {
             Self::do_set_weights(origin, netuid, dests, weights, version_key)
         }
 
+        // # Args:
+        // 	* `origin`: (<T as frame_system::Config>Origin):
+        // 		- The caller, a hotkey who wishes to set their weights.
+        //
+        // 	* `netuid` (u16):
+        // 		- The network uid we are setting these weights on.
+        //
+        // 	* `hotkey` (T::AccountId):
+        // 		- The hotkey associated with the operation and the calling coldkey.
+        //
+        // 	* `dests` (Vec<u16>):
+        // 		- The edge endpoint for the weight, i.e. j for w_ij.
+        //
+        // 	* 'weights' (Vec<u16>):
+        // 		- The u16 integer encoded weights. Interpreted as rational
+        // 		values in the range [0,1]. They must sum to in32::MAX.
+        //
+        // 	* 'version_key' ( u64 ):
+        // 		- The network version key to check if the validator is up to date.
+        //
+        // # Event:
+        //
+        // 	* WeightsSet;
+        // 		- On successfully setting the weights on chain.
+        //
+        // # Raises:
+        //
+        // 	* NonAssociatedColdKey;
+        // 		- Attempting to set weights on a non-associated cold key.
+        //
+        // 	* 'NetworkDoesNotExist':
+        // 		- Attempting to set weights on a non-existent network.
+        //
+        // 	* 'NotRootSubnet':
+        // 		- Attempting to set weights on a subnet that is not the root network.
+        //
+        // 	* 'WeightVecNotEqualSize':
+        // 		- Attempting to set weights with uids not of same length.
+        //
+        // 	* 'InvalidUid':
+        // 		- Attempting to set weights with invalid uids.
+        //
+        // 	* 'NotRegistered':
+        // 		- Attempting to set weights from a non registered account.
+        //
+        // 	* 'NotSettingEnoughWeights':
+        // 		- Attempting to set weights with fewer weights than min.
+        //
+        //  * 'IncorrectNetworkVersionKey':
+        //      - Attempting to set weights with the incorrect network version key.
+        //
+        //  * 'SettingWeightsTooFast':
+        //      - Attempting to set weights too fast.
+        //
+        // 	* 'NotSettingEnoughWeights':
+        // 		- Attempting to set weights with fewer weights than min.
+        //
+        // 	* 'MaxWeightExceeded':
+        // 		- Attempting to set weights with max value exceeding limit.
+        //
+        #[pallet::call_index(8)]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_root_weights(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+        }
+
         // --- Sets the key as a delegate.
         //
         // # Args:
@@ -1391,6 +1497,89 @@ pub mod pallet {
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+        }
+
+        // --- Allows delegates to decrease its take value.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'netuid' (u16):
+        // 		- Subnet ID to decrease take for
+        //
+        // 	* 'take' (u16):
+        // 		- The new stake proportion that this hotkey takes from delegations.
+        //        The new value can be between 0 and 11_796 and should be strictly
+        //        lower than the previous value. It T is the new value (rational number),
+        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        //        [0.01 * 65535] = [655.35] = 655
+        //
+        // # Event:
+        // 	* TakeDecreased;
+        // 		- On successfully setting a decreased take for this hotkey.
+        //
+        // # Raises:
+        // 	* 'NotRegistered':
+        // 		- The hotkey we are delegating is not registered on the network.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- The hotkey we are delegating is not owned by the calling coldkey.
+        //
+        // 	* 'InvalidTransaction':
+        // 		- The delegate is setting a take which is not lower than the previous.
+        //
+        #[pallet::call_index(65)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn decrease_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
+            Self::do_decrease_take(origin, hotkey, take)
+        }
+
+        // --- Allows delegates to increase its take value. This call is rate-limited.
+        //
+        // # Args:
+        // 	* 'origin': (<T as frame_system::Config>::Origin):
+        // 		- The signature of the caller's coldkey.
+        //
+        // 	* 'hotkey' (T::AccountId):
+        // 		- The hotkey we are delegating (must be owned by the coldkey.)
+        //
+        // 	* 'take' (u16):
+        // 		- The new stake proportion that this hotkey takes from delegations.
+        //        The new value can be between 0 and 11_796 and should be strictly
+        //        greater than the previous value. It T is the new value (rational number),
+        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        //        [0.01 * 65535] = [655.35] = 655
+        //
+        // # Event:
+        // 	* TakeDecreased;
+        // 		- On successfully setting a decreased take for this hotkey.
+        //
+        // # Raises:
+        // 	* 'NotRegistered':
+        // 		- The hotkey we are delegating is not registered on the network.
+        //
+        // 	* 'NonAssociatedColdKey':
+        // 		- The hotkey we are delegating is not owned by the calling coldkey.
+        //
+        // 	* 'InvalidTransaction':
+        // 		- The delegate is setting a take which is not lower than the previous.
+        //
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn increase_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
+            Self::do_increase_take(origin, hotkey, take)
         }
 
         // --- Adds stake to a hotkey. The call is made from the
@@ -1718,13 +1907,18 @@ pub mod pallet {
         ///
         /// ## Complexity
         /// - O(1).
+        #[allow(deprecated)]
         #[pallet::call_index(52)]
-        #[pallet::weight((*_weight, call.get_dispatch_info().class, Pays::No))]
+        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::No))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
-            _weight: Weight,
+            weight: Weight,
         ) -> DispatchResultWithPostInfo {
+            // We dont need to check the weight witness, suppress warning.
+            // See https://github.com/paritytech/polkadot-sdk/pull/1818.
+            let _ = weight;
+
             // This is a public call, so we ensure that the origin is a council majority.
             T::CouncilOrigin::ensure_origin(origin)?;
 
@@ -1924,6 +2118,18 @@ where
                     Err(InvalidTransaction::Call.into())
                 }
             }
+            Some(Call::set_root_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority: priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    return Err(InvalidTransaction::Call.into());
+                }
+            }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
@@ -2027,7 +2233,7 @@ where
     }
 }
 
-use frame_support::sp_std::vec;
+use sp_std::vec;
 
 // TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
 // used not 25 lines below
@@ -2037,13 +2243,13 @@ use sp_std::vec::Vec;
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
     /// Add member
-    fn add_member(account: &AccountId) -> DispatchResult;
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResult;
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult;
+    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Get all members
     fn members() -> Vec<AccountId>;
@@ -2057,18 +2263,18 @@ pub trait MemberManagement<AccountId> {
 
 impl<T> MemberManagement<T> for () {
     /// Add member
-    fn add_member(_: &T) -> DispatchResult {
-        Ok(())
+    fn add_member(_: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Remove a member
-    fn remove_member(_: &T) -> DispatchResult {
-        Ok(())
+    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResult {
-        Ok(())
+    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Get all members

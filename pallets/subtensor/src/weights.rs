@@ -1,6 +1,6 @@
 use super::*;
 use crate::math::*;
-use frame_support::sp_std::vec;
+use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic set_weights.
@@ -76,6 +76,9 @@ impl<T: Config> Pallet<T> {
             values
         );
 
+        // --- Check that the netuid is not the root network.
+        ensure!(netuid != Self::get_root_netuid(), Error::<T>::IsRoot);
+
         // --- 2. Check that the length of uid list and value list are equal for this network.
         ensure!(
             Self::uids_match_values(&uids, &values),
@@ -89,19 +92,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
-        // For the root network this number is the number of subnets.
-        if netuid == Self::get_root_netuid() {
-            // --- 4.a. Ensure that the passed uids are valid for the network.
-            ensure!(
-                !Self::contains_invalid_root_uids(&uids),
-                Error::<T>::InvalidUid
-            );
-        } else {
-            ensure!(
-                Self::check_len_uids_within_allowed(netuid, &uids),
-                Error::<T>::TooManyUids
-            );
-        }
+        ensure!(
+            Self::check_len_uids_within_allowed(netuid, &uids),
+            Error::<T>::TooManyUids
+        );
 
         // --- 5. Check to see if the hotkey is registered to the passed network.
         ensure!(
@@ -121,11 +115,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::IncorrectNetworkVersionKey
         );
 
-        // --- 8. Get the neuron uid of associated hotkey on network netuid.
-
-        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
-
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::check_rate_limit(netuid, neuron_uid, current_block),
@@ -133,23 +124,19 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
-        if netuid != Self::get_root_netuid() {
-            ensure!(
-                Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
-                Error::<T>::NoValidatorPermit
-            );
-        }
+        ensure!(
+            Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
+            Error::<T>::NoValidatorPermit
+        );
 
         // --- 11. Ensure the passed uids contain no duplicates.
         ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
 
         // --- 12. Ensure that the passed uids are valid for the network.
-        if netuid != Self::get_root_netuid() {
-            ensure!(
-                !Self::contains_invalid_uids(netuid, &uids),
-                Error::<T>::InvalidUid
-            );
-        }
+        ensure!(
+            !Self::contains_invalid_uids(netuid, &uids),
+            Error::<T>::InvalidUid
+        );
 
         // --- 13. Ensure that the weights have the required length.
         ensure!(
