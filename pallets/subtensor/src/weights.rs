@@ -1,6 +1,6 @@
 use super::*;
 use crate::math::*;
-use frame_support::sp_std::vec;
+use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic set_weights.

@@ -2,12 +2,12 @@ use super::*;
 use frame_support::traits::DefensiveResult;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
-    sp_std::vec::Vec,
     storage_alias,
     traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
 use log::info;
+use sp_std::vec::Vec;
 
 // TODO (camfairchild): TEST MIGRATION
 

@@ -12,9 +12,9 @@ publish = false
 workspace = true
 
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
-serde = { version = "1.0.132", features = ["derive"], default-features = false }
+sp-api = { workspace = true }
+frame-support = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 
 # local
 pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }

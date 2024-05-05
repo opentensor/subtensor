@@ -18,10 +18,10 @@
 use super::*;
 use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
-use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use sp_std::vec;
 use substrate_fixed::{
     transcendental::log2,
     types::{I64F64, I96F32},
@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
                     if let Some((w, _)) = weight
-                        .into_iter()
+                        .iter_mut()
                         .zip(&subnet_list)
                         .find(|(_, subnet)| *subnet == netuid)
                     {
@@ -546,12 +546,12 @@ impl<T: Config> Pallet<T> {
                 let last_stake = Self::get_total_stake_for_hotkey(last);
 
                 if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey)?;
+                    T::SenateMembers::swap_member(last, &hotkey).map_err(|e| e.error)?;
                     T::TriumvirateInterface::remove_votes(last)?;
                 }
             }
         } else {
-            T::SenateMembers::add_member(&hotkey)?;
+            T::SenateMembers::add_member(&hotkey).map_err(|e| e.error)?;
         }
 
         // --- 13. Force all members on root to become a delegate.

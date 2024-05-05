@@ -4,9 +4,8 @@ pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use sp_runtime::DispatchError;
 use sp_runtime::{traits::Member, RuntimeAppPublic};
-
-use frame_support::dispatch::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;

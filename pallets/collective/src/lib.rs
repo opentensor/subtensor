@@ -42,23 +42,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "128"]
 
-use scale_info::TypeInfo;
-use sp_io::storage;
-use sp_runtime::{traits::Hash, RuntimeDebug};
-use sp_std::{marker::PhantomData, prelude::*, result};
-
 use frame_support::{
-    codec::{Decode, Encode, MaxEncodedLen},
-    dispatch::{
-        DispatchError, DispatchResultWithPostInfo, Dispatchable, GetDispatchInfo, Pays,
-        PostDispatchInfo,
-    },
+    dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, Pays, PostDispatchInfo},
     ensure,
+    pallet_prelude::*,
     traits::{
         Backing, ChangeMembers, EnsureOrigin, Get, GetBacking, InitializeMembers, StorageVersion,
     },
     weights::Weight,
 };
+use scale_info::TypeInfo;
+use sp_io::storage;
+use sp_runtime::traits::Dispatchable;
+use sp_runtime::{traits::Hash, RuntimeDebug};
+use sp_std::{marker::PhantomData, prelude::*, result};
 
 #[cfg(test)]
 mod tests;
@@ -170,7 +167,6 @@ pub struct Votes<AccountId, BlockNumber> {
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
     /// The current storage version.
