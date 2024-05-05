@@ -1,8 +1,53 @@
 use super::*;
 use crate::math::*;
 use sp_std::vec;
+use sp_runtime::traits::Hash;
 
 impl<T: Config> Pallet<T> {
+
+    pub fn do_commit_weights(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        commit_hash: T::Hash,
+    ) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+        ensure!(Self::can_commit(netuid, &who), Error::<T>::CommitNotAllowed);
+
+        WeightCommits::<T>::insert(
+            netuid,
+            &who,
+            (
+                commit_hash,
+                Self::get_current_block_as_u64(),
+            ),
+        );
+        Ok(())
+    }
+
+    pub fn do_reveal_weights(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        uids: Vec<u16>,
+        values: Vec<u16>,
+        version_key: u64,
+    ) -> DispatchResult {
+        let who = ensure_signed(origin.clone())?;
+        WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
+            let (commit_hash, commit_block) =
+                maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;
+
+            ensure!(
+                Self::is_reveal_block(netuid, commit_block),
+                Error::<T>::InvalidRevealTempo
+            );
+
+            let provided_hash = T::Hashing::hash_of(&(who.clone(), netuid, uids.clone(), values.clone(), version_key));
+            ensure!(provided_hash == commit_hash, Error::<T>::InvalidReveal);
+
+            Self::do_set_weights(origin, netuid, uids, values, version_key)
+        })
+    }
+
     // ---- The implementation for the extrinsic set_weights.
     //
     // # Args:
@@ -323,5 +368,12 @@ impl<T: Config> Pallet<T> {
         let subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
         // we should expect at most subnetwork_n uids.
         uids.len() <= subnetwork_n as usize
+    }
+
+    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
+        return true;
+    }
+    pub fn is_reveal_block(netuid: u16, commit_block: u64) -> bool {
+        return true;
     }
 }

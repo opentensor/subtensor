@@ -306,6 +306,16 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+    #[pallet::storage]
+    pub type WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        (T::Hash, u64),
+        ValueQuery>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -1182,18 +1192,44 @@ pub mod pallet {
         //
         // 	* 'MaxWeightExceeded':
         // 		- Attempting to set weights with max value exceeding limit.
+        // #[pallet::call_index(0)]
+        // #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		// .saturating_add(T::DbWeight::get().reads(4104))
+		// .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // pub fn set_weights(
+        //     origin: OriginFor<T>,
+        //     netuid: u16,
+        //     dests: Vec<u16>,
+        //     weights: Vec<u16>,
+        //     version_key: u64,
+        // ) -> DispatchResult {
+        //     Self::do_set_weights(origin, netuid, dests, weights, version_key)
+        // }
+
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        pub fn set_weights(
-            origin: OriginFor<T>,
+        pub fn commit_weights(
+            origin: T::RuntimeOrigin,
             netuid: u16,
-            dests: Vec<u16>,
-            weights: Vec<u16>,
+            commit_hash: T::Hash,
+        ) -> DispatchResult {
+            Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        #[pallet::call_index(97)]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn reveal_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            uids: Vec<u16>,
+            values: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_weights(origin, netuid, dests, weights, version_key)
+            Self::do_reveal_weights(origin, netuid, uids, values, version_key)
         }
 
         // # Args:
@@ -1908,7 +1944,19 @@ where
         _len: usize,
     ) -> TransactionValidity {
         match call.is_sub_type() {
-            Some(Call::set_weights { netuid, .. }) => {
+            Some(Call::commit_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Call.into())
+                }
+            }
+            Some(Call::reveal_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
@@ -1982,7 +2030,11 @@ where
                 let transaction_fee = 0;
                 Ok((CallType::RemoveStake, transaction_fee, who.clone()))
             }
-            Some(Call::set_weights { .. }) => {
+            Some(Call::commit_weights { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::SetWeights, transaction_fee, who.clone()))
+            }
+            Some(Call::reveal_weights { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::SetWeights, transaction_fee, who.clone()))
             }
