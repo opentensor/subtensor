@@ -11,6 +11,7 @@ use frame_system::{self as system, ensure_signed};
 use frame_support::{
     dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
+    pallet_macros::import_section,
     traits::{tokens::fungible, IsSubType},
 };
 
@@ -35,8 +36,9 @@ mod benchmarks;
 //	==== Pallet Imports =====
 // =========================
 mod block_step;
-
 mod epoch;
+mod errors;
+mod events;
 mod math;
 mod registration;
 mod root;
@@ -55,6 +57,8 @@ pub mod subnet_info;
 extern crate alloc;
 pub mod migration;
 
+#[import_section(errors::errors)]
+#[import_section(events::events)]
 #[frame_support::pallet]
 pub mod pallet {
 
@@ -877,208 +881,6 @@ pub mod pallet {
         ValueQuery,
         DefaultBonds<T>,
     >;
-
-    // Pallets use events to inform users when important changes are made.
-    // https://docs.substrate.io/main-docs/build/events-errors/
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {
-        // Event documentation should end with an array that provides descriptive names for event
-        // parameters. [something, who]
-        NetworkAdded(u16, u16), // --- Event created when a new network is added.
-        NetworkRemoved(u16),    // --- Event created when a network is removed.
-        StakeAdded(T::AccountId, u64), // --- Event created when stake has been transferred from the a coldkey account onto the hotkey staking account.
-        StakeRemoved(T::AccountId, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
-        WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
-        NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
-        BulkNeuronsRegistered(u16, u16), // --- Event created when multiple uids have been concurrently registered.
-        BulkBalancesSet(u16, u16),       // --- FIXME: Not used yet
-        MaxAllowedUidsSet(u16, u16), // --- Event created when max allowed uids has been set for a subnetwork.
-        MaxWeightLimitSet(u16, u16), // --- Event created when the max weight limit has been set for a subnetwork.
-        DifficultySet(u16, u64), // --- Event created when the difficulty has been set for a subnet.
-        AdjustmentIntervalSet(u16, u16), // --- Event created when the adjustment interval is set for a subnet.
-        RegistrationPerIntervalSet(u16, u16), // --- Event created when registration per interval is set for a subnet.
-        MaxRegistrationsPerBlockSet(u16, u16), // --- Event created when we set max registrations per block.
-        ActivityCutoffSet(u16, u16), // --- Event created when an activity cutoff is set for a subnet.
-        RhoSet(u16, u16),            // --- Event created when Rho value is set.
-        KappaSet(u16, u16),          // --- Event created when Kappa is set for a subnet.
-        MinAllowedWeightSet(u16, u16), // --- Event created when minimum allowed weight is set for a subnet.
-        ValidatorPruneLenSet(u16, u64), // --- Event created when the validator pruning length has been set.
-        ScalingLawPowerSet(u16, u16), // --- Event created when the scaling law power has been set for a subnet.
-        WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet.
-        ImmunityPeriodSet(u16, u16), // --- Event created when immunity period is set for a subnet.
-        BondsMovingAverageSet(u16, u64), // --- Event created when bonds moving average is set for a subnet.
-        MaxAllowedValidatorsSet(u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
-        AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
-        PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
-        EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
-        DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
-        DefaultTakeSet(u16), // --- Event created when the default take is set.
-        WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
-        MinDifficultySet(u16, u64), // --- Event created when setting min difficulty on a network.
-        MaxDifficultySet(u16, u64), // --- Event created when setting max difficulty on a network.
-        ServingRateLimitSet(u16, u64), // --- Event created when setting the prometheus serving rate limit.
-        BurnSet(u16, u64),             // --- Event created when setting burn on a network.
-        MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
-        MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
-        TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
-        TxDelegateTakeRateLimitSet(u64), // --- Event created when setting the delegate take transaction rate limit.
-        Sudid(DispatchResult),           // --- Event created when a sudo call is done.
-        RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
-        PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
-        TempoSet(u16, u16),                // --- Event created when setting tempo on a network
-        RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
-        WeightsMinStake(u64), // --- Event created when min stake is set for validators to set weights.
-        SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
-        AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
-        Faucet(T::AccountId, u64),    // Event created when the faucet it called on the test net.
-        SubnetOwnerCutSet(u16),       // Event created when the subnet owner cut is set.
-        NetworkRateLimitSet(u64),     // Event created when the network creation rate limit is set.
-        NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
-        NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
-        SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
-        NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        TakeDecreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is decreased.
-        TakeIncreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is increased.
-        HotkeySwapped {
-            coldkey: T::AccountId,
-            old_hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
-        }, // Event created when a hotkey is swapped
-        MaxDelegateTakeSet(u16), // Event emitted when maximum delegate take is set by sudo/admin transaction
-        MinDelegateTakeSet(u16), // Event emitted when minimum delegate take is set by sudo/admin transaction
-    }
-
-    // Errors inform users that something went wrong.
-    #[pallet::error]
-    pub enum Error<T> {
-        /// the network does not exist.
-        NetworkDoesNotExist,
-        /// the network already exists.
-        NetworkExist,
-        /// an invalid modality attempted on serve.
-        InvalidModality,
-        /// the user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
-        InvalidIpType,
-        /// an invalid IP address is passed to the serve function.
-        InvalidIpAddress,
-        /// an invalid port is passed to the serve function.
-        InvalidPort,
-        /// the caller requests setting or removing data from a neuron which does not exist in the active set.
-        NotRegistered,
-        /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
-        NonAssociatedColdKey,
-        /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
-        NotEnoughStaketoWithdraw,
-        /// the caller requests to set weights but has less than WeightsMinStake
-        NotEnoughStakeToSetWeights,
-        /// the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
-        NotEnoughBalanceToStake,
-        /// the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
-        BalanceWithdrawalError,
-        /// the caller attempts to set non-self weights without being a permitted validator.
-        NoValidatorPermit,
-        /// the caller attempts to set the weight keys and values but these vectors have different size.
-        WeightVecNotEqualSize,
-        /// the caller attempts to set weights with duplicate uids in the weight matrix.
-        DuplicateUids,
-        /// the caller attempts to set weight to at least one uid that does not exist in the metagraph.
-        InvalidUid,
-        /// the dispatch attempts to set weights on chain with fewer elements than are allowed.
-        NotSettingEnoughWeights,
-        /// registrations this block exceeds allowed number.
-        TooManyRegistrationsThisBlock,
-        /// the caller requests registering a neuron which already exists in the active set.
-        AlreadyRegistered,
-        /// the supplied pow hash block is in the future or negative.
-        InvalidWorkBlock,
-        /// the supplied pow hash block does not meet the network difficulty.
-        InvalidDifficulty,
-        /// the supplied pow hash seal does not match the supplied work.
-        InvalidSeal,
-        /// the value is invalid for MaxAllowedUids.
-        MaxAllowedUIdsNotAllowed,
-        /// the dispatch attempts to convert between a u64 and T::balance but the call fails.
-        CouldNotConvertToBalance,
-        /// the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
-        CouldNotConvertToU64,
-        /// the caller requests adding stake for a hotkey to the total stake which already added.
-        StakeAlreadyAdded,
-        /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
-        MaxWeightExceeded,
-        /// the caller attempts to set a storage value outside of its allowed range.
-        StorageValueOutOfRange,
-        /// tempo has not set.
-        TempoHasNotSet,
-        /// tempo is not valid.
-        InvalidTempo,
-        /// number or received emission rates does not match number of networks.
-        EmissionValuesDoesNotMatchNetworks,
-        /// emission ratios are not valid (did not sum up to 10^9).
-        InvalidEmissionValues,
-        /// the hotkey attempts to become delegate when they are already.
-        AlreadyDelegate,
-        /// the hotkey attempts to set weights twice within net_tempo/2 blocks.
-        SettingWeightsTooFast,
-        /// a validator attempts to set weights from a validator with incorrect code base key.
-        IncorrectNetworkVersionKey,
-        /// an axon or prometheus serving exceeds the rate limit for a registered neuron.
-        ServingRateLimitExceeded,
-        /// an error occurs while setting a balance.
-        BalanceSetError,
-        /// number of accounts going to be registered exceeds MaxAllowedUids for the network.
-        MaxAllowedUidsExceeded,
-        /// the caller attempts to set weights with more uids than allowed.
-        TooManyUids,
-        /// a transactor exceeds the rate limit for transactions.
-        TxRateLimitExceeded,
-        /// a transactor exceeds the rate limit for stakes.
-        StakeRateLimitExceeded,
-        /// a transactor exceeds the rate limit for unstakes.
-        UnstakeRateLimitExceeded,
-        /// registration is disabled
-        RegistrationDisabled,
-        /// registration attempt exceeds allowed in interval
-        TooManyRegistrationsThisInterval,
-        /// a function is only available for benchmarking
-        BenchmarkingOnly,
-        /// the hotkey passed is not the origin, but it should be
-        HotkeyOriginMismatch,
-        /// attempting to do something to a senate member that is limited
-        SenateMember,
-        /// a hotkey attempts to do something only senate members can do
-        NotSenateMember,
-        /// a hotkey attempts to join the senate while already being a member
-        AlreadySenateMember,
-        /// a hotkey attempts to join the senate without enough stake
-        BelowStakeThreshold,
-        /// a hotkey attempts to join the senate without being a delegate first
-        NotDelegate,
-        /// an incorrect amount of Netuids are passed as input
-        IncorrectNetuidsLength,
-        /// the faucet is disabled
-        FaucetDisabled,
-        /// not subnet owner
-        NotSubnetOwner,
-        /// operation not permitted on root subnet
-        OperationNotPermittedOnRootSubnet,
-        /// a hotkey attempts to join the root subnet with too little stake
-        StakeTooLowForRoot,
-        /// all subnets are in the immunity period
-        AllNetworksInImmunity,
-        /// not enough balance
-        NotEnoughBalance,
-        /// a stake would be below the minimum threshold for nominator validations
-        NotRootSubnet,
-        /// netuid is not the root network
-        IsRoot,
-        /// no neuron id is available
-        NoNeuronIdAvailable,
-        /// Thrown a stake would be below the minimum threshold for nominator validations
-        NomStakeBelowMinimumThreshold,
-        /// delegate take is being set out of bounds
-        InvalidTake,
-    }
 
     // ==================
     // ==== Genesis =====
