@@ -129,7 +129,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         .with_name("Bittensor")
         .with_id("bittensor")
         .with_chain_type(ChainType::Live)
-        .with_genesis_config(finney_genesis(
+        .with_genesis_config_patch(finney_genesis(
             // Initial PoA authorities (Validators)
             // aura | grandpa
             vec![
@@ -292,7 +292,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         .with_name("Bittensor")
         .with_id("bittensor")
         .with_chain_type(ChainType::Development)
-        .with_genesis_config(testnet_genesis(
+        .with_genesis_config_patch(testnet_genesis(
             // Initial PoA authorities (Validators)
             // aura | grandpa
             vec![
@@ -349,7 +349,7 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
         .with_name("Bittensor")
         .with_id("bittensor")
         .with_chain_type(ChainType::Development)
-        .with_genesis_config(localnet_genesis(
+        .with_genesis_config_patch(localnet_genesis(
             // Initial PoA authorities (Validators)
             // aura | grandpa
             vec![
@@ -430,10 +430,10 @@ fn localnet_genesis(
         "sudo": {
             "key": Some(get_account_id_from_seed::<sr25519::Public>("Alice"))
         },
-        "triumvirate_members": {
+        "triumvirateMembers": {
             "members": trimvirate_members
         },
-        "senate_members": {
+        "senateMembers": {
             "members": senate_members,
         },
     })
