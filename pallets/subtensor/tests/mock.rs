@@ -540,3 +540,41 @@ pub fn remove_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64)
         dynamic_unstake_amount_tao,
     );
 }
+
+#[allow(dead_code)]
+pub fn setup_epoch_testing(netuid: u16, neuron_count: u16, stakes: Vec<u64>, weights: Vec<u16>) {
+    let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+    let &max_stake = stakes.iter().max().unwrap();
+    let block_number = System::block_number();
+    add_network(netuid, tempo, 0);
+    SubtensorModule::set_global_stake_weight( 0 );
+    SubtensorModule::set_max_allowed_uids( netuid, neuron_count );
+    assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), neuron_count);
+    SubtensorModule::set_max_registrations_per_block(netuid, neuron_count);
+    SubtensorModule::set_target_registrations_per_interval(netuid, neuron_count);
+    SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+    SubtensorModule::set_min_allowed_weights(netuid, 1);
+    SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+
+    // === Register [validator1, validator2, validator3, validator4, server1, server2, server3, server4]
+    for key in 0..neuron_count as u64 {
+        SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
+        let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
+        assert_ok!(SubtensorModule::register(<<Test as frame_system::Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
+    }
+    assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), neuron_count);
+    assert_eq!(SubtensorModule::get_subnetwork_n(netuid), neuron_count);
+
+    // === Issue validator permits
+    SubtensorModule::set_max_allowed_validators(netuid, neuron_count);
+    assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), neuron_count);
+
+    SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
+    next_block(); // run to next block to ensure weights are set on nodes after their registration block
+
+    // === Set weights [val->srv1: 0.1, val->srv2: 0.2, val->srv3: 0.3, val->srv4: 0.4]
+    for uid in 0..(neuron_count/2) as u64 {
+        assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((neuron_count/2)..neuron_count).collect(), weights.clone(), 0));
+    }
+}

@@ -1,6 +1,7 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
+use pallet_subtensor::epoch::CalculateEpoch;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
@@ -987,40 +988,10 @@ fn test_bonds() {
     new_test_ext(1).execute_with(|| {
 		let n: u16 = 8;
 		let netuid: u16 = 1;
-		let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-		let max_stake: u64 = 4;
 		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
-        let block_number = System::block_number();
-		add_network(netuid, tempo, 0);
-        SubtensorModule::set_global_stake_weight( 0 );
-		SubtensorModule::set_max_allowed_uids( netuid, n );
-		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-		SubtensorModule::set_max_registrations_per_block( netuid, n );
-		SubtensorModule::set_target_registrations_per_interval(netuid, n);
-		SubtensorModule::set_weights_set_rate_limit( netuid, 0 );
-        SubtensorModule::set_min_allowed_weights( netuid, 1 );
-        SubtensorModule::set_max_weight_limit( netuid, u16::MAX );
+        let weights: Vec<u16> = vec![ u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX];
+        setup_epoch_testing(netuid, n, stakes, weights);
 
-		// === Register [validator1, validator2, validator3, validator4, server1, server2, server3, server4]
-		for key in 0..n as u64 {
-			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
-			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
-			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
-		}
-		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
-		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
-
-		// === Issue validator permits
-		SubtensorModule::set_max_allowed_validators(netuid, n);
-		assert_eq!( SubtensorModule::get_max_allowed_validators(netuid), n);
-		SubtensorModule::epoch( netuid, 1_000_000_000 ); // run first epoch to set allowed validators
-        next_block(); // run to next block to ensure weights are set on nodes after their registration block
-
-		// === Set weights [val->srv1: 0.1, val->srv2: 0.2, val->srv3: 0.3, val->srv4: 0.4]
-		for uid in 0..(n/2) as u64 {
-			assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((n/2)..n).collect(), vec![ u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX], 0));
-		}
 		SubtensorModule::epoch( netuid, 1_000_000_000 );
 		/*  n: 8
 			current_block: 1; activity_cutoff: 5000; Last update: [1, 1, 1, 1, 0, 0, 0, 0]
@@ -2281,5 +2252,52 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_05_global()
         assert_eq!(stakes2.len(), 2);
         assert_i32f32_approx_eq!(stakes2[0], 0.476190);
         assert_i32f32_approx_eq!(stakes2[1], 0.523810);
+    });
+}
+
+#[test]
+fn test_adjust_weights_normalized_ok() {
+    new_test_ext(1).execute_with(|| {
+		let n: u16 = 8;
+		let netuid: u16 = 1;
+		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
+        let weights: Vec<u16> = vec![u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX];
+        setup_epoch_testing(netuid, n, stakes, weights);
+
+        let mut ei = SubtensorModule::init_epoch_instance(netuid);
+        ei.calc_validator_forbids();
+        ei.adjust_weights();
+        let weights = ei.weights.clone();
+
+        // Ensure weigths are normalized
+        for uid in 0..n {
+            let sum: f64 = weights[uid as usize].iter().map(|(_, w)| w.to_num::<f64>()).sum();
+            if sum != 0. {
+                assert_approx_eq!(sum, 1.0);
+            }
+        }
+    });
+}
+
+#[test]
+fn test_adjust_weights_self_removed_ok() {
+    new_test_ext(1).execute_with(|| {
+		let n: u16 = 8;
+		let netuid: u16 = 1;
+		let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
+        let weights: Vec<u16> = vec![u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX];
+        setup_epoch_testing(netuid, n, stakes, weights);
+
+        // Hotkey 0 sets 100% on itself
+        assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(0)), netuid, (0..n).collect(), Vec::from([u16::MAX, 0, 0, 0, 0, 0, 0, 0]), 0));
+
+        let mut ei = SubtensorModule::init_epoch_instance(netuid);
+        ei.calc_validator_forbids();
+        let weights_before = ei.weights.clone();
+        ei.adjust_weights();
+        let weights_after = ei.weights.clone();
+
+        assert_eq!(weights_before[0][0].1.to_num::<f32>(), 65535.);
+        assert_eq!(weights_after[0][0].1.to_num::<f32>(), 0.);
     });
 }

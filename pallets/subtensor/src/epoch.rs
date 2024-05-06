@@ -42,11 +42,11 @@ pub struct EpochInstance<T: Config> {
     pub new_validator_permits: Vec<bool>,
 }
 
-trait InitializeEpoch {
+pub trait InitializeEpoch {
     fn set_stake(&mut self, stake: Vec<I32F32>);
 }
 
-trait CalculateEpoch {
+pub trait CalculateEpoch {
     // Calculate active and inactive masks.
     fn calc_active_inactive(&mut self);
     // Calculate validator forbids
@@ -308,47 +308,7 @@ impl<T: Config> Pallet<T> {
     // 		- Print debugging outputs.
     //
     pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
-        // =================================================
-        // == Initialize epoch instance with state values ==
-        // =================================================
-
-        let neuron_count = Self::get_subnetwork_n(netuid);
-        let mut inst: EpochInstance<T> = EpochInstance {
-            netuid: netuid,
-            neuron_count: neuron_count,
-            current_block: Self::get_current_block_as_u64(),
-            last_update: Self::get_last_update(netuid),
-            activity_cutoff: Self::get_activity_cutoff(netuid) as u64,
-            block_at_registration: Self::get_block_at_registration(netuid),
-            hotkeys: Keys::<T>::iter_prefix(netuid).collect(),
-            validator_permits: Self::get_validator_permit(netuid),
-            max_allowed_validators: Self::get_max_allowed_validators(netuid),
-            weights: Self::get_weights_sparse(netuid, neuron_count),
-            kappa: Self::get_float_kappa(netuid),
-            bonds: Self::get_bonds_sparse(netuid, neuron_count),
-            bonds_moving_average: I64F64::from_num(Self::get_bonds_moving_average(netuid))
-                / I64F64::from_num(1_000_000),
-
-            active_mask: Vec::new(),
-            inactive_mask: Vec::new(),
-            stake: Vec::new(),
-            active_stake: Vec::new(),
-            validator_forbids: Vec::new(),
-            preranks: Vec::new(),
-            consensus: Vec::new(),
-            ranks: Vec::new(),
-            trust: Vec::new(),
-            incentive: Vec::new(),
-            ema_bonds: Vec::new(),
-            dividends: Vec::new(),
-            combined_emission: Vec::new(),
-            server_emission: Vec::new(),
-            validator_emission: Vec::new(),
-            pruning_scores: Vec::new(),
-            validator_trust: Vec::new(),
-            new_validator_permits: Vec::new(),
-        };
-        inst.set_stake(Self::get_stakes(netuid, &inst.hotkeys));
+        let mut inst = Self::init_epoch_instance(netuid);
 
         // ====================================
         // == Perform all epoch calculations ==
@@ -452,6 +412,51 @@ impl<T: Config> Pallet<T> {
                 )
             })
             .collect()
+    }
+
+    pub fn init_epoch_instance(netuid: u16) -> EpochInstance<T> {
+        // =================================================
+        // == Initialize epoch instance with state values ==
+        // =================================================
+
+        let neuron_count = Self::get_subnetwork_n(netuid);
+        let mut inst: EpochInstance<T> = EpochInstance {
+            netuid: netuid,
+            neuron_count: neuron_count,
+            current_block: Self::get_current_block_as_u64(),
+            last_update: Self::get_last_update(netuid),
+            activity_cutoff: Self::get_activity_cutoff(netuid) as u64,
+            block_at_registration: Self::get_block_at_registration(netuid),
+            hotkeys: Keys::<T>::iter_prefix(netuid).collect(),
+            validator_permits: Self::get_validator_permit(netuid),
+            max_allowed_validators: Self::get_max_allowed_validators(netuid),
+            weights: Self::get_weights_sparse(netuid, neuron_count),
+            kappa: Self::get_float_kappa(netuid),
+            bonds: Self::get_bonds_sparse(netuid, neuron_count),
+            bonds_moving_average: I64F64::from_num(Self::get_bonds_moving_average(netuid))
+                / I64F64::from_num(1_000_000),
+
+            active_mask: Vec::new(),
+            inactive_mask: Vec::new(),
+            stake: Vec::new(),
+            active_stake: Vec::new(),
+            validator_forbids: Vec::new(),
+            preranks: Vec::new(),
+            consensus: Vec::new(),
+            ranks: Vec::new(),
+            trust: Vec::new(),
+            incentive: Vec::new(),
+            ema_bonds: Vec::new(),
+            dividends: Vec::new(),
+            combined_emission: Vec::new(),
+            server_emission: Vec::new(),
+            validator_emission: Vec::new(),
+            pruning_scores: Vec::new(),
+            validator_trust: Vec::new(),
+            new_validator_permits: Vec::new(),
+        };
+        inst.set_stake(Self::get_stakes(netuid, &inst.hotkeys));
+        inst
     }
 
     pub fn get_global_stake_weights(hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I64F64> {
