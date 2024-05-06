@@ -789,8 +789,15 @@ pub mod pallet {
 
     // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     #[pallet::storage]
-    pub type WeightCommits<T: Config> =
-        StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, T::AccountId, (H256, u64), ValueQuery>;
+    pub type WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        (H256, u64),
+        OptionQuery,
+    >;
 
     #[pallet::type_value]
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
