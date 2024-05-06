@@ -380,27 +380,24 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        let (hash, commit_block) = WeightCommits::<T>::get(netuid, who);
+        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
+            let interval: u64 = Self::get_weight_commit_interval();
+            let current_block: u64 = Self::get_current_block_as_u64();
+            let interval_start: u64 = current_block - (current_block % interval);
+            let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
 
-        //First commit case
-        if hash == H256::default() || commit_block == 0 {
+            // Allow commit if we're within the interval bounds
+            if current_block > interval_start
+                && current_block < interval_start + interval
+                && interval_start > last_commit_interval_start
+            {
+                return true;
+            }
+
+            false
+        } else {
             return true;
         }
-
-        let interval: u64 = Self::get_weight_commit_interval();
-        let current_block: u64 = Self::get_current_block_as_u64();
-        let interval_start: u64 = current_block - (current_block % interval);
-        let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
-
-        // Allow commit if we're within the interval bounds
-        if current_block > interval_start
-            && current_block < interval_start + interval
-            && interval_start > last_commit_interval_start
-        {
-            return true;
-        }
-
-        false
     }
 
     pub fn is_reveal_block_range(commit_block: u64) -> bool {
