@@ -57,8 +57,11 @@ pub mod pallet {
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
+        /// The network does not exist
         NetworkDoesNotExist,
+        /// The storage value is out of range
         StorageValueOutOfRange,
+        /// The maximum allowed UIDs is not allowed
         MaxAllowedUIdsNotAllowed,
     }
 

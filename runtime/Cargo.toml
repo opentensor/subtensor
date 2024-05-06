@@ -83,6 +83,7 @@ pallet-registry = { default-features = false, path = "../pallets/registry" }
 pallet-commitments = { default-features = false, path = "../pallets/commitments" }
 
 [dev-dependencies]
+frame-metadata = { workspace-dev = true }
 sp-io = { workspace = true }
 sp-tracing = { workspace = true }
 
