@@ -1,14 +1,15 @@
 use super::*;
 use crate::math::*;
+use sp_core::H256;
+use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_runtime::SaturatedConversion;
 use sp_std::vec;
-use sp_runtime::traits::Hash;
 
 impl<T: Config> Pallet<T> {
-
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
-        commit_hash: T::Hash,
+        commit_hash: H256,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
         ensure!(Self::can_commit(netuid, &who), Error::<T>::CommitNotAllowed);
@@ -16,10 +17,7 @@ impl<T: Config> Pallet<T> {
         WeightCommits::<T>::insert(
             netuid,
             &who,
-            (
-                commit_hash,
-                Self::get_current_block_as_u64(),
-            ),
+            (commit_hash, Self::get_current_block_as_u64()),
         );
         Ok(())
     }
@@ -32,16 +30,27 @@ impl<T: Config> Pallet<T> {
         version_key: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
+        let nonce: u64 = frame_system::Pallet::<T>::account(&who)
+            .nonce
+            .saturated_into();
+
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
             let (commit_hash, commit_block) =
                 maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;
 
             ensure!(
-                Self::is_reveal_block(netuid, commit_block),
+                Self::is_reveal_block_range(commit_block),
                 Error::<T>::InvalidRevealTempo
             );
 
-            let provided_hash = T::Hashing::hash_of(&(who.clone(), netuid, uids.clone(), values.clone(), version_key));
+            let provided_hash: H256 = BlakeTwo256::hash_of(&(
+                who.clone(),
+                nonce,
+                netuid,
+                uids.clone(),
+                values.clone(),
+                version_key,
+            ));
             ensure!(provided_hash == commit_hash, Error::<T>::InvalidReveal);
 
             Self::do_set_weights(origin, netuid, uids, values, version_key)
@@ -371,9 +380,49 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        return true;
+        let (hash, commit_block) = WeightCommits::<T>::get(netuid, who);
+
+        //First commit case
+        if hash == H256::default() || commit_block == 0 {
+            return true;
+        }
+
+        let interval: u64 = Self::get_weight_commit_interval();
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let interval_start: u64 = current_block - (current_block % interval);
+        let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
+
+        // Allow commit if we're within the interval bounds
+        if current_block > interval_start
+            && current_block < interval_start + interval
+            && interval_start > last_commit_interval_start
+        {
+            return true;
+        }
+
+        false
     }
-    pub fn is_reveal_block(netuid: u16, commit_block: u64) -> bool {
-        return true;
+
+    pub fn is_reveal_block_range(commit_block: u64) -> bool {
+        let interval: u64 = Self::get_weight_commit_interval();
+        let commit_interval_start: u64 = commit_block - (commit_block % interval); // Find the start of the interval in which the commit occurred
+        let reveal_interval_start: u64 = commit_interval_start + interval; // Start of the next interval after the commit interval
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        // Allow reveal if the current block is within the interval following the commit's interval
+        if current_block > reveal_interval_start && current_block < reveal_interval_start + interval
+        {
+            return true;
+        }
+
+        false
+    }
+
+    pub fn get_weight_commit_interval() -> u64 {
+        WeightCommitRevealInterval::<T>::get()
+    }
+
+    pub fn set_weight_commit_interval(interval: u64) {
+        WeightCommitRevealInterval::<T>::set(interval)
     }
 }
