@@ -42,7 +42,7 @@ fn test_metadata() {
                                 // print name make it easier to find out failed item
                                 println!("{}", variant.name);
                                 assert!(variant.docs.len() > 0);
-                                assert_eq!(variant.docs[0].is_empty(), false);
+                                assert!(!variant.docs[0].is_empty());
                             }
                         }
                         _ => {}
