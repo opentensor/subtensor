@@ -20,9 +20,7 @@
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
 use frame_support::{
-    assert_noop, assert_ok, derive_impl, parameter_types,
-    traits::{ConstU32, ConstU64},
-    Hashable,
+    assert_noop, assert_ok, derive_impl, parameter_types, traits::ConstU64, Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::H256;
