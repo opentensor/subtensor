@@ -68,6 +68,7 @@ pub mod pallet {
         traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
+    use sp_core::H256;
     use sp_runtime::traits::TrailingZeroInput;
     use sp_std::vec;
     use sp_std::vec::Vec;
@@ -306,16 +307,6 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
-    // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
-    #[pallet::storage]
-    pub type WeightCommits<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        u16,
-        Twox64Concat,
-        T::AccountId,
-        (T::Hash, u64),
-        ValueQuery>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
@@ -796,6 +787,20 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
+    // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+    #[pallet::storage]
+    pub type WeightCommits<T: Config> =
+        StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, T::AccountId, (H256, u64), ValueQuery>;
+
+    #[pallet::type_value]
+    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
+        1000
+    }
+
+    #[pallet::storage]
+    pub type WeightCommitRevealInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+
     // =======================================
     // ==== Subnetwork Consensus Storage  ====
     // =======================================
@@ -1194,8 +1199,8 @@ pub mod pallet {
         // 		- Attempting to set weights with max value exceeding limit.
         // #[pallet::call_index(0)]
         // #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
-		// .saturating_add(T::DbWeight::get().reads(4104))
-		// .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        // .saturating_add(T::DbWeight::get().reads(4104))
+        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         // pub fn set_weights(
         //     origin: OriginFor<T>,
         //     netuid: u16,
@@ -1206,14 +1211,14 @@ pub mod pallet {
         //     Self::do_set_weights(origin, netuid, dests, weights, version_key)
         // }
 
-        #[pallet::call_index(0)]
+        #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
             netuid: u16,
-            commit_hash: T::Hash,
+            commit_hash: H256,
         ) -> DispatchResult {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }

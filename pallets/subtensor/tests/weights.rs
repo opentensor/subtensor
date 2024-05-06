@@ -5,8 +5,11 @@ use frame_support::{
 };
 use mock::*;
 use pallet_subtensor::Error;
-use sp_core::U256;
-use sp_runtime::DispatchError;
+use sp_core::{H256, U256};
+use sp_runtime::{
+    traits::{BlakeTwo256, Hash},
+    DispatchError,
+};
 use substrate_fixed::types::I32F32;
 
 /***************************
@@ -963,5 +966,265 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
             expected, result,
             "Failed to detect incompatible uids for network"
         );
+    });
+}
+
+#[test]
+fn test_commit_reveal_weights_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+        let nonce: u64 = 0;
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            nonce,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        SubtensorModule::set_weight_commit_interval(5);
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        step_block(5);
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids,
+            weight_values,
+            version_key,
+        ));
+    });
+}
+
+#[test]
+fn test_commit_reveal_interval() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+        let nonce: u64 = 0;
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            nonce,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        SubtensorModule::set_weight_commit_interval(100);
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        assert_err!(
+            SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
+            Error::<Test>::CommitNotAllowed
+        );
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::InvalidRevealTempo
+        );
+        step_block(99);
+        assert_err!(
+            SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
+            Error::<Test>::CommitNotAllowed
+        );
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::InvalidRevealTempo
+        );
+        step_block(1);
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        // After the previous reveal the associated mapping entry was removed.
+        // Therefore we expect NoCommitFound
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::NoCommitFound
+        );
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::InvalidRevealTempo
+        );
+        step_block(100);
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        // Testing that if you miss the next tempo you cannot reveal it.
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        step_block(205);
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::InvalidRevealTempo
+        );
+    });
+}
+
+#[test]
+fn test_commit_reveal_hash() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+        let nonce: u64 = 0;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        SubtensorModule::set_weight_commit_interval(5);
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            nonce,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        step_block(5);
+
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                vec![0, 2],
+                weight_values.clone(),
+                version_key
+            ),
+            Error::<Test>::InvalidReveal
+        );
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                7,
+            ),
+            Error::<Test>::InvalidReveal
+        );
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                vec![10, 9],
+                version_key,
+            ),
+            Error::<Test>::InvalidReveal
+        );
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                vec![0, 1, 2],
+                vec![10, 10, 33],
+                9,
+            ),
+            Error::<Test>::InvalidReveal
+        );
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids,
+            weight_values,
+            version_key,
+        ));
     });
 }
