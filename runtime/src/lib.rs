@@ -9,20 +9,18 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-
+use frame_support::{
+    dispatch::DispatchResultWithPostInfo,
+    genesis_builder_helper::{build_config, create_default_config},
+    pallet_prelude::{DispatchError, Get},
+    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
+};
+use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 use migrations::{account_data_migration, init_storage_versions};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-
-use frame_support::{
-    dispatch::DispatchResultWithPostInfo,
-    pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
-};
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
-
 use pallet_registry::CanRegisterIdentity;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
@@ -37,7 +35,6 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
-
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -1274,6 +1271,16 @@ impl_runtime_apis! {
             data: sp_inherents::InherentData,
         ) -> sp_inherents::CheckInherentsResult {
             data.check_extrinsics(&block)
+        }
+    }
+
+    impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+        fn create_default_config() -> Vec<u8> {
+            create_default_config::<RuntimeGenesisConfig>()
+        }
+
+        fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+            build_config::<RuntimeGenesisConfig>(config)
         }
     }
 
