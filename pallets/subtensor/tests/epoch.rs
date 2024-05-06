@@ -245,11 +245,7 @@ fn init_run_epochs(
     log::info!("Start {epochs} epoch(s)");
     let start = Instant::now();
     for _ in 0..epochs {
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
     }
     let duration = start.elapsed();
     log::info!(
@@ -989,7 +985,6 @@ fn test_16384_graph_sparse() {
 #[test]
 fn test_bonds() {
     new_test_ext(1).execute_with(|| {
-		let sparse: bool = true;
 		let n: u16 = 8;
 		let netuid: u16 = 1;
 		let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
@@ -1026,8 +1021,7 @@ fn test_bonds() {
 		for uid in 0..(n/2) as u64 {
 			assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((n/2)..n).collect(), vec![ u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX], 0));
 		}
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch( netuid, 1_000_000_000 );
 		/*  n: 8
 			current_block: 1; activity_cutoff: 5000; Last update: [1, 1, 1, 1, 0, 0, 0, 0]
 			Inactive: [false, false, false, false, false, false, false, false]
@@ -1071,8 +1065,7 @@ fn test_bonds() {
 		let uid = 0;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch( netuid, 1_000_000_000 );
 		/*  n: 8
 			current_block: 2
 			activity_cutoff: 5000
@@ -1118,8 +1111,7 @@ fn test_bonds() {
 		let uid = 1;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch( netuid, 1_000_000_000 );
 		/*  current_block: 3
 			W: [[(0, 65535)], [(1, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
 			W (permit): [[(0, 65535)], [(1, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
@@ -1154,8 +1146,7 @@ fn test_bonds() {
 		let uid = 2;
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch( netuid, 1_000_000_000 );
 		/*  current_block: 4
 			W: [[(0, 65535)], [(1, 65535)], [(2, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
 			W (permit): [[(0, 65535)], [(1, 65535)], [(2, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
@@ -1189,8 +1180,7 @@ fn test_bonds() {
 		// === Set val3->srv4: 1
 		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), netuid, vec![7], vec![u16::MAX], 0));
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch( netuid, 1_000_000_000);
 		/*  current_block: 5
 			W: [[(0, 65535)], [(1, 65535)], [(7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
 			W (permit): [[(0, 65535)], [(1, 65535)], [(7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
@@ -1222,8 +1212,7 @@ fn test_bonds() {
 		assert_eq!(bonds[3][7], 65535);
 
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch( netuid, 1_000_000_000);
 		/*  current_block: 6
 			B: [[(4, 12601), (5, 12601), (6, 12601), (7, 10951)], [(4, 28319), (5, 28319), (6, 28319), (7, 24609)], [(4, 49149), (5, 49149), (6, 49149), (7, 49150)], [(4, 65535), (5, 65535), (6, 65535), (7, 65535)], [], [], [], []]
 			B (outdatedmask): [[(4, 12601), (5, 12601), (6, 12601), (7, 10951)], [(4, 28319), (5, 28319), (6, 28319), (7, 24609)], [(4, 49149), (5, 49149), (6, 49149), (7, 49150)], [(4, 65535), (5, 65535), (6, 65535), (7, 65535)], [], [], [], []]
@@ -1243,8 +1232,7 @@ fn test_bonds() {
 		assert_eq!(bonds[3][7], 65535);
 
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch(netuid, 1_000_000_000);
 		/*  current_block: 7
 			B: [[(4, 12600), (5, 12600), (6, 12600), (7, 9559)], [(4, 28318), (5, 28318), (6, 28318), (7, 21482)], [(4, 49148), (5, 49148), (6, 49148), (7, 49150)], [(4, 65535), (5, 65535), (6, 65535), (7, 65535)], [], [], [], []]
 			B (outdatedmask): [[(4, 12600), (5, 12600), (6, 12600), (7, 9559)], [(4, 28318), (5, 28318), (6, 28318), (7, 21482)], [(4, 49148), (5, 49148), (6, 49148), (7, 49150)], [(4, 65535), (5, 65535), (6, 65535), (7, 65535)], [], [], [], []]
@@ -1264,8 +1252,7 @@ fn test_bonds() {
 		assert_eq!(bonds[3][7], 65535);
 
 		next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+		SubtensorModule::epoch(netuid, 1_000_000_000);
 		/*  current_block: 8
 			B: [[(4, 12599), (5, 12599), (6, 12599), (7, 8376)], [(4, 28317), (5, 28317), (6, 28317), (7, 18824)], [(4, 49147), (5, 49147), (6, 49147), (7, 49150)], [(4, 65535), (5, 65535), (6, 65535), (7, 65535)], [], [], [], []]
 			B (outdatedmask): [[(4, 12599), (5, 12599), (6, 12599), (7, 8376)], [(4, 28317), (5, 28317), (6, 28317), (7, 18824)], [(4, 49147), (5, 49147), (6, 49147), (7, 49150)], [(4, 65535), (5, 65535), (6, 65535), (7, 65535)], [], [], [], []]
@@ -1286,7 +1273,6 @@ fn test_bonds() {
 fn test_active_stake() {
     new_test_ext(1).execute_with(|| {
         System::set_block_number(0);
-        let sparse: bool = true;
         let n: u16 = 4;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
@@ -1345,11 +1331,7 @@ fn test_active_stake() {
                 0
             ));
         }
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
         let bonds = SubtensorModule::get_bonds(netuid);
         for uid in 0..n as u16 {
             // log::info!("\n{uid}" );
@@ -1383,11 +1365,7 @@ fn test_active_stake() {
             vec![u16::MAX / (n / 2); (n / 2) as usize],
             0
         ));
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
         /*  current_block: 5002; activity_cutoff: 5000
         Last update: [5002, 1, 0, 0]; Inactive: [false, true, true, true]; Block at registration: [0, 0, 0, 0]
         S: [0.25, 0.25, 0.25, 0.25]; S (mask): [0.25, 0, 0, 0]; S (mask+norm): [1, 0, 0, 0]
@@ -1444,11 +1422,8 @@ fn test_active_stake() {
             0
         ));
         run_to_block(activity_cutoff + 3); // run to block where validator (uid 0, 1) weights become outdated
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*  current_block: 5003; activity_cutoff: 5000
         Last update: [5002, 5002, 0, 0]; Inactive: [false, false, true, true]; Block at registration: [0, 0, 0, 0]
         S: [0.25, 0.25, 0.25, 0.25]; S (mask): [0.25, 0.25, 0, 0]; S (mask+norm): [0.5, 0.5, 0, 0]
@@ -1493,7 +1468,6 @@ fn test_active_stake() {
 #[test]
 fn test_outdated_weights() {
     new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
         let n: u16 = 4;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
@@ -1564,11 +1538,8 @@ fn test_outdated_weights() {
                 0
             )); // server self-weight
         }
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*  current_block: 1; activity_cutoff: 5000
         Last update: [1, 1, 1, 1]; Inactive: [false, false, false, false]; Block at registration: [0, 0, 0, 0]
         S: [0.25, 0.25, 0.25, 0.25]; S (mask): [0.25, 0.25, 0.25, 0.25]; S (mask+norm): [0.25, 0.25, 0.25, 0.25]
@@ -1633,11 +1604,8 @@ fn test_outdated_weights() {
             vec![2 * (u16::MAX / 3), u16::MAX / 3],
             0
         ));
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*  current_block: 2; activity_cutoff: 5000
         Last update: [2, 1, 1, 1]; Inactive: [false, false, false, false]; Block at registration: [0, 0, 0, 1]
         S: [0.3333333333, 0.3333333333, 0.3333333333, 0]
@@ -1680,7 +1648,6 @@ fn test_outdated_weights() {
 #[test]
 fn test_zero_weights() {
     new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
         let n: u16 = 2;
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
@@ -1725,11 +1692,8 @@ fn test_zero_weights() {
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
 
         // === No weights
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*	current_block: 0; activity_cutoff: 5000; Last update: [0, 0]; Inactive: [false, false]
         S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 0]
         W: [[], []]; W (diagmask): [[], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []]
@@ -1760,11 +1724,8 @@ fn test_zero_weights() {
                 0
             )); // server self-weight
         }
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*	current_block: 1; activity_cutoff: 5000; Last update: [0, 1]; Inactive: [false, false]
         S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 0]
         W: [[], [(1, 1)]]
@@ -1816,11 +1777,8 @@ fn test_zero_weights() {
                 U256::from(new_key)
             ));
         }
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*	current_block: 2; activity_cutoff: 5000; Last update: [2, 1]; Inactive: [false, false];
         S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 2];
         W: [[(1, 1)], []]; W (diagmask): [[(1, 1)], []]; W (diag+outdatemask): [[], []]; W (mask+norm): [[], []];
@@ -1850,11 +1808,8 @@ fn test_zero_weights() {
                 0
             ));
         }
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+
         /*	current_block: 3; activity_cutoff: 5000; Last update: [3, 1]; Inactive: [false, false];
         S: [1, 0]; S (mask): [1, 0]; S (mask+norm): [1, 0]; Block at registration: [0, 2];
         W: [[(1, 1)], []]; W (diagmask): [[(1, 1)], []]; W (diag+outdatemask): [[(1, 1)], []]; W (mask+norm): [[(1, 1)], []];
