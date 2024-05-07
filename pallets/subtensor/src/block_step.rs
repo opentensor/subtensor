@@ -98,11 +98,15 @@ impl<T: Config> Pallet<T> {
 
         // Calculate tempos based on normalized relative frequencies
         let min_tempo = T::MinTempo::get();
+        let max_tempo = T::MaxTempo::get();
         let tempos: Vec<(u16, u16)> = netuids.iter().zip(relative_frequencies.iter())
             .map(|(&uid, &rel_freq)| {
                 let mut tempo = (normalization_factor / rel_freq).to_num::<u16>();
                 if tempo < min_tempo {
                     tempo = min_tempo;
+                }
+                if tempo > max_tempo {
+                    tempo = max_tempo;
                 }
                 (uid, tempo)
             })
