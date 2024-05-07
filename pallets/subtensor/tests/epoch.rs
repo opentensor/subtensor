@@ -205,7 +205,7 @@ fn init_run_epochs(
             let sparse_weights = input_weights[*uid as usize].clone();
             weights = sparse_weights.iter().map(|(_, w)| *w).collect();
             let srvs: Vec<u16> = sparse_weights.iter().map(|(s, _)| *s).collect();
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
                 srvs,
@@ -213,7 +213,7 @@ fn init_run_epochs(
                 0
             ));
         } else {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
                 servers.to_vec(),
@@ -224,7 +224,7 @@ fn init_run_epochs(
     }
     if server_self {
         for uid in servers {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(*uid as u64)),
                 netuid,
                 vec![*uid],
@@ -558,7 +558,7 @@ fn test_1_graph() {
         SubtensorModule::append_neuron(netuid, &hotkey, 0);
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 1);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
-        assert_ok!(SubtensorModule::set_weights(
+        assert_ok!(SubtensorModule::do_set_weights(
             RuntimeOrigin::signed(U256::from(uid)),
             netuid,
             vec![uid],
@@ -625,7 +625,7 @@ fn test_10_graph() {
         assert_eq!(SubtensorModule::get_subnetwork_n(netuid), 10);
         run_to_block(1); // run to next block to ensure weights are set on nodes after their registration block
         for i in 0..10 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(i)),
                 netuid,
                 vec![i as u16],
@@ -1005,7 +1005,7 @@ fn test_bonds() {
 
 		// === Set weights [val->srv1: 0.1, val->srv2: 0.2, val->srv3: 0.3, val->srv4: 0.4]
 		for uid in 0..(n/2) as u64 {
-			assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((n/2)..n).collect(), vec![ u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX], 0));
+			assert_ok!(SubtensorModule::do_set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((n/2)..n).collect(), vec![ u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX], 0));
 		}
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -1050,7 +1050,7 @@ fn test_bonds() {
 
 		// === Set self-weight only on val1
 		let uid = 0;
-		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
+		assert_ok!(SubtensorModule::do_set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
         next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -1097,7 +1097,7 @@ fn test_bonds() {
 
 		// === Set self-weight only on val2
 		let uid = 1;
-		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
+		assert_ok!(SubtensorModule::do_set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
         next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -1133,7 +1133,7 @@ fn test_bonds() {
 
 		// === Set self-weight only on val3
 		let uid = 2;
-		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
+		assert_ok!(SubtensorModule::do_set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
         next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -1168,7 +1168,7 @@ fn test_bonds() {
 		assert_eq!(bonds[3][7], 65535);
 
 		// === Set val3->srv4: 1
-		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(2)), netuid, vec![7], vec![u16::MAX], 0));
+		assert_ok!(SubtensorModule::do_set_weights(RuntimeOrigin::signed(U256::from(2)), netuid, vec![7], vec![u16::MAX], 0));
         next_block();
 		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
 		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
@@ -1316,7 +1316,7 @@ fn test_active_stake() {
 
         // === Set weights [val1->srv1: 0.5, val1->srv2: 0.5, val2->srv1: 0.5, val2->srv2: 0.5]
         for uid in 0..(n / 2) as u64 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(uid)),
                 netuid,
                 ((n / 2)..n).collect(),
@@ -1356,7 +1356,7 @@ fn test_active_stake() {
         run_to_block(activity_cutoff + 2); // run to block where validator (uid 0, 1) weights become outdated
 
         // === Update uid 0 weights
-        assert_ok!(SubtensorModule::set_weights(
+        assert_ok!(SubtensorModule::do_set_weights(
             RuntimeOrigin::signed(U256::from(0)),
             netuid,
             ((n / 2)..n).collect(),
@@ -1416,7 +1416,7 @@ fn test_active_stake() {
         }
 
         // === Update uid 1 weights as well
-        assert_ok!(SubtensorModule::set_weights(
+        assert_ok!(SubtensorModule::do_set_weights(
             RuntimeOrigin::signed(U256::from(1)),
             netuid,
             ((n / 2)..n).collect(),
@@ -1525,7 +1525,7 @@ fn test_outdated_weights() {
 
         // === Set weights [val1->srv1: 2/3, val1->srv2: 1/3, val2->srv1: 2/3, val2->srv2: 1/3, srv1->srv1: 1, srv2->srv2: 1]
         for uid in 0..(n / 2) as u64 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(uid)),
                 netuid,
                 ((n / 2)..n).collect(),
@@ -1534,7 +1534,7 @@ fn test_outdated_weights() {
             ));
         }
         for uid in ((n / 2) as u64)..n as u64 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(uid)),
                 netuid,
                 vec![uid as u16],
@@ -1604,7 +1604,7 @@ fn test_outdated_weights() {
         next_block(); // run to next block to outdate weights and bonds set on deregistered uid
 
         // === Update weights from only uid=0
-        assert_ok!(SubtensorModule::set_weights(
+        assert_ok!(SubtensorModule::do_set_weights(
             RuntimeOrigin::signed(U256::from(0)),
             netuid,
             ((n / 2)..n).collect(),
@@ -1728,7 +1728,7 @@ fn test_zero_weights() {
 
         // === Self-weights only: set weights [srv->srv: 1]
         for uid in ((n / 2) as u64)..n as u64 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(uid)),
                 netuid,
                 vec![uid as u16],
@@ -1764,7 +1764,7 @@ fn test_zero_weights() {
 
         // === Set weights [val->srv: 1/(n/2)]
         for uid in 0..(n / 2) as u64 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(uid)),
                 netuid,
                 ((n / 2)..n).collect(),
@@ -1818,7 +1818,7 @@ fn test_zero_weights() {
 
         // === Set new weights [val->srv: 1/(n/2)] to check that updated weights would produce non-zero incentive
         for uid in 0..(n / 2) as u64 {
-            assert_ok!(SubtensorModule::set_weights(
+            assert_ok!(SubtensorModule::do_set_weights(
                 RuntimeOrigin::signed(U256::from(uid)),
                 netuid,
                 ((n / 2)..n).collect(),
