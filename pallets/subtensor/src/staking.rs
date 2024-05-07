@@ -786,12 +786,6 @@ impl<T: Config> Pallet<T> {
         Delegates::<T>::insert(hotkey, take);
     }
 
-    // Returns the total amount of stake in the staking table.
-    //
-    pub fn get_total_stake() -> u64 {
-        return TotalStake::<T>::get();
-    }
-
     // Getters for Dynamic terms
     //
     pub fn get_tao_reserve(netuid: u16) -> u64 {
@@ -833,18 +827,6 @@ impl<T: Config> Pallet<T> {
         SubStake::<T>::iter()
             .filter(|((_, _, subnet), _)| *subnet == target_subnet)
             .fold(0, |acc, (_, stake)| acc.saturating_add(stake))
-    }
-
-    // Increases the total amount of stake by the passed amount.
-    //
-    pub fn increase_total_stake(increment: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
-    }
-
-    // Decreases the total amount of stake by the passed amount.
-    //
-    pub fn decrease_total_stake(decrement: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
     }
 
     // Returns the total amount of stake under a hotkey (delegative or otherwise)
@@ -1117,7 +1099,6 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(0)
                 .saturating_add(increment),
         );
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_add(increment));
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -1149,7 +1130,6 @@ impl<T: Config> Pallet<T> {
                 .unwrap_or(0)
                 .saturating_sub(decrement),
         );
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(decrement));
     }
 
     pub fn u64_to_balance(

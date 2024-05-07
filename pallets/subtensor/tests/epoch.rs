@@ -879,7 +879,6 @@ fn test_4096_graph() {
                     0,
                     true,
                 );
-                assert_eq!(SubtensorModule::get_total_stake(), 21_000_000_000_000_000);
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(

@@ -63,9 +63,6 @@ fn test_add_subnet_stake_ok_no_emission() {
             0
         );
 
-        // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-
         // Transfer to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -85,9 +82,6 @@ fn test_add_subnet_stake_ok_no_emission() {
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             ExistentialDeposit::get()
         );
-
-        // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
     });
 }
 
@@ -268,9 +262,6 @@ fn test_add_subnet_stake_total_balance_no_change() {
         let initial_total_balance = Balances::total_balance(&coldkey_account_id);
         assert_eq!(initial_total_balance, initial_balance);
 
-        // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-
         // Stake to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -286,9 +277,6 @@ fn test_add_subnet_stake_total_balance_no_change() {
         // Check if free balance has decreased
         let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
         assert_eq!(new_free_balance, 0);
-
-        // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
 
         // Check if total balance has remained the same. (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
@@ -330,9 +318,6 @@ fn test_add_subnet_stake_total_issuance_no_change() {
         let initial_total_issuance = Balances::total_issuance();
         assert_eq!(initial_total_issuance, initial_balance);
 
-        // Also total stake should be zero
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-
         // Stake to hotkey account, and check if the result is ok
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
@@ -348,9 +333,6 @@ fn test_add_subnet_stake_total_issuance_no_change() {
         // Check if free balance has decreased
         let new_free_balance = SubtensorModule::get_coldkey_balance(&coldkey_account_id);
         assert_eq!(new_free_balance, 0);
-
-        // Check if total stake has increased accordingly.
-        assert_eq!(SubtensorModule::get_total_stake(), 10000);
 
         // Check if total issuance has remained the same. (no fee, includes reserved/locked balance)
         let total_issuance = Balances::total_issuance();
@@ -638,7 +620,6 @@ fn test_remove_subnet_stake_ok_no_emission() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -664,7 +645,6 @@ fn test_remove_subnet_stake_ok_no_emission() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
     });
 }
 
@@ -685,7 +665,6 @@ fn test_remove_subnet_stake_amount_zero() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -798,7 +777,6 @@ fn test_remove_subnet_stake_total_balance_no_change() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -826,7 +804,6 @@ fn test_remove_subnet_stake_total_balance_no_change() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
         // Check total balance is equal to the added stake. Even after remove stake (no fee, includes reserved/locked balance)
         let total_balance = Balances::total_balance(&coldkey_account_id);
@@ -855,7 +832,6 @@ fn test_remove_subnet_stake_total_issuance_no_change() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
 
         // Some basic assertions
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
@@ -887,7 +863,6 @@ fn test_remove_subnet_stake_total_issuance_no_change() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
 
         // Check if total issuance is equal to the added stake, even after remove stake (no fee, includes reserved/locked balance)
         // Should also be equal to the total issuance after adding stake
@@ -945,9 +920,6 @@ fn test_add_subnet_stake_to_hotkey_account_ok() {
 
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
-        // There is not stake in the system at first, so result should be 0;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, netuid, amount);
 
         // The stake that is now in the account, should equal the amount
@@ -955,9 +927,6 @@ fn test_add_subnet_stake_to_hotkey_account_ok() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
             amount
         );
-
-        // The total stake should have been increased by the amount -> 0 + amount = amount
-        assert_eq!(SubtensorModule::get_total_stake(), amount);
     });
 }
 
@@ -983,7 +952,6 @@ fn test_remove_subnet_stake_from_hotkey_account() {
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_id, netuid, amount);
 
         // Prelimiary checks
-        assert_eq!(SubtensorModule::get_total_stake(), amount);
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey_id),
             amount
@@ -994,9 +962,6 @@ fn test_remove_subnet_stake_from_hotkey_account() {
 
         // The stake on the hotkey account should be 0
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey_id), 0);
-
-        // The total amount of stake should be 0
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
     });
 }
 
@@ -1051,39 +1016,6 @@ fn test_remove_subnet_stake_from_hotkey_account_registered_in_various_networks()
         assert_eq!(
             SubtensorModule::get_stake_for_uid_and_subnetwork(netuid_ex, neuron_uid_ex),
             0
-        );
-    });
-}
-
-// /************************************************************
-// 	staking::increase_total_stake() tests
-// ************************************************************/
-#[test]
-fn test_increase_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let increment = 10000;
-        assert_eq!(SubtensorModule::get_total_stake(), 0);
-        SubtensorModule::increase_total_stake(increment);
-        assert_eq!(SubtensorModule::get_total_stake(), increment);
-    });
-}
-
-// /************************************************************
-// 	staking::decrease_total_stake() tests
-// ************************************************************/
-#[test]
-fn test_decrease_total_stake_ok() {
-    new_test_ext(1).execute_with(|| {
-        let initial_total_stake = 10000;
-        let decrement = 5000;
-
-        SubtensorModule::increase_total_stake(initial_total_stake);
-        SubtensorModule::decrease_total_stake(decrement);
-
-        // The total stake remaining should be the difference between the initial stake and the decrement
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            initial_total_stake - decrement
         );
     });
 }
@@ -1465,7 +1397,6 @@ fn test_full_with_delegating() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 100);
         assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey0), 100);
         assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey1), 100);
-        assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Cant remove these funds because we are not delegating.
         assert_eq!(
@@ -1605,10 +1536,6 @@ fn test_full_with_delegating() {
             SubtensorModule::get_total_stake_for_coldkey(&coldkey1),
             substake_cold1_hot0 + substake_cold1_hot1
         );
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            substake_cold0_hot0 + substake_cold0_hot1 + substake_cold1_hot0 + substake_cold1_hot1
-        );
 
         // Lets emit inflation through the hot and coldkeys.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 1000);
@@ -1637,11 +1564,6 @@ fn test_full_with_delegating() {
         substake_cold0_hot1 += (emission1_remainder * cold0hot1weight) as u64;
         substake_cold1_hot1 +=
             (delegate_take_hot1 + emission1_remainder * cold1hot1weight) as u64 + 1;
-        // initial + rewards, server emission goes to cold0 in dtao
-        let total_hot0 = substake_cold0_hot0 + substake_cold1_hot0;
-        let total_hot1 = substake_cold0_hot1 + substake_cold1_hot1;
-        // server emission doesn't go to total stake in dtao
-        let total = total_hot0 + total_hot1;
 
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
@@ -1659,7 +1581,6 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             substake_cold1_hot1
         );
-        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // // Try unstaking too much.
         assert_eq!(
@@ -1833,7 +1754,6 @@ fn test_full_with_delegating() {
             1_000
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 3_000);
-        assert_eq!(SubtensorModule::get_total_stake(), 5_500);
 
         // Lets emit inflation through this new key with distributed ownership.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, netuid, 0, 1000);
@@ -1849,7 +1769,6 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid),
             1_166
         ); // 1000 + 500 * (1000/3000) = 1000 + 166.6666666667 = 1166.6
-        assert_eq!(SubtensorModule::get_total_stake(), 6_500); // before + 1_000 = 5_500 + 1_000 = 6_500
 
         step_block(1);
 
@@ -1907,7 +1826,6 @@ fn test_full_with_delegating() {
             1000
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 4000);
-        assert_eq!(SubtensorModule::get_total_stake(), 10_500);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, netuid, 0, 1000);
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3, netuid),
@@ -1925,7 +1843,6 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3, netuid),
             1625
         ); // 1000 + 125 * 3 + 1000 * 1000/4000 = 1625
-        assert_eq!(SubtensorModule::get_total_stake(), 11_500); // before + 1_000 = 10_500 + 1_000 = 11_500
     });
 }
 
@@ -2030,7 +1947,6 @@ fn test_full_with_delegating_some_servers() {
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 100);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 100);
-        assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Emit inflation through non delegates.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 100);
@@ -2099,7 +2015,6 @@ fn test_full_with_delegating_some_servers() {
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 500);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 400);
-        assert_eq!(SubtensorModule::get_total_stake(), 900);
 
         // Check that global stake weight is 1
         let global_stake_weight = SubtensorModule::get_global_stake_weight();
@@ -2132,8 +2047,6 @@ fn test_full_with_delegating_some_servers() {
         // initial + rewards, server emission goes to cold0 in dtao
         let total_hot0 = 500 + (delegate_take_hot0 + emission0_remainder) as u64;
         let total_hot1 = 400 + (delegate_take_hot1 + emission1_remainder) as u64;
-        // server emission doesn't go to total stake in dtao
-        let mut total = 900 + 1000 + 2000;
 
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
@@ -2160,7 +2073,6 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_total_stake_for_hotkey(&hotkey1),
             total_hot1
         );
-        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // Lets emit MORE inflation through the hot and coldkeys.
         // This time only server emission. This should go to the owner of the hotkey.
@@ -2184,7 +2096,6 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             substake_cold1_hot1
         );
-        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // Lets register and stake a new key.
         let hotkey2 = U256::from(5);
@@ -2197,14 +2108,12 @@ fn test_full_with_delegating_some_servers() {
             netuid,
             1_000
         ));
-        total += 1000;
         assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
             hotkey2,
             netuid,
             100
         ));
-        total -= 100;
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid),
             900
@@ -2227,8 +2136,6 @@ fn test_full_with_delegating_some_servers() {
             ),
             Err(Error::<Test>::NonAssociatedColdKey.into())
         );
-
-        assert_eq!(SubtensorModule::get_total_stake(), total);
 
         // Lets make this new key a delegate with a default take.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -2269,11 +2176,6 @@ fn test_full_with_delegating_some_servers() {
             1000
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 3_000);
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            total + 1_000 + 1_000 + 100
-        );
-        total = total + 1_000 + 1_000 + 100;
 
         // Lets emit inflation through this new key with distributed ownership.
         // We will emit 100 server emission, which should go in-full to the owner of the hotkey.
@@ -2289,7 +2191,6 @@ fn test_full_with_delegating_some_servers() {
         let substake_cold1_hot2 = 1000 + (emission2_remainder * cold1hot2weight) as u64;
         let substake_cold2_hot2 =
             1000 + (delegate_take_hot2 + emission2_remainder * cold2hot2weight) as u64 + 2;
-        total = total + 1000;
 
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid),
@@ -2303,7 +2204,6 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid),
             substake_cold0_hot2
         );
-        assert_eq!(SubtensorModule::get_total_stake(), total);
         let cold2balance_before = SubtensorModule::get_coldkey_balance(&coldkey2);
 
         // Lets emit MORE inflation through this new key with distributed ownership.
@@ -2323,7 +2223,6 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid),
             substake_cold0_hot2
         ); // No change.
-        assert_eq!(SubtensorModule::get_total_stake(), total); // No change, 123 only goes to cold2 balance
 
         let cold2balance_after = SubtensorModule::get_coldkey_balance(&coldkey2);
         assert_eq!(cold2balance_after - cold2balance_before, 123);
@@ -2373,7 +2272,6 @@ fn test_stao_delegation() {
             SubtensorModule::get_total_stake_for_hotkey(&delegate),
             100000 * 3
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 100000 * 3);
         assert_eq!(
             SubtensorModule::get_total_stake_for_subnet(netuid),
             100000 * 3
@@ -2560,21 +2458,10 @@ fn test_full_block_emission_occurs() {
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 100);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 100);
-        assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Emit inflation through non delegates.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 111);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 234);
-
-        let substake_cold0_hot0 = 100 + 111;
-        let substake_cold1_hot1 = 100 + 234;
-        let mut total = substake_cold0_hot0 + substake_cold1_hot1;
-
-        // Verify the full emission occurs.
-        assert_eq!(
-            SubtensorModule::get_total_stake(),
-            substake_cold0_hot0 + substake_cold1_hot1
-        );
 
         // Become delegates all is ok.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -2601,33 +2488,6 @@ fn test_full_block_emission_occurs() {
             netuid,
             300
         ));
-
-        let substake_cold0_hot1 = 200;
-        let substake_cold1_hot0 = 300;
-        total += substake_cold0_hot1 + substake_cold1_hot0;
-
-        assert_eq!(SubtensorModule::get_total_stake(), total);
-
-        // Lets emit inflation with delegatees, with both validator and server emission
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 200, 1_000); // 1_200 total emission.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 123, 2_000); // 2_123 total emission.
-
-        total += 1000 + 2000;
-        assert_eq!(SubtensorModule::get_total_stake(), total);
-
-        // Lets emit MORE inflation through the hot and coldkeys.
-        // This time JUSt server emission
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 350, 0);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 150, 0);
-
-        assert_eq!(SubtensorModule::get_total_stake(), total); // No change
-
-        // Lastly, do only validator emission
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 12_948);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 1_874);
-
-        total += 12_948 + 1_874;
-        assert_eq!(SubtensorModule::get_total_stake(), total);
     });
 }
 
@@ -3205,7 +3065,6 @@ fn test_delegate_take_affects_distribution() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 100);
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey0,
@@ -3216,7 +3075,6 @@ fn test_delegate_take_affects_distribution() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             100
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 200);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 200);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
 
@@ -3285,7 +3143,6 @@ fn test_changing_delegate_take_changes_distribution() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             0
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 100);
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey0,
@@ -3296,7 +3153,6 @@ fn test_changing_delegate_take_changes_distribution() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
             100
         );
-        assert_eq!(SubtensorModule::get_total_stake(), 200);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 200);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 0);
 
@@ -3417,10 +3273,6 @@ fn test_subnet_stake_calculation() {
             add_network(netuid, tempo, 0);
         }
 
-        // Setup variables to track total expected stakes
-        let mut total_root_stake: u64 = 0;
-        let mut total_subnet_stake: u64 = 0;
-
         for netuid in 1..=NUM_SUBNETS {
             for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
                 let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64); // Unique hotkey for each neuron
@@ -3450,10 +3302,6 @@ fn test_subnet_stake_calculation() {
                     netuid,
                     SUBNET_STAKE_PER_NEURON
                 ));
-
-                // Update total stakes
-                total_root_stake += ROOT_STAKE_PER_NEURON;
-                total_subnet_stake += SUBNET_STAKE_PER_NEURON;
             }
         }
 
@@ -3474,14 +3322,6 @@ fn test_subnet_stake_calculation() {
             );
         }
 
-        // Check total stakes across all subnets
-        let expected_total_stake_adjusted = total_root_stake + total_subnet_stake;
-        let actual_total_stake = SubtensorModule::get_total_stake();
-        assert_eq!(
-            actual_total_stake, expected_total_stake_adjusted,
-            "The total stake across all subnets did not match the expected value."
-        );
-
         // After checking the total stake, proceed to remove the stakes
         for netuid in 1..=NUM_SUBNETS {
             for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
@@ -3495,8 +3335,6 @@ fn test_subnet_stake_calculation() {
                     netuid,
                     SUBNET_STAKE_PER_NEURON
                 ));
-
-                total_subnet_stake -= SUBNET_STAKE_PER_NEURON;
             }
         }
 
@@ -3510,14 +3348,6 @@ fn test_subnet_stake_calculation() {
                 netuid, emission_value
             );
         }
-
-        // Verify that the total stake has been correctly reduced to just the root stake
-        let expected_total_stake_after_removal = total_root_stake;
-        let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
-        assert_eq!(
-            actual_total_stake_after_removal, expected_total_stake_after_removal,
-            "The total stake after removal did not match the expected value."
-        );
 
         // Finally , remove the root stake
         for netuid in 1..=NUM_SUBNETS {
@@ -3531,30 +3361,8 @@ fn test_subnet_stake_calculation() {
                     // netuid,
                     ROOT_STAKE_PER_NEURON
                 ));
-
-                // Update total stakes to reflect removal
-                total_root_stake -= ROOT_STAKE_PER_NEURON;
             }
         }
-
-        step_block(1);
-
-        // Print Subnet Emission Value for each netuid after the block step
-        for netuid in 1..=NUM_SUBNETS {
-            let emission_value = SubtensorModule::get_subnet_emission_value(netuid);
-            println!(
-                "Subnet Emission Value for netuid {}: {}",
-                netuid, emission_value
-            );
-        }
-
-        // Verify that the total stake has been correctly reduced to 0
-        let expected_total_stake_after_removal = 0;
-        let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
-        assert_eq!(
-            actual_total_stake_after_removal, expected_total_stake_after_removal,
-            "The total stake after removal did not match the expected value."
-        );
     });
 }
 

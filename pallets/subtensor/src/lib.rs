@@ -266,8 +266,6 @@ pub mod pallet {
 
     #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
     pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
-    #[pallet::storage] // --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
     pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )

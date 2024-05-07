@@ -438,7 +438,6 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
         // TotalColdkeyStake is known to be inaccurate
         // TotalStake is known to be inaccurate
 
-        TotalStake::<T>::put(0); // Set to 0
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         // We iterate over TotalColdkeyStake keys and set them to 0
@@ -460,15 +459,6 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
             total_coldkey_stake = total_coldkey_stake.saturating_add(stake);
             // Update the coldkey stake
             TotalColdkeyStake::<T>::insert(coldkey, total_coldkey_stake);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-            // Get the current total stake
-            let mut total_stake = TotalStake::<T>::get();
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Add the stake to the total stake
-            total_stake = total_stake.saturating_add(stake);
-            // Update the total stake
-            TotalStake::<T>::put(total_stake);
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 
