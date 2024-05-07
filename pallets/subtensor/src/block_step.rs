@@ -14,22 +14,13 @@ impl<T: Config> Pallet<T> {
         // --- 2. Mint and distribute TAO.
         Self::run_coinbase(block_number);
         // Adjust Tempos every 1000 blocks
-        if Self::dynamic_tempos_on() && Self::blocks_until_next_epoch( 0, 1000, block_number ) == 0 {
+        if Self::blocks_until_next_epoch( 0, 1000, block_number ) == 0 {
             Self::adjust_tempos();
         }
 
         // Return ok.
         Ok(())
     }
-
-    // Turn on for dynamic tempos for dev chains.
-    pub fn dynamic_tempos_on() -> bool {
-        if cfg!(feature = "pow-faucet") {
-            return true;
-        } else {
-            return false;
-        }
-    }  
 
     /// Adjusts the tempo for each network based on their relative prices to ensure operations
     /// are performed more frequently on networks with higher prices.
