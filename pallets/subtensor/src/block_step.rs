@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
+use sp_core::Get;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 
@@ -96,9 +97,13 @@ impl<T: Config> Pallet<T> {
         let normalization_factor: I64F64 = k / total_relative_frequency;
 
         // Calculate tempos based on normalized relative frequencies
+        let min_tempo = T::MinTempo::get();
         let tempos: Vec<(u16, u16)> = netuids.iter().zip(relative_frequencies.iter())
             .map(|(&uid, &rel_freq)| {
-                let tempo = (normalization_factor / rel_freq).to_num::<u16>();
+                let mut tempo = (normalization_factor / rel_freq).to_num::<u16>();
+                if tempo < min_tempo {
+                    tempo = min_tempo;
+                }
                 (uid, tempo)
             })
             .collect();
