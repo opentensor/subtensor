@@ -387,8 +387,8 @@ impl<T: Config> Pallet<T> {
             let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
 
             // Allow commit if we're within the interval bounds
-            if current_block > interval_start
-                && current_block < interval_start + interval
+            if current_block >= interval_start
+                && current_block <= interval_start + interval
                 && interval_start > last_commit_interval_start
             {
                 return true;
@@ -407,7 +407,8 @@ impl<T: Config> Pallet<T> {
         let current_block: u64 = Self::get_current_block_as_u64();
 
         // Allow reveal if the current block is within the interval following the commit's interval
-        if current_block > reveal_interval_start && current_block < reveal_interval_start + interval
+        if current_block >= reveal_interval_start
+            && current_block < reveal_interval_start + interval
         {
             return true;
         }
