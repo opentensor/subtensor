@@ -103,7 +103,7 @@ substrate-build-script-utils = { git = "https://github.com/paritytech/polkadot-s
 substrate-fixed = { git = "https://github.com/encointer/substrate-fixed.git", tag = "v0.5.9" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0" }
 substrate-wasm-builder = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0" }
-frame-metadata = 16"
+frame-metadata = "16"
 
 [profile.release]
 panic = "unwind"
