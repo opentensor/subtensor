@@ -69,6 +69,8 @@ parameter_types! {
     pub const InitialRho: u16 = 30;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 0;
+    pub const MinTempo: u16 = 2;
+    pub const MaxTempo: u16 = u16::MAX;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
@@ -124,6 +126,8 @@ impl pallet_subtensor::Config for Test {
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
+    type MinTempo = MinTempo;
+    type MaxTempo = MaxTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
     type InitialAdjustmentAlpha = InitialAdjustmentAlpha;

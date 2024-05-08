@@ -119,6 +119,10 @@ pub mod pallet {
         type InitialMaxWeightsLimit: Get<u16>;
         #[pallet::constant] // Tempo for each network.
         type InitialTempo: Get<u16>;
+        #[pallet::constant] // Minimum Tempo for each network.
+        type MinTempo: Get<u16>;
+        #[pallet::constant] // Maximum Tempo for each network.
+        type MaxTempo: Get<u16>;
         #[pallet::constant] // Initial Difficulty.
         type InitialDifficulty: Get<u64>;
         #[pallet::constant] // Initial Max Difficulty.
