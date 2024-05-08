@@ -2,6 +2,7 @@ use super::*;
 use alloc::collections::BTreeMap;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery, ValueQuery},
+    pallet_prelude::{Identity, OptionQuery, ValueQuery},
     sp_std::vec::Vec,
     storage_alias,
     weights::Weight,
