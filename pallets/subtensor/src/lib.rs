@@ -2054,6 +2054,10 @@ where
                 let transaction_fee = 0;
                 Ok((CallType::RemoveStake, transaction_fee, who.clone()))
             }
+            Some(Call::set_weights { .. }) => {
+                let transaction_fee = 0;
+                Ok((CallType::SetWeights, transaction_fee, who.clone()))
+            }
             Some(Call::commit_weights { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::SetWeights, transaction_fee, who.clone()))
