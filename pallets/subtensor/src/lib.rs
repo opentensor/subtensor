@@ -283,12 +283,6 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
     #[pallet::storage] // --- ITEM (default_stake_interval)
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
-    pub type TotalHotkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
-    pub type TotalColdkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -1201,12 +1195,6 @@ pub mod pallet {
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
-                    TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
-                    TotalColdkeyStake::<T>::insert(
-                        coldkey.clone(),
-                        TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake),
-                    );
-
                     // Update total issuance value
                     TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
 
@@ -1299,14 +1287,15 @@ pub mod pallet {
             ];
             weight = weight
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
-                .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
+                // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 .saturating_add(migration::migrate_create_root_network::<T>())
                 .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
                     hex,
                 ))
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
-                .saturating_add(migration::migration5_total_issuance::<T>(false));
+                .saturating_add(migration::migration5_total_issuance::<T>(false))
+                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>());
 
             return weight;
         }
@@ -1966,7 +1955,7 @@ pub mod pallet {
         // --- Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            if Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake() {
+            if Self::get_hotkey_global_dynamic_tao(&hotkey) >= Self::get_weights_min_stake() {
                 return true;
             } else {
                 return false;

@@ -739,13 +739,6 @@ impl<T: Config> Pallet<T> {
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
         if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
             Delegates::<T>::remove(old_hotkey);
             Delegates::<T>::insert(new_hotkey, delegate_take);

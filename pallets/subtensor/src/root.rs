@@ -16,7 +16,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::math::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
@@ -215,32 +214,6 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    // Sets the emission values for each netuid
-    //
-    //
-    pub fn set_emission_values(netuids: &Vec<u16>, emission: Vec<u64>) -> Result<(), &'static str> {
-        log::debug!(
-            "set_emission_values: netuids: {:?} emission:{:?}",
-            netuids,
-            emission
-        );
-
-        // Be careful this function can fail.
-        if Self::contains_invalid_root_uids(netuids) {
-            log::error!("set_emission_values: contains_invalid_root_uids");
-            return Err("Invalid netuids");
-        }
-        if netuids.len() != emission.len() {
-            log::error!("set_emission_values: netuids.len() != emission.len()");
-            return Err("netuids and emission must have the same length");
-        }
-        for (i, netuid_i) in netuids.iter().enumerate() {
-            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission[i]);
-            EmissionValues::<T>::insert(*netuid_i, emission[i]);
-        }
-        Ok(())
-    }
-
     pub fn get_network_rate_limit() -> u64 {
         NetworkRateLimit::<T>::get()
     }
@@ -295,235 +268,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Return the filled weights matrix.
         weights
-    }
-
-    // Computes and sets emission values for the root network which determine the emission for all subnets.
-    //
-    //
-    pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
-        if Self::subnet_staking_on() {
-            return Self::get_subnet_staking_emission_values(block_number);
-        } else {
-            return Self::get_root_network_emission_values(block_number);
-        }
-    }
-
-    pub fn get_subnet_staking_emission_values(_block_number: u64) -> Result<(), &'static str> {
-        // --- 0. Determines the total block emission across all the subnetworks. This is the
-        // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission()?);
-        log::debug!("block_emission:\n{:?}\n", block_emission);
-
-        // --- 1. Obtains the number of registered subnets.
-        let num_subnets: u16 = Self::get_all_subnet_netuids().len() as u16;
-        log::debug!("num subnets:\n{:?}\n", num_subnets);
-
-        // --- 2. Obtain the max subnet index.
-        let max_subnet_index: u16 = match Self::get_all_subnet_netuids().iter().max() {
-            Some(max) => *max,
-            None => return Err("No subnets found."), // Changed to return an error if no subnets are found
-        };
-        // --- 3. Sum all stake across subnets.
-        let mut sum_stake = I64F64::from_num(0.0); // Changed to mutable
-
-        // --- 4. Build a vector to store stake sum per subnet.
-        let mut normalized_total_stake = vec![I64F64::from_num(0.0); max_subnet_index as usize + 1]; // Adjusted size to include max index
-
-        // --- 5. Iterate over all stake values filling the vector.
-        for ((_, _, netuid), stake) in SubStake::<T>::iter() {
-            // --- 5.a. Skip Root: We don't sum the stake on the root network.
-            if netuid == 0 {
-                continue;
-            }
-            if netuid > max_subnet_index {
-                return Err("Found stake value with no corresponding valid netuid.");
-            }
-
-            // --- 5.b Increment total recognized stake.
-            sum_stake = sum_stake.saturating_add(I64F64::from_num(stake)); // Fixed to actually update sum_stake
-
-            // --- 5.c Increment the total stake at this netuid index.
-            let stake_index = netuid as usize;
-            if stake_index < normalized_total_stake.len() {
-                normalized_total_stake[stake_index] =
-                    normalized_total_stake[stake_index].saturating_add(I64F64::from_num(stake));
-            } else {
-                return Err("Stake index out of bounds."); // Added error handling for out of bounds
-            }
-        }
-        log::debug!("Absolute Stake:\n{:?}\n", &normalized_total_stake);
-
-        // --- 6. Normalize stake values across all non-root netuids.
-        inplace_normalize_64(&mut normalized_total_stake);
-        log::debug!("Normalized Stake:\n{:?}\n", &normalized_total_stake);
-
-        // --- 7. Multiply stake proportions. Note that there is a chance that the normalization
-        // Returned a zero vector, so this calculation also returns 0. In this event the block step
-        // returns a zero emission for every subnet and there is not issuance increase.
-        let emission_as_tao: Vec<I64F64> = normalized_total_stake
-            .iter()
-            .map(|v: &I64F64| *v * block_emission)
-            .collect();
-        log::debug!("Emission as TAO_f64:\n{:?}\n", &emission_as_tao);
-
-        // --- 8. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
-        log::debug!("Emission as TAO_u64:\n{:?}\n", &emission_u64);
-
-        // --- 9. Produce vec of emission for each netuid.
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut emission_values: Vec<u64> = Vec::with_capacity(all_netuids.len());
-        for &netuid in &all_netuids {
-            let netuid_idx = netuid as usize;
-            if netuid_idx < emission_u64.len() {
-                emission_values.push(emission_u64[netuid_idx]);
-            } else {
-                return Err("Emission value not found for netuid"); // Added error handling for out of bounds
-            }
-        }
-        log::debug!(
-            "netuids: {:?} emission_values: {:?}",
-            all_netuids,
-            emission_values
-        );
-
-        // --- 10. Set emission values.
-        Self::set_emission_values(&all_netuids, emission_values)?;
-        Ok(())
-    }
-
-    pub fn get_root_network_emission_values(block_number: u64) -> Result<(), &'static str> {
-        // --- 0. The unique ID associated with the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
-
-        // --- 3. Check if we should update the emission values based on blocks since emission was last set.
-        let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
-        if blocks_until_next_epoch != 0 {
-            // Not the block to update emission values.
-            log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
-            return Err("");
-        }
-
-        // --- 1. Retrieves the number of root validators on subnets.
-        let n: u16 = Self::get_num_root_validators();
-        log::debug!("n:\n{:?}\n", n);
-        if n == 0 {
-            // No validators.
-            return Err("No validators to validate emission values.");
-        }
-
-        // --- 2. Obtains the number of registered subnets.
-        let k: u16 = Self::get_all_subnet_netuids().len() as u16;
-        log::debug!("k:\n{:?}\n", k);
-        if k == 0 {
-            // No networks to validate.
-            return Err("No networks to validate emission values.");
-        }
-
-        // --- 4. Determines the total block emission across all the subnetworks. This is the
-        // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission()?);
-        log::debug!("block_emission:\n{:?}\n", block_emission);
-
-        // --- 5. A collection of all registered hotkeys on the root network. Hotkeys
-        // pairs with network UIDs and stake values.
-        let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
-        for (uid_i, hotkey) in
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(root_netuid)
-        {
-            hotkeys.push((uid_i, hotkey));
-        }
-        log::debug!("hotkeys:\n{:?}\n", hotkeys);
-
-        // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
-        // Stakes are stored in a 64-bit fixed point representation for precise calculations.
-        let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in hotkeys.iter() {
-            stake_i64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
-        }
-        inplace_normalize_64(&mut stake_i64);
-        log::debug!("S:\n{:?}\n", &stake_i64);
-
-        // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
-        // n x k where is n is the number of registered peers and k is the number of subnets.
-        let weights: Vec<Vec<I64F64>> = Self::get_root_weights();
-        log::debug!("W:\n{:?}\n", &weights);
-
-        // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
-        // Ranks will have shape k, a score for each subnet.
-        let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
-        log::debug!("R:\n{:?}\n", &ranks);
-
-        // --- 10. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
-        // Trust will have shape k, a score for each subnet.
-        let total_networks = Self::get_num_subnets();
-        let mut trust = vec![I64F64::from_num(0); total_networks as usize];
-        let mut total_stake: I64F64 = I64F64::from_num(0);
-        for (idx, weights) in weights.iter().enumerate() {
-            let hotkey_stake = stake_i64[idx];
-            total_stake += hotkey_stake;
-            for (weight_idx, weight) in weights.iter().enumerate() {
-                if *weight > 0 {
-                    trust[weight_idx] += hotkey_stake;
-                }
-            }
-        }
-
-        log::debug!("T_before normalization:\n{:?}\n", &trust);
-        log::debug!("Total_stake:\n{:?}\n", &total_stake);
-
-        if total_stake == 0 {
-            return Err("No stake on network");
-        }
-
-        for trust_score in trust.iter_mut() {
-            match trust_score.checked_div(total_stake) {
-                Some(quotient) => {
-                    *trust_score = quotient;
-                }
-                None => {}
-            }
-        }
-
-        // --- 11. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
-        // Consensus will have shape k, a score for each subnet.
-        log::debug!("T:\n{:?}\n", &trust);
-        let one = I64F64::from_num(1);
-        let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
-        for (idx, trust_score) in trust.iter_mut().enumerate() {
-            let shifted_trust = *trust_score - I64F64::from_num(Self::get_float_kappa(0)); // Range( -kappa, 1 - kappa )
-            let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
-            let exponentiated_trust: I64F64 =
-                substrate_fixed::transcendental::exp(-temperatured_trust)
-                    .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
-
-            consensus[idx] = one / (one + exponentiated_trust);
-        }
-
-        log::debug!("C:\n{:?}\n", &consensus);
-        let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
-        for (idx, emission) in weighted_emission.iter_mut().enumerate() {
-            *emission = consensus[idx] * ranks[idx];
-        }
-        inplace_normalize_64(&mut weighted_emission);
-        log::debug!("Ei64:\n{:?}\n", &weighted_emission);
-
-        // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_as_tao: Vec<I64F64> = weighted_emission
-            .iter()
-            .map(|v: &I64F64| *v * block_emission)
-            .collect();
-
-        // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
-        log::debug!("Eu64:\n{:?}\n", &emission_u64);
-
-        // --- 13. Set the emission values for each subnet directly.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
-
-        return Self::set_emission_values(&netuids, emission_u64);
     }
 
     // Registers a user's hotkey to the root network.
@@ -584,6 +328,9 @@ impl<T: Config> Pallet<T> {
         // Declare a variable to hold the root UID.
         let subnetwork_uid: u16;
 
+        // GDT of hotkey
+        let hotkey_gdt = Self::get_hotkey_global_dynamic_tao(&hotkey);
+
         // --- 8. Check if the root net is below its allowed size.
         // max allowed is senate size.
         if current_num_root_validators < Self::get_max_root_validators() {
@@ -596,28 +343,23 @@ impl<T: Config> Pallet<T> {
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
-            let mut lowest_stake: u64 = u64::MAX;
-            let mut lowest_uid: u16 = 0;
-
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
-            for (uid_i, hotkey_i) in
-                <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(
-                    root_netuid,
-                )
-            {
-                let stake_i: u64 = Self::get_total_stake_for_hotkey(&hotkey_i);
-                if stake_i < lowest_stake {
-                    lowest_stake = stake_i;
-                    lowest_uid = uid_i;
-                }
-            }
+            let (lowest_stake, lowest_uid) = Keys::<T>::iter_prefix(root_netuid)
+                .fold((u64::MAX, 0), |(lowest_stake, lowest_uid), (uid_i, hotkey_i)| {
+                    let stake_i: u64 = Self::get_hotkey_global_dynamic_tao(&hotkey_i);
+                    if stake_i < lowest_stake {
+                        (stake_i, uid_i)
+                    } else {
+                        (lowest_stake, lowest_uid)
+                    }
+                });
             subnetwork_uid = lowest_uid;
             let replaced_hotkey: T::AccountId =
                 Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid).unwrap();
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
             ensure!(
-                lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
+                lowest_stake < hotkey_gdt,
                 Error::<T>::StakeTooLowForRoot
             );
 
@@ -633,20 +375,20 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+        let current_stake = hotkey_gdt;
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
+                let a_stake = Self::get_hotkey_global_dynamic_tao(a);
+                let b_stake = Self::get_hotkey_global_dynamic_tao(b);
 
                 b_stake.cmp(&a_stake)
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
+                let last_stake = Self::get_hotkey_global_dynamic_tao(last);
 
                 if last_stake < current_stake {
                     T::SenateMembers::swap_member(last, &hotkey)?;

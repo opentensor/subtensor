@@ -841,30 +841,6 @@ impl<T: Config> Pallet<T> {
             .fold(0, |acc, (_, stake)| acc.saturating_add(stake))
     }
 
-    // Increases the total amount of stake by the passed amount.
-    //
-    pub fn increase_total_stake(increment: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_add(increment));
-    }
-
-    // Decreases the total amount of stake by the passed amount.
-    //
-    pub fn decrease_total_stake(decrement: u64) {
-        TotalStake::<T>::put(Self::get_total_stake().saturating_sub(decrement));
-    }
-
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        return TotalHotkeyStake::<T>::get(hotkey);
-    }
-
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        return TotalColdkeyStake::<T>::get(coldkey);
-    }
-
     // Returns the total amount of stake under a hotkey for a subnet (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey_and_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
@@ -1100,12 +1076,6 @@ impl<T: Config> Pallet<T> {
         if increment == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::mutate(coldkey,|stake| {
-            *stake = stake.saturating_add(increment);
-        });
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
         TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
             *stake = stake.saturating_add(increment);
         });
@@ -1132,12 +1102,6 @@ impl<T: Config> Pallet<T> {
         if decrement == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
         TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
             *stake = stake.saturating_sub(decrement);
         });
