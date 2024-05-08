@@ -326,7 +326,7 @@ jobs:
 
   check-feature-propagation:
     name: zepter run check
-    runs-on: ubuntu-22.04
+    runs-on: SubtensorCI
 
     steps:
       - name: Install stable Rust
@@ -348,7 +348,7 @@ jobs:
 
   check-finney-migrations:
     name: check finney migrations
-    runs-on: ubuntu-22.04
+    runs-on: SubtensorCI
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
