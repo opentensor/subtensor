@@ -3,7 +3,6 @@ use crate::system::{ensure_root, ensure_signed_or_root};
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
-
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
         o: T::RuntimeOrigin,
@@ -365,14 +364,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_default_take(default_take: u16) {
         DefaultTake::<T>::put(default_take);
         Self::deposit_event(Event::DefaultTakeSet(default_take));
-    }
-
-    pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
-        SubnetLocked::<T>::insert(netuid, amount);
-    }
-
-    pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
-        SubnetLocked::<T>::get(netuid)
     }
 
     // ========================

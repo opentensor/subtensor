@@ -5,16 +5,14 @@ use frame_support::storage::IterableStorageDoubleMap;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-
-
-    pub fn get_global_stake_weights( hotkeys: &Vec<(u16, T::AccountId)> ) -> Vec<I64F64> {
-
+    pub fn get_global_stake_weights(hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I64F64> {
         // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len() as usize];
 
         // Iterate over each hotkey to calculate and assign the global stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            global_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_hotkey_global_dynamic_tao( hotkey ) );
+            global_stake_64[*uid_i as usize] =
+                I64F64::from_num(Self::get_hotkey_global_dynamic_tao(hotkey));
         }
         // Normalize the global stake values in-place.
         inplace_normalize_64(&mut global_stake_64);
@@ -22,13 +20,14 @@ impl<T: Config> Pallet<T> {
         global_stake_64
     }
 
-    pub fn get_local_stake_weights( netuid: u16, hotkeys: &Vec<(u16, T::AccountId)> ) -> Vec<I64F64> {
+    pub fn get_local_stake_weights(netuid: u16, hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I64F64> {
         // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
         let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len() as usize];
 
         // Iterate over each hotkey to calculate and assign the local stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
-            local_stake_64[ *uid_i as usize ] = I64F64::from_num( Self::get_total_stake_for_hotkey_and_subnet( hotkey, netuid ) );
+            local_stake_64[*uid_i as usize] =
+                I64F64::from_num(Self::get_total_stake_for_hotkey_and_subnet(hotkey, netuid));
         }
         // Normalize the local stake values in-place.
         inplace_normalize_64(&mut local_stake_64);
@@ -37,21 +36,23 @@ impl<T: Config> Pallet<T> {
         local_stake_64
     }
 
-    pub fn get_stakes( netuid: u16, hotkeys: &Vec<(u16, T::AccountId)> ) -> Vec<I32F32> {
+    pub fn get_stakes(netuid: u16, hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I32F32> {
         // Get the stake weight alpha
         let alpha: I64F64 = Self::get_global_stake_weight_float();
 
         // Get local and global terms.
-        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights( netuid, &hotkeys );
-        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights( &hotkeys );
+        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights(netuid, &hotkeys);
+        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights(&hotkeys);
 
         // Average local and global weights.
-        let averaged_stake_64: Vec<I64F64> = local_stake_weights.iter().zip( global_stake_weights.iter()).map(
-               |(local, global)| (I64F64::from_num(1.0) - alpha)*(*local) + alpha * (*global)
-        ).collect();
+        let averaged_stake_64: Vec<I64F64> = local_stake_weights
+            .iter()
+            .zip(global_stake_weights.iter())
+            .map(|(local, global)| (I64F64::from_num(1.0) - alpha) * (*local) + alpha * (*global))
+            .collect();
 
         // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
-        vec_fixed64_to_fixed32( averaged_stake_64 )
+        vec_fixed64_to_fixed32(averaged_stake_64)
     }
 
     // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
@@ -118,7 +119,7 @@ impl<T: Config> Pallet<T> {
         // ===================
         // == Stake values. ==
         // ===================
-        let stake = Self::get_stakes( netuid, &hotkeys );
+        let stake = Self::get_stakes(netuid, &hotkeys);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -443,7 +444,7 @@ impl<T: Config> Pallet<T> {
         // ===========
         // == Stake ==
         // ===========
-        let stake = Self::get_stakes( netuid, &hotkeys );
+        let stake = Self::get_stakes(netuid, &hotkeys);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================

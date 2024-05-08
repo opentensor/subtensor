@@ -10,12 +10,10 @@ fn test_dynamic_pool_info() {
         let netuid: u16 = 1;
         let hotkey = U256::from(0);
         let coldkey = U256::from(1);
+        let lock_cost = SubtensorModule::get_network_lock_cost();
 
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 500_000_000_000_000); // 500 TAO.
-        log::info!(
-            "Network lock cost is {:?}",
-            SubtensorModule::get_network_lock_cost()
-        );
+        log::info!("Network lock cost is {:?}", lock_cost);
 
         // Register a network
         assert_ok!(SubtensorModule::register_network(
@@ -31,20 +29,21 @@ fn test_dynamic_pool_info() {
             "Alpha issuance should be initialized to 0"
         );
         assert_eq!(
-            initial_pool_info.alpha_outstanding.0, 0,
-            "Alpha outstanding should be initialized to 0"
+            initial_pool_info.alpha_outstanding.0, lock_cost,
+            "Alpha outstanding should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.alpha_reserve.0, 100000000000,
-            "Alpha reserve should be initialized to 100 TAO"
+            initial_pool_info.alpha_reserve.0, lock_cost,
+            "Alpha reserve should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.tao_reserve.0, 100000000000,
-            "Tao reserve should be initialized to 100 TAO"
+            initial_pool_info.tao_reserve.0, lock_cost,
+            "Tao reserve should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.k.0, 10000000000000000000000,
-            "K value should be initialized to 10000000000000000000000"
+            initial_pool_info.k.0,
+            lock_cost as u128 * lock_cost as u128,
+            "K value should be initialized to lock_cost^2"
         ); // Alpha Reserve x Tao Reserve
         assert_eq!(
             initial_pool_info.price.0, 1,

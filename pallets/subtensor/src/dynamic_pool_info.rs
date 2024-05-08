@@ -1,5 +1,8 @@
 use super::*;
-use frame_support::{pallet_prelude::{Decode, Encode}, IterableStorageMap};
+use frame_support::{
+    pallet_prelude::{Decode, Encode},
+    IterableStorageMap,
+};
 extern crate alloc;
 use codec::Compact;
 
@@ -22,7 +25,7 @@ impl<T: Config> Pallet<T> {
 
         let alpha_issuance: u64 = Self::get_alpha_issuance(netuid);
         let alpha_outstanding: u64 = Self::get_alpha_outstanding(netuid);
-        let alpha_reserve: u64 = Self::get_alpha_reserve(netuid);        
+        let alpha_reserve: u64 = Self::get_alpha_reserve(netuid);
         let tao_reserve: u64 = Self::get_tao_reserve(netuid);
         let k: u128 = Self::get_pool_k(netuid);
         let price = Self::get_tao_per_alpha_price(netuid).to_num::<u128>();
@@ -39,7 +42,6 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    
     pub fn get_all_dynamic_pool_infos() -> Vec<Option<DynamicPoolInfo>> {
         let mut all_pool_infos = Vec::new();
 

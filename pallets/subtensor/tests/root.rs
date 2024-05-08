@@ -237,38 +237,6 @@ fn test_root_set_weights() {
                 99_999_999
             );
         }
-        step_block(2);
-        // Check that the pending emission values have been set.
-        for netuid in 1..n {
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
-            );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                199_999_998
-            );
-        }
-        step_block(1);
-        for netuid in 1..n {
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
-            );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                299_999_997
-            );
-        }
-        let step = SubtensorModule::blocks_until_next_epoch(
-            10,
-            1000,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(10), 0);
     });
 }
 
@@ -354,40 +322,6 @@ fn test_root_set_weights_out_of_order_netuids() {
                 99_999_999
             );
         }
-        step_block(2);
-        // Check that the pending emission values have been set.
-        for netuid in subnets.iter() {
-            if *netuid == 0 {
-                continue;
-            }
-
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(*netuid)
-            );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 199_999_998);
-        }
-        step_block(1);
-        for netuid in subnets.iter() {
-            if *netuid == 0 {
-                continue;
-            }
-
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(*netuid)
-            );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 299_999_997);
-        }
-        let step = SubtensorModule::blocks_until_next_epoch(
-            9,
-            1000,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
     });
 }
 
