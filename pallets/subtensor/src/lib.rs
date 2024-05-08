@@ -1204,19 +1204,19 @@ pub mod pallet {
         //
         // 	* 'MaxWeightExceeded':
         // 		- Attempting to set weights with max value exceeding limit.
-        // #[pallet::call_index(0)]
-        // #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
-        // .saturating_add(T::DbWeight::get().reads(4104))
-        // .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
-        // pub fn set_weights(
-        //     origin: OriginFor<T>,
-        //     netuid: u16,
-        //     dests: Vec<u16>,
-        //     weights: Vec<u16>,
-        //     version_key: u64,
-        // ) -> DispatchResult {
-        //     Self::do_set_weights(origin, netuid, dests, weights, version_key)
-        // }
+        #[pallet::call_index(0)]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4104))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_weights(
+            origin: OriginFor<T>,
+            netuid: u16,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_set_weights(origin, netuid, dests, weights, version_key)
+        }
 
         #[pallet::call_index(96)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
@@ -1969,6 +1969,18 @@ where
                 }
             }
             Some(Call::reveal_weights { netuid, .. }) => {
+                if Self::check_weights_min_stake(who) {
+                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    Ok(ValidTransaction {
+                        priority,
+                        longevity: 1,
+                        ..Default::default()
+                    })
+                } else {
+                    Err(InvalidTransaction::Call.into())
+                }
+            }
+            Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {

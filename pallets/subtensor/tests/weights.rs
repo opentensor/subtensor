@@ -19,6 +19,26 @@ use substrate_fixed::types::I32F32;
 // Test the call passes through the subtensor module.
 #[test]
 #[cfg(not(tarpaulin))]
+fn test_set_weights_dispatch_info_ok() {
+    new_test_ext(0).execute_with(|| {
+        let dests = vec![1, 1];
+        let weights = vec![1, 1];
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_weights {
+            netuid,
+            dests,
+            weights,
+            version_key,
+        });
+        let dispatch_info = call.get_dispatch_info();
+
+        assert_eq!(dispatch_info.class, DispatchClass::Normal);
+        assert_eq!(dispatch_info.pays_fee, Pays::No);
+    });
+}
+
+#[test]
 fn test_commit_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
         let dests = vec![1, 1];
@@ -257,7 +277,7 @@ fn test_weights_err_setting_weights_too_fast() {
 
         // Note that LastUpdate has default 0 for new uids, but if they have actually set weights on block 0
         // then they are allowed to set weights again once more without a wait restriction, to accommodate the default.
-        let result = SubtensorModule::do_set_weights(
+        let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey_account_id),
             netuid,
             weights_keys.clone(),
@@ -268,7 +288,7 @@ fn test_weights_err_setting_weights_too_fast() {
         run_to_block(1);
 
         for i in 1..100 {
-            let result = SubtensorModule::do_set_weights(
+            let result = SubtensorModule::set_weights(
                 RuntimeOrigin::signed(hotkey_account_id),
                 netuid,
                 weights_keys.clone(),
@@ -444,7 +464,7 @@ fn test_no_signature() {
     new_test_ext(0).execute_with(|| {
         let uids: Vec<u16> = vec![];
         let values: Vec<u16> = vec![];
-        let result = SubtensorModule::do_set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
+        let result = SubtensorModule::set_weights(RuntimeOrigin::none(), 1, uids, values, 0);
         assert_eq!(result, Err(DispatchError::BadOrigin));
     });
 }
