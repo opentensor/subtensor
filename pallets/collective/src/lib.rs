@@ -163,7 +163,7 @@ pub struct Votes<AccountId, BlockNumber> {
     /// The hard end time of this vote.
     end: BlockNumber,
 }
-
+#[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -228,7 +228,9 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+        /// The phantom just for type place holder.
         pub phantom: PhantomData<I>,
+        /// The initial members of the collective.
         pub members: Vec<T::AccountId>,
     }
 
@@ -300,38 +302,60 @@ pub mod pallet {
         /// A motion (given hash) has been proposed (by given account) with a threshold (given
         /// `MemberCount`).
         Proposed {
+            /// The account that proposed the motion.
             account: T::AccountId,
+            /// The index of the proposal.
             proposal_index: ProposalIndex,
+            /// The hash of the proposal.
             proposal_hash: T::Hash,
+            /// The threshold of member for the proposal.
             threshold: MemberCount,
         },
         /// A motion (given hash) has been voted on by given account, leaving
         /// a tally (yes votes and no votes given respectively as `MemberCount`).
         Voted {
+            /// The account that voted.
             account: T::AccountId,
+            /// The hash of the proposal.
             proposal_hash: T::Hash,
+            /// Whether the account voted aye.
             voted: bool,
+            /// The number of yes votes.
             yes: MemberCount,
+            /// The number of no votes.
             no: MemberCount,
         },
         /// A motion was approved by the required threshold.
-        Approved { proposal_hash: T::Hash },
+        Approved {
+            /// The hash of the proposal.
+            proposal_hash: T::Hash,
+        },
         /// A motion was not approved by the required threshold.
-        Disapproved { proposal_hash: T::Hash },
+        Disapproved {
+            /// The hash of the proposal.
+            proposal_hash: T::Hash,
+        },
         /// A motion was executed; result will be `Ok` if it returned without error.
         Executed {
+            /// The hash of the proposal.
             proposal_hash: T::Hash,
+            /// The result of the execution.
             result: DispatchResult,
         },
         /// A single member did some action; result will be `Ok` if it returned without error.
         MemberExecuted {
+            /// The hash of the proposal.
             proposal_hash: T::Hash,
+            /// The result of the execution.
             result: DispatchResult,
         },
         /// A proposal was closed because its threshold was reached or after its duration was up.
         Closed {
+            /// The hash of the proposal.
             proposal_hash: T::Hash,
+            /// Whether the proposal was approved.
             yes: MemberCount,
+            /// Whether the proposal was rejected.
             no: MemberCount,
         },
     }
