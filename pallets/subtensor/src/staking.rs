@@ -851,10 +851,7 @@ impl<T: Config> Pallet<T> {
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
-    pub fn create_account_if_non_existent(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-    ) {
+    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
         if !Self::hotkey_account_exists(hotkey) {
             Owner::<T>::insert(hotkey, coldkey);
         }
@@ -1115,7 +1112,10 @@ impl<T: Config> Pallet<T> {
         if existing_substake == decrement {
             SubStake::<T>::remove((hotkey, coldkey, netuid));
         } else {
-            SubStake::<T>::insert((hotkey, coldkey, netuid), existing_substake.saturating_sub(decrement));
+            SubStake::<T>::insert(
+                (hotkey, coldkey, netuid),
+                existing_substake.saturating_sub(decrement),
+            );
         }
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(decrement));
     }
