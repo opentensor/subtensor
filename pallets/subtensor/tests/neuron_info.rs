@@ -190,7 +190,7 @@ fn test_get_neuron_stake_based_on_netuid() {
 
         // Setup for root network
         add_network(netuid_root, tempo, 2);
-        SubtensorModule::create_account_if_non_existent(&coldkey_root, &hotkey_root, netuid_root);
+        SubtensorModule::create_account_if_non_existent(&coldkey_root, &hotkey_root);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_root, stake_amount_root);
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_root),

@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Create a network account for the user if it doesn't exist.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, root_netuid);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 7. Fetch the current size of the subnetwork.
         let current_num_root_validators: u16 = Self::get_num_root_validators();
@@ -492,7 +492,7 @@ impl<T: Config> Pallet<T> {
         IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
 
         // --- 9. Register the owner to the network and expand size.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid_to_register);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
         Self::append_neuron(netuid_to_register, &hotkey, current_block_number);
 
         // --- 10. Distribute initial supply of tokens to the owners.

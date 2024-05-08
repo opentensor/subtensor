@@ -854,11 +854,8 @@ impl<T: Config> Pallet<T> {
     pub fn create_account_if_non_existent(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
-        netuid: u16,
     ) {
         if !Self::hotkey_account_exists(hotkey) {
-            Stake::<T>::insert(hotkey, coldkey, 0);
-            SubStake::<T>::insert((hotkey, coldkey, netuid), 0);
             Owner::<T>::insert(hotkey, coldkey);
         }
     }
@@ -1104,15 +1101,22 @@ impl<T: Config> Pallet<T> {
         TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
             *stake = stake.saturating_sub(decrement);
         });
-        Stake::<T>::mutate(hotkey, coldkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        SubStake::<T>::insert(
-            (hotkey, coldkey, netuid),
-            SubStake::<T>::try_get((hotkey, coldkey, netuid))
-                .unwrap_or(0)
-                .saturating_sub(decrement),
-        );
+
+        // Delete stake map entry if all stake is removed
+        let existing_stake = Stake::<T>::get(hotkey, coldkey);
+        if existing_stake == decrement {
+            Stake::<T>::remove(hotkey, coldkey);
+        } else {
+            Stake::<T>::insert(hotkey, coldkey, existing_stake.saturating_sub(decrement));
+        }
+
+        // Delete substake map entry if all stake is removed
+        let existing_substake = SubStake::<T>::get((hotkey, coldkey, netuid));
+        if existing_substake == decrement {
+            SubStake::<T>::remove((hotkey, coldkey, netuid));
+        } else {
+            SubStake::<T>::insert((hotkey, coldkey, netuid), existing_substake.saturating_sub(decrement));
+        }
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(decrement));
     }
 
