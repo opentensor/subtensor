@@ -1071,7 +1071,7 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             SubtensorModule::get_tx_delegate_take_rate_limit(),
@@ -1098,7 +1098,7 @@ fn test_sudo_set_min_delegate_take() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_min_delegate_take(), init_value);
         assert_ok!(AdminUtils::sudo_set_min_delegate_take(

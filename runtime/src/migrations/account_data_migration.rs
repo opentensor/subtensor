@@ -1,5 +1,4 @@
 use crate::*;
-use log;
 use pallet_balances::ExtraFlags;
 
 #[cfg(feature = "try-runtime")]

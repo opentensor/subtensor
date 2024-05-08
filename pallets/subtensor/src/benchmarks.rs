@@ -1,7 +1,6 @@
 //! Subtensor pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
-//mod benchmarking;
 
 use crate::Pallet as Subtensor;
 use crate::*;
@@ -10,8 +9,6 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 pub use pallet::*;
 use sp_std::vec;
-use sp_std::vec::Vec;
-//use mock::{Test, new_test_ext};
 
 benchmarks! {
   // Add individual benchmarks here

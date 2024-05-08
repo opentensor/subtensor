@@ -296,7 +296,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        return current_block - prev_tx_block <= rate_limit;
+        current_block - prev_tx_block <= rate_limit
     }
 
     // ========================
