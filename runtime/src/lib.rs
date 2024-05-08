@@ -64,6 +64,7 @@ use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
+use pallet_skip_feeless_payment::SkipCheckIfFeeless;
 
 // Subtensor module
 pub use pallet_subtensor;
@@ -1182,6 +1183,7 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
+    SkipCheckIfFeeless<Runtime>, 
 );
 
 type Migrations = (
