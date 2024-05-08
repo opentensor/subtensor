@@ -118,7 +118,7 @@ fn test_senate_join_works() {
             99_999
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             99_999
         );
 
@@ -195,7 +195,7 @@ fn test_senate_vote_works() {
             99_999
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             99_999
         );
 
@@ -369,7 +369,7 @@ fn test_senate_leave_works() {
             99_999
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             99_999
         );
 
@@ -447,7 +447,7 @@ fn test_senate_leave_vote_removal() {
             99999
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             99_999
         );
 
@@ -587,13 +587,11 @@ fn test_senate_not_leave_when_stake_removed() {
                 &hotkey_account_id,
                 netuid
             ),
-            // Need to account for existential deposit
-            stake_amount - 1
+            stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            // Need to account for existential deposit
-            stake_amount - 1
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            stake_amount
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -607,13 +605,11 @@ fn test_senate_not_leave_when_stake_removed() {
                 &hotkey_account_id,
                 netuid
             ),
-            // Need to account for existential deposit
-            stake_amount - 1
+            stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            // Need to account for existential deposit
-            stake_amount - 1
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            stake_amount
         );
 
         // step_block(100);
@@ -622,7 +618,7 @@ fn test_senate_not_leave_when_stake_removed() {
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
-            stake_amount - 1
+            stake_amount
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });

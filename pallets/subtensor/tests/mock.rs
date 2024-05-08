@@ -542,3 +542,8 @@ pub fn remove_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64)
     );
 
 }
+
+#[allow(dead_code)]
+pub fn set_emission_values(netuid: u16, amount: u64) {
+    pallet_subtensor::EmissionValues::<Test>::insert(netuid, amount);
+}

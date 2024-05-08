@@ -821,43 +821,40 @@ fn test_subnet_staking_emission() {
         let nominator1 = U256::from(2);
         let nominator2 = U256::from(3);
         SubtensorModule::set_target_stakes_per_interval(20);
-        add_network(1, 1, 0);
-        add_network(2, 1, 0);
-        add_network(3, 1, 0);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        add_dynamic_network(1, 1, 1, 1);
+        add_dynamic_network(2, 1, 1, 1);
+        add_dynamic_network(3, 1, 1, 1);
         assert_eq!(SubtensorModule::get_num_subnets(), 3);
         SubtensorModule::add_balance_to_coldkey_account(&delegate, 100000);
         SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100000);
         SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100000);
-        register_ok_neuron(1, delegate, delegate, 124124);
-        register_ok_neuron(2, delegate, delegate, 124124);
-        register_ok_neuron(3, delegate, delegate, 124124);
-        assert_ok!(SubtensorModule::add_subnet_stake(
+        assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             1,
-            10000
+            lock_amount / 2
         ));
-        assert_ok!(SubtensorModule::add_subnet_stake(
+        assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             2,
-            1000
+            lock_amount
         ));
-        assert_ok!(SubtensorModule::add_subnet_stake(
+        assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             3,
-            100
+            2 * lock_amount / 3
         ));
-        SubtensorModule::get_subnet_staking_emission_values(0).unwrap();
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 900_900_900); // (10000 / (100 + 1000 + 10000)) * 1000000000 ~= 900900900
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 90_090_090); // (1000 / (100 + 1000 + 10000)) * 1000000000 ~= 90,090,090
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 9_009_009); // (100 / (100 + 1000 + 10000)) * 1000000000 ~= 9,009,009
-        assert_eq!(900_900_900 + 90_090_090 + 9_009_009, 999_999_999);
+
+        SubtensorModule::run_coinbase(1);
+        let tao = 1_000_000_000.;
+        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, 0.5); // 0.5 TAO
+        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, 0.25); // 0.25 TAO
+        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.25); // 0.25 TAO
     });
 }
-
-
 
 #[test]
 fn test_run_coinbase_price_greater_than_1() {
@@ -889,7 +886,7 @@ fn test_run_coinbase_price_greater_than_1() {
         log::info!("Alpha reserve after: {:?}", alpha_reserve_after);
         let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
         log::info!("Pending alpha after: {:?}", pending_alpha_after);
-        log::info!("Tao emissions: {:?}", SubtensorModule::get_subnet_emission_value(netuid));
+        log::info!("Tao emissions: {:?}", SubtensorModule::get_emission_value(netuid));
 
 
         assert_eq!(tao_reserve_after == tao_reserve_before, true);
@@ -922,7 +919,7 @@ fn test_run_coinbase_price_less_than_1() {
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
         let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
-        log::info!("Subnet emissions: {:?}", SubtensorModule::get_subnet_emission_value(netuid));
+        log::info!("Subnet emissions: {:?}", SubtensorModule::get_emission_value(netuid));
         log::info!("Subnet emissions from Subnet Info: {:?}", SubtensorModule::get_subnet_info(netuid).unwrap().emission_values);
 
         assert_eq!(tao_reserve_after > tao_reserve_before, true);

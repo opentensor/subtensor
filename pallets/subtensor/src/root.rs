@@ -99,17 +99,6 @@ impl<T: Config> Pallet<T> {
         Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
-    // Returns the emission value for the given subnet.
-    //
-    // This function retrieves the emission value for the given subnet.
-    //
-    // # Returns:
-    // * 'u64': The emission value for the given subnet.
-    //
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
     // Returns true if the subnetwork exists.
     //
     // This function checks if a subnetwork with the given UID exists.

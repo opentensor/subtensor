@@ -113,6 +113,21 @@ impl<T: Config> Pallet<T> {
             .map_err(|_err| Error::<T>::NotRegistered.into());
     }
 
+    // Returns the stake of the uid on network or 0 if it doesnt exist.
+    //
+    pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
+        match Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
+            Ok(hotkey) => {
+                SubStake::<T>::get((
+                    &hotkey, 
+                    Owner::<T>::get(&hotkey),
+                    netuid
+                ))
+            },
+            Err(_) => 0
+        }
+    }
+
     // Return the total number of subnetworks available on the chain.
     //
     pub fn get_number_of_subnets() -> u16 {
