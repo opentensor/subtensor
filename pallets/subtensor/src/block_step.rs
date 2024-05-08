@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::storage::IterableStorageMap;
 use frame_support::IterableStorageDoubleMap;
+use sp_core::Get;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 
@@ -14,21 +15,12 @@ impl<T: Config> Pallet<T> {
         // --- 2. Mint and distribute TAO.
         Self::run_coinbase(block_number);
         // Adjust Tempos every 1000 blocks
-        if Self::dynamic_tempos_on() && Self::blocks_until_next_epoch(0, 1000, block_number) == 0 {
+        if Self::blocks_until_next_epoch( 0, 1000, block_number ) == 0 {
             Self::adjust_tempos();
         }
 
         // Return ok.
         Ok(())
-    }
-
-    // Turn on for dynamic tempos for dev chains.
-    pub fn dynamic_tempos_on() -> bool {
-        if cfg!(feature = "pow-faucet") {
-            return true;
-        } else {
-            return false;
-        }
     }
 
     /// Adjusts the tempo for each network based on their relative prices to ensure operations
@@ -110,11 +102,17 @@ impl<T: Config> Pallet<T> {
         let normalization_factor: I64F64 = k / total_relative_frequency;
 
         // Calculate tempos based on normalized relative frequencies
-        let tempos: Vec<(u16, u16)> = netuids
-            .iter()
-            .zip(relative_frequencies.iter())
+        let min_tempo = T::MinTempo::get();
+        let max_tempo = T::MaxTempo::get();
+        let tempos: Vec<(u16, u16)> = netuids.iter().zip(relative_frequencies.iter())
             .map(|(&uid, &rel_freq)| {
-                let tempo = (normalization_factor / rel_freq).to_num::<u16>();
+                let mut tempo = (normalization_factor / rel_freq).to_num::<u16>();
+                if tempo < min_tempo {
+                    tempo = min_tempo;
+                }
+                if tempo > max_tempo {
+                    tempo = max_tempo;
+                }
                 (uid, tempo)
             })
             .collect();
