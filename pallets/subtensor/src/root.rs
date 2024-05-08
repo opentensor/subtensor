@@ -19,10 +19,7 @@ use super::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use substrate_fixed::{
-    transcendental::log2,
-    types::I96F32,
-};
+use substrate_fixed::{transcendental::log2, types::I96F32};
 
 impl<T: Config> Pallet<T> {
     // Retrieves a boolean true is subnet emissions are determined by
@@ -283,24 +280,23 @@ impl<T: Config> Pallet<T> {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
-            let (lowest_stake, lowest_uid) = Keys::<T>::iter_prefix(root_netuid)
-                .fold((u64::MAX, 0), |(lowest_stake, lowest_uid), (uid_i, hotkey_i)| {
+            let (lowest_stake, lowest_uid) = Keys::<T>::iter_prefix(root_netuid).fold(
+                (u64::MAX, 0),
+                |(lowest_stake, lowest_uid), (uid_i, hotkey_i)| {
                     let stake_i: u64 = Self::get_hotkey_global_dynamic_tao(&hotkey_i);
                     if stake_i < lowest_stake {
                         (stake_i, uid_i)
                     } else {
                         (lowest_stake, lowest_uid)
                     }
-                });
+                },
+            );
             subnetwork_uid = lowest_uid;
             let replaced_hotkey: T::AccountId =
                 Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid).unwrap();
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
-            ensure!(
-                lowest_stake < hotkey_gdt,
-                Error::<T>::StakeTooLowForRoot
-            );
+            ensure!(lowest_stake < hotkey_gdt, Error::<T>::StakeTooLowForRoot);
 
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.

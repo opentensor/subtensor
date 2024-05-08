@@ -581,10 +581,7 @@ fn test_1_graph() {
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
         set_emission_values(netuid, 1_000_000_000);
-        assert_eq!(
-            SubtensorModule::get_emission_value(netuid),
-            1_000_000_000
-        );
+        assert_eq!(SubtensorModule::get_emission_value(netuid), 1_000_000_000);
         SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey),

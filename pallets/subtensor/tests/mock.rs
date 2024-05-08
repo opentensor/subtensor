@@ -550,7 +550,6 @@ pub fn set_emission_values(netuid: u16, amount: u64) {
     pallet_subtensor::EmissionValues::<Test>::insert(netuid, amount);
 }
 
-
 #[allow(dead_code)]
 pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
     pallet_subtensor::SubStake::<Test>::iter()

@@ -117,14 +117,8 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
         match Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
-            Ok(hotkey) => {
-                SubStake::<T>::get((
-                    &hotkey, 
-                    Owner::<T>::get(&hotkey),
-                    netuid
-                ))
-            },
-            Err(_) => 0
+            Ok(hotkey) => SubStake::<T>::get((&hotkey, Owner::<T>::get(&hotkey), netuid)),
+            Err(_) => 0,
         }
     }
 

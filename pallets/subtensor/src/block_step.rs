@@ -14,7 +14,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Mint and distribute TAO.
         Self::run_coinbase(block_number);
         // Adjust Tempos every 1000 blocks
-        if Self::blocks_until_next_epoch( 0, 1000, block_number ) == 0 {
+        if Self::blocks_until_next_epoch(0, 1000, block_number) == 0 {
             Self::adjust_tempos();
         }
 
@@ -103,7 +103,9 @@ impl<T: Config> Pallet<T> {
         // Calculate tempos based on normalized relative frequencies
         let min_tempo = T::MinTempo::get();
         let max_tempo = T::MaxTempo::get();
-        let tempos: Vec<(u16, u16)> = netuids.iter().zip(relative_frequencies.iter())
+        let tempos: Vec<(u16, u16)> = netuids
+            .iter()
+            .zip(relative_frequencies.iter())
             .map(|(&uid, &rel_freq)| {
                 let mut tempo = (normalization_factor / rel_freq).to_num::<u16>();
                 if tempo < min_tempo {
@@ -317,8 +319,11 @@ impl<T: Config> Pallet<T> {
                 .filter(|(_, stake)| *stake > 0)
                 .for_each(|(nominator_i, _)| {
                     // 3.a Compute the stake weight percentage for the nominatore weight.
-                    let nominator_local_stake: u64 =
-                        Self::get_subnet_stake_for_coldkey_and_hotkey(&nominator_i, delegate, netuid);
+                    let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey(
+                        &nominator_i,
+                        delegate,
+                        netuid,
+                    );
                     let nominator_local_emission_i: I64F64 = if delegate_local_stake == 0 {
                         I64F64::from_num(0)
                     } else {

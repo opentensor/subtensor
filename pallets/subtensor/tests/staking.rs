@@ -766,7 +766,10 @@ fn test_remove_subnet_stake_no_enough_stake() {
 
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
 
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id), 0);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id),
+            0
+        );
 
         let result = SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_id),
@@ -993,7 +996,10 @@ fn test_remove_subnet_stake_from_hotkey_account() {
         SubtensorModule::decrease_stake_on_hotkey_account(&hotkey_id, netuid, amount);
 
         // The stake on the hotkey account should be 0
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id), 0);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id),
+            0
+        );
 
         // The total amount of stake should be 0
         assert_eq!(SubtensorModule::get_total_stake(), 0);
@@ -1231,10 +1237,7 @@ fn test_non_existent_account() {
             ),
             10
         );
-        assert_eq!(
-            get_total_stake_for_coldkey(&(U256::from(0))),
-            10
-        );
+        assert_eq!(get_total_stake_for_coldkey(&(U256::from(0))), 10);
     });
 }
 
@@ -1436,8 +1439,14 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             100
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 100);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 100);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            100
+        );
         //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey0 ), 100 );
         //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey1 ), 100 );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
@@ -1465,8 +1474,14 @@ fn test_full_with_delegating() {
         // Emit inflation through non delegates.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 100);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 100);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 200);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 200);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            200
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            200
+        );
 
         // Try allowing the keys to become delegates, fails because of incorrect coldkeys.
         // Set take to be 0.
@@ -1807,7 +1822,10 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid),
             1_000
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey2), 3_000);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey2),
+            3_000
+        );
         assert_eq!(SubtensorModule::get_total_stake(), 5_500);
 
         // Lets emit inflation through this new key with distributed ownership.
@@ -1881,7 +1899,10 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey3, &hotkey3, netuid),
             1000
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey3), 4000);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey3),
+            4000
+        );
         assert_eq!(SubtensorModule::get_total_stake(), 10_500);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, netuid, 0, 1000);
         assert_eq!(
@@ -2003,15 +2024,27 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             100
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 100);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 100);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            100
+        );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Emit inflation through non delegates.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 100);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 100);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 200);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 200);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            200
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            200
+        );
 
         // Become delegates all is ok.
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -2072,8 +2105,14 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             200
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 500);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 400);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            500
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            400
+        );
         assert_eq!(SubtensorModule::get_total_stake(), 900);
 
         // Check that global stake weight is 1
@@ -2243,7 +2282,10 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey2, netuid),
             1000
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey2), 3_000);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey2),
+            3_000
+        );
         assert_eq!(
             SubtensorModule::get_total_stake(),
             total + 1_000 + 1_000 + 100
@@ -2357,18 +2399,9 @@ fn test_stao_delegation() {
             SubtensorModule::get_total_stake_for_hotkey_and_subnet(&delegate, netuid),
             100000 * 3
         );
-        assert_eq!(
-            get_total_stake_for_coldkey(&delegate),
-            100_000
-        );
-        assert_eq!(
-            get_total_stake_for_coldkey(&nominator1),
-            100_000
-        );
-        assert_eq!(
-            get_total_stake_for_coldkey(&nominator2),
-            100_000
-        );
+        assert_eq!(get_total_stake_for_coldkey(&delegate), 100_000);
+        assert_eq!(get_total_stake_for_coldkey(&nominator1), 100_000);
+        assert_eq!(get_total_stake_for_coldkey(&nominator2), 100_000);
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&delegate),
             delegate
@@ -2533,8 +2566,14 @@ fn test_full_block_emission_occurs() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             100
         );
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 100);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 100);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            100
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            100
+        );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Emit inflation through non delegates.
@@ -2678,7 +2717,10 @@ fn test_unstake_all_coldkeys_from_hotkey_account() {
         SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
 
         // Verify total stake is 0
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id), 0);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id),
+            0
+        );
 
         // Vefify stake for all coldkeys is 0
         assert_eq!(
@@ -2765,7 +2807,10 @@ fn test_unstake_all_coldkeys_from_hotkey_account_single_staker() {
         SubtensorModule::unstake_all_coldkeys_from_hotkey_account(&hotkey_id);
 
         // Verify total stake is 0
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id), 0);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_id),
+            0
+        );
 
         // Vefify stake for single coldkey is 0
         assert_eq!(
@@ -3192,7 +3237,10 @@ fn test_delegate_take_affects_distribution() {
             100
         );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 200);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            200
+        );
         assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 0);
 
         // Lets emit inflation through this new key with distributed ownership.
@@ -3272,7 +3320,10 @@ fn test_changing_delegate_take_changes_distribution() {
             100
         );
         assert_eq!(SubtensorModule::get_total_stake(), 200);
-        assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0), 200);
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey0),
+            200
+        );
         assert_eq!(SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1), 0);
 
         // Coldkey / hotkey 0 decrease take to 10%
