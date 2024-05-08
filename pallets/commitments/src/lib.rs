@@ -19,7 +19,7 @@ use sp_std::boxed::Box;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+#[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -33,18 +33,19 @@ pub mod pallet {
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        // Currency type that will be used to place deposits on neurons
+        /// Currency type that will be used to place deposits on neurons
         type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
-        // Weight information for extrinsics in this pallet.
+        /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
         /// Interface to access-limit metadata commitments
         type CanCommit: CanCommit<Self::AccountId>;
 
+        /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
         type MaxFields: Get<u32>;
 
@@ -56,6 +57,7 @@ pub mod pallet {
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
 
+        /// The rate limit for commitments
         #[pallet::constant]
         type RateLimit: Get<BlockNumberFor<Self>>;
     }
@@ -63,7 +65,13 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        Commitment { netuid: u16, who: T::AccountId },
+        /// A commitment was set
+        Commitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+        },
     }
 
     #[pallet::error]
@@ -103,6 +111,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
 			T::WeightInfo::set_commitment(),
