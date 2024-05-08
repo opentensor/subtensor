@@ -1126,6 +1126,46 @@ fn test_commit_reveal_interval() {
             ),
             Error::<Test>::InvalidRevealTempo
         );
+
+        // Testing when you commit but do not reveal until later intervals
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+        step_block(425);
+        let commit_hash_2: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            nonce,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key + 1,
+        ));
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash_2
+        ));
+        step_block(100);
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::InvalidReveal
+        );
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key + 1,
+        ));
+
     });
 }
 
