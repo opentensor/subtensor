@@ -17,13 +17,11 @@
 
 use super::*;
 use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
-use frame_support::sp_std::vec;
-use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use substrate_fixed::{
     transcendental::log2,
-    types::{I64F64, I96F32},
+    types::I96F32,
 };
 
 impl<T: Config> Pallet<T> {
@@ -132,7 +130,7 @@ impl<T: Config> Pallet<T> {
     // * 'Vec<u16>': Netuids of added subnets.
     //
     pub fn get_all_subnet_netuids() -> Vec<u16> {
-        return <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+        return NetworksAdded::<T>::iter()
             .map(|(netuid, _)| netuid)
             .collect();
     }
@@ -220,54 +218,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_network_rate_limit(limit: u64) {
         NetworkRateLimit::<T>::set(limit);
         Self::deposit_event(Event::NetworkRateLimitSet(limit));
-    }
-
-    // Retrieves weight matrix associated with the root network.
-    //  Weights represent the preferences for each subnetwork.
-    //
-    // # Returns:
-    // A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
-    // 'j' with according to the preferences of key. Validator 'i' within the root network.
-    //
-    pub fn get_root_weights() -> Vec<Vec<I64F64>> {
-        // --- 0. The number of validators on the root network.
-        let n: usize = Self::get_num_root_validators() as usize;
-
-        // --- 1 The number of subnets to validate.
-        log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
-        let k: usize = Self::get_num_subnets() as usize;
-        log::debug!("n: {:?} k: {:?}", n, k);
-
-        // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
-        // by `n` (number of validators) and `k` (total number of subnets).
-        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
-        log::debug!("weights:\n{:?}\n", weights);
-
-        let subnet_list = Self::get_all_subnet_netuids();
-
-        // --- 3. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
-            )
-        {
-            // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
-            // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
-            // weight of `uid_i` with respect to `uid_j`.
-            for (netuid, weight_ij) in weights_i.iter() {
-                let option = subnet_list.iter().position(|item| item == netuid);
-
-                let idx = uid_i as usize;
-                if let Some(weight) = weights.get_mut(idx) {
-                    if let Some(netuid_idx) = option {
-                        weight[netuid_idx] = I64F64::from_num(*weight_ij);
-                    }
-                }
-            }
-        }
-
-        // --- 5. Return the filled weights matrix.
-        weights
     }
 
     // Registers a user's hotkey to the root network.
