@@ -1165,7 +1165,6 @@ fn test_commit_reveal_interval() {
             weight_values.clone(),
             version_key + 1,
         ));
-
     });
 }
 

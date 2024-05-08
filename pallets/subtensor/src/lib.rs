@@ -1804,8 +1804,11 @@ pub mod pallet {
 
         #[pallet::call_index(60)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(27))
-		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        .saturating_add(T::DbWeight::get().reads(27))
+        .saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[pallet::feeless_if(|_origin: &OriginFor<T>, _block_number: &u64, _nonce: &u64, _work: &Vec<u8>| -> bool {
+        cfg!(feature = "pow-faucet")
+        })]
         pub fn faucet(
             origin: OriginFor<T>,
             block_number: u64,
