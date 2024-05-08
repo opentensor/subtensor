@@ -4,8 +4,8 @@ use frame_support::{
     pallet_prelude::{Identity, OptionQuery, ValueQuery},
     sp_std::vec::Vec,
     storage_alias,
+    traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
-    traits::{ fungible::Inspect as _, Get, GetStorageVersion, StorageVersion },
 };
 use log::info;
 
@@ -41,20 +41,26 @@ pub mod deprecated_stake_variables {
 ///
 /// # Returns
 /// Weight of the migration process.
-pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
+pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
     let mut weight = T::DbWeight::get().reads(1); // Initialize migration weight
 
     // Execute migration if the current storage version is 5
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
         // Calculate the sum of all stake values
-        let stake_sum: u64 = Stake::<T>::iter()
-            .fold(0, |accumulator, (_, _, stake_value)| accumulator.saturating_add(stake_value));
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
+        let stake_sum: u64 = Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
+            accumulator.saturating_add(stake_value)
+        });
+        weight = weight
+            .saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
 
         // Calculate the sum of all stake values
         let locked_sum: u64 = SubnetLocked::<T>::iter()
-            .fold(0, |accumulator, (_, locked_value)| accumulator.saturating_add(locked_value));
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0));
+            .fold(0, |accumulator, (_, locked_value)| {
+                accumulator.saturating_add(locked_value)
+            });
+        weight = weight.saturating_add(
+            T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0),
+        );
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
@@ -65,6 +71,7 @@ pub fn migration5_total_issuance<T: Config>( test: bool ) -> Weight {
 
         // Update the total issuance in storage
         TotalIssuance::<T>::put(total_issuance_value);
+        weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
 
     // Update the storage version to 6

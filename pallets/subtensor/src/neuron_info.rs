@@ -98,7 +98,8 @@ impl<T: Config> Pallet<T> {
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
         let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), Compact(stake_weight))];
+        let stake: Vec<(T::AccountId, Compact<u64>)> =
+            vec![(coldkey.clone(), Compact(stake_weight))];
 
         let weights = <Weights<T>>::get(netuid, uid)
             .iter()
@@ -158,17 +159,13 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_neuron_lite_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
-        let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
-        let hotkey;
-        if _hotkey.is_err() {
-            return None;
-        } else {
-            // No error, hotkey was registered
-            hotkey = _hotkey.expect("Hotkey should exist");
-        }
-        let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
-        let coldkey = Owner::<T>::get(hotkey.clone()).clone();
+        let hotkey = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
+            Ok(key) => key,
+            Err(_) => return None,
+        };
+        let axon_info = Self::get_axon_info(netuid, &hotkey);
+        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
+        let coldkey = Owner::<T>::get(&hotkey);
         let active = Self::get_active_for_uid(netuid, uid as u16);
         let rank = Self::get_rank_for_uid(netuid, uid as u16);
         let emission = Self::get_emission_for_uid(netuid, uid as u16);
@@ -182,11 +179,12 @@ impl<T: Config> Pallet<T> {
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
 
         let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(coldkey.clone(), Compact(stake_weight))];
+        let stake: Vec<(T::AccountId, Compact<u64>)> =
+            vec![(coldkey.clone(), Compact(stake_weight))];
 
         let neuron = NeuronInfoLite {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey: hotkey,
+            coldkey: coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,

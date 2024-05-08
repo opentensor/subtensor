@@ -115,11 +115,11 @@ fn test_senate_join_works() {
                 &hotkey_account_id,
                 netuid
             ),
-            99_999
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
-            99_999
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -192,11 +192,11 @@ fn test_senate_vote_works() {
                 &hotkey_account_id,
                 netuid
             ),
-            99_999
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
-            99_999
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -366,11 +366,11 @@ fn test_senate_leave_works() {
                 &hotkey_account_id,
                 netuid
             ),
-            99_999
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
-            99_999
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -444,11 +444,11 @@ fn test_senate_leave_vote_removal() {
                 &hotkey_account_id,
                 netuid
             ),
-            99999
+            100_000
         );
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
-            99_999
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(

@@ -1,8 +1,6 @@
-use super::{*};
+use super::*;
 use crate as pallet_commitments;
-use frame_support::{
-    traits::ConstU64,
-};
+use frame_support::traits::ConstU64;
 
 use sp_core::H256;
 use sp_runtime::{
