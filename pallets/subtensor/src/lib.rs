@@ -1271,13 +1271,13 @@ pub mod pallet {
         /// will be corrected for this deviation.
         //
         /// # Args:
-        /// 	* `origin`: (<T as frame_system::Config>Origin):
+        /// 	* “origin“: (<T as frame_system::Config>Origin):
         /// 		- The caller, a hotkey who wishes to set their weights.
         //
-        /// 	* `netuid` (u16):
+        /// 	* “netuid“ (u16):
         /// 		- The network uid we are setting these weights on.
         //
-        /// 	* `dests` (Vec<u16>):
+        /// 	* “dests“ (Vec<u16>):
         /// 		- The edge endpoint for the weight, i.e. j for w_ij.
         //
         /// 	* 'weights' (Vec<u16>):
@@ -1330,16 +1330,16 @@ pub mod pallet {
         }
 
         /// # Args:
-        /// 	* `origin`: (<T as frame_system::Config>Origin):
+        /// 	* “origin“: (<T as frame_system::Config>Origin):
         /// 		- The caller, a hotkey who wishes to set their weights.
         //
-        /// 	* `netuid` (u16):
+        /// 	* “netuid“ (u16):
         /// 		- The network uid we are setting these weights on.
         //
-        /// 	* `hotkey` (T::AccountId):
+        /// 	* “hotkey“ (T::AccountId):
         /// 		- The hotkey associated with the operation and the calling coldkey.
         //
-        /// 	* `dests` (Vec<u16>):
+        /// 	* “dests“ (Vec<u16>):
         /// 		- The edge endpoint for the weight, i.e. j for w_ij.
         //
         /// 	* 'weights' (Vec<u16>):
@@ -1810,14 +1810,14 @@ pub mod pallet {
         /// 	* 'origin': (<T as frame_system::Config>Origin):
         /// 		- The caller, must be sudo.
         //
-        /// 	* `netuid` (u16):
+        /// 	* “netuid“ (u16):
         /// 		- The network identifier.
         //
-        /// 	* `hyperparameter value` (u16):
+        /// 	* “hyperparameter value“ (u16):
         /// 		- The value of the hyper parameter.
         //
 
-        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+        /// Authenticates a council proposal and dispatches a function call with “Root“ origin.
         ///
         /// The dispatch origin for this call must be a council majority.
         ///
@@ -1839,7 +1839,7 @@ pub mod pallet {
             return result;
         }
 
-        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+        /// Authenticates a council proposal and dispatches a function call with “Root“ origin.
         /// This function does not check the weight of the call, and instead allows the
         /// user to specify the weight of the call.
         ///
