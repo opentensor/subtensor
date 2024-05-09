@@ -48,7 +48,7 @@ fn test_commit_weights_dispatch_info_ok() {
         let hotkey: U256 = U256::from(1);
 
         let commit_hash: H256 =
-            BlakeTwo256::hash_of(&(hotkey, 0, netuid, dests, weights, version_key));
+            BlakeTwo256::hash_of(&(hotkey, netuid, dests, weights, version_key));
 
         let call = RuntimeCall::SubtensorModule(SubtensorCall::commit_weights {
             netuid,
@@ -963,11 +963,9 @@ fn test_commit_reveal_weights_ok() {
         let weight_values: Vec<u16> = vec![10, 10];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
-        let nonce: u64 = 0;
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
-            nonce,
             netuid,
             uids.clone(),
             weight_values.clone(),
@@ -1009,11 +1007,9 @@ fn test_commit_reveal_interval() {
         let weight_values: Vec<u16> = vec![10, 10];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
-        let nonce: u64 = 0;
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
-            nonce,
             netuid,
             uids.clone(),
             weight_values.clone(),
@@ -1136,7 +1132,6 @@ fn test_commit_reveal_interval() {
         step_block(425);
         let commit_hash_2: H256 = BlakeTwo256::hash_of(&(
             hotkey,
-            nonce,
             netuid,
             uids.clone(),
             weight_values.clone(),
@@ -1176,7 +1171,6 @@ fn test_commit_reveal_hash() {
         let weight_values: Vec<u16> = vec![10, 10];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
-        let nonce: u64 = 0;
 
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
@@ -1189,7 +1183,6 @@ fn test_commit_reveal_hash() {
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
-            nonce,
             netuid,
             uids.clone(),
             weight_values.clone(),
@@ -1265,14 +1258,8 @@ fn commit_reveal_set_weights(
     SubtensorModule::set_weight_commit_interval(5);
     SubtensorModule::set_weights_set_rate_limit(netuid, 5);
 
-    let commit_hash: H256 = BlakeTwo256::hash_of(&(
-        hotkey,
-        0_u64,
-        netuid,
-        uids.clone(),
-        weights.clone(),
-        version_key,
-    ));
+    let commit_hash: H256 =
+        BlakeTwo256::hash_of(&(hotkey, netuid, uids.clone(), weights.clone(), version_key));
 
     SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash)?;
 

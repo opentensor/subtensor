@@ -2,7 +2,6 @@ use super::*;
 use crate::math::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
-use sp_runtime::SaturatedConversion;
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
@@ -30,10 +29,6 @@ impl<T: Config> Pallet<T> {
         version_key: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
-        let nonce: u64 = frame_system::Pallet::<T>::account(&who)
-            .nonce
-            .saturated_into();
-
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
             let (commit_hash, commit_block) =
                 maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;
@@ -45,7 +40,6 @@ impl<T: Config> Pallet<T> {
 
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
                 who.clone(),
-                nonce,
                 netuid,
                 uids.clone(),
                 values.clone(),

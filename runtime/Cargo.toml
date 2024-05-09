@@ -142,7 +142,7 @@ std = [
 	"sp-tracing/std",
 	"log/std",
 	"sp-storage/std",
-	"sp-genesis-builder/std",
+	"sp-genesis-builder/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
