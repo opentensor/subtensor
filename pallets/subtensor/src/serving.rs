@@ -86,7 +86,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // --- 6. We insert the axon meta.
+        // --- 5. We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
         prev_axon.version = version;
         prev_axon.ip = ip;
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
         prev_axon.placeholder1 = placeholder1;
         prev_axon.placeholder2 = placeholder2;
 
-        // --- 7. Validate axon data with delegate func
+        // --- 6. Validate axon data with delegate func
         let axon_validated = Self::validate_axon_data(&prev_axon);
         ensure!(
             axon_validated.is_ok(),
@@ -105,11 +105,11 @@ impl<T: Config> Pallet<T> {
 
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
-        // --- 8. We deposit axon served event.
+        // --- 7. We deposit axon served event.
         log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::AxonServed(netuid, hotkey_id));
 
-        // --- 9. Return is successful dispatch.
+        // --- 8. Return is successful dispatch.
         Ok(())
     }
 
@@ -178,7 +178,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidIpAddress
         );
 
-        // --- 5. We get the previous axon info assoicated with this ( netuid, uid )
+        // --- 4. We get the previous axon info assoicated with this ( netuid, uid )
         let mut prev_prometheus = Self::get_prometheus_info(netuid, &hotkey_id);
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -186,28 +186,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // --- 6. We insert the prometheus meta.
+        // --- 5. We insert the prometheus meta.
         prev_prometheus.block = Self::get_current_block_as_u64();
         prev_prometheus.version = version;
         prev_prometheus.ip = ip;
         prev_prometheus.port = port;
         prev_prometheus.ip_type = ip_type;
 
-        // --- 7. Validate prometheus data with delegate func
+        // --- 6. Validate prometheus data with delegate func
         let prom_validated = Self::validate_prometheus_data(&prev_prometheus);
         ensure!(
             prom_validated.is_ok(),
             prom_validated.err().unwrap_or(Error::<T>::InvalidPort)
         );
 
-        // --- 8. Insert new prometheus data
+        // --- 7. Insert new prometheus data
         Prometheus::<T>::insert(netuid, hotkey_id.clone(), prev_prometheus);
 
-        // --- 9. We deposit prometheus served event.
+        // --- 8. We deposit prometheus served event.
         log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::PrometheusServed(netuid, hotkey_id));
 
-        // --- 10. Return is successful dispatch.
+        // --- 9. Return is successful dispatch.
         Ok(())
     }
 

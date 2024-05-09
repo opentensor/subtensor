@@ -101,7 +101,7 @@ pub mod pallet {
         /// Origin checking for council majority
         type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-        /// --- Currency type that will be used to place deposits on neurons
+        ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
             + fungible::Mutate<Self::AccountId>;
 
@@ -335,7 +335,7 @@ pub mod pallet {
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage]
-    /// --- MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -656,49 +656,58 @@ pub mod pallet {
     /// ==== Axon / Promo Endpoints =====
     /// =================================
 
-    /// --- Struct for Axon.
+    /// Struct for Axon.
     pub type AxonInfoOf = AxonInfo;
 
+    /// Data structure for Axon information.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
+        ///  Axon serving block.
         pub block: u64,
-        /// --- Axon serving block.
+        ///  Axon version
         pub version: u32,
-        /// --- Axon version
-        pub ip: u128,
-        /// --- Axon u128 encoded ip address of type v6 or v4.
+        ///  Axon u128 encoded ip address of type v6 or v4.
         pub port: u16,
-        /// --- Axon u16 encoded port.
+        ///  Axon u16 encoded port.
+        pub ip: u128,
+        ///  Axon ip type, 4 for ipv4 and 6 for ipv6.
         pub ip_type: u8,
-        /// --- Axon ip type, 4 for ipv4 and 6 for ipv6.
+        ///  Axon protocol. TCP, UDP, other.
         pub protocol: u8,
-        /// --- Axon protocol. TCP, UDP, other.
-        pub placeholder1: u8, // --- Axon proto placeholder 1.
-        pub placeholder2: u8, // --- Axon proto placeholder 2.
+        ///  Axon proto placeholder 1.
+        pub placeholder1: u8,
+        ///  Axon proto placeholder 2.
+        pub placeholder2: u8,
     }
 
-    /// --- Struct for Prometheus.
+    ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
+    /// Data structure for Prometheus information.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
-        pub block: u64,   // --- Prometheus serving block.
-        pub version: u32, // --- Prometheus version.
+        /// Prometheus serving block.
+        pub block: u64,
+        /// Prometheus version.
+        pub version: u32,
+        ///  Prometheus u128 encoded ip address of type v6 or v4.
         pub ip: u128,
-        /// --- Prometheus u128 encoded ip address of type v6 or v4.
+        ///  Prometheus u16 encoded port.
         pub port: u16,
-        /// --- Prometheus u16 encoded port.
-        pub ip_type: u8, // --- Prometheus ip type, 4 for ipv4 and 6 for ipv6.
+        /// Prometheus ip type, 4 for ipv4 and 6 for ipv6.
+        pub ip_type: u8,
     }
 
-    /// Rate limiting
+    /// Default value for rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
         T::InitialTxRateLimit::get()
     }
+    /// Default value for delegate take rate limiting
     #[pallet::type_value]
     pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
         T::InitialTxDelegateTakeRateLimit::get()
     }
+    /// Default value for last extrinsic block.
     #[pallet::type_value]
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
@@ -716,6 +725,7 @@ pub mod pallet {
     pub(super) type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
+    /// Default value for serving rate limit.
     #[pallet::type_value]
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
@@ -905,26 +915,32 @@ pub mod pallet {
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
+    /// Value definition for vector of u16.
     #[pallet::type_value]
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
     }
+    /// Value definition for vector of u64.
     #[pallet::type_value]
     pub fn EmptyU64Vec<T: Config>() -> Vec<u64> {
         vec![]
     }
+    /// Value definition for vector of bool.
     #[pallet::type_value]
     pub fn EmptyBoolVec<T: Config>() -> Vec<bool> {
         vec![]
     }
+    /// Value definition for bonds with type vector of (u16, u16).
     #[pallet::type_value]
     pub fn DefaultBonds<T: Config>() -> Vec<(u16, u16)> {
         vec![]
     }
+    /// Value definition for weights with vector of (u16, u16).
     #[pallet::type_value]
     pub fn DefaultWeights<T: Config>() -> Vec<(u16, u16)> {
         vec![]
     }
+    /// Default value for key with type T::AccountId derived from trailing zeroes.
     #[pallet::type_value]
     pub fn DefaultKey<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
@@ -1004,7 +1020,9 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
+        /// Stakes record in genesis.
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
+        /// The total issued balance in genesis
         pub balances_issuance: u64,
     }
 
@@ -1239,7 +1257,7 @@ pub mod pallet {
     /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// --- Sets the caller weights for the incentive mechanism. The call can be
+        ///  Sets the caller weights for the incentive mechanism. The call can be
         /// made from the hotkey account so is potentially insecure, however, the damage
         /// of changing weights is minimal if caught early. This function includes all the
         /// checks that the passed weights meet the requirements. Stored as u16s they represent
@@ -1386,7 +1404,7 @@ pub mod pallet {
             Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
         }
 
-        /// --- Sets the key as a delegate.
+        ///  Sets the key as a delegate.
         //
         /// # Args:
         /// 	* 'origin': (<T as frame_system::Config>Origin):
@@ -1416,7 +1434,7 @@ pub mod pallet {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
         }
 
-        /// --- Allows delegates to decrease its take value.
+        ///  Allows delegates to decrease its take value.
         //
         /// # Args:
         /// 	* 'origin': (<T as frame_system::Config>::Origin):
@@ -1459,7 +1477,7 @@ pub mod pallet {
             Self::do_decrease_take(origin, hotkey, take)
         }
 
-        /// --- Allows delegates to increase its take value. This call is rate-limited.
+        ///  Allows delegates to increase its take value. This call is rate-limited.
         //
         /// # Args:
         /// 	* 'origin': (<T as frame_system::Config>::Origin):
@@ -1499,7 +1517,7 @@ pub mod pallet {
             Self::do_increase_take(origin, hotkey, take)
         }
 
-        /// --- Adds stake to a hotkey. The call is made from the
+        ///  Adds stake to a hotkey. The call is made from the
         /// coldkey account linked in the hotkey.
         /// Only the associated coldkey is allowed to make staking and
         /// unstaking requests. This protects the neuron against
@@ -1669,6 +1687,8 @@ pub mod pallet {
             )
         }
 
+        /// The extrinsic to set the prometheus information for the neuron in subnet.
+        /// The information include the version, ip, port, ip type.
         #[pallet::call_index(5)]
         #[pallet::weight((Weight::from_parts(17_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
@@ -1747,6 +1767,7 @@ pub mod pallet {
             Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
         }
 
+        /// The extrinsic used to register user's hotkey to root network.
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(120_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
@@ -1755,6 +1776,7 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
+        /// The extrinsic used to register user's hotkey to a subnet via burning TAO token.
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(89_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
@@ -1767,6 +1789,7 @@ pub mod pallet {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
+        /// The extrinsic used to swap the hotkey.
         #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
@@ -1846,6 +1869,7 @@ pub mod pallet {
             return result;
         }
 
+        /// The extrinsic for user to vote on a proposal on root network.
         #[pallet::call_index(55)]
         #[pallet::weight((Weight::from_parts(0, 0)
 		.saturating_add(Weight::from_parts(0, 0))
@@ -1861,6 +1885,7 @@ pub mod pallet {
             Self::do_vote_root(origin, &hotkey, proposal, index, approve)
         }
 
+        /// The extrinsic for user to register a subnet
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
@@ -1869,6 +1894,8 @@ pub mod pallet {
             Self::user_add_network(origin)
         }
 
+        /// The extrinsic for user to submit a proof of work to the faucet.
+        /// The user must submit a valid proof of work to the faucet to receive tokens.
         #[pallet::call_index(60)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
@@ -1886,6 +1913,7 @@ pub mod pallet {
             Err(Error::<T>::FaucetDisabled.into())
         }
 
+        /// The extrinsic to remove a subnet.
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_parts(70_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(5))
@@ -1897,7 +1925,7 @@ pub mod pallet {
 
     /// ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
-        /// --- Returns the transaction priority for setting weights.
+        ///  Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
@@ -1909,12 +1937,13 @@ pub mod pallet {
             0
         }
 
-        /// --- Is the caller allowed to set weights
+        ///  Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
             Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
         }
 
+        /// Is the network with netuid allowed to register.
         pub fn checked_allowed_register(netuid: u16) -> bool {
             if netuid == Self::get_root_netuid() {
                 return false;
