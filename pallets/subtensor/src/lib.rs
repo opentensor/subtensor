@@ -286,9 +286,10 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
     pub type TotalHotkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
-    #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
-    pub type TotalColdkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> stake | Returns the total amount of stake attached to a subnet.
+    pub type TotalColdkeyStake<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> stake | Returns the total amount of stake attached to a subnet.
+    pub type TotalSubnetStake<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -601,10 +602,10 @@ pub mod pallet {
     pub type EmissionValues<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
-    pub type PendingEmission<T> =
+    pub type PendingAlphaEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
-    pub type PendingAlphaEmission<T> =
+    pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
     pub type BlocksSinceLastStep<T> =

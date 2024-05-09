@@ -794,6 +794,9 @@ impl<T: Config> Pallet<T> {
 
     // Getters for Dynamic terms
     //
+    pub fn get_total_stake_on_subnet(netuid: u16) -> u64 {
+        TotalSubnetStake::<T>::get(netuid)
+    }
     pub fn get_tao_reserve(netuid: u16) -> u64 {
         DynamicTAOReserve::<T>::get(netuid)
     }
@@ -1099,6 +1102,9 @@ impl<T: Config> Pallet<T> {
         if increment == 0 {
             return;
         }
+        TotalSubnetStake::<T>::mutate(netuid, |stake| {
+            *stake = stake.saturating_add(increment);
+        });
         TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
             *stake = stake.saturating_add(increment);
         });
@@ -1131,6 +1137,9 @@ impl<T: Config> Pallet<T> {
         if decrement == 0 {
             return;
         }
+        TotalSubnetStake::<T>::mutate(netuid, |stake| {
+            *stake = stake.saturating_sub(decrement);
+        });
         TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
             *stake = stake.saturating_sub(decrement);
         });
