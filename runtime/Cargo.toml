@@ -49,8 +49,6 @@ sp-session = { workspace = true }
 sp-std = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
-pallet-skip-feeless-payment= { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
-
 
 # Temporary sudo
 pallet-sudo = { workspace = true }
@@ -145,7 +143,6 @@ std = [
 	"log/std",
 	"sp-storage/std",
 	"sp-genesis-builder/std",
-	 "pallet-skip-feeless-payment/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

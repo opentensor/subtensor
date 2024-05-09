@@ -4676,7 +4676,6 @@ dependencies = [
  "pallet-proxy",
  "pallet-registry",
  "pallet-scheduler",
- "pallet-skip-feeless-payment",
  "pallet-subtensor",
  "pallet-sudo",
  "pallet-timestamp",
@@ -5142,19 +5141,6 @@ dependencies = [
  "sp-state-machine",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
  "sp-trie",
-]
-
-[[package]]
-name = "pallet-skip-feeless-payment"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0#7049c3c98836b3e9253f6aaa69b6bf3d622e3962"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime",
- "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
 ]
 
 [[package]]
