@@ -70,10 +70,10 @@ fn test_reveal_weights_dispatch_info_ok() {
         let version_key: u64 = 0;
 
         let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
-            netuid: netuid,
+            netuid,
             uids: dests,
             values: weights,
-            version_key: version_key,
+            version_key
         });
         let dispatch_info = call.get_dispatch_info();
 
