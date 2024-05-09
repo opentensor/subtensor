@@ -1199,7 +1199,7 @@ pub mod pallet {
         /// ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
         //
         /// # Args:
-        /// 	* 'n': (BlockNumberFor<T>):
+        /// 	* "n": (BlockNumberFor<T>):
         /// 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             let block_step_result = Self::block_step();
@@ -1280,11 +1280,11 @@ pub mod pallet {
         /// 	* “dests“ (Vec<u16>):
         /// 		- The edge endpoint for the weight, i.e. j for w_ij.
         //
-        /// 	* 'weights' (Vec<u16>):
+        /// 	* "weights" (Vec<u16>):
         /// 		- The u16 integer encoded weights. Interpreted as rational
         /// 		values in the range [0,1]. They must sum to in32::MAX.
         //
-        /// 	* 'version_key' ( u64 ):
+        /// 	* "version_key" ( u64 ):
         /// 		- The network version key to check if the validator is up to date.
         //
         /// # Event:
@@ -1292,28 +1292,28 @@ pub mod pallet {
         /// 		- On successfully setting the weights on chain.
         //
         /// # Raises:
-        /// 	* 'NetworkDoesNotExist':
+        /// 	* "NetworkDoesNotExist":
         /// 		- Attempting to set weights on a non-existent network.
         //
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- Attempting to set weights from a non registered account.
         //
-        /// 	* 'WeightVecNotEqualSize':
+        /// 	* "WeightVecNotEqualSize":
         /// 		- Attempting to set weights with uids not of same length.
         //
-        /// 	* 'DuplicateUids':
+        /// 	* "DuplicateUids":
         /// 		- Attempting to set weights with duplicate uids.
         //
-        ///     * 'TooManyUids':
+        ///     * "TooManyUids":
         /// 		- Attempting to set weights above the max allowed uids.
         //
-        /// 	* 'InvalidUid':
+        /// 	* "InvalidUid":
         /// 		- Attempting to set weights with invalid uids.
         //
-        /// 	* 'NotSettingEnoughWeights':
+        /// 	* "NotSettingEnoughWeights":
         /// 		- Attempting to set weights with fewer weights than min.
         //
-        /// 	* 'MaxWeightExceeded':
+        /// 	* "MaxWeightExceeded":
         /// 		- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
@@ -1342,11 +1342,11 @@ pub mod pallet {
         /// 	* “dests“ (Vec<u16>):
         /// 		- The edge endpoint for the weight, i.e. j for w_ij.
         //
-        /// 	* 'weights' (Vec<u16>):
+        /// 	* "weights" (Vec<u16>):
         /// 		- The u16 integer encoded weights. Interpreted as rational
         /// 		values in the range [0,1]. They must sum to in32::MAX.
         //
-        /// 	* 'version_key' ( u64 ):
+        /// 	* "version_key" ( u64 ):
         /// 		- The network version key to check if the validator is up to date.
         //
         /// # Event:
@@ -1359,34 +1359,34 @@ pub mod pallet {
         /// 	* NonAssociatedColdKey;
         /// 		- Attempting to set weights on a non-associated cold key.
         //
-        /// 	* 'NetworkDoesNotExist':
+        /// 	* "NetworkDoesNotExist":
         /// 		- Attempting to set weights on a non-existent network.
         //
-        /// 	* 'NotRootSubnet':
+        /// 	* "NotRootSubnet":
         /// 		- Attempting to set weights on a subnet that is not the root network.
         //
-        /// 	* 'WeightVecNotEqualSize':
+        /// 	* "WeightVecNotEqualSize":
         /// 		- Attempting to set weights with uids not of same length.
         //
-        /// 	* 'InvalidUid':
+        /// 	* "InvalidUid":
         /// 		- Attempting to set weights with invalid uids.
         //
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- Attempting to set weights from a non registered account.
         //
-        /// 	* 'NotSettingEnoughWeights':
+        /// 	* "NotSettingEnoughWeights":
         /// 		- Attempting to set weights with fewer weights than min.
         //
-        ///  * 'IncorrectNetworkVersionKey':
+        ///  * "IncorrectNetworkVersionKey":
         ///      - Attempting to set weights with the incorrect network version key.
         //
-        ///  * 'SettingWeightsTooFast':
+        ///  * "SettingWeightsTooFast":
         ///      - Attempting to set weights too fast.
         //
-        /// 	* 'NotSettingEnoughWeights':
+        /// 	* "NotSettingEnoughWeights":
         /// 		- Attempting to set weights with fewer weights than min.
         //
-        /// 	* 'MaxWeightExceeded':
+        /// 	* "MaxWeightExceeded":
         /// 		- Attempting to set weights with max value exceeding limit.
         //
         #[pallet::call_index(8)]
@@ -1407,13 +1407,13 @@ pub mod pallet {
         ///  Sets the key as a delegate.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The signature of the caller's coldkey.
         //
-        /// 	* 'hotkey' (T::AccountId):
+        /// 	* "hotkey" (T::AccountId):
         /// 		- The hotkey we are delegating (must be owned by the coldkey.)
         //
-        /// 	* 'take' (u64):
+        /// 	* "take" (u64):
         /// 		- The stake proportion that this hotkey takes from delegations.
         //
         /// # Event:
@@ -1421,10 +1421,10 @@ pub mod pallet {
         /// 		- On successfully setting a hotkey as a delegate.
         //
         /// # Raises:
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- The hotkey we are delegating is not registered on the network.
         //
-        /// 	* 'NonAssociatedColdKey':
+        /// 	* "NonAssociatedColdKey":
         /// 		- The hotkey we are delegating is not owned by the calling coldket.
         //
         //
@@ -1437,16 +1437,16 @@ pub mod pallet {
         ///  Allows delegates to decrease its take value.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>::Origin):
+        /// 	* "origin": (<T as frame_system::Config>::Origin):
         /// 		- The signature of the caller's coldkey.
         //
-        /// 	* 'hotkey' (T::AccountId):
+        /// 	* "hotkey" (T::AccountId):
         /// 		- The hotkey we are delegating (must be owned by the coldkey.)
         //
-        /// 	* 'netuid' (u16):
+        /// 	* "netuid" (u16):
         /// 		- Subnet ID to decrease take for
         //
-        /// 	* 'take' (u16):
+        /// 	* "take" (u16):
         /// 		- The new stake proportion that this hotkey takes from delegations.
         ///        The new value can be between 0 and 11_796 and should be strictly
         ///        lower than the previous value. It T is the new value (rational number),
@@ -1458,13 +1458,13 @@ pub mod pallet {
         /// 		- On successfully setting a decreased take for this hotkey.
         //
         /// # Raises:
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- The hotkey we are delegating is not registered on the network.
         //
-        /// 	* 'NonAssociatedColdKey':
+        /// 	* "NonAssociatedColdKey":
         /// 		- The hotkey we are delegating is not owned by the calling coldkey.
         //
-        /// 	* 'InvalidTransaction':
+        /// 	* "InvalidTransaction":
         /// 		- The delegate is setting a take which is not lower than the previous.
         //
         #[pallet::call_index(65)]
@@ -1480,13 +1480,13 @@ pub mod pallet {
         ///  Allows delegates to increase its take value. This call is rate-limited.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>::Origin):
+        /// 	* "origin": (<T as frame_system::Config>::Origin):
         /// 		- The signature of the caller's coldkey.
         //
-        /// 	* 'hotkey' (T::AccountId):
+        /// 	* "hotkey" (T::AccountId):
         /// 		- The hotkey we are delegating (must be owned by the coldkey.)
         //
-        /// 	* 'take' (u16):
+        /// 	* "take" (u16):
         /// 		- The new stake proportion that this hotkey takes from delegations.
         ///        The new value can be between 0 and 11_796 and should be strictly
         ///        greater than the previous value. It T is the new value (rational number),
@@ -1498,13 +1498,13 @@ pub mod pallet {
         /// 		- On successfully setting a decreased take for this hotkey.
         //
         /// # Raises:
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- The hotkey we are delegating is not registered on the network.
         //
-        /// 	* 'NonAssociatedColdKey':
+        /// 	* "NonAssociatedColdKey":
         /// 		- The hotkey we are delegating is not owned by the calling coldkey.
         //
-        /// 	* 'InvalidTransaction':
+        /// 	* "InvalidTransaction":
         /// 		- The delegate is setting a take which is not lower than the previous.
         //
         #[pallet::call_index(66)]
@@ -1524,13 +1524,13 @@ pub mod pallet {
         /// attacks on its hotkey running in production code.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The signature of the caller's coldkey.
         //
-        /// 	* 'hotkey' (T::AccountId):
+        /// 	* "hotkey" (T::AccountId):
         /// 		- The associated hotkey account.
         //
-        /// 	* 'amount_staked' (u64):
+        /// 	* "amount_staked" (u64):
         /// 		- The amount of stake to be added to the hotkey staking account.
         //
         /// # Event:
@@ -1538,16 +1538,16 @@ pub mod pallet {
         /// 		- On the successfully adding stake to a global account.
         //
         /// # Raises:
-        /// 	* 'CouldNotConvertToBalance':
+        /// 	* "CouldNotConvertToBalance":
         /// 		- Unable to convert the passed stake value to a balance.
         //
-        /// 	* 'NotEnoughBalanceToStake':
+        /// 	* "NotEnoughBalanceToStake":
         /// 		- Not enough balance on the coldkey to add onto the global account.
         //
-        /// 	* 'NonAssociatedColdKey':
+        /// 	* "NonAssociatedColdKey":
         /// 		- The calling coldkey is not associated with this hotkey.
         //
-        /// 	* 'BalanceWithdrawalError':
+        /// 	* "BalanceWithdrawalError":
         /// 		- Errors stemming from transaction pallet.
         //
         //
@@ -1568,13 +1568,13 @@ pub mod pallet {
         /// has permission to make staking and unstaking requests.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The signature of the caller's coldkey.
         //
-        /// 	* 'hotkey' (T::AccountId):
+        /// 	* "hotkey" (T::AccountId):
         /// 		- The associated hotkey account.
         //
-        /// 	* 'amount_unstaked' (u64):
+        /// 	* "amount_unstaked" (u64):
         /// 		- The amount of stake to be added to the hotkey staking account.
         //
         /// # Event:
@@ -1582,16 +1582,16 @@ pub mod pallet {
         /// 		- On the successfully removing stake from the hotkey account.
         //
         /// # Raises:
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- Thrown if the account we are attempting to unstake from is non existent.
         //
-        /// 	* 'NonAssociatedColdKey':
+        /// 	* "NonAssociatedColdKey":
         /// 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
         //
-        /// 	* 'NotEnoughStaketoWithdraw':
+        /// 	* "NotEnoughStaketoWithdraw":
         /// 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         //
-        /// 	* 'CouldNotConvertToBalance':
+        /// 	* "CouldNotConvertToBalance":
         /// 		- Thrown if we could not convert this amount to a balance.
         //
         //
@@ -1612,31 +1612,31 @@ pub mod pallet {
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The signature of the caller.
         //
-        /// 	* 'netuid' (u16):
+        /// 	* "netuid" (u16):
         /// 		- The u16 network identifier.
         //
-        /// 	* 'version' (u64):
+        /// 	* "version" (u64):
         /// 		- The bittensor version identifier.
         //
-        /// 	* 'ip' (u64):
+        /// 	* "ip" (u64):
         /// 		- The endpoint ip information as a u128 encoded integer.
         //
-        /// 	* 'port' (u16):
+        /// 	* "port" (u16):
         /// 		- The endpoint port information as a u16 encoded integer.
         //
-        /// 	* 'ip_type' (u8):
+        /// 	* "ip_type" (u8):
         /// 		- The endpoint ip version as a u8, 4 or 6.
         //
-        /// 	* 'protocol' (u8):
+        /// 	* "protocol" (u8):
         /// 		- UDP:1 or TCP:0
         //
-        /// 	* 'placeholder1' (u8):
+        /// 	* "placeholder1" (u8):
         /// 		- Placeholder for further extra params.
         //
-        /// 	* 'placeholder2' (u8):
+        /// 	* "placeholder2" (u8):
         /// 		- Placeholder for further extra params.
         //
         /// # Event:
@@ -1644,19 +1644,19 @@ pub mod pallet {
         /// 		- On successfully serving the axon info.
         //
         /// # Raises:
-        /// 	* 'NetworkDoesNotExist':
+        /// 	* "NetworkDoesNotExist":
         /// 		- Attempting to set weights on a non-existent network.
         //
-        /// 	* 'NotRegistered':
+        /// 	* "NotRegistered":
         /// 		- Attempting to set weights from a non registered account.
         //
-        /// 	* 'InvalidIpType':
+        /// 	* "InvalidIpType":
         /// 		- The ip type is not 4 or 6.
         //
-        /// 	* 'InvalidIpAddress':
+        /// 	* "InvalidIpAddress":
         /// 		- The numerically encoded ip address does not resolve to a proper ip.
         //
-        /// 	* 'ServingRateLimitExceeded':
+        /// 	* "ServingRateLimitExceeded":
         /// 		- Attempting to set prometheus information withing the rate limit min.
         //
         #[pallet::call_index(4)]
@@ -1707,25 +1707,25 @@ pub mod pallet {
         /// ---- Registers a new neuron to the subnetwork.
         //
         /// # Args:
-        /// 	* 'origin': (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The signature of the calling hotkey.
         //
-        /// 	* 'netuid' (u16):
+        /// 	* "netuid" (u16):
         /// 		- The u16 network identifier.
         //
-        /// 	* 'block_number' ( u64 ):
+        /// 	* "block_number" ( u64 ):
         /// 		- Block hash used to prove work done.
         //
-        /// 	* 'nonce' ( u64 ):
+        /// 	* "nonce" ( u64 ):
         /// 		- Positive integer nonce used in POW.
         //
-        /// 	* 'work' ( Vec<u8> ):
+        /// 	* "work" ( Vec<u8> ):
         /// 		- Vector encoded bytes representing work done.
         //
-        /// 	* 'hotkey' ( T::AccountId ):
+        /// 	* "hotkey" ( T::AccountId ):
         /// 		- Hotkey to be registered to the network.
         //
-        /// 	* 'coldkey' ( T::AccountId ):
+        /// 	* "coldkey" ( T::AccountId ):
         /// 		- Associated coldkey account.
         //
         /// # Event:
@@ -1733,22 +1733,22 @@ pub mod pallet {
         /// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
         //
         /// # Raises:
-        /// 	* 'NetworkDoesNotExist':
+        /// 	* "NetworkDoesNotExist":
         /// 		- Attempting to registed to a non existent network.
         //
-        /// 	* 'TooManyRegistrationsThisBlock':
+        /// 	* "TooManyRegistrationsThisBlock":
         /// 		- This registration exceeds the total allowed on this network this block.
         //
-        /// 	* 'AlreadyRegistered':
+        /// 	* "AlreadyRegistered":
         /// 		- The hotkey is already registered on this network.
         //
-        /// 	* 'InvalidWorkBlock':
+        /// 	* "InvalidWorkBlock":
         /// 		- The work has been performed on a stale, future, or non existent block.
         //
-        /// 	* 'InvalidDifficulty':
+        /// 	* "InvalidDifficulty":
         /// 		- The work does not match the difficutly.
         //
-        /// 	* 'InvalidSeal':
+        /// 	* "InvalidSeal":
         /// 		- The seal is incorrect.
         ///
         #[pallet::call_index(6)]
@@ -1807,7 +1807,7 @@ pub mod pallet {
         /// ==================================
         /// Each function sets the corresponding hyper paramter on the specified network
         /// Args:
-        /// 	* 'origin': (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The caller, must be sudo.
         //
         /// 	* “netuid“ (u16):
