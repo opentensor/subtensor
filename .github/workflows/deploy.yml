@@ -40,6 +40,8 @@ jobs:
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: stable
 
       - name: Get live spec_version for ${{ github.event.inputs.network }}
         run: |
