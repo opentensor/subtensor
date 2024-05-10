@@ -73,7 +73,7 @@ fn test_reveal_weights_dispatch_info_ok() {
             netuid,
             uids: dests,
             values: weights,
-            version_key
+            version_key,
         });
         let dispatch_info = call.get_dispatch_info();
 
