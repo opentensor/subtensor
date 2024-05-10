@@ -1,13 +1,14 @@
 #!/bin/bash
 
 : "${BUILD_BINARY:=1}"
-: "${FEATURES:=pow-faucet}"
+# : "${FEATURES:=pow-faucet}"
 
 FULL_PATH=".baedeker/.bdk-env/specs/subtensor.json"
 
 if [[ $BUILD_BINARY == "1" ]]; then
 	echo "*** Building substrate binary..."
-	cargo build --release --features "$FEATURES"
+	# cargo build --release --features "$FEATURES"
+	cargo build --release
 	echo "*** Binary compiled"
 fi
 
