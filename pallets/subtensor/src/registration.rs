@@ -546,7 +546,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {
-        let nonce = U256::from(nonce_u64);
+        let nonce = nonce_u64.to_le_bytes();
         let block_hash_at_number: H256 = Self::get_block_hash_from_u64(block_number_u64);
         let block_hash_bytes: &[u8; 32] = block_hash_at_number.as_fixed_bytes();
         let binding = Self::hash_block_and_hotkey(block_hash_bytes, hotkey);
@@ -727,4 +727,64 @@ impl<T: Config> Pallet<T> {
 
         Ok(Some(weight).into())
     }
+}
+
+#[test]
+fn test_seal_hash() {
+    use sp_core::{Get, H256, U256};
+    let nonce_u64 = 123456_u64;
+    let nonce = nonce_u64.to_le_bytes();
+    let block_and_hotkey_hash_bytes: &[u8; 32] = &[1u8; 32];
+
+    let mut full_bytes = [0u8; 40];
+    let (first_chunk, second_chunk) = full_bytes.split_at_mut(8);
+    first_chunk.copy_from_slice(&nonce);
+    second_chunk.copy_from_slice(block_and_hotkey_hash_bytes);
+
+    let nonce = U256::from(nonce_u64);
+
+    let second_full_bytes: &[u8; 40] = &[
+        nonce.byte(0),
+        nonce.byte(1),
+        nonce.byte(2),
+        nonce.byte(3),
+        nonce.byte(4),
+        nonce.byte(5),
+        nonce.byte(6),
+        nonce.byte(7),
+        block_and_hotkey_hash_bytes[0],
+        block_and_hotkey_hash_bytes[1],
+        block_and_hotkey_hash_bytes[2],
+        block_and_hotkey_hash_bytes[3],
+        block_and_hotkey_hash_bytes[4],
+        block_and_hotkey_hash_bytes[5],
+        block_and_hotkey_hash_bytes[6],
+        block_and_hotkey_hash_bytes[7],
+        block_and_hotkey_hash_bytes[8],
+        block_and_hotkey_hash_bytes[9],
+        block_and_hotkey_hash_bytes[10],
+        block_and_hotkey_hash_bytes[11],
+        block_and_hotkey_hash_bytes[12],
+        block_and_hotkey_hash_bytes[13],
+        block_and_hotkey_hash_bytes[14],
+        block_and_hotkey_hash_bytes[15],
+        block_and_hotkey_hash_bytes[16],
+        block_and_hotkey_hash_bytes[17],
+        block_and_hotkey_hash_bytes[18],
+        block_and_hotkey_hash_bytes[19],
+        block_and_hotkey_hash_bytes[20],
+        block_and_hotkey_hash_bytes[21],
+        block_and_hotkey_hash_bytes[22],
+        block_and_hotkey_hash_bytes[23],
+        block_and_hotkey_hash_bytes[24],
+        block_and_hotkey_hash_bytes[25],
+        block_and_hotkey_hash_bytes[26],
+        block_and_hotkey_hash_bytes[27],
+        block_and_hotkey_hash_bytes[28],
+        block_and_hotkey_hash_bytes[29],
+        block_and_hotkey_hash_bytes[30],
+        block_and_hotkey_hash_bytes[31],
+    ];
+
+    assert_eq!(full_bytes, *second_full_bytes);
 }
