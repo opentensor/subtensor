@@ -11,6 +11,9 @@ impl<T: Config> Pallet<T> {
         commit_hash: H256,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
+
+        log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+
         ensure!(Self::can_commit(netuid, &who), Error::<T>::CommitNotAllowed);
 
         WeightCommits::<T>::insert(
@@ -29,6 +32,9 @@ impl<T: Config> Pallet<T> {
         version_key: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
+
+        log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
             let (commit_hash, commit_block) =
                 maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;

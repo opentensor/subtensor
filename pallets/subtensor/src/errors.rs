@@ -132,7 +132,7 @@ mod errors {
         NomStakeBelowMinimumThreshold,
         /// delegate take is being set out of bounds
         InvalidTake,
-        /// Not allowed to comit weights
+        /// Not allowed to commit weights
         CommitNotAllowed,
         /// No commit found for provided hotkey+netuid when attempting to reveal weights
         NoCommitFound,
