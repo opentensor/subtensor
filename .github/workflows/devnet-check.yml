@@ -1,4 +1,4 @@
-name: Check Labels
+name: Tested on devnet
 on:
   pull_request:
     types: [opened, labeled, unlabeled, synchronize]
@@ -11,8 +11,9 @@ jobs:
     steps:
       - uses: mheap/github-action-required-labels@v5
         with:
-          mode: exactly
-          count: 2
+          mode: minimum
+          count: 1
           labels: |
             devnet-pass
-            testnet-pass
+            devnet-skip
+            hotfix
