@@ -5,7 +5,6 @@ members = [
     "pallets/subtensor",
     "pallets/commitments",
     "runtime",
-    "spec-version",
 ]
 
 [profile.release]
