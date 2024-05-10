@@ -80,6 +80,8 @@ services:
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
           --sync warp
+          --reserved-nodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
+          --reserved-only
 
   testnet-archive:
     <<: *common
@@ -98,3 +100,5 @@ services:
           --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
           --pruning=archive
+          --reserved-nodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
+          --reserved-only
