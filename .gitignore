@@ -36,5 +36,9 @@ specs/*.json
 # VSCode configuration
 .vscode
 
+# Baedeker output directory 
+.baedeker/.bdk-env
+
 alice.log
 bob.log
+charlie.log
