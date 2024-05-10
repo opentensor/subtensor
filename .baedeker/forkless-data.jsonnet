@@ -31,7 +31,7 @@ local relay = {
 	nodes: {
 		[name]: {
 			bin: $.bin,
-			wantedKeys: 'relay',
+			wantedKeys: 'standalone',
 		},
 		for name in ['alice', 'bob', 'charlie']
 	},

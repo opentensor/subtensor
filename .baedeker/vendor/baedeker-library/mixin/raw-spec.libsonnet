@@ -201,7 +201,6 @@ local
 		// $.setSudo(account('//Alice')),
 		// Will break everything
 		// $.resetBalances,
-		// $.giveBalance("0xd43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d", "1000000000000"),
 		$.resetAuraAuthorities,
 		[
 			$.addAuraAuthority(node.keys.aura),
