@@ -5,7 +5,6 @@ use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
     // Returns the number of filled slots on a network.
-    ///
     pub fn get_subnetwork_n(netuid: u16) -> u16 {
         SubnetworkN::<T>::get(netuid)
     }

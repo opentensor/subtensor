@@ -2068,12 +2068,12 @@ where
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
                     Ok(ValidTransaction {
-                        priority: priority,
+                        priority,
                         longevity: 1,
                         ..Default::default()
                     })
                 } else {
-                    return Err(InvalidTransaction::Call.into());
+                    Err(InvalidTransaction::Call.into())
                 }
             }
             Some(Call::add_stake { .. }) => Ok(ValidTransaction {

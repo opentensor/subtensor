@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::math::*;
-use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
+use frame_support::dispatch::Pays;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;

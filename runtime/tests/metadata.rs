@@ -2,7 +2,7 @@ use frame_metadata::RuntimeMetadata;
 use node_subtensor_runtime::Runtime;
 use scale_info::TypeDef;
 
-fn is_pallet_error(segments: &Vec<String>) -> bool {
+fn is_pallet_error(segments: &[String]) -> bool {
     let pallet_list: Vec<&str> = vec![
         "pallet_admin_utils",
         "pallet_collective",
@@ -27,29 +27,23 @@ fn test_metadata() {
     // current metadata version should be 14
     assert!(matches!(metadata, RuntimeMetadata::V14(_)));
 
-    match metadata {
-        RuntimeMetadata::V14(value) => {
-            let types = value.types.types;
-            for ty in types.iter() {
-                let segments = &ty.ty.path.segments;
-                if is_pallet_error(segments) {
-                    // error call and event should be enum type
-                    assert!(matches!(ty.ty.type_def, TypeDef::Variant(_)));
-                    match &ty.ty.type_def {
-                        TypeDef::Variant(variants) => {
-                            // check docs not empty
-                            for variant in variants.variants.iter() {
-                                // print name make it easier to find out failed item
-                                println!("{}", variant.name);
-                                assert!(variant.docs.len() > 0);
-                                assert!(!variant.docs[0].is_empty());
-                            }
-                        }
-                        _ => {}
+    if let RuntimeMetadata::V14(value) = metadata {
+        let types = value.types.types;
+        for ty in types.iter() {
+            let segments = &ty.ty.path.segments;
+            if is_pallet_error(segments) {
+                // error call and event should be enum type
+                assert!(matches!(ty.ty.type_def, TypeDef::Variant(_)));
+                if let TypeDef::Variant(variants) = &ty.ty.type_def {
+                    // check docs not empty
+                    for variant in variants.variants.iter() {
+                        // print name make it easier to find out failed item
+                        println!("{}", variant.name);
+                        assert!(!variant.docs.is_empty());
+                        assert!(!variant.docs[0].is_empty());
                     }
                 }
             }
         }
-        _ => {}
     };
 }

@@ -1,5 +1,4 @@
 use super::*;
-use frame_support::pallet_prelude::{DispatchResult, DispatchResultWithPostInfo};
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
@@ -547,7 +546,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {
-        let nonce = nonce_u64.to_be_bytes();
+        let nonce = nonce_u64.to_le_bytes();
         let block_hash_at_number: H256 = Self::get_block_hash_from_u64(block_number_u64);
         let block_hash_bytes: &[u8; 32] = block_hash_at_number.as_fixed_bytes();
         let binding = Self::hash_block_and_hotkey(block_hash_bytes, hotkey);
