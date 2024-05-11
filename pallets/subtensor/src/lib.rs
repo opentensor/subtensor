@@ -1271,13 +1271,13 @@ pub mod pallet {
         /// will be corrected for this deviation.
         //
         /// # Args:
-        /// 	* “origin“: (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The caller, a hotkey who wishes to set their weights.
         //
-        /// 	* “netuid“ (u16):
+        /// 	* "netuid" (u16):
         /// 		- The network uid we are setting these weights on.
         //
-        /// 	* “dests“ (Vec<u16>):
+        /// 	* "dests" (Vec<u16>):
         /// 		- The edge endpoint for the weight, i.e. j for w_ij.
         //
         /// 	* "weights" (Vec<u16>):
@@ -1288,14 +1288,14 @@ pub mod pallet {
         /// 		- The network version key to check if the validator is up to date.
         //
         /// # Event:
-        /// 	* WeightsSet;
+        /// 	* "WeightsSet";
         /// 		- On successfully setting the weights on chain.
         //
         /// # Raises:
-        /// 	* "NetworkDoesNotExist":
+        /// 	* "NetworkDoesNotExist";
         /// 		- Attempting to set weights on a non-existent network.
         //
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- Attempting to set weights from a non registered account.
         //
         /// 	* "WeightVecNotEqualSize":
@@ -1330,16 +1330,16 @@ pub mod pallet {
         }
 
         /// # Args:
-        /// 	* “origin“: (<T as frame_system::Config>Origin):
+        /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The caller, a hotkey who wishes to set their weights.
         //
-        /// 	* “netuid“ (u16):
+        /// 	* "netuid" (u16):
         /// 		- The network uid we are setting these weights on.
         //
-        /// 	* “hotkey“ (T::AccountId):
+        /// 	* "hotkey" (T::AccountId):
         /// 		- The hotkey associated with the operation and the calling coldkey.
         //
-        /// 	* “dests“ (Vec<u16>):
+        /// 	* "dests" (Vec<u16>):
         /// 		- The edge endpoint for the weight, i.e. j for w_ij.
         //
         /// 	* "weights" (Vec<u16>):
@@ -1351,15 +1351,15 @@ pub mod pallet {
         //
         /// # Event:
         //
-        /// 	* WeightsSet;
+        /// 	* "WeightsSet";
         /// 		- On successfully setting the weights on chain.
         //
         /// # Raises:
         //
-        /// 	* NonAssociatedColdKey;
+        /// 	* "NonAssociatedColdKey";
         /// 		- Attempting to set weights on a non-associated cold key.
         //
-        /// 	* "NetworkDoesNotExist":
+        /// 	* "NetworkDoesNotExist";
         /// 		- Attempting to set weights on a non-existent network.
         //
         /// 	* "NotRootSubnet":
@@ -1371,7 +1371,7 @@ pub mod pallet {
         /// 	* "InvalidUid":
         /// 		- Attempting to set weights with invalid uids.
         //
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- Attempting to set weights from a non registered account.
         //
         /// 	* "NotSettingEnoughWeights":
@@ -1417,11 +1417,11 @@ pub mod pallet {
         /// 		- The stake proportion that this hotkey takes from delegations.
         //
         /// # Event:
-        /// 	* DelegateAdded;
+        /// 	* "DelegateAdded";
         /// 		- On successfully setting a hotkey as a delegate.
         //
         /// # Raises:
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- The hotkey we are delegating is not registered on the network.
         //
         /// 	* "NonAssociatedColdKey":
@@ -1454,11 +1454,11 @@ pub mod pallet {
         ///        [0.01 * 65535] = [655.35] = 655
         //
         /// # Event:
-        /// 	* TakeDecreased;
+        /// 	* "TakeDecreased";
         /// 		- On successfully setting a decreased take for this hotkey.
         //
         /// # Raises:
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- The hotkey we are delegating is not registered on the network.
         //
         /// 	* "NonAssociatedColdKey":
@@ -1494,11 +1494,11 @@ pub mod pallet {
         ///        [0.01 * 65535] = [655.35] = 655
         //
         /// # Event:
-        /// 	* TakeDecreased;
+        /// 	* "TakeDecreased";
         /// 		- On successfully setting a decreased take for this hotkey.
         //
         /// # Raises:
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- The hotkey we are delegating is not registered on the network.
         //
         /// 	* "NonAssociatedColdKey":
@@ -1534,7 +1534,7 @@ pub mod pallet {
         /// 		- The amount of stake to be added to the hotkey staking account.
         //
         /// # Event:
-        /// 	* StakeAdded;
+        /// 	* "StakeAdded";
         /// 		- On the successfully adding stake to a global account.
         //
         /// # Raises:
@@ -1578,11 +1578,11 @@ pub mod pallet {
         /// 		- The amount of stake to be added to the hotkey staking account.
         //
         /// # Event:
-        /// 	* StakeRemoved;
+        /// 	* "StakeRemoved";
         /// 		- On the successfully removing stake from the hotkey account.
         //
         /// # Raises:
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- Thrown if the account we are attempting to unstake from is non existent.
         //
         /// 	* "NonAssociatedColdKey":
@@ -1630,33 +1630,33 @@ pub mod pallet {
         /// 	* "ip_type" (u8):
         /// 		- The endpoint ip version as a u8, 4 or 6.
         //
-        /// 	* "protocol" (u8):
+        /// 	* "protocol" (u8);
         /// 		- UDP:1 or TCP:0
         //
-        /// 	* "placeholder1" (u8):
+        /// 	* "placeholder1" (u8);
         /// 		- Placeholder for further extra params.
         //
-        /// 	* "placeholder2" (u8):
+        /// 	* "placeholder2" (u8);
         /// 		- Placeholder for further extra params.
         //
         /// # Event:
-        /// 	* AxonServed;
+        /// 	* "AxonServed";
         /// 		- On successfully serving the axon info.
         //
         /// # Raises:
-        /// 	* "NetworkDoesNotExist":
+        /// 	* "NetworkDoesNotExist";
         /// 		- Attempting to set weights on a non-existent network.
         //
-        /// 	* "NotRegistered":
+        /// 	* "NotRegistered";
         /// 		- Attempting to set weights from a non registered account.
         //
-        /// 	* "InvalidIpType":
+        /// 	* "InvalidIpType";
         /// 		- The ip type is not 4 or 6.
         //
-        /// 	* "InvalidIpAddress":
+        /// 	* "InvalidIpAddress";
         /// 		- The numerically encoded ip address does not resolve to a proper ip.
         //
-        /// 	* "ServingRateLimitExceeded":
+        /// 	* "ServingRateLimitExceeded";
         /// 		- Attempting to set prometheus information withing the rate limit min.
         //
         #[pallet::call_index(4)]
@@ -1729,11 +1729,11 @@ pub mod pallet {
         /// 		- Associated coldkey account.
         //
         /// # Event:
-        /// 	* NeuronRegistered;
+        /// 	* "NeuronRegistered";
         /// 		- On successfully registereing a uid to a neuron slot on a subnetwork.
         //
         /// # Raises:
-        /// 	* "NetworkDoesNotExist":
+        /// 	* "NetworkDoesNotExist";
         /// 		- Attempting to registed to a non existent network.
         //
         /// 	* "TooManyRegistrationsThisBlock":
@@ -1810,14 +1810,14 @@ pub mod pallet {
         /// 	* "origin": (<T as frame_system::Config>Origin):
         /// 		- The caller, must be sudo.
         //
-        /// 	* “netuid“ (u16):
+        /// 	* "netuid" (u16):
         /// 		- The network identifier.
         //
-        /// 	* “hyperparameter value“ (u16):
+        /// 	* "hyperparameter value" (u16):
         /// 		- The value of the hyper parameter.
         //
 
-        /// Authenticates a council proposal and dispatches a function call with “Root“ origin.
+        /// Authenticates a council proposal and dispatches a function call with "Root" origin.
         ///
         /// The dispatch origin for this call must be a council majority.
         ///
@@ -1839,7 +1839,7 @@ pub mod pallet {
             return result;
         }
 
-        /// Authenticates a council proposal and dispatches a function call with “Root“ origin.
+        /// Authenticates a council proposal and dispatches a function call with "Root" origin.
         /// This function does not check the weight of the call, and instead allows the
         /// user to specify the weight of the call.
         ///
