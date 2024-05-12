@@ -5,6 +5,22 @@ use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
+    // ---- The implementation for committing weight hashes.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the committing hotkey.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'commit_hash' (H256):
+    // 		- The hash representing the committed weights.
+    //
+    // # Raises:
+    // 	* 'CommitNotAllowed':
+    // 		- Attempting to commit when it is not allowed.
+    //
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -24,6 +40,34 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    // ---- The implementation for revealing committed weights.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the revealing hotkey.
+    //
+    // 	* 'netuid' (u16):
+    // 		- The u16 network identifier.
+    //
+    // 	* 'uids' (Vec<u16>):
+    // 		- The uids for the weights being revealed.
+    //
+    // 	* 'values' (Vec<u16>):
+    // 		- The values of the weights being revealed.
+    //
+    // 	* 'version_key' (u64):
+    // 		- The network version key.
+    //
+    // # Raises:
+    // 	* 'NoCommitFound':
+    // 		- Attempting to reveal weights without an existing commit.
+    //
+    // 	* 'InvalidRevealTempo':
+    // 		- Attempting to reveal weights outside the valid tempo.
+    //
+    // 	* 'InvalidReveal':
+    // 		- The revealed hash does not match the committed hash.
+    //
     pub fn do_reveal_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
