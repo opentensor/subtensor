@@ -1685,7 +1685,26 @@ pub mod pallet {
             )
         }
 
-        /// a
+        /// ---- Set prometheus information for the neuron.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the calling hotkey.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u16):
+        /// 	-  The bittensor version identifier.
+        ///
+        /// * 'ip' (u128):
+        /// 	- The prometheus ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The prometheus port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The ip type v4 or v6.
+        ///
         #[pallet::call_index(5)]
         #[pallet::weight((Weight::from_parts(17_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
@@ -1764,7 +1783,7 @@ pub mod pallet {
             Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
         }
 
-        /// a
+        /// Register the hotkey to root network
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(120_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
@@ -1773,7 +1792,7 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
-        /// a
+        /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(89_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
@@ -1786,7 +1805,7 @@ pub mod pallet {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
-        /// a
+        /// The extrinsic for user to change its hotkey
         #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
@@ -1942,7 +1961,7 @@ pub mod pallet {
             Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
         }
 
-        /// a
+        /// Helper function to check if register is allowed
         pub fn checked_allowed_register(netuid: u16) -> bool {
             if netuid == Self::get_root_netuid() {
                 return false;
