@@ -384,8 +384,6 @@ reveal_weights {
     let weight_values: Vec<u16> = vec![10];
     let hotkey: T::AccountId = account("hot", 0, 1);
     let coldkey: T::AccountId = account("cold", 1, 2);
-    let hotkey2: T::AccountId = account("hot2", 2, 3);
-    let coldkey2: T::AccountId = account("cold2", 3, 4);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed(netuid, true);
