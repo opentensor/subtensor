@@ -245,7 +245,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("n: {:?} k: {:?}", n, k);
 
         // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
-        // by “n“ (number of validators) and “k“ (total number of subnets).
+        // by `n` (number of validators) and `k` (total number of subnets).
         let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
         log::debug!("weights:\n{:?}\n", weights);
 
@@ -257,9 +257,9 @@ impl<T: Config> Pallet<T> {
                 Self::get_root_netuid(),
             )
         {
-            // --- 4. Iterate over each weight entry in “weights_i“ to update the corresponding value in the
-            // initialized “weights“ 2D vector. Here, “uid_j“ represents a subnet, and “weight_ij“ is the
-            // weight of “uid_i“ with respect to “uid_j“.
+            // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
+            // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
+            // weight of `uid_i` with respect to `uid_j`.
             for (netuid, weight_ij) in &weights_i {
                 let idx = uid_i as usize;
                 if let Some(weight) = weights.get_mut(idx) {
