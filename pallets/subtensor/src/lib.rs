@@ -1235,9 +1235,9 @@ pub mod pallet {
         ///   - Attempting to commit when it is not allowed.
         ///
         #[pallet::call_index(96)]
-        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(4104))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn commit_weights(
             origin: T::RuntimeOrigin,
             netuid: u16,
@@ -1275,9 +1275,9 @@ pub mod pallet {
         ///   - The revealed hash does not match the committed hash.
         ///
         #[pallet::call_index(97)]
-        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(4104))
-		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(103_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(11))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn reveal_weights(
             origin: T::RuntimeOrigin,
             netuid: u16,
