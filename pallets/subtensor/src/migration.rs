@@ -432,55 +432,37 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 const LOG_TARGET_1: &str = "fixtotalstakestorage";
 
 pub fn migrate_stake_to_substake<T: Config>() -> Weight {
-    let new_storage_version = 6;
+    let new_storage_version = 7;
     let mut weight = T::DbWeight::get().reads_writes(1, 1);
 
     let onchain_version = Pallet::<T>::on_chain_storage_version();
     log::info!("Current on-chain storage version: {:?}", onchain_version); // Debug print
     if onchain_version < new_storage_version {
         log::info!("Starting migration from Stake to SubStake."); // Debug print
+        let mut counter = 0;
         Stake::<T>::iter().for_each(|(coldkey, hotkey, stake)| {
-            log::info!(
-                "Found: coldkey: {:?}, hotkey: {:?}, stake: {:?}",
-                coldkey,
-                hotkey,
-                stake
-            ); // Debug print before filtering
             if stake > 0 {
                 // Ensure we're only migrating non-zero stakes
-                log::info!(
-                    "Migrating: coldkey: {:?}, hotkey: {:?}, stake: {:?}",
-                    coldkey,
-                    hotkey,
-                    stake
-                );
                 // Insert into SubStake with netuid set to 0 for all entries
                 SubStake::<T>::insert((&hotkey, &coldkey, &0u16), stake);
                 // Accrue read and write weights
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+                counter += 1;
             }
         });
+        log::info!("Inserted {} entries into SubStake", counter);
 
         // Assuming TotalHotkeySubStake needs to be updated similarly
         let mut total_stakes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
         SubStake::<T>::iter().for_each(|((hotkey, _, _), stake)| {
-            log::info!(
-                "Calculating total stakes for hotkey: {:?}, stake: {:?}",
-                hotkey,
-                stake
-            ); // Debug print
             *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
         });
 
         for (hotkey, total_stake) in total_stakes.iter() {
-            log::info!(
-                "Inserting total stake for hotkey: {:?}, total_stake: {:?}",
-                hotkey,
-                total_stake
-            ); // Debug print
             TotalHotkeySubStake::<T>::insert(hotkey, &0u16, *total_stake);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
+        log::info!("Inserted {} entries into TotalHotkeySubStake", total_stakes.len());
 
 		// Remove the old `TotalStake` type.
 		frame_support::storage::unhashed::kill(&frame_support::storage::storage_prefix(
@@ -504,7 +486,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
 }
 
 pub fn migrate_remove_deprecated_stake_variables<T: Config>() -> Weight {
-    let new_storage_version = 7;
+    let new_storage_version = 8;
     let mut weight = T::DbWeight::get().reads_writes(1, 1);
 
     use deprecated_stake_variables as old;
@@ -541,7 +523,7 @@ pub fn migrate_remove_deprecated_stake_variables<T: Config>() -> Weight {
             }
         });
     } else {
-        log::info!("Migration to fill SubStake from Stake already done!"); // Debug print
+        log::info!("Migration to remove deprecated storage variables already done!"); // Debug print
     }
 
     log::info!("Final weight: {:?}", weight); // Debug print
