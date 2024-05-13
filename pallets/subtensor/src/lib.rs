@@ -1523,32 +1523,31 @@ pub mod pallet {
         /// attacks on its hotkey running in production code.
         ///
         /// # Args:
-        /// * 'origin': (<T as frame_system::Config>Origin):
+        ///  * 'origin': (<T as frame_system::Config>Origin):
         /// 	- The signature of the caller's coldkey.
         ///
-        /// * 'hotkey' (T::AccountId):
+        ///  * 'hotkey' (T::AccountId):
         /// 	- The associated hotkey account.
         ///
-        /// * 'amount_staked' (u64):
+        ///  * 'amount_staked' (u64):
         /// 	- The amount of stake to be added to the hotkey staking account.
         ///
         /// # Event:
-        /// * StakeAdded;
+        ///  * StakeAdded;
         /// 	- On the successfully adding stake to a global account.
         ///
         /// # Raises:
-        /// * 'CouldNotConvertToBalance':
+        ///  * 'CouldNotConvertToBalance':
         /// 	- Unable to convert the passed stake value to a balance.
         ///
-        /// * 'NotEnoughBalanceToStake':
+        ///  * 'NotEnoughBalanceToStake':
         /// 	- Not enough balance on the coldkey to add onto the global account.
         ///
-        /// * 'NonAssociatedColdKey':
+        ///  * 'NonAssociatedColdKey':
         /// 	- The calling coldkey is not associated with this hotkey.
         ///
-        /// * 'BalanceWithdrawalError':
-        /// 	- Errors stemming from transaction pallet.
-        ///
+        ///  * 'BalanceWithdrawalError':
+        ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(65_000_000, 0)
