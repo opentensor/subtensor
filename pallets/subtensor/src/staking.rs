@@ -117,6 +117,9 @@ impl<T: Config> Pallet<T> {
     // 	* 'NonAssociatedColdKey':
     // 		- The hotkey we are delegating is not owned by the calling coldket.
     //
+    // 	* 'InvalidTake':
+    // 		- The delegate is setting a take which is not lower than the previous.
+    //
     pub fn do_decrease_take(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -173,8 +176,8 @@ impl<T: Config> Pallet<T> {
     // 		- The stake proportion that this hotkey takes from delegations for subnet ID.
     //
     // # Event:
-    // 	* TakeDecreased;
-    // 		- On successfully setting a decreased take for this hotkey.
+    // 	* TakeIncreased;
+    // 		- On successfully setting a increased take for this hotkey.
     //
     // # Raises:
     // 	* 'NotRegistered':
@@ -185,6 +188,9 @@ impl<T: Config> Pallet<T> {
     //
     // 	* 'TxRateLimitExceeded':
     // 		- Thrown if key has hit transaction rate limit
+    //
+    // 	* 'InvalidTake':
+    // 		- The delegate is setting a take which is not greater than the previous.
     //
     pub fn do_increase_take(
         origin: T::RuntimeOrigin,
