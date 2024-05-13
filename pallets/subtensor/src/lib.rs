@@ -1295,9 +1295,12 @@ pub mod pallet {
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
                 .saturating_add(migration::migration5_total_issuance::<T>(false))
+                .saturating_add(migration::migrate_stake_to_substake::<T>())
                 .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>());
 
-            return weight;
+            log::warn!("Runtime upgrade migration in subtensor pallet, total weight = ({})", weight);
+
+            return frame_support::weights::Weight::from_parts(0, 0);
         }
     }
 
