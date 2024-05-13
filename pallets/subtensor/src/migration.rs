@@ -482,6 +482,12 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
 
+		// Remove the old `TotalStake` type.
+		frame_support::storage::unhashed::kill(&frame_support::storage::storage_prefix(
+			"SubtensorModule".as_bytes(),
+			"TotalStake".as_bytes(),
+		));
+
         // Update the storage version to indicate this migration has been completed
         log::info!(
             "Migration completed, updating storage version to: {:?}",
