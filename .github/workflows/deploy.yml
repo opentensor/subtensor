@@ -45,6 +45,7 @@ jobs:
 
       - name: Get live spec_version for ${{ github.event.inputs.network }}
         run: |
+          wscat -c wss://test.finney.opentensor.ai:443 -x '{"id":1, "jsonrpc":"2.0", "method": "state_getRuntimeVersion"}' -w 1
           spec_version=$(wscat -c wss://test.finney.opentensor.ai:443 -x '{"id":1, "jsonrpc":"2.0", "method": "state_getRuntimeVersion"}' -w 1 | jq -r '.result.specVersion' | tr -d '\n')
           echo "spec_version: |$spec_version|"
           : ${spec_version:?bad spec version}
