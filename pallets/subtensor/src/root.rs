@@ -346,8 +346,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
-        let weights: Vec<Vec<I64F64>> = Self::get_root_weights();
+        let mut weights: Vec<Vec<I64F64>> = Self::get_root_weights();
         log::debug!("W:\n{:?}\n", &weights);
+
+        // Normalize weights.
+        inplace_row_normalize_64(&mut weights);
+        log::debug!("W(norm):\n{:?}\n", &weights);
 
         // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
