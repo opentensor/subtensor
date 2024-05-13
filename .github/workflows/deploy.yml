@@ -24,7 +24,7 @@ env:
 jobs:
   deploy:
     name: Deploy to ${{ github.event.inputs.network }}
-    runs-on: ubuntu-latest
+    runs-on: SubtensorCI
     steps:
       - name: Dependencies
         run: |
