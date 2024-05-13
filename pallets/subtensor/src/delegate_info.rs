@@ -198,7 +198,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
 
-        let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
+        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate.clone()).into();
 
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
 

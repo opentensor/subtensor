@@ -151,7 +151,7 @@ fn test_registration_ok() {
 
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey_account_id, netuid),
             0
         );
     });
@@ -379,7 +379,7 @@ fn test_burned_registration_ok() {
         assert_eq!(neuro_uid, neuron_uid);
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey_account_id, netuid),
             0
         );
     });

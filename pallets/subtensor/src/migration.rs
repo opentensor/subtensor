@@ -1,7 +1,7 @@
 use super::*;
 use alloc::collections::BTreeMap;
 use frame_support::{
-    pallet_prelude::{Identity, OptionQuery},
+    pallet_prelude::{Identity, OptionQuery, ValueQuery},
     sp_std::vec::Vec,
     storage_alias,
     traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
@@ -21,6 +21,19 @@ pub mod deprecated_loaded_emission_format {
     #[storage_alias]
     pub(super) type LoadedEmission<T: Config> =
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
+}
+
+pub mod deprecated_stake_variables {
+    use super::*;
+
+    type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+    #[storage_alias] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
+    pub type TotalHotkeyStake<T: Config> =
+        StorageMap<Pallet<T>, Identity, AccountIdOf<T>, u64, ValueQuery>;
+    #[storage_alias] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
+    pub type TotalColdkeyStake<T: Config> =
+        StorageMap<Pallet<T>, Identity, AccountIdOf<T>, u64, ValueQuery>;
 }
 
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
@@ -418,74 +431,6 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
 const LOG_TARGET_1: &str = "fixtotalstakestorage";
 
-pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
-    let new_storage_version = 2;
-
-    // Check storage version
-    let mut weight = T::DbWeight::get().reads(1);
-
-    // Grab current version
-    let onchain_version = Pallet::<T>::on_chain_storage_version();
-
-    // Only runs if we haven't already updated version past above new_storage_version.
-    if onchain_version < new_storage_version {
-        info!(
-            target: LOG_TARGET_1,
-            ">>> Fixing the TotalStake and TotalColdkeyStake storage {:?}", onchain_version
-        );
-
-        // Stake and TotalHotkeyStake are known to be accurate
-        // TotalColdkeyStake is known to be inaccurate
-        // TotalStake is known to be inaccurate
-
-        TotalStake::<T>::put(0); // Set to 0
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        // We iterate over TotalColdkeyStake keys and set them to 0
-        let total_coldkey_stake_keys = TotalColdkeyStake::<T>::iter_keys().collect::<Vec<_>>();
-        for coldkey in total_coldkey_stake_keys {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            TotalColdkeyStake::<T>::insert(coldkey, 0); // Set to 0
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
-        // Now we iterate over the entire stake map, and sum each coldkey stake
-        //   We also track TotalStake
-        for ((_hotkey, coldkey, _netuid), stake) in SubStake::<T>::iter() {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Get the current coldkey stake
-            let mut total_coldkey_stake = TotalColdkeyStake::<T>::get(coldkey.clone());
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Add the stake to the coldkey stake
-            total_coldkey_stake = total_coldkey_stake.saturating_add(stake);
-            // Update the coldkey stake
-            TotalColdkeyStake::<T>::insert(coldkey, total_coldkey_stake);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-            // Get the current total stake
-            let mut total_stake = TotalStake::<T>::get();
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Add the stake to the total stake
-            total_stake = total_stake.saturating_add(stake);
-            // Update the total stake
-            TotalStake::<T>::put(total_stake);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
-        // Now both TotalStake and TotalColdkeyStake are accurate
-
-        // Update storage version.
-        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
-                                                                     // One write to storage version
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        weight
-    } else {
-        info!(target: LOG_TARGET_1, "Migration to v2 already done!");
-        Weight::zero()
-    }
-}
-
 pub fn migrate_stake_to_substake<T: Config>() -> Weight {
     let new_storage_version = 6;
     let mut weight = T::DbWeight::get().reads_writes(1, 1);
@@ -544,6 +489,51 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
         ); // Debug print
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
         weight += T::DbWeight::get().writes(1);
+    } else {
+        log::info!("Migration to fill SubStake from Stake already done!"); // Debug print
+    }
+
+    log::info!("Final weight: {:?}", weight); // Debug print
+    weight
+}
+
+pub fn migrate_remove_deprecated_stake_variables<T: Config>() -> Weight {
+    let new_storage_version = 7;
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    use deprecated_stake_variables as old;
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version); // Debug print
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: Remove TotalColdkeyStake and TotalHotkeyStake."); // Debug print
+        old::TotalHotkeyStake::<T>::iter().for_each(|(hotkey, _)| {
+            old::TotalHotkeyStake::<T>::remove(hotkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        });
+
+        old::TotalColdkeyStake::<T>::iter().for_each(|(hotkey, _)| {
+            old::TotalColdkeyStake::<T>::remove(hotkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        });
+
+        // Update the storage version to indicate this migration has been completed
+        log::info!(
+            "Migration completed, updating storage version to: {:?}",
+            new_storage_version
+        ); // Debug print
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        // Remove Stake zero values
+        Stake::<T>::translate(|_, _, stake| {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            if stake > 0 {
+                Some(stake)
+            } else {
+                None
+            }
+        });
     } else {
         log::info!("Migration to fill SubStake from Stake already done!"); // Debug print
     }

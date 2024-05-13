@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
         Self::burn_tokens(actual_burn_amount);
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(
@@ -301,7 +301,7 @@ impl<T: Config> Pallet<T> {
         // );
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(
@@ -738,13 +738,6 @@ impl<T: Config> Pallet<T> {
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
 
         if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
             Delegates::<T>::remove(old_hotkey);
