@@ -5,8 +5,8 @@ use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-    // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
-    // (Dense version used only for testing purposes.)
+    /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
+    /// (Dense version used only for testing purposes.)
     #[allow(clippy::indexing_slicing)]
     pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
@@ -338,19 +338,19 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
-    // Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and
-    // returns the emissions for uids/hotkeys in a given `netuid`.
-    //
-    // # Args:
-    // 	* 'netuid': ( u16 ):
-    //         - The network to distribute the emission onto.
-    //
-    // 	* 'rao_emission': ( u64 ):
-    //         - The total emission for the epoch.
-    //
-    // 	* 'debug' ( bool ):
-    // 		- Print debugging outputs.
-    //
+    /// Calculates reward consensus values, then updates rank, trust, consensus, incentive, dividend, pruning_score, emission and bonds, and
+    /// returns the emissions for uids/hotkeys in a given `netuid`.
+    ///
+    /// # Args:
+    ///  * 'netuid': ( u16 ):
+    ///     - The network to distribute the emission onto.
+    ///
+    ///  * 'rao_emission': ( u64 ):
+    ///     - The total emission for the epoch.
+    ///
+    ///  * 'debug' ( bool ):
+    ///     - Print debugging outputs.
+    ///
     #[allow(clippy::indexing_slicing)]
     pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
@@ -733,7 +733,7 @@ impl<T: Config> Pallet<T> {
         block_at_registration
     }
 
-    // Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
+    /// Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
     #[allow(clippy::indexing_slicing)]
     pub fn get_weights_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
@@ -749,7 +749,7 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    // Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
+    /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
     #[allow(clippy::indexing_slicing)]
     pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
@@ -764,7 +764,7 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    // Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
+    /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
     #[allow(clippy::indexing_slicing)]
     pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
@@ -779,7 +779,7 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    // Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
+    /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
     #[allow(clippy::indexing_slicing)]
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
