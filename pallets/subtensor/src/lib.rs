@@ -256,6 +256,7 @@ pub mod pallet {
     /// ============================
     /// ==== Staking + Accounts ====
     /// ============================
+
     /// Total Rao in circulation.
     #[pallet::type_value]
     pub fn TotalSupply<T: Config>() -> u64 {
@@ -367,6 +368,7 @@ pub mod pallet {
     /// =====================================
     /// ==== Difficulty / Registrations =====
     /// =====================================
+
     /// Default last adjustment block.
     #[pallet::type_value]
     pub fn DefaultLastAdjustmentBlock<T: Config>() -> u64 {
@@ -450,6 +452,7 @@ pub mod pallet {
     /// ==============================
     /// ==== Subnetworks Storage =====
     /// ==============================
+
     /// Default number of networks.
     #[pallet::type_value]
     pub fn DefaultN<T: Config>() -> u16 {
@@ -594,6 +597,7 @@ pub mod pallet {
     /// ==============================
     /// ==== Subnetwork Features =====
     /// ==============================
+
     /// Default value for emission values.
     #[pallet::type_value]
     pub fn DefaultEmissionValues<T: Config>() -> u64 {
@@ -751,6 +755,7 @@ pub mod pallet {
     /// =======================================
     /// ==== Subnetwork Hyperparam storage ====
     /// =======================================
+
     /// Default weights set rate limit.
     #[pallet::type_value]
     pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
@@ -915,6 +920,7 @@ pub mod pallet {
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
+
     /// Value definition for vector of u16.
     #[pallet::type_value]
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
@@ -1488,13 +1494,13 @@ pub mod pallet {
         /// * 'take' (u16):
         /// 	- The new stake proportion that this hotkey takes from delegations.
         ///        The new value can be between 0 and 11_796 and should be strictly
-        ///        greater than the previous value. It T is the new value (rational number),
+        ///        greater than the previous value. T is the new value (rational number),
         ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
         ///        [0.01 * 65535] = [655.35] = 655
         ///
         /// # Event:
-        /// * TakeDecreased;
-        /// 	- On successfully setting a decreased take for this hotkey.
+        /// * TakeIncreased;
+        /// 	- On successfully setting a increased take for this hotkey.
         ///
         /// # Raises:
         /// * 'NotRegistered':
@@ -1504,7 +1510,7 @@ pub mod pallet {
         /// 	- The hotkey we are delegating is not owned by the calling coldkey.
         ///
         /// * 'InvalidTake':
-        /// 	- The delegate is setting a take which is not lower than the previous.
+        /// 	- The delegate is setting a take which is not greater than the previous.
         ///
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
@@ -1561,7 +1567,7 @@ pub mod pallet {
             Self::do_add_stake(origin, hotkey, amount_staked)
         }
 
-        /// ---- Remove stake from the staking account. The call must be made
+        /// Remove stake from the staking account. The call must be made
         /// from the coldkey account attached to the neuron metadata. Only this key
         /// has permission to make staking and unstaking requests.
         ///
@@ -1605,7 +1611,7 @@ pub mod pallet {
             Self::do_remove_stake(origin, hotkey, amount_unstaked)
         }
 
-        /// ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+        /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
         /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
         ///
         /// # Args:

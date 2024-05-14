@@ -62,23 +62,23 @@ impl<T: Config> Pallet<T> {
         placeholder1: u8,
         placeholder2: u8,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the callers (hotkey) signature.
+        // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // --- 2. Ensure the hotkey is registered somewhere.
+        // Ensure the hotkey is registered somewhere.
         ensure!(
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
             Error::<T>::NotRegistered
         );
 
-        // --- 3. Check the ip signature validity.
+        // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip),
             Error::<T>::InvalidIpAddress
         );
 
-        // --- 4. Get the previous axon information.
+        // Get the previous axon information.
         let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -86,7 +86,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // --- 5. We insert the axon meta.
+        // We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
         prev_axon.version = version;
         prev_axon.ip = ip;
@@ -96,7 +96,7 @@ impl<T: Config> Pallet<T> {
         prev_axon.placeholder1 = placeholder1;
         prev_axon.placeholder2 = placeholder2;
 
-        // --- 6. Validate axon data with delegate func
+        // Validate axon data with delegate func
         let axon_validated = Self::validate_axon_data(&prev_axon);
         ensure!(
             axon_validated.is_ok(),
@@ -105,11 +105,11 @@ impl<T: Config> Pallet<T> {
 
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
-        // --- 7. We deposit axon served event.
+        // We deposit axon served event.
         log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::AxonServed(netuid, hotkey_id));
 
-        // --- 8. Return is successful dispatch.
+        // Return is successful dispatch.
         Ok(())
     }
 
@@ -162,23 +162,23 @@ impl<T: Config> Pallet<T> {
         port: u16,
         ip_type: u8,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the callers (hotkey) signature.
+        // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // --- 2. Ensure the hotkey is registered somewhere.
+        // Ensure the hotkey is registered somewhere.
         ensure!(
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
             Error::<T>::NotRegistered
         );
 
-        // --- 3. Check the ip signature validity.
+        // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip),
             Error::<T>::InvalidIpAddress
         );
 
-        // --- 4. We get the previous axon info assoicated with this ( netuid, uid )
+        // We get the previous axon info assoicated with this ( netuid, uid )
         let mut prev_prometheus = Self::get_prometheus_info(netuid, &hotkey_id);
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -186,28 +186,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // --- 5. We insert the prometheus meta.
+        // We insert the prometheus meta.
         prev_prometheus.block = Self::get_current_block_as_u64();
         prev_prometheus.version = version;
         prev_prometheus.ip = ip;
         prev_prometheus.port = port;
         prev_prometheus.ip_type = ip_type;
 
-        // --- 6. Validate prometheus data with delegate func
+        // Validate prometheus data with delegate func
         let prom_validated = Self::validate_prometheus_data(&prev_prometheus);
         ensure!(
             prom_validated.is_ok(),
             prom_validated.err().unwrap_or(Error::<T>::InvalidPort)
         );
 
-        // --- 7. Insert new prometheus data
+        // Insert new prometheus data
         Prometheus::<T>::insert(netuid, hotkey_id.clone(), prev_prometheus);
 
-        // --- 8. We deposit prometheus served event.
+        // We deposit prometheus served event.
         log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::PrometheusServed(netuid, hotkey_id));
 
-        // --- 9. Return is successful dispatch.
+        // Return is successful dispatch.
         Ok(())
     }
 

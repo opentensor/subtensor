@@ -75,7 +75,7 @@ pub mod pallet {
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// The extrinsic set the new authorities for Aura consensus.
+        /// The extrinsic sets the new authorities for Aura consensus.
         /// It is only callable by the root account.
         /// The extrinsic will call the Aura pallet to change the authorities.
         #[pallet::call_index(0)]
@@ -119,7 +119,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the serving rate limit for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the serving rate limit.
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::sudo_set_serving_rate_limit())]
@@ -139,7 +139,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum difficulty for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum difficulty.
         #[pallet::call_index(4)]
         #[pallet::weight(T::WeightInfo::sudo_set_min_difficulty())]
@@ -164,7 +164,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the maximum difficulty for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum difficulty.
         #[pallet::call_index(5)]
         #[pallet::weight(T::WeightInfo::sudo_set_max_difficulty())]
@@ -189,7 +189,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the weights version key for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the weights version key.
         #[pallet::call_index(6)]
         #[pallet::weight(T::WeightInfo::sudo_set_weights_version_key())]
@@ -214,7 +214,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the weights set rate limit for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the weights set rate limit.
         #[pallet::call_index(7)]
         #[pallet::weight(T::WeightInfo::sudo_set_weights_set_rate_limit())]
@@ -264,7 +264,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the adjustment alpha for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment alpha.
         #[pallet::call_index(9)]
         #[pallet::weight((
@@ -294,7 +294,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the adjustment beta for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment beta.
         #[pallet::call_index(12)]
         #[pallet::weight(T::WeightInfo::sudo_set_max_weight_limit())]
@@ -319,7 +319,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the immunity period for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the immunity period.
         #[pallet::call_index(13)]
         #[pallet::weight(T::WeightInfo::sudo_set_immunity_period())]
@@ -344,7 +344,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum allowed weights for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum allowed weights.
         #[pallet::call_index(14)]
         #[pallet::weight(T::WeightInfo::sudo_set_min_allowed_weights())]
@@ -397,7 +397,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the kappa for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the kappa.
         #[pallet::call_index(16)]
         #[pallet::weight(T::WeightInfo::sudo_set_kappa())]
@@ -414,7 +414,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the rho for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the rho.
         #[pallet::call_index(17)]
         #[pallet::weight(T::WeightInfo::sudo_set_rho())]
@@ -431,7 +431,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the activity cutoff for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the activity cutoff.
         #[pallet::call_index(18)]
         #[pallet::weight(T::WeightInfo::sudo_set_activity_cutoff())]
@@ -456,7 +456,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the network registration allowed for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the network registration allowed.
         #[pallet::call_index(19)]
         #[pallet::weight((
@@ -482,7 +482,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the network PoW registration allowed for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the network PoW registration allowed.
         #[pallet::call_index(20)]
         #[pallet::weight((
@@ -535,7 +535,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the minimum burn for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the minimum burn.
         #[pallet::call_index(22)]
         #[pallet::weight(T::WeightInfo::sudo_set_min_burn())]
@@ -560,7 +560,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the maximum burn for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the maximum burn.
         #[pallet::call_index(23)]
         #[pallet::weight(T::WeightInfo::sudo_set_max_burn())]
@@ -585,7 +585,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the difficulty for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the difficulty.
         #[pallet::call_index(24)]
         #[pallet::weight(T::WeightInfo::sudo_set_difficulty())]
@@ -638,7 +638,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the bonds moving average for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account or subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the bonds moving average.
         #[pallet::call_index(26)]
         #[pallet::weight(T::WeightInfo::sudo_set_bonds_moving_average())]
@@ -746,9 +746,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the network lock for the network.
+        /// The extrinsic sets the total issuance for the network.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the network lock.
+        /// The extrinsic will call the Subtensor pallet to set the issuance for the network.
         #[pallet::call_index(33)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_total_issuance(
@@ -762,9 +762,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the network lock for the network.
+        /// The extrinsic sets the immunity period for the network.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the network lock.
+        /// The extrinsic will call the Subtensor pallet to set the immunity period for the network.
         #[pallet::call_index(35)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
@@ -785,9 +785,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the network lock for the network.
+        /// The extrinsic sets the min lock cost for the network.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the network lock.
+        /// The extrinsic will call the Subtensor pallet to set the min lock cost for the network.
         #[pallet::call_index(36)]
         #[pallet::weight((
 			Weight::from_parts(14_000_000, 0)
@@ -869,9 +869,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the recycled RAO for a subnet.
+        /// The extrinsic sets the weights min stake.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the recycled RAO.
+        /// The extrinsic will call the Subtensor pallet to set the weights min stake.
         #[pallet::call_index(42)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_weights_min_stake(origin: OriginFor<T>, min_stake: u64) -> DispatchResult {
@@ -902,9 +902,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the maximum stake required for nominators.
+        /// The extrinsic sets the rate limit for delegate take transactions.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the maximum stake required for nominators.
+        /// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take transactions.
         #[pallet::call_index(45)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_tx_delegate_take_rate_limit(
@@ -920,9 +920,9 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the minimum delegate take for a transaction.
+        /// The extrinsic sets the minimum delegate take.
         /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the minimum delegate take for a transaction.
+        /// The extrinsic will call the Subtensor pallet to set the minimum delegate take.
         #[pallet::call_index(46)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_min_delegate_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
