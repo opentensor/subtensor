@@ -1,8 +1,106 @@
 use super::*;
 use crate::math::*;
+use sp_core::H256;
+use sp_runtime::traits::{BlakeTwo256, Hash};
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
+    /// ---- The implementation for committing weight hashes.
+    ///
+    /// # Args:
+    /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+    ///   - The signature of the committing hotkey.
+    ///
+    /// * `netuid` (`u16`):
+    ///   - The u16 network identifier.
+    ///
+    /// * `commit_hash` (`H256`):
+    ///   - The hash representing the committed weights.
+    ///
+    /// # Raises:
+    /// * `CommitNotAllowed`:
+    ///   - Attempting to commit when it is not allowed.
+    ///
+    pub fn do_commit_weights(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        commit_hash: H256,
+    ) -> DispatchResult {
+        let who = ensure_signed(origin)?;
+
+        log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+
+        ensure!(Self::can_commit(netuid, &who), Error::<T>::CommitNotAllowed);
+
+        WeightCommits::<T>::insert(
+            netuid,
+            &who,
+            (commit_hash, Self::get_current_block_as_u64()),
+        );
+        Ok(())
+    }
+
+    /// ---- The implementation for revealing committed weights.
+    ///
+    /// # Args:
+    /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+    ///   - The signature of the revealing hotkey.
+    ///
+    /// * `netuid` (`u16`):
+    ///   - The u16 network identifier.
+    ///
+    /// * `uids` (`Vec<u16>`):
+    ///   - The uids for the weights being revealed.
+    ///
+    /// * `values` (`Vec<u16>`):
+    ///   - The values of the weights being revealed.
+    ///
+    /// * `version_key` (`u64`):
+    ///   - The network version key.
+    ///
+    /// # Raises:
+    /// * `NoCommitFound`:
+    ///   - Attempting to reveal weights without an existing commit.
+    ///
+    /// * `InvalidRevealTempo`:
+    ///   - Attempting to reveal weights outside the valid tempo.
+    ///
+    /// * `InvalidReveal`:
+    ///   - The revealed hash does not match the committed hash.
+    ///
+    pub fn do_reveal_weights(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        uids: Vec<u16>,
+        values: Vec<u16>,
+        version_key: u64,
+    ) -> DispatchResult {
+        let who = ensure_signed(origin.clone())?;
+
+        log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
+
+        WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
+            let (commit_hash, commit_block) =
+                maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;
+
+            ensure!(
+                Self::is_reveal_block_range(commit_block),
+                Error::<T>::InvalidRevealTempo
+            );
+
+            let provided_hash: H256 = BlakeTwo256::hash_of(&(
+                who.clone(),
+                netuid,
+                uids.clone(),
+                values.clone(),
+                version_key,
+            ));
+            ensure!(provided_hash == commit_hash, Error::<T>::InvalidReveal);
+
+            Self::do_set_weights(origin, netuid, uids, values, version_key)
+        })
+    }
+
     /// ---- The implementation for the extrinsic set_weights.
     ///
     /// # Args:
@@ -323,5 +421,57 @@ impl<T: Config> Pallet<T> {
         let subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
         // we should expect at most subnetwork_n uids.
         uids.len() <= subnetwork_n as usize
+    }
+
+    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
+        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
+            let interval: u64 = Self::get_weight_commit_interval();
+            if interval == 0 {
+                return true; //prevent division by 0
+            }
+
+            let current_block: u64 = Self::get_current_block_as_u64();
+            let interval_start: u64 = current_block - (current_block % interval);
+            let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
+
+            // Allow commit if we're within the interval bounds
+            if current_block <= interval_start + interval
+                && interval_start > last_commit_interval_start
+            {
+                return true;
+            }
+
+            false
+        } else {
+            true
+        }
+    }
+
+    pub fn is_reveal_block_range(commit_block: u64) -> bool {
+        let interval: u64 = Self::get_weight_commit_interval();
+        if interval == 0 {
+            return true; //prevent division by 0
+        }
+
+        let commit_interval_start: u64 = commit_block - (commit_block % interval); // Find the start of the interval in which the commit occurred
+        let reveal_interval_start: u64 = commit_interval_start + interval; // Start of the next interval after the commit interval
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        // Allow reveal if the current block is within the interval following the commit's interval
+        if current_block >= reveal_interval_start
+            && current_block < reveal_interval_start + interval
+        {
+            return true;
+        }
+
+        false
+    }
+
+    pub fn get_weight_commit_interval() -> u64 {
+        WeightCommitRevealInterval::<T>::get()
+    }
+
+    pub fn set_weight_commit_interval(interval: u64) {
+        WeightCommitRevealInterval::<T>::set(interval)
     }
 }
