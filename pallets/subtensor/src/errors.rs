@@ -8,8 +8,6 @@ mod errors {
     pub enum Error<T> {
         /// the network does not exist.
         NetworkDoesNotExist,
-        /// the network already exists.
-        NetworkExist,
         /// an invalid modality attempted on serve.
         InvalidModality,
         /// the user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
@@ -50,20 +48,12 @@ mod errors {
         InvalidDifficulty,
         /// the supplied pow hash seal does not match the supplied work.
         InvalidSeal,
-        /// the value is invalid for MaxAllowedUids.
-        MaxAllowedUIdsNotAllowed,
         /// the dispatch attempts to convert between a u64 and T::balance but the call fails.
         CouldNotConvertToBalance,
         /// the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
         CouldNotConvertToU64,
-        /// the caller requests adding stake for a hotkey to the total stake which already added.
-        StakeAlreadyAdded,
         /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         MaxWeightExceeded,
-        /// the caller attempts to set a storage value outside of its allowed range.
-        StorageValueOutOfRange,
-        /// tempo has not set.
-        TempoHasNotSet,
         /// tempo is not valid.
         InvalidTempo,
         /// number or received emission rates does not match number of networks.

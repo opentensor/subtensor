@@ -362,7 +362,7 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T, I = ()> {
-        /// Account is not a member
+        /// Account is not a member of collective
         NotMember,
         /// Duplicate proposals not allowed
         DuplicateProposal,
@@ -372,7 +372,7 @@ pub mod pallet {
         WrongIndex,
         /// Duplicate vote ignored
         DuplicateVote,
-        /// Members are already initialized!
+        /// Members are already initialized.
         AlreadyInitialized,
         /// The close call was made too early, before the end of the voting.
         TooEarly,
