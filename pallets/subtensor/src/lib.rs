@@ -1948,7 +1948,7 @@ pub mod pallet {
 
     // ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
-        /// --- Returns the transaction priority for setting weights.
+        /// Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
@@ -1960,7 +1960,7 @@ pub mod pallet {
             0
         }
 
-        /// --- Is the caller allowed to set weights
+        /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
             Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
