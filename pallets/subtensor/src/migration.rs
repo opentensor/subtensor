@@ -444,7 +444,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
             if stake > 0 {
                 // Ensure we're only migrating non-zero stakes
                 // Insert into SubStake with netuid set to 0 for all entries
-                SubStake::<T>::insert((&hotkey, &coldkey, &0u16), stake);
+                SubStake::<T>::insert((&coldkey, &hotkey, &0u16), stake);
                 // Accrue read and write weights
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
                 counter += 1;
@@ -454,7 +454,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
 
         // Assuming TotalHotkeySubStake needs to be updated similarly
         let mut total_stakes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-        SubStake::<T>::iter().for_each(|((hotkey, _, _), stake)| {
+        SubStake::<T>::iter().for_each(|((_, hotkey, _), stake)| {
             *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
         });
 

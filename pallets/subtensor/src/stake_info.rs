@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
         for coldkey_ in coldkeys {
             let mut stake_info_for_coldkey: Vec<StakeInfo<T>> = Vec::new();
 
-            for ((hotkey, coldkey, _netuid), stake) in <SubStake<T>>::iter() {
+            for ((coldkey, hotkey, _netuid), stake) in <SubStake<T>>::iter() {
                 if coldkey == coldkey_ {
                     stake_info_for_coldkey.push(StakeInfo {
                         hotkey,
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
 
         // Filter `SubStake` storage map for entries matching the coldkey and netuid.
         let mut subnet_stake_info: Vec<SubnetStakeInfo<T>> = Vec::new();
-        for ((hotkey, coldkey_iter, subnet), stake) in SubStake::<T>::iter() {
+        for ((coldkey_iter, hotkey, subnet), stake) in SubStake::<T>::iter() {
             if coldkey == coldkey_iter && netuid == subnet {
                 subnet_stake_info.push(SubnetStakeInfo {
                     hotkey,
@@ -156,7 +156,7 @@ impl<T: Config> Pallet<T> {
 
             // Filter `SubStake` storage map for entries matching the coldkey and netuid.
             let mut subnet_stake_info: Vec<SubnetStakeInfo<T>> = Vec::new();
-            for ((hotkey, coldkey_iter, subnet), stake) in SubStake::<T>::iter() {
+            for ((coldkey_iter, hotkey, subnet), stake) in SubStake::<T>::iter() {
                 if coldkey == coldkey_iter && netuid == subnet {
                     subnet_stake_info.push(SubnetStakeInfo {
                         hotkey,
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
 
         // Iterate over `SubStake` storage map for entries matching the coldkey and collect their information.
         // If stake != 0
-        for ((hotkey, coldkey_iter, netuid), stake) in SubStake::<T>::iter() {
+        for ((coldkey_iter, hotkey, netuid), stake) in SubStake::<T>::iter() {
             // if coldkey == coldkey_iter {
             //     all_stake_info.push((hotkey, netuid, Compact(stake)));
             // }
@@ -252,7 +252,7 @@ impl<T: Config> Pallet<T> {
 
         // Filter `SubStake` storage map for entries matching the coldkey across all subnets.
         let mut all_subnet_stake_info: Vec<SubnetStakeInfo<T>> = Vec::new();
-        for ((hotkey, coldkey_iter, netuid), stake) in SubStake::<T>::iter() {
+        for ((coldkey_iter, hotkey, netuid), stake) in SubStake::<T>::iter() {
             if coldkey == coldkey_iter {
                 all_subnet_stake_info.push(SubnetStakeInfo {
                     hotkey,
