@@ -1543,9 +1543,6 @@ pub mod pallet {
         /// 	- On the successfully adding stake to a global account.
         ///
         /// # Raises:
-        ///  * 'CouldNotConvertToBalance':
-        /// 	- Unable to convert the passed stake value to a balance.
-        ///
         ///  * 'NotEnoughBalanceToStake':
         /// 	- Not enough balance on the coldkey to add onto the global account.
         ///
@@ -1594,9 +1591,6 @@ pub mod pallet {
         ///
         /// * 'NotEnoughStaketoWithdraw':
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-        ///
-        /// * 'CouldNotConvertToBalance':
-        /// 	- Thrown if we could not convert this amount to a balance.
         ///
         #[pallet::call_index(3)]
         #[pallet::weight((Weight::from_parts(63_000_000, 0)

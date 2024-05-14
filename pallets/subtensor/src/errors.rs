@@ -48,10 +48,6 @@ mod errors {
         InvalidDifficulty,
         /// the supplied pow hash seal does not match the supplied work.
         InvalidSeal,
-        /// the dispatch attempts to convert between a u64 and T::balance but the call fails.
-        CouldNotConvertToBalance,
-        /// the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
-        CouldNotConvertToU64,
         /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         MaxWeightExceeded,
         /// tempo is not valid.
@@ -64,8 +60,6 @@ mod errors {
         IncorrectNetworkVersionKey,
         /// an axon or prometheus serving exceeds the rate limit for a registered neuron.
         ServingRateLimitExceeded,
-        /// an error occurs while setting a balance.
-        BalanceSetError,
         /// number of accounts going to be registered exceeds MaxAllowedUids for the network.
         MaxAllowedUidsExceeded,
         /// the caller attempts to set weights with more uids than allowed.

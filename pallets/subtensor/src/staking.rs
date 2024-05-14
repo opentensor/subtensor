@@ -265,9 +265,6 @@ impl<T: Config> Pallet<T> {
     // 		- On the successfully adding stake to a global account.
     //
     // # Raises:
-    // 	* 'CouldNotConvertToBalance':
-    // 		- Unable to convert the passed stake value to a balance.
-    //
     // 	* 'NotEnoughBalanceToStake':
     // 		- Not enough balance on the coldkey to add onto the global account.
     //
@@ -388,9 +385,6 @@ impl<T: Config> Pallet<T> {
     //
     // 	* 'NotEnoughStaketoWithdraw':
     // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    //
-    // 	* 'CouldNotConvertToBalance':
-    // 		- Thrown if we could not convert this amount to a balance.
     //
     // 	* 'TxRateLimitExceeded':
     // 		- Thrown if key has hit transaction rate limit
