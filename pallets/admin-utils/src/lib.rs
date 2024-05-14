@@ -64,11 +64,11 @@ pub mod pallet {
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
-        /// The network does not exist
-        NetworkDoesNotExist,
-        /// The storage value is out of range
+        /// The subnet does not exist, check the netuid parameter
+        SubnetDoesNotExist,
+        /// The max allowed validator number to be set is larger than threshold
         StorageValueOutOfRange,
-        /// The maximum allowed UIDs is not allowed
+        /// The maximum allowed UIDs is out of boundary, it not allowed
         MaxAllowedUIdsNotAllowed,
     }
 
@@ -152,7 +152,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_min_difficulty(netuid, min_difficulty);
             log::info!(
@@ -177,7 +177,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_max_difficulty(netuid, max_difficulty);
             log::info!(
@@ -202,7 +202,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_weights_version_key(netuid, weights_version_key);
             log::info!(
@@ -227,7 +227,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_weights_set_rate_limit(netuid, weights_set_rate_limit);
             log::info!(
@@ -252,7 +252,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_adjustment_interval(netuid, adjustment_interval);
             log::info!(
@@ -283,7 +283,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_adjustment_alpha(netuid, adjustment_alpha);
             log::info!(
@@ -307,7 +307,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_max_weight_limit(netuid, max_weight_limit);
             log::info!(
@@ -331,7 +331,7 @@ pub mod pallet {
             T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
 
             T::Subtensor::set_immunity_period(netuid, immunity_period);
@@ -357,7 +357,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_min_allowed_weights(netuid, min_allowed_weights);
             log::info!(
@@ -381,7 +381,7 @@ pub mod pallet {
             ensure_root(origin)?;
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             ensure!(
                 T::Subtensor::get_subnetwork_n(netuid) < max_allowed_uids,
@@ -406,7 +406,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_kappa(netuid, kappa);
             log::info!("KappaSet( netuid: {:?} kappa: {:?} ) ", netuid, kappa);
@@ -423,7 +423,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_rho(netuid, rho);
             log::info!("RhoSet( netuid: {:?} rho: {:?} ) ", netuid, rho);
@@ -444,7 +444,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_activity_cutoff(netuid, activity_cutoff);
             log::info!(
@@ -520,7 +520,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_target_registrations_per_interval(
                 netuid,
@@ -548,7 +548,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_min_burn(netuid, min_burn);
             log::info!(
@@ -573,7 +573,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_max_burn(netuid, max_burn);
             log::info!(
@@ -597,7 +597,7 @@ pub mod pallet {
             T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_difficulty(netuid, difficulty);
             log::info!(
@@ -621,7 +621,7 @@ pub mod pallet {
             ensure_root(origin)?;
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             ensure!(
                 max_allowed_validators <= T::Subtensor::get_max_allowed_uids(netuid),
@@ -651,7 +651,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_bonds_moving_average(netuid, bonds_moving_average);
             log::info!(
@@ -676,7 +676,7 @@ pub mod pallet {
 
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_max_registrations_per_block(netuid, max_registrations_per_block);
             log::info!(
@@ -739,7 +739,7 @@ pub mod pallet {
             ensure_root(origin)?;
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_tempo(netuid, tempo);
             log::info!("TempoSet( netuid: {:?} tempo: {:?} ) ", netuid, tempo);
@@ -863,7 +863,7 @@ pub mod pallet {
             ensure_root(origin)?;
             ensure!(
                 T::Subtensor::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubnetDoesNotExist
             );
             T::Subtensor::set_rao_recycled(netuid, rao_recycled);
             Ok(())
