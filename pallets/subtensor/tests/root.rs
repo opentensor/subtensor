@@ -622,13 +622,13 @@ fn test_network_pruning() {
         assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        // assert_eq!(SubtensorModule::get_pending_emission(1), 246_922_263);
+                                                                 // assert_eq!(SubtensorModule::get_pending_emission(1), 246_922_263);
         assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        // assert_eq!(SubtensorModule::get_pending_emission(3), 176_432_500);
+                                                                 // assert_eq!(SubtensorModule::get_pending_emission(3), 176_432_500);
         assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        // assert_eq!(SubtensorModule::get_pending_emission(5), 5_857_251);
+                                                                 // assert_eq!(SubtensorModule::get_pending_emission(5), 5_857_251);
         assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
         step_block(1);
     });
