@@ -51,13 +51,13 @@ pub trait SubtensorCustomApi<BlockHash> {
         &self,
         hotkey_bytes: Vec<u8>,
         at: Option<BlockHash>,
-    ) -> RpcResult<Vec<u8>>;
+    ) -> RpcResult<u64>;
     #[method(name = "delegateInfo_getTotalStakeForColdkey")]
     fn get_total_stake_for_coldkey(
         &self,
         hotkey_bytes: Vec<u8>,
         at: Option<BlockHash>,
-    ) -> RpcResult<Vec<u8>>;
+    ) -> RpcResult<u64>;
 
     #[method(name = "delegateInfo_getDelegates")]
     fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
@@ -212,7 +212,7 @@ where
         &self,
         hotkey_bytes: Vec<u8>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<u8>> {
+    ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_total_stake_for_hotkey(at, hotkey_bytes).map_err(|e| {
@@ -229,7 +229,7 @@ where
         &self,
         hotkey_bytes: Vec<u8>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<u8>> {
+    ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_total_stake_for_coldkey(at, hotkey_bytes).map_err(|e| {

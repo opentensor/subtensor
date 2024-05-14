@@ -171,14 +171,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_stake_for_coldkey(coldkey_bytes: Vec<u8>) -> u64 {
         let account_id: AccountIdOf<T> =
             T::AccountId::decode(&mut coldkey_bytes.as_slice()).expect("Coldkey decoding failed");
-        SubStake::<T>::iter().filter(|((cold, _hot, _netuid), _stake)| {
-            *cold == account_id
-        }).map(|(_, stake)| stake).sum()
 
-        // TODO: Do not use filter, use iter_prefix instead for O(1) complexity
-        // SubStake::<T>::iter_prefix(account_id).map(|(_, stake)|{
-        //     stake
-        // }).sum()
+        // O(1) complexity on number of coldkeys in storage
+        SubStake::<T>::iter_key_prefix((account_id,)).map(|(hotkey, _)| {
+            Self::get_hotkey_global_dynamic_tao(&hotkey)
+        }).sum()
     }
 
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
