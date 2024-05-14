@@ -121,7 +121,7 @@ fn distribute_nodes(
 fn uid_stats(netuid: u16, uid: u16) {
     log::info!(
         "stake: {:?}",
-        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid)))
+        SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(uid)))
     );
     log::info!("rank: {:?}", SubtensorModule::get_rank_for_uid(netuid, uid));
     log::info!(
@@ -577,14 +577,11 @@ fn test_1_graph() {
         ));
         // SubtensorModule::set_weights_for_testing( netuid, i as u16, vec![ ( 0, u16::MAX )]); // doesn't set update status
         // SubtensorModule::set_bonds_for_testing( netuid, uid, vec![ ( 0, u16::MAX )]); // rather, bonds are calculated in epoch
-        SubtensorModule::set_emission_values(&vec![netuid], vec![1_000_000_000]).unwrap();
-        assert_eq!(
-            SubtensorModule::get_subnet_emission_value(netuid),
-            1_000_000_000
-        );
+        set_emission_values(netuid, 1_000_000_000);
+        assert_eq!(SubtensorModule::get_emission_value(netuid), 1_000_000_000);
         SubtensorModule::epoch(netuid, 1_000_000_000);
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey),
             stake_amount
         );
         assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -650,7 +647,7 @@ fn test_10_graph() {
         // Check return values.
         for i in 0..n {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(i))),
+                SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(i))),
                 1
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, i as u16), 0);
@@ -705,7 +702,7 @@ fn test_512_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(uid))),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -720,7 +717,7 @@ fn test_512_graph() {
                 }
                 for uid in servers {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                        SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(uid))),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 146); // Note R = floor(1 / (512 - 64) * 65_535) = 146
@@ -882,7 +879,7 @@ fn test_4096_graph() {
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(*uid as u64))),
                         max_stake_per_validator
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 0);
@@ -899,7 +896,7 @@ fn test_4096_graph() {
                 }
                 for uid in &servers {
                     assert_eq!(
-                        SubtensorModule::get_total_stake_for_hotkey(&(U256::from(*uid as u64))),
+                        SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(*uid as u64))),
                         0
                     );
                     assert_eq!(SubtensorModule::get_rank_for_uid(netuid, *uid), 17); // Note R = floor(1 / (4096 - 256) * 65_535) = 17
@@ -949,7 +946,7 @@ fn test_16384_graph_sparse() {
         let bonds = SubtensorModule::get_bonds(netuid);
         for uid in validators {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(uid))),
                 1
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 0);
@@ -966,7 +963,7 @@ fn test_16384_graph_sparse() {
         }
         for uid in servers {
             assert_eq!(
-                SubtensorModule::get_total_stake_for_hotkey(&(U256::from(uid))),
+                SubtensorModule::get_hotkey_global_dynamic_tao(&(U256::from(uid))),
                 0
             );
             assert_eq!(SubtensorModule::get_rank_for_uid(netuid, uid), 4); // Note R = floor(1 / (16384 - 512) * 65_535) = 4

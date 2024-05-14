@@ -109,7 +109,7 @@ impl<T: Config> Pallet<T> {
         Self::burn_tokens(actual_burn_amount);
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(
@@ -301,7 +301,7 @@ impl<T: Config> Pallet<T> {
         // );
 
         // --- 9. If the network account does not exist we will create it here.
-        Self::create_account_if_non_existent(&coldkey, &hotkey, netuid);
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
 
         // --- 10. Ensure that the pairing is correct.
         ensure!(
@@ -394,8 +394,8 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(&work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
-        let balance_to_add: u64 = 100_000_000_000_000_000;
-        Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
+        let balance_to_add: u64 = 3_000_000_000_000;
+        Self::coinbase(balance_to_add); // We are creating tokens here from the coinbase.
 
         let balance_to_be_added_as_balance = Self::u64_to_balance(balance_to_add);
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_be_added_as_balance.unwrap());
@@ -738,13 +738,6 @@ impl<T: Config> Pallet<T> {
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
 
         if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
             Delegates::<T>::remove(old_hotkey);

@@ -118,7 +118,7 @@ fn test_senate_join_works() {
             100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             100_000
         );
 
@@ -195,7 +195,7 @@ fn test_senate_vote_works() {
             100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             100_000
         );
 
@@ -369,7 +369,7 @@ fn test_senate_leave_works() {
             100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             100_000
         );
 
@@ -447,7 +447,7 @@ fn test_senate_leave_vote_removal() {
             100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             100_000
         );
 
@@ -590,7 +590,7 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             stake_amount
         );
 
@@ -608,7 +608,7 @@ fn test_senate_not_leave_when_stake_removed() {
             stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
             stake_amount
         );
 
@@ -618,7 +618,7 @@ fn test_senate_not_leave_when_stake_removed() {
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
             netuid,
-            stake_amount - 1
+            stake_amount
         ));
         assert_eq!(Senate::is_member(&hotkey_account_id), true);
     });

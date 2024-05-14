@@ -546,6 +546,19 @@ pub fn remove_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64)
 }
 
 #[allow(dead_code)]
+pub fn set_emission_values(netuid: u16, amount: u64) {
+    pallet_subtensor::EmissionValues::<Test>::insert(netuid, amount);
+}
+
+#[allow(dead_code)]
+pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
+    pallet_subtensor::SubStake::<Test>::iter()
+        .filter(|((cold, _, _), _)| *cold == *coldkey)
+        .map(|((_, _, _), stake)| stake)
+        .sum()
+}
+
+#[allow(dead_code)]
 pub fn setup_epoch_testing(netuid: u16, neuron_count: u16, stakes: Vec<u64>, weights: Vec<u16>) {
     let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
     let &max_stake = stakes.iter().max().unwrap();

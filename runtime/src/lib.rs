@@ -127,7 +127,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 181,
+    spec_version: 200,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -813,8 +813,8 @@ impl
         return SubtensorModule::if_subnet_exist(netuid);
     }
 
-    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId, netuid: u16) {
-        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey, netuid);
+    fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId) {
+        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
     }
 
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool {

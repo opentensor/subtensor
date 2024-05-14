@@ -4,83 +4,6 @@ use frame_system::Config;
 use mock::*;
 use sp_core::U256;
 
-// To run just the tests in this file, use the following command:
-// cargo test -p pallet-subtensor --test migration
-
-#[test]
-fn test_migration_fix_total_stake_maps() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let ck1 = U256::from(1);
-        let ck2 = U256::from(2);
-        let ck3 = U256::from(3);
-
-        let hk1 = U256::from(1 + 100);
-        let hk2 = U256::from(2 + 100);
-
-        // Give each coldkey some stake in the maps
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck1, &hk1, netuid, 100);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck2, &hk1, netuid, 10_101);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&ck3, &hk2, netuid, 100_000_000);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            &ck1,
-            &hk2,
-            netuid,
-            1_123_000_000,
-        );
-
-        // Check that the total coldkey stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck1),
-            100 + 1_123_000_000
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck2), 10_101);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck3),
-            100_000_000
-        );
-
-        // Check that the total hotkey stake is correct
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk1),
-            100 + 10_101
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk2),
-            100_000_000 + 1_123_000_000
-        );
-
-        // Mess up the total coldkey stake
-        pallet_subtensor::TotalColdkeyStake::<Test>::insert(ck1, 0);
-        // Verify that the total coldkey stake is now 0 for ck1
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck1), 0);
-
-        // Run the migration to fix the total stake maps
-        pallet_subtensor::migration::migrate_to_v2_fixed_total_stake::<Test>();
-
-        // Verify that the total coldkey stake is now correct for each coldkey
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck1),
-            100 + 1_123_000_000
-        );
-        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&ck2), 10_101);
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_coldkey(&ck3),
-            100_000_000
-        );
-
-        // Verify that the total hotkey stake is STILL correct for each hotkey
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk1),
-            100 + 10_101
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hk2),
-            100_000_000 + 1_123_000_000
-        );
-    })
-}
-
 #[test]
 // To run this test with cargo, use the following command:
 // cargo test --package pallet-subtensor --test migration test_migration5_total_issuance
@@ -207,8 +130,8 @@ fn test_total_issuance_global() {
         // Set emission values for the network and verify.
         let emission: u64 = 1_000_000_000;
         SubtensorModule::set_tempo(netuid, 1);
-        SubtensorModule::set_emission_values(&vec![netuid], vec![emission]).unwrap(); // Set the emission value for the network to 1_000_000_000.
-        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), emission); // Verify the emission value is set correctly for the network.
+        set_emission_values(netuid, emission);
+        assert_eq!(SubtensorModule::get_emission_value(netuid), emission); // Verify the emission value is set correctly for the network.
         assert_eq!(
             SubtensorModule::get_total_issuance(),
             2 * account_balance + lockcost - burn_cost + new_stake + ExistentialDeposit::get()
@@ -323,11 +246,11 @@ fn test_migration_stake_to_substake() {
         );
 
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey1, &coldkey1, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
             0
         );
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey2, &coldkey2, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
             0
         );
         // Run the migration
@@ -335,11 +258,11 @@ fn test_migration_stake_to_substake() {
 
         // Verify that Stake entries have been migrated to SubStake
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey1, &coldkey1, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
             stake_amount1
         );
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey2, &coldkey2, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
             stake_amount2
         );
 

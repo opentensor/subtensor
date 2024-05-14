@@ -96,21 +96,18 @@ impl<T: Config> Pallet<T> {
         if coldkey_bytes.len() != 32 {
             return Vec::new();
         }
-        let coldkey: AccountIdOf<T> =
+        let coldkey_account_id: AccountIdOf<T> =
             T::AccountId::decode(&mut coldkey_bytes.as_slice()).expect("Coldkey decoding failed");
-        let mut response: Vec<SubStakeElement<T>> = Vec::new();
-        for ((_hotkey, _coldkey, _netuid), _stake) in SubStake::<T>::iter() {
-            if _coldkey == coldkey && _stake != 0 {
-                let value = SubStakeElement {
-                    hotkey: _hotkey.clone(),
-                    coldkey: _coldkey.clone(),
-                    netuid: _netuid.into(),
-                    stake: _stake.into(),
-                };
-                response.push(value);
+        SubStake::<T>::iter().filter(|((coldkey, _, _), stake)| {
+            *coldkey == coldkey_account_id && *stake != 0
+        }).map(|((coldkey, hotkey, nid), stake)|{
+            SubStakeElement {
+                hotkey: hotkey,
+                coldkey: coldkey,
+                netuid: Compact(nid),
+                stake: Compact(stake),
             }
-        }
-        response
+        }).collect()
     }
 
     /// Returns all `SubStakeElement` instances associated with a given netuid.
@@ -128,19 +125,16 @@ impl<T: Config> Pallet<T> {
     /// A vector of `SubStakeElement<T>` instances representing all the stakes associated with the given netuid.
     ///
     pub fn get_substake_for_netuid(netuid: u16) -> Vec<SubStakeElement<T>> {
-        let mut response: Vec<SubStakeElement<T>> = Vec::new();
-        for ((_hotkey, _coldkey, _netuid), _stake) in SubStake::<T>::iter() {
-            if _netuid == netuid && _stake != 0 {
-                let value = SubStakeElement {
-                    hotkey: _hotkey.clone(),
-                    coldkey: _coldkey.clone(),
-                    netuid: _netuid.into(),
-                    stake: _stake.into(),
-                };
-                response.push(value);
+        SubStake::<T>::iter().filter(|((_, _, nid), stake)| {
+            *nid == netuid && *stake != 0
+        }).map(|((coldkey, hotkey, nid), stake)|{
+            SubStakeElement {
+                hotkey: hotkey,
+                coldkey: coldkey,
+                netuid: Compact(nid),
+                stake: Compact(stake),
             }
-        }
-        response
+        }).collect()
     }
 
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
@@ -198,7 +192,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
 
-        let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
+        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate.clone()).into();
 
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
 

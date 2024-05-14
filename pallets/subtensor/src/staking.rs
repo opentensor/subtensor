@@ -829,18 +829,6 @@ impl<T: Config> Pallet<T> {
             .fold(0, |acc, (_, stake)| acc.saturating_add(stake))
     }
 
-    // Returns the total amount of stake under a hotkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_hotkey(hotkey: &T::AccountId) -> u64 {
-        return TotalHotkeyStake::<T>::get(hotkey);
-    }
-
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
-    pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
-        return TotalColdkeyStake::<T>::get(coldkey);
-    }
-
     // Returns the total amount of stake under a hotkey for a subnet (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey_and_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
@@ -857,14 +845,8 @@ impl<T: Config> Pallet<T> {
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
     //
-    pub fn create_account_if_non_existent(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        netuid: u16,
-    ) {
+    pub fn create_account_if_non_existent(coldkey: &T::AccountId, hotkey: &T::AccountId) {
         if !Self::hotkey_account_exists(hotkey) {
-            Stake::<T>::insert(hotkey, coldkey, 0);
-            SubStake::<T>::insert((hotkey, coldkey, netuid), 0);
             Owner::<T>::insert(hotkey, coldkey);
         }
     }
@@ -985,7 +967,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
-        SubStake::<T>::try_get((hotkey, coldkey, netuid)).unwrap_or(0)
+        SubStake::<T>::try_get((coldkey, hotkey, netuid)).unwrap_or(0)
     }
 
     // Returns the stake under the cold - hot pairing in the staking table.
@@ -1081,12 +1063,6 @@ impl<T: Config> Pallet<T> {
         if increment == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
-            *stake = stake.saturating_add(increment);
-        });
         TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
             *stake = stake.saturating_add(increment);
         });
@@ -1094,8 +1070,8 @@ impl<T: Config> Pallet<T> {
             *stake = stake.saturating_add(increment);
         });
         SubStake::<T>::insert(
-            (hotkey, coldkey, netuid),
-            SubStake::<T>::try_get((hotkey, coldkey, netuid))
+            (coldkey, hotkey, netuid),
+            SubStake::<T>::try_get((coldkey, hotkey, netuid))
                 .unwrap_or(0)
                 .saturating_add(increment),
         );
@@ -1112,24 +1088,28 @@ impl<T: Config> Pallet<T> {
         if decrement == 0 {
             return;
         }
-        TotalColdkeyStake::<T>::mutate(coldkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        TotalHotkeyStake::<T>::mutate(hotkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
         TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
             *stake = stake.saturating_sub(decrement);
         });
-        Stake::<T>::mutate(hotkey, coldkey, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-        SubStake::<T>::insert(
-            (hotkey, coldkey, netuid),
-            SubStake::<T>::try_get((hotkey, coldkey, netuid))
-                .unwrap_or(0)
-                .saturating_sub(decrement),
-        );
+
+        // Delete stake map entry if all stake is removed
+        let existing_stake = Stake::<T>::get(hotkey, coldkey);
+        if existing_stake == decrement {
+            Stake::<T>::remove(hotkey, coldkey);
+        } else {
+            Stake::<T>::insert(hotkey, coldkey, existing_stake.saturating_sub(decrement));
+        }
+
+        // Delete substake map entry if all stake is removed
+        let existing_substake = SubStake::<T>::get((coldkey, hotkey, netuid));
+        if existing_substake == decrement {
+            SubStake::<T>::remove((coldkey, hotkey, netuid));
+        } else {
+            SubStake::<T>::insert(
+                (coldkey, hotkey, netuid),
+                existing_substake.saturating_sub(decrement),
+            );
+        }
     }
 
     pub fn u64_to_balance(
