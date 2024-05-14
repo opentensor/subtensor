@@ -260,7 +260,7 @@ pub fn inplace_normalize_64(x: &mut [I64F64]) {
     x.iter_mut().for_each(|value| *value /= x_sum);
 }
 
-// Normalizes (sum to 1 except 0) each row (dim=0) of a I64F64 matrix in-place.
+/// Normalizes (sum to 1 except 0) each row (dim=0) of a I64F64 matrix in-place.
 #[allow(dead_code)]
 pub fn inplace_row_normalize_64(x: &mut [Vec<I64F64>]) {
     for row in x {
