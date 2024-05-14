@@ -56,10 +56,6 @@ mod errors {
         MaxWeightExceeded,
         /// tempo is not valid.
         InvalidTempo,
-        /// number or received emission rates does not match number of networks.
-        EmissionValuesDoesNotMatchNetworks,
-        /// emission ratios are not valid (did not sum up to 10^9).
-        InvalidEmissionValues,
         /// the hotkey attempts to become delegate when they are already.
         AlreadyDelegate,
         /// the hotkey attempts to set weights twice within net_tempo/2 blocks.
@@ -84,20 +80,12 @@ mod errors {
         RegistrationDisabled,
         /// registration attempt exceeds allowed in interval
         TooManyRegistrationsThisInterval,
-        /// a function is only available for benchmarking
-        BenchmarkingOnly,
         /// the hotkey passed is not the origin, but it should be
         HotkeyOriginMismatch,
         /// attempting to do something to a senate member that is limited
         SenateMember,
         /// a hotkey attempts to do something only senate members can do
         NotSenateMember,
-        /// a hotkey attempts to join the senate while already being a member
-        AlreadySenateMember,
-        /// a hotkey attempts to join the senate without enough stake
-        BelowStakeThreshold,
-        /// a hotkey attempts to join the senate without being a delegate first
-        NotDelegate,
         /// an incorrect amount of Netuids are passed as input
         IncorrectNetuidsLength,
         /// the faucet is disabled
