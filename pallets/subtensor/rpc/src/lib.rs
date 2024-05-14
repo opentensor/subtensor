@@ -46,6 +46,18 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getSubStakeForNetuid")]
     fn get_substake_for_netuid(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "delegateInfo_getTotalStakeForHotkey")]
+    fn get_total_stake_for_hotkey(
+        &self,
+        hotkey_bytes: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
+    #[method(name = "delegateInfo_getTotalStakeForColdkey")]
+    fn get_total_stake_for_coldkey(
+        &self,
+        hotkey_bytes: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 
     #[method(name = "delegateInfo_getDelegates")]
     fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
@@ -190,6 +202,40 @@ where
             CallError::Custom(ErrorObject::owned(
                 Error::RuntimeError.into(),
                 "Unable to get delegates info.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_total_stake_for_hotkey(
+        &self,
+        hotkey_bytes: Vec<u8>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_total_stake_for_hotkey(at, hotkey_bytes).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get total stake for hotkey.",
+                Some(e.to_string()),
+            ))
+            .into()
+        })
+    }
+
+    fn get_total_stake_for_coldkey(
+        &self,
+        hotkey_bytes: Vec<u8>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+        api.get_total_stake_for_coldkey(at, hotkey_bytes).map_err(|e| {
+            CallError::Custom(ErrorObject::owned(
+                Error::RuntimeError.into(),
+                "Unable to get total stake for coldkey.",
                 Some(e.to_string()),
             ))
             .into()

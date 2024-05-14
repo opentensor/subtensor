@@ -137,6 +137,50 @@ impl<T: Config> Pallet<T> {
         }).collect()
     }
 
+    /// Returns Global Dynamic TAO balance for a hotkey.
+    ///
+    /// This function retrieves GDT of a hotkey.
+    ///
+    /// # Arguments
+    ///
+    /// * `hotkey_bytes` - A byte vector representing the hotkey for which to retrieve the `SubStakeElement` instances.
+    ///
+    /// # Returns
+    ///
+    /// u64 representing the GDT of the hotkey
+    ///
+    pub fn get_total_stake_for_hotkey(hotkey_bytes: Vec<u8>) -> u64 {
+        let account_id: AccountIdOf<T> =
+            T::AccountId::decode(&mut hotkey_bytes.as_slice()).expect("Hotkey decoding failed");
+        Self::get_hotkey_global_dynamic_tao(&account_id)
+    }
+
+    /// Returns Global Dynamic TAO balance for a coldkey.
+    ///
+    /// This function iterates through all hotkeys associated with the coldkey and adds
+    /// GDT for each hotkey to the result
+    ///
+    /// # Arguments
+    ///
+    /// * `coldkey_bytes` - A byte vector representing the hotkey for which to retrieve the `SubStakeElement` instances.
+    ///
+    /// # Returns
+    ///
+    /// u64 representing the GDT of the coldkey
+    ///
+    pub fn get_total_stake_for_coldkey(coldkey_bytes: Vec<u8>) -> u64 {
+        let account_id: AccountIdOf<T> =
+            T::AccountId::decode(&mut coldkey_bytes.as_slice()).expect("Coldkey decoding failed");
+        SubStake::<T>::iter().filter(|((cold, _hot, _netuid), _stake)| {
+            *cold == account_id
+        }).map(|(_, stake)| stake).sum()
+
+        // TODO: Do not use filter, use iter_prefix instead for O(1) complexity
+        // SubStake::<T>::iter_prefix(account_id).map(|(_, stake)|{
+        //     stake
+        // }).sum()
+    }
+
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
