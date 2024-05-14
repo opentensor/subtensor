@@ -28,74 +28,77 @@ use substrate_fixed::{
 };
 
 impl<T: Config> Pallet<T> {
-    // Retrieves the unique identifier (UID) for the root network.
-    //
-    // The root network is a special case and has a fixed UID of 0.
-    //
-    // # Returns:
-    // * 'u16': The UID for the root network.
-    //
+    /// Retrieves the unique identifier (UID) for the root network.
+    ///
+    /// The root network is a special case and has a fixed UID of 0.
+    ///
+    /// # Returns:
+    /// * 'u16': The UID for the root network.
+    ///
     pub fn get_root_netuid() -> u16 {
         0
     }
 
-    // Fetches the total count of subnets.
-    //
-    // This function retrieves the total number of subnets present on the chain.
-    //
-    // # Returns:
-    // * 'u16': The total number of subnets.
-    //
+    /// Fetches the total count of subnets.
+    ///
+    /// This function retrieves the total number of subnets present on the chain.
+    ///
+    /// # Returns:
+    /// * 'u16': The total number of subnets.
+    ///
     pub fn get_num_subnets() -> u16 {
         TotalNetworks::<T>::get()
     }
 
-    // Fetches the total count of subnet validators (those that set weights.)
-    //
-    // This function retrieves the total number of subnet validators.
-    //
-    // # Returns:
-    // * 'u16': The total number of validators
-    //
+    /// Fetches the max number of subnet
+    ///
+    /// This function retrieves the max number of subnet.
+    ///
+    /// # Returns:
+    /// * 'u16': The max number of subnet
+    ///
     pub fn get_max_subnets() -> u16 {
         SubnetLimit::<T>::get()
     }
 
+    /// Sets the max number of subnet
+    ///
+    /// This function sets the max number of subnet.
+    ///
     pub fn set_max_subnets(limit: u16) {
         SubnetLimit::<T>::put(limit);
         Self::deposit_event(Event::SubnetLimitSet(limit));
     }
 
-    // Fetches the total count of subnet validators (those that set weights.)
-    //
-    // This function retrieves the total number of subnet validators.
-    //
-    // # Returns:
-    // * 'u16': The total number of validators
-    //
+    /// Fetches the total count of root network validators
+    ///
+    /// This function retrieves the total number of root network validators.
+    ///
+    /// # Returns:
+    /// * 'u16': The total number of root network validators
+    ///
     pub fn get_num_root_validators() -> u16 {
         Self::get_subnetwork_n(Self::get_root_netuid())
     }
 
-    // Fetches the total allowed number of root validators.
-    //
-    // This function retrieves the max allowed number of validators
-    // it is equal to SenateMaxMembers
-    //
-    // # Returns:
-    // * 'u16': The max allowed root validators.
-    //
+    /// Fetches the max validators count of root network.
+    ///
+    /// This function retrieves the max validators count of root network.
+    ///
+    /// # Returns:
+    /// * 'u16': The max validators count of root network.
+    ///
     pub fn get_max_root_validators() -> u16 {
         Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
-    // Returns the emission value for the given subnet.
-    //
-    // This function retrieves the emission value for the given subnet.
-    //
-    // # Returns:
-    // * 'u64': The emission value for the given subnet.
-    //
+    /// Returns the emission value for the given subnet.
+    ///
+    /// This function retrieves the emission value for the given subnet.
+    ///
+    /// # Returns:
+    /// * 'u64': The emission value for the given subnet.
+    ///
     pub fn get_subnet_emission_value(netuid: u16) -> u64 {
         EmissionValues::<T>::get(netuid)
     }
