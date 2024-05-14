@@ -103,30 +103,31 @@ impl<T: Config> Pallet<T> {
         EmissionValues::<T>::get(netuid)
     }
 
-    // Returns true if the subnetwork exists.
-    //
-    // This function checks if a subnetwork with the given UID exists.
-    //
-    // # Returns:
-    // * 'bool': Whether the subnet exists.
-    //
+    /// Returns true if the subnetwork exists.
+    ///
+    /// This function checks if a subnetwork with the given UID exists.
+    ///
+    /// # Returns:
+    /// * 'bool': Whether the subnet exists.
+    ///
     pub fn if_subnet_exist(netuid: u16) -> bool {
         NetworksAdded::<T>::get(netuid)
     }
 
-    // Returns a list of subnet netuid equal to total networks.
-    //
-    //
-    // This iterates through all the networks and returns a list of netuids.
-    //
-    // # Returns:
-    // * 'Vec<u16>': Netuids of added subnets.
-    //
+    /// Returns a list of subnet netuid equal to total networks.
+    ///
+    ///
+    /// This iterates through all the networks and returns a list of netuids.
+    ///
+    /// # Returns:
+    /// * 'Vec<u16>': Netuids of all subnets.
+    ///
     pub fn get_all_subnet_netuids() -> Vec<u16> {
         <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
             .map(|(netuid, _)| netuid)
             .collect()
     }
+
     /// Calculates the block emission based on the total issuance.
     ///
     /// This function computes the block emission by applying a logarithmic function
@@ -143,7 +144,7 @@ impl<T: Config> Pallet<T> {
         Self::get_block_emission_for_issuance(Self::get_total_issuance())
     }
 
-    // Returns the block emission for an issuance value.
+    /// Returns the block emission for an issuance value.
     pub fn get_block_emission_for_issuance(issuance: u64) -> Result<u64, &'static str> {
         // Convert issuance to a float for calculations below.
         let total_issuance: I96F32 = I96F32::from_num(issuance);
@@ -182,16 +183,16 @@ impl<T: Config> Pallet<T> {
         Ok(block_emission_u64)
     }
 
-    // Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
-    //
-    // It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
-    //
-    // # Arguments:
-    // * 'uids': A reference to a vector of UIDs to check.
-    //
-    // # Returns:
-    // * 'bool': 'true' if any of the UIDs are invalid, 'false' otherwise.
-    //
+    /// Checks for any UIDs in the given list that are either equal to the root netuid or exceed the total number of subnets.
+    ///
+    /// It's important to check for invalid UIDs to ensure data integrity and avoid referencing nonexistent subnets.
+    ///
+    /// # Arguments:
+    /// * 'uids': A reference to a vector of UIDs to check.
+    ///
+    /// # Returns:
+    /// * 'bool': 'true' if any of the UIDs are invalid, 'false' otherwise.
+    ///
     pub fn contains_invalid_root_uids(netuids: &[u16]) -> bool {
         for netuid in netuids {
             if !Self::if_subnet_exist(*netuid) {
@@ -205,9 +206,8 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    // Sets the emission values for each netuid
-    //
-    //
+    /// Sets the emission values for each netuid
+    ///
     pub fn set_emission_values(netuids: &[u16], emission: Vec<u64>) -> Result<(), &'static str> {
         log::debug!(
             "set_emission_values: netuids: {:?} emission:{:?}",
@@ -231,13 +231,13 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Retrieves weight matrix associated with the root network.
-    //  Weights represent the preferences for each subnetwork.
-    //
-    // # Returns:
-    // A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
-    // 'j' with according to the preferences of key. Validator 'i' within the root network.
-    //
+    /// Retrieves weight matrix associated with the root network.
+    ///  Weights represent the preferences for each subnetwork.
+    ///
+    /// # Returns:
+    /// A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
+    /// 'j' with according to the preferences of key. Validator 'i' within the root network.
+    ///
     pub fn get_root_weights() -> Vec<Vec<I64F64>> {
         // --- 0. The number of validators on the root network.
         let n: usize = Self::get_num_root_validators() as usize;
@@ -281,19 +281,18 @@ impl<T: Config> Pallet<T> {
         weights
     }
 
-    pub fn get_network_rate_limit() -> u64 {
-        NetworkRateLimit::<T>::get()
-    }
+    /// Sets the network rate limit and emit the `NetworkRateLimitSet` event
+    ///
     pub fn set_network_rate_limit(limit: u64) {
         NetworkRateLimit::<T>::set(limit);
         Self::deposit_event(Event::NetworkRateLimitSet(limit));
     }
 
-    // Computes and sets emission values for the root network which determine the emission for all subnets.
-    //
-    // This function is responsible for calculating emission based on network weights, stake values,
-    // and registered hotkeys.
-    //
+    /// Computes and sets emission values for the root network which determine the emission for all subnets.
+    ///
+    /// This function is responsible for calculating emission based on network weights, stake values,
+    /// and registered hotkeys.
+    ///
     pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
@@ -426,18 +425,18 @@ impl<T: Config> Pallet<T> {
         Self::set_emission_values(&netuids, emission_u64)
     }
 
-    // Registers a user's hotkey to the root network.
-    //
-    // This function is responsible for registering the hotkey of a user.
-    // The root key with the least stake if pruned in the event of a filled network.
-    //
-    // # Arguments:
-    // * 'origin': Represents the origin of the call.
-    // * 'hotkey': The hotkey that the user wants to register to the root network.
-    //
-    // # Returns:
-    // * 'DispatchResult': A result type indicating success or failure of the registration.
-    //
+    /// Registers a user's hotkey to the root network.
+    ///
+    /// This function is responsible for registering the hotkey of a user.
+    /// The root key with the least stake if pruned in the event of a filled network.
+    ///
+    /// # Arguments:
+    /// * 'origin': Represents the origin of the call.
+    /// * 'hotkey': The hotkey that the user wants to register to the root network.
+    ///
+    /// # Returns:
+    /// * 'DispatchResult': A result type indicating success or failure of the registration.
+    ///
     pub fn do_root_register(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
         // --- 0. Get the unique identifier (UID) for the root network.
         let root_netuid: u16 = Self::get_root_netuid();
@@ -742,19 +741,19 @@ impl<T: Config> Pallet<T> {
             .into())
     }
 
-    // Facilitates user registration of a new subnetwork.
-    //
-    // # Args:
-    // 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
-    //
-    // # Event:
-    // 	* 'NetworkAdded': Emitted when a new network is successfully added.
-    //
-    // # Raises:
-    // 	* 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
-    // 	* 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
-    // 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
-    //
+    /// Facilitates user registration of a new subnetwork.
+    ///
+    /// # Args:
+    /// 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    ///
+    /// # Event:
+    /// 	* 'NetworkAdded': Emitted when a new network is successfully added.
+    ///
+    /// # Raises:
+    /// 	* 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
+    /// 	* 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
+    /// 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
+    ///
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -763,7 +762,7 @@ impl<T: Config> Pallet<T> {
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
-            current_block.saturating_sub(last_lock_block) >= Self::get_network_rate_limit(),
+            current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
             Error::<T>::TxRateLimitExceeded
         );
 
@@ -830,19 +829,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Facilitates the removal of a user's subnetwork.
-    //
-    // # Args:
-    // 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
-    //     * 'netuid': ('u16'): The unique identifier of the network to be removed.
-    //
-    // # Event:
-    // 	* 'NetworkRemoved': Emitted when a network is successfully removed.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist': If the specified network does not exist.
-    // 	* 'NotSubnetOwner': If the caller does not own the specified subnet.
-    //
+    /// Facilitates the removal of a user's subnetwork.
+    ///
+    /// # Args:
+    /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    /// * 'netuid': ('u16'): The unique identifier of the network to be removed.
+    ///
+    /// # Event:
+    /// * 'NetworkRemoved': Emitted when a network is successfully removed.
+    ///
+    /// # Raises:
+    /// * 'NetworkDoesNotExist': If the specified network does not exist.
+    /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
+    ///
     pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure the function caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -870,7 +869,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Sets initial and custom parameters for a new network.
+    /// Sets initial and custom parameters for a new network.
     pub fn init_new_network(netuid: u16, tempo: u16) {
         // --- 1. Set network to 0 size.
         SubnetworkN::<T>::insert(netuid, 0);
@@ -949,19 +948,19 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Removes a network (identified by netuid) and all associated parameters.
-    //
-    // This function is responsible for cleaning up all the data associated with a network.
-    // It ensures that all the storage values related to the network are removed, and any
-    // reserved balance is returned to the network owner.
-    //
-    // # Args:
-    // 	* 'netuid': ('u16'): The unique identifier of the network to be removed.
-    //
-    // # Note:
-    // This function does not emit any events, nor does it raise any errors. It silently
-    // returns if any internal checks fail.
-    //
+    /// Removes a network (identified by netuid) and all associated parameters.
+    ///
+    /// This function is responsible for cleaning up all the data associated with a network.
+    /// It ensures that all the storage values related to the network are removed, and any
+    /// reserved balance is returned to the network owner.
+    ///
+    /// # Args:
+    /// 	* 'netuid': ('u16'): The unique identifier of the network to be removed.
+    ///
+    /// # Note:
+    /// This function does not emit any events, nor does it raise any errors. It silently
+    /// returns if any internal checks fail.
+    ///
     pub fn remove_network(netuid: u16) {
         // --- 1. Return balance to subnet owner.
         let owner_coldkey = SubnetOwner::<T>::get(netuid);
@@ -1041,24 +1040,24 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::remove(netuid);
     }
 
-    // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
-    // The lock cost is calculated using the formula:
-    // lock_cost = (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block)
-    // where:
-    // - last_lock is the last lock amount for the network
-    // - mult is the multiplier which increases lock cost each time a registration occurs
-    // - last_lock_block is the block number at which the last lock occurred
-    // - lock_reduction_interval the number of blocks before the lock returns to previous value.
-    // - current_block is the current block number
-    // - DAYS is the number of blocks in a day
-    // - min_lock is the minimum lock cost for the network
-    //
-    // If the calculated lock cost is less than the minimum lock cost, the minimum lock cost is returned.
-    //
-    // # Returns:
-    // 	* 'u64':
-    // 		- The lock cost for the network.
-    //
+    /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
+    /// The lock cost is calculated using the formula:
+    /// lock_cost = (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block)
+    /// where:
+    /// - last_lock is the last lock amount for the network
+    /// - mult is the multiplier which increases lock cost each time a registration occurs
+    /// - last_lock_block is the block number at which the last lock occurred
+    /// - lock_reduction_interval the number of blocks before the lock returns to previous value.
+    /// - current_block is the current block number
+    /// - DAYS is the number of blocks in a day
+    /// - min_lock is the minimum lock cost for the network
+    ///
+    /// If the calculated lock cost is less than the minimum lock cost, the minimum lock cost is returned.
+    ///
+    /// # Returns:
+    /// 	* 'u64':
+    /// 		- The lock cost for the network.
+    ///
     pub fn get_network_lock_cost() -> u64 {
         let last_lock = Self::get_network_last_lock();
         let min_lock = Self::get_network_min_lock();
@@ -1083,13 +1082,13 @@ impl<T: Config> Pallet<T> {
         lock_cost
     }
 
-    // This function is used to determine which subnet to prune when the total number of networks has reached the limit.
-    // It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
-    //
-    // # Returns:
-    // 	* 'u16':
-    // 		- The uid of the network to be pruned.
-    //
+    /// This function is used to determine which subnet to prune when the total number of networks has reached the limit.
+    /// It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
+    ///
+    /// # Returns:
+    /// 	* 'u16':
+    /// 		- The uid of the network to be pruned.
+    ///
     pub fn get_subnet_to_prune() -> u16 {
         let mut netuids: Vec<u16> = vec![];
         let current_block = Self::get_current_block_as_u64();
