@@ -744,15 +744,15 @@ impl<T: Config> Pallet<T> {
     /// Facilitates user registration of a new subnetwork.
     ///
     /// # Args:
-    /// 	* 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
     ///
     /// # Event:
-    /// 	* 'NetworkAdded': Emitted when a new network is successfully added.
+    /// * 'NetworkAdded': Emitted when a new network is successfully added.
     ///
     /// # Raises:
-    /// 	* 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
-    /// 	* 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
-    /// 	* 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
+    /// * 'TxRateLimitExceeded': If the rate limit for network registration is exceeded.
+    /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
+    /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     ///
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
@@ -955,7 +955,7 @@ impl<T: Config> Pallet<T> {
     /// reserved balance is returned to the network owner.
     ///
     /// # Args:
-    /// 	* 'netuid': ('u16'): The unique identifier of the network to be removed.
+    ///  * 'netuid': ('u16'): The unique identifier of the network to be removed.
     ///
     /// # Note:
     /// This function does not emit any events, nor does it raise any errors. It silently
@@ -1055,8 +1055,8 @@ impl<T: Config> Pallet<T> {
     /// If the calculated lock cost is less than the minimum lock cost, the minimum lock cost is returned.
     ///
     /// # Returns:
-    /// 	* 'u64':
-    /// 		- The lock cost for the network.
+    ///  * 'u64':
+    ///     - The lock cost for the network.
     ///
     pub fn get_network_lock_cost() -> u64 {
         let last_lock = Self::get_network_last_lock();
@@ -1086,8 +1086,8 @@ impl<T: Config> Pallet<T> {
     /// It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
     ///
     /// # Returns:
-    /// 	* 'u16':
-    /// 		- The uid of the network to be pruned.
+    /// * 'u16':
+    ///     - The uid of the network to be pruned.
     ///
     pub fn get_subnet_to_prune() -> u16 {
         let mut netuids: Vec<u16> = vec![];
