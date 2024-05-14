@@ -246,11 +246,11 @@ fn test_migration_stake_to_substake() {
         );
 
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey1, &coldkey1, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
             0
         );
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey2, &coldkey2, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
             0
         );
         // Run the migration
@@ -258,11 +258,11 @@ fn test_migration_stake_to_substake() {
 
         // Verify that Stake entries have been migrated to SubStake
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey1, &coldkey1, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
             stake_amount1
         );
         assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&hotkey2, &coldkey2, &0u16)),
+            pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
             stake_amount2
         );
 

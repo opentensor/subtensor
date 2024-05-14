@@ -553,7 +553,7 @@ pub fn set_emission_values(netuid: u16, amount: u64) {
 #[allow(dead_code)]
 pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
     pallet_subtensor::SubStake::<Test>::iter()
-        .filter(|((_, cold, _), _)| *cold == *coldkey)
+        .filter(|((cold, _, _), _)| *cold == *coldkey)
         .map(|((_, _, _), stake)| stake)
         .sum()
 }

@@ -323,12 +323,12 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
-    #[pallet::storage] // --- NMAP ( hot, cold, netuid ) --> stake | Returns the stake under a subnet prefixed by hotkey, coldkey, netuid triplet.
+    #[pallet::storage] // --- NMAP ( cold, hot, netuid ) --> stake | Returns the stake under a subnet prefixed by coldkey, hotkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<
         _,
         (
-            NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
             NMapKey<Identity, u16>,                  // subnet
         ),
         u64,
@@ -1298,7 +1298,10 @@ pub mod pallet {
                 .saturating_add(migration::migrate_stake_to_substake::<T>())
                 .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>());
 
-            log::info!("Runtime upgrade migration in subtensor pallet, total weight = ({})", weight);
+            log::info!(
+                "Runtime upgrade migration in subtensor pallet, total weight = ({})",
+                weight
+            );
 
             return frame_support::weights::Weight::from_parts(0, 0);
         }

@@ -973,7 +973,7 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         netuid: u16,
     ) -> u64 {
-        SubStake::<T>::try_get((hotkey, coldkey, netuid)).unwrap_or(0)
+        SubStake::<T>::try_get((coldkey, hotkey, netuid)).unwrap_or(0)
     }
 
     // Returns the stake under the cold - hot pairing in the staking table.
@@ -1076,8 +1076,8 @@ impl<T: Config> Pallet<T> {
             *stake = stake.saturating_add(increment);
         });
         SubStake::<T>::insert(
-            (hotkey, coldkey, netuid),
-            SubStake::<T>::try_get((hotkey, coldkey, netuid))
+            (coldkey, hotkey, netuid),
+            SubStake::<T>::try_get((coldkey, hotkey, netuid))
                 .unwrap_or(0)
                 .saturating_add(increment),
         );
@@ -1108,12 +1108,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // Delete substake map entry if all stake is removed
-        let existing_substake = SubStake::<T>::get((hotkey, coldkey, netuid));
+        let existing_substake = SubStake::<T>::get((coldkey, hotkey, netuid));
         if existing_substake == decrement {
-            SubStake::<T>::remove((hotkey, coldkey, netuid));
+            SubStake::<T>::remove((coldkey, hotkey, netuid));
         } else {
             SubStake::<T>::insert(
-                (hotkey, coldkey, netuid),
+                (coldkey, hotkey, netuid),
                 existing_substake.saturating_sub(decrement),
             );
         }
