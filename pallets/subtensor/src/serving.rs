@@ -1,56 +1,56 @@
 use super::*;
 
 impl<T: Config> Pallet<T> {
-    // ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the caller.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'version' (u64):
-    // 		- The bittensor version identifier.
-    //
-    // 	* 'ip' (u64):
-    // 		- The endpoint ip information as a u128 encoded integer.
-    //
-    // 	* 'port' (u16):
-    // 		- The endpoint port information as a u16 encoded integer.
-    //
-    // 	* 'ip_type' (u8):
-    // 		- The endpoint ip version as a u8, 4 or 6.
-    //
-    // 	* 'protocol' (u8):
-    // 		- UDP:1 or TCP:0
-    //
-    // 	* 'placeholder1' (u8):
-    // 		- Placeholder for further extra params.
-    //
-    // 	* 'placeholder2' (u8):
-    // 		- Placeholder for further extra params.
-    //
-    // # Event:
-    // 	* AxonServed;
-    // 		- On successfully serving the axon info.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to set weights on a non-existent network.
-    //
-    // 	* 'NotRegistered':
-    // 		- Attempting to set weights from a non registered account.
-    //
-    // 	* 'InvalidIpType':
-    // 		- The ip type is not 4 or 6.
-    //
-    // 	* 'InvalidIpAddress':
-    // 		- The numerically encoded ip address does not resolve to a proper ip.
-    //
-    // 	* 'ServingRateLimitExceeded':
-    // 		- Attempting to set prometheus information withing the rate limit min.
-    //
+    /// ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	- The signature of the caller.
+    ///
+    /// * 'netuid' (u16):
+    /// 	- The u16 network identifier.
+    ///
+    /// * 'version' (u64):
+    /// 	- The bittensor version identifier.
+    ///
+    /// * 'ip' (u64):
+    /// 	- The endpoint ip information as a u128 encoded integer.
+    ///
+    /// * 'port' (u16):
+    /// 	- The endpoint port information as a u16 encoded integer.
+    ///
+    /// * 'ip_type' (u8):
+    /// 	- The endpoint ip version as a u8, 4 or 6.
+    ///
+    /// * 'protocol' (u8):
+    /// 	- UDP:1 or TCP:0
+    ///
+    /// * 'placeholder1' (u8):
+    /// 	- Placeholder for further extra params.
+    ///
+    /// * 'placeholder2' (u8):
+    /// 	- Placeholder for further extra params.
+    ///
+    /// # Event:
+    /// * AxonServed;
+    /// 	- On successfully serving the axon info.
+    ///
+    /// # Raises:
+    /// * 'NetworkDoesNotExist':
+    /// 	- Attempting to set weights on a non-existent network.
+    ///
+    /// * 'NotRegistered':
+    /// 	- Attempting to set weights from a non registered account.
+    ///
+    /// * 'InvalidIpType':
+    /// 	- The ip type is not 4 or 6.
+    ///
+    /// * 'InvalidIpAddress':
+    /// 	- The numerically encoded ip address does not resolve to a proper ip.
+    ///
+    /// * 'ServingRateLimitExceeded':
+    /// 	- Attempting to set prometheus information withing the rate limit min.
+    ///
     pub fn do_serve_axon(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -113,47 +113,47 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic serve_prometheus.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the caller.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'version' (u64):
-    // 		- The bittensor version identifier.
-    //
-    // 	* 'ip' (u64):
-    // 		- The prometheus ip information as a u128 encoded integer.
-    //
-    // 	* 'port' (u16):
-    // 		- The prometheus port information as a u16 encoded integer.
-    //
-    // 	* 'ip_type' (u8):
-    // 		- The prometheus ip version as a u8, 4 or 6.
-    //
-    // # Event:
-    // 	* PrometheusServed;
-    // 		- On successfully serving the axon info.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to set weights on a non-existent network.
-    //
-    // 	* 'NotRegistered':
-    // 		- Attempting to set weights from a non registered account.
-    //
-    // 	* 'InvalidIpType':
-    // 		- The ip type is not 4 or 6.
-    //
-    // 	* 'InvalidIpAddress':
-    // 		- The numerically encoded ip address does not resolve to a proper ip.
-    //
-    // 	* 'ServingRateLimitExceeded':
-    // 		- Attempting to set prometheus information withing the rate limit min.
-    //
+    /// ---- The implementation for the extrinsic serve_prometheus.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    /// 	- The signature of the caller.
+    ///
+    /// * 'netuid' (u16):
+    /// 	- The u16 network identifier.
+    ///
+    /// * 'version' (u64):
+    /// 	- The bittensor version identifier.
+    ///
+    /// * 'ip' (u64):
+    /// 	- The prometheus ip information as a u128 encoded integer.
+    ///
+    /// * 'port' (u16):
+    /// 	- The prometheus port information as a u16 encoded integer.
+    ///
+    /// * 'ip_type' (u8):
+    /// 	- The prometheus ip version as a u8, 4 or 6.
+    ///
+    /// # Event:
+    /// * PrometheusServed;
+    /// 	- On successfully serving the axon info.
+    ///
+    /// # Raises:
+    /// * 'NetworkDoesNotExist':
+    /// 	- Attempting to set weights on a non-existent network.
+    ///
+    /// * 'NotRegistered':
+    /// 	- Attempting to set weights from a non registered account.
+    ///
+    /// * 'InvalidIpType':
+    /// 	- The ip type is not 4 or 6.
+    ///
+    /// * 'InvalidIpAddress':
+    /// 	- The numerically encoded ip address does not resolve to a proper ip.
+    ///
+    /// * 'ServingRateLimitExceeded':
+    /// 	- Attempting to set prometheus information withing the rate limit min.
+    ///
     pub fn do_serve_prometheus(
         origin: T::RuntimeOrigin,
         netuid: u16,

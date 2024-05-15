@@ -239,7 +239,7 @@ pub mod pallet {
         }
 
         /// The extrinsic sets the adjustment interval for a subnet.
-        /// It is only callable by the root account.
+        /// It is only callable by the root account, not changeable by the subnet owner.
         /// The extrinsic will call the Subtensor pallet to set the adjustment interval.
         #[pallet::call_index(8)]
         #[pallet::weight(T::WeightInfo::sudo_set_adjustment_interval())]
