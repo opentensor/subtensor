@@ -33,9 +33,6 @@ jobs:
                                   libudev-dev protobuf-compiler &&
           npm install -g wscat
 
-      - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
-
       - name: Install Rust
         uses: actions-rs/toolchain@v1.0.6
         with:
@@ -43,6 +40,9 @@ jobs:
 
       - name: Install subxt
         run: cargo install subxt-cli
+
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
 
       - name: try on its own
         run: |
