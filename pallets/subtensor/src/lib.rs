@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
-#![allow(non_snake_case, non_camel_case_types)]
+#![allow(clippy::too_many_arguments)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -9,9 +9,9 @@ pub use pallet::*;
 use frame_system::{self as system, ensure_signed};
 
 use frame_support::{
-    dispatch,
-    dispatch::{DispatchError, DispatchInfo, DispatchResult, PostDispatchInfo},
+    dispatch::{self, DispatchInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo},
     ensure,
+    pallet_macros::import_section,
     traits::{tokens::fungible, IsSubType},
 };
 
@@ -22,8 +22,11 @@ use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
     transaction_validity::{TransactionValidity, TransactionValidityError},
+    DispatchError,
 };
 use sp_std::marker::PhantomData;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 // ============================
 //	==== Benchmark Imports =====
@@ -34,40 +37,45 @@ mod benchmarks;
 // =========================
 //	==== Pallet Imports =====
 // =========================
-pub mod block_step;
-
-pub mod epoch;
-pub mod math;
-pub mod registration;
-pub mod root;
-pub mod serving;
-pub mod staking;
-pub mod types;
-pub mod uids;
-pub mod utils;
-pub mod weights;
+mod block_step;
+mod epoch;
+mod errors;
+mod events;
+mod math;
+mod registration;
+mod root;
+mod serving;
+mod staking;
+mod uids;
+mod utils;
+mod weights;
 
 pub mod delegate_info;
 pub mod dynamic_pool_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
+pub mod types;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
 pub mod migration;
 
+// #[deny(missing_docs)]
+#[import_section(errors::errors)]
+#[import_section(events::events)]
 #[frame_support::pallet]
 pub mod pallet {
 
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
-        sp_std::vec,
-        sp_std::vec::Vec,
         traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
+    use sp_core::H256;
+    use sp_std::vec;
+    use sp_std::vec::Vec;
     use sp_runtime::traits::TrailingZeroInput;
 
     #[cfg(not(feature = "std"))]
@@ -165,6 +173,8 @@ pub mod pallet {
         type InitialMaxAllowedValidators: Get<u16>;
         #[pallet::constant] // Initial default delegation take.
         type InitialDefaultTake: Get<u16>;
+        #[pallet::constant]
+        type InitialMinTake: Get<u16>;
         #[pallet::constant] // Initial weights version key.
         type InitialWeightsVersionKey: Get<u64>;
         #[pallet::constant] // Initial serving rate limit.
@@ -220,6 +230,11 @@ pub mod pallet {
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
     }
+    /// Default minimum take.
+    #[pallet::type_value]
+    pub fn DefaultMinTake<T: Config>() -> u16 {
+        T::InitialMinTake::get()
+    }    
     #[pallet::type_value]
     pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
@@ -272,6 +287,10 @@ pub mod pallet {
     pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( default_take )
+    pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
+    #[pallet::storage] // --- ITEM ( min_take )
+    pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
     #[pallet::storage] // --- ITEM ( default_take )
     pub type DefaultTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )
@@ -472,6 +491,11 @@ pub mod pallet {
     pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
         0
     }
+    /// Default value for nominator min required stake.
+    #[pallet::type_value]
+    pub fn DefaultNominatorMinRequiredStake<T: Config>() -> u64 {
+        0
+    }
     #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
@@ -553,6 +577,9 @@ pub mod pallet {
     pub type SubnetOwnerCut<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetOwnerCut<T>>;
     #[pallet::storage] // ITEM( network_rate_limit )
     pub type NetworkRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultNetworkRateLimit<T>>;
+    #[pallet::storage] // ITEM( nominator_min_required_stake )
+    pub type NominatorMinRequiredStake<T> =
+        StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
     // ==============================
     // ==== Subnetwork Features =====
@@ -844,6 +871,27 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
+    #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+    pub type WeightCommits<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        u16,
+        Twox64Concat,
+        T::AccountId,
+        (H256, u64),
+        OptionQuery,
+    >;
+
+    /// Default value for weight commit reveal interval.
+    #[pallet::type_value]
+    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
+        1000
+    }
+
+    #[pallet::storage]
+    pub type WeightCommitRevealInterval<T> =
+        StorageValue<_, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+    
     // =======================================
     // ==== Subnetwork Consensus Storage  ====
     // =======================================
@@ -940,141 +988,6 @@ pub mod pallet {
         ValueQuery,
         DefaultBonds<T>,
     >;
-
-    // Pallets use events to inform users when important changes are made.
-    // https://docs.substrate.io/main-docs/build/events-errors/
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {
-        // Event documentation should end with an array that provides descriptive names for event
-        // parameters. [something, who]
-        NetworkAdded(u16, u16), // --- Event created when a new network is added.
-        NetworkRemoved(u16),    // --- Event created when a network is removed.
-        StakeAdded(T::AccountId, u16, u64), // --- Event created when stake has been transfered from the a coldkey account onto the hotkey staking account.
-        StakeRemoved(T::AccountId, u16, u64), // --- Event created when stake has been removed from the hotkey staking account onto the coldkey account.
-        WeightsSet(u16, u16), // ---- Event created when a caller successfully sets their weights on a subnetwork.
-        NeuronRegistered(u16, u16, T::AccountId), // --- Event created when a new neuron account has been registered to the chain.
-        BulkNeuronsRegistered(u16, u16), // --- Event created when multiple uids have been concurrently registered.
-        BulkBalancesSet(u16, u16),       // --- FIXME: Not used yet
-        MaxAllowedUidsSet(u16, u16), // --- Event created when max allowed uids has been set for a subnetwork.
-        MaxWeightLimitSet(u16, u16), // --- Event created when the max weight limit has been set for a subnetwork.
-        DifficultySet(u16, u64), // --- Event created when the difficulty has been set for a subnet.
-        AdjustmentIntervalSet(u16, u16), // --- Event created when the adjustment interval is set for a subnet.
-        RegistrationPerIntervalSet(u16, u16), // --- Event created when registration per interval is set for a subnet.
-        MaxRegistrationsPerBlockSet(u16, u16), // --- Event created when we set max registrations per block.
-        ActivityCutoffSet(u16, u16), // --- Event created when an activity cutoff is set for a subnet.
-        RhoSet(u16, u16),            // --- Event created when Rho value is set.
-        KappaSet(u16, u16),          // --- Event created when Kappa is set for a subnet.
-        MinAllowedWeightSet(u16, u16), // --- Event created when minimum allowed weight is set for a subnet.
-        ValidatorPruneLenSet(u16, u64), // --- Event created when the validator pruning length has been set.
-        ScalingLawPowerSet(u16, u16), // --- Event created when the scaling law power has been set for a subnet.
-        WeightsSetRateLimitSet(u16, u64), // --- Event created when weights set rate limit has been set for a subnet.
-        ImmunityPeriodSet(u16, u16), // --- Event created when immunity period is set for a subnet.
-        BondsMovingAverageSet(u16, u64), // --- Event created when bonds moving average is set for a subnet.
-        MaxAllowedValidatorsSet(u16, u16), // --- Event created when setting the max number of allowed validators on a subnet.
-        AxonServed(u16, T::AccountId), // --- Event created when the axon server information is added to the network.
-        PrometheusServed(u16, T::AccountId), // --- Event created when the prometheus server information is added to the network.
-        EmissionValuesSet(), // --- Event created when emission ratios for all networks is set.
-        DelegateAdded(T::AccountId, T::AccountId, u16), // --- Event created to signal that a hotkey has become a delegate.
-        DefaultTakeSet(u16), // --- Event created when the default take is set.
-        WeightsVersionKeySet(u16, u64), // --- Event created when weights version key is set for a network.
-        MinDifficultySet(u16, u64), // --- Event created when setting min difficulty on a network.
-        MaxDifficultySet(u16, u64), // --- Event created when setting max difficulty on a network.
-        ServingRateLimitSet(u16, u64), // --- Event created when setting the prometheus serving rate limit.
-        BurnSet(u16, u64),             // --- Event created when setting burn on a network.
-        MaxBurnSet(u16, u64),          // --- Event created when setting max burn on a network.
-        MinBurnSet(u16, u64),          // --- Event created when setting min burn on a network.
-        TxRateLimitSet(u64),           // --- Event created when setting the transaction rate limit.
-        TxDelegateTakeRateLimitSet(u64), // --- Event created when setting the delegate take transaction rate limit.
-        Sudid(DispatchResult),           // --- Event created when a sudo call is done.
-        RegistrationAllowed(u16, bool), // --- Event created when registration is allowed/disallowed for a subnet.
-        PowRegistrationAllowed(u16, bool), // --- Event created when POW registration is allowed/disallowed for a subnet.
-        TempoSet(u16, u16),                // --- Event created when setting tempo on a network
-        RAORecycledForRegistrationSet(u16, u64), // Event created when setting the RAO recycled for registration.
-        WeightsMinStake(u64), // --- Event created when min stake is set for validators to set weights.
-        SenateRequiredStakePercentSet(u64), // Event created when setting the minimum required stake amount for senate registration.
-        AdjustmentAlphaSet(u16, u64), // Event created when setting the adjustment alpha on a subnet.
-        Faucet(T::AccountId, u64),    // Event created when the faucet it called on the test net.
-        SubnetOwnerCutSet(u16),       // Event created when the subnet owner cut is set.
-        NetworkRateLimitSet(u64),     // Event created when the network creation rate limit is set.
-        NetworkImmunityPeriodSet(u64), // Event created when the network immunity period is set.
-        NetworkMinLockCostSet(u64),   // Event created when the network minimum locking cost is set.
-        SubnetLimitSet(u16),          // Event created when the maximum number of subnets is set
-        NetworkLockCostReductionIntervalSet(u64), // Event created when the lock cost reduction is set
-        TakeDecreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is decreased.
-        TakeIncreased(T::AccountId, T::AccountId, u16), // Event created when the take for a delegate is increased.
-        HotkeySwapped {
-            coldkey: T::AccountId,
-            old_hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
-        }, // Event created when a hotkey is swapped
-    }
-
-    // Errors inform users that something went wrong.
-    #[pallet::error]
-    pub enum Error<T> {
-        NetworkDoesNotExist,                // --- Thrown when the network does not exist.
-        NetworkExist,                       // --- Thrown when the network already exists.
-        InvalidModality,  // --- Thrown when an invalid modality attempted on serve.
-        InvalidIpType, // ---- Thrown when the user tries to serve an axon which is not of type	4 (IPv4) or 6 (IPv6).
-        InvalidIpAddress, // --- Thrown when an invalid IP address is passed to the serve function.
-        InvalidPort,   // --- Thrown when an invalid port is passed to the serve function.
-        NotRegistered, // ---- Thrown when the caller requests setting or removing data from a neuron which does not exist in the active set.
-        NonAssociatedColdKey, // ---- Thrown when a stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
-        NotEnoughStaketoWithdraw, // ---- Thrown when the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
-        NotEnoughStakeToSetWeights, // ---- Thrown when the caller requests to set weights but has less than WeightsMinStake
-        NotEnoughBalanceToStake, //  ---- Thrown when the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
-        BalanceWithdrawalError, // ---- Thrown when the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
-        NoValidatorPermit, // ---- Thrown when the caller attempts to set non-self weights without being a permitted validator.
-        WeightVecNotEqualSize, // ---- Thrown when the caller attempts to set the weight keys and values but these vectors have different size.
-        DuplicateUids, // ---- Thrown when the caller attempts to set weights with duplicate uids in the weight matrix.
-        InvalidUid, // ---- Thrown when a caller attempts to set weight to at least one uid that does not exist in the metagraph.
-        NotSettingEnoughWeights, // ---- Thrown when the dispatch attempts to set weights on chain with fewer elements than are allowed.
-        TooManyRegistrationsThisBlock, // ---- Thrown when registrations this block exceeds allowed number.
-        AlreadyRegistered, // ---- Thrown when the caller requests registering a neuron which already exists in the active set.
-        InvalidWorkBlock, // ---- Thrown if the supplied pow hash block is in the future or negative.
-        InvalidDifficulty, // ---- Thrown if the supplied pow hash block does not meet the network difficulty.
-        InvalidSeal, // ---- Thrown if the supplied pow hash seal does not match the supplied work.
-        MaxAllowedUIdsNotAllowed, // ---  Thrown if the value is invalid for MaxAllowedUids.
-        CouldNotConvertToBalance, // ---- Thrown when the dispatch attempts to convert between a u64 and T::balance but the call fails.
-        CouldNotConvertToU64, // -- Thrown when the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
-        StakeAlreadyAdded, // --- Thrown when the caller requests adding stake for a hotkey to the total stake which already added.
-        MaxWeightExceeded, // --- Thrown when the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
-        StorageValueOutOfRange, // --- Thrown when the caller attempts to set a storage value outside of its allowed range.
-        TempoHasNotSet,         // --- Thrown when tempo has not set.
-        InvalidTempo,           // --- Thrown when tempo is not valid.
-        EmissionValuesDoesNotMatchNetworks, // --- Thrown when number or received emission rates does not match number of networks.
-        InvalidEmissionValues, // --- Thrown when emission ratios are not valid (did not sum up to 10^9).
-        AlreadyDelegate, // --- Thrown if the hotkey attempts to become delegate when they are already.
-        SettingWeightsTooFast, // --- Thrown if the hotkey attempts to set weights twice within net_tempo/2 blocks.
-        IncorrectNetworkVersionKey, // --- Thrown when a validator attempts to set weights from a validator with incorrect code base key.
-        ServingRateLimitExceeded, // --- Thrown when an axon or prometheus serving exceeds the rate limit for a registered neuron.
-        BalanceSetError,          // --- Thrown when an error occurs while setting a balance.
-        MaxAllowedUidsExceeded, // --- Thrown when number of accounts going to be registered exceeds MaxAllowedUids for the network.
-        TooManyUids, // ---- Thrown when the caller attempts to set weights with more uids than allowed.
-        TxRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for transactions.
-        StakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for stakes.
-        UnstakeRateLimitExceeded, // --- Thrown when a transactor exceeds the rate limit for unstakes.
-        RegistrationDisabled,     // --- Thrown when registration is disabled
-        TooManyRegistrationsThisInterval, // --- Thrown when registration attempt exceeds allowed in interval
-        BenchmarkingOnly, // --- Thrown when a function is only available for benchmarking
-        HotkeyOriginMismatch, // --- Thrown when the hotkey passed is not the origin, but it should be
-        // Senate errors
-        SenateMember, // --- Thrown when attempting to do something to a senate member that is limited
-        NotSenateMember, // --- Thrown when a hotkey attempts to do something only senate members can do
-        AlreadySenateMember, // --- Thrown when a hotkey attempts to join the senate while already being a member
-        BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
-        NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
-        IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
-        FaucetDisabled,         // --- Thrown when the faucet is disabled
-        NotSubnetOwner,
-        OperationNotPermittedOnRootSubnet,
-        StakeTooLowForRoot, // --- Thrown when a hotkey attempts to join the root subnet with too little stake
-        AllNetworksInImmunity, // --- Thrown when all subnets are in the immunity period
-        NotEnoughBalance,
-        InvalidTake,       // --- Thrown when delegate take is being set out of bounds
-        SubnetCreatorLock, // -- Thrown when the subnet creator attempts to remove their funds within the lock period.
-    }
 
     // ==================
     // ==== Genesis =====
@@ -1286,16 +1199,25 @@ pub mod pallet {
                 "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
             ];
             weight = weight
+                // Initializes storage version (to 1)
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
+                // Storage version v1 -> v2
                 // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
+                // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migrate_create_root_network::<T>())
+                // Storage version v2 -> v3
                 .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
                     hex,
                 ))
+                // Storage version v3 -> v4
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
+                // Storage version v4 -> v5
                 .saturating_add(migration::migrate_delete_subnet_21::<T>())
+                // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migration5_total_issuance::<T>(false))
+                // Storage version v6 -> v7
                 .saturating_add(migration::migrate_stake_to_substake::<T>())
+                // Storage version v7 -> v8
                 .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>());
 
             log::info!(
@@ -1382,6 +1304,151 @@ pub mod pallet {
             version_key: u64,
         ) -> DispatchResult {
             Self::do_set_weights(origin, netuid, dests, weights, version_key)
+        }
+
+        /// ---- Used to commit a hash of your weight values to later be revealed.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `commit_hash` (`H256`):
+        ///   - The hash representing the committed weights.
+        ///
+        /// # Raises:
+        /// * `CommitNotAllowed`:
+        ///   - Attempting to commit when it is not allowed.
+        ///
+        #[pallet::call_index(96)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            commit_hash: H256,
+        ) -> DispatchResult {
+            Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        /// ---- Used to reveal the weights for a previously committed hash.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the revealing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `uids` (`Vec<u16>`):
+        ///   - The uids for the weights being revealed.
+        ///
+        /// * `values` (`Vec<u16>`):
+        ///   - The values of the weights being revealed.
+        ///
+        /// * `version_key` (`u64`):
+        ///   - The network version key.
+        ///
+        /// # Raises:
+        /// * `NoCommitFound`:
+        ///   - Attempting to reveal weights without an existing commit.
+        ///
+        /// * `InvalidRevealTempo`:
+        ///   - Attempting to reveal weights outside the valid tempo.
+        ///
+        /// * `InvalidReveal`:
+        ///   - The revealed hash does not match the committed hash.
+        ///
+        #[pallet::call_index(97)]
+        #[pallet::weight((Weight::from_parts(103_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(11))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn reveal_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            uids: Vec<u16>,
+            values: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_reveal_weights(origin, netuid, uids, values, version_key)
+        }
+
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        /// 	- The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `hotkey` (T::AccountId):
+        /// 	- The hotkey associated with the operation and the calling coldkey.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        ///
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        ///
+        /// * NonAssociatedColdKey;
+        /// 	- Attempting to set weights on a non-associated cold key.
+        ///
+        /// * 'NetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRootSubnet':
+        /// 	- Attempting to set weights on a subnet that is not the root network.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'InvalidUid':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'NotSettingEnoughWeights':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        ///  * 'IncorrectNetworkVersionKey':
+        ///      - Attempting to set weights with the incorrect network version key.
+        ///
+        ///  * 'SettingWeightsTooFast':
+        ///      - Attempting to set weights too fast.
+        ///
+        /// * 'NotSettingEnoughWeights':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
+        ///
+        #[pallet::call_index(8)]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_root_weights(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
         }
 
         // --- Sets the key as a delegate.
@@ -1887,12 +1954,16 @@ pub mod pallet {
         /// ## Complexity
         /// - O(1).
         #[pallet::call_index(52)]
-        #[pallet::weight((*_weight, call.get_dispatch_info().class, Pays::No))]
+        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::No))]
         pub fn sudo_unchecked_weight(
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
-            _weight: Weight,
+            weight: Weight,
         ) -> DispatchResultWithPostInfo {
+            // We dont need to check the weight witness, suppress warning.
+            // See https://github.com/paritytech/polkadot-sdk/pull/1818.
+            let _ = weight;
+
             // This is a public call, so we ensure that the origin is a council majority.
             T::CouncilOrigin::ensure_origin(origin)?;
 
@@ -1941,6 +2012,16 @@ pub mod pallet {
             }
 
             Err(Error::<T>::FaucetDisabled.into())
+        }
+
+        /// Remove a user's subnetwork
+        /// The caller must be the owner of the network
+        #[pallet::call_index(61)]
+        #[pallet::weight((Weight::from_parts(70_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(5))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            Self::user_remove_network(origin, netuid)
         }
     }
 
@@ -2193,23 +2274,16 @@ where
     }
 }
 
-use frame_support::sp_std::vec;
-
-// TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
-// used not 25 lines below
-#[allow(unused)]
-use sp_std::vec::Vec;
-
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
     /// Add member
-    fn add_member(account: &AccountId) -> DispatchResult;
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Remove a member
-    fn remove_member(account: &AccountId) -> DispatchResult;
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Swap member
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResult;
+    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo;
 
     /// Get all members
     fn members() -> Vec<AccountId>;
@@ -2223,18 +2297,18 @@ pub trait MemberManagement<AccountId> {
 
 impl<T> MemberManagement<T> for () {
     /// Add member
-    fn add_member(_: &T) -> DispatchResult {
-        Ok(())
+    fn add_member(_: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Remove a member
-    fn remove_member(_: &T) -> DispatchResult {
-        Ok(())
+    fn remove_member(_: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Swap member
-    fn swap_member(_: &T, _: &T) -> DispatchResult {
-        Ok(())
+    fn swap_member(_: &T, _: &T) -> DispatchResultWithPostInfo {
+        Ok(().into())
     }
 
     // Get all members

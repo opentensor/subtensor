@@ -16,10 +16,15 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
+use crate::math::*;
+use frame_support::dispatch::Pays;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
-use substrate_fixed::{transcendental::log2, types::I96F32};
+use sp_std::vec;
+use substrate_fixed::{
+    transcendental::log2,
+    types::I96F32,
+};
 
 impl<T: Config> Pallet<T> {
     // Retrieves a boolean true is subnet emissions are determined by
@@ -326,12 +331,12 @@ impl<T: Config> Pallet<T> {
                 let last_stake = Self::get_hotkey_global_dynamic_tao(last);
 
                 if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey)?;
+                    T::SenateMembers::swap_member(last, &hotkey).map_err(|e| e.error)?;
                     T::TriumvirateInterface::remove_votes(&last)?;
                 }
             }
         } else {
-            T::SenateMembers::add_member(&hotkey)?;
+            T::SenateMembers::add_member(&hotkey).map_err(|e| e.error)?;
         }
 
         // --- 13. Force all members on root to become a delegate.
@@ -353,6 +358,123 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
 
         // --- 16. Finish and return success.
+        Ok(())
+    }
+
+    pub fn do_set_root_weights(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        hotkey: T::AccountId,
+        uids: Vec<u16>,
+        values: Vec<u16>,
+        version_key: u64,
+    ) -> dispatch::DispatchResult {
+        // --- 1. Check the caller's signature. This is the coldkey of a registered account.
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_set_root_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
+            coldkey,
+            netuid,
+            uids,
+            values
+        );
+
+        // --- 2. Check that the signer coldkey owns the hotkey
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey)
+                && Self::get_owning_coldkey_for_hotkey(&hotkey) == coldkey,
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // --- 3. Check to see if this is a valid network.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // --- 4. Check that this is the root network.
+        ensure!(netuid == Self::get_root_netuid(), Error::<T>::NotRootSubnet);
+
+        // --- 5. Check that the length of uid list and value list are equal for this network.
+        ensure!(
+            Self::uids_match_values(&uids, &values),
+            Error::<T>::WeightVecNotEqualSize
+        );
+
+        // --- 6. Check to see if the number of uids is within the max allowed uids for this network.
+        // For the root network this number is the number of subnets.
+        ensure!(
+            !Self::contains_invalid_root_uids(&uids),
+            Error::<T>::InvalidUid
+        );
+
+        // --- 7. Check to see if the hotkey is registered to the passed network.
+        ensure!(
+            Self::is_hotkey_registered_on_network(netuid, &hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // --- 8. Check to see if the hotkey has enough stake to set weights.
+        ensure!(
+            Self::get_hotkey_global_dynamic_tao(&hotkey) >= Self::get_weights_min_stake(),
+            Error::<T>::NotEnoughStakeToSetWeights
+        );
+
+        // --- 9. Ensure version_key is up-to-date.
+        ensure!(
+            Self::check_version_key(netuid, version_key),
+            Error::<T>::IncorrectNetworkVersionKey
+        );
+
+        // --- 10. Get the neuron uid of associated hotkey on network netuid.
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
+
+        // --- 11. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
+        let current_block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            Self::check_rate_limit(netuid, neuron_uid, current_block),
+            Error::<T>::SettingWeightsTooFast
+        );
+
+        // --- 12. Ensure the passed uids contain no duplicates.
+        ensure!(!Self::has_duplicate_uids(&uids), Error::<T>::DuplicateUids);
+
+        // --- 13. Ensure that the weights have the required length.
+        ensure!(
+            Self::check_length(netuid, neuron_uid, &uids, &values),
+            Error::<T>::NotSettingEnoughWeights
+        );
+
+        // --- 14. Max-upscale the weights.
+        let max_upscaled_weights: Vec<u16> = vec_u16_max_upscale_to_u16(&values);
+
+        // --- 15. Ensure the weights are max weight limited
+        ensure!(
+            Self::max_weight_limited(netuid, neuron_uid, &uids, &max_upscaled_weights),
+            Error::<T>::MaxWeightExceeded
+        );
+
+        // --- 16. Zip weights for sinking to storage map.
+        let mut zipped_weights: Vec<(u16, u16)> = vec![];
+        for (uid, val) in uids.iter().zip(max_upscaled_weights.iter()) {
+            zipped_weights.push((*uid, *val))
+        }
+
+        // --- 17. Set weights under netuid, uid double map entry.
+        Weights::<T>::insert(netuid, neuron_uid, zipped_weights);
+
+        // --- 18. Set the activity for the weights on this network.
+        Self::set_last_update_for_uid(netuid, neuron_uid, current_block);
+
+        // --- 19. Emit the tracking event.
+        log::info!(
+            "RootWeightsSet( netuid:{:?}, neuron_uid:{:?} )",
+            netuid,
+            neuron_uid
+        );
+        Self::deposit_event(Event::WeightsSet(netuid, neuron_uid));
+
+        // --- 20. Return ok.
         Ok(())
     }
 
@@ -515,6 +637,46 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Facilitates the removal of a user's subnetwork.
+    ///
+    /// # Args:
+    /// * 'origin': ('T::RuntimeOrigin'): The calling origin. Must be signed.
+    /// * 'netuid': ('u16'): The unique identifier of the network to be removed.
+    ///
+    /// # Event:
+    /// * 'NetworkRemoved': Emitted when a network is successfully removed.
+    ///
+    /// # Raises:
+    /// * 'NetworkDoesNotExist': If the specified network does not exist.
+    /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
+    ///
+    pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
+        // --- 1. Ensure the function caller is a signed user.
+        let coldkey = ensure_signed(origin)?;
+
+        // --- 2. Ensure this subnet exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // --- 3. Ensure the caller owns this subnet.
+        ensure!(
+            SubnetOwner::<T>::get(netuid) == coldkey,
+            Error::<T>::NotSubnetOwner
+        );
+
+        // --- 4. Explicitly erase the network and all its parameters.
+        Self::remove_network(netuid);
+
+        // --- 5. Emit the NetworkRemoved event.
+        log::info!("NetworkRemoved( netuid:{:?} )", netuid);
+        Self::deposit_event(Event::NetworkRemoved(netuid));
+
+        // --- 6. Return success.
+        Ok(())
+    }
+
     // Sets initial and custom parameters for a new network.
     pub fn init_new_network(netuid: u16, tempo: u16) {
         // --- 1. Set network to 0 size.
@@ -592,6 +754,98 @@ impl<T: Config> Pallet<T> {
                 BurnRegistrationsThisInterval::<T>::get(netuid),
             );
         }
+    }
+
+    /// Removes a network (identified by netuid) and all associated parameters.
+    ///
+    /// This function is responsible for cleaning up all the data associated with a network.
+    /// It ensures that all the storage values related to the network are removed, and any
+    /// reserved balance is returned to the network owner.
+    ///
+    /// # Args:
+    ///  * 'netuid': ('u16'): The unique identifier of the network to be removed.
+    ///
+    /// # Note:
+    /// This function does not emit any events, nor does it raise any errors. It silently
+    /// returns if any internal checks fail.
+    ///
+    pub fn remove_network(netuid: u16) {
+        // --- 1. Return balance to subnet owner.
+        let owner_coldkey = SubnetOwner::<T>::get(netuid);
+        let reserved_amount = Self::get_subnet_locked_balance(netuid);
+
+        // --- 2. Remove network count.
+        SubnetworkN::<T>::remove(netuid);
+
+        // --- 3. Remove network modality storage.
+        NetworkModality::<T>::remove(netuid);
+
+        // --- 4. Remove netuid from added networks.
+        NetworksAdded::<T>::remove(netuid);
+
+        // --- 6. Decrement the network counter.
+        TotalNetworks::<T>::mutate(|n| *n -= 1);
+
+        // --- 7. Remove various network-related storages.
+        NetworkRegisteredAt::<T>::remove(netuid);
+
+        // --- 8. Remove incentive mechanism memory.
+        let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
+        let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
+        let _ = Bonds::<T>::clear_prefix(netuid, u32::max_value(), None);
+
+        // --- 8. Removes the weights for this subnet (do not remove).
+        let _ = Weights::<T>::clear_prefix(netuid, u32::max_value(), None);
+
+        // --- 9. Iterate over stored weights and fill the matrix.
+        for (uid_i, weights_i) in
+            Weights::<T>::iter_prefix(
+                Self::get_root_netuid(),
+            )
+        {
+            // Create a new vector to hold modified weights.
+            let mut modified_weights = weights_i.clone();
+            // Iterate over each weight entry to potentially update it.
+            for (subnet_id, weight) in modified_weights.iter_mut() {
+                if subnet_id == &netuid {
+                    // If the condition matches, modify the weight
+                    *weight = 0; // Set weight to 0 for the matching subnet_id.
+                }
+            }
+            Weights::<T>::insert(Self::get_root_netuid(), uid_i, modified_weights);
+        }
+
+        // --- 10. Remove various network-related parameters.
+        Rank::<T>::remove(netuid);
+        Trust::<T>::remove(netuid);
+        Active::<T>::remove(netuid);
+        Emission::<T>::remove(netuid);
+        Incentive::<T>::remove(netuid);
+        Consensus::<T>::remove(netuid);
+        Dividends::<T>::remove(netuid);
+        PruningScores::<T>::remove(netuid);
+        LastUpdate::<T>::remove(netuid);
+        ValidatorPermit::<T>::remove(netuid);
+        ValidatorTrust::<T>::remove(netuid);
+
+        // --- 11. Erase network parameters.
+        Tempo::<T>::remove(netuid);
+        Kappa::<T>::remove(netuid);
+        Difficulty::<T>::remove(netuid);
+        MaxAllowedUids::<T>::remove(netuid);
+        ImmunityPeriod::<T>::remove(netuid);
+        ActivityCutoff::<T>::remove(netuid);
+        EmissionValues::<T>::remove(netuid);
+        MaxWeightsLimit::<T>::remove(netuid);
+        MinAllowedWeights::<T>::remove(netuid);
+        RegistrationsThisInterval::<T>::remove(netuid);
+        POWRegistrationsThisInterval::<T>::remove(netuid);
+        BurnRegistrationsThisInterval::<T>::remove(netuid);
+
+        // --- 12. Add the balance back to the owner.
+        Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
+        Self::set_subnet_locked_balance(netuid, 0);
+        SubnetOwner::<T>::remove(netuid);
     }
 
     // This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.

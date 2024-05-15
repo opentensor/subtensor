@@ -181,25 +181,21 @@ impl<A> CanCommit<A> for () {
 /************************************************************
     CallType definition
 ************************************************************/
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub enum CallType {
     SetCommitment,
+    #[default]
     Other,
-}
-impl Default for CallType {
-    fn default() -> Self {
-        CallType::Other
-    }
 }
 
 use {
     frame_support::{
-        dispatch::{DispatchInfo, DispatchResult, Dispatchable, PostDispatchInfo},
+        dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
         pallet_prelude::{Decode, Encode, PhantomData, TypeInfo},
         traits::IsSubType,
     },
     sp_runtime::{
-        traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
+        traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
         transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
     },
 };

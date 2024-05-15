@@ -3,6 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {

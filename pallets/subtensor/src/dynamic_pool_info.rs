@@ -5,6 +5,7 @@ use frame_support::{
 };
 extern crate alloc;
 use codec::Compact;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DynamicPoolInfo {

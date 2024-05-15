@@ -3,7 +3,7 @@
 use jsonrpsee::{
     core::RpcResult,
     proc_macros::rpc,
-    types::error::{CallError, ErrorObject},
+    types::{error::ErrorObject, ErrorObjectOwned},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::Block as BlockT;
@@ -134,13 +134,21 @@ impl<C, P> SubtensorCustom<C, P> {
 /// Error type of this RPC api.
 pub enum Error {
     /// The call to runtime failed.
-    RuntimeError,
+    RuntimeError(String),
+}
+
+impl From<Error> for ErrorObjectOwned {
+    fn from(e: Error) -> Self {
+        match e {
+            Error::RuntimeError(e) => ErrorObject::owned(1, e, None::<()>),
+        }
+    }
 }
 
 impl From<Error> for i32 {
     fn from(e: Error) -> i32 {
         match e {
-            Error::RuntimeError => 1,
+            Error::RuntimeError(_) => 1,
         }
     }
 }
@@ -164,12 +172,7 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_substake_for_hotkey(at, hotkey_bytes).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegates info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get delegates info: {}", e)).into()
         })
     }
 
@@ -180,15 +183,9 @@ where
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_coldkey(at, coldkey_bytes)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get delegates info.",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.get_substake_for_coldkey(at, coldkey_bytes).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get delegates info: {}", e)).into()
+        })
     }
 
     fn get_substake_for_netuid(
@@ -199,12 +196,7 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
         api.get_substake_for_netuid(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegates info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get delegates info: {}", e)).into()
         })
     }
 
@@ -215,15 +207,9 @@ where
     ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_total_stake_for_hotkey(at, hotkey_bytes)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get total stake for hotkey.",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.get_total_stake_for_hotkey(at, hotkey_bytes).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get total stake for hotkey: {}", e)).into()
+        })
     }
 
     fn get_total_stake_for_coldkey(
@@ -233,15 +219,9 @@ where
     ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_total_stake_for_coldkey(at, hotkey_bytes)
-            .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get total stake for coldkey.",
-                    Some(e.to_string()),
-                ))
-                .into()
-            })
+        api.get_total_stake_for_coldkey(at, hotkey_bytes).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get total stake for coldkey: {}", e)).into()
+        })
     }
 
     fn get_delegates(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
@@ -249,12 +229,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_delegates(at).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegates info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get delegates info: {}", e)).into()
         })
     }
 
@@ -267,12 +242,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_delegate(at, delegate_account_vec).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegate info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get delegates info: {}", e)).into()
         })
     }
 
@@ -285,12 +255,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_delegated(at, delegatee_account_vec).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get delegated info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get delegates info: {}", e)).into()
         })
     }
 
@@ -303,12 +268,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_neurons_lite(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get neurons lite info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get neurons lite info: {}", e)).into()
         })
     }
 
@@ -322,12 +282,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_neuron_lite(at, netuid, uid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get neuron lite info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get neuron lite info: {}", e)).into()
         })
     }
 
@@ -336,12 +291,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_neurons(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get neurons info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get neurons info: {}", e)).into()
         })
     }
 
@@ -355,12 +305,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_neuron(at, netuid, uid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get neuron info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get neuron info: {}", e)).into()
         })
     }
 
@@ -373,12 +318,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_subnet_info(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get subnet info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get subnet info: {}", e)).into()
         })
     }
 
@@ -391,12 +331,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_subnet_hyperparams(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get subnet info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get subnet info: {}", e)).into()
         })
     }
 
@@ -405,12 +340,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_subnets_info(at).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get subnets info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get subnets info: {}", e)).into()
         })
     }
 
@@ -419,12 +349,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_network_registration_cost(at).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get subnet lock cost.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get subnet lock cost: {}", e)).into()
         })
     }
 
@@ -439,12 +364,7 @@ where
 
         api.get_subnet_stake_info_for_coldkey(at, coldkey_account_vec, netuid)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get subnet stake info.",
-                    Some(e.to_string()),
-                ))
-                .into()
+                Error::RuntimeError(format!("Unable to get subnet stake info: {}", e)).into()
             })
     }
 
@@ -459,12 +379,7 @@ where
 
         api.get_subnet_stake_info_for_coldkeys(at, coldkey_account_vecs, netuid)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get subnet stake info.",
-                    Some(e.to_string()),
-                ))
-                .into()
+                Error::RuntimeError(format!("Unable to get subnet stake info: {}", e)).into()
             })
     }
 
@@ -477,12 +392,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_total_subnet_stake(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get total subnet stake.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get total subnet stake: {}", e)).into()
         })
     }
 
@@ -496,12 +406,7 @@ where
 
         api.get_all_stake_info_for_coldkey(at, coldkey_account_vec)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get all stake info for coldkey.",
-                    Some(e.to_string()),
-                ))
-                .into()
+                Error::RuntimeError(format!("Unable to get all stake info for coldkey: {}", e)).into()
             })
     }
 
@@ -515,12 +420,7 @@ where
 
         api.get_all_subnet_stake_info_for_coldkey(at, coldkey_account_vec)
             .map_err(|e| {
-                CallError::Custom(ErrorObject::owned(
-                    Error::RuntimeError.into(),
-                    "Unable to get all subnet stake info for coldkey.",
-                    Some(e.to_string()),
-                ))
-                .into()
+                Error::RuntimeError(format!("Unable to get all subnet stake info for coldkey: {}", e)).into()
             })
     }
 
@@ -533,12 +433,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_dynamic_pool_info(at, netuid).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get dynamic pool info.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get dynamic pool info: {}", e)).into()
         })
     }
 
@@ -550,12 +445,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_all_dynamic_pool_infos(at).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get all dynamic pool infos.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get all dynamic pool infos: {}", e)).into()
         })
     }
 
@@ -567,12 +457,7 @@ where
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
         api.get_total_stake_for_each_subnet(at).map_err(|e| {
-            CallError::Custom(ErrorObject::owned(
-                Error::RuntimeError.into(),
-                "Unable to get total stake for each subnet.",
-                Some(e.to_string()),
-            ))
-            .into()
+            Error::RuntimeError(format!("Unable to get total stake for each subnet: {}", e)).into()
         })
     }
 }

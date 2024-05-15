@@ -1,4 +1,4 @@
-use frame_support::sp_std::vec;
+use sp_std::vec;
 use sp_runtime::traits::CheckedAdd;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
@@ -123,7 +123,7 @@ pub fn vec_max_upscale_to_u16(vec: &Vec<I32F32>) -> Vec<u16> {
 
 #[allow(dead_code)]
 // Max-upscale u16 vector and convert to u16 so max_value = u16::MAX. Assumes u16 vector input.
-pub fn vec_u16_max_upscale_to_u16(vec: &Vec<u16>) -> Vec<u16> {
+pub fn vec_u16_max_upscale_to_u16(vec: &[u16]) -> Vec<u16> {
     let vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     vec_max_upscale_to_u16(&vec_fixed)
 }

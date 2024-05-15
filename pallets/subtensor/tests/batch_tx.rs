@@ -4,9 +4,6 @@ use sp_core::U256;
 mod mock;
 use mock::*;
 
-// To run just the tests in this file, use the following command:
-// cargo test -p pallet-subtensor --test batch_tx
-
 #[test]
 fn test_batch_txs() {
     let alice = U256::from(0);
@@ -21,11 +18,11 @@ fn test_batch_txs() {
         assert_ok!(Utility::batch(
             <<Test as Config>::RuntimeOrigin>::signed(alice),
             vec![
-                RuntimeCall::Balances(BalanceCall::transfer {
+                RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: bob,
                     value: 1_000_000_000
                 }),
-                RuntimeCall::Balances(BalanceCall::transfer {
+                RuntimeCall::Balances(BalanceCall::transfer_allow_death {
                     dest: charlie,
                     value: 1_000_000_000
                 })

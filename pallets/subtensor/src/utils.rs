@@ -1,5 +1,6 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
+use sp_std::vec::Vec;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 
@@ -359,11 +360,16 @@ impl<T: Config> Pallet<T> {
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {
-        DefaultTake::<T>::get()
+        // Default to maximum
+        MaxTake::<T>::get()
     }
-    pub fn set_default_take(default_take: u16) {
-        DefaultTake::<T>::put(default_take);
-        Self::deposit_event(Event::DefaultTakeSet(default_take));
+
+    pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
+        SubnetLocked::<T>::insert(netuid, amount);
+    }
+
+    pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
+        SubnetLocked::<T>::get(netuid)
     }
 
     // ========================
@@ -385,7 +391,21 @@ impl<T: Config> Pallet<T> {
         TxDelegateTakeRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxDelegateTakeRateLimitSet(tx_rate_limit));
     }
-
+    pub fn set_min_delegate_take(take: u16) {
+        MinTake::<T>::put(take);
+        Self::deposit_event(Event::MinDelegateTakeSet(take));
+    }
+    pub fn set_max_delegate_take(take: u16) {
+        MaxTake::<T>::put(take);
+        Self::deposit_event(Event::MaxDelegateTakeSet(take));
+    }
+    pub fn get_min_delegate_take() -> u16 {
+        MinTake::<T>::get()
+    }
+    pub fn get_max_delegate_take() -> u16 {
+        MaxTake::<T>::get()
+    }
+    
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
         ServingRateLimit::<T>::get(netuid)
     }
@@ -702,4 +722,13 @@ impl<T: Config> Pallet<T> {
         let slippage = initial_price - new_price;
         slippage
     }
+
+    pub fn get_nominator_min_required_stake() -> u64 {
+        NominatorMinRequiredStake::<T>::get()
+    }
+
+    pub fn set_nominator_min_required_stake(min_stake: u64) {
+        NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+
 }

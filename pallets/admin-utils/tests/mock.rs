@@ -1,5 +1,5 @@
 use frame_support::{
-    parameter_types,
+    assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
@@ -78,6 +78,7 @@ parameter_types! {
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const InitialMinTake: u16 = 0;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
@@ -144,6 +145,7 @@ impl pallet_subtensor::Config for Test {
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultTake = InitialDefaultTake;
+    type InitialMinTake = InitialMinTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
@@ -166,6 +168,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetOwnerLockPeriod = InitialSubnetOwnerLockPeriod;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
@@ -192,6 +195,7 @@ impl system::Config for Test {
     type Nonce = u64;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
@@ -205,14 +209,17 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
-    type MaxHolds = ();
 }
 
 pub struct SubtensorIntrf;
 
 impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> for SubtensorIntrf {
-    fn set_default_take(default_take: u16) {
-        SubtensorModule::set_default_take(default_take);
+    fn set_max_delegate_take(default_take: u16) {
+        SubtensorModule::set_max_delegate_take(default_take);
+    }
+
+    fn set_min_delegate_take(default_take: u16) {
+        SubtensorModule::set_min_delegate_take(default_take);
     }
 
     fn set_tx_rate_limit(rate_limit: u64) {
@@ -268,19 +275,19 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn get_root_netuid() -> u16 {
-        return SubtensorModule::get_root_netuid();
+        SubtensorModule::get_root_netuid()
     }
 
     fn if_subnet_exist(netuid: u16) -> bool {
-        return SubtensorModule::if_subnet_exist(netuid);
+        SubtensorModule::if_subnet_exist(netuid)
     }
 
     fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId) {
-        return SubtensorModule::create_account_if_non_existent(coldkey, hotkey);
+        SubtensorModule::create_account_if_non_existent(coldkey, hotkey)
     }
 
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool {
-        return SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey);
+        SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
     }
 
     fn increase_stake_on_coldkey_hotkey_account(
@@ -295,7 +302,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn u64_to_balance(input: u64) -> Option<Balance> {
-        return SubtensorModule::u64_to_balance(input);
+        SubtensorModule::u64_to_balance(input)
     }
 
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
@@ -303,23 +310,23 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn get_current_block_as_u64() -> u64 {
-        return SubtensorModule::get_current_block_as_u64();
+        SubtensorModule::get_current_block_as_u64()
     }
 
     fn get_subnetwork_n(netuid: u16) -> u16 {
-        return SubtensorModule::get_subnetwork_n(netuid);
+        SubtensorModule::get_subnetwork_n(netuid)
     }
 
     fn get_max_allowed_uids(netuid: u16) -> u16 {
-        return SubtensorModule::get_max_allowed_uids(netuid);
+        SubtensorModule::get_max_allowed_uids(netuid)
     }
 
     fn append_neuron(netuid: u16, new_hotkey: &AccountId, block_number: u64) {
-        return SubtensorModule::append_neuron(netuid, new_hotkey, block_number);
+        SubtensorModule::append_neuron(netuid, new_hotkey, block_number)
     }
 
     fn get_neuron_to_prune(netuid: u16) -> u16 {
-        return SubtensorModule::get_neuron_to_prune(netuid);
+        SubtensorModule::get_neuron_to_prune(netuid)
     }
 
     fn replace_neuron(netuid: u16, uid_to_replace: u16, new_hotkey: &AccountId, block_number: u64) {
@@ -386,7 +393,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn ensure_subnet_owner_or_root(o: RuntimeOrigin, netuid: u16) -> Result<(), DispatchError> {
-        return SubtensorModule::ensure_subnet_owner_or_root(o, netuid);
+        SubtensorModule::ensure_subnet_owner_or_root(o, netuid)
     }
 
     fn set_rho(netuid: u16, rho: u16) {
@@ -445,6 +452,18 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::set_weights_min_stake(min_stake);
     }
 
+    fn set_nominator_min_required_stake(min_stake: u64) {
+        SubtensorModule::set_nominator_min_required_stake(min_stake);
+    }
+
+    fn get_nominator_min_required_stake() -> u64 {
+        SubtensorModule::get_nominator_min_required_stake()
+    }
+
+    fn clear_small_nominations() {
+        SubtensorModule::clear_small_nominations();
+    }
+    
     fn set_global_stake_weight(global_stake_weight: u16) {
         SubtensorModule::set_global_stake_weight(global_stake_weight);
     }
@@ -484,4 +503,43 @@ pub(crate) fn run_to_block(n: u64) {
         System::on_initialize(System::block_number());
         SubtensorModule::on_initialize(System::block_number());
     }
+}
+
+#[allow(dead_code)]
+pub fn register_ok_neuron(
+    netuid: u16,
+    hotkey_account_id: U256,
+    coldkey_account_id: U256,
+    start_nonce: u64,
+) {
+    let block_number: u64 = SubtensorModule::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+        netuid,
+        block_number,
+        start_nonce,
+        &hotkey_account_id,
+    );
+    let result = SubtensorModule::register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
+        netuid,
+        block_number,
+        nonce,
+        work,
+        hotkey_account_id,
+        coldkey_account_id,
+    );
+    assert_ok!(result);
+    log::info!(
+        "Register ok neuron: netuid: {:?}, coldkey: {:?}, hotkey: {:?}",
+        netuid,
+        hotkey_account_id,
+        coldkey_account_id
+    );
+}
+
+#[allow(dead_code)]
+pub fn add_network(netuid: u16, tempo: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }

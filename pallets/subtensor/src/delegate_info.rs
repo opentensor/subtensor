@@ -3,6 +3,8 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use sp_core::{hexdisplay::AsBytesRef, Get};
 use substrate_fixed::types::U64F64;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 extern crate alloc;
 

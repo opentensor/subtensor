@@ -4,6 +4,8 @@ extern crate alloc;
 use crate::types::TensorBytes;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
