@@ -41,9 +41,12 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Install subxt
+        run: cargo install subxt-cli
+
       - name: try on its own
         run: |
-          wscat -c wss://test.chain.opentensor.ai:443 -x '{"id":1, "jsonrpc":"2.0", "method": "state_getRuntimeVersion"}' -w 30 --show-ping-pong
+          PATH=$PATH:$HOME/.cargo/.bin subxt metadata --url wss://test.chain.opentensor.ai:443 --format json
 
       - name: Get live spec_version for ${{ github.event.inputs.network }}
         run: |
