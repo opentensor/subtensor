@@ -1344,8 +1344,8 @@ pub mod pallet {
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4104))
+        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4106))
         .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
@@ -1526,7 +1526,9 @@ pub mod pallet {
         /// 	- The hotkey we are delegating is not owned by the calling coldket.
         ///
         #[pallet::call_index(1)]
-        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(79_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
         }
@@ -1645,9 +1647,9 @@ pub mod pallet {
         ///  	- Errors stemming from transaction pallet.
         ///
         #[pallet::call_index(2)]
-        #[pallet::weight((Weight::from_parts(65_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(8))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(124_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(10))
+		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1685,10 +1687,10 @@ pub mod pallet {
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
-        #[pallet::weight((Weight::from_parts(63_000_000, 0)
+        #[pallet::weight((Weight::from_parts(111_000_000, 0)
 		.saturating_add(Weight::from_parts(0, 43991))
-		.saturating_add(T::DbWeight::get().reads(14))
-		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
+		.saturating_add(T::DbWeight::get().reads(10))
+		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1749,8 +1751,8 @@ pub mod pallet {
         /// 	- Attempting to set prometheus information withing the rate limit min.
         ///
         #[pallet::call_index(4)]
-        #[pallet::weight((Weight::from_parts(19_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(2))
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_axon(
             origin: OriginFor<T>,
@@ -1797,8 +1799,8 @@ pub mod pallet {
         /// 	- The ip type v4 or v6.
         ///
         #[pallet::call_index(5)]
-        #[pallet::weight((Weight::from_parts(17_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(2))
+        #[pallet::weight((Weight::from_parts(45_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
 		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
         pub fn serve_prometheus(
             origin: OriginFor<T>,
@@ -1859,8 +1861,8 @@ pub mod pallet {
         /// 	- The seal is incorrect.
         ///
         #[pallet::call_index(6)]
-        #[pallet::weight((Weight::from_parts(91_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(27))
+        #[pallet::weight((Weight::from_parts(192_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(24))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn register(
             origin: OriginFor<T>,
@@ -1876,7 +1878,7 @@ pub mod pallet {
 
         /// Register the hotkey to root network
         #[pallet::call_index(62)]
-        #[pallet::weight((Weight::from_parts(120_000_000, 0)
+        #[pallet::weight((Weight::from_parts(164_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
@@ -1885,9 +1887,9 @@ pub mod pallet {
 
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
-        #[pallet::weight((Weight::from_parts(89_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(27))
-		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(177_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().writes(24)), DispatchClass::Normal, Pays::No))]
         pub fn burned_register(
             origin: OriginFor<T>,
             netuid: u16,
@@ -1898,7 +1900,9 @@ pub mod pallet {
 
         /// The extrinsic for user to change its hotkey
         #[pallet::call_index(70)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(272))
+		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
@@ -1994,9 +1998,9 @@ pub mod pallet {
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_parts(85_000_000, 0)
+        #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
-		.saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
+		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
             Self::user_add_network(origin)
         }
@@ -2024,8 +2028,8 @@ pub mod pallet {
         /// Remove a user's subnetwork
         /// The caller must be the owner of the network
         #[pallet::call_index(61)]
-        #[pallet::weight((Weight::from_parts(70_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(5))
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
