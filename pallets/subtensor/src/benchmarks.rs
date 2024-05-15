@@ -15,23 +15,25 @@ use sp_std::vec;
 benchmarks! {
   // Add individual benchmarks here
   benchmark_register {
-    // Lets create a single network.
-    let n: u16 = 10;
     let netuid: u16 = 1; //11 is the benchmark network.
     let tempo: u16 = 1;
     let modality: u16 = 0;
-    let seed : u32 = 1;
-
-    let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let start_nonce: u64 = 39420842u64 + 100u64*netuid as u64;
-    let hotkey: T::AccountId = account("Alice", 0, seed);
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
+    let hotkey: T::AccountId = account("Alice", 0, 1);
+    let coldkey: T::AccountId = account("Test", 0, 2);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-    Subtensor::<T>::set_network_registration_allowed( netuid, true);
+    Subtensor::<T>::set_network_registration_allowed(netuid, true);
+    Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let coldkey: T::AccountId = account("Test", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+        netuid,
+        block_number,
+        3,
+        &hotkey,
+    );
+
+
   }: register( RawOrigin::Signed( hotkey.clone() ), netuid, block_number, nonce, work, hotkey.clone(), coldkey.clone() )
 
   benchmark_set_weights {
@@ -109,6 +111,8 @@ benchmarks! {
     let modality: u16 = 0;
     let seed : u32 = 1;
 
+    Subtensor::<T>::set_target_stakes_per_interval(100);
+
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     Subtensor::<T>::set_burn(netuid, 1);
@@ -135,6 +139,8 @@ benchmarks! {
     let tempo: u16 = 1;
     let modality: u16 = 0;
     let seed : u32 = 1;
+
+    Subtensor::<T>::set_target_stakes_per_interval(100);
 
     // Set our total stake to 1000 TAO
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
