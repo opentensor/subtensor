@@ -32,10 +32,8 @@ jobs:
           sudo apt-get install -y curl clang curl libssl-dev llvm \
                                   libudev-dev protobuf-compiler
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1.0.6
-        with:
-          toolchain: stable
+      - name: Set up Rust Toolchain
+        run: curl https://sh.rustup.rs -sSf | sh -s -- -y
 
       - name: Install substrate-spec-version
         run: cargo install substrate-spec-version
