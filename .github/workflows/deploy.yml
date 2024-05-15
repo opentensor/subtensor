@@ -38,15 +38,15 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Install subxt
-        run: cargo install subxt-cli
+      - name: Install substrate-spec-version
+        run: cargo install substrate-spec-version
 
       - name: Check-out repository under $GITHUB_WORKSPACE
         uses: actions/checkout@v4
 
       - name: try on its own
         run: |
-          PATH=$PATH:$HOME/.cargo/.bin subxt metadata --url wss://test.chain.opentensor.ai:443 --format json
+          PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://test.chain.opentensor.ai:443
 
       - name: Get live spec_version for ${{ github.event.inputs.network }}
         run: |
