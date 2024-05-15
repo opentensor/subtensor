@@ -1325,6 +1325,12 @@ impl_runtime_apis! {
             let result = SubtensorModule::get_substake_for_netuid( netuid );
             result.encode()
         }
+        fn get_total_stake_for_coldkey( coldkey_bytes: Vec<u8> ) -> u64 {
+            SubtensorModule::get_total_stake_for_coldkey( coldkey_bytes )
+        }
+        fn get_total_stake_for_hotkey( hotkey_bytes: Vec<u8> ) -> u64 {
+            SubtensorModule::get_total_stake_for_hotkey( hotkey_bytes )
+        }
 
         fn get_delegates() -> Vec<u8> {
             let result = SubtensorModule::get_delegates();
