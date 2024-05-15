@@ -119,8 +119,11 @@ mod events {
         TakeIncreased(T::AccountId, T::AccountId, u16),
         /// the hotkey is swapped
         HotkeySwapped {
+            /// the account ID of coldkey
             coldkey: T::AccountId,
+            /// the account ID of old hotkey
             old_hotkey: T::AccountId,
+            /// the account ID of new hotkey
             new_hotkey: T::AccountId,
         },
         /// maximum delegate take is set by sudo/admin transaction

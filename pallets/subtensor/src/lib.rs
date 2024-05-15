@@ -57,6 +57,7 @@ pub mod subnet_info;
 extern crate alloc;
 pub mod migration;
 
+#[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
 #[frame_support::pallet]
@@ -78,8 +79,8 @@ pub mod pallet {
     #[cfg(feature = "std")]
     use sp_std::prelude::Box;
 
-    // Tracks version for migrations. Should be monotonic with respect to the
-    // order of migrations. (i.e. always increasing)
+    /// Tracks version for migrations. Should be monotonic with respect to the
+    /// order of migrations. (i.e. always increasing)
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
 
     #[pallet::pallet]
@@ -87,10 +88,10 @@ pub mod pallet {
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
-    // Configure the pallet by specifying the parameters and types on which it depends.
+    /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A sudo-able call.
@@ -101,104 +102,149 @@ pub mod pallet {
         /// Origin checking for council majority
         type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-        // --- Currency type that will be used to place deposits on neurons
+        ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
             + fungible::Mutate<Self::AccountId>;
 
+        /// Senate members with members management functions.
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
 
+        /// Interface to allow other pallets to control who can register identities
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
-        // =================================
-        // ==== Initial Value Constants ====
-        // =================================
-        #[pallet::constant] // Initial currency issuance.
+        /// =================================
+        /// ==== Initial Value Constants ====
+        /// =================================
+
+        /// Initial currency issuance.
+        #[pallet::constant]
         type InitialIssuance: Get<u64>;
-        #[pallet::constant] // Initial min allowed weights setting.
+        /// Initial min allowed weights setting.
+        #[pallet::constant]
         type InitialMinAllowedWeights: Get<u16>;
-        #[pallet::constant] // Initial Emission Ratio.
+        /// Initial Emission Ratio.
+        #[pallet::constant]
         type InitialEmissionValue: Get<u16>;
-        #[pallet::constant] // Initial max weight limit.
+        /// Initial max weight limit.
+        #[pallet::constant]
         type InitialMaxWeightsLimit: Get<u16>;
-        #[pallet::constant] // Tempo for each network.
+        /// Tempo for each network.
+        #[pallet::constant]
         type InitialTempo: Get<u16>;
-        #[pallet::constant] // Initial Difficulty.
+        /// Initial Difficulty.
+        #[pallet::constant]
         type InitialDifficulty: Get<u64>;
-        #[pallet::constant] // Initial Max Difficulty.
+        /// Initial Max Difficulty.
+        #[pallet::constant]
         type InitialMaxDifficulty: Get<u64>;
-        #[pallet::constant] // Initial Min Difficulty.
+        /// Initial Min Difficulty.
+        #[pallet::constant]
         type InitialMinDifficulty: Get<u64>;
-        #[pallet::constant] // Initial RAO Recycled.
+        /// Initial RAO Recycled.
+        #[pallet::constant]
         type InitialRAORecycledForRegistration: Get<u64>;
-        #[pallet::constant] // Initial Burn.
+        /// Initial Burn.
+        #[pallet::constant]
         type InitialBurn: Get<u64>;
-        #[pallet::constant] // Initial Max Burn.
+        /// Initial Max Burn.
+        #[pallet::constant]
         type InitialMaxBurn: Get<u64>;
-        #[pallet::constant] // Initial Min Burn.
+        /// Initial Min Burn.
+        #[pallet::constant]
         type InitialMinBurn: Get<u64>;
-        #[pallet::constant] // Initial adjustment interval.
+        /// Initial adjustment interval.
+        #[pallet::constant]
         type InitialAdjustmentInterval: Get<u16>;
-        #[pallet::constant] // Initial bonds moving average.
+        /// Initial bonds moving average.
+        #[pallet::constant]
         type InitialBondsMovingAverage: Get<u64>;
-        #[pallet::constant] // Initial target registrations per interval.
+        /// Initial target registrations per interval.
+        #[pallet::constant]
         type InitialTargetRegistrationsPerInterval: Get<u16>;
-        #[pallet::constant] // Rho constant.
+        /// Rho constant.
+        #[pallet::constant]
         type InitialRho: Get<u16>;
-        #[pallet::constant] // Kappa constant.
+        /// Kappa constant.
+        #[pallet::constant]
         type InitialKappa: Get<u16>;
-        #[pallet::constant] // Max UID constant.
+        /// Max UID constant.
+        #[pallet::constant]
         type InitialMaxAllowedUids: Get<u16>;
-        #[pallet::constant] // Initial validator context pruning length.
+        /// Initial validator context pruning length.
+        #[pallet::constant]
         type InitialValidatorPruneLen: Get<u64>;
-        #[pallet::constant] // Initial scaling law power.
+        /// Initial scaling law power.
+        #[pallet::constant]
         type InitialScalingLawPower: Get<u16>;
-        #[pallet::constant] // Immunity Period Constant.
+        /// Immunity Period Constant.
+        #[pallet::constant]
         type InitialImmunityPeriod: Get<u16>;
-        #[pallet::constant] // Activity constant.
+        /// Activity constant.
+        #[pallet::constant]
         type InitialActivityCutoff: Get<u16>;
-        #[pallet::constant] // Initial max registrations per block.
+        /// Initial max registrations per block.
+        #[pallet::constant]
         type InitialMaxRegistrationsPerBlock: Get<u16>;
-        #[pallet::constant] // Initial pruning score for each neuron.
+        /// Initial pruning score for each neuron.
+        #[pallet::constant]
         type InitialPruningScore: Get<u16>;
-        #[pallet::constant] // Initial maximum allowed validators per network.
+        /// Initial maximum allowed validators per network.
+        #[pallet::constant]
         type InitialMaxAllowedValidators: Get<u16>;
-        #[pallet::constant] // Initial default delegation take.
+        /// Initial default delegation take.
+        #[pallet::constant]
         type InitialDefaultTake: Get<u16>;
-        #[pallet::constant] // Initial minimum delegation take.
+        /// Initial minimum delegation take.
+        #[pallet::constant]
         type InitialMinTake: Get<u16>;
-        #[pallet::constant] // Initial weights version key.
+        /// Initial weights version key.
+        #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
-        #[pallet::constant] // Initial serving rate limit.
+        /// Initial serving rate limit.
+        #[pallet::constant]
         type InitialServingRateLimit: Get<u64>;
-        #[pallet::constant] // Initial transaction rate limit.
+        /// Initial transaction rate limit.
+        #[pallet::constant]
         type InitialTxRateLimit: Get<u64>;
-        #[pallet::constant] // Initial delegate take transaction rate limit.
+        /// Initial delegate take transaction rate limit.
+        #[pallet::constant]
         type InitialTxDelegateTakeRateLimit: Get<u64>;
-        #[pallet::constant] // Initial percentage of total stake required to join senate.
+        /// Initial percentage of total stake required to join senate.
+        #[pallet::constant]
         type InitialSenateRequiredStakePercentage: Get<u64>;
-        #[pallet::constant] // Initial adjustment alpha on burn and pow.
+        /// Initial adjustment alpha on burn and pow.
+        #[pallet::constant]
         type InitialAdjustmentAlpha: Get<u64>;
-        #[pallet::constant] // Initial network immunity period
+        /// Initial network immunity period
+        #[pallet::constant]
         type InitialNetworkImmunityPeriod: Get<u64>;
-        #[pallet::constant] // Initial minimum allowed network UIDs
+        /// Initial minimum allowed network UIDs
+        #[pallet::constant]
         type InitialNetworkMinAllowedUids: Get<u16>;
-        #[pallet::constant] // Initial network minimum burn cost
+        /// Initial network minimum burn cost
+        #[pallet::constant]
         type InitialNetworkMinLockCost: Get<u64>;
-        #[pallet::constant] // Initial network subnet cut.
+        /// Initial network subnet cut.
+        #[pallet::constant]
         type InitialSubnetOwnerCut: Get<u16>;
-        #[pallet::constant] // Initial lock reduction interval.
+        /// Initial lock reduction interval.
+        #[pallet::constant]
         type InitialNetworkLockReductionInterval: Get<u64>;
-        #[pallet::constant] // Initial max allowed subnets
+        /// Initial max allowed subnets
+        #[pallet::constant]
         type InitialSubnetLimit: Get<u16>;
-        #[pallet::constant] // Initial network creation rate limit
+        /// Initial network creation rate limit
+        #[pallet::constant]
         type InitialNetworkRateLimit: Get<u64>;
-        #[pallet::constant] // Initial target stakes per interval issuance.
+        /// Initial target stakes per interval issuance.
+        #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
     }
 
+    /// Alias for the account ID.
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
 
-    // Senate requirements
+    /// Senate requirements
     #[pallet::type_value]
     pub fn DefaultSenateRequiredStakePercentage<T: Config>() -> u64 {
         T::InitialSenateRequiredStakePercentage::get()
@@ -208,50 +254,62 @@ pub mod pallet {
     pub(super) type SenateRequiredStakePercentage<T> =
         StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
-    // ============================
-    // ==== Staking + Accounts ====
-    // ============================
+    /// ============================
+    /// ==== Staking + Accounts ====
+    /// ============================
+
+    /// Total Rao in circulation.
     #[pallet::type_value]
     pub fn TotalSupply<T: Config>() -> u64 {
         21_000_000_000_000_000 // Rao => 21_000_000 Tao
     }
+    /// Default total stake.
     #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
         T::InitialDefaultTake::get()
     }
+    /// Default minimum take.
     #[pallet::type_value]
     pub fn DefaultMinTake<T: Config>() -> u16 {
         T::InitialMinTake::get()
     }
+    /// Default account take.
     #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
     }
+    /// Default stakes per interval.
     #[pallet::type_value]
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
         (0, 0)
     }
+    /// Default emission per block.
     #[pallet::type_value]
     pub fn DefaultBlockEmission<T: Config>() -> u64 {
         1_000_000_000
     }
+    /// Default allowed delegation.
     #[pallet::type_value]
     pub fn DefaultAllowsDelegation<T: Config>() -> bool {
         false
     }
+    /// Default total issuance.
     #[pallet::type_value]
     pub fn DefaultTotalIssuance<T: Config>() -> u64 {
         T::InitialIssuance::get()
     }
+    /// Default account, derived from zero trailing bytes.
     #[pallet::type_value]
     pub fn DefaultAccount<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
+    /// Default target stakes per interval.
     #[pallet::type_value]
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
     }
+    /// Default stake interval.
     #[pallet::type_value]
     pub fn DefaultStakeInterval<T: Config>() -> u64 {
         360
@@ -279,7 +337,7 @@ pub mod pallet {
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
     #[pallet::storage]
-    // --- MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
         _,
         Identity,
@@ -308,45 +366,56 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
 
-    // =====================================
-    // ==== Difficulty / Registrations =====
-    // =====================================
+    /// =====================================
+    /// ==== Difficulty / Registrations =====
+    /// =====================================
+
+    /// Default last adjustment block.
     #[pallet::type_value]
     pub fn DefaultLastAdjustmentBlock<T: Config>() -> u64 {
         0
     }
+    /// Default registrations this block.
     #[pallet::type_value]
     pub fn DefaultRegistrationsThisBlock<T: Config>() -> u16 {
         0
     }
+    /// Default burn token.
     #[pallet::type_value]
     pub fn DefaultBurn<T: Config>() -> u64 {
         T::InitialBurn::get()
     }
+    /// Default min burn token.
     #[pallet::type_value]
     pub fn DefaultMinBurn<T: Config>() -> u64 {
         T::InitialMinBurn::get()
     }
+    /// Default max burn token.
     #[pallet::type_value]
     pub fn DefaultMaxBurn<T: Config>() -> u64 {
         T::InitialMaxBurn::get()
     }
+    /// Default difficulty value.
     #[pallet::type_value]
     pub fn DefaultDifficulty<T: Config>() -> u64 {
         T::InitialDifficulty::get()
     }
+    /// Default min difficulty value.
     #[pallet::type_value]
     pub fn DefaultMinDifficulty<T: Config>() -> u64 {
         T::InitialMinDifficulty::get()
     }
+    /// Default max difficulty value.
     #[pallet::type_value]
     pub fn DefaultMaxDifficulty<T: Config>() -> u64 {
         T::InitialMaxDifficulty::get()
     }
+    /// Default max registrations per block.
     #[pallet::type_value]
     pub fn DefaultMaxRegistrationsPerBlock<T: Config>() -> u16 {
         T::InitialMaxRegistrationsPerBlock::get()
     }
+    /// Default RAO recycled for registration.
     #[pallet::type_value]
     pub fn DefaultRAORecycledForRegistration<T: Config>() -> u64 {
         T::InitialRAORecycledForRegistration::get()
@@ -381,69 +450,86 @@ pub mod pallet {
     pub type RAORecycledForRegistration<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
 
-    // ==============================
-    // ==== Subnetworks Storage =====
-    // ==============================
+    /// ==============================
+    /// ==== Subnetworks Storage =====
+    /// ==============================
+
+    /// Default number of networks.
     #[pallet::type_value]
     pub fn DefaultN<T: Config>() -> u16 {
         0
     }
+    /// Default value for modality.
     #[pallet::type_value]
     pub fn DefaultModality<T: Config>() -> u16 {
         0
     }
+    /// Default value for hotkeys.
     #[pallet::type_value]
     pub fn DefaultHotkeys<T: Config>() -> Vec<u16> {
         vec![]
     }
+    /// Default value if network is added.
     #[pallet::type_value]
     pub fn DefaultNeworksAdded<T: Config>() -> bool {
         false
     }
+    /// Default value for network member.
     #[pallet::type_value]
     pub fn DefaultIsNetworkMember<T: Config>() -> bool {
         false
     }
+    /// Default value for registration allowed.
     #[pallet::type_value]
     pub fn DefaultRegistrationAllowed<T: Config>() -> bool {
         false
     }
+    /// Default value for network registered at.
     #[pallet::type_value]
     pub fn DefaultNetworkRegisteredAt<T: Config>() -> u64 {
         0
     }
+    /// Default value for network immunity period.
     #[pallet::type_value]
     pub fn DefaultNetworkImmunityPeriod<T: Config>() -> u64 {
         T::InitialNetworkImmunityPeriod::get()
     }
+    /// Default value for network last registered.
     #[pallet::type_value]
     pub fn DefaultNetworkLastRegistered<T: Config>() -> u64 {
         0
     }
+    /// Default value for nominator min required stake.
     #[pallet::type_value]
     pub fn DefaultNominatorMinRequiredStake<T: Config>() -> u64 {
         0
     }
+    /// Default value for network min allowed UIDs.
     #[pallet::type_value]
     pub fn DefaultNetworkMinAllowedUids<T: Config>() -> u16 {
         T::InitialNetworkMinAllowedUids::get()
     }
+    /// Default value for network min lock cost.
     #[pallet::type_value]
     pub fn DefaultNetworkMinLockCost<T: Config>() -> u64 {
         T::InitialNetworkMinLockCost::get()
     }
+    /// Default value for network lock reduction interval.
     #[pallet::type_value]
     pub fn DefaultNetworkLockReductionInterval<T: Config>() -> u64 {
         T::InitialNetworkLockReductionInterval::get()
     }
+    /// Default value for subnet owner cut.
     #[pallet::type_value]
     pub fn DefaultSubnetOwnerCut<T: Config>() -> u16 {
         T::InitialSubnetOwnerCut::get()
     }
+    /// Default value for subnet limit.
     #[pallet::type_value]
     pub fn DefaultSubnetLimit<T: Config>() -> u16 {
         T::InitialSubnetLimit::get()
     }
+    /// Default value for network rate limit.
     #[pallet::type_value]
     pub fn DefaultNetworkRateLimit<T: Config>() -> u64 {
         if cfg!(feature = "pow-faucet") {
@@ -509,34 +595,42 @@ pub mod pallet {
     pub type NominatorMinRequiredStake<T> =
         StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
 
-    // ==============================
-    // ==== Subnetwork Features =====
-    // ==============================
+    /// ==============================
+    /// ==== Subnetwork Features =====
+    /// ==============================
+
+    /// Default value for emission values.
     #[pallet::type_value]
     pub fn DefaultEmissionValues<T: Config>() -> u64 {
         0
     }
+    /// Default value for pending emission.
     #[pallet::type_value]
     pub fn DefaultPendingEmission<T: Config>() -> u64 {
         0
     }
+    /// Default value for blocks since last step.
     #[pallet::type_value]
     pub fn DefaultBlocksSinceLastStep<T: Config>() -> u64 {
         0
     }
+    /// Default value for last mechanism step block.
     #[pallet::type_value]
     pub fn DefaultLastMechanismStepBlock<T: Config>() -> u64 {
         0
     }
+    /// Default value for subnet owner.
     #[pallet::type_value]
     pub fn DefaultSubnetOwner<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
+    /// Default value for subnet locked.
     #[pallet::type_value]
     pub fn DefaultSubnetLocked<T: Config>() -> u64 {
         0
     }
+    /// Default value for network tempo
     #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
         T::InitialTempo::get()
@@ -563,45 +657,62 @@ pub mod pallet {
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
 
-    // =================================
-    // ==== Axon / Promo Endpoints =====
-    // =================================
+    /// =================================
+    /// ==== Axon / Promo Endpoints =====
+    /// =================================
 
-    // --- Struct for Axon.
+    /// Struct for Axon.
     pub type AxonInfoOf = AxonInfo;
 
+    /// Data structure for Axon information.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
-        pub block: u64,       // --- Axon serving block.
-        pub version: u32,     // --- Axon version
-        pub ip: u128,         // --- Axon u128 encoded ip address of type v6 or v4.
-        pub port: u16,        // --- Axon u16 encoded port.
-        pub ip_type: u8,      // --- Axon ip type, 4 for ipv4 and 6 for ipv6.
-        pub protocol: u8,     // --- Axon protocol. TCP, UDP, other.
-        pub placeholder1: u8, // --- Axon proto placeholder 1.
-        pub placeholder2: u8, // --- Axon proto placeholder 2.
+        ///  Axon serving block.
+        pub block: u64,
+        ///  Axon version
+        pub version: u32,
+        ///  Axon u128 encoded ip address of type v6 or v4.
+        pub port: u16,
+        ///  Axon u16 encoded port.
+        pub ip: u128,
+        ///  Axon ip type, 4 for ipv4 and 6 for ipv6.
+        pub ip_type: u8,
+        ///  Axon protocol. TCP, UDP, other.
+        pub protocol: u8,
+        ///  Axon proto placeholder 1.
+        pub placeholder1: u8,
+        ///  Axon proto placeholder 2.
+        pub placeholder2: u8,
     }
 
-    // --- Struct for Prometheus.
+    ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
+    /// Data structure for Prometheus information.
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
-        pub block: u64,   // --- Prometheus serving block.
-        pub version: u32, // --- Prometheus version.
-        pub ip: u128,     // --- Prometheus u128 encoded ip address of type v6 or v4.
-        pub port: u16,    // --- Prometheus u16 encoded port.
-        pub ip_type: u8,  // --- Prometheus ip type, 4 for ipv4 and 6 for ipv6.
+        /// Prometheus serving block.
+        pub block: u64,
+        /// Prometheus version.
+        pub version: u32,
+        ///  Prometheus u128 encoded ip address of type v6 or v4.
+        pub ip: u128,
+        ///  Prometheus u16 encoded port.
+        pub port: u16,
+        /// Prometheus ip type, 4 for ipv4 and 6 for ipv6.
+        pub ip_type: u8,
     }
 
-    // Rate limiting
+    /// Default value for rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
         T::InitialTxRateLimit::get()
     }
+    /// Default value for delegate take rate limiting
     #[pallet::type_value]
     pub fn DefaultTxDelegateTakeRateLimit<T: Config>() -> u64 {
         T::InitialTxDelegateTakeRateLimit::get()
     }
+    /// Default value for last extrinsic block.
     #[pallet::type_value]
     pub fn DefaultLastTxBlock<T: Config>() -> u64 {
         0
@@ -619,6 +730,7 @@ pub mod pallet {
     pub(super) type LastTxBlockDelegateTake<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
 
+    /// Default value for serving rate limit.
     #[pallet::type_value]
     pub fn DefaultServingRateLimit<T: Config>() -> u64 {
         T::InitialServingRateLimit::get()
@@ -641,77 +753,96 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    // =======================================
-    // ==== Subnetwork Hyperparam storage ====
-    // =======================================
+    /// =======================================
+    /// ==== Subnetwork Hyperparam storage ====
+    /// =======================================
+
+    /// Default weights set rate limit.
     #[pallet::type_value]
     pub fn DefaultWeightsSetRateLimit<T: Config>() -> u64 {
         100
     }
+    /// Default block at registration.
     #[pallet::type_value]
     pub fn DefaultBlockAtRegistration<T: Config>() -> u64 {
         0
     }
+    /// Default Rho parameter value.
     #[pallet::type_value]
     pub fn DefaultRho<T: Config>() -> u16 {
         T::InitialRho::get()
     }
+    /// Default Kai parameter value.
     #[pallet::type_value]
     pub fn DefaultKappa<T: Config>() -> u16 {
         T::InitialKappa::get()
     }
+    /// Default max allowed uids.
     #[pallet::type_value]
     pub fn DefaultMaxAllowedUids<T: Config>() -> u16 {
         T::InitialMaxAllowedUids::get()
     }
+    /// Default immunity period value.
     #[pallet::type_value]
     pub fn DefaultImmunityPeriod<T: Config>() -> u16 {
         T::InitialImmunityPeriod::get()
     }
+    /// Default activity cutoff value.
     #[pallet::type_value]
     pub fn DefaultActivityCutoff<T: Config>() -> u16 {
         T::InitialActivityCutoff::get()
     }
+    /// Default max weights limit.
     #[pallet::type_value]
     pub fn DefaultMaxWeightsLimit<T: Config>() -> u16 {
         T::InitialMaxWeightsLimit::get()
     }
+    /// Default weights version key.
     #[pallet::type_value]
     pub fn DefaultWeightsVersionKey<T: Config>() -> u64 {
         T::InitialWeightsVersionKey::get()
     }
+    /// Default minimal allowed weights.
     #[pallet::type_value]
     pub fn DefaultMinAllowedWeights<T: Config>() -> u16 {
         T::InitialMinAllowedWeights::get()
     }
+    /// Default max allowed validators.
     #[pallet::type_value]
     pub fn DefaultMaxAllowedValidators<T: Config>() -> u16 {
         T::InitialMaxAllowedValidators::get()
     }
+    /// Default adjustment interval.
     #[pallet::type_value]
     pub fn DefaultAdjustmentInterval<T: Config>() -> u16 {
         T::InitialAdjustmentInterval::get()
     }
+    /// Default bonds moving average.
     #[pallet::type_value]
     pub fn DefaultBondsMovingAverage<T: Config>() -> u64 {
         T::InitialBondsMovingAverage::get()
     }
+    /// Default validator prune length.
     #[pallet::type_value]
     pub fn DefaultValidatorPruneLen<T: Config>() -> u64 {
         T::InitialValidatorPruneLen::get()
     }
+    /// Default scaling law power.
     #[pallet::type_value]
     pub fn DefaultScalingLawPower<T: Config>() -> u16 {
         T::InitialScalingLawPower::get()
     }
+    /// Default target registrations per interval.
     #[pallet::type_value]
     pub fn DefaultTargetRegistrationsPerInterval<T: Config>() -> u16 {
         T::InitialTargetRegistrationsPerInterval::get()
     }
+    /// Default adjustment alpha.
     #[pallet::type_value]
     pub fn DefaultAdjustmentAlpha<T: Config>() -> u64 {
         T::InitialAdjustmentAlpha::get()
     }
+    /// Default weights min stake.
     #[pallet::type_value]
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
         0
@@ -787,8 +918,7 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
-    // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
-    #[pallet::storage]
+    #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
@@ -799,6 +929,7 @@ pub mod pallet {
         OptionQuery,
     >;
 
+    /// Default value for weight commit reveal interval.
     #[pallet::type_value]
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
         1000
@@ -808,29 +939,36 @@ pub mod pallet {
     pub type WeightCommitRevealInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
 
-    // =======================================
-    // ==== Subnetwork Consensus Storage  ====
-    // =======================================
+    /// =======================================
+    /// ==== Subnetwork Consensus Storage  ====
+    /// =======================================
+
+    /// Value definition for vector of u16.
     #[pallet::type_value]
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
     }
+    /// Value definition for vector of u64.
     #[pallet::type_value]
     pub fn EmptyU64Vec<T: Config>() -> Vec<u64> {
         vec![]
     }
+    /// Value definition for vector of bool.
     #[pallet::type_value]
     pub fn EmptyBoolVec<T: Config>() -> Vec<bool> {
         vec![]
     }
+    /// Value definition for bonds with type vector of (u16, u16).
     #[pallet::type_value]
     pub fn DefaultBonds<T: Config>() -> Vec<(u16, u16)> {
         vec![]
     }
+    /// Value definition for weights with vector of (u16, u16).
     #[pallet::type_value]
     pub fn DefaultWeights<T: Config>() -> Vec<(u16, u16)> {
         vec![]
     }
+    /// Default value for key with type T::AccountId derived from trailing zeroes.
     #[pallet::type_value]
     pub fn DefaultKey<T: Config>() -> T::AccountId {
         T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
@@ -904,13 +1042,15 @@ pub mod pallet {
         DefaultBonds<T>,
     >;
 
-    // ==================
-    // ==== Genesis =====
-    // ==================
+    /// ==================
+    /// ==== Genesis =====
+    /// ==================
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
+        /// Stakes record in genesis.
         pub stakes: Vec<(T::AccountId, Vec<(T::AccountId, (u64, u16))>)>,
+        /// The total issued balance in genesis
         pub balances_issuance: u64,
     }
 
@@ -1052,7 +1192,6 @@ pub mod pallet {
 
             // Increment the number of total networks.
             TotalNetworks::<T>::mutate(|n| *n += 1);
-
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 
@@ -1141,69 +1280,69 @@ pub mod pallet {
         }
     }
 
-    // Dispatchable functions allow users to interact with the pallet and invoke state changes.
-    // These functions materialize as "extrinsics", which are often compared to transactions.
-    // Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+    /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
+    /// These functions materialize as "extrinsics", which are often compared to transactions.
+    /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // --- Sets the caller weights for the incentive mechanism. The call can be
-        // made from the hotkey account so is potentially insecure, however, the damage
-        // of changing weights is minimal if caught early. This function includes all the
-        // checks that the passed weights meet the requirements. Stored as u16s they represent
-        // rational values in the range [0,1] which sum to 1 and can be interpreted as
-        // probabilities. The specific weights determine how inflation propagates outward
-        // from this peer.
-        //
-        // Note: The 16 bit integers weights should represent 1.0 as the max u16.
-        // However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
-        // elements is larger or smaller than the amount of elements * u16_max, all elements
-        // will be corrected for this deviation.
-        //
-        // # Args:
-        // 	* `origin`: (<T as frame_system::Config>Origin):
-        // 		- The caller, a hotkey who wishes to set their weights.
-        //
-        // 	* `netuid` (u16):
-        // 		- The network uid we are setting these weights on.
-        //
-        // 	* `dests` (Vec<u16>):
-        // 		- The edge endpoint for the weight, i.e. j for w_ij.
-        //
-        // 	* 'weights' (Vec<u16>):
-        // 		- The u16 integer encoded weights. Interpreted as rational
-        // 		values in the range [0,1]. They must sum to in32::MAX.
-        //
-        // 	* 'version_key' ( u64 ):
-        // 		- The network version key to check if the validator is up to date.
-        //
-        // # Event:
-        // 	* WeightsSet;
-        // 		- On successfully setting the weights on chain.
-        //
-        // # Raises:
-        // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to set weights on a non-existent network.
-        //
-        // 	* 'NotRegistered':
-        // 		- Attempting to set weights from a non registered account.
-        //
-        // 	* 'WeightVecNotEqualSize':
-        // 		- Attempting to set weights with uids not of same length.
-        //
-        // 	* 'DuplicateUids':
-        // 		- Attempting to set weights with duplicate uids.
-        //
-        //     * 'TooManyUids':
-        // 		- Attempting to set weights above the max allowed uids.
-        //
-        // 	* 'InvalidUid':
-        // 		- Attempting to set weights with invalid uids.
-        //
-        // 	* 'NotSettingEnoughWeights':
-        // 		- Attempting to set weights with fewer weights than min.
-        //
-        // 	* 'MaxWeightExceeded':
-        // 		- Attempting to set weights with max value exceeding limit.
+        /// --- Sets the caller weights for the incentive mechanism. The call can be
+        /// made from the hotkey account so is potentially insecure, however, the damage
+        /// of changing weights is minimal if caught early. This function includes all the
+        /// checks that the passed weights meet the requirements. Stored as u16s they represent
+        /// rational values in the range [0,1] which sum to 1 and can be interpreted as
+        /// probabilities. The specific weights determine how inflation propagates outward
+        /// from this peer.
+        ///
+        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
+        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
+        /// elements is larger or smaller than the amount of elements * u16_max, all elements
+        /// will be corrected for this deviation.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        /// * 'NetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'DuplicateUids':
+        /// 	- Attempting to set weights with duplicate uids.
+        ///
+        ///     * 'TooManyUids':
+        /// 	- Attempting to set weights above the max allowed uids.
+        ///
+        /// * 'InvalidUid':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'NotSettingEnoughWeights':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(4104))
@@ -1288,66 +1427,66 @@ pub mod pallet {
             Self::do_reveal_weights(origin, netuid, uids, values, version_key)
         }
 
-        // # Args:
-        // 	* `origin`: (<T as frame_system::Config>Origin):
-        // 		- The caller, a hotkey who wishes to set their weights.
-        //
-        // 	* `netuid` (u16):
-        // 		- The network uid we are setting these weights on.
-        //
-        // 	* `hotkey` (T::AccountId):
-        // 		- The hotkey associated with the operation and the calling coldkey.
-        //
-        // 	* `dests` (Vec<u16>):
-        // 		- The edge endpoint for the weight, i.e. j for w_ij.
-        //
-        // 	* 'weights' (Vec<u16>):
-        // 		- The u16 integer encoded weights. Interpreted as rational
-        // 		values in the range [0,1]. They must sum to in32::MAX.
-        //
-        // 	* 'version_key' ( u64 ):
-        // 		- The network version key to check if the validator is up to date.
-        //
-        // # Event:
-        //
-        // 	* WeightsSet;
-        // 		- On successfully setting the weights on chain.
-        //
-        // # Raises:
-        //
-        // 	* NonAssociatedColdKey;
-        // 		- Attempting to set weights on a non-associated cold key.
-        //
-        // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to set weights on a non-existent network.
-        //
-        // 	* 'NotRootSubnet':
-        // 		- Attempting to set weights on a subnet that is not the root network.
-        //
-        // 	* 'WeightVecNotEqualSize':
-        // 		- Attempting to set weights with uids not of same length.
-        //
-        // 	* 'InvalidUid':
-        // 		- Attempting to set weights with invalid uids.
-        //
-        // 	* 'NotRegistered':
-        // 		- Attempting to set weights from a non registered account.
-        //
-        // 	* 'NotSettingEnoughWeights':
-        // 		- Attempting to set weights with fewer weights than min.
-        //
-        //  * 'IncorrectNetworkVersionKey':
-        //      - Attempting to set weights with the incorrect network version key.
-        //
-        //  * 'SettingWeightsTooFast':
-        //      - Attempting to set weights too fast.
-        //
-        // 	* 'NotSettingEnoughWeights':
-        // 		- Attempting to set weights with fewer weights than min.
-        //
-        // 	* 'MaxWeightExceeded':
-        // 		- Attempting to set weights with max value exceeding limit.
-        //
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        /// 	- The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `hotkey` (T::AccountId):
+        /// 	- The hotkey associated with the operation and the calling coldkey.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        ///
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        ///
+        /// * NonAssociatedColdKey;
+        /// 	- Attempting to set weights on a non-associated cold key.
+        ///
+        /// * 'NetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRootSubnet':
+        /// 	- Attempting to set weights on a subnet that is not the root network.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'InvalidUid':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'NotSettingEnoughWeights':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        ///  * 'IncorrectNetworkVersionKey':
+        ///      - Attempting to set weights with the incorrect network version key.
+        ///
+        ///  * 'SettingWeightsTooFast':
+        ///      - Attempting to set weights too fast.
+        ///
+        /// * 'NotSettingEnoughWeights':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
+        ///
         #[pallet::call_index(8)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
@@ -1363,69 +1502,68 @@ pub mod pallet {
             Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
         }
 
-        // --- Sets the key as a delegate.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'take' (u64):
-        // 		- The stake proportion that this hotkey takes from delegations.
-        //
-        // # Event:
-        // 	* DelegateAdded;
-        // 		- On successfully setting a hotkey as a delegate.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- The hotkey we are delegating is not registered on the network.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The hotkey we are delegating is not owned by the calling coldket.
-        //
-        //
+        /// --- Sets the key as a delegate.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'take' (u64):
+        /// 	- The stake proportion that this hotkey takes from delegations.
+        ///
+        /// # Event:
+        /// * DelegateAdded;
+        /// 	- On successfully setting a hotkey as a delegate.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- The hotkey we are delegating is not owned by the calling coldket.
+        ///
         #[pallet::call_index(1)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_become_delegate(origin, hotkey, Self::get_default_take())
         }
 
-        // --- Allows delegates to decrease its take value.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>::Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'netuid' (u16):
-        // 		- Subnet ID to decrease take for
-        //
-        // 	* 'take' (u16):
-        // 		- The new stake proportion that this hotkey takes from delegations.
-        //        The new value can be between 0 and 11_796 and should be strictly
-        //        lower than the previous value. If T is the new value (rational number),
-        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
-        //        [0.01 * 65535] = [655.35] = 655
-        //
-        // # Event:
-        // 	* TakeDecreased;
-        // 		- On successfully setting a decreased take for this hotkey.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- The hotkey we are delegating is not registered on the network.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The hotkey we are delegating is not owned by the calling coldkey.
-        //
-        // 	* 'InvalidTake':
-        // 		- The delegate is setting a take which is not lower than the previous.
-        //
+        /// --- Allows delegates to decrease its take value.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>::Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'netuid' (u16):
+        /// 	- Subnet ID to decrease take for
+        ///
+        /// * 'take' (u16):
+        /// 	- The new stake proportion that this hotkey takes from delegations.
+        ///        The new value can be between 0 and 11_796 and should be strictly
+        ///        lower than the previous value. It T is the new value (rational number),
+        ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///        [0.01 * 65535] = [655.35] = 655
+        ///
+        /// # Event:
+        /// * TakeDecreased;
+        /// 	- On successfully setting a decreased take for this hotkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        ///
+        /// * 'InvalidTake':
+        /// 	- The delegate is setting a take which is not lower than the previous.
+        ///
         #[pallet::call_index(65)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(
@@ -1436,36 +1574,36 @@ pub mod pallet {
             Self::do_decrease_take(origin, hotkey, take)
         }
 
-        // --- Allows delegates to increase its take value. This call is rate-limited.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>::Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'take' (u16):
-        // 		- The new stake proportion that this hotkey takes from delegations.
-        //        The new value can be between 0 and 11_796 and should be strictly
-        //        greater than the previous value. If T is the new value (rational number),
-        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
-        //        [0.01 * 65535] = [655.35] = 655
-        //
-        // # Event:
-        // 	* TakeIncreased;
-        // 		- On successfully setting a increased take for this hotkey.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- The hotkey we are delegating is not registered on the network.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The hotkey we are delegating is not owned by the calling coldkey.
-        //
-        // 	* 'InvalidTake':
-        // 		- The delegate is setting a take which is not greater than the previous.
-        //
+        /// --- Allows delegates to increase its take value. This call is rate-limited.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>::Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'take' (u16):
+        /// 	- The new stake proportion that this hotkey takes from delegations.
+        ///        The new value can be between 0 and 11_796 and should be strictly
+        ///        greater than the previous value. T is the new value (rational number),
+        ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///        [0.01 * 65535] = [655.35] = 655
+        ///
+        /// # Event:
+        /// * TakeIncreased;
+        /// 	- On successfully setting a increased take for this hotkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        ///
+        /// * 'InvalidTake':
+        /// 	- The delegate is setting a take which is not greater than the previous.
+        ///
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn increase_take(
@@ -1476,40 +1614,36 @@ pub mod pallet {
             Self::do_increase_take(origin, hotkey, take)
         }
 
-        // --- Adds stake to a hotkey. The call is made from the
-        // coldkey account linked in the hotkey.
-        // Only the associated coldkey is allowed to make staking and
-        // unstaking requests. This protects the neuron against
-        // attacks on its hotkey running in production code.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The associated hotkey account.
-        //
-        // 	* 'amount_staked' (u64):
-        // 		- The amount of stake to be added to the hotkey staking account.
-        //
-        // # Event:
-        // 	* StakeAdded;
-        // 		- On the successfully adding stake to a global account.
-        //
-        // # Raises:
-        // 	* 'CouldNotConvertToBalance':
-        // 		- Unable to convert the passed stake value to a balance.
-        //
-        // 	* 'NotEnoughBalanceToStake':
-        // 		- Not enough balance on the coldkey to add onto the global account.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The calling coldkey is not associated with this hotkey.
-        //
-        // 	* 'BalanceWithdrawalError':
-        // 		- Errors stemming from transaction pallet.
-        //
-        //
+        /// --- Adds stake to a hotkey. The call is made from the
+        /// coldkey account linked in the hotkey.
+        /// Only the associated coldkey is allowed to make staking and
+        /// unstaking requests. This protects the neuron against
+        /// attacks on its hotkey running in production code.
+        ///
+        /// # Args:
+        ///  * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        ///  * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        ///  * 'amount_staked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        ///  * StakeAdded;
+        /// 	- On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        ///  * 'NotEnoughBalanceToStake':
+        /// 	- Not enough balance on the coldkey to add onto the global account.
+        ///
+        ///  * 'NonAssociatedColdKey':
+        /// 	- The calling coldkey is not associated with this hotkey.
+        ///
+        ///  * 'BalanceWithdrawalError':
+        ///  	- Errors stemming from transaction pallet.
+        ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(65_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(8))
@@ -1522,38 +1656,34 @@ pub mod pallet {
             Self::do_add_stake(origin, hotkey, amount_staked)
         }
 
-        // ---- Remove stake from the staking account. The call must be made
-        // from the coldkey account attached to the neuron metadata. Only this key
-        // has permission to make staking and unstaking requests.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The associated hotkey account.
-        //
-        // 	* 'amount_unstaked' (u64):
-        // 		- The amount of stake to be added to the hotkey staking account.
-        //
-        // # Event:
-        // 	* StakeRemoved;
-        // 		- On the successfully removing stake from the hotkey account.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- Thrown if the account we are attempting to unstake from is non existent.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
-        //
-        // 	* 'NotEnoughStaketoWithdraw':
-        // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-        //
-        // 	* 'CouldNotConvertToBalance':
-        // 		- Thrown if we could not convert this amount to a balance.
-        //
-        //
+        /// Remove stake from the staking account. The call must be made
+        /// from the coldkey account attached to the neuron metadata. Only this key
+        /// has permission to make staking and unstaking requests.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        /// * 'amount_unstaked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        /// 	- On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * 'NotEnoughStaketoWithdraw':
+        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        ///
         #[pallet::call_index(3)]
         #[pallet::weight((Weight::from_parts(63_000_000, 0)
 		.saturating_add(Weight::from_parts(0, 43991))
@@ -1567,57 +1697,57 @@ pub mod pallet {
             Self::do_remove_stake(origin, hotkey, amount_unstaked)
         }
 
-        // ---- Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
-        // already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the caller.
-        //
-        // 	* 'netuid' (u16):
-        // 		- The u16 network identifier.
-        //
-        // 	* 'version' (u64):
-        // 		- The bittensor version identifier.
-        //
-        // 	* 'ip' (u64):
-        // 		- The endpoint ip information as a u128 encoded integer.
-        //
-        // 	* 'port' (u16):
-        // 		- The endpoint port information as a u16 encoded integer.
-        //
-        // 	* 'ip_type' (u8):
-        // 		- The endpoint ip version as a u8, 4 or 6.
-        //
-        // 	* 'protocol' (u8):
-        // 		- UDP:1 or TCP:0
-        //
-        // 	* 'placeholder1' (u8):
-        // 		- Placeholder for further extra params.
-        //
-        // 	* 'placeholder2' (u8):
-        // 		- Placeholder for further extra params.
-        //
-        // # Event:
-        // 	* AxonServed;
-        // 		- On successfully serving the axon info.
-        //
-        // # Raises:
-        // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to set weights on a non-existent network.
-        //
-        // 	* 'NotRegistered':
-        // 		- Attempting to set weights from a non registered account.
-        //
-        // 	* 'InvalidIpType':
-        // 		- The ip type is not 4 or 6.
-        //
-        // 	* 'InvalidIpAddress':
-        // 		- The numerically encoded ip address does not resolve to a proper ip.
-        //
-        // 	* 'ServingRateLimitExceeded':
-        // 		- Attempting to set prometheus information withing the rate limit min.
-        //
+        /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+        /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u64):
+        /// 	- The bittensor version identifier.
+        ///
+        /// * 'ip' (u64):
+        /// 	- The endpoint ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The endpoint port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The endpoint ip version as a u8, 4 or 6.
+        ///
+        /// * 'protocol' (u8):
+        /// 	- UDP:1 or TCP:0
+        ///
+        /// * 'placeholder1' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'placeholder2' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// # Event:
+        /// * AxonServed;
+        /// 	- On successfully serving the axon info.
+        ///
+        /// # Raises:
+        /// * 'NetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'InvalidIpType':
+        /// 	- The ip type is not 4 or 6.
+        ///
+        /// * 'InvalidIpAddress':
+        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        ///
+        /// * 'ServingRateLimitExceeded':
+        /// 	- Attempting to set prometheus information withing the rate limit min.
+        ///
         #[pallet::call_index(4)]
         #[pallet::weight((Weight::from_parts(19_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
@@ -1646,6 +1776,26 @@ pub mod pallet {
             )
         }
 
+        /// ---- Set prometheus information for the neuron.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the calling hotkey.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u16):
+        /// 	-  The bittensor version identifier.
+        ///
+        /// * 'ip' (u128):
+        /// 	- The prometheus ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The prometheus port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The ip type v4 or v6.
+        ///
         #[pallet::call_index(5)]
         #[pallet::weight((Weight::from_parts(17_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(2))
@@ -1661,53 +1811,53 @@ pub mod pallet {
             Self::do_serve_prometheus(origin, netuid, version, ip, port, ip_type)
         }
 
-        // ---- Registers a new neuron to the subnetwork.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the calling hotkey.
-        //
-        // 	* 'netuid' (u16):
-        // 		- The u16 network identifier.
-        //
-        // 	* 'block_number' ( u64 ):
-        // 		- Block hash used to prove work done.
-        //
-        // 	* 'nonce' ( u64 ):
-        // 		- Positive integer nonce used in POW.
-        //
-        // 	* 'work' ( Vec<u8> ):
-        // 		- Vector encoded bytes representing work done.
-        //
-        // 	* 'hotkey' ( T::AccountId ):
-        // 		- Hotkey to be registered to the network.
-        //
-        // 	* 'coldkey' ( T::AccountId ):
-        // 		- Associated coldkey account.
-        //
-        // # Event:
-        // 	* NeuronRegistered;
-        // 		- On successfully registereing a uid to a neuron slot on a subnetwork.
-        //
-        // # Raises:
-        // 	* 'NetworkDoesNotExist':
-        // 		- Attempting to registed to a non existent network.
-        //
-        // 	* 'TooManyRegistrationsThisBlock':
-        // 		- This registration exceeds the total allowed on this network this block.
-        //
-        // 	* 'AlreadyRegistered':
-        // 		- The hotkey is already registered on this network.
-        //
-        // 	* 'InvalidWorkBlock':
-        // 		- The work has been performed on a stale, future, or non existent block.
-        //
-        // 	* 'InvalidDifficulty':
-        // 		- The work does not match the difficutly.
-        //
-        // 	* 'InvalidSeal':
-        // 		- The seal is incorrect.
-        //
+        /// ---- Registers a new neuron to the subnetwork.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the calling hotkey.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'block_number' ( u64 ):
+        /// 	- Block hash used to prove work done.
+        ///
+        /// * 'nonce' ( u64 ):
+        /// 	- Positive integer nonce used in POW.
+        ///
+        /// * 'work' ( Vec<u8> ):
+        /// 	- Vector encoded bytes representing work done.
+        ///
+        /// * 'hotkey' ( T::AccountId ):
+        /// 	- Hotkey to be registered to the network.
+        ///
+        /// * 'coldkey' ( T::AccountId ):
+        /// 	- Associated coldkey account.
+        ///
+        /// # Event:
+        /// * NeuronRegistered;
+        /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
+        ///
+        /// # Raises:
+        /// * 'NetworkDoesNotExist':
+        /// 	- Attempting to register to a non existent network.
+        ///
+        /// * 'TooManyRegistrationsThisBlock':
+        /// 	- This registration exceeds the total allowed on this network this block.
+        ///
+        /// * 'AlreadyRegistered':
+        /// 	- The hotkey is already registered on this network.
+        ///
+        /// * 'InvalidWorkBlock':
+        /// 	- The work has been performed on a stale, future, or non existent block.
+        ///
+        /// * 'InvalidDifficulty':
+        /// 	- The work does not match the difficulty.
+        ///
+        /// * 'InvalidSeal':
+        /// 	- The seal is incorrect.
+        ///
         #[pallet::call_index(6)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
@@ -1724,6 +1874,7 @@ pub mod pallet {
             Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
         }
 
+        /// Register the hotkey to root network
         #[pallet::call_index(62)]
         #[pallet::weight((Weight::from_parts(120_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
@@ -1732,6 +1883,7 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
+        /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(89_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(27))
@@ -1744,6 +1896,7 @@ pub mod pallet {
             Self::do_burned_registration(origin, netuid, hotkey)
         }
 
+        /// The extrinsic for user to change its hotkey
         #[pallet::call_index(70)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn swap_hotkey(
@@ -1823,6 +1976,7 @@ pub mod pallet {
             return result;
         }
 
+        /// User vote on a proposal
         #[pallet::call_index(55)]
         #[pallet::weight((Weight::from_parts(0, 0)
 		.saturating_add(Weight::from_parts(0, 0))
@@ -1838,6 +1992,7 @@ pub mod pallet {
             Self::do_vote_root(origin, &hotkey, proposal, index, approve)
         }
 
+        /// User register a new subnetwork
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
@@ -1846,6 +2001,9 @@ pub mod pallet {
             Self::user_add_network(origin)
         }
 
+        /// Facility extrinsic for user to get taken from faucet
+        /// It is only available when pow-faucet feature enabled
+        /// Just deployed in testnet and devnet for testing purpose
         #[pallet::call_index(60)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(27))
@@ -1863,6 +2021,8 @@ pub mod pallet {
             Err(Error::<T>::FaucetDisabled.into())
         }
 
+        /// Remove a user's subnetwork
+        /// The caller must be the owner of the network
         #[pallet::call_index(61)]
         #[pallet::weight((Weight::from_parts(70_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(5))
@@ -1874,7 +2034,7 @@ pub mod pallet {
 
     // ---- Subtensor helper functions.
     impl<T: Config> Pallet<T> {
-        // --- Returns the transaction priority for setting weights.
+        /// Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
             if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
@@ -1886,12 +2046,13 @@ pub mod pallet {
             0
         }
 
-        // --- Is the caller allowed to set weights
+        /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
             Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
         }
 
+        /// Helper function to check if register is allowed
         pub fn checked_allowed_register(netuid: u16) -> bool {
             if netuid == Self::get_root_netuid() {
                 return false;

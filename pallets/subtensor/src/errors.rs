@@ -8,8 +8,6 @@ mod errors {
     pub enum Error<T> {
         /// the network does not exist.
         NetworkDoesNotExist,
-        /// the network already exists.
-        NetworkExist,
         /// an invalid modality attempted on serve.
         InvalidModality,
         /// the user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
@@ -50,26 +48,10 @@ mod errors {
         InvalidDifficulty,
         /// the supplied pow hash seal does not match the supplied work.
         InvalidSeal,
-        /// the value is invalid for MaxAllowedUids.
-        MaxAllowedUIdsNotAllowed,
-        /// the dispatch attempts to convert between a u64 and T::balance but the call fails.
-        CouldNotConvertToBalance,
-        /// the dispatch attempts to convert from a T::Balance to a u64 but the call fails.
-        CouldNotConvertToU64,
-        /// the caller requests adding stake for a hotkey to the total stake which already added.
-        StakeAlreadyAdded,
         /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         MaxWeightExceeded,
-        /// the caller attempts to set a storage value outside of its allowed range.
-        StorageValueOutOfRange,
-        /// tempo has not set.
-        TempoHasNotSet,
         /// tempo is not valid.
         InvalidTempo,
-        /// number or received emission rates does not match number of networks.
-        EmissionValuesDoesNotMatchNetworks,
-        /// emission ratios are not valid (did not sum up to 10^9).
-        InvalidEmissionValues,
         /// the hotkey attempts to become delegate when they are already.
         AlreadyDelegate,
         /// the hotkey attempts to set weights twice within net_tempo/2 blocks.
@@ -78,8 +60,6 @@ mod errors {
         IncorrectNetworkVersionKey,
         /// an axon or prometheus serving exceeds the rate limit for a registered neuron.
         ServingRateLimitExceeded,
-        /// an error occurs while setting a balance.
-        BalanceSetError,
         /// number of accounts going to be registered exceeds MaxAllowedUids for the network.
         MaxAllowedUidsExceeded,
         /// the caller attempts to set weights with more uids than allowed.
@@ -94,20 +74,12 @@ mod errors {
         RegistrationDisabled,
         /// registration attempt exceeds allowed in interval
         TooManyRegistrationsThisInterval,
-        /// a function is only available for benchmarking
-        BenchmarkingOnly,
         /// the hotkey passed is not the origin, but it should be
         HotkeyOriginMismatch,
         /// attempting to do something to a senate member that is limited
         SenateMember,
         /// a hotkey attempts to do something only senate members can do
         NotSenateMember,
-        /// a hotkey attempts to join the senate while already being a member
-        AlreadySenateMember,
-        /// a hotkey attempts to join the senate without enough stake
-        BelowStakeThreshold,
-        /// a hotkey attempts to join the senate without being a delegate first
-        NotDelegate,
         /// an incorrect amount of Netuids are passed as input
         IncorrectNetuidsLength,
         /// the faucet is disabled
