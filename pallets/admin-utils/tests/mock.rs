@@ -463,7 +463,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn clear_small_nominations() {
         SubtensorModule::clear_small_nominations();
     }
-    
+
     fn set_global_stake_weight(global_stake_weight: u16) {
         SubtensorModule::set_global_stake_weight(global_stake_weight);
     }

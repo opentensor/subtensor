@@ -107,7 +107,7 @@ pub mod pallet {
         Registration<BalanceOf<T>, T::MaxAdditionalFields>,
         OptionQuery,
     >;
-    
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Register an identity for an account. This will overwrite any existing identity.

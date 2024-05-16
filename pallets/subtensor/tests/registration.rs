@@ -428,7 +428,7 @@ fn test_burn_registration_without_neuron_slot() {
         let burn_cost = 1000;
         // Neighbour of the beast, har har
         let coldkey_account_id = U256::from(667);
-                                                  
+
         //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);

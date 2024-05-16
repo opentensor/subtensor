@@ -988,9 +988,9 @@ mod sudo_set_nominator_min_required_stake {
             let cold2 = U256::from(4);
 
             SubtensorModule::set_target_stakes_per_interval(10);
-            
+
             // Register networks.
-            add_network(root, tempo, 0);            
+            add_network(root, tempo, 0);
             add_network(netuid, 0, 0);
 
             // Register hot1.

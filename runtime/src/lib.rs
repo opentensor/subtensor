@@ -977,7 +977,9 @@ impl
         netuid: u16,
         increment: u64,
     ) {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid, increment);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            coldkey, hotkey, netuid, increment,
+        );
     }
 
     fn u64_to_balance(input: u64) -> Option<Balance> {
@@ -1149,7 +1151,7 @@ impl
 
     fn set_subnet_staking(subnet_staking: bool) {
         SubtensorModule::set_subnet_staking(subnet_staking);
-    }    
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {

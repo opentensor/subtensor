@@ -119,7 +119,7 @@ pub mod pallet {
         }
 
         /// Set the rate limit at wich delegate take can be set (increased)
-        /// 
+        ///
         #[pallet::call_index(45)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_tx_delegate_take_rate_limit(
@@ -136,7 +136,7 @@ pub mod pallet {
         }
 
         /// Set the serving rate limit
-        /// 
+        ///
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::sudo_set_serving_rate_limit())]
         pub fn sudo_set_serving_rate_limit(
@@ -292,7 +292,7 @@ pub mod pallet {
         ))]
 
         /// Set adjustment alpha
-        /// 
+        ///
         pub fn sudo_set_adjustment_alpha(
             origin: OriginFor<T>,
             netuid: u16,
@@ -934,7 +934,7 @@ pub mod pallet {
         }
 
         /// Set global (vs. local) stake weight
-        /// 
+        ///
         #[pallet::call_index(47)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_global_stake_weight(
@@ -947,7 +947,7 @@ pub mod pallet {
         }
 
         /// Enable / Disable subnet staking
-        /// 
+        ///
         #[pallet::call_index(44)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_subnet_staking(

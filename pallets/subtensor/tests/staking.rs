@@ -2859,7 +2859,10 @@ fn test_delegate_take_can_be_decreased() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), InitialDefaultTake::get());
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey0, netuid),
+            InitialDefaultTake::get()
+        );
 
         // Coldkey / hotkey 0 decreases take to 5%
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -2868,7 +2871,10 @@ fn test_delegate_take_can_be_decreased() {
             netuid,
             u16::MAX / 20
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 20);
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey0, netuid),
+            u16::MAX / 20
+        );
     });
 }
 

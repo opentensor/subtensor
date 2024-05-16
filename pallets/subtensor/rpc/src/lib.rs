@@ -183,9 +183,10 @@ where
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_substake_for_coldkey(at, coldkey_bytes).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
-        })
+        api.get_substake_for_coldkey(at, coldkey_bytes)
+            .map_err(|e| {
+                Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
+            })
     }
 
     fn get_substake_for_netuid(
@@ -207,9 +208,10 @@ where
     ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_total_stake_for_hotkey(at, hotkey_bytes).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get total stake for hotkey: {:?}", e)).into()
-        })
+        api.get_total_stake_for_hotkey(at, hotkey_bytes)
+            .map_err(|e| {
+                Error::RuntimeError(format!("Unable to get total stake for hotkey: {:?}", e)).into()
+            })
     }
 
     fn get_total_stake_for_coldkey(
@@ -219,9 +221,11 @@ where
     ) -> RpcResult<u64> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
-        api.get_total_stake_for_coldkey(at, hotkey_bytes).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get total stake for coldkey: {:?}", e)).into()
-        })
+        api.get_total_stake_for_coldkey(at, hotkey_bytes)
+            .map_err(|e| {
+                Error::RuntimeError(format!("Unable to get total stake for coldkey: {:?}", e))
+                    .into()
+            })
     }
 
     fn get_delegates(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
@@ -401,7 +405,8 @@ where
 
         api.get_all_stake_info_for_coldkey(at, coldkey_account_vec)
             .map_err(|e| {
-                Error::RuntimeError(format!("Unable to get all stake info for coldkey: {}", e)).into()
+                Error::RuntimeError(format!("Unable to get all stake info for coldkey: {}", e))
+                    .into()
             })
     }
 
@@ -415,7 +420,11 @@ where
 
         api.get_all_subnet_stake_info_for_coldkey(at, coldkey_account_vec)
             .map_err(|e| {
-                Error::RuntimeError(format!("Unable to get all subnet stake info for coldkey: {}", e)).into()
+                Error::RuntimeError(format!(
+                    "Unable to get all subnet stake info for coldkey: {}",
+                    e
+                ))
+                .into()
             })
     }
 
