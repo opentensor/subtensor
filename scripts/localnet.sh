@@ -20,7 +20,7 @@ fi
 
 if [[ $BUILD_BINARY == "1" ]]; then
   echo "*** Building substrate binary..."
-  cargo build --release --features "$FEATURES" --manifest-path "$BASE_DIR/node/Cargo.toml"
+  cargo build --release --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
   echo "*** Binary compiled"
 fi
 
