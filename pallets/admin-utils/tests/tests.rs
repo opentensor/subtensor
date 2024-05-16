@@ -1137,7 +1137,7 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         add_network(netuid, 10);
-        
+
         let to_be_set: bool = true;
         let init_value: bool = SubtensorModule::get_commit_reveal_weights_enabled(netuid);
 

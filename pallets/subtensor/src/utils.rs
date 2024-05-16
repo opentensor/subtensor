@@ -476,7 +476,7 @@ impl<T: Config> Pallet<T> {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
     }
-    
+
     pub fn get_commit_reveal_weights_interval(netuid: u16) -> u64 {
         WeightCommitRevealInterval::<T>::get(netuid)
     }
