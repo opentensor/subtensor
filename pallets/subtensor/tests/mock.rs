@@ -189,9 +189,29 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
         //Senate::is_member(account)
         false // Disable voting from pallet_collective::vote
     }
+
+    fn can_vote_for_group(account: &AccountId, group: pallet_collective::VotingGroup) -> bool {
+        match group {
+            pallet_collective::VotingGroup::Triumvirate => Triumvirate::is_member(account),
+            _ => false,
+        }
+    }
+
+    fn get_member_account(account: &AccountId, group: pallet_collective::VotingGroup) -> AccountId {
+        match group {
+            pallet_collective::VotingGroup::Senate => {
+                // Assume the account has a hotkey in the Senate
+                SenateMembers::members()
+                    .iter()
+                    .find(|member| SubtensorModule::coldkey_owns_hotkey(account, *member))
+                    .map_or(*account, |member| *member)
+            }
+            _ => *account,
+        }
+    }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use pallet_subtensor::{MemberManagement, SubnetOwner};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResult {
@@ -208,7 +228,6 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
         let remove = *rm;
         let add = *add;
 
-        Triumvirate::remove_votes(rm)?;
         SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
@@ -279,22 +298,6 @@ impl GetVotingMembers<MemberCount> for GetSubnetOwnersMemberCount {
 impl Get<MemberCount> for GetSubnetOwnersMemberCount {
     fn get() -> MemberCount {
         SubnetOwnersMaxMembers::get()
-    }
-}
-
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
-    }
-
-    fn add_vote(
-        hotkey: &AccountId,
-        proposal: Hash,
-        index: u32,
-        approve: bool,
-    ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(*hotkey, proposal, index, approve)
     }
 }
 

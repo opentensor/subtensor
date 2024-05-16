@@ -104,7 +104,14 @@ pub mod pallet {
 
         type SubnetOwnersMembers: crate::MemberManagement<Self::AccountId>;
 
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+        type VotingGroup: Parameter + Member;
+
+        type TriumvirateInterface: crate::CollectiveInterface<
+            Self::AccountId,
+            Self::VotingGroup,
+            Self::Hash,
+            u32,
+        >;
 
         // =================================
         // ==== Initial Value Constants ====
@@ -1669,21 +1676,6 @@ pub mod pallet {
             return result;
         }
 
-        #[pallet::call_index(55)]
-        #[pallet::weight((Weight::from_parts(0, 0)
-		.saturating_add(Weight::from_parts(0, 0))
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
-        pub fn vote(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            proposal: T::Hash,
-            #[pallet::compact] index: u32,
-            approve: bool,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
-        }
-
         #[pallet::call_index(59)]
         #[pallet::weight((Weight::from_parts(85_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
@@ -2022,24 +2014,25 @@ impl<T> MemberManagement<T> for () {
 }
 
 /// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, Hash, ProposalIndex> {
+pub trait CollectiveInterface<AccountId, VotingGroup, Hash, ProposalIndex> {
     /// Remove vote
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, DispatchError>;
+    fn remove_votes(who: &AccountId, group: VotingGroup) -> Result<bool, DispatchError>;
 
     fn add_vote(
-        hotkey: &AccountId,
+        who: &AccountId,
+        group: VotingGroup,
         proposal: Hash,
         index: ProposalIndex,
         approve: bool,
     ) -> Result<bool, DispatchError>;
 }
 
-impl<T, H, P> CollectiveInterface<T, H, P> for () {
-    fn remove_votes(_: &T) -> Result<bool, DispatchError> {
+impl<T, G, H, P> CollectiveInterface<T, G, H, P> for () {
+    fn remove_votes(_: &T, _: G) -> Result<bool, DispatchError> {
         Ok(true)
     }
 
-    fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
+    fn add_vote(_: &T, _: G, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
     }
 }

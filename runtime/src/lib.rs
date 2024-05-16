@@ -355,19 +355,59 @@ parameter_types! { // Based on the number of u16::MAX subnets
     pub const SubnetOwnersMaxMembers: u32 = u16::MAX as u32;
 }
 
+parameter_types! {
+    pub const MaxVotingGroups: u32 = 16;
+}
+
+pub use pallet_collective::VotingGroup;
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
+
 pub struct CanProposeToTriumvirate;
 impl CanPropose<AccountId> for CanProposeToTriumvirate {
     fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
+        // Only the Triumvirate members can propose
+        TriumvirateMembers::members().contains(account)
     }
 }
 
 pub struct CanVoteToTriumvirate;
 impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
+    fn can_vote_for_group(account: &AccountId, group: VotingGroup) -> bool {
+        #[allow(unreachable_patterns)]
+        match group {
+            VotingGroup::Triumvirate => Triumvirate::is_member(account),
+            VotingGroup::Senate => {
+                // Check if the account coldkey is a member of the Senate
+                return ManageSenateMembers::members()
+                    .iter()
+                    .any(|member| SubtensorModule::coldkey_owns_hotkey(account, member));
+            }
+            VotingGroup::SubnetOwners => ManageSubnetOwnersMembers::is_member(account),
+            _ => false, // In case of other groups, return false
+        }
+    }
+
+    fn can_vote(group: VotingGroup) -> bool {
+        match group {
+            VotingGroup::Senate => true,
+            VotingGroup::SubnetOwners => true,
+            _ => false, // Triumvirate cannot vote in the collective
+        }
+    }
+
+    fn get_member_account(account: &AccountId, group: VotingGroup) -> AccountId {
+        // Pass along account for all groups but senate
+        match group {
+            VotingGroup::Senate => {
+                // Assume the account has a hotkey in the Senate
+                SenateMembers::members()
+                    .iter()
+                    .find(|member| SubtensorModule::coldkey_owns_hotkey(account, *member))
+                    .map_or(account, |member| member)
+                    .clone()
+            }
+            _ => account.clone(),
+        }
     }
 }
 
@@ -381,6 +421,8 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
 
     fn remove_member(account: &AccountId) -> DispatchResult {
         let who = Address::Id(account.clone());
+
+        Triumvirate::remove_votes(account, VotingGroup::Senate)?;
         SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
@@ -388,7 +430,7 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
-        Triumvirate::remove_votes(rm)?;
+        Triumvirate::remove_votes(rm, VotingGroup::Senate)?;
         SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
@@ -405,15 +447,23 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
     }
 }
 
-pub struct GetSenateMemberCount;
-impl GetVotingMembers<MemberCount> for GetSenateMemberCount {
-    fn get_count() -> MemberCount {
-        SenateMembers::members().len() as u32
+pub struct GetVotingMembersCount;
+impl GetVotingMembers<MemberCount> for GetVotingMembersCount {
+    fn get_count(group: VotingGroup) -> MemberCount {
+        #[allow(unreachable_patterns)]
+        match group {
+            VotingGroup::Triumvirate => TriumvirateMembers::members().len() as u32,
+            VotingGroup::Senate => SenateMembers::members().len() as u32,
+            VotingGroup::SubnetOwners => SubnetOwnersMembers::members().len() as u32,
+            _ => 0,
+        }
     }
 }
-impl Get<MemberCount> for GetSenateMemberCount {
+impl Get<MemberCount> for GetVotingMembersCount {
     fn get() -> MemberCount {
-        SenateMaxMembers::get()
+        (TriumvirateMembers::members().len()
+            + SenateMembers::members().len()
+            + SubnetOwnersMembers::members().len()) as u32
     }
 }
 
@@ -426,6 +476,8 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
 
     fn remove_member(account: &AccountId) -> DispatchResult {
         let who = Address::Id(account.clone());
+
+        Triumvirate::remove_votes(account, VotingGroup::SubnetOwners)?;
         SubnetOwnersMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
@@ -433,7 +485,7 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
-        Triumvirate::remove_votes(rm)?;
+        Triumvirate::remove_votes(rm, VotingGroup::SubnetOwners)?;
         SubnetOwnersMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
@@ -450,31 +502,23 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
     }
 }
 
-pub struct GetSubnetOwnersMemberCount;
-impl GetVotingMembers<MemberCount> for GetSubnetOwnersMemberCount {
-    fn get_count() -> MemberCount {
-        SubnetOwnersMembers::members().len() as u32
-    }
-}
-impl Get<MemberCount> for GetSubnetOwnersMemberCount {
-    fn get() -> MemberCount {
-        SubnetOwnersMaxMembers::get()
-    }
-}
-
 pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
-    fn remove_votes(hotkey: &AccountId) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(hotkey)
+impl CollectiveInterface<AccountId, VotingGroup, Hash, u32> for TriumvirateVotes {
+    fn remove_votes(
+        who: &AccountId,
+        group: VotingGroup,
+    ) -> Result<bool, sp_runtime::DispatchError> {
+        Triumvirate::remove_votes(who, group)
     }
 
     fn add_vote(
-        hotkey: &AccountId,
+        who: &AccountId,
+        group: VotingGroup,
         proposal: Hash,
         index: u32,
         approve: bool,
     ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
+        Triumvirate::do_vote(who.clone(), group, proposal, index, approve)
     }
 }
 
@@ -489,13 +533,14 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = GetSenateMemberCount;
+    type MaxMembers = GetVotingMembersCount;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
     type SetMembersOrigin = EnsureNever<AccountId>;
     type CanPropose = CanProposeToTriumvirate;
     type CanVote = CanVoteToTriumvirate;
-    type GetVotingMembers = GetSenateMemberCount;
+    type GetVotingMembers = GetVotingMembersCount;
+    type MaxVotingGroups = MaxVotingGroups;
 }
 
 // We call council members Triumvirate
@@ -871,6 +916,7 @@ impl pallet_subtensor::Config for Runtime {
     type SenateMembers = ManageSenateMembers;
     type SubnetOwnersMembers = ManageSubnetOwnersMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type VotingGroup = VotingGroup;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;

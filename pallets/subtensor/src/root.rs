@@ -543,8 +543,8 @@ impl<T: Config> Pallet<T> {
                 let last_stake = Self::get_total_stake_for_hotkey(last);
 
                 if last_stake < current_stake {
+                    // Modify SenateMembers collective
                     T::SenateMembers::swap_member(last, &hotkey)?;
-                    T::TriumvirateInterface::remove_votes(last)?;
                 }
             }
         } else {
@@ -571,52 +571,6 @@ impl<T: Config> Pallet<T> {
 
         // --- 16. Finish and return success.
         Ok(())
-    }
-
-    pub fn do_vote_root(
-        origin: T::RuntimeOrigin,
-        hotkey: &T::AccountId,
-        proposal: T::Hash,
-        index: u32,
-        approve: bool,
-    ) -> DispatchResultWithPostInfo {
-        // --- 1. Ensure that the caller has signed with their coldkey.
-        let coldkey = ensure_signed(origin.clone())?;
-
-        // --- 2. Ensure that the calling coldkey owns the associated hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 3. Ensure that the calling hotkey is a member of the senate.
-        ensure!(
-            T::SenateMembers::is_member(hotkey),
-            Error::<T>::NotSenateMember
-        );
-
-        // --- 4. Detects first vote of the member in the motion
-        let is_account_voting_first_time =
-            T::TriumvirateInterface::add_vote(hotkey, proposal, index, approve)?;
-
-        // --- 5. Calculate extrinsic weight
-        let members = T::SenateMembers::members();
-        let member_count = members.len() as u32;
-        let vote_weight = Weight::from_parts(20_528_275, 4980)
-            .saturating_add(Weight::from_parts(48_856, 0).saturating_mul(member_count.into()))
-            .saturating_add(T::DbWeight::get().reads(2_u64))
-            .saturating_add(T::DbWeight::get().writes(1_u64))
-            .saturating_add(Weight::from_parts(0, 128).saturating_mul(member_count.into()));
-
-        Ok((
-            Some(vote_weight),
-            if is_account_voting_first_time {
-                Pays::No
-            } else {
-                Pays::Yes
-            },
-        )
-            .into())
     }
 
     // Facilitates user registration of a new subnetwork.

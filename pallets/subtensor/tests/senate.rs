@@ -487,7 +487,12 @@ fn test_senate_leave_vote_removal() {
             SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hotkey_account_id).is_err()
         );
         assert_eq!(
-            Triumvirate::has_voted(hash, 0, &hotkey_account_id),
+            Triumvirate::has_voted(
+                hash,
+                0,
+                &hotkey_account_id,
+                pallet_collective::VotingGroup::Senate
+            ),
             Ok(false)
         );
     });

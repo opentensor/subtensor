@@ -132,7 +132,7 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
 #[scale_info(skip_type_params(I))]
 #[codec(mel_bound(AccountId: MaxEncodedLen))]
 pub enum RawOrigin<AccountId, I> {
-    /// It has been condoned by a given number of members of the collective from a given total.
+    /// It has been condoned by a given number of members of a collective from a given total.
     Members(MemberCount, MemberCount),
     /// It has been condoned by a single member of the collective.
     Member(AccountId),
@@ -151,6 +151,15 @@ impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
         }
     }
 }
+
+#[derive(PartialEq, Eq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub enum VotingGroup {
+    Senate,
+    SubnetOwners,
+    Triumvirate,
+}
+
+pub type VotingGroupIndex = u32;
 
 /// Info for keeping track of a motion being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -228,6 +237,13 @@ pub mod pallet {
 
         /// Members to expect in a vote
         type GetVotingMembers: GetVotingMembers<MemberCount>;
+
+        /// The maximum number of voting groups supported by the pallet.
+        ///
+        /// This limits the number of groups that can be included in one
+        /// collective vote.
+        #[pallet::constant]
+        type MaxVotingGroups: Get<VotingGroupIndex>;
     }
 
     #[pallet::genesis_config]
@@ -276,11 +292,18 @@ pub mod pallet {
     pub type ProposalOf<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Identity, T::Hash, <T as Config<I>>::Proposal, OptionQuery>;
 
-    /// Votes on a given proposal, if it is ongoing.
-    #[pallet::storage]
+    /// Votes on a given proposal, if it is ongoing. For all groups.
+    #[pallet::storage] // --- DMAP ( proposal_hash, voting_group ) --> votes
     #[pallet::getter(fn voting)]
-    pub type Voting<T: Config<I>, I: 'static = ()> =
-        StorageMap<_, Identity, T::Hash, Votes<T::AccountId, BlockNumberFor<T>>, OptionQuery>;
+    pub type Voting<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Identity,
+        T::Hash,
+        Blake2_128Concat,
+        VotingGroup,
+        Votes<T::AccountId, BlockNumberFor<T>>,
+        OptionQuery,
+    >;
 
     /// Proposals so far.
     #[pallet::storage]
@@ -317,6 +340,7 @@ pub mod pallet {
             voted: bool,
             yes: MemberCount,
             no: MemberCount,
+            voting_group: VotingGroup,
         },
         /// A motion was approved by the required threshold.
         Approved { proposal_hash: T::Hash },
@@ -364,6 +388,12 @@ pub mod pallet {
         WrongProposalLength,
         /// The given motion duration for the proposal was too low.
         WrongDuration,
+        /// The given voting group is not valid.
+        UnknownVotingGroup,
+        /// The origin is not privileged to propose
+        NotPrivileged,
+        /// The voting group has no members, or the members are not initialized
+        EmptyVotingGroup,
     }
 
     // Note that councillor operations are assigned to the operational class.
@@ -520,23 +550,25 @@ pub mod pallet {
             duration: BlockNumberFor<T>,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
-            ensure!(T::CanPropose::can_propose(&who), Error::<T, I>::NotMember);
+            ensure!(
+                T::CanPropose::can_propose(&who),
+                Error::<T, I>::NotPrivileged
+            );
 
             ensure!(
                 duration >= T::MotionDuration::get(),
                 Error::<T, I>::WrongDuration
             );
 
-            let threshold = (T::GetVotingMembers::get_count() / 2) + 1;
+            let threshold = (T::GetVotingMembers::get_count(VotingGroup::Senate) / 2) + 1;
 
-            let members = Self::members();
-            let (proposal_len, active_proposals) =
+            let (proposal_len, voting_members, active_proposals) =
                 Self::do_propose_proposed(who, threshold, proposal, length_bound, duration)?;
 
             Ok(Some(T::WeightInfo::propose_proposed(
-                proposal_len,         // B
-                members.len() as u32, // M
-                active_proposals,     // P2
+                proposal_len,     // B
+                voting_members,   // M
+                active_proposals, // P2
             ))
             .into())
         }
@@ -557,18 +589,36 @@ pub mod pallet {
             proposal: T::Hash,
             #[pallet::compact] index: ProposalIndex,
             approve: bool,
+            group: VotingGroup,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin.clone())?;
-            ensure!(T::CanVote::can_vote(&who), Error::<T, I>::NotMember);
+            // Can vote as a member of the group
+            ensure!(
+                T::CanVote::can_vote_for_group(&who, group),
+                Error::<T, I>::NotMember
+            );
+            // Ensure the group can vote
+            ensure!(T::CanVote::can_vote(group), Error::<T, I>::NotPrivileged);
 
-            let members = Self::members();
+            let voter = if group == VotingGroup::Senate {
+                // If Senate, grab the hotkey
+                let hotkey = T::CanVote::get_member_account(&who, group);
+                hotkey // Set the hotkey as the voter
+            } else {
+                who
+            };
+
+            // Get the members of the group
+            let member_count = T::GetVotingMembers::get_count(group);
+
             // Detects first vote of the member in the motion
-            let is_account_voting_first_time = Self::do_vote(who, proposal, index, approve)?;
+            let is_account_voting_first_time =
+                Self::do_vote((voter).clone(), group, proposal, index, approve)?;
 
             if is_account_voting_first_time {
-                Ok((Some(T::WeightInfo::vote(members.len() as u32)), Pays::No).into())
+                Ok((Some(T::WeightInfo::vote(member_count)), Pays::No).into())
             } else {
-                Ok((Some(T::WeightInfo::vote(members.len() as u32)), Pays::Yes).into())
+                Ok((Some(T::WeightInfo::vote(member_count)), Pays::Yes).into())
             }
         }
 
@@ -700,9 +750,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         who: T::AccountId,
         threshold: MemberCount,
         proposal: Box<<T as Config<I>>::Proposal>,
-        length_bound: MemberCount,
+        length_bound: u32,
         duration: BlockNumberFor<T>,
-    ) -> Result<(u32, u32), DispatchError> {
+    ) -> Result<(u32, u32, u32), DispatchError> {
         let proposal_len = proposal.encoded_size();
         ensure!(
             proposal_len <= length_bound as usize,
@@ -726,17 +776,35 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let index = Self::proposal_count();
         <ProposalCount<T, I>>::mutate(|i| *i += 1);
         <ProposalOf<T, I>>::insert(proposal_hash, proposal);
-        let votes = {
-            let end = frame_system::Pallet::<T>::block_number() + duration;
-            Votes {
-                index,
-                threshold,
-                ayes: vec![],
-                nays: vec![],
-                end,
-            }
-        };
-        <Voting<T, I>>::insert(proposal_hash, votes);
+
+        let end = frame_system::Pallet::<T>::block_number() + duration;
+
+        let mut voting_members: u32 = 0;
+
+        // Insert new vote tracker for each voting group.
+        // TODO: Iterate over all voting groups, not just Senate
+        let group_empty: Result<Vec<_>, Error<T, I>> = [VotingGroup::Senate]
+            .iter()
+            .enumerate()
+            .map(|(_, group)| {
+                let voting_group = *group;
+                let member_count = T::GetVotingMembers::get_count(voting_group);
+                voting_members += member_count;
+
+                let votes = Votes {
+                    index,
+                    ayes: vec![],
+                    nays: vec![],
+                    threshold,
+                    end,
+                };
+
+                Voting::<T, I>::insert(proposal_hash, group, votes);
+
+                Ok(())
+            })
+            .collect();
+        ensure!(group_empty.is_ok(), group_empty.err().unwrap());
 
         Self::deposit_event(Event::Proposed {
             account: who,
@@ -744,18 +812,31 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             proposal_hash,
             threshold,
         });
-        Ok((proposal_len as u32, active_proposals as u32))
+        Ok((proposal_len as u32, voting_members, active_proposals as u32))
     }
 
     /// Add an aye or nay vote for the member to the given proposal, returns true if it's the first
     /// vote of the member in the motion
     pub fn do_vote(
         who: T::AccountId,
+        group: VotingGroup,
         proposal: T::Hash,
         index: ProposalIndex,
         approve: bool,
     ) -> Result<bool, DispatchError> {
-        let mut voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+        let mut voting: Votes<T::AccountId, BlockNumberFor<T>>;
+        match group {
+            VotingGroup::Senate => {
+                voting =
+                    Voting::<T, I>::get(proposal, group).ok_or(Error::<T, I>::ProposalMissing)?;
+            }
+            VotingGroup::SubnetOwners => {
+                voting =
+                    Voting::<T, I>::get(proposal, group).ok_or(Error::<T, I>::ProposalMissing)?;
+            }
+            _ => return Err(Error::<T, I>::UnknownVotingGroup.into()),
+        }
+
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
         let position_yes = voting.ayes.iter().position(|a| a == &who);
@@ -792,11 +873,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             voted: approve,
             yes: yes_votes,
             no: no_votes,
+            voting_group: group,
         });
 
-        Voting::<T, I>::insert(proposal, voting);
+        Voting::<T, I>::insert(proposal, group, voting);
 
         Ok(is_account_voting_first_time)
+    }
+
+    pub fn passes_threshold(votes: MemberCount, threshold: MemberCount) -> bool {
+        // Return if the number of votes
+        // surpasses the permill threshold of seats
+        votes >= threshold
     }
 
     /// Close a vote that is either approved, disapproved or whose voting period has ended.
@@ -806,12 +894,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         proposal_weight_bound: Weight,
         length_bound: u32,
     ) -> DispatchResultWithPostInfo {
-        let voting = Self::voting(proposal_hash).ok_or(Error::<T, I>::ProposalMissing)?;
+        // TODO: Implement the rest of the function for SubnetOwners also.
+        let voting = Self::voting(proposal_hash, VotingGroup::Senate)
+            .ok_or(Error::<T, I>::ProposalMissing)?;
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
         let mut no_votes = voting.nays.len() as MemberCount;
         let mut yes_votes = voting.ayes.len() as MemberCount;
-        let seats = T::GetVotingMembers::get_count() as MemberCount;
+        let seats = T::GetVotingMembers::get_count(VotingGroup::Senate) as MemberCount;
         let approved = yes_votes >= voting.threshold;
         let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
         // Allow (dis-)approving the proposal as soon as there are enough votes.
@@ -978,9 +1068,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     // Removes a proposal from the pallet, cleaning up votes and the vector of proposals.
     fn remove_proposal(proposal_hash: T::Hash) -> u32 {
-        // remove proposal and vote
+        // remove proposal and votes involving proposal
         ProposalOf::<T, I>::remove(proposal_hash);
-        Voting::<T, I>::remove(proposal_hash);
+        let _ = Voting::<T, I>::clear_prefix(proposal_hash, T::MaxVotingGroups::get(), None);
+
         let num_proposals = Proposals::<T, I>::mutate(|proposals| {
             proposals.retain(|h| h != &proposal_hash);
             proposals.len() + 1 // calculate weight based on original length
@@ -988,9 +1079,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         num_proposals as u32
     }
 
-    pub fn remove_votes(who: &T::AccountId) -> Result<bool, DispatchError> {
+    pub fn remove_votes(who: &T::AccountId, group: VotingGroup) -> Result<bool, DispatchError> {
         for h in Self::proposals().into_iter() {
-            <Voting<T, I>>::mutate(h, |v| {
+            <Voting<T, I>>::mutate(h, group, |v| {
                 if let Some(mut votes) = v.take() {
                     votes.ayes.retain(|i| i != who);
                     votes.nays.retain(|i| i != who);
@@ -1006,12 +1097,24 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         proposal: T::Hash,
         index: ProposalIndex,
         who: &T::AccountId,
+        group: VotingGroup,
     ) -> Result<bool, DispatchError> {
-        let voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalMissing)?;
+        let voting;
+        let who = who.clone();
+        match group {
+            VotingGroup::Senate => {
+                voting = Self::voting(proposal, group).ok_or(Error::<T, I>::ProposalMissing)?;
+            }
+            VotingGroup::SubnetOwners => {
+                voting = Self::voting(proposal, group).ok_or(Error::<T, I>::ProposalMissing)?;
+            }
+            _ => return Err(Error::<T, I>::UnknownVotingGroup.into()),
+        }
+
         ensure!(voting.index == index, Error::<T, I>::WrongIndex);
 
-        let position_yes = voting.ayes.iter().position(|a| a == who);
-        let position_no = voting.nays.iter().position(|a| a == who);
+        let position_yes = voting.ayes.iter().position(|a| *a == who);
+        let position_no = voting.nays.iter().position(|a| *a == who);
 
         Ok(position_yes.is_some() || position_no.is_some())
     }
@@ -1045,13 +1148,16 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
         let mut outgoing = outgoing.to_vec();
         outgoing.sort();
         for h in Self::proposals().into_iter() {
-            <Voting<T, I>>::mutate(h, |v| {
-                if let Some(mut votes) = v.take() {
-                    votes.ayes.retain(|i| outgoing.binary_search(i).is_err());
-                    votes.nays.retain(|i| outgoing.binary_search(i).is_err());
-                    *v = Some(votes);
-                }
-            });
+            // TODO: Iterate over all voting groups, not just Senate
+            for group in [VotingGroup::Senate].iter() {
+                <Voting<T, I>>::mutate(h, group, |v| {
+                    if let Some(mut votes) = v.take() {
+                        votes.ayes.retain(|i| outgoing.binary_search(i).is_err());
+                        votes.nays.retain(|i| outgoing.binary_search(i).is_err());
+                        *v = Some(votes);
+                    }
+                });
+            }
         }
         Members::<T, I>::put(new);
         Prime::<T, I>::kill();
@@ -1204,21 +1310,37 @@ impl<T> CanPropose<T> for () {
 /// CanVote
 pub trait CanVote<AccountId> {
     /// Check whether or not the passed AccountId can vote on a motion
-    fn can_vote(account: &AccountId) -> bool;
+    /// given they're voting as a certain group.
+    fn can_vote_for_group(account: &AccountId, group: VotingGroup) -> bool;
+
+    fn can_vote(group: VotingGroup) -> bool;
+
+    fn get_member_account(account: &AccountId, group: VotingGroup) -> AccountId;
 }
 
-impl<T> CanVote<T> for () {
-    fn can_vote(_: &T) -> bool {
+impl<T> CanVote<T> for ()
+where
+    T: Clone,
+{
+    fn can_vote_for_group(_: &T, _: VotingGroup) -> bool {
         false
+    }
+
+    fn can_vote(_: VotingGroup) -> bool {
+        false
+    }
+
+    fn get_member_account(a: &T, _: VotingGroup) -> T {
+        a.clone()
     }
 }
 
 pub trait GetVotingMembers<MemberCount> {
-    fn get_count() -> MemberCount;
+    fn get_count(group: VotingGroup) -> MemberCount;
 }
 
 impl GetVotingMembers<MemberCount> for () {
-    fn get_count() -> MemberCount {
+    fn get_count(_: VotingGroup) -> MemberCount {
         0
     }
 }
