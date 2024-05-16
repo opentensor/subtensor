@@ -956,6 +956,43 @@ fn test_check_len_uids_within_allowed_not_within_network_pool() {
 }
 
 #[test]
+fn test_set_weights_commit_reveal_enabled_error() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 10);
+
+        let uids = vec![0];
+        let weights = vec![1];
+        let version_key: u64 = 0;
+        let hotkey = U256::from(1);
+
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        assert_err!(
+            SubtensorModule::set_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weights.clone(),
+                version_key
+            ),
+            Error::<Test>::CommitRevealEnabled
+        );
+
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids,
+            weights,
+            version_key
+        ));
+    });
+}
+
+#[test]
 fn test_commit_reveal_weights_ok() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
@@ -979,7 +1016,8 @@ fn test_commit_reveal_weights_ok() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_weight_commit_interval(5);
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1023,7 +1061,8 @@ fn test_commit_reveal_interval() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_weight_commit_interval(100);
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, 100);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         System::set_block_number(0);
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -1179,7 +1218,8 @@ fn test_commit_reveal_hash() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_weight_commit_interval(5);
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1248,6 +1288,93 @@ fn test_commit_reveal_hash() {
     });
 }
 
+#[test]
+fn test_commit_reveal_disabled_or_enabled() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        assert_err!(
+            SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
+            Error::<Test>::CommitRevealDisabled
+        );
+
+        step_block(5);
+
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::CommitRevealDisabled
+        );
+
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid + 1, true);
+
+        //Should still fail because bad netuid
+        assert_err!(
+            SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
+            Error::<Test>::CommitRevealDisabled
+        );
+
+        step_block(5);
+
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                version_key,
+            ),
+            Error::<Test>::CommitRevealDisabled
+        );
+
+        // Enable and should pass
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        step_block(5);
+
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids,
+            weight_values,
+            version_key,
+        ));
+    });
+}
+
 fn commit_reveal_set_weights(
     hotkey: U256,
     netuid: u16,
@@ -1255,8 +1382,9 @@ fn commit_reveal_set_weights(
     weights: Vec<u16>,
     version_key: u64,
 ) -> DispatchResult {
-    SubtensorModule::set_weight_commit_interval(5);
+    SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
     SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+    SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
     let commit_hash: H256 =
         BlakeTwo256::hash_of(&(hotkey, netuid, uids.clone(), weights.clone(), version_key));

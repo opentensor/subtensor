@@ -60,6 +60,9 @@ pub trait WeightInfo {
 	fn sudo_set_min_burn() -> Weight;
 	fn sudo_set_network_registration_allowed() -> Weight;
 	fn sudo_set_tempo() -> Weight;
+	fn sudo_set_commit_reveal_weights_interval() -> Weight;
+	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
+	
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -411,6 +414,24 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn sudo_set_commit_reveal_weights_interval() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1111`
+		//  Estimated: `4697`
+		// Minimum execution time: 46_450_000 picoseconds.
+		Weight::from_parts(47_279_000, 4697)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn sudo_set_commit_reveal_weights_enabled() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1111`
+		//  Estimated: `4697`
+		// Minimum execution time: 46_450_000 picoseconds.
+		Weight::from_parts(47_279_000, 4697)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -758,6 +779,24 @@ impl WeightInfo for () {
 		//  Estimated: `4697`
 		// Minimum execution time: 44_739_000 picoseconds.
 		Weight::from_parts(45_489_000, 4697)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn sudo_set_commit_reveal_weights_interval() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1111`
+		//  Estimated: `4697`
+		// Minimum execution time: 46_450_000 picoseconds.
+		Weight::from_parts(47_279_000, 4697)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn sudo_set_commit_reveal_weights_enabled() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1111`
+		//  Estimated: `4697`
+		// Minimum execution time: 46_450_000 picoseconds.
+		Weight::from_parts(47_279_000, 4697)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}

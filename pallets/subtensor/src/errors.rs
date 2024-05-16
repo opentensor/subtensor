@@ -112,5 +112,9 @@ mod errors {
         InvalidRevealTempo,
         /// Committed hash does not equal the hashed reveal data
         InvalidReveal,
+        /// Attempting to call set_weights when commit/reveal is enabled
+        CommitRevealEnabled,
+        /// Attemtping to commit/reveal weights when disabled.
+        CommitRevealDisabled,
     }
 }
