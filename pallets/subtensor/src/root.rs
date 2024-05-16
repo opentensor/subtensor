@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
     /// * 'Vec<u16>': Netuids of all subnets.
     ///
     pub fn get_all_subnet_netuids() -> Vec<u16> {
-        return NetworksAdded::<T>::iter()
+        NetworksAdded::<T>::iter()
             .map(|(netuid, _)| netuid)
             .collect()
     }

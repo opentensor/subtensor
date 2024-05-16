@@ -390,7 +390,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_max_delegate_take() -> u16 {
         MaxTake::<T>::get()
     }
-    
+
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {
         ServingRateLimit::<T>::get(netuid)
     }
@@ -715,5 +715,4 @@ impl<T: Config> Pallet<T> {
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
-
 }

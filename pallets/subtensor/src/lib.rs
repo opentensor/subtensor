@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![recursion_limit = "512"]
 #![allow(clippy::too_many_arguments)]
-#![allow(clippy::too_many_arguments)]
 // Edit this file to define custom logic or remove it if it is not needed.
 // Learn more about FRAME and the core library of Substrate FRAME pallets:
 // <https://docs.substrate.io/reference/frame-pallets/>
@@ -205,7 +204,7 @@ pub mod pallet {
         /// Initial default delegation take.
         #[pallet::constant]
         type InitialDefaultTake: Get<u16>;
-        /// Initial minimum stake.
+        /// Initial minimum delegate take.
         #[pallet::constant]
         type InitialMinTake: Get<u16>;
         /// Initial weights version key.
