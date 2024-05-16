@@ -608,27 +608,18 @@ fn test_network_pruning() {
 
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(0), 277_820_113);
         assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(1), 246_922_263);
         assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(2), 215_549_466);
         assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(3), 176_432_500);
         assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(4), 77_181_559);
         assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
-        // assert_eq!(SubtensorModule::get_subnet_emission_value(5), 5_857_251);
         assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-                                                                 // assert_eq!(SubtensorModule::get_pending_emission(1), 246_922_263);
         assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-                                                                 // assert_eq!(SubtensorModule::get_pending_emission(3), 176_432_500);
         assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-                                                                 // assert_eq!(SubtensorModule::get_pending_emission(5), 5_857_251);
         assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
         step_block(1);
     });
