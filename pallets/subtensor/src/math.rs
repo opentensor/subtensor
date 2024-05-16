@@ -260,6 +260,18 @@ pub fn inplace_normalize_64(x: &mut [I64F64]) {
     x.iter_mut().for_each(|value| *value /= x_sum);
 }
 
+/// Normalizes (sum to 1 except 0) each row (dim=0) of a I64F64 matrix in-place.
+#[allow(dead_code)]
+pub fn inplace_row_normalize_64(x: &mut [Vec<I64F64>]) {
+    for row in x {
+        let row_sum: I64F64 = row.iter().sum();
+        if row_sum > I64F64::from_num(0.0_f64) {
+            row.iter_mut()
+                .for_each(|x_ij: &mut I64F64| *x_ij /= row_sum);
+        }
+    }
+}
+
 /// Returns x / y for input vectors x and y, if y == 0 return 0.
 #[allow(dead_code)]
 pub fn vecdiv(x: &[I32F32], y: &[I32F32]) -> Vec<I32F32> {

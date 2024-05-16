@@ -354,7 +354,7 @@ fn test_subnet_staking_cleared_and_refunded_on_network_removal() {
 /// Run this test using the following command:
 /// `cargo test --package pallet-subtensor --test root test_issance_bounds`
 #[test]
-fn test_issance_bounds() {
+fn test_issuance_bounds() {
     new_test_ext(1).execute_with(|| {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
@@ -466,5 +466,83 @@ fn test_get_emission_across_entire_issuance_range() {
 
             issuance += expected_emission;
         }
+    });
+}
+
+#[test]
+fn test_dissolve_network_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+
+        add_network(netuid, 0, 0);
+        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid))
+    });
+}
+
+#[test]
+fn test_dissolve_network_refund_coldkey_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+        let subnet_locked_balance = 1000;
+
+        add_network(netuid, 0, 0);
+        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
+        let coldkey_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
+
+        let coldkey_new_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+
+        assert!(coldkey_new_balance > coldkey_balance);
+        assert_eq!(coldkey_new_balance, coldkey_balance + subnet_locked_balance);
+    });
+}
+
+#[test]
+fn test_dissolve_network_not_owner_err() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let random_coldkey = U256::from(3);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(random_coldkey), netuid),
+            Error::<Test>::NotSubnetOwner
+        );
+    });
+}
+
+#[test]
+fn test_dissolve_network_does_not_exist_err() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let coldkey = U256::from(2);
+
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
+            Error::<Test>::NetworkDoesNotExist
+        );
     });
 }
