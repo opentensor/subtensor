@@ -62,7 +62,7 @@ pub mod types;
 extern crate alloc;
 pub mod migration;
 
-// #[deny(missing_docs)]
+#[deny(missing_docs)]
 #[import_section(errors::errors)]
 #[import_section(events::events)]
 #[frame_support::pallet]
@@ -136,11 +136,14 @@ pub mod pallet {
         /// Tempo for each network.
         #[pallet::constant]
         type InitialTempo: Get<u16>;
-        #[pallet::constant] // Minimum Tempo for each network.
+        /// Minimum Tempo for each network.
+        #[pallet::constant]
         type MinTempo: Get<u16>;
-        #[pallet::constant] // Maximum Tempo for each network.
+        /// Maximum Tempo for each network.
+        #[pallet::constant]
         type MaxTempo: Get<u16>;
-        #[pallet::constant] // Initial Difficulty.
+        /// Initial Difficulty.
+        #[pallet::constant]
         type InitialDifficulty: Get<u64>;
         /// Initial Max Difficulty.
         #[pallet::constant]
@@ -202,9 +205,11 @@ pub mod pallet {
         /// Initial default delegation take.
         #[pallet::constant]
         type InitialDefaultTake: Get<u16>;
+        /// Initial minimum stake.
         #[pallet::constant]
         type InitialMinTake: Get<u16>;
-        #[pallet::constant] // Initial weights version key.
+        /// Initial weights version key.
+        #[pallet::constant]
         type InitialWeightsVersionKey: Get<u64>;
         /// Initial serving rate limit.
         #[pallet::constant]
@@ -212,9 +217,11 @@ pub mod pallet {
         /// Initial transaction rate limit.
         #[pallet::constant]
         type InitialTxRateLimit: Get<u64>;
-        #[pallet::constant] // Initial delegate take transaction rate limit.
+        /// Initial delegate take transaction rate limit.
+        #[pallet::constant]
         type InitialTxDelegateTakeRateLimit: Get<u64>;
-        #[pallet::constant] // Initial percentage of total stake required to join senate.
+        /// Initial percentage of total stake required to join senate.
+        #[pallet::constant]
         type InitialSenateRequiredStakePercentage: Get<u64>;
         /// Initial adjustment alpha on burn and pow.
         #[pallet::constant]
@@ -243,7 +250,8 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
-        #[pallet::constant] // Initial subnet lock period
+        /// Initial subnet lock period
+        #[pallet::constant]
         type InitialSubnetOwnerLockPeriod: Get<u64>;
     }
 
@@ -278,11 +286,13 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultMinTake<T: Config>() -> u16 {
         T::InitialMinTake::get()
-    }    
+    }
+    /// Default u64 zero value
     #[pallet::type_value]
     pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
     }
+    /// Default u16 MAX value
     #[pallet::type_value]
     pub fn DefaultMaxU16<T: Config>() -> u16 {
         u16::MAX
@@ -313,6 +323,7 @@ pub mod pallet {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
+    /// Default take
     #[pallet::type_value]
     pub fn DefaultAccountTake<T: Config>() -> u64 {
         0
@@ -322,7 +333,7 @@ pub mod pallet {
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
     }
-
+    /// Default lock period of subnet owner
     #[pallet::type_value]
     pub fn DefaultSubnetOwnerLockPeriod<T: Config>() -> u64 {
         T::InitialSubnetOwnerLockPeriod::get()
@@ -402,6 +413,8 @@ pub mod pallet {
         u64,
         ValueQuery,
     >;
+
+    /// Flag that determines if subnet staking is on by default
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
         if cfg!(feature = "subnet-staking") {
@@ -1615,39 +1628,39 @@ pub mod pallet {
             Self::do_become_delegate(origin, hotkey)
         }
 
-        // --- Allows delegates to decrease its take value.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>::Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'netuid' (u16):
-        // 		- Subnet ID to decrease take for
-        //
-        // 	* 'take' (u16):
-        // 		- The new stake proportion that this hotkey takes from delegations.
-        //        The new value can be between 0 and 11_796 and should be strictly
-        //        lower than the previous value. It T is the new value (rational number),
-        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
-        //        [0.01 * 65535] = [655.35] = 655
-        //
-        // # Event:
-        // 	* TakeDecreased;
-        // 		- On successfully setting a decreased take for this hotkey.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- The hotkey we are delegating is not registered on the network.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The hotkey we are delegating is not owned by the calling coldkey.
-        //
-        // 	* 'InvalidTransaction':
-        // 		- The delegate is setting a take which is not lower than the previous.
-        //
+        /// --- Allows delegates to decrease its take value.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnet ID to decrease take for
+        ///
+        /// * 'take' (u16):
+        ///     - The new stake proportion that this hotkey takes from delegations.
+        ///       The new value can be between 0 and 11_796 and should be strictly
+        ///       lower than the previous value. It T is the new value (rational number),
+        ///       the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///       [0.01 * 65535] = [655.35] = 655
+        ///
+        /// # Event:
+        /// * TakeDecreased;
+        ///     - On successfully setting a decreased take for this hotkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        ///     - The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - The hotkey we are delegating is not owned by the calling coldkey.
+        ///
+        /// * 'InvalidTransaction':
+        ///     - The delegate is setting a take which is not lower than the previous.
+        ///
         #[pallet::call_index(65)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn decrease_take(
@@ -1659,39 +1672,39 @@ pub mod pallet {
             Self::do_decrease_take(origin, hotkey, netuid, take)
         }
 
-        // --- Allows delegates to increase its take value. This call is rate-limited.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>::Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The hotkey we are delegating (must be owned by the coldkey.)
-        //
-        // 	* 'netuid' (u16):
-        // 		- Subnet ID to decrease take for
-        //
-        // 	* 'take' (u16):
-        // 		- The new stake proportion that this hotkey takes from delegations.
-        //        The new value can be between 0 and 11_796 and should be strictly
-        //        greater than the previous value. It T is the new value (rational number),
-        //        the the parameter is calculated as [65535 * T]. For example, 1% would be
-        //        [0.01 * 65535] = [655.35] = 655
-        //
-        // # Event:
-        // 	* TakeDecreased;
-        // 		- On successfully setting a decreased take for this hotkey.
-        //
-        // # Raises:
-        // 	* 'NotRegistered':
-        // 		- The hotkey we are delegating is not registered on the network.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The hotkey we are delegating is not owned by the calling coldkey.
-        //
-        // 	* 'InvalidTransaction':
-        // 		- The delegate is setting a take which is not lower than the previous.
-        //
+        /// --- Allows delegates to increase its take value. This call is rate-limited.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>::Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnet ID to decrease take for
+        ///
+        /// * 'take' (u16):
+        ///     - The new stake proportion that this hotkey takes from delegations.
+        ///       The new value can be between 0 and 11_796 and should be strictly
+        ///       greater than the previous value. It T is the new value (rational number),
+        ///       the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///       [0.01 * 65535] = [655.35] = 655
+        ///
+        /// # Event:
+        /// * TakeDecreased;
+        ///     - On successfully setting a decreased take for this hotkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        ///     - The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - The hotkey we are delegating is not owned by the calling coldkey.
+        ///
+        /// * 'InvalidTransaction':
+        ///     - The delegate is setting a take which is not lower than the previous.
+        ///
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn increase_take(
@@ -1723,40 +1736,40 @@ pub mod pallet {
             Self::do_set_delegate_takes(origin, &hotkey, takes)
         }
 
-        // --- Adds stake to a hotkey. The call is made from the
-        // coldkey account linked in the hotkey.
-        // Only the associated coldkey is allowed to make staking and
-        // unstaking requests. This protects the neuron against
-        // attacks on its hotkey running in production code.
-        //
-        // # Args:
-        // 	* 'origin': (<T as frame_system::Config>Origin):
-        // 		- The signature of the caller's coldkey.
-        //
-        // 	* 'hotkey' (T::AccountId):
-        // 		- The associated hotkey account.
-        //
-        // 	* 'amount_staked' (u64):
-        // 		- The amount of stake to be added to the hotkey staking account.
-        //
-        // # Event:
-        // 	* StakeAdded;
-        // 		- On the successfully adding stake to a global account.
-        //
-        // # Raises:
-        // 	* 'CouldNotConvertToBalance':
-        // 		- Unable to convert the passed stake value to a balance.
-        //
-        // 	* 'NotEnoughBalanceToStake':
-        // 		- Not enough balance on the coldkey to add onto the global account.
-        //
-        // 	* 'NonAssociatedColdKey':
-        // 		- The calling coldkey is not associated with this hotkey.
-        //
-        // 	* 'BalanceWithdrawalError':
-        // 		- Errors stemming from transaction pallet.
-        //
-        //
+        /// --- Adds stake to a hotkey. The call is made from the
+        /// coldkey account linked in the hotkey.
+        /// Only the associated coldkey is allowed to make staking and
+        /// unstaking requests. This protects the neuron against
+        /// attacks on its hotkey running in production code.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// * 'amount_staked' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeAdded;
+        ///     - On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        /// * 'CouldNotConvertToBalance':
+        ///     - Unable to convert the passed stake value to a balance.
+        ///
+        /// * 'NotEnoughBalanceToStake':
+        ///     - Not enough balance on the coldkey to add onto the global account.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - The calling coldkey is not associated with this hotkey.
+        ///
+        /// * 'BalanceWithdrawalError':
+        ///     - Errors stemming from transaction pallet.
+        ///
+        ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(124_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(10))
@@ -1769,6 +1782,43 @@ pub mod pallet {
             Self::do_add_stake(origin, hotkey, Self::get_root_netuid(), amount_staked)
         }
 
+        /// Adds stake to a hotkey on a subnet. The call is made from the
+        /// coldkey account linked in the hotkey.
+        /// Only the associated coldkey is allowed to make staking and
+        /// unstaking requests. This protects the neuron against
+        /// attacks on its hotkey running in production code.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// * 'netuid' (u16):
+        ///     - ID of the subnet.
+        ///
+        /// * 'amount_staked' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeAdded;
+        ///     - On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        /// * 'CouldNotConvertToBalance':
+        ///     - Unable to convert the passed stake value to a balance.
+        ///
+        /// * 'NotEnoughBalanceToStake':
+        ///     - Not enough balance on the coldkey to add onto the global account.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - The calling coldkey is not associated with this hotkey.
+        ///
+        /// * 'BalanceWithdrawalError':
+        ///     - Errors stemming from transaction pallet.
+        ///
+        ///        
         #[pallet::call_index(63)]
         #[pallet::weight((Weight::from_parts(65_000_000,0)
 		.saturating_add(T::DbWeight::get().reads(8))
@@ -1781,7 +1831,51 @@ pub mod pallet {
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
-        // TODO(const) this needs to be properly benchmarked (these values are copied from above.)
+
+        /// Adds or redistributes weighted stake across specified subnets for a given hotkey.
+        ///
+        /// This function allows a coldkey to allocate or reallocate stake across different subnets
+        /// based on provided weights. It first unstakes from all specified subnets, then redistributes
+        /// the stake according to the new weights. If there's any remainder from rounding errors or
+        /// unallocated stake, it is staked into the root network.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// * 'netuids' ( Vec<u16> ):
+        ///     - The netuids of the weights to be set on the chain.
+        ///
+        /// * 'values' ( Vec<u16> ):
+        ///     - The values of the weights to set on the chain. u16 normalized.
+        ///
+        /// * 'stake_to_be_added' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeAdded;
+        ///     - On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        /// * CouldNotConvertToBalance:
+        ///     - Unable to convert the passed stake value to a balance.
+        ///
+        /// * NotEnoughBalanceToStake:
+        ///     - Not enough balance on the coldkey to add onto the global account.
+        ///
+        /// * NonAssociatedColdKey:
+        ///     - The calling coldkey is not associated with this hotkey.
+        ///
+        /// * BalanceWithdrawalError:
+        ///     - Errors stemming from transaction pallet.
+        ///
+        /// * TxRateLimitExceeded:
+        ///     - Thrown if key has hit transaction rate limit
+        ///
+        /// TODO(const) this needs to be properly benchmarked (these values are copied from above.)
         #[pallet::call_index(67)]
         #[pallet::weight((Weight::from_parts(65_000_000,0)
 		.saturating_add(T::DbWeight::get().reads(8))
@@ -1836,6 +1930,38 @@ pub mod pallet {
             Self::do_remove_stake(origin, hotkey, Self::get_root_netuid(), amount_unstaked)
         }
 
+        /// Removes stake from a hotkey account and adds it onto a coldkey.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// * 'stake_to_be_added' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        ///     - On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        ///     - Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * 'NotEnoughStaketoWithdraw':
+        ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        ///
+        /// * 'CouldNotConvertToBalance':
+        ///     - Thrown if we could not convert this amount to a balance.
+        ///
+        /// * 'TxRateLimitExceeded':
+        ///     - Thrown if key has hit transaction rate limit
+        ///
         #[pallet::call_index(64)]
         #[pallet::weight((Weight::from_parts(63_000_000,0)
 		.saturating_add(Weight::from_parts(0, 43991))

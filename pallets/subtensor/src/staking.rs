@@ -532,39 +532,38 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the caller's coldkey.
-    //
-    // 	* 'hotkey' (T::AccountId):
-    // 		- The associated hotkey account.
-    //
-    // 	* 'stake_to_be_added' (u64):
-    // 		- The amount of stake to be added to the hotkey staking account.
-    //
-    // # Event:
-    // 	* StakeRemoved;
-    // 		- On the successfully removing stake from the hotkey account.
-    //
-    // # Raises:
-    // 	* 'NotRegistered':
-    // 		- Thrown if the account we are attempting to unstake from is non existent.
-    //
-    // 	* 'NonAssociatedColdKey':
-    // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
-    //
-    // 	* 'NotEnoughStaketoWithdraw':
-    // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    //
-    // 	* 'CouldNotConvertToBalance':
-    // 		- Thrown if we could not convert this amount to a balance.
-    //
-    // 	* 'TxRateLimitExceeded':
-    // 		- Thrown if key has hit transaction rate limit
-    //
-    //
+    /// The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     - The signature of the caller's coldkey.
+    ///
+    /// * 'hotkey' (T::AccountId):
+    ///     - The associated hotkey account.
+    ///
+    /// * 'stake_to_be_added' (u64):
+    ///     - The amount of stake to be added to the hotkey staking account.
+    ///
+    /// # Event:
+    /// * StakeRemoved;
+    ///     - On the successfully removing stake from the hotkey account.
+    ///
+    /// # Raises:
+    /// * 'NotRegistered':
+    ///     - Thrown if the account we are attempting to unstake from is non existent.
+    ///
+    /// * 'NonAssociatedColdKey':
+    ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+    ///
+    /// * 'NotEnoughStaketoWithdraw':
+    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    ///
+    /// * 'CouldNotConvertToBalance':
+    ///     - Thrown if we could not convert this amount to a balance.
+    ///
+    /// * 'TxRateLimitExceeded':
+    ///     - Thrown if key has hit transaction rate limit
+    ///
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
