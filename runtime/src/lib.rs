@@ -18,6 +18,7 @@ use frame_support::{
 };
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 use migrations::{account_data_migration, init_storage_versions};
+
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -301,7 +302,6 @@ impl pallet_balances::Config for Runtime {
     type ExistentialDeposit = ConstU64<EXISTENTIAL_DEPOSIT>;
     type AccountStore = System;
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
-
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
     type FreezeIdentifier = RuntimeFreezeReason;
@@ -737,7 +737,6 @@ impl pallet_registry::Config for Runtime {
     type Currency = Balances;
     type CanRegister = AllowIdentityReg;
     type WeightInfo = pallet_registry::weights::SubstrateWeight<Runtime>;
-
     type MaxAdditionalFields = MaxAdditionalFields;
     type InitialDeposit = InitialDeposit;
     type FieldDeposit = FieldDeposit;
@@ -819,7 +818,7 @@ parameter_types! {
     pub const SubtensorInitialSubnetOwnerCut: u16 = 11_796; // 18 percent
     pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
-    pub const SubtensorInitialNetworkRateLimit: u64 = 1 * 7200;
+    pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
     pub const SubtensorInitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3; // 3 months
 }
@@ -982,8 +981,8 @@ impl
     }
 
     fn u64_to_balance(input: u64) -> Option<Balance> {
-        return SubtensorModule::u64_to_balance(input);
-    }    
+        SubtensorModule::u64_to_balance(input)
+    }
 
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
         SubtensorModule::add_balance_to_coldkey_account(coldkey, amount);
@@ -1203,6 +1202,7 @@ pub type SignedExtra = (
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
+    check_nonce::CheckNonce<Runtime>,
     check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
@@ -1450,13 +1450,17 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+            use sp_storage::TrackedStorageKey;
 
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
             #[allow(non_local_definitions)]
+            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
+
+            #[allow(non_local_definitions)]
 
             #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}
@@ -1655,9 +1659,6 @@ impl_runtime_apis! {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-
 #[test]
 fn check_whitelist() {
     use crate::*;
@@ -1680,4 +1681,3 @@ fn check_whitelist() {
     // System Events
     assert!(whitelist.contains("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7"));
 }
-// }

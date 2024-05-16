@@ -441,7 +441,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn is_hotkey_registered_on_network(netuid: u16, hotkey: &AccountId) -> bool {
-        return SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey);
+        SubtensorModule::is_hotkey_registered_on_network(netuid, hotkey)
     }
 
     fn init_new_network(netuid: u16, tempo: u16) {

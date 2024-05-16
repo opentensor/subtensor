@@ -349,7 +349,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             ),
             0
         );
-        assert_eq!(Balances::free_balance(&coldkey_account_id), stake_amount);
+        assert_eq!(Balances::free_balance(coldkey_account_id), stake_amount);
 
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
@@ -360,7 +360,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             0
         );
         assert_eq!(
-            Balances::free_balance(&coldkey_account1_id),
+            Balances::free_balance(coldkey_account1_id),
             stake_amount + 1
         );
 
@@ -373,7 +373,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             0
         );
         assert_eq!(
-            Balances::free_balance(&coldkey_account2_id),
+            Balances::free_balance(coldkey_account2_id),
             stake_amount + 2
         );
 

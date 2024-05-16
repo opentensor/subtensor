@@ -1,5 +1,6 @@
 use super::*;
 use alloc::collections::BTreeMap;
+use frame_support::traits::DefensiveResult;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery, ValueQuery},
     storage_alias,
@@ -99,7 +100,8 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
 
         // We have to decode this using a byte slice as we don't have crypto-std
         let coldkey_account: <T as frame_system::Config>::AccountId =
-            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..]).unwrap();
+            <T as frame_system::Config>::AccountId::decode(&mut &coldkey[..])
+                .expect("coldkey is 32-byte array; qed");
         info!("Foundation coldkey: {:?}", coldkey_account);
 
         let current_block = Pallet::<T>::get_current_block_as_u64();
@@ -175,8 +177,8 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     // Empty senate members entirely, they will be filled by by registrations
     // on the subnet.
     for hotkey_i in T::SenateMembers::members().iter() {
-        let _ = T::TriumvirateInterface::remove_votes(&hotkey_i);
-        let _ = T::SenateMembers::remove_member(&hotkey_i);
+        T::TriumvirateInterface::remove_votes(hotkey_i).defensive_ok();
+        T::SenateMembers::remove_member(hotkey_i).defensive_ok();
 
         weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
     }
@@ -380,7 +382,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
         for netuid in curr_loaded_emission {
             // Iterates over the netuids
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            if let Err(_) = old::LoadedEmission::<T>::try_get(netuid) {
+            if old::LoadedEmission::<T>::try_get(netuid).is_err() {
                 weight.saturating_accrue(T::DbWeight::get().writes(1));
                 old::LoadedEmission::<T>::remove(netuid);
                 log::warn!(
@@ -407,7 +409,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
                 let mut new_netuid_emissions = Vec::new();
                 for (server, validator_emission) in netuid_emissions {
-                    new_netuid_emissions.push((server, 0 as u64, validator_emission));
+                    new_netuid_emissions.push((server, 0_u64, validator_emission));
                 }
 
                 // One read (old) and write (new) per netuid

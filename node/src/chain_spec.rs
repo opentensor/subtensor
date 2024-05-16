@@ -98,7 +98,8 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str)
+                .map_err(|e| e.to_string())?;
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));
@@ -260,7 +261,8 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
 
         for (hotkey_str, amount_uid) in hotkeys.iter() {
             let (amount, uid) = amount_uid;
-            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(&hotkey_str).unwrap();
+            let hotkey = <sr25519::Public as Ss58Codec>::from_ss58check(hotkey_str)
+                .map_err(|e| e.to_string())?;
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
             processed_hotkeys.push((hotkey_account, (*amount, *uid)));

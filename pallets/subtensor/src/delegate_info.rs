@@ -200,7 +200,7 @@ impl<T: Config> Pallet<T> {
 
         for netuid in registrations.iter() {
             let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
-            if !_uid.is_ok() {
+            if _uid.is_err() {
                 continue; // this should never happen
             } else {
                 let uid = _uid.expect("Delegate's UID should be ok");
@@ -225,7 +225,7 @@ impl<T: Config> Pallet<T> {
                 (
                     Compact(netuid),
                     Compact(
-                        if let Ok(take) = <DelegatesTake<T>>::try_get(&delegate, netuid) {
+                        if let Ok(take) = DelegatesTake::<T>::try_get(&delegate, netuid) {
                             take
                         } else {
                             <DefaultDefaultTake<T>>::get()
@@ -262,31 +262,32 @@ impl<T: Config> Pallet<T> {
         }
 
         let delegate: AccountIdOf<T> =
-            T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).unwrap();
+            T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).ok()?;
         // Check delegate exists
-        if !<Delegates<T>>::contains_key(&delegate) {
+        if !Delegates::<T>::contains_key(&delegate) {
             return None;
         }
 
         let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
-        return Some(delegate_info);
+        Some(delegate_info)
     }
 
+    /// get all delegates info from storage
+    ///
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
-        <Delegates<T>>::iter()
+        Delegates::<T>::iter()
             .map(|(delegate_id, _)| Self::get_delegate_by_existing_account(delegate_id))
             .collect()
     }
 
+    /// get all delegate info and staked token amount for a given delegatee account
+    ///
     pub fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, Compact<u64>)> {
-        if delegatee_account_vec.len() != 32 {
+        let Ok(delegatee) = T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()) else {
             return Vec::new(); // No delegates for invalid account
-        }
+        };
 
-        let delegatee: AccountIdOf<T> =
-            T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()).unwrap();
-
-        <Delegates<T>>::iter()
+        Delegates::<T>::iter()
             .map(|(delegate_id, _)| {
                 let mut total_staked_to_delegate_i: u64 = 0;
                 let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();

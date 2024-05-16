@@ -103,6 +103,9 @@ impl<T: Config> Pallet<T> {
     /// * 'hotkey' (T::AccountId):
     ///     - The hotkey we are delegating (must be owned by the coldkey.)
     ///
+    /// * 'netuid' (u16):
+    ///     - Subnet ID to decrease take for
+    /// 
     /// * 'take' (u16):
     ///     - The stake proportion that this hotkey takes from delegations for subnet ID.
     ///
@@ -129,9 +132,10 @@ impl<T: Config> Pallet<T> {
         // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_decrease_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            "do_decrease_take( origin:{:?} hotkey:{:?}, netuid:{:?}, take:{:?} )",
             coldkey,
             hotkey,
+            netuid,
             take
         );
 
@@ -170,7 +174,7 @@ impl<T: Config> Pallet<T> {
     ///     - The hotkey we are delegating (must be owned by the coldkey.)
     ///
     /// * 'netuid' (u16):
-    ///     - Subnet ID to increase take for
+    ///     - Subnet ID to decrease take for
     ///
     /// * 'take' (u16):
     ///     - The stake proportion that this hotkey takes from delegations for subnet ID.
@@ -191,7 +195,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * 'InvalidTake':
     ///     - The delegate is setting a take which is not greater than the previous.
-    ///    
+    ///
     pub fn do_increase_take(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -201,9 +205,10 @@ impl<T: Config> Pallet<T> {
         // --- 1. We check the coldkey signature.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            "do_increase_take( origin:{:?} hotkey:{:?}, netuid:{:?}, take:{:?} )",
             coldkey,
             hotkey,
+            netuid,
             take
         );
 
@@ -415,38 +420,38 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     -  The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     -  The associated hotkey account.
-    ///
-    /// * 'netuid' (u16):
-    ///     - The netuid to stake into.
-    ///
-    /// * 'stake_to_be_added' (u64):
-    ///     -  The amount of stake to be added to the hotkey staking account.
-    ///
-    /// # Event:
-    /// * StakeAdded;
-    ///     -  On the successfully adding stake to a global account.
-    ///
-    /// # Raises:
-    /// * 'NotEnoughBalanceToStake':
-    ///     -  Not enough balance on the coldkey to add onto the global account.
-    ///
-    /// * 'NonAssociatedColdKey':
-    ///     -  The calling coldkey is not associated with this hotkey.
-    ///
-    /// * 'BalanceWithdrawalError':
-    ///     -  Errors stemming from transaction pallet.
-    ///
-    /// * 'TxRateLimitExceeded':
-    ///     -  Thrown if key has hit transaction rate limit
-    ///
+    // ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The associated hotkey account.
+    //
+    // 	* 'stake_to_be_added' (u64):
+    // 		- The amount of stake to be added to the hotkey staking account.
+    //
+    // # Event:
+    // 	* StakeAdded;
+    // 		- On the successfully adding stake to a global account.
+    //
+    // # Raises:
+    // 	* 'CouldNotConvertToBalance':
+    // 		- Unable to convert the passed stake value to a balance.
+    //
+    // 	* 'NotEnoughBalanceToStake':
+    // 		- Not enough balance on the coldkey to add onto the global account.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- The calling coldkey is not associated with this hotkey.
+    //
+    // 	* 'BalanceWithdrawalError':
+    // 		- Errors stemming from transaction pallet.
+    //
+    // 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
+    //
     pub fn do_add_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -527,38 +532,39 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     -  The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     -  The associated hotkey account.
-    /// 
-    /// * 'netuid' (u16):
-    ///     - The netuid to stake into.
-    ///
-    /// * 'stake_to_be_added' (u64):
-    ///     -  The amount of stake to be added to the hotkey staking account.
-    ///
-    /// # Event:
-    /// * StakeRemoved;
-    ///     -  On the successfully removing stake from the hotkey account.
-    ///
-    /// # Raises:
-    /// * 'NotRegistered':
-    ///     -  Thrown if the account we are attempting to unstake from is non existent.
-    ///
-    /// * 'NonAssociatedColdKey':
-    ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
-    ///
-    /// * 'NotEnoughStaketoWithdraw':
-    ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    ///
-    /// * 'TxRateLimitExceeded':
-    ///     -  Thrown if key has hit transaction rate limit
-    ///
+    // ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
+    //
+    // # Args:
+    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    // 		- The signature of the caller's coldkey.
+    //
+    // 	* 'hotkey' (T::AccountId):
+    // 		- The associated hotkey account.
+    //
+    // 	* 'stake_to_be_added' (u64):
+    // 		- The amount of stake to be added to the hotkey staking account.
+    //
+    // # Event:
+    // 	* StakeRemoved;
+    // 		- On the successfully removing stake from the hotkey account.
+    //
+    // # Raises:
+    // 	* 'NotRegistered':
+    // 		- Thrown if the account we are attempting to unstake from is non existent.
+    //
+    // 	* 'NonAssociatedColdKey':
+    // 		- Thrown if the coldkey does not own the hotkey we are unstaking from.
+    //
+    // 	* 'NotEnoughStaketoWithdraw':
+    // 		- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+    //
+    // 	* 'CouldNotConvertToBalance':
+    // 		- Thrown if we could not convert this amount to a balance.
+    //
+    // 	* 'TxRateLimitExceeded':
+    // 		- Thrown if key has hit transaction rate limit
+    //
+    //
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -780,7 +786,7 @@ impl<T: Config> Pallet<T> {
     // Returns the total amount of stake in the staking table.
     //
     pub fn get_total_stake() -> u64 {
-        return TotalStake::<T>::get();
+        TotalStake::<T>::get()
     }
 
     // Getters for Dynamic terms
@@ -833,7 +839,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_target_stakes_per_interval() -> u64 {
-        return TargetStakesPerInterval::<T>::get();
+        TargetStakesPerInterval::<T>::get()
     }
 
     pub fn set_target_stakes_per_interval(stakes_per_interval: u64) {
@@ -851,7 +857,13 @@ impl<T: Config> Pallet<T> {
     // Returns the coldkey owning this hotkey. This function should only be called for active accounts.
     //
     pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
-        return Owner::<T>::get(hotkey);
+        Owner::<T>::get(hotkey)
+    }
+
+    // Returns the hotkey take
+    //
+    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
+        Delegates::<T>::get(hotkey)
     }
 
     // Returns the hotkey take
@@ -911,16 +923,16 @@ impl<T: Config> Pallet<T> {
     // Returns true if the hotkey account has been created.
     //
     pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {
-        return Owner::<T>::contains_key(hotkey);
+        Owner::<T>::contains_key(hotkey)
     }
 
     // Return true if the passed coldkey owns the hotkey.
     //
     pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
         if Self::hotkey_account_exists(hotkey) {
-            return Owner::<T>::get(hotkey) == *coldkey;
+            Owner::<T>::get(hotkey) == *coldkey
         } else {
-            return false;
+            false
         }
     }
 
@@ -932,9 +944,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         decrement: u64,
     ) -> bool {
-        return Self::get_subnet_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid) >= decrement;
+        Self::get_subnet_stake_for_coldkey_and_hotkey(coldkey, hotkey, netuid) >= decrement
     }
-
     // Increases the stake on the hotkey account under its owning coldkey.
     //
     pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, increment: u64) {
@@ -965,15 +976,6 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
     ) -> u64 {
         SubStake::<T>::try_get((coldkey, hotkey, netuid)).unwrap_or(0)
-    }
-
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    pub fn get_total_stake_for_hotkey_and_coldkey(
-        hotkey: &T::AccountId,
-        coldkey: &T::AccountId,
-    ) -> u64 {
-        Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
     }
 
     pub fn get_tao_per_alpha_price(netuid: u16) -> I64F64 {
@@ -1115,7 +1117,7 @@ impl<T: Config> Pallet<T> {
         input: u64,
     ) -> Option<
         <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
-    >{
+    > {
         input.try_into().ok()
     }
 
@@ -1170,14 +1172,14 @@ impl<T: Config> Pallet<T> {
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
         // infallible
-        let _ = T::Currency::deposit(&coldkey, amount, Precision::BestEffort);
+        let _ = T::Currency::deposit(coldkey, amount, Precision::BestEffort);
     }
 
     pub fn set_balance_on_coldkey_account(
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) {
-        T::Currency::set_balance(&coldkey, amount);
+        T::Currency::set_balance(coldkey, amount);
     }
 
     pub fn can_remove_balance_from_coldkey_account(
@@ -1190,21 +1192,19 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let can_withdraw = T::Currency::can_withdraw(&coldkey, amount)
-            .into_result(false)
-            .is_ok();
+        let can_withdraw = T::Currency::can_withdraw(
+            &coldkey,
+            amount,
+        )
+        .into_result(false)
+        .is_ok();
         can_withdraw
     }
 
     pub fn get_coldkey_balance(
         coldkey: &T::AccountId,
-    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance
-    {
-        return T::Currency::reducible_balance(
-            &coldkey,
-            Preservation::Expendable,
-            Fortitude::Polite,
-        );
+    ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance {
+        return T::Currency::reducible_balance(&coldkey, Preservation::Expendable, Fortitude::Polite);
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]
@@ -1212,33 +1212,29 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
-        let amount_u64: u64 = amount
-            .try_into()
-            .map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+        let amount_u64: u64 = amount.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
 
         if amount_u64 == 0 {
             return Ok(0);
         }
 
         let credit = T::Currency::withdraw(
-            &coldkey,
-            amount,
-            Precision::BestEffort,
-            Preservation::Preserve,
-            Fortitude::Polite,
-        )
-        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
-        .peek();
+                &coldkey,
+                amount,
+                Precision::BestEffort,
+                Preservation::Preserve,
+                Fortitude::Polite,
+            )
+            .map_err(|_| Error::<T>::BalanceWithdrawalError)?
+            .peek();
 
-        let credit_u64: u64 = credit
-            .try_into()
-            .map_err(|_| Error::<T>::CouldNotConvertToU64)?;
+        let credit_u64: u64 = credit.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
 
         if credit_u64 == 0 {
             return Err(Error::<T>::BalanceWithdrawalError.into());
         }
 
-        Ok(credit_u64)
+        Ok(credit)
     }
 
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
