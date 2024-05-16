@@ -297,7 +297,7 @@ impl<T: Config> Pallet<T> {
         // --- 0. The unique ID associated with the root network.
         let root_netuid: u16 = Self::get_root_netuid();
 
-        // --- 3. Check if we should update the emission values based on blocks since emission was last set.
+        // --- 1. Check if we should update the emission values based on blocks since emission was last set.
         let blocks_until_next_epoch: u64 =
             Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
         if blocks_until_next_epoch != 0 {
@@ -306,7 +306,7 @@ impl<T: Config> Pallet<T> {
             return Err("");
         }
 
-        // --- 1. Retrieves the number of root validators on subnets.
+        // --- 2. Retrieves the number of root validators on subnets.
         let n: u16 = Self::get_num_root_validators();
         log::debug!("n:\n{:?}\n", n);
         if n == 0 {
@@ -314,7 +314,7 @@ impl<T: Config> Pallet<T> {
             return Err("No validators to validate emission values.");
         }
 
-        // --- 2. Obtains the number of registered subnets.
+        // --- 3. Obtains the number of registered subnets.
         let k: u16 = Self::get_all_subnet_netuids().len() as u16;
         log::debug!("k:\n{:?}\n", k);
         if k == 0 {
@@ -346,17 +346,21 @@ impl<T: Config> Pallet<T> {
         inplace_normalize_64(&mut stake_i64);
         log::debug!("S:\n{:?}\n", &stake_i64);
 
-        // --- 8. Retrieves the network weights in a 2D Vector format. Weights have shape
+        // --- 7. Retrieves the network weights in a 2D Vector format. Weights have shape
         // n x k where is n is the number of registered peers and k is the number of subnets.
-        let weights: Vec<Vec<I64F64>> = Self::get_root_weights();
+        let mut weights: Vec<Vec<I64F64>> = Self::get_root_weights();
         log::debug!("W:\n{:?}\n", &weights);
 
-        // --- 9. Calculates the rank of networks. Rank is a product of weights and stakes.
+        // Normalize weights.
+        inplace_row_normalize_64(&mut weights);
+        log::debug!("W(norm):\n{:?}\n", &weights);
+
+        // --- 8. Calculates the rank of networks. Rank is a product of weights and stakes.
         // Ranks will have shape k, a score for each subnet.
         let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
         log::debug!("R:\n{:?}\n", &ranks);
 
-        // --- 10. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
+        // --- 9. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
         // Trust will have shape k, a score for each subnet.
         let total_networks = Self::get_num_subnets();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
@@ -383,7 +387,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // --- 11. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
+        // --- 10. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
         // Consensus will have shape k, a score for each subnet.
         log::debug!("T:\n{:?}\n", &trust);
         let one = I64F64::from_num(1);
