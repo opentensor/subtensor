@@ -1,57 +1,56 @@
 use super::*;
-use frame_support::sp_std::vec;
 
 impl<T: Config> Pallet<T> {
-    // ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the caller.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'version' (u64):
-    // 		- The bittensor version identifier.
-    //
-    // 	* 'ip' (u64):
-    // 		- The endpoint ip information as a u128 encoded integer.
-    //
-    // 	* 'port' (u16):
-    // 		- The endpoint port information as a u16 encoded integer.
-    //
-    // 	* 'ip_type' (u8):
-    // 		- The endpoint ip version as a u8, 4 or 6.
-    //
-    // 	* 'protocol' (u8):
-    // 		- UDP:1 or TCP:0
-    //
-    // 	* 'placeholder1' (u8):
-    // 		- Placeholder for further extra params.
-    //
-    // 	* 'placeholder2' (u8):
-    // 		- Placeholder for further extra params.
-    //
-    // # Event:
-    // 	* AxonServed;
-    // 		- On successfully serving the axon info.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to set weights on a non-existent network.
-    //
-    // 	* 'NotRegistered':
-    // 		- Attempting to set weights from a non registered account.
-    //
-    // 	* 'InvalidIpType':
-    // 		- The ip type is not 4 or 6.
-    //
-    // 	* 'InvalidIpAddress':
-    // 		- The numerically encoded ip address does not resolve to a proper ip.
-    //
-    // 	* 'ServingRateLimitExceeded':
-    // 		- Attempting to set prometheus information withing the rate limit min.
-    //
+    /// ---- The implementation for the extrinsic serve_axon which sets the ip endpoint information for a uid on a network.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     - The signature of the caller.
+    ///
+    /// * 'netuid' (u16):
+    ///     - The u16 network identifier.
+    ///
+    /// * 'version' (u64):
+    ///     - The bittensor version identifier.
+    ///
+    /// * 'ip' (u64):
+    ///     - The endpoint ip information as a u128 encoded integer.
+    ///
+    /// * 'port' (u16):
+    ///     - The endpoint port information as a u16 encoded integer.
+    ///
+    /// * 'ip_type' (u8):
+    ///     - The endpoint ip version as a u8, 4 or 6.
+    ///
+    /// * 'protocol' (u8):
+    ///     - UDP:1 or TCP:0
+    ///
+    /// * 'placeholder1' (u8):
+    ///     - Placeholder for further extra params.
+    ///
+    /// * 'placeholder2' (u8):
+    ///     - Placeholder for further extra params.
+    ///
+    /// # Event:
+    /// * AxonServed;
+    ///     - On successfully serving the axon info.
+    ///
+    /// # Raises:
+    /// * 'NetworkDoesNotExist':
+    ///     - Attempting to set weights on a non-existent network.
+    ///
+    /// * 'NotRegistered':
+    ///     - Attempting to set weights from a non registered account.
+    ///
+    /// * 'InvalidIpType':
+    ///     - The ip type is not 4 or 6.
+    ///
+    /// * 'InvalidIpAddress':
+    ///     - The numerically encoded ip address does not resolve to a proper ip.
+    ///
+    /// * 'ServingRateLimitExceeded':
+    ///     - Attempting to set prometheus information withing the rate limit min.
+    ///
     pub fn do_serve_axon(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -63,23 +62,23 @@ impl<T: Config> Pallet<T> {
         placeholder1: u8,
         placeholder2: u8,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the callers (hotkey) signature.
+        // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // --- 2. Ensure the hotkey is registered somewhere.
+        // Ensure the hotkey is registered somewhere.
         ensure!(
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
             Error::<T>::NotRegistered
         );
 
-        // --- 3. Check the ip signature validity.
+        // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip),
             Error::<T>::InvalidIpAddress
         );
 
-        // --- 4. Get the previous axon information.
+        // Get the previous axon information.
         let mut prev_axon = Self::get_axon_info(netuid, &hotkey_id);
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -87,7 +86,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // --- 6. We insert the axon meta.
+        // We insert the axon meta.
         prev_axon.block = Self::get_current_block_as_u64();
         prev_axon.version = version;
         prev_axon.ip = ip;
@@ -97,7 +96,7 @@ impl<T: Config> Pallet<T> {
         prev_axon.placeholder1 = placeholder1;
         prev_axon.placeholder2 = placeholder2;
 
-        // --- 7. Validate axon data with delegate func
+        // Validate axon data with delegate func
         let axon_validated = Self::validate_axon_data(&prev_axon);
         ensure!(
             axon_validated.is_ok(),
@@ -106,55 +105,55 @@ impl<T: Config> Pallet<T> {
 
         Axons::<T>::insert(netuid, hotkey_id.clone(), prev_axon);
 
-        // --- 8. We deposit axon served event.
+        // We deposit axon served event.
         log::info!("AxonServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::AxonServed(netuid, hotkey_id));
 
-        // --- 9. Return is successful dispatch.
+        // Return is successful dispatch.
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic serve_prometheus.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the caller.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'version' (u64):
-    // 		- The bittensor version identifier.
-    //
-    // 	* 'ip' (u64):
-    // 		- The prometheus ip information as a u128 encoded integer.
-    //
-    // 	* 'port' (u16):
-    // 		- The prometheus port information as a u16 encoded integer.
-    //
-    // 	* 'ip_type' (u8):
-    // 		- The prometheus ip version as a u8, 4 or 6.
-    //
-    // # Event:
-    // 	* PrometheusServed;
-    // 		- On successfully serving the axon info.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to set weights on a non-existent network.
-    //
-    // 	* 'NotRegistered':
-    // 		- Attempting to set weights from a non registered account.
-    //
-    // 	* 'InvalidIpType':
-    // 		- The ip type is not 4 or 6.
-    //
-    // 	* 'InvalidIpAddress':
-    // 		- The numerically encoded ip address does not resolve to a proper ip.
-    //
-    // 	* 'ServingRateLimitExceeded':
-    // 		- Attempting to set prometheus information withing the rate limit min.
-    //
+    /// ---- The implementation for the extrinsic serve_prometheus.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     - The signature of the caller.
+    ///
+    /// * 'netuid' (u16):
+    ///     - The u16 network identifier.
+    ///
+    /// * 'version' (u64):
+    ///     - The bittensor version identifier.
+    ///
+    /// * 'ip' (u64):
+    ///     - The prometheus ip information as a u128 encoded integer.
+    ///
+    /// * 'port' (u16):
+    ///     - The prometheus port information as a u16 encoded integer.
+    ///
+    /// * 'ip_type' (u8):
+    ///     - The prometheus ip version as a u8, 4 or 6.
+    ///
+    /// # Event:
+    /// * PrometheusServed;
+    ///     - On successfully serving the axon info.
+    ///
+    /// # Raises:
+    /// * 'NetworkDoesNotExist':
+    ///     - Attempting to set weights on a non-existent network.
+    ///
+    /// * 'NotRegistered':
+    ///     - Attempting to set weights from a non registered account.
+    ///
+    /// * 'InvalidIpType':
+    ///     - The ip type is not 4 or 6.
+    ///
+    /// * 'InvalidIpAddress':
+    ///     - The numerically encoded ip address does not resolve to a proper ip.
+    ///
+    /// * 'ServingRateLimitExceeded':
+    ///     - Attempting to set prometheus information withing the rate limit min.
+    ///
     pub fn do_serve_prometheus(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -163,23 +162,23 @@ impl<T: Config> Pallet<T> {
         port: u16,
         ip_type: u8,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the callers (hotkey) signature.
+        // We check the callers (hotkey) signature.
         let hotkey_id = ensure_signed(origin)?;
 
-        // --- 2. Ensure the hotkey is registered somewhere.
+        // Ensure the hotkey is registered somewhere.
         ensure!(
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
             Error::<T>::NotRegistered
         );
 
-        // --- 3. Check the ip signature validity.
+        // Check the ip signature validity.
         ensure!(Self::is_valid_ip_type(ip_type), Error::<T>::InvalidIpType);
         ensure!(
             Self::is_valid_ip_address(ip_type, ip),
             Error::<T>::InvalidIpAddress
         );
 
-        // --- 5. We get the previous axon info assoicated with this ( netuid, uid )
+        // We get the previous axon info assoicated with this ( netuid, uid )
         let mut prev_prometheus = Self::get_prometheus_info(netuid, &hotkey_id);
         let current_block: u64 = Self::get_current_block_as_u64();
         ensure!(
@@ -187,28 +186,28 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ServingRateLimitExceeded
         );
 
-        // --- 6. We insert the prometheus meta.
+        // We insert the prometheus meta.
         prev_prometheus.block = Self::get_current_block_as_u64();
         prev_prometheus.version = version;
         prev_prometheus.ip = ip;
         prev_prometheus.port = port;
         prev_prometheus.ip_type = ip_type;
 
-        // --- 7. Validate prometheus data with delegate func
+        // Validate prometheus data with delegate func
         let prom_validated = Self::validate_prometheus_data(&prev_prometheus);
         ensure!(
             prom_validated.is_ok(),
             prom_validated.err().unwrap_or(Error::<T>::InvalidPort)
         );
 
-        // --- 8. Insert new prometheus data
+        // Insert new prometheus data
         Prometheus::<T>::insert(netuid, hotkey_id.clone(), prev_prometheus);
 
-        // --- 9. We deposit prometheus served event.
+        // We deposit prometheus served event.
         log::info!("PrometheusServed( hotkey:{:?} ) ", hotkey_id.clone());
         Self::deposit_event(Event::PrometheusServed(netuid, hotkey_id));
 
-        // --- 10. Return is successful dispatch.
+        // Return is successful dispatch.
         Ok(())
     }
 
@@ -223,7 +222,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_axon_info.block;
-        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
+        rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit
     }
 
     pub fn prometheus_passes_rate_limit(
@@ -233,22 +232,22 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         let rate_limit: u64 = Self::get_serving_rate_limit(netuid);
         let last_serve = prev_prometheus_info.block;
-        return rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit;
+        rate_limit == 0 || last_serve == 0 || current_block - last_serve >= rate_limit
     }
 
     pub fn has_axon_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        return Axons::<T>::contains_key(netuid, hotkey);
+        Axons::<T>::contains_key(netuid, hotkey)
     }
 
     pub fn has_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> bool {
-        return Prometheus::<T>::contains_key(netuid, hotkey);
+        Prometheus::<T>::contains_key(netuid, hotkey)
     }
 
     pub fn get_axon_info(netuid: u16, hotkey: &T::AccountId) -> AxonInfoOf {
-        if Self::has_axon_info(netuid, hotkey) {
-            return Axons::<T>::get(netuid, hotkey).unwrap();
+        if let Some(axons) = Axons::<T>::get(netuid, hotkey) {
+            axons
         } else {
-            return AxonInfo {
+            AxonInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
@@ -257,27 +256,27 @@ impl<T: Config> Pallet<T> {
                 protocol: 0,
                 placeholder1: 0,
                 placeholder2: 0,
-            };
+            }
         }
     }
 
     pub fn get_prometheus_info(netuid: u16, hotkey: &T::AccountId) -> PrometheusInfoOf {
-        if Self::has_prometheus_info(netuid, hotkey) {
-            return Prometheus::<T>::get(netuid, hotkey).unwrap();
+        if let Some(prometheus) = Prometheus::<T>::get(netuid, hotkey) {
+            prometheus
         } else {
-            return PrometheusInfo {
+            PrometheusInfo {
                 block: 0,
                 version: 0,
                 ip: 0,
                 port: 0,
                 ip_type: 0,
-            };
+            }
         }
     }
 
     pub fn is_valid_ip_type(ip_type: u8) -> bool {
-        let allowed_values: Vec<u8> = vec![4, 6];
-        return allowed_values.contains(&ip_type);
+        let allowed_values = [4, 6];
+        allowed_values.contains(&ip_type)
     }
 
     // @todo (Parallax 2-1-2021) : Implement exclusion of private IP ranges
@@ -310,7 +309,7 @@ impl<T: Config> Pallet<T> {
                 return false;
             } // IPv6 localhost
         }
-        return true;
+        true
     }
 
     pub fn validate_axon_data(axon_info: &AxonInfoOf) -> Result<bool, pallet::Error<T>> {

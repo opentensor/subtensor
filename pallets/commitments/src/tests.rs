@@ -1,7 +1,8 @@
+#![allow(non_camel_case_types)]
+
 use super::*;
 use crate as pallet_commitments;
-use frame_support::traits::ConstU64;
-
+use frame_support::{ derive_impl, traits::ConstU64 };
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -35,6 +36,7 @@ pub type Balance = u64;
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
@@ -48,9 +50,9 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
-    type MaxHolds = ();
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();

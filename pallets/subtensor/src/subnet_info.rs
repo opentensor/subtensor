@@ -3,6 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
@@ -80,10 +81,10 @@ impl<T: Config> Pallet<T> {
         //     network_connect.push([_netuid_, con_req]);
         // }
 
-        return Some(SubnetInfo {
+        Some(SubnetInfo {
             rho: rho.into(),
             kappa: kappa.into(),
-            difficulty: difficulty.into(),
+            difficulty,
             immunity_period: immunity_period.into(),
             netuid: netuid.into(),
             max_allowed_validators: max_allowed_validators.into(),
@@ -98,8 +99,8 @@ impl<T: Config> Pallet<T> {
             network_connect,
             emission_values: emission_values.into(),
             burn,
-            owner: Self::get_subnet_owner(netuid).into(),
-        });
+            owner: Self::get_subnet_owner(netuid),
+        })
     }
 
     pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T>>> {
@@ -121,7 +122,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        return subnets_info;
+        subnets_info
     }
 
     pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
@@ -152,7 +153,7 @@ impl<T: Config> Pallet<T> {
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
 
-        return Some(SubnetHyperparams {
+        Some(SubnetHyperparams {
             rho: rho.into(),
             kappa: kappa.into(),
             immunity_period: immunity_period.into(),
@@ -175,7 +176,7 @@ impl<T: Config> Pallet<T> {
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
             difficulty: difficulty.into(),
-        });
+        })
     }
 
     pub fn get_subnet_limit() -> u16 {

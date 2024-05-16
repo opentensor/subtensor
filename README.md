@@ -15,7 +15,7 @@
 This repository contains Bittensor's substrate-chain. Subtensor contains the trusted logic which:
 
 1. Runs Bittensor's [consensus mechanism](./docs/consensus.md);
-2. Advertises neuron information, IPs, etc.; and
+2. Advertises neuron information, IPs, etc., and
 3. Facilitates value transfer via TAO.
 
 ## System Requirements
@@ -42,15 +42,29 @@ Requirements:
 * Subtensor needs access to the public internet
 * Subtensor runs on ipv4
 * Subtensor listens on the following ports:
-1) 9944 - Websocket. This port is used by bittensor. It only accepts connections from localhost. Make sure this port is firewalled off from the public domain.
-2) 9933 - RPC. This port is opened, but not used.
-3) 30333 - p2p socket. This port accepts connections from other subtensor nodes. Make sure your firewall(s) allow incoming traffic to this port.
+  1) 9944 - Websocket. This port is used by bittensor. It only accepts connections from localhost. Make sure this port is firewalled off from the public domain.
+  2) 9933 - RPC. This port is opened, but not used.
+  3) 30333 - p2p socket. This port accepts connections from other subtensor nodes. Make sure your firewall(s) allow incoming traffic to this port.
 * It is assumed your default outgoing traffic policy is ACCEPT. If not, make sure outbound traffic to port 30333 is allowed.
+
+---
+
+## For Subnet Development 
+
+If you are developing and testing subnet incentive mechanism, you will need to run a local subtensor node. Follow the detailed step-by-step instructions provided in the document [Running subtensor locally](./docs/running-subtensor-locally.md) to run either a lite node or an archive node. Also see the [**Subtensor Nodes** section in Bittensor Developer Documentation](https://docs.bittensor.com/subtensor-nodes).
+
+### Lite node vs Archive node
+
+For an explanation of lite node, archive node and how you can run your local subtensor node in these modes, see [Lite node vs archive node](https://docs.bittensor.com/subtensor-nodes#lite-node-vs-archive-node) section on [Bittensor Developer Docs](https://docs.bittensor.com/).
+
+---
+
+## For Subtensor Development
 
 ### Installation
 First, complete the [basic Rust setup instructions](./docs/rust-setup.md).
 
-### Run
+**Build and Run**
 
 Use Rust's native `cargo` command to build and launch the template node:
 
@@ -58,14 +72,19 @@ Use Rust's native `cargo` command to build and launch the template node:
 cargo run --release -- --dev
 ```
 
-### Build
+**Build only**
 
-The `cargo run` command will perform an initial build. Use the following command to build the node
+The above `cargo run` command will perform an initial build and launch the node. Use the following command to build the node
 without launching it:
 
 ```sh
 cargo build --release
 ```
+
+<!--
+
+/** When I ran "cargo doc" it gave me a bunch of errors. And when I did "cargo doc --open" it gave same bunch of errors, and did not open. Also, I don't think the binary is "subtensor". It is "node-subtensor". We should uncomment this section after testing and validating and fixing this section.
+*/
 
 ### Embedded Docs
 
@@ -75,10 +94,11 @@ subcommands:
 ```sh
 ./target/release/subtensor -h
 ```
+-->
 
-## Run
+## Other ways to launch the node
 
-The provided `cargo run` command will launch a temporary node and its state will be discarded after
+The above `cargo run` command will launch a temporary node and its state will be discarded after
 you terminate the process. After the project has been built, there are other ways to launch the
 node.
 
@@ -148,7 +168,7 @@ Running code coverage
 bash scripts/code-coverage.sh
 ```
 
-> Note; above requires `cargo-tarpaulin` is installed to the host, eg. `cargo install cargo-tarpaulin`
+> Note: They above requires `cargo-tarpaulin` is installed to the host, eg. `cargo install cargo-tarpaulin`
 > Development chain means that the state of our chain will be in a tmp folder while the nodes are
 > running. Also, **alice** account will be authority and sudo account as declared in the
 > [genesis state](https://github.com/substrate-developer-hub/substrate-node-template/blob/main/node/src/chain_spec.rs#L49).
@@ -158,10 +178,10 @@ bash scripts/code-coverage.sh
 > - Alice//stash
 > - Bob//stash
 
-In case of being interested in maintaining the chain' state between runs a base path must be added
+If we want to maintain the chain state between runs, a base path must be added
 so the db can be stored in the provided folder instead of a temporal one. We could use this folder
 to store different chain databases, as a different folder will be created per different chain that
-is ran. The following commands shows how to use a newly created folder as our db base path.
+is ran. The following commands show how to use a newly created folder as our db base path:
 
 ```bash
 # Create a folder to use as the db base path
@@ -179,7 +199,7 @@ ls ./my-chain-state/chains/dev
 #> db keystore network
 ```
 
-### Connect with Polkadot-JS Apps Front-end
+**Connect with Polkadot-JS Apps Front-end**
 
 Once the node template is running locally, you can connect it with **Polkadot-JS Apps** front-end
 to interact with your chain. [Click
@@ -196,7 +216,7 @@ If you want to see the multi-node consensus algorithm in action, refer to our
 A Substrate project such as this consists of a number of components that are spread across a few
 directories.
 
-### Node
+### Node Capabilities 
 
 A blockchain node is an application that allows users to participate in a blockchain network.
 Substrate-based blockchain nodes expose a number of capabilities:
@@ -210,7 +230,9 @@ Substrate-based blockchain nodes expose a number of capabilities:
   [Web3 Foundation research](https://research.web3.foundation/en/latest/polkadot/NPoS/index.html).
 - RPC Server: A remote procedure call (RPC) server is used to interact with Substrate nodes.
 
-There are several files in the `node` directory - take special note of the following:
+**Directory structure**
+
+There are several files in the [`node`](./node/) directory. Make a note of the following important files: 
 
 - [`chain_spec.rs`](./node/src/chain_spec.rs): A
   [chain specification](https://docs.substrate.io/main-docs/build/chain-spec/) is a
@@ -228,11 +250,13 @@ There are several files in the `node` directory - take special note of the follo
   and other [consensus mechanisms](https://docs.substrate.io/main-docs/fundamentals/consensus/#default-consensus-models)
   such as Aura for block authoring and GRANDPA for finality.
 
+### CLI help
+
 After the node has been [built](#build), refer to the embedded documentation to learn more about the
 capabilities and configuration parameters that it exposes:
 
 ```shell
-./target/release/node-template --help
+./target/release/node-subtensor --help
 ```
 
 ### Runtime
@@ -278,6 +302,7 @@ A FRAME pallet is compromised of a number of blockchain primitives:
 - Config: The `Config` configuration interface is used to define the types and parameters upon
   which a FRAME pallet depends.
 
+<!--
 ### Run in Docker
 
 First, install [Docker](https://docs.docker.com/get-docker/) and
@@ -304,9 +329,9 @@ by appending your own. A few useful ones are as follow.
 # Check whether the code is compilable
 ./scripts/docker_run.sh cargo check
 ```
+-->
 
-
-## 6. License
+## License
 The MIT License (MIT)
 Copyright © 2021 Yuma Rao
 
@@ -317,5 +342,5 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-## 7. Acknowledgments
+## Acknowledgments
 **parralax**

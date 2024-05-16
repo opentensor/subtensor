@@ -12,17 +12,20 @@ pub use pallet::*;
 pub use types::*;
 pub use weights::WeightInfo;
 
-use frame_support::traits::Currency;
+use frame_support::traits::tokens::{
+    fungible::{self, MutateHold as _},
+    Precision,
+};
 use sp_runtime::traits::Zero;
 use sp_std::boxed::Box;
 
 type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+    <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
+#[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{pallet_prelude::*, traits::ReservableCurrency};
+    use frame_support::{pallet_prelude::*, traits::tokens::fungible};
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]
@@ -32,19 +35,20 @@ pub mod pallet {
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        // Currency type that will be used to place deposits on neurons
-        type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
+        /// Currency type that will be used to place deposits on neurons
+        type Currency: fungible::Mutate<Self::AccountId>
+            + fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
-        // Weight information for extrinsics in this pallet.
+        /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
-        // Interface to allow other pallets to control who can register identities
+        /// Interface to allow other pallets to control who can register identities
         type CanRegister: crate::CanRegisterIdentity<Self::AccountId>;
 
-        // Configuration fields
+        /// Configuration fields
         /// Maximum user-configured additional fields
         #[pallet::constant]
         type MaxAdditionalFields: Get<u32>;
@@ -56,13 +60,24 @@ pub mod pallet {
         /// The amount held on deposit per additional field for a registered identity.
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
+
+        /// Reasons for putting funds on hold.
+        type RuntimeHoldReason: From<HoldReason>;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        IdentitySet { who: T::AccountId }, // Emitted when a user registers an identity
-        IdentityDissolved { who: T::AccountId }, // Emitted when a user dissolves an identity
+        /// Emitted when a user registers an identity
+        IdentitySet {
+            /// The account that registered the identity
+            who: T::AccountId,
+        },
+        /// Emitted when a user dissolves an identity
+        IdentityDissolved {
+            /// The account that dissolved the identity
+            who: T::AccountId,
+        },
     }
 
     #[pallet::error]
@@ -73,6 +88,13 @@ pub mod pallet {
         TooManyFields,
         /// Account doesn't have a registered identity
         NotRegistered,
+    }
+
+    /// Enum to hold reasons for putting funds on hold.
+    #[pallet::composite_enum]
+    pub enum HoldReason {
+        /// Funds are held for identity registration
+        RegistryIdentity,
     }
 
     /// Identity data by account
@@ -88,6 +110,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Register an identity for an account. This will overwrite any existing identity.
         #[pallet::call_index(0)]
         #[pallet::weight((
 			T::WeightInfo::set_identity(),
@@ -125,19 +148,30 @@ pub mod pallet {
             let old_deposit = id.deposit;
             id.deposit = T::InitialDeposit::get() + fd;
             if id.deposit > old_deposit {
-                T::Currency::reserve(&who, id.deposit - old_deposit)?;
+                T::Currency::hold(
+                    &HoldReason::RegistryIdentity.into(),
+                    &who,
+                    id.deposit - old_deposit,
+                )?;
             }
             if old_deposit > id.deposit {
-                let err_amount = T::Currency::unreserve(&who, old_deposit - id.deposit);
-                debug_assert!(err_amount.is_zero());
+                let release_res = T::Currency::release(
+                    &HoldReason::RegistryIdentity.into(),
+                    &who,
+                    old_deposit - id.deposit,
+                    Precision::BestEffort,
+                );
+                debug_assert!(release_res
+                    .is_ok_and(|released_amount| released_amount == (old_deposit - id.deposit)));
             }
 
             <IdentityOf<T>>::insert(&identified, id);
             Self::deposit_event(Event::IdentitySet { who: identified });
 
-            Ok(().into())
+            Ok(())
         }
 
+        /// Clear the identity of an account.
         #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::clear_identity())]
         pub fn clear_identity(
@@ -153,8 +187,13 @@ pub mod pallet {
             let id = <IdentityOf<T>>::take(&identified).ok_or(Error::<T>::NotRegistered)?;
             let deposit = id.total_deposit();
 
-            let err_amount = T::Currency::unreserve(&who, deposit);
-            debug_assert!(err_amount.is_zero());
+            let release_res = T::Currency::release(
+                &HoldReason::RegistryIdentity.into(),
+                &who,
+                deposit,
+                Precision::BestEffort,
+            );
+            debug_assert!(release_res.is_ok_and(|released_amount| released_amount == deposit));
 
             Self::deposit_event(Event::IdentityDissolved { who: identified });
 

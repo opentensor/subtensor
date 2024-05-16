@@ -36,6 +36,9 @@ specs/*.json
 # VSCode configuration
 .vscode
 
+# IntelliJ IDEA configuration
+.idea
+
 # Baedeker output directory 
 .baedeker/.bdk-env
 

@@ -2,6 +2,8 @@ use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
 extern crate alloc;
 use codec::Compact;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfo<T: Config> {
@@ -59,14 +61,10 @@ impl<T: Config> Pallet<T> {
         let mut neurons = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let _neuron = Self::get_neuron_subnet_exists(netuid, uid);
-            let neuron;
-            if _neuron.is_none() {
-                break; // No more neurons
-            } else {
-                // No error, hotkey was registered
-                neuron = _neuron.expect("Neuron should exist");
-            }
+            let neuron = match Self::get_neuron_subnet_exists(netuid, uid) {
+                Some(n) => n,
+                None => break, // No more neurons
+            };
 
             neurons.push(neuron);
         }
@@ -74,28 +72,26 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_neuron_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
-        let _hotkey = Self::get_hotkey_for_net_and_uid(netuid, uid);
-        let hotkey;
-        if _hotkey.is_err() {
-            return None;
-        } else {
-            // No error, hotkey was registered
-            hotkey = _hotkey.expect("Hotkey should exist");
-        }
+        let hotkey = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
+            Ok(h) => h,
+            Err(_) => return None,
+        };
+
         let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
         let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
-        let active = Self::get_active_for_uid(netuid, uid as u16);
-        let rank = Self::get_rank_for_uid(netuid, uid as u16);
-        let emission = Self::get_emission_for_uid(netuid, uid as u16);
-        let incentive = Self::get_incentive_for_uid(netuid, uid as u16);
-        let consensus = Self::get_consensus_for_uid(netuid, uid as u16);
-        let trust = Self::get_trust_for_uid(netuid, uid as u16);
-        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid as u16);
-        let dividends = Self::get_dividends_for_uid(netuid, uid as u16);
-        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid as u16);
-        let last_update = Self::get_last_update_for_uid(netuid, uid as u16);
-        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
+
+        let active = Self::get_active_for_uid(netuid, uid);
+        let rank = Self::get_rank_for_uid(netuid, uid);
+        let emission = Self::get_emission_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let consensus = Self::get_consensus_for_uid(netuid, uid);
+        let trust = Self::get_trust_for_uid(netuid, uid);
+        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
+        let dividends = Self::get_dividends_for_uid(netuid, uid);
+        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
         let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
         let stake: Vec<(T::AccountId, Compact<u64>)> =
@@ -146,7 +142,7 @@ impl<T: Config> Pallet<T> {
             pruning_score: pruning_score.into(),
         };
 
-        return Some(neuron);
+        Some(neuron)
     }
 
     pub fn get_neuron(netuid: u16, uid: u16) -> Option<NeuronInfo<T>> {
@@ -154,8 +150,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let neuron = Self::get_neuron_subnet_exists(netuid, uid);
-        neuron
+        Self::get_neuron_subnet_exists(netuid, uid)
     }
 
     fn get_neuron_lite_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
@@ -203,7 +198,7 @@ impl<T: Config> Pallet<T> {
             pruning_score: pruning_score.into(),
         };
 
-        return Some(neuron);
+        Some(neuron)
     }
 
     pub fn get_neurons_lite(netuid: u16) -> Vec<NeuronInfoLite<T>> {
@@ -214,14 +209,10 @@ impl<T: Config> Pallet<T> {
         let mut neurons: Vec<NeuronInfoLite<T>> = Vec::new();
         let n = Self::get_subnetwork_n(netuid);
         for uid in 0..n {
-            let _neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
-            let neuron;
-            if _neuron.is_none() {
-                break; // No more neurons
-            } else {
-                // No error, hotkey was registered
-                neuron = _neuron.expect("Neuron should exist");
-            }
+            let neuron = match Self::get_neuron_lite_subnet_exists(netuid, uid) {
+                Some(n) => n,
+                None => break, // No more neurons
+            };
 
             neurons.push(neuron);
         }
@@ -233,7 +224,6 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
-        let neuron = Self::get_neuron_lite_subnet_exists(netuid, uid);
-        neuron
+        Self::get_neuron_lite_subnet_exists(netuid, uid)
     }
 }

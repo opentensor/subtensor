@@ -19,7 +19,7 @@ use sp_std::boxed::Box;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+#[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -33,18 +33,19 @@ pub mod pallet {
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        // Currency type that will be used to place deposits on neurons
+        /// Currency type that will be used to place deposits on neurons
         type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
-        // Weight information for extrinsics in this pallet.
+        /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
         /// Interface to access-limit metadata commitments
         type CanCommit: CanCommit<Self::AccountId>;
 
+        /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
         type MaxFields: Get<u32>;
 
@@ -56,6 +57,7 @@ pub mod pallet {
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
 
+        /// The rate limit for commitments
         #[pallet::constant]
         type RateLimit: Get<BlockNumberFor<Self>>;
     }
@@ -63,7 +65,13 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        Commitment { netuid: u16, who: T::AccountId },
+        /// A commitment was set
+        Commitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+        },
     }
 
     #[pallet::error]
@@ -103,6 +111,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
 			T::WeightInfo::set_commitment(),
@@ -162,7 +171,7 @@ pub mod pallet {
             <LastCommitment<T>>::insert(netuid, &who, cur_block);
             Self::deposit_event(Event::Commitment { netuid, who });
 
-            Ok(().into())
+            Ok(())
         }
     }
 }
@@ -181,31 +190,37 @@ impl<A> CanCommit<A> for () {
 /************************************************************
     CallType definition
 ************************************************************/
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Default)]
 pub enum CallType {
     SetCommitment,
+    #[default]
     Other,
-}
-impl Default for CallType {
-    fn default() -> Self {
-        CallType::Other
-    }
 }
 
 use {
     frame_support::{
-        dispatch::{DispatchInfo, DispatchResult, Dispatchable, PostDispatchInfo},
+        dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
         pallet_prelude::{Decode, Encode, PhantomData, TypeInfo},
         traits::IsSubType,
     },
     sp_runtime::{
-        traits::{DispatchInfoOf, PostDispatchInfoOf, SignedExtension},
+        traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
         transaction_validity::{TransactionValidity, TransactionValidityError, ValidTransaction},
     },
 };
 
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
+
+impl<T: Config + Send + Sync + TypeInfo> Default for CommitmentsSignedExtension<T>
+where
+    T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T: Config + Send + Sync + TypeInfo> CommitmentsSignedExtension<T>
 where
@@ -219,15 +234,7 @@ where
     pub fn get_priority_vanilla() -> u64 {
         // Return high priority so that every extrinsic except set_weights function will
         // have a higher priority than the set_weights call
-        return u64::max_value();
-    }
-
-    pub fn u64_to_balance(
-        input: u64,
-    ) -> Option<
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-    > {
-        input.try_into().ok()
+        u64::max_value()
     }
 }
 
@@ -260,12 +267,11 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
-        match call.is_sub_type() {
-            _ => Ok(ValidTransaction {
-                priority: Self::get_priority_vanilla(),
-                ..Default::default()
-            }),
-        }
+        call.is_sub_type();
+        Ok(ValidTransaction {
+            priority: Self::get_priority_vanilla(),
+            ..Default::default()
+        })
     }
 
     // NOTE: Add later when we put in a pre and post dispatch step.
@@ -289,17 +295,12 @@ where
     }
 
     fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
+        _maybe_pre: Option<Self::Pre>,
         _info: &DispatchInfoOf<Self::Call>,
         _post_info: &PostDispatchInfoOf<Self::Call>,
         _len: usize,
         _result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if let Some((call_type, _transaction_fee, _who)) = maybe_pre {
-            match call_type {
-                _ => (),
-            }
-        }
         Ok(())
     }
 }

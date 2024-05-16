@@ -1,6 +1,6 @@
 use super::*;
 use crate::math::*;
-use frame_support::sp_std::vec;
+use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 #[derive(Default)]
@@ -520,14 +520,16 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut block_at_registration: Vec<u64> = vec![0; n];
-        for neuron_uid in 0..n {
-            if Keys::<T>::contains_key(netuid, neuron_uid as u16) {
-                block_at_registration[neuron_uid] =
-                    Self::get_neuron_block_at_registration(netuid, neuron_uid as u16);
-            }
-        }
+        let n = Self::get_subnetwork_n(netuid);
+        let block_at_registration: Vec<u64> = (0..n)
+            .map(|neuron_uid| {
+                if Keys::<T>::contains_key(netuid, neuron_uid) {
+                    Self::get_neuron_block_at_registration(netuid, neuron_uid)
+                } else {
+                    0
+                }
+            })
+            .collect();
         block_at_registration
     }
 
@@ -558,7 +560,8 @@ impl<T: Config> Pallet<T> {
         bonds
     }
 
-    // Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
+    /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
+    #[allow(clippy::indexing_slicing)]
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];

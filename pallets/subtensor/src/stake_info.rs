@@ -4,6 +4,8 @@ extern crate alloc;
 use crate::types::TensorBytes;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
@@ -24,7 +26,7 @@ impl<T: Config> Pallet<T> {
     fn _get_stake_info_for_coldkeys(
         coldkeys: Vec<T::AccountId>,
     ) -> Vec<(T::AccountId, Vec<StakeInfo<T>>)> {
-        if coldkeys.len() == 0 {
+        if coldkeys.is_empty() {
             return Vec::new(); // No coldkeys to check
         }
 
@@ -45,7 +47,7 @@ impl<T: Config> Pallet<T> {
             stake_info.push((coldkey_, stake_info_for_coldkey));
         }
 
-        return stake_info;
+        stake_info
     }
 
     /// This function is used to retrieve the stake associated with a vector of coldkeys .
