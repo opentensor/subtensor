@@ -734,7 +734,6 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
-    #[allow(clippy::indexing_slicing)]
     pub fn get_weights_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
@@ -743,52 +742,71 @@ impl<T: Config> Pallet<T> {
                 .filter(|(uid_i, _)| *uid_i < n as u16)
         {
             for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
-                weights[uid_i as usize].push((*uid_j, I32F32::from_num(*weight_ij)));
+                weights
+                    .get_mut(uid_i as usize)
+                    .expect("uid_i is filtered to be less than n; qed")
+                    .push((*uid_j, I32F32::from_num(*weight_ij)));
             }
         }
         weights
     }
 
     /// Output unnormalized weights in [n, n] matrix, input weights are assumed to be row max-upscaled in u16.
-    #[allow(clippy::indexing_slicing)]
     pub fn get_weights(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut weights: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
-        for (uid_i, weights_i) in
+        for (uid_i, weights_vec) in
             <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < n as u16)
         {
-            for (uid_j, weight_ij) in weights_i {
-                weights[uid_i as usize][uid_j as usize] = I32F32::from_num(weight_ij);
+            for (uid_j, weight_ij) in weights_vec
+                .into_iter()
+                .filter(|(uid_j, _)| *uid_j < n as u16)
+            {
+                *weights
+                    .get_mut(uid_i as usize)
+                    .expect("uid_i is filtered to be less than n; qed")
+                    .get_mut(uid_j as usize)
+                    .expect("uid_j is filtered to be less than n; qed") =
+                    I32F32::from_num(weight_ij);
             }
         }
         weights
     }
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
-    #[allow(clippy::indexing_slicing)]
     pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
-        for (uid_i, bonds_i) in
+        for (uid_i, bonds_vec) in
             <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < n as u16)
         {
-            for (uid_j, bonds_ij) in bonds_i {
-                bonds[uid_i as usize].push((uid_j, I32F32::from_num(bonds_ij)));
+            for (uid_j, bonds_ij) in bonds_vec {
+                bonds
+                    .get_mut(uid_i as usize)
+                    .expect("uid_i is filtered to be less than n; qed")
+                    .push((uid_j, I32F32::from_num(bonds_ij)));
             }
         }
         bonds
     }
 
     /// Output unnormalized bonds in [n, n] matrix, input bonds are assumed to be column max-upscaled in u16.
-    #[allow(clippy::indexing_slicing)]
     pub fn get_bonds(netuid: u16) -> Vec<Vec<I32F32>> {
         let n: usize = Self::get_subnetwork_n(netuid) as usize;
         let mut bonds: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); n]; n];
-        for (uid_i, bonds_i) in
+        for (uid_i, bonds_vec) in
             <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < n as u16)
         {
-            for (uid_j, bonds_ij) in bonds_i {
-                bonds[uid_i as usize][uid_j as usize] = I32F32::from_num(bonds_ij);
+            for (uid_j, bonds_ij) in bonds_vec.into_iter().filter(|(uid_j, _)| *uid_j < n as u16) {
+                *bonds
+                    .get_mut(uid_i as usize)
+                    .expect("uid_i has been filtered to be less than n; qed")
+                    .get_mut(uid_j as usize)
+                    .expect("uid_j has been filtered to be less than n; qed") =
+                    I32F32::from_num(bonds_ij);
             }
         }
         bonds
