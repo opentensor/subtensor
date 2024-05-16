@@ -2,7 +2,6 @@ use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
-use sp_runtime::MultiAddress;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
