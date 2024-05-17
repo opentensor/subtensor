@@ -471,7 +471,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Check if the hotkey is already registered. If so, error out.
         ensure!(
             !Uids::<T>::contains_key(root_netuid, &hotkey),
-            Error::<T>::AlreadyRegistered
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // --- 6. Create a network account for the user if it doesn't exist.
@@ -627,7 +627,7 @@ impl<T: Config> Pallet<T> {
         // For the root network this number is the number of subnets.
         ensure!(
             !Self::contains_invalid_root_uids(&uids),
-            Error::<T>::InvalidUid
+            Error::<T>::UidVecContainInvalidOne
         );
 
         // Check to see if the hotkey is registered to the passed network.
@@ -664,7 +664,7 @@ impl<T: Config> Pallet<T> {
         // Ensure that the weights have the required length.
         ensure!(
             Self::check_length(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NotSettingEnoughWeights
+            Error::<T>::WeightVecLengthIsLow
         );
 
         // Max-upscale the weights.

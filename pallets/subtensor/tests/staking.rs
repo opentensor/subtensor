@@ -1046,7 +1046,7 @@ fn test_remove_balance_from_coldkey_account_failed() {
         // as there is no balance, nor does the account exist
         let result =
             SubtensorModule::remove_balance_from_coldkey_account(&coldkey_account_id, ammount);
-        assert_eq!(result, Err(Error::<Test>::BalanceWithdrawalError.into()));
+        assert_eq!(result, Err(Error::<Test>::ZeroBalanceWithdrawn.into()));
     });
 }
 

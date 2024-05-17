@@ -119,7 +119,7 @@ fn test_weights_err_no_validator_permit() {
 
         let result =
             commit_reveal_set_weights(hotkey_account_id, netuid, weights_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::NoValidatorPermit.into()));
+        assert_eq!(result, Err(Error::<Test>::NeuronNoValidatorPermit.into()));
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
@@ -509,7 +509,7 @@ fn test_set_weights_err_invalid_uid() {
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
         let result = commit_reveal_set_weights(hotkey_account_id, 1, weight_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::InvalidUid.into()));
+        assert_eq!(result, Err(Error::<Test>::UidVecContainInvalidOne.into()));
     });
 }
 
@@ -535,7 +535,7 @@ fn test_set_weight_not_enough_values() {
         let weight_keys: Vec<u16> = vec![1]; // not weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
         let result = commit_reveal_set_weights(account_id, 1, weight_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::NotSettingEnoughWeights.into()));
+        assert_eq!(result, Err(Error::<Test>::WeightVecLengthIsLow.into()));
 
         // Shouldnt fail because we setting a single value but it is the self weight.
         let weight_keys: Vec<u16> = vec![0]; // self weight.

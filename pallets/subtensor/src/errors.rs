@@ -36,20 +36,24 @@ mod errors {
         NotEnoughBalanceToStake,
         /// the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         BalanceWithdrawalError,
+        /// successfully deducted balance for withdraw is zero
+        ZeroBalanceWithdrawn,
         /// the caller attempts to set non-self weights without being a permitted validator.
-        NoValidatorPermit,
+        NeuronNoValidatorPermit,
         /// the caller attempts to set the weight keys and values but these vectors have different size.
         WeightVecNotEqualSize,
         /// the caller attempts to set weights with duplicate uids in the weight matrix.
         DuplicateUids,
         /// the caller attempts to set weight to at least one uid that does not exist in the metagraph.
-        InvalidUid,
+        UidVecContainInvalidOne,
         /// the dispatch attempts to set weights on chain with fewer elements than are allowed.
-        NotSettingEnoughWeights,
+        WeightVecLengthIsLow,
         /// registrations this block exceeds allowed number.
         TooManyRegistrationsThisBlock,
         /// the caller requests registering a neuron which already exists in the active set.
-        AlreadyRegistered,
+        HotKeyAlreadyRegisteredInSubNet,
+        /// the new hot key is the same as old one
+        NewHotKeyIsSameWithOld,
         /// the supplied pow hash block is in the future or negative.
         InvalidWorkBlock,
         /// the supplied pow hash block does not meet the network difficulty.

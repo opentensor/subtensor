@@ -1335,10 +1335,10 @@ pub mod pallet {
         ///     * 'TooManyUids':
         /// 	- Attempting to set weights above the max allowed uids.
         ///
-        /// * 'InvalidUid':
+        /// * 'UidVecContainInvalidOne':
         /// 	- Attempting to set weights with invalid uids.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
@@ -1466,13 +1466,13 @@ pub mod pallet {
         /// * 'WeightVecNotEqualSize':
         /// 	- Attempting to set weights with uids not of same length.
         ///
-        /// * 'InvalidUid':
+        /// * 'UidVecContainInvalidOne':
         /// 	- Attempting to set weights with invalid uids.
         ///
         /// * 'NotRegistered':
         /// 	- Attempting to set weights from a non registered account.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         ///  * 'IncorrectNetworkVersionKey':
@@ -1481,7 +1481,7 @@ pub mod pallet {
         ///  * 'SettingWeightsTooFast':
         ///      - Attempting to set weights too fast.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
@@ -1848,7 +1848,7 @@ pub mod pallet {
         /// * 'TooManyRegistrationsThisBlock':
         /// 	- This registration exceeds the total allowed on this network this block.
         ///
-        /// * 'AlreadyRegistered':
+        /// * 'HotKeyAlreadyRegisteredInSubNet':
         /// 	- The hotkey is already registered on this network.
         ///
         /// * 'InvalidWorkBlock':

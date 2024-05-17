@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
     /// * 'TooManyRegistrationsThisBlock':
     ///     - This registration exceeds the total allowed on this network this block.
     ///
-    /// * 'AlreadyRegistered':
+    /// * 'HotKeyAlreadyRegisteredInSubNet':
     ///     - The hotkey is already registered on this network.
     ///
     pub fn do_burned_registration(
@@ -82,7 +82,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Ensure that the key is not already registered.
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::AlreadyRegistered
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // DEPRECATED --- 6. Ensure that the key passes the registration requirement
@@ -197,7 +197,7 @@ impl<T: Config> Pallet<T> {
     /// *'TooManyRegistrationsThisBlock':
     ///     - This registration exceeds the total allowed on this network this block.
     ///
-    /// *'AlreadyRegistered':
+    /// *'HotKeyAlreadyRegisteredInSubNet':
     ///     - The hotkey is already registered on this network.
     ///
     /// *'InvalidWorkBlock':
@@ -264,7 +264,7 @@ impl<T: Config> Pallet<T> {
         // --- 6. Ensure that the key is not already registered.
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::AlreadyRegistered
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // --- 7. Ensure the passed block number is valid, not in the future or too old.
@@ -614,10 +614,10 @@ impl<T: Config> Pallet<T> {
 
         weight.saturating_accrue(T::DbWeight::get().reads(2));
 
-        ensure!(old_hotkey != new_hotkey, Error::<T>::AlreadyRegistered);
+        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
         ensure!(
             !Self::is_hotkey_registered_on_any_network(new_hotkey),
-            Error::<T>::AlreadyRegistered
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         weight

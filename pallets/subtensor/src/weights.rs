@@ -136,7 +136,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'SettingWeightsTooFast':
     ///    - Attempting to set weights faster than the weights_set_rate_limit.
     ///
-    ///  * 'NoValidatorPermit':
+    ///  * 'NeuronNoValidatorPermit':
     ///    - Attempting to set non-self weights without a validator permit.
     ///
     ///  * 'WeightVecNotEqualSize':
@@ -148,10 +148,10 @@ impl<T: Config> Pallet<T> {
     /// * 'TooManyUids':
     ///    - Attempting to set weights above the max allowed uids.
     ///
-    /// * 'InvalidUid':
+    /// * 'UidVecContainInvalidOne':
     ///    - Attempting to set weights with invalid uids.
     ///
-    /// * 'NotSettingEnoughWeights':
+    /// * 'WeightVecLengthIsLow':
     ///    - Attempting to set weights with fewer weights than min.
     ///
     /// * 'MaxWeightExceeded':
@@ -224,7 +224,7 @@ impl<T: Config> Pallet<T> {
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
             Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NoValidatorPermit
+            Error::<T>::NeuronNoValidatorPermit
         );
 
         // --- 11. Ensure the passed uids contain no duplicates.
@@ -233,13 +233,13 @@ impl<T: Config> Pallet<T> {
         // --- 12. Ensure that the passed uids are valid for the network.
         ensure!(
             !Self::contains_invalid_uids(netuid, &uids),
-            Error::<T>::InvalidUid
+            Error::<T>::UidVecContainInvalidOne
         );
 
         // --- 13. Ensure that the weights have the required length.
         ensure!(
             Self::check_length(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NotSettingEnoughWeights
+            Error::<T>::WeightVecLengthIsLow
         );
 
         // --- 14. Max-upscale the weights.

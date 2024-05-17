@@ -776,7 +776,7 @@ impl<T: Config> Pallet<T> {
         .peek();
 
         if credit == 0 {
-            return Err(Error::<T>::BalanceWithdrawalError.into());
+            return Err(Error::<T>::ZeroBalanceWithdrawn.into());
         }
 
         Ok(credit)
