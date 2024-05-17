@@ -1370,7 +1370,7 @@ pub mod pallet {
         ///   - The hash representing the committed weights.
         ///
         /// # Raises:
-        /// * `CommitNotAllowed`:
+        /// * `WeightsCommitNotAllowed`:
         ///   - Attempting to commit when it is not allowed.
         ///
         #[pallet::call_index(96)]
@@ -1404,13 +1404,13 @@ pub mod pallet {
         ///   - The network version key.
         ///
         /// # Raises:
-        /// * `NoCommitFound`:
+        /// * `NoWeightsCommitFound`:
         ///   - Attempting to reveal weights without an existing commit.
         ///
-        /// * `InvalidRevealTempo`:
+        /// * `InvalidRevealCommitHashNotMatchTempo`:
         ///   - Attempting to reveal weights outside the valid tempo.
         ///
-        /// * `InvalidReveal`:
+        /// * `InvalidRevealCommitHashNotMatch`:
         ///   - The revealed hash does not match the committed hash.
         ///
         #[pallet::call_index(97)]

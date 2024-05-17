@@ -1039,7 +1039,7 @@ fn test_commit_reveal_interval() {
         ));
         assert_err!(
             SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
-            Error::<Test>::CommitNotAllowed
+            Error::<Test>::WeightsCommitNotAllowed
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1049,12 +1049,12 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
         step_block(99);
         assert_err!(
             SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
-            Error::<Test>::CommitNotAllowed
+            Error::<Test>::WeightsCommitNotAllowed
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1064,7 +1064,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
         step_block(1);
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1076,7 +1076,7 @@ fn test_commit_reveal_interval() {
         ));
 
         // After the previous reveal the associated mapping entry was removed.
-        // Therefore we expect NoCommitFound
+        // Therefore we expect NoWeightsCommitFound
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -1085,7 +1085,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::NoCommitFound
+            Error::<Test>::NoWeightsCommitFound
         );
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1100,7 +1100,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
         step_block(100);
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1126,7 +1126,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
 
         // Testing when you commit but do not reveal until later intervals
@@ -1157,7 +1157,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1211,7 +1211,7 @@ fn test_commit_reveal_hash() {
                 weight_values.clone(),
                 version_key
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1221,7 +1221,7 @@ fn test_commit_reveal_hash() {
                 weight_values.clone(),
                 7,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1231,7 +1231,7 @@ fn test_commit_reveal_hash() {
                 vec![10, 9],
                 version_key,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1241,7 +1241,7 @@ fn test_commit_reveal_hash() {
                 vec![10, 10, 33],
                 9,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
 
         assert_ok!(SubtensorModule::reveal_weights(

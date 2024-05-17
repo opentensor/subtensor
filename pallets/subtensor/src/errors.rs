@@ -115,12 +115,12 @@ mod errors {
         /// delegate take is too high
         DelegateTakeTooHigh,
         /// Not allowed to commit weights
-        CommitNotAllowed,
+        WeightsCommitNotAllowed,
         /// No commit found for provided hotkey+netuid when attempting to reveal weights
-        NoCommitFound,
+        NoWeightsCommitFound,
         /// Not the correct block/range to reveal weights
-        InvalidRevealTempo,
+        InvalidRevealCommitHashNotMatchTempo,
         /// Committed hash does not equal the hashed reveal data
-        InvalidReveal,
+        InvalidRevealCommitHashNotMatch,
     }
 }

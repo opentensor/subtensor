@@ -18,7 +18,7 @@ impl<T: Config> Pallet<T> {
     ///   - The hash representing the committed weights.
     ///
     /// # Raises:
-    /// * `CommitNotAllowed`:
+    /// * `WeightsCommitNotAllowed`:
     ///   - Attempting to commit when it is not allowed.
     ///
     pub fn do_commit_weights(
@@ -30,7 +30,10 @@ impl<T: Config> Pallet<T> {
 
         log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
 
-        ensure!(Self::can_commit(netuid, &who), Error::<T>::CommitNotAllowed);
+        ensure!(
+            Self::can_commit(netuid, &who),
+            Error::<T>::WeightsCommitNotAllowed
+        );
 
         WeightCommits::<T>::insert(
             netuid,
@@ -59,13 +62,13 @@ impl<T: Config> Pallet<T> {
     ///   - The network version key.
     ///
     /// # Raises:
-    /// * `NoCommitFound`:
+    /// * `NoWeightsCommitFound`:
     ///   - Attempting to reveal weights without an existing commit.
     ///
-    /// * `InvalidRevealTempo`:
+    /// * `InvalidRevealCommitHashNotMatchTempo`:
     ///   - Attempting to reveal weights outside the valid tempo.
     ///
-    /// * `InvalidReveal`:
+    /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match the committed hash.
     ///
     pub fn do_reveal_weights(
@@ -80,12 +83,13 @@ impl<T: Config> Pallet<T> {
         log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
 
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
-            let (commit_hash, commit_block) =
-                maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;
+            let (commit_hash, commit_block) = maybe_commit
+                .take()
+                .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
             ensure!(
                 Self::is_reveal_block_range(commit_block),
-                Error::<T>::InvalidRevealTempo
+                Error::<T>::InvalidRevealCommitHashNotMatchTempo
             );
 
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
@@ -95,7 +99,10 @@ impl<T: Config> Pallet<T> {
                 values.clone(),
                 version_key,
             ));
-            ensure!(provided_hash == commit_hash, Error::<T>::InvalidReveal);
+            ensure!(
+                provided_hash == commit_hash,
+                Error::<T>::InvalidRevealCommitHashNotMatch
+            );
 
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })
