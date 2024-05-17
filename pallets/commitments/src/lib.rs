@@ -79,7 +79,7 @@ pub mod pallet {
         /// Account passed too many additional fields to their commitment
         TooManyFieldsInCommitmentInfo,
         /// Account isn't allow to make commitments to the chain
-        CannotCommit,
+        AccountNotAllowedCommit,
         /// Account is trying to commit data too fast
         CommitmentSetRateLimitExceeded,
     }
@@ -126,7 +126,7 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(
                 T::CanCommit::can_commit(netuid, &who),
-                Error::<T>::CannotCommit
+                Error::<T>::AccountNotAllowedCommit
             );
 
             let extra_fields = info.fields.len() as u32;
