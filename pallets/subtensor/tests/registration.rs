@@ -1775,7 +1775,10 @@ fn test_registration_origin_hotkey_mismatch() {
             hotkey_account_id_2, // Not the same as the origin.
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::TransactorAccountShouldBeHotKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::TransactorAccountShouldBeHotKey.into())
+        );
     });
 }
 
