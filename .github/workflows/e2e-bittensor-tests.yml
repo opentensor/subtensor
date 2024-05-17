@@ -29,9 +29,7 @@ env:
   VERBOSE: ${{ github.events.input.verbose }}
 
 jobs:
-  # runs cargo fmt
-  e2e-bittensor-tests:
-    name: e2e bittensor tests
+  run:
     runs-on: SubtensorCI
     strategy:
       matrix:
@@ -48,7 +46,6 @@ jobs:
           # - os: macos-latest
     env:
       RELEASE_NAME: development
-      # RUSTFLAGS: -A warnings
       RUSTV: ${{ matrix.rust-branch }}
       RUST_BACKTRACE: full
       RUST_BIN_DIR: target/${{ matrix.rust-target }}
@@ -60,9 +57,6 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential
 
-      - name: ls
-        run: ls
-
       - name: Install Rust ${{ matrix.rust-branch }}
         uses: actions-rs/toolchain@v1.0.6
         with:
@@ -70,12 +64,18 @@ jobs:
           components: rustfmt
           profile: minimal
 
-      - name: Setup bittensor repo
-        run: |
-          git clone https://github.com/opentensor/bittensor.git
-          cd bittensor
-          git checkout staging
-          python3 -m pip install -e bittensor/
+      - name: Clone bittensor repo
+        run: git clone https://github.com/opentensor/bittensor.git
 
-      - name: Run E2E tests
-        run: LOCALNET_SH_PATH="../subtensor/scripts/localnet.sh" pytest tests/e2e_tests/ -s
+      - name: Setup bittensor repo
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          git checkout staging
+          python3 -m pip install -e .
+
+      - name: Run tests
+        working-directory: ${{ github.workspace }}/bittensor
+        run: |
+          pwd
+          ls
+          LOCALNET_SH_PATH="../scripts/localnet.sh" pytest tests/e2e_tests/ -s
