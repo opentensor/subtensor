@@ -185,7 +185,10 @@ fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
             hotkey_id,
             1000,
         );
-        assert_eq!(result, Err(Error::<Test>::NonAssociatedColdKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        );
     });
 }
 
@@ -657,7 +660,10 @@ fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
             hotkey_id,
             1000,
         );
-        assert_eq!(result, Err(Error::<Test>::NonAssociatedColdKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        );
     });
 }
 
@@ -1316,7 +1322,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 100
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::add_stake(
@@ -1324,7 +1330,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // We stake and all is ok.
@@ -1383,7 +1389,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1391,7 +1397,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // Emit inflation through non delegates.
@@ -1627,7 +1633,7 @@ fn test_full_with_delegating() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1635,7 +1641,7 @@ fn test_full_with_delegating() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // Lets make this new key a delegate with a 10% take.
@@ -2005,7 +2011,7 @@ fn test_full_with_delegating_some_servers() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -2013,7 +2019,7 @@ fn test_full_with_delegating_some_servers() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         assert_eq!(SubtensorModule::get_total_stake(), 5_623); // 4_723 + 900 = 5_623

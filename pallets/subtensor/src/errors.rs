@@ -24,6 +24,8 @@ mod errors {
         HotKeyNotRegisteredInNetwork,
         /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
         NonAssociatedColdKey,
+        /// the hot key is not a delegate and the signer is not the owner of the hot key.
+        HotKeyNotDelegateAndSignerNotOwnHotKey,
         /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
         NotEnoughStaketoWithdraw,
         /// the caller requests to set weights but has less than WeightsMinStake
