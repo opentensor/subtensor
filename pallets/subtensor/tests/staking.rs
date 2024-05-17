@@ -3027,7 +3027,7 @@ fn test_rate_limits_enforced_on_increase_take() {
                 hotkey0,
                 u16::MAX / 10
             ),
-            Err(Error::<Test>::TxRateLimitExceeded.into())
+            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
         );
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
 
