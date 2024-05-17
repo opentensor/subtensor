@@ -71,8 +71,8 @@ impl<T: Config> Pallet<T> {
         // --- 5.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
         let min_take = MinTake::<T>::get();
         let max_take = MaxTake::<T>::get();
-        ensure!(take >= min_take, Error::<T>::InvalidTake);
-        ensure!(take <= max_take, Error::<T>::InvalidTake);
+        ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
+        ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 6. Delegate the key.
         Self::delegate_hotkey(&hotkey, take);
@@ -117,7 +117,7 @@ impl<T: Config> Pallet<T> {
     /// * 'NonAssociatedColdKey':
     ///     - The hotkey we are delegating is not owned by the calling coldket.
     ///
-    /// * 'InvalidTake':
+    /// * 'DelegateTakeTooLow':
     ///     - The delegate is setting a take which is not lower than the previous.
     ///
     pub fn do_decrease_take(
@@ -140,12 +140,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
         if let Ok(current_take) = Delegates::<T>::try_get(&hotkey) {
-            ensure!(take < current_take, Error::<T>::InvalidTake);
+            ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
         }
 
         // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
         let min_take = MinTake::<T>::get();
-        ensure!(take >= min_take, Error::<T>::InvalidTake);
+        ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
@@ -189,7 +189,7 @@ impl<T: Config> Pallet<T> {
     /// * 'TxRateLimitExceeded':
     ///     - Thrown if key has hit transaction rate limit
     ///
-    /// * 'InvalidTake':
+    /// * 'DelegateTakeTooLow':
     ///     - The delegate is setting a take which is not greater than the previous.
     ///
     pub fn do_increase_take(
@@ -212,12 +212,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are strinctly increasing take
         if let Ok(current_take) = Delegates::<T>::try_get(&hotkey) {
-            ensure!(take > current_take, Error::<T>::InvalidTake);
+            ensure!(take > current_take, Error::<T>::DelegateTakeTooLow);
         }
 
         // --- 4. Ensure take is within the min ..= InitialDefaultTake (18%) range
         let max_take = MaxTake::<T>::get();
-        ensure!(take <= max_take, Error::<T>::InvalidTake);
+        ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
         let block: u64 = Self::get_current_block_as_u64();

@@ -1563,7 +1563,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'InvalidTake':
+        /// * 'DelegateTakeTooLow':
         /// 	- The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
@@ -1603,7 +1603,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'InvalidTake':
+        /// * 'DelegateTakeTooHigh':
         /// 	- The delegate is setting a take which is not greater than the previous.
         ///
         #[pallet::call_index(66)]

@@ -94,7 +94,7 @@ fn test_set_weights_is_root_error() {
 
         assert_err!(
             commit_reveal_set_weights(hotkey, root_netuid, uids, weights, version_key),
-            Error::<Test>::IsRoot
+            Error::<Test>::CanNotSetRootNetworkWeights
         );
     });
 }

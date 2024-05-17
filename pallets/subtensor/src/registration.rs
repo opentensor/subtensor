@@ -52,7 +52,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!(
             netuid != Self::get_root_netuid(),
-            Error::<T>::OperationNotPermittedOnRootSubnet
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -237,7 +237,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!(
             netuid != Self::get_root_netuid(),
-            Error::<T>::OperationNotPermittedOnRootSubnet
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -629,7 +629,7 @@ impl<T: Config> Pallet<T> {
         let swap_cost = 1_000_000_000u64;
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
-            Error::<T>::NotEnoughBalance
+            Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
         let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
         Self::burn_tokens(actual_burn_amount);

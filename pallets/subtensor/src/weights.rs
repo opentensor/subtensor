@@ -175,7 +175,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- Check that the netuid is not the root network.
-        ensure!(netuid != Self::get_root_netuid(), Error::<T>::IsRoot);
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::CanNotSetRootNetworkWeights
+        );
 
         // --- 2. Check that the length of uid list and value list are equal for this network.
         ensure!(

@@ -95,23 +95,25 @@ mod errors {
         /// not subnet owner
         NotSubnetOwner,
         /// operation not permitted on root subnet
-        OperationNotPermittedOnRootSubnet,
+        RegistrationNotPermittedOnRootSubnet,
         /// a hotkey attempts to join the root subnet with too little stake
         StakeTooLowForRoot,
         /// all subnets are in the immunity period
         AllNetworksInImmunity,
-        /// not enough balance
-        NotEnoughBalance,
-        /// a stake would be below the minimum threshold for nominator validations
+        /// not enough balance to pay swap hot key
+        NotEnoughBalanceToPaySwapHotKey,
+        /// Set root network weights not match net uid
         NotRootSubnet,
-        /// netuid is not the root network
-        IsRoot,
+        /// can't set weights for root network
+        CanNotSetRootNetworkWeights,
         /// no neuron id is available
         NoNeuronIdAvailable,
         /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
-        /// delegate take is being set out of bounds
-        InvalidTake,
+        /// delegate take is too low
+        DelegateTakeTooLow,
+        /// delegate take is too high
+        DelegateTakeTooHigh,
         /// Not allowed to commit weights
         CommitNotAllowed,
         /// No commit found for provided hotkey+netuid when attempting to reveal weights

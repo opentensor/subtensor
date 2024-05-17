@@ -2805,7 +2805,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
                 hotkey0,
                 u16::MAX / 10
             ),
-            Err(Error::<Test>::InvalidTake.into())
+            Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
     });
@@ -2878,7 +2878,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
                 hotkey0,
                 u16::MAX / 20
             ),
-            Err(Error::<Test>::InvalidTake.into())
+            Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
     });
@@ -2949,7 +2949,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
                     hotkey0,
                     InitialDefaultTake::get() + 1
                 ),
-                Err(Error::<Test>::InvalidTake.into())
+                Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
@@ -2989,7 +2989,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
                     hotkey0,
                     InitialDefaultTake::get() + 1
                 ),
-                Err(Error::<Test>::InvalidTake.into())
+                Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
