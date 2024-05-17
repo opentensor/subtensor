@@ -383,7 +383,7 @@ impl<T: Config> Pallet<T> {
     /// * 'NonAssociatedColdKey':
     ///     -  Thrown if the coldkey does not own the hotkey we are unstaking from.
     ///
-    /// * 'NotEnoughStaketoWithdraw':
+    /// * 'NotEnoughStakeToWithdraw':
     ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
     ///
     /// * 'TxRateLimitExceeded':
@@ -416,15 +416,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above zero.
-        ensure!(
-            stake_to_be_removed > 0,
-            Error::<T>::NotEnoughStaketoWithdraw
-        );
+        ensure!(stake_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
             Self::has_enough_stake(&coldkey, &hotkey, stake_to_be_removed),
-            Error::<T>::NotEnoughStaketoWithdraw
+            Error::<T>::NotEnoughStakeToWithdraw
         );
 
         // Ensure we don't exceed stake rate limit

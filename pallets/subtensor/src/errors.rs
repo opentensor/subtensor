@@ -26,8 +26,10 @@ mod errors {
         NonAssociatedColdKey,
         /// the hot key is not a delegate and the signer is not the owner of the hot key.
         HotKeyNotDelegateAndSignerNotOwnHotKey,
+        /// stake to withdraw amount is zero
+        StakeToWithdrawIsZero,
         /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
-        NotEnoughStaketoWithdraw,
+        NotEnoughStakeToWithdraw,
         /// the caller requests to set weights but has less than WeightsMinStake
         NotEnoughStakeToSetWeights,
         /// the caller requests adding more stake than there exists in the cold key account. See: fn add_stake

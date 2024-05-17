@@ -619,7 +619,7 @@ fn test_remove_stake_amount_zero() {
                 hotkey_account_id,
                 0
             ),
-            Error::<Test>::NotEnoughStaketoWithdraw
+            Error::<Test>::StakeToWithdrawIsZero
         );
     });
 }
@@ -689,7 +689,7 @@ fn test_remove_stake_no_enough_stake() {
             hotkey_id,
             amount,
         );
-        assert_eq!(result, Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
+        assert_eq!(result, Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
     });
 }
 
@@ -1534,7 +1534,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1542,7 +1542,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1550,7 +1550,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1558,7 +1558,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
 
         // unstaking is ok.

@@ -1683,7 +1683,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
         ///
-        /// * 'NotEnoughStaketoWithdraw':
+        /// * 'NotEnoughStakeToWithdraw':
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
