@@ -37,6 +37,7 @@ mod benchmarks;
 // =========================
 mod block_step;
 mod epoch;
+mod epoch_sparse;
 mod errors;
 mod events;
 mod math;
