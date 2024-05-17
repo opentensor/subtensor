@@ -956,7 +956,7 @@ fn test_dissolve_network_does_not_exist_err() {
 
         assert_err!(
             SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
-            Error::<Test>::NetworkDoesNotExist
+            Error::<Test>::SubNetworkDoesNotExist
         );
     });
 }

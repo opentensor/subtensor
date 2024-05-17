@@ -36,7 +36,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully serving the axon info.
     ///
     /// # Raises:
-    /// * 'NetworkDoesNotExist':
+    /// * 'SubNetworkDoesNotExist':
     ///     - Attempting to set weights on a non-existent network.
     ///
     /// * 'NotRegistered':
@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
         // Ensure the hotkey is registered somewhere.
         ensure!(
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyNotRegisteredInNetwork
         );
 
         // Check the ip signature validity.
@@ -139,7 +139,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully serving the axon info.
     ///
     /// # Raises:
-    /// * 'NetworkDoesNotExist':
+    /// * 'SubNetworkDoesNotExist':
     ///     - Attempting to set weights on a non-existent network.
     ///
     /// * 'NotRegistered':
@@ -168,7 +168,7 @@ impl<T: Config> Pallet<T> {
         // Ensure the hotkey is registered somewhere.
         ensure!(
             Self::is_hotkey_registered_on_any_network(&hotkey_id),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyNotRegisteredInNetwork
         );
 
         // Check the ip signature validity.

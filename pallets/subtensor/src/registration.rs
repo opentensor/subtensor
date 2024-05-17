@@ -26,7 +26,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
     ///
     /// # Raises:
-    /// * 'NetworkDoesNotExist':
+    /// * 'SubNetworkDoesNotExist':
     ///     - Attempting to registed to a non existent network.
     ///
     /// * 'TooManyRegistrationsThisBlock':
@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
         );
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the passed network allows registrations.
@@ -191,7 +191,7 @@ impl<T: Config> Pallet<T> {
     ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
     ///
     /// # Raises:
-    /// *'NetworkDoesNotExist':
+    /// *'SubNetworkDoesNotExist':
     ///     - Attempting to registed to a non existent network.
     ///
     /// *'TooManyRegistrationsThisBlock':
@@ -238,7 +238,7 @@ impl<T: Config> Pallet<T> {
         );
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the passed network allows registrations.

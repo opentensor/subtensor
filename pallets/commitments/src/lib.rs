@@ -77,11 +77,11 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         /// Account passed too many additional fields to their commitment
-        TooManyFields,
+        TooManyFieldsInCommitmentInfo,
         /// Account isn't allow to make commitments to the chain
         CannotCommit,
         /// Account is trying to commit data too fast
-        RateLimitExceeded,
+        CommitmentSetRateLimitExceeded,
     }
 
     /// Identity data by account
@@ -132,14 +132,14 @@ pub mod pallet {
             let extra_fields = info.fields.len() as u32;
             ensure!(
                 extra_fields <= T::MaxFields::get(),
-                Error::<T>::TooManyFields
+                Error::<T>::TooManyFieldsInCommitmentInfo
             );
 
             let cur_block = <frame_system::Pallet<T>>::block_number();
             if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
                 ensure!(
                     cur_block >= last_commit + T::RateLimit::get(),
-                    Error::<T>::RateLimitExceeded
+                    Error::<T>::CommitmentSetRateLimitExceeded
                 );
             }
 

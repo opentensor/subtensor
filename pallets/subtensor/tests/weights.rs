@@ -486,7 +486,10 @@ fn test_set_weights_err_not_active() {
         let weight_values: Vec<u16> = vec![1];
         // This hotkey is NOT registered.
         let result = commit_reveal_set_weights(U256::from(1), 1, weights_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::NotRegistered.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
+        );
     });
 }
 

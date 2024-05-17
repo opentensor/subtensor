@@ -157,7 +157,7 @@ fn test_add_stake_not_registered_key_pair() {
                 hotkey_account_id,
                 amount
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
     });
 }
@@ -1230,7 +1230,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
         assert_eq!(
             SubtensorModule::add_stake(
@@ -1238,7 +1238,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
 
         // Cant remove either.
@@ -1248,7 +1248,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1256,7 +1256,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1264,7 +1264,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1272,7 +1272,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
 
         // Neither key can become a delegate either because we are not registered.
@@ -1282,7 +1282,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
         assert_eq!(
             SubtensorModule::do_become_delegate(
@@ -1290,7 +1290,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
         );
 
         // Register the 2 neurons to a new network.

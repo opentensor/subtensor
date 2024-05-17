@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
     ///    - On successfully setting the weights on chain.
     ///
     /// # Raises:
-    ///  * 'NetworkDoesNotExist':
+    ///  * 'SubNetworkDoesNotExist':
     ///    - Attempting to set weights on a non-existent network.
     ///
     ///  * 'NotRegistered':
@@ -186,7 +186,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Check to see if this is a valid network.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
@@ -198,7 +198,7 @@ impl<T: Config> Pallet<T> {
         // --- 5. Check to see if the hotkey is registered to the passed network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
         // --- 6. Check to see if the hotkey has enought stake to set weights.

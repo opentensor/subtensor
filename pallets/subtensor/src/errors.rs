@@ -7,17 +7,21 @@ mod errors {
     #[pallet::error]
     pub enum Error<T> {
         /// the network does not exist.
-        NetworkDoesNotExist,
-        /// an invalid modality attempted on serve.
-        InvalidModality,
+        SubNetworkDoesNotExist,
+        /// the root network does not exist.
+        RootNetworkDoesNotExist,
         /// the user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
         InvalidIpType,
         /// an invalid IP address is passed to the serve function.
         InvalidIpAddress,
         /// an invalid port is passed to the serve function.
         InvalidPort,
-        /// the caller requests setting or removing data from a neuron which does not exist in the active set.
-        NotRegistered,
+        /// the hot key not registered in subnet
+        HotKeyNotRegisteredInSubNet,
+        /// the hot key not exists
+        HotKeyAccountNotExists,
+        /// the hot key not registered in any subnet.
+        HotKeyNotRegisteredInNetwork,
         /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
         NonAssociatedColdKey,
         /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.

@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
         let current_block_number: u64 = Self::get_current_block_as_u64();
         ensure!(
             Self::if_subnet_exist(root_netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::RootNetworkDoesNotExist
         );
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
@@ -606,7 +606,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Check to see if this is a valid network.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 4. Check that this is the root network.
@@ -628,7 +628,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Check to see if the hotkey is registered to the passed network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
         // --- 8. Check to see if the hotkey has enough stake to set weights.
@@ -839,7 +839,7 @@ impl<T: Config> Pallet<T> {
     /// * 'NetworkRemoved': Emitted when a network is successfully removed.
     ///
     /// # Raises:
-    /// * 'NetworkDoesNotExist': If the specified network does not exist.
+    /// * 'SubNetworkDoesNotExist': If the specified network does not exist.
     /// * 'NotSubnetOwner': If the caller does not own the specified subnet.
     ///
     pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
@@ -849,7 +849,7 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the caller owns this subnet.

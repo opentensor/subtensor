@@ -85,7 +85,7 @@ pub mod pallet {
         /// Account attempted to register an identity but doesn't meet the requirements.
         CannotRegister,
         /// Account passed too many additional fields to their identity
-        TooManyFields,
+        TooManyFieldsInIdentityInfo,
         /// Account doesn't have a registered identity
         NotRegistered,
     }
@@ -130,7 +130,7 @@ pub mod pallet {
             let extra_fields = info.additional.len() as u32;
             ensure!(
                 extra_fields <= T::MaxAdditionalFields::get(),
-                Error::<T>::TooManyFields
+                Error::<T>::TooManyFieldsInIdentityInfo
             );
 
             let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
@@ -179,10 +179,6 @@ pub mod pallet {
             identified: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            ensure!(
-                T::CanRegister::can_register(&who, &identified),
-                Error::<T>::CannotRegister
-            );
 
             let id = <IdentityOf<T>>::take(&identified).ok_or(Error::<T>::NotRegistered)?;
             let deposit = id.total_deposit();
