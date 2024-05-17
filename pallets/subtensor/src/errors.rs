@@ -83,17 +83,13 @@ mod errors {
         /// a transactor exceeds the rate limit for unstakes.
         UnstakeRateLimitExceeded,
         /// registration is disabled
-        RegistrationDisabled,
+        SubNetRegistrationDisabled,
         /// registration attempt exceeds allowed in interval
         TooManyRegistrationsThisInterval,
         /// the hotkey passed is not the origin, but it should be
-        HotkeyOriginMismatch,
-        /// attempting to do something to a senate member that is limited
-        SenateMember,
+        TransactorAccountShouldBeHotKey,
         /// a hotkey attempts to do something only senate members can do
         NotSenateMember,
-        /// an incorrect amount of Netuids are passed as input
-        IncorrectNetuidsLength,
         /// the faucet is disabled
         FaucetDisabled,
         /// not subnet owner

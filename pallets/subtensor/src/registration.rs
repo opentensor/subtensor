@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
             Self::get_network_registration_allowed(netuid),
-            Error::<T>::RegistrationDisabled
+            Error::<T>::SubNetRegistrationDisabled
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
@@ -229,7 +229,10 @@ impl<T: Config> Pallet<T> {
             coldkey
         );
 
-        ensure!(signing_origin == hotkey, Error::<T>::HotkeyOriginMismatch);
+        ensure!(
+            signing_origin == hotkey,
+            Error::<T>::TransactorAccountShouldBeHotKey
+        );
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
@@ -244,7 +247,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
             Self::get_network_pow_registration_allowed(netuid),
-            Error::<T>::RegistrationDisabled
+            Error::<T>::SubNetRegistrationDisabled
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.

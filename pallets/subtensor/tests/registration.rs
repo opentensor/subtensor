@@ -1775,7 +1775,7 @@ fn test_registration_origin_hotkey_mismatch() {
             hotkey_account_id_2, // Not the same as the origin.
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::HotkeyOriginMismatch.into()));
+        assert_eq!(result, Err(Error::<Test>::TransactorAccountShouldBeHotKey.into()));
     });
 }
 
@@ -1808,7 +1808,10 @@ fn test_registration_disabled() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::RegistrationDisabled.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::SubNetRegistrationDisabled.into())
+        );
     });
 }
 
