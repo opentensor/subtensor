@@ -1,9 +1,5 @@
 name: Deploy
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   workflow_dispatch:
     inputs:
