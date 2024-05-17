@@ -609,7 +609,7 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
         weight.saturating_accrue(T::DbWeight::get().reads(2));

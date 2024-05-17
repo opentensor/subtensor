@@ -72,8 +72,12 @@ mod errors {
         ServingRateLimitExceeded,
         /// the caller attempts to set weights with more uids than allowed.
         UidsLengthExceedUidsInSubNet,
-        /// a transactor exceeds the rate limit for transactions.
-        TxRateLimitExceeded,
+        /// a transactor exceeds the rate limit for add network tx.
+        NetworkTxRateLimitExceeded,
+        /// a transactor exceeds the rate limit for delegate tx.
+        DelegateTxRateLimitExceeded,
+        /// a transactor exceeds the rate limit for set or swap hot key.
+        HotKeySetTxRateLimitExceeded,
         /// a transactor exceeds the rate limit for stakes.
         StakeRateLimitExceeded,
         /// a transactor exceeds the rate limit for unstakes.

@@ -65,7 +65,7 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::DelegateTxRateLimitExceeded
         );
 
         // --- 5.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
@@ -226,7 +226,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_last_tx_block_delegate_take(&coldkey),
                 block
             ),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::DelegateTxRateLimitExceeded
         );
 
         // Set last block for rate limiting

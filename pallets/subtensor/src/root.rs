@@ -768,7 +768,7 @@ impl<T: Config> Pallet<T> {
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
             current_block.saturating_sub(last_lock_block) >= NetworkRateLimit::<T>::get(),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::NetworkTxRateLimitExceeded
         );
 
         // --- 2. Calculate and lock the required tokens.
