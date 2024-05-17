@@ -1363,7 +1363,9 @@ pub mod pallet {
                 // Storage version v6 -> v7
                 .saturating_add(migration::migrate_stake_to_substake::<T>())
                 // Storage version v7 -> v8
-                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>());
+                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>())
+                // Storage version v8 -> v9
+                .saturating_add(migration::migrate_populate_subnet_creator::<T>());
 
             log::info!(
                 "Runtime upgrade migration in subtensor pallet, total weight = ({})",
