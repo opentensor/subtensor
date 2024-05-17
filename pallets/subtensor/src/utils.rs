@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
         PendingEmission::<T>::get(netuid)
     }
     pub fn get_alpha_pending_emission(netuid: u16) -> u64 {
-        PendingAlphaEmission::<T>::get(netuid)
+        PendingEmission::<T>::get(netuid)
     }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
