@@ -333,13 +333,12 @@ impl<T: Config> Pallet<T> {
     // Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
     #[allow(clippy::indexing_slicing)]
     pub fn get_weights_sparse(netuid: u16, neuron_count: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+        let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; neuron_count as usize];
         for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
-                .filter(|(uid_i, _)| *uid_i < n as u16)
+            Weights::<T>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < neuron_count)
         {
-            for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
+            for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < neuron_count) {
                 weights
                     .get_mut(uid_i as usize)
                     .expect("uid_i is filtered to be less than n; qed")
@@ -350,12 +349,11 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
-    pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let n: usize = Self::get_subnetwork_n(netuid) as usize;
-        let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+    pub fn get_bonds_sparse(netuid: u16, neuron_count: u16) -> Vec<Vec<(u16, I32F32)>> {
+        let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; neuron_count as usize];
         for (uid_i, bonds_vec) in
-            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
-                .filter(|(uid_i, _)| *uid_i < n as u16)
+            Bonds::<T>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < neuron_count)
         {
             for (uid_j, bonds_ij) in bonds_vec {
                 bonds
