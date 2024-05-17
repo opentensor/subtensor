@@ -1320,7 +1320,7 @@ pub mod pallet {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -1457,7 +1457,7 @@ pub mod pallet {
         /// * NonAssociatedColdKey;
         /// 	- Attempting to set weights on a non-associated cold key.
         ///
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRootSubnet':
@@ -1735,7 +1735,7 @@ pub mod pallet {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -1842,7 +1842,7 @@ pub mod pallet {
         /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to register to a non existent network.
         ///
         /// * 'TooManyRegistrationsThisBlock':
