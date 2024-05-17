@@ -305,7 +305,7 @@ fn close_works() {
                 proposal_weight,
                 proposal_len
             ),
-            Error::<Test, Instance1>::TooEarly
+            Error::<Test, Instance1>::TooEarlyToCloseProposal
         );
 
         System::set_block_number(4);
@@ -376,7 +376,7 @@ fn proposal_weight_limit_works_on_approve() {
                 proposal_weight - Weight::from_parts(100, 0),
                 proposal_len
             ),
-            Error::<Test, Instance1>::WrongProposalWeight
+            Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight
         );
         assert_ok!(Collective::close(
             RuntimeOrigin::signed(4),
@@ -861,7 +861,7 @@ fn limit_active_proposals() {
                 TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                     .expect("convert u64 to block number.")
             ),
-            Error::<Test, Instance1>::TooManyProposals
+            Error::<Test, Instance1>::TooManyActiveProposals
         );
     })
 }
@@ -890,11 +890,11 @@ fn correct_validate_and_get_proposal() {
                 length,
                 weight
             ),
-            Error::<Test, Instance1>::ProposalMissing
+            Error::<Test, Instance1>::ProposalNotExists
         );
         assert_noop!(
             Collective::validate_and_get_proposal(&hash, length - 2, weight),
-            Error::<Test, Instance1>::WrongProposalLength
+            Error::<Test, Instance1>::ProposalLengthBoundLessThanProposalLength
         );
         assert_noop!(
             Collective::validate_and_get_proposal(
@@ -902,7 +902,7 @@ fn correct_validate_and_get_proposal() {
                 length,
                 weight - Weight::from_parts(10, 0)
             ),
-            Error::<Test, Instance1>::WrongProposalWeight
+            Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight
         );
         let res = Collective::validate_and_get_proposal(&hash, length, weight);
         assert_ok!(res.clone());
@@ -964,7 +964,7 @@ fn motions_ignoring_bad_index_collective_vote_works() {
         ));
         assert_noop!(
             Collective::vote(RuntimeOrigin::signed(2), hash, 1, true),
-            Error::<Test, Instance1>::WrongIndex,
+            Error::<Test, Instance1>::IndexNotMatchProposalHash,
         );
     });
 }
@@ -1118,7 +1118,7 @@ fn motions_all_first_vote_free_works() {
         assert_eq!(close_rval.unwrap().pays_fee, Pays::No);
 
         // trying to close the proposal, which is already closed.
-        // Expecting error "ProposalMissing" with Pays::Yes
+        // Expecting error "ProposalNotExists" with Pays::Yes
         let close_rval: DispatchResultWithPostInfo = Collective::close(
             RuntimeOrigin::signed(2),
             hash,
@@ -1454,7 +1454,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
                 proposal_weight,
                 proposal_len
             ),
-            Error::<Test, Instance1>::TooEarly
+            Error::<Test, Instance1>::TooEarlyToCloseProposal
         );
 
         // Once the motion duration passes,
@@ -1508,7 +1508,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
         // It will not close with bad weight/len information
         assert_noop!(
             Collective::close(RuntimeOrigin::signed(2), hash, 0, Weight::zero(), 0),
-            Error::<Test, Instance1>::WrongProposalLength,
+            Error::<Test, Instance1>::ProposalLengthBoundLessThanProposalLength,
         );
         assert_noop!(
             Collective::close(
@@ -1518,7 +1518,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
                 Weight::zero(),
                 proposal_len
             ),
-            Error::<Test, Instance1>::WrongProposalWeight,
+            Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight,
         );
         // Now we make the proposal fail
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));

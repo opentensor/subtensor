@@ -66,10 +66,10 @@ pub mod pallet {
     pub enum Error<T> {
         /// The subnet does not exist, check the netuid parameter
         SubnetDoesNotExist,
-        /// The max allowed validator number to be set is larger than threshold
-        StorageValueOutOfRange,
-        /// The maximum allowed UIDs is out of boundary, it not allowed
-        MaxAllowedUIdsNotAllowed,
+        /// The max allowed validator number to be set is larger than max allowed UIDs  
+        MaxValidatorsLargerThanMaxUIds,
+        /// The maximum allowed UIDs is less than UIDs already in the subnet
+        MaxAllowedUIdsLessThanCurrentUIds,
     }
 
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -385,7 +385,7 @@ pub mod pallet {
             );
             ensure!(
                 T::Subtensor::get_subnetwork_n(netuid) < max_allowed_uids,
-                Error::<T>::MaxAllowedUIdsNotAllowed
+                Error::<T>::MaxAllowedUIdsLessThanCurrentUIds
             );
             T::Subtensor::set_max_allowed_uids(netuid, max_allowed_uids);
             log::info!(
@@ -625,7 +625,7 @@ pub mod pallet {
             );
             ensure!(
                 max_allowed_validators <= T::Subtensor::get_max_allowed_uids(netuid),
-                Error::<T>::StorageValueOutOfRange
+                Error::<T>::MaxValidatorsLargerThanMaxUIds
             );
 
             T::Subtensor::set_max_allowed_validators(netuid, max_allowed_validators);
