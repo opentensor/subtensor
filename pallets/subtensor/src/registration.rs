@@ -2,7 +2,6 @@ use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
-use sp_runtime::MultiAddress;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
@@ -528,18 +527,14 @@ impl<T: Config> Pallet<T> {
         hash_as_vec
     }
 
-    #[allow(clippy::indexing_slicing)]
     pub fn hash_block_and_hotkey(block_hash_bytes: &[u8; 32], hotkey: &T::AccountId) -> H256 {
-        // Get the public key from the account id.
-        let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id(hotkey.clone());
-        let binding = hotkey_pubkey.encode();
-        // Skip extra 0th byte.
-        let hotkey_bytes: &[u8] = binding[1..].as_ref();
+        let binding = hotkey.encode();
+        // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
+        let (hotkey_bytes, _) = binding.split_at(32);
         let mut full_bytes = [0u8; 64];
         let (first_half, second_half) = full_bytes.split_at_mut(32);
         first_half.copy_from_slice(block_hash_bytes);
-        // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
-        second_half.copy_from_slice(&hotkey_bytes[..32]);
+        second_half.copy_from_slice(hotkey_bytes);
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(&full_bytes[..]);
 
         H256::from_slice(&keccak_256_seal_hash_vec)

@@ -333,29 +333,37 @@ impl<T: Config> Pallet<T> {
     // Output unnormalized sparse weights, input weights are assumed to be row max-upscaled in u16.
     #[allow(clippy::indexing_slicing)]
     pub fn get_weights_sparse(netuid: u16, neuron_count: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; neuron_count as usize];
-        Weights::<T>::iter_prefix(netuid)
-            .filter(|(uid_i, _)| *uid_i < neuron_count as u16)
-            .for_each(|(uid_i, weights_i)| {
-                weights[uid_i as usize] = weights_i
-                    .iter()
-                    .filter(|(uid_j, _)| *uid_j < neuron_count)
-                    .map(|(uid_j, weight_ij)| (*uid_j, I32F32::from_num(*weight_ij)))
-                    .collect();
-            });
+        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let mut weights: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+        for (uid_i, weights_i) in
+            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < n as u16)
+        {
+            for (uid_j, weight_ij) in weights_i.iter().filter(|(uid_j, _)| *uid_j < n as u16) {
+                weights
+                    .get_mut(uid_i as usize)
+                    .expect("uid_i is filtered to be less than n; qed")
+                    .push((*uid_j, I32F32::from_num(*weight_ij)));
+            }
+        }
         weights
     }
 
     /// Output unnormalized sparse bonds, input bonds are assumed to be column max-upscaled in u16.
-    #[allow(clippy::indexing_slicing)]
-    pub fn get_bonds_sparse(netuid: u16, neuron_count: u16) -> Vec<Vec<(u16, I32F32)>> {
-        let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; neuron_count as usize];
-        Bonds::<T>::iter_prefix(netuid).for_each(|(uid_i, bonds_i)| {
-            bonds[uid_i as usize] = bonds_i
-                .iter()
-                .map(|(uid_j, bonds_ij)| (*uid_j, I32F32::from_num(*bonds_ij)))
-                .collect();
-        });
+    pub fn get_bonds_sparse(netuid: u16) -> Vec<Vec<(u16, I32F32)>> {
+        let n: usize = Self::get_subnetwork_n(netuid) as usize;
+        let mut bonds: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
+        for (uid_i, bonds_vec) in
+            <Bonds<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(netuid)
+                .filter(|(uid_i, _)| *uid_i < n as u16)
+        {
+            for (uid_j, bonds_ij) in bonds_vec {
+                bonds
+                    .get_mut(uid_i as usize)
+                    .expect("uid_i is filtered to be less than n; qed")
+                    .push((uid_j, I32F32::from_num(bonds_ij)));
+            }
+        }
         bonds
     }
 }
