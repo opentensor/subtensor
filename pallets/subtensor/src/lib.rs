@@ -1332,7 +1332,7 @@ pub mod pallet {
         /// * 'DuplicateUids':
         /// 	- Attempting to set weights with duplicate uids.
         ///
-        ///     * 'TooManyUids':
+        ///     * 'UidsLengthExceedUidsInSubNet':
         /// 	- Attempting to set weights above the max allowed uids.
         ///
         /// * 'UidVecContainInvalidOne':

@@ -62,20 +62,16 @@ mod errors {
         InvalidSeal,
         /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
         MaxWeightExceeded,
-        /// tempo is not valid.
-        InvalidTempo,
         /// the hotkey attempts to become delegate when they are already.
-        AlreadyDelegate,
+        HotKeyAlreadyDelegate,
         /// the hotkey attempts to set weights twice within net_tempo/2 blocks.
         SettingWeightsTooFast,
         /// a validator attempts to set weights from a validator with incorrect code base key.
         IncorrectNetworkVersionKey,
         /// an axon or prometheus serving exceeds the rate limit for a registered neuron.
         ServingRateLimitExceeded,
-        /// number of accounts going to be registered exceeds MaxAllowedUids for the network.
-        MaxAllowedUidsExceeded,
         /// the caller attempts to set weights with more uids than allowed.
-        TooManyUids,
+        UidsLengthExceedUidsInSubNet,
         /// a transactor exceeds the rate limit for transactions.
         TxRateLimitExceeded,
         /// a transactor exceeds the rate limit for stakes.

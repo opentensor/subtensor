@@ -583,7 +583,10 @@ fn test_set_weight_too_many_uids() {
         let weight_keys: Vec<u16> = vec![0, 1, 2, 3, 4]; // more uids than neurons in subnet.
         let weight_values: Vec<u16> = vec![88, 102, 303, 1212, 11]; // random value.
         let result = commit_reveal_set_weights(U256::from(1), 1, weight_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::TooManyUids.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::UidsLengthExceedUidsInSubNet.into())
+        );
 
         // Shouldnt fail because we are setting less weights than there are neurons.
         let weight_keys: Vec<u16> = vec![0, 1]; // Only on neurons that exist.

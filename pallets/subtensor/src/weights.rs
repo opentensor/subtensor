@@ -145,7 +145,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'DuplicateUids':
     ///    - Attempting to set weights with duplicate uids.
     ///
-    /// * 'TooManyUids':
+    /// * 'UidsLengthExceedUidsInSubNet':
     ///    - Attempting to set weights above the max allowed uids.
     ///
     /// * 'UidVecContainInvalidOne':
@@ -192,7 +192,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(
             Self::check_len_uids_within_allowed(netuid, &uids),
-            Error::<T>::TooManyUids
+            Error::<T>::UidsLengthExceedUidsInSubNet
         );
 
         // --- 5. Check to see if the hotkey is registered to the passed network.

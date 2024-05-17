@@ -1446,7 +1446,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 1000
             ),
-            Err(Error::<Test>::AlreadyDelegate.into())
+            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
         assert_eq!(
             SubtensorModule::do_become_delegate(
@@ -1454,7 +1454,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 1000
             ),
-            Err(Error::<Test>::AlreadyDelegate.into())
+            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
 
         // This add stake works for delegates.
