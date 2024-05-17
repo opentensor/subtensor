@@ -488,7 +488,7 @@ fn test_set_weights_err_not_active() {
         let result = commit_reveal_set_weights(U256::from(1), 1, weights_keys, weight_values, 0);
         assert_eq!(
             result,
-            Err(Error::<Test>::HotKeyNotRegisteredInNetwork.into())
+            Err(Error::<Test>::HotKeyNotRegisteredInSubNet.into())
         );
     });
 }
