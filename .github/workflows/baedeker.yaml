@@ -33,17 +33,12 @@ jobs:
 
     - name: Create chain spec and secrets
       run: |
-        cd baedeker
         sudo ./baedeker/up.sh ./baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai
 
-    - name: Upload chain spec as artifact
+    - name: Upload chain spec and secrets as artifact
       uses: actions/upload-artifact@v2
       with:
-        name: chain-spec
-        path: baedeker/.bdk-env/specs/subtensor.json
-
-    - name: Upload secrets as artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: baedeker-secrets
-        path: baedeker/.bdk-env/secrets
+        name: baedeker-config
+        path: |
+            baedeker/.bdk-env/specs/subtensor.json
+            baedeker/.bdk-env/secrets
