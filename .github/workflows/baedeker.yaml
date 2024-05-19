@@ -43,5 +43,5 @@ jobs:
       with:
         name: baedeker-config
         path: |
-            baedeker/.bdk-env/specs/subtensor.json
-            baedeker/.bdk-env/secrets
+            .baedeker/.bdk-env/specs/subtensor.json
+            .baedeker/.bdk-env/secrets
