@@ -1,0 +1,49 @@
+name: Baedeker
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"  # Runs every 3 hours
+  workflow_dispatch:  # Allows manual dispatch
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y 
+
+    - name: Install Rust 
+      uses: actions-rs/toolchain@v1.0.6
+      with:
+        # toolchain: ${{ matrix.rust-branch }}
+        components: rustfmt
+        profile: minimal
+
+    - name: Clone Baedeker repository
+      run: |
+        git clone https://github.com/UniqueNetwork/baedeker.git
+        cd baedeker
+        cargo build --release
+        sudo cp ./target/release/baedeker /usr/local/bin
+        sudo chmod +x /usr/local/bin/baedeker
+
+    - name: Create chain spec and secrets
+      run: |
+        cd baedeker
+        sudo ./baedeker/up.sh ./baedeker/forkless-data.jsonnet --tla-str=forked_spec=subtensor --tla-str=fork_source=wss://entrypoint-finney.opentensor.ai
+
+    - name: Upload chain spec as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: chain-spec
+        path: baedeker/.bdk-env/specs/subtensor.json
+
+    - name: Upload secrets as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: baedeker-secrets
+        path: baedeker/.bdk-env/secrets
