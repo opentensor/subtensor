@@ -9,7 +9,7 @@ on:
 
 jobs:
   build-and-publish-baedeker-config:
-    runs-on: ubuntu-latest
+    runs-on: SubtensorCI
 
     steps:
     - name: Checkout repository
@@ -44,4 +44,4 @@ jobs:
         name: baedeker-config
         path: |
             .baedeker/.bdk-env/specs/subtensor.json
-            .baedeker/.bdk-env/secrets
+            .baedeker/.bdk-env/secret
