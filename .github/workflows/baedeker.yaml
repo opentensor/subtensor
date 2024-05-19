@@ -4,8 +4,6 @@ on:
   schedule:
     - cron: "0 */3 * * *"  # Runs every 3 hours
   workflow_dispatch:  # Allows manual dispatch
-  push:
-  pull_request:
 
 jobs:
   build-and-publish-baedeker-config:

@@ -3,7 +3,7 @@
 : "${BUILD_BINARY:=1}"
 # : "${FEATURES:=pow-faucet}"
 
-FULL_PATH=".baedeker/.bdk-env/specs/subtensor.json"
+FULL_PATH="baedeker-config/specs/subtensor.json"
 
 if [[ $BUILD_BINARY == "1" ]]; then
 	echo "*** Building substrate binary..."
@@ -23,8 +23,8 @@ alice_start=(
     ./target/release/node-subtensor
     --base-path /tmp/alice
     --chain="$FULL_PATH"
-    --keystore-path=./.baedeker/.bdk-env/secret/keystore-subtensor-node-alice
-    --node-key-file=./.baedeker/.bdk-env/secret/node/subtensor-node-alice
+    --keystore-path=baedeker-config/secret/keystore-subtensor-node-alice
+    --node-key-file=baedeker-config/secret/node/subtensor-node-alice
     --port 30334
     --rpc-port 9946
     --validator
@@ -40,8 +40,8 @@ bob_start=(
     ./target/release/node-subtensor
     --base-path /tmp/bob
     --chain="$FULL_PATH"
-    --keystore-path=./.baedeker/.bdk-env/secret/keystore-subtensor-node-bob
-    --node-key-file=./.baedeker/.bdk-env/secret/node/subtensor-node-bob
+    --keystore-path=baedeker-config/secret/keystore-subtensor-node-bob
+    --node-key-file=baedeker-config/secret/node/subtensor-node-bob
     --port 30335
     --rpc-port 9935
     --validator
@@ -53,8 +53,8 @@ charlie_start=(
     ./target/release/node-subtensor
     --base-path /tmp/charlie
     --chain="$FULL_PATH"
-    --keystore-path=./.baedeker/.bdk-env/secret/keystore-subtensor-node-charlie
-    --node-key-file=./.baedeker/.bdk-env/secret/node/subtensor-node-charlie
+    --keystore-path=baedeker-config/secret/keystore-subtensor-node-charlie
+    --node-key-file=baedeker-config/secret/node/subtensor-node-charlie
     --port 30336
     --rpc-port 9936
     --validator
