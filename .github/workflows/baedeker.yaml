@@ -17,7 +17,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        sudo apt-get update &&
+        sudo apt-get update && \
         sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
     - name: Install Rust 
@@ -31,6 +31,7 @@ jobs:
       run: |
         git clone https://github.com/UniqueNetwork/baedeker.git
         cd baedeker
+        echo "[workspace]" >> Cargo.toml
         cargo build --release
         sudo cp ./target/release/baedeker /usr/local/bin
         sudo chmod +x /usr/local/bin/baedeker
