@@ -8,7 +8,7 @@ on:
   pull_request:
 
 jobs:
-  build-and-publish:
+  build-and-publish-baedeker-config:
     runs-on: ubuntu-latest
 
     steps:
@@ -35,6 +35,7 @@ jobs:
         cargo build --release
         sudo cp ./target/release/baedeker /usr/local/bin
         sudo chmod +x /usr/local/bin/baedeker
+        cd ..
 
     - name: Create chain spec and secrets
       run: |
