@@ -50,3 +50,7 @@ baedeker-download:
 baedeker-run:
   @echo "Running Baedeker..."
   ./scripts/localnet-baedeker.sh
+
+baedeker-up-local: baedeker-build baedeker-run
+
+baedeker-up-ci: baedeker-download baedeker-run
