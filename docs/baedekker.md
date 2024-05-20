@@ -1,5 +1,3 @@
-Sure, here are the updated instructions using `just` commands to allow users to choose between downloading the CI artifact and building the artifacts locally using Docker.
-
 ### Instructions for Running Baedeker Locally on a Mac
 
 We use Baedeker to run a clone of the Finney network. Unfortunately, Baedeker does not work on MacOS. We therefore leverage the CI to produce the build artifacts and download them to run locally, or alternatively, build the artifacts locally using Docker.
