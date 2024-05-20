@@ -1,15 +1,13 @@
 use super::*;
-use frame_support::pallet_prelude::DispatchError;
 use frame_support::sp_std::vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
-use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
     // Returns the number of filled slots on a network.
     ///
     pub fn get_subnetwork_n(netuid: u16) -> u16 {
-        return SubnetworkN::<T>::get(netuid);
+        SubnetworkN::<T>::get(netuid)
     }
 
     // Replace the neuron under this uid.
@@ -87,13 +85,13 @@ impl<T: Config> Pallet<T> {
     // Returns true if the uid is set on the network.
     //
     pub fn is_uid_exist_on_network(netuid: u16, uid: u16) -> bool {
-        return Keys::<T>::contains_key(netuid, uid);
+        Keys::<T>::contains_key(netuid, uid)
     }
 
     // Returns true if the hotkey holds a slot on the network.
     //
     pub fn is_hotkey_registered_on_network(netuid: u16, hotkey: &T::AccountId) -> bool {
-        return Uids::<T>::contains_key(netuid, hotkey);
+        Uids::<T>::contains_key(netuid, hotkey)
     }
 
     // Returs the hotkey under the network uid as a Result. Ok if the uid is taken.
@@ -111,19 +109,16 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         hotkey: &T::AccountId,
     ) -> Result<u16, DispatchError> {
-        return Uids::<T>::try_get(netuid, &hotkey)
-            .map_err(|_err| Error::<T>::NotRegistered.into());
+        Uids::<T>::try_get(netuid, hotkey).map_err(|_err| Error::<T>::NotRegistered.into())
     }
 
     // Returns the stake of the uid on network or 0 if it doesnt exist.
     //
     pub fn get_stake_for_uid_and_subnetwork(netuid: u16, neuron_uid: u16) -> u64 {
-        if Self::is_uid_exist_on_network(netuid, neuron_uid) {
-            return Self::get_total_stake_for_hotkey(
-                &Self::get_hotkey_for_net_and_uid(netuid, neuron_uid).unwrap(),
-            );
+        if let Ok(hotkey) = Self::get_hotkey_for_net_and_uid(netuid, neuron_uid) {
+            Self::get_total_stake_for_hotkey(&hotkey)
         } else {
-            return 0;
+            0
         }
     }
 
@@ -132,9 +127,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_number_of_subnets() -> u16 {
         let mut number_of_subnets: u16 = 0;
         for (_, _) in <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter() {
-            number_of_subnets = number_of_subnets + 1;
+            number_of_subnets += 1;
         }
-        return number_of_subnets;
+        number_of_subnets
     }
 
     // Return a list of all networks a hotkey is registered on.

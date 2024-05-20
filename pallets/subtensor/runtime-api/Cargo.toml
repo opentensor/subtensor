@@ -8,15 +8,23 @@ description = "A pallet that adds a custom runtime API to Subtensor"
 license = "MIT"
 publish = false
 
+[lints]
+workspace = true
+
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.39", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.39" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 serde = { version = "1.0.132", features = ["derive"], default-features = false }
 
-# local 
+# local
 pallet-subtensor = { version = "4.0.0-dev", path = "../../subtensor", default-features = false }
 
 [features]
 default = ["std"]
-std = ["sp-api/std"]
+std = [
+	"sp-api/std",
+	"frame-support/std",
+	"pallet-subtensor/std",
+	"serde/std"
+]
 pow-faucet = []
