@@ -1,7 +1,6 @@
 use super::*;
 use crate::math::*;
 use frame_support::sp_std::vec;
-use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
     // ---- The implementation for the extrinsic set_weights.
@@ -123,16 +122,8 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 8. Get the neuron uid of associated hotkey on network netuid.
-        let neuron_uid;
-        let net_neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey);
-        ensure!(
-            net_neuron_uid.is_ok(),
-            net_neuron_uid
-                .err()
-                .unwrap_or(Error::<T>::NotRegistered.into())
-        );
 
-        neuron_uid = net_neuron_uid.unwrap();
+        let neuron_uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey)?;
 
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
         let current_block: u64 = Self::get_current_block_as_u64();
@@ -212,7 +203,7 @@ impl<T: Config> Pallet<T> {
             network_version_key,
             version_key
         );
-        return network_version_key == 0 || version_key >= network_version_key;
+        network_version_key == 0 || version_key >= network_version_key
     }
 
     // Checks if the neuron has set weights within the weights_set_rate_limit.
@@ -224,14 +215,14 @@ impl<T: Config> Pallet<T> {
             if last_set_weights == 0 {
                 return true;
             } // (Storage default) Never set weights.
-            return current_block - last_set_weights >= Self::get_weights_set_rate_limit(netuid);
+            return (current_block - last_set_weights) >= Self::get_weights_set_rate_limit(netuid);
         }
         // --- 3. Non registered peers cant pass.
-        return false;
+        false
     }
 
     // Checks for any invalid uids on this network.
-    pub fn contains_invalid_uids(netuid: u16, uids: &Vec<u16>) -> bool {
+    pub fn contains_invalid_uids(netuid: u16, uids: &[u16]) -> bool {
         for uid in uids {
             if !Self::is_uid_exist_on_network(netuid, *uid) {
                 log::debug!(
@@ -242,33 +233,28 @@ impl<T: Config> Pallet<T> {
                 return true;
             }
         }
-        return false;
+        false
     }
 
     // Returns true if the passed uids have the same length of the passed values.
-    pub fn uids_match_values(uids: &Vec<u16>, values: &Vec<u16>) -> bool {
-        return uids.len() == values.len();
+    pub fn uids_match_values(uids: &[u16], values: &[u16]) -> bool {
+        uids.len() == values.len()
     }
 
     // Returns true if the items contain duplicates.
-    pub fn has_duplicate_uids(items: &Vec<u16>) -> bool {
+    pub fn has_duplicate_uids(items: &[u16]) -> bool {
         let mut parsed: Vec<u16> = Vec::new();
         for item in items {
-            if parsed.contains(&item) {
+            if parsed.contains(item) {
                 return true;
             }
-            parsed.push(item.clone());
+            parsed.push(*item);
         }
-        return false;
+        false
     }
 
     // Returns True if setting self-weight or has validator permit.
-    pub fn check_validator_permit(
-        netuid: u16,
-        uid: u16,
-        uids: &Vec<u16>,
-        weights: &Vec<u16>,
-    ) -> bool {
+    pub fn check_validator_permit(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Check self weight. Allowed to set single value for self weight.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
@@ -278,7 +264,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns True if the uids and weights are have a valid length for uid on network.
-    pub fn check_length(netuid: u16, uid: u16, uids: &Vec<u16>, weights: &Vec<u16>) -> bool {
+    pub fn check_length(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         let subnet_n: usize = Self::get_subnetwork_n(netuid) as usize;
         let min_allowed_length: usize = Self::get_min_allowed_weights(netuid) as usize;
         let min_allowed: usize = {
@@ -299,7 +285,7 @@ impl<T: Config> Pallet<T> {
             return true;
         }
         // To few weights.
-        return false;
+        false
     }
 
     // Implace normalizes the passed positive integer weights so that they sum to u16 max value.
@@ -311,11 +297,11 @@ impl<T: Config> Pallet<T> {
         weights.iter_mut().for_each(|x| {
             *x = (*x as u64 * u16::max_value() as u64 / sum) as u16;
         });
-        return weights;
+        weights
     }
 
     // Returns False if the weights exceed the max_weight_limit for this network.
-    pub fn max_weight_limited(netuid: u16, uid: u16, uids: &Vec<u16>, weights: &Vec<u16>) -> bool {
+    pub fn max_weight_limited(netuid: u16, uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         // Allow self weights to exceed max weight limit.
         if Self::is_self_weight(uid, uids, weights) {
             return true;
@@ -332,20 +318,23 @@ impl<T: Config> Pallet<T> {
     }
 
     // Returns true if the uids and weights correspond to a self weight on the uid.
-    pub fn is_self_weight(uid: u16, uids: &Vec<u16>, weights: &Vec<u16>) -> bool {
+    pub fn is_self_weight(uid: u16, uids: &[u16], weights: &[u16]) -> bool {
         if weights.len() != 1 {
             return false;
         }
-        if uid != uids[0] {
+        let Some(first_uid) = uids.first() else {
+            return false;
+        };
+        if uid != *first_uid {
             return false;
         }
-        return true;
+        true
     }
 
     // Returns False is the number of uids exceeds the allowed number of uids for this network.
-    pub fn check_len_uids_within_allowed(netuid: u16, uids: &Vec<u16>) -> bool {
+    pub fn check_len_uids_within_allowed(netuid: u16, uids: &[u16]) -> bool {
         let subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
         // we should expect at most subnetwork_n uids.
-        return uids.len() <= subnetwork_n as usize;
+        uids.len() <= subnetwork_n as usize
     }
 }

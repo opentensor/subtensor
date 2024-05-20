@@ -2,7 +2,6 @@ use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use log::info;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 use sp_core::{Get, H256, U256};
@@ -20,9 +19,8 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 
 #[test]
 fn test_root_register_network_exist() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
-        let root_netuid: u16 = 0;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
         assert_ok!(SubtensorModule::root_register(
@@ -34,7 +32,7 @@ fn test_root_register_network_exist() {
 
 #[test]
 fn test_root_register_normal_on_root_fails() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
         // Test fails because normal registrations are not allowed
         // on the root network.
@@ -51,7 +49,7 @@ fn test_root_register_normal_on_root_fails() {
                 root_netuid,
                 hotkey_account_id
             ),
-            Err(Error::<Test>::OperationNotPermittedonRootSubnet.into())
+            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
         );
         // Pow registration fails.
         let block_number: u64 = SubtensorModule::get_current_block_as_u64();
@@ -71,14 +69,14 @@ fn test_root_register_normal_on_root_fails() {
                 hotkey_account_id,
                 coldkey_account_id,
             ),
-            Err(Error::<Test>::OperationNotPermittedonRootSubnet.into())
+            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
         );
     });
 }
 
 #[test]
 fn test_root_register_stake_based_pruning_works() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
         // Add two networks.
         let root_netuid: u16 = 0;
@@ -111,7 +109,7 @@ fn test_root_register_stake_based_pruning_works() {
                 hot,
                 1000 + (i as u64)
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             // Check that they are NOT all delegates
             assert!(!SubtensorModule::hotkey_is_delegate(&hot));
@@ -125,7 +123,7 @@ fn test_root_register_stake_based_pruning_works() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
             // Check that they are all delegates
             assert!(SubtensorModule::hotkey_is_delegate(&hot));
@@ -140,12 +138,12 @@ fn test_root_register_stake_based_pruning_works() {
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
             ));
-            // Check succesfull registration.
+            // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
         }
 
         // Register the first 64 accounts again, this time failing because they
-        // dont have enough stake.
+        // don't have enough stake.
         for i in 0..64 {
             let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
@@ -156,8 +154,8 @@ fn test_root_register_stake_based_pruning_works() {
                 ),
                 Err(Error::<Test>::StakeTooLowForRoot.into())
             );
-            // Check for unsuccesfull registration.
-            assert!(!SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+            // Check for unsuccessful registration.
+            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_err());
             // Check that they are NOT senate members
             assert!(!SubtensorModule::is_senate_member(&hot));
         }
@@ -166,7 +164,8 @@ fn test_root_register_stake_based_pruning_works() {
 
 #[test]
 fn test_root_set_weights() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
@@ -267,7 +266,8 @@ fn test_root_set_weights() {
 
 #[test]
 fn test_root_set_weights_out_of_order_netuids() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         let n: usize = 10;
@@ -383,7 +383,8 @@ fn test_root_set_weights_out_of_order_netuids() {
 
 #[test]
 fn test_root_subnet_creation_deletion() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
         // Owner of subnets.
         let owner: U256 = U256::from(0);
@@ -462,7 +463,8 @@ fn test_root_subnet_creation_deletion() {
 
 #[test]
 fn test_network_pruning() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
+        System::set_block_number(0);
         migration::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
@@ -541,7 +543,7 @@ fn test_network_pruning() {
 
 #[test]
 fn test_network_prune_results() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
 
         SubtensorModule::set_network_immunity_period(3);
@@ -567,22 +569,22 @@ fn test_network_prune_results() {
         step_block(3);
 
         // lowest emission
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64]);
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![5u64, 4u64, 4u64]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 2u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64]);
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![5u64, 5u64, 4u64]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 3u16);
 
         // equal emission, creation date
-        SubtensorModule::set_emission_values(&vec![1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64]);
+        SubtensorModule::set_emission_values(&[1u16, 2u16, 3u16], vec![4u64, 5u64, 5u64]).unwrap();
         assert_eq!(SubtensorModule::get_subnet_to_prune(), 1u16);
     });
 }
 
 #[test]
 fn test_weights_after_network_pruning() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
 
         assert_eq!(SubtensorModule::get_total_issuance(), 0);
@@ -593,14 +595,13 @@ fn test_weights_after_network_pruning() {
         SubtensorModule::set_network_immunity_period(3);
         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
         SubtensorModule::set_max_subnets(n as u16);
-        SubtensorModule::set_weights_set_rate_limit(root_netuid, 0 as u64);
+        SubtensorModule::set_weights_set_rate_limit(root_netuid, 0_u64);
 
         // No validators yet.
         assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
 
         for i in 0..n {
             // Register a validator
-            let hot: U256 = U256::from(i);
             let cold: U256 = U256::from(i);
 
             SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000);
@@ -649,7 +650,7 @@ fn test_weights_after_network_pruning() {
         );
         log::info!("Max subnets: {:?}", SubtensorModule::get_max_subnets());
         let i = (n as u16) + 1;
-        let hot: U256 = U256::from(i);
+        // let _hot: U256 = U256::from(i);
         let cold: U256 = U256::from(i);
 
         SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000_000);
@@ -670,7 +671,7 @@ fn test_weights_after_network_pruning() {
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.
-        assert!(!SubtensorModule::if_subnet_exist((i as u16) + 1));
+        assert!(!SubtensorModule::if_subnet_exist(i + 1));
 
         log::info!(
             "Root network weights: {:?}",
@@ -693,12 +694,12 @@ fn test_weights_after_network_pruning() {
 /// `cargo test --package pallet-subtensor --test root test_issance_bounds`
 #[test]
 fn test_issance_bounds() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
         let mut total_issuance: u64 = 0;
-        for i in 0..n_halvings {
+        for _ in 0..n_halvings {
             let block_emission_10_500_000x: u64 =
                 SubtensorModule::get_block_emission_for_issuance(total_issuance).unwrap()
                     * 10_500_000;
@@ -713,7 +714,7 @@ fn test_issance_bounds() {
 /// `cargo test --package pallet-subtensor --test root test_halving`
 #[test]
 fn test_halving() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let expected_emissions: [(u64, u64); 43] = [
             (0, 1_000_000_000), // Testing at zero issuance.
             (1_776_000, 1_000_000_000),
@@ -776,13 +777,15 @@ fn test_halving() {
 
 #[test]
 fn test_get_emission_across_entire_issuance_range() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let total_supply: u64 = pallet_subtensor::TotalSupply::<Test>::get();
         let original_emission: u64 = pallet_subtensor::DefaultBlockEmission::<Test>::get();
         let halving_issuance: u64 = total_supply / 2;
-        let mut step: usize = original_emission as usize;
 
-        for issuance in (0..=total_supply).step_by(step) {
+        let mut issuance = 0;
+
+        // Issuance won't reach total supply.
+        while issuance <= 20_900_000_000_000_000 {
             SubtensorModule::set_total_issuance(issuance);
 
             let issuance_f64 = issuance as f64;
@@ -801,7 +804,8 @@ fn test_get_emission_across_entire_issuance_range() {
                 "Issuance: {}",
                 issuance_f64
             );
-            step = expected_emission as usize;
+
+            issuance += expected_emission;
         }
     });
 }
