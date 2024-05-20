@@ -38,3 +38,15 @@ fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace
   git diff --exit-code || (echo "There are local changes after running 'cargo fix --workspace' ❌" && exit 1)
+
+baedeker-build:
+  @echo "Building Baedeker..."
+  ./scripts/build_baedeker.sh
+
+baedeker-download:
+  @echo "Downloading Baedeker Config..."
+  ./scripts/download_baedeker_config.sh
+
+baedeker-run:
+  @echo "Running Baedeker..."
+  ./scripts/localnet-baedeker.sh
