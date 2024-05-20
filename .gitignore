@@ -40,3 +40,5 @@ specs/*.json
 .idea
 
 baedeker-config
+.baedeker/.bdk-env
+

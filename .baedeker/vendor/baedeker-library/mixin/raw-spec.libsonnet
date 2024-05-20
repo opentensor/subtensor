@@ -198,7 +198,7 @@ local
 
 	polkaLaunchPara(root): [
 		$.resetSystem,
-		// $.setSudo(account('//Alice')),
+		$.setSudo(account('//Alice')),
 		// Will break everything
 		// $.resetBalances,
 		$.resetAuraAuthorities,
