@@ -1205,7 +1205,6 @@ pub type SignedExtra = (
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
-    check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
@@ -1459,10 +1458,7 @@ impl_runtime_apis! {
             use baseline::Pallet as BaselineBench;
 
             #[allow(non_local_definitions)]
-            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
-
-            #[allow(non_local_definitions)]
 
             #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}
