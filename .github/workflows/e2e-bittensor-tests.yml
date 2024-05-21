@@ -69,13 +69,6 @@ jobs:
       - name: Clone bittensor repo
         run: git clone https://github.com/opentensor/bittensor.git
 
-      - name: Setup bittensor repo
-        working-directory: ${{ github.workspace }}/bittensor
-        run: |
-          git checkout tests/e2e-tests-staging
-          python3 -m pip install -e .
-          python3 -m pip install torch
-
       - name: Run tests
         working-directory: ${{ github.workspace }}/bittensor
         run: |
