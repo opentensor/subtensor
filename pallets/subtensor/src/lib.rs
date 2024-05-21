@@ -1343,13 +1343,11 @@ pub mod pallet {
             ];
             weight = weight
                 // Initializes storage version (to 1)
-                // Initializes storage version (to 1)
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 // Storage version v1 -> v2
                 // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migrate_create_root_network::<T>())
-                // Storage version v2 -> v3
                 // Storage version v2 -> v3
                 .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
                     hex,
@@ -2331,11 +2329,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            if Self::get_hotkey_global_dynamic_tao(hotkey) >= Self::get_weights_min_stake() {
-                return true;
-            } else {
-                return false;
-            }
+            Self::get_hotkey_global_dynamic_tao(hotkey) >= Self::get_weights_min_stake()
         }
 
         /// Helper function to check if register is allowed

@@ -1,5 +1,4 @@
-use frame_support::assert_err;
-use frame_support::{assert_noop, assert_ok, traits::Currency};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
