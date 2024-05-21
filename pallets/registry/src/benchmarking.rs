@@ -6,11 +6,10 @@ use super::*;
 use crate::Pallet as Registry;
 use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
+use frame_support::traits::tokens::fungible::Mutate;
 use frame_system::RawOrigin;
 
-use frame_support::traits::Get;
-use sp_runtime::traits::{Bounded, StaticLookup};
-use sp_std::mem::size_of;
+use sp_runtime::traits::Bounded;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -18,7 +17,7 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 // This creates an `IdentityInfo` object with `num_fields` extra fields.
 // All data is pre-populated with some arbitrary bytes.
-fn create_identity_info<T: Config>(num_fields: u32) -> IdentityInfo<T::MaxAdditionalFields> {
+fn create_identity_info<T: Config>(_num_fields: u32) -> IdentityInfo<T::MaxAdditionalFields> {
     let data = Data::Raw(vec![0; 32].try_into().unwrap());
 
     IdentityInfo {
@@ -42,7 +41,7 @@ mod benchmarks {
     fn set_identity() {
         // The target user
         let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+        let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
         #[extrinsic_call]
         _(
@@ -58,7 +57,7 @@ mod benchmarks {
     fn clear_identity() {
         // The target user
         let caller: T::AccountId = whitelisted_caller();
-        let _ = T::Currency::make_free_balance_be(&caller, BalanceOf::<T>::max_value());
+        let _ = T::Currency::set_balance(&caller, BalanceOf::<T>::max_value());
 
         let vali_account = account::<T::AccountId>("account", 0, 0u32);
 
@@ -66,7 +65,8 @@ mod benchmarks {
             RawOrigin::Signed(caller.clone()).into(),
             vali_account.clone(),
             Box::new(create_identity_info::<T>(0)),
-        );
+        )
+        .unwrap();
 
         #[extrinsic_call]
         _(RawOrigin::Signed(caller.clone()), vali_account);
