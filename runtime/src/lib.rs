@@ -6,28 +6,28 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod check_nonce;
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-
+use frame_support::{
+    dispatch::DispatchResultWithPostInfo,
+    genesis_builder_helper::{build_config, create_default_config},
+    pallet_prelude::{DispatchError, Get},
+    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
+};
+use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 use migrations::{account_data_migration, init_storage_versions};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-
-use frame_support::{
-    pallet_prelude::{DispatchError, DispatchResult, Get},
-    traits::OnRuntimeUpgrade,
-};
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
-
 use pallet_registry::CanRegisterIdentity;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, RuntimeDebug};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
@@ -36,7 +36,6 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
-
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -57,7 +56,7 @@ pub use frame_support::{
         IdentityFee, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
         WeightToFeePolynomial,
     },
-    RuntimeDebug, StorageValue,
+    StorageValue,
 };
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
@@ -137,7 +136,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 146,
+    spec_version: 185,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -199,6 +198,8 @@ impl frame_system::Config for Runtime {
     type AccountId = AccountId;
     // The aggregated dispatch type that is available for extrinsics.
     type RuntimeCall = RuntimeCall;
+    // The aggregated runtime tasks.
+    type RuntimeTask = RuntimeTask;
     // The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = AccountIdLookup<AccountId, ()>;
     // The type for hashing blocks and tries.
@@ -234,6 +235,11 @@ impl frame_system::Config for Runtime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type Nonce = Nonce;
     type Block = Block;
+    type SingleBlockMigrations = Migrations;
+    type MultiBlockMigrator = ();
+    type PreInherents = ();
+    type PostInherents = ();
+    type PostTransactions = ();
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -243,6 +249,7 @@ impl pallet_aura::Config for Runtime {
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<32>;
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
+    type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Runtime>;
 }
 
 impl pallet_grandpa::Config for Runtime {
@@ -253,6 +260,7 @@ impl pallet_grandpa::Config for Runtime {
     type WeightInfo = ();
     type MaxAuthorities = ConstU32<32>;
     type MaxSetIdSessionEntries = ConstU64<0>;
+    type MaxNominators = ConstU32<20>;
 
     type EquivocationReportSystem = ();
 }
@@ -289,8 +297,8 @@ impl pallet_balances::Config for Runtime {
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
 
     type RuntimeHoldReason = RuntimeHoldReason;
+    type RuntimeFreezeReason = RuntimeFreezeReason;
     type FreezeIdentifier = RuntimeFreezeReason;
-    type MaxHolds = ConstU32<50>;
     type MaxFreezes = ConstU32<50>;
 }
 
@@ -369,17 +377,17 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
-    fn add_member(account: &AccountId) -> DispatchResult {
+    fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
         let who = Address::Id(account.clone());
         SenateMembers::add_member(RawOrigin::Root.into(), who)
     }
 
-    fn remove_member(account: &AccountId) -> DispatchResult {
+    fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
         let who = Address::Id(account.clone());
         SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
-    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResult {
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
@@ -674,6 +682,8 @@ parameter_types! {
     pub const PreimageMaxSize: u32 = 4096 * 1024;
     pub const PreimageBaseDeposit: Balance = deposit(2, 64);
     pub const PreimageByteDeposit: Balance = deposit(0, 1);
+    pub const PreimageHoldReason: RuntimeHoldReason =
+        RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
 }
 
 impl pallet_preimage::Config for Runtime {
@@ -681,8 +691,12 @@ impl pallet_preimage::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
-    type BaseDeposit = PreimageBaseDeposit;
-    type ByteDeposit = PreimageByteDeposit;
+    type Consideration = HoldConsideration<
+        AccountId,
+        Balances,
+        PreimageHoldReason,
+        LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+    >;
 }
 
 pub struct AllowIdentityReg;
@@ -1164,7 +1178,7 @@ pub type SignedExtra = (
     frame_system::CheckTxVersion<Runtime>,
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
-    frame_system::CheckNonce<Runtime>,
+    check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
@@ -1175,7 +1189,7 @@ type Migrations = (
     init_storage_versions::Migration,
     account_data_migration::Migration,
     pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_preimage::migration::v1::Migration<Runtime>,
+    pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
 );
 
 // Unchecked extrinsic type as expected by this runtime.
@@ -1221,7 +1235,7 @@ impl_runtime_apis! {
             Executive::execute_block(block);
         }
 
-        fn initialize_block(header: &<Block as BlockT>::Header) {
+        fn initialize_block(header: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
             Executive::initialize_block(header)
         }
     }
@@ -1261,6 +1275,16 @@ impl_runtime_apis! {
         }
     }
 
+    impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+        fn create_default_config() -> Vec<u8> {
+            create_default_config::<RuntimeGenesisConfig>()
+        }
+
+        fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+            build_config::<RuntimeGenesisConfig>(config)
+        }
+    }
+
     impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
         fn validate_transaction(
             source: TransactionSource,
@@ -1283,7 +1307,7 @@ impl_runtime_apis! {
         }
 
         fn authorities() -> Vec<AuraId> {
-            Aura::authorities().into_inner()
+            pallet_aura::Authorities::<Runtime>::get().into_inner()
         }
     }
 
@@ -1401,12 +1425,16 @@ impl_runtime_apis! {
         fn dispatch_benchmark(
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch, TrackedStorageKey};
+            use frame_benchmarking::{baseline, Benchmarking, BenchmarkBatch};
+            use sp_storage::TrackedStorageKey;
 
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
+            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
+
+            #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;

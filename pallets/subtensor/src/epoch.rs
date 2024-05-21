@@ -1,7 +1,7 @@
 use super::*;
 use crate::math::*;
-use frame_support::sp_std::vec;
-use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::IterableStorageDoubleMap;
+use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
@@ -215,11 +215,11 @@ impl<T: Config> Pallet<T> {
             // no weights set | outdated weights | self_weights
             if is_zero(&active_stake) {
                 // no active stake
-                normalized_validator_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
-                normalized_combined_emission = stake.clone();
+                normalized_validator_emission.clone_from(&stake); // do not mask inactive, assumes stake is normalized
+                normalized_combined_emission.clone_from(&stake);
             } else {
-                normalized_validator_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
-                normalized_combined_emission = active_stake.clone();
+                normalized_validator_emission.clone_from(&active_stake); // emission proportional to inactive-masked normalized stake
+                normalized_combined_emission.clone_from(&active_stake);
             }
         }
 
@@ -575,11 +575,11 @@ impl<T: Config> Pallet<T> {
             // no weights set | outdated weights | self_weights
             if is_zero(&active_stake) {
                 // no active stake
-                normalized_validator_emission = stake.clone(); // do not mask inactive, assumes stake is normalized
-                normalized_combined_emission = stake.clone();
+                normalized_validator_emission.clone_from(&stake); // do not mask inactive, assumes stake is normalized
+                normalized_combined_emission.clone_from(&stake);
             } else {
-                normalized_validator_emission = active_stake.clone(); // emission proportional to inactive-masked normalized stake
-                normalized_combined_emission = active_stake.clone();
+                normalized_validator_emission.clone_from(&active_stake); // emission proportional to inactive-masked normalized stake
+                normalized_combined_emission.clone_from(&active_stake);
             }
         }
 

@@ -4,9 +4,8 @@ pub use pallet::*;
 pub mod weights;
 pub use weights::WeightInfo;
 
+use sp_runtime::DispatchError;
 use sp_runtime::{traits::Member, RuntimeAppPublic};
-
-use frame_support::dispatch::DispatchError;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -58,8 +57,11 @@ pub mod pallet {
     // Errors inform users that something went wrong.
     #[pallet::error]
     pub enum Error<T> {
+        /// The network does not exist
         NetworkDoesNotExist,
+        /// The storage value is out of range
         StorageValueOutOfRange,
+        /// The maximum allowed UIDs is not allowed
         MaxAllowedUIdsNotAllowed,
     }
 

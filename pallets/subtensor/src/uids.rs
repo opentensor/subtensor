@@ -1,11 +1,10 @@
 use super::*;
-use frame_support::sp_std::vec;
 use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
+use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
     // Returns the number of filled slots on a network.
-    ///
     pub fn get_subnetwork_n(netuid: u16) -> u16 {
         SubnetworkN::<T>::get(netuid)
     }
