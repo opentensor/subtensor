@@ -3,7 +3,6 @@ use crate::math::*;
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
-
     /// ---- The implementation for the extrinsic set_weights.
     ///
     /// # Args:
