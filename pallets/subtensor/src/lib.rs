@@ -69,7 +69,6 @@ pub mod pallet {
         traits::{tokens::fungible, UnfilteredDispatchable},
     };
     use frame_system::pallet_prelude::*;
-    use sp_core::H256;
     use sp_runtime::traits::TrailingZeroInput;
     use sp_std::vec;
     use sp_std::vec::Vec;
@@ -918,32 +917,9 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
-    #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
-    pub type WeightCommits<T: Config> = StorageDoubleMap<
-        _,
-        Twox64Concat,
-        u16,
-        Twox64Concat,
-        T::AccountId,
-        (H256, u64),
-        OptionQuery,
-    >;
-
-    /// Default value for weight commit reveal interval.
-    #[pallet::type_value]
-    pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
-        1000
-    }
-
-    #[pallet::storage]
-    pub type WeightCommitRevealInterval<T> =
-        StorageValue<_, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
-
-    /// =======================================
-    /// ==== Subnetwork Consensus Storage  ====
-    /// =======================================
-
-    /// Value definition for vector of u16.
+    // =======================================
+    // ==== Subnetwork Consensus Storage  ====
+    // =======================================
     #[pallet::type_value]
     pub fn EmptyU16Vec<T: Config>() -> Vec<u16> {
         vec![]
@@ -1344,9 +1320,9 @@ pub mod pallet {
         /// * 'MaxWeightExceeded':
         /// 	- Attempting to set weights with max value exceeding limit.
         #[pallet::call_index(0)]
-        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(4106))
-        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_weights(
             origin: OriginFor<T>,
             netuid: u16,
@@ -1357,136 +1333,66 @@ pub mod pallet {
             Self::do_set_weights(origin, netuid, dests, weights, version_key)
         }
 
-        /// ---- Used to commit a hash of your weight values to later be revealed.
-        ///
-        /// # Args:
-        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
-        ///   - The signature of the committing hotkey.
-        ///
-        /// * `netuid` (`u16`):
-        ///   - The u16 network identifier.
-        ///
-        /// * `commit_hash` (`H256`):
-        ///   - The hash representing the committed weights.
-        ///
-        /// # Raises:
-        /// * `CommitNotAllowed`:
-        ///   - Attempting to commit when it is not allowed.
-        ///
-        #[pallet::call_index(96)]
-        #[pallet::weight((Weight::from_parts(46_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(1))
-		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
-        pub fn commit_weights(
-            origin: T::RuntimeOrigin,
-            netuid: u16,
-            commit_hash: H256,
-        ) -> DispatchResult {
-            Self::do_commit_weights(origin, netuid, commit_hash)
-        }
-
-        /// ---- Used to reveal the weights for a previously committed hash.
-        ///
-        /// # Args:
-        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
-        ///   - The signature of the revealing hotkey.
-        ///
-        /// * `netuid` (`u16`):
-        ///   - The u16 network identifier.
-        ///
-        /// * `uids` (`Vec<u16>`):
-        ///   - The uids for the weights being revealed.
-        ///
-        /// * `values` (`Vec<u16>`):
-        ///   - The values of the weights being revealed.
-        ///
-        /// * `version_key` (`u64`):
-        ///   - The network version key.
-        ///
-        /// # Raises:
-        /// * `NoCommitFound`:
-        ///   - Attempting to reveal weights without an existing commit.
-        ///
-        /// * `InvalidRevealTempo`:
-        ///   - Attempting to reveal weights outside the valid tempo.
-        ///
-        /// * `InvalidReveal`:
-        ///   - The revealed hash does not match the committed hash.
-        ///
-        #[pallet::call_index(97)]
-        #[pallet::weight((Weight::from_parts(103_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(11))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn reveal_weights(
-            origin: T::RuntimeOrigin,
-            netuid: u16,
-            uids: Vec<u16>,
-            values: Vec<u16>,
-            version_key: u64,
-        ) -> DispatchResult {
-            Self::do_reveal_weights(origin, netuid, uids, values, version_key)
-        }
-
-        /// # Args:
-        /// * `origin`: (<T as frame_system::Config>Origin):
-        /// 	- The caller, a hotkey who wishes to set their weights.
-        ///
-        /// * `netuid` (u16):
-        /// 	- The network uid we are setting these weights on.
-        ///
-        /// * `hotkey` (T::AccountId):
-        /// 	- The hotkey associated with the operation and the calling coldkey.
-        ///
-        /// * `dests` (Vec<u16>):
-        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
-        ///
-        /// * 'weights' (Vec<u16>):
-        /// 	- The u16 integer encoded weights. Interpreted as rational
-        /// 		values in the range [0,1]. They must sum to in32::MAX.
-        ///
-        /// * 'version_key' ( u64 ):
-        /// 	- The network version key to check if the validator is up to date.
-        ///
-        /// # Event:
-        ///
-        /// * WeightsSet;
-        /// 	- On successfully setting the weights on chain.
-        ///
-        /// # Raises:
-        ///
-        /// * NonAssociatedColdKey;
-        /// 	- Attempting to set weights on a non-associated cold key.
-        ///
-        /// * 'NetworkDoesNotExist':
-        /// 	- Attempting to set weights on a non-existent network.
-        ///
-        /// * 'NotRootSubnet':
-        /// 	- Attempting to set weights on a subnet that is not the root network.
-        ///
-        /// * 'WeightVecNotEqualSize':
-        /// 	- Attempting to set weights with uids not of same length.
-        ///
-        /// * 'InvalidUid':
-        /// 	- Attempting to set weights with invalid uids.
-        ///
-        /// * 'NotRegistered':
-        /// 	- Attempting to set weights from a non registered account.
-        ///
-        /// * 'NotSettingEnoughWeights':
-        /// 	- Attempting to set weights with fewer weights than min.
-        ///
-        ///  * 'IncorrectNetworkVersionKey':
-        ///      - Attempting to set weights with the incorrect network version key.
-        ///
-        ///  * 'SettingWeightsTooFast':
-        ///      - Attempting to set weights too fast.
-        ///
-        /// * 'NotSettingEnoughWeights':
-        /// 	- Attempting to set weights with fewer weights than min.
-        ///
-        /// * 'MaxWeightExceeded':
-        /// 	- Attempting to set weights with max value exceeding limit.
-        ///
+        // # Args:
+        // 	* `origin`: (<T as frame_system::Config>Origin):
+        // 		- The caller, a hotkey who wishes to set their weights.
+        //
+        // 	* `netuid` (u16):
+        // 		- The network uid we are setting these weights on.
+        //
+        // 	* `hotkey` (T::AccountId):
+        // 		- The hotkey associated with the operation and the calling coldkey.
+        //
+        // 	* `dests` (Vec<u16>):
+        // 		- The edge endpoint for the weight, i.e. j for w_ij.
+        //
+        // 	* 'weights' (Vec<u16>):
+        // 		- The u16 integer encoded weights. Interpreted as rational
+        // 		values in the range [0,1]. They must sum to in32::MAX.
+        //
+        // 	* 'version_key' ( u64 ):
+        // 		- The network version key to check if the validator is up to date.
+        //
+        // # Event:
+        //
+        // 	* WeightsSet;
+        // 		- On successfully setting the weights on chain.
+        //
+        // # Raises:
+        //
+        // 	* NonAssociatedColdKey;
+        // 		- Attempting to set weights on a non-associated cold key.
+        //
+        // 	* 'NetworkDoesNotExist':
+        // 		- Attempting to set weights on a non-existent network.
+        //
+        // 	* 'NotRootSubnet':
+        // 		- Attempting to set weights on a subnet that is not the root network.
+        //
+        // 	* 'WeightVecNotEqualSize':
+        // 		- Attempting to set weights with uids not of same length.
+        //
+        // 	* 'InvalidUid':
+        // 		- Attempting to set weights with invalid uids.
+        //
+        // 	* 'NotRegistered':
+        // 		- Attempting to set weights from a non registered account.
+        //
+        // 	* 'NotSettingEnoughWeights':
+        // 		- Attempting to set weights with fewer weights than min.
+        //
+        //  * 'IncorrectNetworkVersionKey':
+        //      - Attempting to set weights with the incorrect network version key.
+        //
+        //  * 'SettingWeightsTooFast':
+        //      - Attempting to set weights too fast.
+        //
+        // 	* 'NotSettingEnoughWeights':
+        // 		- Attempting to set weights with fewer weights than min.
+        //
+        // 	* 'MaxWeightExceeded':
+        // 		- Attempting to set weights with max value exceeding limit.
+        //
         #[pallet::call_index(8)]
         #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(4104))
@@ -2010,7 +1916,7 @@ pub mod pallet {
         /// Just deployed in testnet and devnet for testing purpose
         #[pallet::call_index(60)]
         #[pallet::weight((Weight::from_parts(91_000_000, 0)
-        .saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().reads(27))
 		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
         pub fn faucet(
             origin: OriginFor<T>,
@@ -2165,30 +2071,6 @@ where
         _len: usize,
     ) -> TransactionValidity {
         match call.is_sub_type() {
-            Some(Call::commit_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    })
-                } else {
-                    Err(InvalidTransaction::Call.into())
-                }
-            }
-            Some(Call::reveal_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
-                    Ok(ValidTransaction {
-                        priority,
-                        longevity: 1,
-                        ..Default::default()
-                    })
-                } else {
-                    Err(InvalidTransaction::Call.into())
-                }
-            }
             Some(Call::set_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
                     let priority: u64 = Self::get_priority_set_weights(who, *netuid);
@@ -2264,14 +2146,6 @@ where
                 Ok((CallType::RemoveStake, transaction_fee, who.clone()))
             }
             Some(Call::set_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::commit_weights { .. }) => {
-                let transaction_fee = 0;
-                Ok((CallType::SetWeights, transaction_fee, who.clone()))
-            }
-            Some(Call::reveal_weights { .. }) => {
                 let transaction_fee = 0;
                 Ok((CallType::SetWeights, transaction_fee, who.clone()))
             }

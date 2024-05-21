@@ -104,13 +104,5 @@ mod errors {
         NomStakeBelowMinimumThreshold,
         /// delegate take is being set out of bounds
         InvalidTake,
-        /// Not allowed to commit weights
-        CommitNotAllowed,
-        /// No commit found for provided hotkey+netuid when attempting to reveal weights
-        NoCommitFound,
-        /// Not the correct block/range to reveal weights
-        InvalidRevealTempo,
-        /// Committed hash does not equal the hashed reveal data
-        InvalidReveal,
     }
 }
