@@ -15,18 +15,14 @@ workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
   "derive",
 ] }
-jsonrpsee = { version = "0.16.2", features = [
-  "client-core",
-  "server",
-  "macros",
-], default-features = false }
-serde = { version = "1.0.132", features = ["derive"], default-features = false }
+jsonrpsee = { workspace = true, features = ["client-core", "server", "macros"] }
+serde = { workspace = true, features = ["derive"] }
 
 # Substrate packages
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+sp-api = { workspace = true }
+sp-blockchain = { workspace = true }
+sp-rpc = { workspace = true }
+sp-runtime = { workspace = true }
 
 # local packages
 

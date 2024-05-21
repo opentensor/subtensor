@@ -27,9 +27,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // Helper function which returns the number of blocks remaining before we will run the epoch on this
-    // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    //
+    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
+    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
+    ///
     pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
         // tempo | netuid | # first epoch block
         //   1        0               0
@@ -45,9 +45,9 @@ impl<T: Config> Pallet<T> {
         tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
-    // Helper function returns the number of tuples to drain on a particular step based on
-    // the remaining tuples to sink and the block number
-    //
+    /// Helper function returns the number of tuples to drain on a particular step based on
+    /// the remaining tuples to sink and the block number
+    ///
     pub fn tuples_to_drain_this_block(
         netuid: u16,
         tempo: u16,
@@ -78,9 +78,9 @@ impl<T: Config> Pallet<T> {
         LoadedEmission::<T>::get(netuid)
     }
 
-    // Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
-    // and distributes small chunks of them at a time.
-    //
+    /// Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
+    /// and distributes small chunks of them at a time.
+    ///
     pub fn drain_emission(_: u64) {
         // --- 1. We iterate across each network.
         for (netuid, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
@@ -102,10 +102,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Iterates through networks queues more emission onto their pending storage.
-    // If a network has no blocks left until tempo, we run the epoch function and generate
-    // more token emission tuples for later draining onto accounts.
-    //
+    /// Iterates through networks queues more emission onto their pending storage.
+    /// If a network has no blocks left until tempo, we run the epoch function and generate
+    /// more token emission tuples for later draining onto accounts.
+    ///
     pub fn generate_emission(block_number: u64) {
         // --- 1. Iterate across each network and add pending emission into stash.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
@@ -196,10 +196,10 @@ impl<T: Config> Pallet<T> {
             Self::set_last_mechanism_step_block(netuid, block_number);
         }
     }
-    // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
-    // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
-    // is called after an epoch to distribute the newly minted stake according to delegation.
-    //
+    /// Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
+    /// is distributed onto the accounts in proportion of the stake delegated minus the take. This function
+    /// is called after an epoch to distribute the newly minted stake according to delegation.
+    ///
     pub fn emit_inflation_through_hotkey_account(
         hotkey: &T::AccountId,
         server_emission: u64,
@@ -260,9 +260,9 @@ impl<T: Config> Pallet<T> {
         Self::increase_stake_on_hotkey_account(hotkey, server_emission);
     }
 
-    // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    // This function should be called rather than set_stake under account.
-    //
+    /// Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
+    /// This function should be called rather than set_stake under account.
+    ///
     pub fn block_step_increase_stake_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
@@ -281,8 +281,8 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
     }
 
-    // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    //
+    /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
+    ///
     pub fn block_step_decrease_stake_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
@@ -301,8 +301,8 @@ impl<T: Config> Pallet<T> {
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
     }
 
-    // Returns emission awarded to a hotkey as a function of its proportion of the total stake.
-    //
+    /// Returns emission awarded to a hotkey as a function of its proportion of the total stake.
+    ///
     pub fn calculate_stake_proportional_emission(
         stake: u64,
         total_stake: u64,
@@ -316,8 +316,8 @@ impl<T: Config> Pallet<T> {
         proportional_emission.to_num::<u64>()
     }
 
-    // Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
-    //
+    /// Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
+    ///
     pub fn calculate_delegate_proportional_take(hotkey: &T::AccountId, emission: u64) -> u64 {
         if Self::hotkey_is_delegate(hotkey) {
             let take_proportion: I64F64 =
@@ -329,8 +329,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Adjusts the network difficulties/burns of every active network. Resetting state parameters.
-    //
+    /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
+    ///
     pub fn adjust_registration_terms_for_networks() {
         log::debug!("adjust_registration_terms_for_networks");
 
@@ -486,9 +486,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Calculates the upgraded difficulty by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target + reg_target )
-    // We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
-    //
+    /// Calculates the upgraded difficulty by multiplying the current difficulty by the ratio ( reg_actual + reg_target / reg_target + reg_target )
+    /// We use I110F18 to avoid any overflows on u64. Also min_difficulty and max_difficulty bound the range.
+    ///
     pub fn upgraded_difficulty(
         netuid: u16,
         current_difficulty: u64,
@@ -513,9 +513,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Calculates the upgraded burn by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target + reg_target )
-    // We use I110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
-    //
+    /// Calculates the upgraded burn by multiplying the current burn by the ratio ( reg_actual + reg_target / reg_target + reg_target )
+    /// We use I110F18 to avoid any overflows on u64. Also min_burn and max_burn bound the range.
+    ///
     pub fn upgraded_burn(
         netuid: u16,
         current_burn: u64,

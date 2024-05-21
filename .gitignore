@@ -35,3 +35,6 @@ specs/*.json
 
 # VSCode configuration
 .vscode
+
+# IntelliJ IDEA configuration
+.idea
