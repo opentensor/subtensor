@@ -371,27 +371,27 @@ fn localnet_genesis(
     let mut balances = vec![
         (
             get_account_id_from_seed::<sr25519::Public>("Alice"),
-            1000000000000u128,
+            1000000000000000u128,
         ),
         (
             get_account_id_from_seed::<sr25519::Public>("Bob"),
-            1000000000000u128,
+            1000000000000000u128,
         ),
         (
             get_account_id_from_seed::<sr25519::Public>("Charlie"),
-            1000000000000u128,
+            1000000000000000u128,
         ),
         (
             get_account_id_from_seed::<sr25519::Public>("Dave"),
-            2000000000u128,
+            2000000000000u128,
         ),
         (
             get_account_id_from_seed::<sr25519::Public>("Eve"),
-            2000000000u128,
+            2000000000000u128,
         ),
         (
             get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-            2000000000u128,
+            2000000000000u128,
         ),
     ];
 
