@@ -687,32 +687,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Self::members().contains(who)
     }
 
-    /// Execute immediately when adding a new proposal.
-    // pub fn do_propose_execute(
-    //     proposal: Box<<T as Config<I>>::Proposal>,
-    //     length_bound: MemberCount,
-    // ) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
-    //     let proposal_len = proposal.encoded_size();
-    //     ensure!(
-    //         proposal_len <= length_bound as usize,
-    //         Error::<T, I>::WrongProposalLength
-    //     );
-
-    //     let proposal_hash = T::Hashing::hash_of(&proposal);
-    //     ensure!(
-    //         !<ProposalOf<T, I>>::contains_key(proposal_hash),
-    //         Error::<T, I>::DuplicateProposal
-    //     );
-
-    //     let seats = Self::members().len() as MemberCount;
-    //     let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
-    //     Self::deposit_event(Event::Executed {
-    //         proposal_hash,
-    //         result: result.map(|_| ()).map_err(|e| e.error),
-    //     });
-    //     Ok((proposal_len as u32, result))
-    // }
-
     /// Add a new proposal to be voted.
     pub fn do_propose_proposed(
         who: T::AccountId,
