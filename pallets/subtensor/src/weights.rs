@@ -3,62 +3,63 @@ use crate::math::*;
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
-    // ---- The implementation for the extrinsic set_weights.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the calling hotkey.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'uids' ( Vec<u16> ):
-    // 		- The uids of the weights to be set on the chain.
-    //
-    // 	* 'values' ( Vec<u16> ):
-    // 		- The values of the weights to set on the chain.
-    //
-    // 	* 'version_key' ( u64 ):
-    // 		- The network version key.
-    //
-    // # Event:
-    // 	* WeightsSet;
-    // 		- On successfully setting the weights on chain.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to set weights on a non-existent network.
-    //
-    // 	* 'NotRegistered':
-    // 		- Attempting to set weights from a non registered account.
-    //
-    // 	* 'IncorrectNetworkVersionKey':
-    // 		- Attempting to set weights without having an up-to-date version_key.
-    //
-    // 	* 'SettingWeightsTooFast':
-    // 		- Attempting to set weights faster than the weights_set_rate_limit.
-    //
-    // 	* 'NoValidatorPermit':
-    // 		- Attempting to set non-self weights without a validator permit.
-    //
-    // 	* 'WeightVecNotEqualSize':
-    // 		- Attempting to set weights with uids not of same length.
-    //
-    // 	* 'DuplicateUids':
-    // 		- Attempting to set weights with duplicate uids.
-    //
-    //     * 'TooManyUids':
-    // 		- Attempting to set weights above the max allowed uids.
-    //
-    // 	* 'InvalidUid':
-    // 		- Attempting to set weights with invalid uids.
-    //
-    // 	* 'NotSettingEnoughWeights':
-    // 		- Attempting to set weights with fewer weights than min.
-    //
-    // 	* 'MaxWeightExceeded':
-    // 		- Attempting to set weights with max value exceeding limit.
-    //
+
+    /// ---- The implementation for the extrinsic set_weights.
+    ///
+    /// # Args:
+    ///  * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///    - The signature of the calling hotkey.
+    ///
+    ///  * 'netuid' (u16):
+    ///    - The u16 network identifier.
+    ///
+    ///  * 'uids' ( Vec<u16> ):
+    ///    - The uids of the weights to be set on the chain.
+    ///
+    ///  * 'values' ( Vec<u16> ):
+    ///    - The values of the weights to set on the chain.
+    ///
+    ///  * 'version_key' ( u64 ):
+    ///    - The network version key.
+    ///
+    /// # Event:
+    ///  * WeightsSet;
+    ///    - On successfully setting the weights on chain.
+    ///
+    /// # Raises:
+    ///  * 'NetworkDoesNotExist':
+    ///    - Attempting to set weights on a non-existent network.
+    ///
+    ///  * 'NotRegistered':
+    ///    - Attempting to set weights from a non registered account.
+    ///
+    ///  * 'IncorrectNetworkVersionKey':
+    ///    - Attempting to set weights without having an up-to-date version_key.
+    ///
+    ///  * 'SettingWeightsTooFast':
+    ///    - Attempting to set weights faster than the weights_set_rate_limit.
+    ///
+    ///  * 'NoValidatorPermit':
+    ///    - Attempting to set non-self weights without a validator permit.
+    ///
+    ///  * 'WeightVecNotEqualSize':
+    ///    - Attempting to set weights with uids not of same length.
+    ///
+    ///  * 'DuplicateUids':
+    ///    - Attempting to set weights with duplicate uids.
+    ///
+    /// * 'TooManyUids':
+    ///    - Attempting to set weights above the max allowed uids.
+    ///
+    /// * 'InvalidUid':
+    ///    - Attempting to set weights with invalid uids.
+    ///
+    /// * 'NotSettingEnoughWeights':
+    ///    - Attempting to set weights with fewer weights than min.
+    ///
+    /// * 'MaxWeightExceeded':
+    ///    - Attempting to set weights with max value exceeding limit.
+    ///
     pub fn do_set_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
