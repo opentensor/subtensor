@@ -26,7 +26,7 @@ mod errors {
         NonAssociatedColdKey,
         /// The hotkey is not a delegate and the signer is not the owner of the hotkey.
         HotKeyNotDelegateAndSignerNotOwnHotKey,
-        /// Stake to withdraw amount is zero
+        /// Stake amount to withdraw is zero.
         StakeToWithdrawIsZero,
         /// The caller is requesting removing more stake than there exists in the staking account. See: fn "[remove_stake]".
         NotEnoughStakeToWithdraw,
