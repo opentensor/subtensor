@@ -32,7 +32,7 @@ mod errors {
         NotEnoughStakeToWithdraw,
         /// The caller is requesting to set weights but the caller has less than minimum stake required to set weights (less than WeightsMinStake).
         NotEnoughStakeToSetWeights,
-        /// The caller is requesting adding more stake than there exists in the cold key account. See: fn "[add_stake()]"
+        /// The caller is requesting adding more stake than there exists in the coldkey account. See: fn "[add_stake()]"
         NotEnoughBalanceToStake,
         /// The caller is trying to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         BalanceWithdrawalError,
