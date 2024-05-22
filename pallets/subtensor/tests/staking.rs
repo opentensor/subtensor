@@ -1519,7 +1519,7 @@ fn test_full_with_delegating() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
             655
-        ); 
+        );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
             846
