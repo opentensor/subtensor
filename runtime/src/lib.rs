@@ -525,6 +525,12 @@ impl CollectiveInterface<AccountId, VotingGroup, Hash, u32> for TriumvirateVotes
 type EnsureMajoritySenate =
     pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
 
+type EnsureCouncilUnanimous = pallet_collective::EnsureUnanimous<
+    AccountId,
+    TriumvirateCollective,
+    pallet_collective::CouncilVariant,
+>;
+
 // We call pallet_collective TriumvirateCollective
 type TriumvirateCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<TriumvirateCollective> for Runtime {

@@ -138,12 +138,18 @@ pub enum RawOrigin<AccountId, I> {
     Member(AccountId),
     /// Dummy to manage the fact we have instancing.
     _Phantom(PhantomData<I>),
+    /// It has been condened by a given number of groups in the council from a given total.
+    Council(VotingGroupIndex, VotingGroupIndex),
 }
 
 impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
     fn get_backing(&self) -> Option<Backing> {
         match self {
             RawOrigin::Members(n, d) => Some(Backing {
+                approvals: *n,
+                eligible: *d,
+            }),
+            RawOrigin::Council(n, d) => Some(Backing {
                 approvals: *n,
                 eligible: *d,
             }),
@@ -1267,6 +1273,50 @@ impl<
     #[cfg(feature = "runtime-benchmarks")]
     fn try_successful_origin() -> Result<O, ()> {
         Ok(O::from(RawOrigin::Members(1u32, 0u32)))
+    }
+}
+
+/// Variants of RawOrigin that are used by the EnsureOrigin implementations.
+pub trait OriginVariant {}
+pub struct MembersVariant;
+pub struct CouncilVariant;
+
+impl OriginVariant for MembersVariant {}
+impl OriginVariant for CouncilVariant {}
+
+pub struct EnsureUnanimous<AccountId, I: 'static, Variant>(PhantomData<(AccountId, I, Variant)>);
+
+impl<O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>, AccountId, I>
+    EnsureOrigin<O> for EnsureUnanimous<AccountId, I, MembersVariant>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Members(n, m) if n == m => Ok(()),
+            _ => Err(O::from(o)),
+        })
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<O, ()> {
+        Ok(O::from(RawOrigin::Members(0u32, 0u32)))
+    }
+}
+
+impl<O: Into<Result<RawOrigin<AccountId, I>, O>> + From<RawOrigin<AccountId, I>>, AccountId, I>
+    EnsureOrigin<O> for EnsureUnanimous<AccountId, I, CouncilVariant>
+{
+    type Success = ();
+    fn try_origin(o: O) -> Result<Self::Success, O> {
+        o.into().and_then(|o| match o {
+            RawOrigin::Council(n, m) if n == m => Ok(()),
+            _ => Err(O::from(o)),
+        })
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn try_successful_origin() -> Result<O, ()> {
+        Ok(O::from(RawOrigin::Council(0u32, 0u32)))
     }
 }
 
