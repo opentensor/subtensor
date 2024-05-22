@@ -1423,12 +1423,12 @@ fn test_full_with_delegating() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            u16::MAX/10
+            u16::MAX / 10
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
-            u16::MAX/10
+            u16::MAX / 10
         ));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
@@ -1438,7 +1438,7 @@ fn test_full_with_delegating() {
             SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0,
-                u16::MAX/10
+                u16::MAX / 10
             ),
             Err(Error::<Test>::AlreadyDelegate.into())
         );
@@ -1446,7 +1446,7 @@ fn test_full_with_delegating() {
             SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey1,
-                u16::MAX/10
+                u16::MAX / 10
             ),
             Err(Error::<Test>::AlreadyDelegate.into())
         );
@@ -1876,12 +1876,12 @@ fn test_full_with_delegating_some_servers() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            u16::MAX/10
+            u16::MAX / 10
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
-            u16::MAX/10
+            u16::MAX / 10
         ));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
@@ -2204,12 +2204,12 @@ fn test_full_block_emission_occurs() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            u16::MAX/10
+            u16::MAX / 10
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
-            u16::MAX/10
+            u16::MAX / 10
         ));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
@@ -2726,11 +2726,14 @@ fn test_delegate_take_can_be_decreased() {
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
 
         // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
-        assert_err!(SubtensorModule::do_decrease_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-            u16::MAX / 20
-        ), Error::<Test>::InvalidTake);
+        assert_err!(
+            SubtensorModule::do_decrease_take(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                hotkey0,
+                u16::MAX / 20
+            ),
+            Error::<Test>::InvalidTake
+        );
     });
 }
 
@@ -2763,7 +2766,10 @@ fn test_can_set_min_take_ok() {
             hotkey0,
             SubtensorModule::get_min_take()
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), SubtensorModule::get_min_take());
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            SubtensorModule::get_min_take()
+        );
     });
 }
 
