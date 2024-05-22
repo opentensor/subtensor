@@ -945,7 +945,7 @@ mod sudo_set_nominator_min_required_stake {
             assert_ok!(SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(cold1),
                 hot1,
-                0
+                u16::MAX / 10
             ));
             assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
 
@@ -954,7 +954,7 @@ mod sudo_set_nominator_min_required_stake {
             assert_ok!(SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(cold2),
                 hot2,
-                0
+                u16::MAX / 10
             ));
             assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
