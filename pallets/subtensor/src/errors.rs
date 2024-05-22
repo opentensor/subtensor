@@ -10,7 +10,7 @@ mod errors {
         SubNetworkDoesNotExist,
         /// The root network does not exist.
         RootNetworkDoesNotExist,
-        /// The user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
+        /// The user is trying to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
         InvalidIpType,
         /// An invalid IP address is passed to the serve function.
         InvalidIpAddress,
