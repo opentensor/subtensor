@@ -16,15 +16,15 @@ mod errors {
         InvalidIpAddress,
         /// An invalid port is passed to the serve function.
         InvalidPort,
-        /// The hot key not registered in subnet
+        /// The hotkey is not registered in subnet
         HotKeyNotRegisteredInSubNet,
-        /// The hot key not exists
+        /// The hotkey does not exists
         HotKeyAccountNotExists,
-        /// The hot key is not registered in any subnet.
+        /// The hotkey is not registered in any subnet.
         HotKeyNotRegisteredInNetwork,
         /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
         NonAssociatedColdKey,
-        /// The hot key is not a delegate and the signer is not the owner of the hot key.
+        /// The hotkey is not a delegate and the signer is not the owner of the hotkey.
         HotKeyNotDelegateAndSignerNotOwnHotKey,
         /// Stake to withdraw amount is zero
         StakeToWithdrawIsZero,
@@ -52,7 +52,7 @@ mod errors {
         TooManyRegistrationsThisBlock,
         /// The caller is requesting registering a neuron which already exists in the active set.
         HotKeyAlreadyRegisteredInSubNet,
-        /// The new hot key is the same as old one
+        /// The new hotkey is the same as old one
         NewHotKeyIsSameWithOld,
         /// The supplied PoW hash block is in the future or negative.
         InvalidWorkBlock,
@@ -76,7 +76,7 @@ mod errors {
         NetworkTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for delegate transaction.
         DelegateTxRateLimitExceeded,
-        /// A transactor exceeded the rate limit for set or swapping hot key.
+        /// A transactor exceeded the rate limit for set or swapping hotkey.
         HotKeySetTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for stakes.
         StakeRateLimitExceeded,
@@ -100,7 +100,7 @@ mod errors {
         StakeTooLowForRoot,
         /// All subnets are in the immunity period.
         AllNetworksInImmunity,
-        /// Not enough balance to pay swapping hot key.
+        /// Not enough balance to pay swapping hotkey.
         NotEnoughBalanceToPaySwapHotKey,
         /// Netuid does not match for setting root network weights.
         NotRootSubnet,
