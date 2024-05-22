@@ -1831,63 +1831,6 @@ pub mod pallet {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
-        /// Adds or redistributes weighted stake across specified subnets for a given hotkey.
-        ///
-        /// This function allows a coldkey to allocate or reallocate stake across different subnets
-        /// based on provided weights. It first unstakes from all specified subnets, then redistributes
-        /// the stake according to the new weights. If there's any remainder from rounding errors or
-        /// unallocated stake, it is staked into the root network.
-        ///
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-        ///     - The signature of the caller's coldkey.
-        ///
-        /// * 'hotkey' (T::AccountId):
-        ///     - The associated hotkey account.
-        ///
-        /// * 'netuids' ( Vec<u16> ):
-        ///     - The netuids of the weights to be set on the chain.
-        ///
-        /// * 'values' ( Vec<u16> ):
-        ///     - The values of the weights to set on the chain. u16 normalized.
-        ///
-        /// * 'stake_to_be_added' (u64):
-        ///     - The amount of stake to be added to the hotkey staking account.
-        ///
-        /// # Event:
-        /// * StakeAdded;
-        ///     - On the successfully adding stake to a global account.
-        ///
-        /// # Raises:
-        /// * CouldNotConvertToBalance:
-        ///     - Unable to convert the passed stake value to a balance.
-        ///
-        /// * NotEnoughBalanceToStake:
-        ///     - Not enough balance on the coldkey to add onto the global account.
-        ///
-        /// * NonAssociatedColdKey:
-        ///     - The calling coldkey is not associated with this hotkey.
-        ///
-        /// * BalanceWithdrawalError:
-        ///     - Errors stemming from transaction pallet.
-        ///
-        /// * TxRateLimitExceeded:
-        ///     - Thrown if key has hit transaction rate limit
-        ///
-        /// TODO(const) this needs to be properly benchmarked (these values are copied from above.)
-        #[pallet::call_index(67)]
-        #[pallet::weight((Weight::from_parts(65_000_000,0)
-		.saturating_add(T::DbWeight::get().reads(8))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
-        pub fn add_weighted_stake(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuids: Vec<u16>,
-            values: Vec<u16>,
-        ) -> DispatchResult {
-            Self::do_add_weighted_stake(origin, hotkey, netuids, values)
-        }
-
         /// Remove stake from the staking account. The call must be made
         /// from the coldkey account attached to the neuron metadata. Only this key
         /// has permission to make staking and unstaking requests.
