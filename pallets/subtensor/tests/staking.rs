@@ -1952,8 +1952,8 @@ fn test_full_with_delegating_some_servers() {
         ); // 200 + (200 + 910 x ( 200 / 500 ))  = 200 + (200 + 400) + 60 = 854
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
-            854
-        ); // 300 + 1000 x ( 300 / 500 ) - 50 = 300 + 600 - 50 = 854
+            846
+        ); // 300 + 910 x ( 300 / 500 ) = 300 + 546 = 846
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 1_700); // initial + server emission + validator emission = 799 + 899 = 1_698
 
         assert_eq!(
