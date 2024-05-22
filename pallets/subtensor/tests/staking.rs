@@ -1503,23 +1503,32 @@ fn test_full_with_delegating() {
         // Lets emit inflation through the hot and coldkeys.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 1000);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1000);
+
+        // validator_take = take * validator_emission = 10% * 1000 = 100
+        // old_stake + (validator_emission - validator_take) * stake_for_coldkey_and_hotkey / total_stake_for_hotkey + validator_take
+        // =
+        // 200 + 900 * 200 / 500 + 100 = 660
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
             660
-        ); // 200 + 1000 x ( 200 / 500 )+ 60 = 200 + 400  ~= 660
+        );
+        // validator_take = take * validator_emission = 10% * 1000 = 100
+        // old_stake + (validator_emission - validator_take) * stake_for_coldkey_and_hotkey / total_stake_for_hotkey
+        // =
+        // 200 + 900 * 200 / 400 = 650
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
             650
-        ); // 200 + 1000 x ( 200 / 400 ) - 50 = 200 + 500 = 700
+        );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
             840
-        ); // 300 + 1000 x ( 300 / 500 ) - 60= 300 + 600 = 840
+        ); // 300 + 900 * ( 300 / 500 ) = 840
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
             750
-        ); // 200 + 1000 x ( 200 / 400 ) + 50 = 300 + 600 + 50 = 750
-        assert_eq!(SubtensorModule::get_total_stake(), 2900); // 600 + 700 + 900 + 750 = 2900
+        ); // 200 + 900 * ( 200 / 400 ) + 100 = 750
+        assert_eq!(SubtensorModule::get_total_stake(), 2900); // 900 + 2000
 
         // // Try unstaking too much.
         assert_eq!(
@@ -1940,23 +1949,23 @@ fn test_full_with_delegating_some_servers() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
             860
-        ); // 200 + (200 + 1000 x ( 200 / 500 )) + 60  = 200 + (200 + 400) + 60 = 860
+        ); // 200 + (200 + 900 x ( 200 / 500 )) + 100 = 860
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
             840
-        ); // 300 + 1000 x ( 300 / 500 ) - 50 = 300 + 600 - 50 = 840
+        ); // 300 + 900 x ( 300 / 500 ) = 840
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 1_700); // initial + server emission + validator emission = 799 + 899 = 1_698
 
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
             1_100
-        ); // 200 + (0 + 2000 x ( 200 / 400 )) - 100 = 200 + (1000) - 100= 1_100
+        ); // 200 + 1800 x ( 200 / 400 )) = 1_100
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
             1_423
-        ); // 200 + (123 + 2000 x ( 200 / 400 )) + 100 = 200 + (1_200)+ 100 = 1_423
+        ); // 200 + (123 + 1800 x ( 200 / 400 )) + 200 = 1_423
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 2_523); // 400 + 2_123
-        assert_eq!(SubtensorModule::get_total_stake(), 4_223); // 1_700 + 2_523 = 4_223
+        assert_eq!(SubtensorModule::get_total_stake(), 4_223); // 2_100 + 2_123 = 4_223
 
         // Lets emit MORE inflation through the hot and coldkeys.
         // This time only server emission. This should go to the owner of the hotkey.
@@ -1965,7 +1974,7 @@ fn test_full_with_delegating_some_servers() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
             1_210
-        ); // + 350 + 60 = 1_210
+        ); // 860 + 350 = 1_210
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
             1_100
@@ -1977,7 +1986,7 @@ fn test_full_with_delegating_some_servers() {
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
             1_573
-        ); // 1_323 + 150 + 100 = 1_573
+        ); // 1_423 + 150 = 1_573
         assert_eq!(SubtensorModule::get_total_stake(), 4_723); // 4_223 + 500 = 4_823
 
         // Lets register and stake a new key.
