@@ -1423,12 +1423,12 @@ fn test_full_with_delegating() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            10
+            u16::MAX/10
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
-            10
+            u16::MAX/10
         ));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
@@ -1438,7 +1438,7 @@ fn test_full_with_delegating() {
             SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0,
-                1000
+                u16::MAX/10
             ),
             Err(Error::<Test>::AlreadyDelegate.into())
         );
@@ -1446,7 +1446,7 @@ fn test_full_with_delegating() {
             SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey1,
-                1000
+                u16::MAX/10
             ),
             Err(Error::<Test>::AlreadyDelegate.into())
         );
@@ -1505,21 +1505,21 @@ fn test_full_with_delegating() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1000);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
-            601
-        ); // 200 + 1000 x ( 200 / 500 ) = 200 + 400 = 600 ~= 601
+            660
+        ); // 200 + 1000 x ( 200 / 500 )+ 60 = 200 + 400  ~= 660
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
-            700
-        ); // 200 + 1000 x ( 200 / 400 ) = 200 + 500 = 700
+            650
+        ); // 200 + 1000 x ( 200 / 400 ) - 50 = 200 + 500 = 700
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
-            899
-        ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
+            840
+        ); // 300 + 1000 x ( 300 / 500 ) - 60= 300 + 600 = 840
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
-            700
-        ); // 200 + 1000 x ( 200 / 400 ) = 300 + 600 = 700
-        assert_eq!(SubtensorModule::get_total_stake(), 2900); // 600 + 700 + 900 + 700 = 2900
+            750
+        ); // 200 + 1000 x ( 200 / 400 ) + 50 = 300 + 600 + 50 = 750
+        assert_eq!(SubtensorModule::get_total_stake(), 2900); // 600 + 700 + 900 + 750 = 2900
 
         // // Try unstaking too much.
         assert_eq!(
@@ -1580,19 +1580,19 @@ fn test_full_with_delegating() {
         // All the amounts have been decreased.
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
-            501
+            560
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
-            600
+            550
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
-            799
+            740
         );
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
-            600
+            650
         );
 
         // Lets register and stake a new key.
@@ -1876,12 +1876,12 @@ fn test_full_with_delegating_some_servers() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            10
+            u16::MAX/10
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
-            10
+            u16::MAX/10
         ));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
@@ -1939,22 +1939,22 @@ fn test_full_with_delegating_some_servers() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 123, 2_000); // 2_123 total emission.
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
-            801
-        ); // 200 + (200 + 1000 x ( 200 / 500 )) = 200 + (200 + 400) = 800 ~= 801
+            860
+        ); // 200 + (200 + 1000 x ( 200 / 500 )) + 60  = 200 + (200 + 400) + 60 = 860
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
-            899
-        ); // 300 + 1000 x ( 300 / 500 ) = 300 + 600 = 900 ~= 899
+            840
+        ); // 300 + 1000 x ( 300 / 500 ) - 50 = 300 + 600 - 50 = 840
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 1_700); // initial + server emission + validator emission = 799 + 899 = 1_698
 
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
-            1_200
-        ); // 200 + (0 + 2000 x ( 200 / 400 )) = 200 + (1000) = 1_200
+            1_100
+        ); // 200 + (0 + 2000 x ( 200 / 400 )) - 100 = 200 + (1000) - 100= 1_100
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
-            1_323
-        ); // 200 + (123 + 2000 x ( 200 / 400 )) = 200 + (1_200) = 1_323
+            1_423
+        ); // 200 + (123 + 2000 x ( 200 / 400 )) + 100 = 200 + (1_200)+ 100 = 1_423
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 2_523); // 400 + 2_123
         assert_eq!(SubtensorModule::get_total_stake(), 4_223); // 1_700 + 2_523 = 4_223
 
@@ -1964,20 +1964,20 @@ fn test_full_with_delegating_some_servers() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 150, 0);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
-            1_151
-        ); // + 350 = 1_151
+            1_210
+        ); // + 350 + 60 = 1_210
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey1),
-            1_200
+            1_100
         ); // No change.
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0),
-            899
+            840
         ); // No change.
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1),
-            1_473
-        ); // 1_323 + 150 = 1_473
+            1_573
+        ); // 1_323 + 150 + 100 = 1_573
         assert_eq!(SubtensorModule::get_total_stake(), 4_723); // 4_223 + 500 = 4_823
 
         // Lets register and stake a new key.
@@ -2204,12 +2204,12 @@ fn test_full_block_emission_occurs() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            10
+            u16::MAX/10
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
-            10
+            u16::MAX/10
         ));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
         assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
@@ -2455,7 +2455,7 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(cold1),
             hot1,
-            0
+            SubtensorModule::get_min_take()
         ));
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
 
@@ -2464,7 +2464,7 @@ fn test_clear_small_nominations() {
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(cold2),
             hot2,
-            0
+            SubtensorModule::get_min_take()
         ));
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
@@ -2725,13 +2725,12 @@ fn test_delegate_take_can_be_decreased() {
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
 
-        // Coldkey / hotkey 0 decreases take to 5%
-        assert_ok!(SubtensorModule::do_decrease_take(
+        // Coldkey / hotkey 0 decreases take to 5%. This should fail as the minimum take is 9%
+        assert_err!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             u16::MAX / 20
-        ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+        ), Error::<Test>::InvalidTake);
     });
 }
 
@@ -2764,7 +2763,7 @@ fn test_can_set_min_take_ok() {
             hotkey0,
             SubtensorModule::get_min_take()
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), 0);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), SubtensorModule::get_min_take());
     });
 }
 
@@ -2784,24 +2783,24 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 5% take
+        // Coldkey / hotkey 0 become delegates with 10% take
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            u16::MAX / 20
+            u16::MAX / 10
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
 
-        // Coldkey / hotkey 0 tries to increase take to 10%
+        // Coldkey / hotkey 0 tries to increase take to 12.5%
         assert_eq!(
             SubtensorModule::do_decrease_take(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0,
-                u16::MAX / 10
+                u16::MAX / 8
             ),
             Err(Error::<Test>::InvalidTake.into())
         );
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
     });
 }
 
@@ -2821,23 +2820,23 @@ fn test_delegate_take_can_be_increased() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 5% take
+        // Coldkey / hotkey 0 become delegates with 10% take
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-            u16::MAX / 20
-        ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
-
-        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
-
-        // Coldkey / hotkey 0 decreases take to 10%
-        assert_ok!(SubtensorModule::do_increase_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             u16::MAX / 10
         ));
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Coldkey / hotkey 0 decreases take to 12.5%
+        assert_ok!(SubtensorModule::do_increase_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            u16::MAX / 8
+        ));
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
     });
 }
 
@@ -3006,24 +3005,24 @@ fn test_rate_limits_enforced_on_increase_take() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 5% take
+        // Coldkey / hotkey 0 become delegates with 10% take
         assert_ok!(SubtensorModule::do_become_delegate(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            u16::MAX / 20
+            u16::MAX / 10
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
 
-        // Coldkey / hotkey 0 increases take to 10%
+        // Coldkey / hotkey 0 increases take to 12.5%
         assert_eq!(
             SubtensorModule::do_increase_take(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0,
-                u16::MAX / 10
+                u16::MAX / 8
             ),
             Err(Error::<Test>::TxRateLimitExceeded.into())
         );
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 20);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
 
         step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
 
@@ -3031,8 +3030,8 @@ fn test_rate_limits_enforced_on_increase_take() {
         assert_ok!(SubtensorModule::do_increase_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
-            u16::MAX / 10
+            u16::MAX / 8
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
     });
 }
