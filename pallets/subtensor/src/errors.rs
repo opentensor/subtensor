@@ -22,17 +22,17 @@ mod errors {
         HotKeyAccountNotExists,
         /// The hotkey is not registered in any subnet.
         HotKeyNotRegisteredInNetwork,
-        /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
+        /// Request to stake, unstake or subscribe is made by a coldkey that is not associated with the hotkey account.
         NonAssociatedColdKey,
         /// The hotkey is not a delegate and the signer is not the owner of the hotkey.
         HotKeyNotDelegateAndSignerNotOwnHotKey,
         /// Stake amount to withdraw is zero.
         StakeToWithdrawIsZero,
-        /// The caller is requesting removing more stake than there exists in the staking account. See: fn "[remove_stake]".
+        /// The caller is requesting removing more stake than there exists in the staking account. See: "[remove_stake()]".
         NotEnoughStakeToWithdraw,
         /// The caller is requesting to set weights but the caller has less than minimum stake required to set weights (less than WeightsMinStake).
         NotEnoughStakeToSetWeights,
-        /// The caller is requesting adding more stake than there exists in the coldkey account. See: fn "[add_stake()]"
+        /// The caller is requesting adding more stake than there exists in the coldkey account. See: "[add_stake()]"
         NotEnoughBalanceToStake,
         /// The caller is trying to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         BalanceWithdrawalError,
