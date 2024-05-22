@@ -76,9 +76,9 @@ mod errors {
         NetworkTxRateLimitExceeded,
         /// A transactor exceeded the rate limit for delegate transaction.
         DelegateTxRateLimitExceeded,
-        /// A transactor exceeded the rate limit for set or swapping hotkey.
+        /// A transactor exceeded the rate limit for setting or swapping hotkey.
         HotKeySetTxRateLimitExceeded,
-        /// A transactor exceeded the rate limit for stakes.
+        /// A transactor exceeded the rate limit for staking.
         StakeRateLimitExceeded,
         /// A transactor exceeded the rate limit for unstaking.
         UnstakeRateLimitExceeded,
@@ -94,7 +94,7 @@ mod errors {
         FaucetDisabled,
         /// Not a subnet owner.
         NotSubnetOwner,
-        /// Operation is not permitted on root subnet.
+        /// Operation is not permitted on the root subnet.
         RegistrationNotPermittedOnRootSubnet,
         /// A hotkey with too little stake is attempting to join the root subnet.
         StakeTooLowForRoot,
@@ -116,7 +116,7 @@ mod errors {
         DelegateTakeTooHigh,
         /// Not allowed to commit weights.
         WeightsCommitNotAllowed,
-        /// No commit found for provided hotkey+netuid combination when attempting to reveal weights.
+        /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
         NoWeightsCommitFound,
         /// Not the correct block/range to reveal weights.
         InvalidRevealCommitHashNotMatchTempo,
