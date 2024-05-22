@@ -42,9 +42,9 @@ mod errors {
         NeuronNoValidatorPermit,
         /// The caller is attempting to set the weight keys and values but these vectors have different size.
         WeightVecNotEqualSize,
-        /// The caller is attempting to set weights with duplicate uids in the weight matrix.
+        /// The caller is attempting to set weights with duplicate UIDs in the weight matrix.
         DuplicateUids,
-        /// The caller is attempting to set weight to at least one uid that does not exist in the metagraph.
+        /// The caller is attempting to set weight to at least one UID that does not exist in the metagraph.
         UidVecContainInvalidOne,
         /// The dispatch is attempting to set weights on chain with fewer elements than are allowed.
         WeightVecLengthIsLow,
@@ -68,7 +68,7 @@ mod errors {
         SettingWeightsTooFast,
         /// A validator is attempting to set weights from a validator with incorrect weight version.
         IncorrectWeightVersionKey,
-        /// An axon or prometheus serving exceeds the rate limit for a registered neuron.
+        /// An axon or prometheus serving exceeded the rate limit for a registered neuron.
         ServingRateLimitExceeded,
         /// The caller is attempting to set weights with more UIDs than allowed.
         UidsLengthExceedUidsInSubNet,
