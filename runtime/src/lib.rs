@@ -788,8 +788,8 @@ parameter_types! {
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
     pub const SubtensorInitialTempo: u16 = 99;
-    pub const SubtensorMinTempo: u16 = 1;
-    pub const SubtensorMaxTempo: u16 = 720;
+    pub const SubtensorMinTempo: u16 = 360;
+    pub const SubtensorMaxTempo: u16 = 360;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
