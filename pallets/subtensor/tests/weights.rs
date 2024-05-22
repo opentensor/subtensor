@@ -245,7 +245,7 @@ fn test_weights_version_key() {
                 weight_values.clone(),
                 key0
             ),
-            Err(Error::<Test>::IncorrectNetworkVersionKey.into())
+            Err(Error::<Test>::IncorrectWeightVersionKey.into())
         );
     });
 }

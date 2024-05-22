@@ -964,7 +964,7 @@ fn motions_ignoring_bad_index_collective_vote_works() {
         ));
         assert_noop!(
             Collective::vote(RuntimeOrigin::signed(2), hash, 1, true),
-            Error::<Test, Instance1>::IndexNotMatchProposalHash,
+            Error::<Test, Instance1>::IndexMismatchProposalHash,
         );
     });
 }
@@ -1117,7 +1117,7 @@ fn motions_all_first_vote_free_works() {
         );
         assert_eq!(close_rval.unwrap().pays_fee, Pays::No);
 
-        // trying to close the proposal, which is already closed.
+        // trying to close the proposal, which is already closed
         // Expecting error "ProposalNotExists" with Pays::Yes
         let close_rval: DispatchResultWithPostInfo = Collective::close(
             RuntimeOrigin::signed(2),

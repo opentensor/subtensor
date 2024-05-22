@@ -369,16 +369,16 @@ pub mod pallet {
         /// Proposal must exist
         ProposalNotExists,
         /// Index mismatched the proposal hash
-        IndexNotMatchProposalHash,
+        IndexMismatchProposalHash,
         /// Duplicate vote ignored
         DuplicateVote,
-        /// The close call was made too early, before the end of the voting.
+        /// The call to close the proposal was made too early, before the end of the voting
         TooEarlyToCloseProposal,
         /// There can only be a maximum of `MaxProposals` active proposals.
         TooManyActiveProposals,
-        /// The given weight bound for the proposal was too low.
+        /// The given weight-bound for the proposal was too low.
         ProposalWeightLessThanDispatchCallWeight,
-        /// The given length bound for the proposal was too low.
+        /// The given length-bound for the proposal was too low.
         ProposalLengthBoundLessThanProposalLength,
         /// The given motion duration for the proposal was too low.
         DurationLowerThanConfiguredMotionDuration,
@@ -750,7 +750,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let mut voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalNotExists)?;
         ensure!(
             voting.index == index,
-            Error::<T, I>::IndexNotMatchProposalHash
+            Error::<T, I>::IndexMismatchProposalHash
         );
 
         let position_yes = voting.ayes.iter().position(|a| a == &who);
@@ -804,7 +804,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let voting = Self::voting(proposal_hash).ok_or(Error::<T, I>::ProposalNotExists)?;
         ensure!(
             voting.index == index,
-            Error::<T, I>::IndexNotMatchProposalHash
+            Error::<T, I>::IndexMismatchProposalHash
         );
 
         let mut no_votes = voting.nays.len() as MemberCount;
@@ -1008,7 +1008,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let voting = Self::voting(proposal).ok_or(Error::<T, I>::ProposalNotExists)?;
         ensure!(
             voting.index == index,
-            Error::<T, I>::IndexNotMatchProposalHash
+            Error::<T, I>::IndexMismatchProposalHash
         );
 
         let position_yes = voting.ayes.iter().position(|a| a == who);

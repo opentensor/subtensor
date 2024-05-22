@@ -649,7 +649,7 @@ impl<T: Config> Pallet<T> {
         // Ensure version_key is up-to-date.
         ensure!(
             Self::check_version_key(netuid, version_key),
-            Error::<T>::IncorrectNetworkVersionKey
+            Error::<T>::IncorrectWeightVersionKey
         );
 
         // Get the neuron uid of associated hotkey on network netuid.

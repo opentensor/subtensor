@@ -78,9 +78,9 @@ pub mod pallet {
     pub enum Error<T> {
         /// Account passed too many additional fields to their commitment
         TooManyFieldsInCommitmentInfo,
-        /// Account isn't allow to make commitments to the chain
+        /// Account is not allow to make commitments to the chain
         AccountNotAllowedCommit,
-        /// Account is trying to commit data too fast
+        /// Account is trying to commit data too fast, rate limit exceeded
         CommitmentSetRateLimitExceeded,
     }
 

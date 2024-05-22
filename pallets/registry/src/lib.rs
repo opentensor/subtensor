@@ -82,7 +82,7 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Account attempted to register an identity but doesn't meet the requirements.
+        /// Account attempted to register an identity but does not meet the requirements.
         CannotRegister,
         /// Account passed too many additional fields to their identity
         TooManyFieldsInIdentityInfo,

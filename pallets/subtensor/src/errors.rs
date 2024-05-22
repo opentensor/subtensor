@@ -6,121 +6,121 @@ use frame_support::pallet_macros::pallet_section;
 mod errors {
     #[pallet::error]
     pub enum Error<T> {
-        /// the network does not exist.
+        /// The subnet does not exist.
         SubNetworkDoesNotExist,
-        /// the root network does not exist.
+        /// The root network does not exist.
         RootNetworkDoesNotExist,
-        /// the user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
+        /// The user tries to serve an axon which is not of type 4 (IPv4) or 6 (IPv6).
         InvalidIpType,
-        /// an invalid IP address is passed to the serve function.
+        /// An invalid IP address is passed to the serve function.
         InvalidIpAddress,
-        /// an invalid port is passed to the serve function.
+        /// An invalid port is passed to the serve function.
         InvalidPort,
-        /// the hot key not registered in subnet
+        /// The hot key not registered in subnet
         HotKeyNotRegisteredInSubNet,
-        /// the hot key not exists
+        /// The hot key not exists
         HotKeyAccountNotExists,
-        /// the hot key not registered in any subnet.
+        /// The hot key is not registered in any subnet.
         HotKeyNotRegisteredInNetwork,
         /// stake, unstake or subscribe request is made by a coldkey which is not associated with the hotkey account.
         NonAssociatedColdKey,
-        /// the hot key is not a delegate and the signer is not the owner of the hot key.
+        /// The hot key is not a delegate and the signer is not the owner of the hot key.
         HotKeyNotDelegateAndSignerNotOwnHotKey,
-        /// stake to withdraw amount is zero
+        /// Stake to withdraw amount is zero
         StakeToWithdrawIsZero,
-        /// the caller requests removing more stake than there exists in the staking account. See: fn remove_stake.
+        /// The caller is requesting removing more stake than there exists in the staking account. See: fn "[remove_stake]".
         NotEnoughStakeToWithdraw,
-        /// the caller requests to set weights but has less than WeightsMinStake
+        /// The caller is requesting to set weights but the caller has less than minimum stake required to set weights (less than WeightsMinStake).
         NotEnoughStakeToSetWeights,
-        /// the caller requests adding more stake than there exists in the cold key account. See: fn add_stake
+        /// The caller is requesting adding more stake than there exists in the cold key account. See: fn "[add_stake()]"
         NotEnoughBalanceToStake,
-        /// the caller tries to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
+        /// The caller is trying to add stake, but for some reason the requested amount could not be withdrawn from the coldkey account.
         BalanceWithdrawalError,
-        /// successfully deducted balance for withdraw is zero
-        ZeroBalanceWithdrawn,
-        /// the caller attempts to set non-self weights without being a permitted validator.
+        /// Unsuccessfully withdraw, balance could be zero (can not make account exist) after withdrawal.
+        ZeroBalanceAfterWithdrawn,
+        /// The caller is attempting to set non-self weights without being a permitted validator.
         NeuronNoValidatorPermit,
-        /// the caller attempts to set the weight keys and values but these vectors have different size.
+        /// The caller is attempting to set the weight keys and values but these vectors have different size.
         WeightVecNotEqualSize,
-        /// the caller attempts to set weights with duplicate uids in the weight matrix.
+        /// The caller is attempting to set weights with duplicate uids in the weight matrix.
         DuplicateUids,
-        /// the caller attempts to set weight to at least one uid that does not exist in the metagraph.
+        /// The caller is attempting to set weight to at least one uid that does not exist in the metagraph.
         UidVecContainInvalidOne,
-        /// the dispatch attempts to set weights on chain with fewer elements than are allowed.
+        /// The dispatch is attempting to set weights on chain with fewer elements than are allowed.
         WeightVecLengthIsLow,
-        /// registrations this block exceeds allowed number.
+        /// Number of registrations in this block exceeds the allowed number (i.e., exceeds the subnet hyperparameter "max_regs_per_block").
         TooManyRegistrationsThisBlock,
-        /// the caller requests registering a neuron which already exists in the active set.
+        /// The caller is requesting registering a neuron which already exists in the active set.
         HotKeyAlreadyRegisteredInSubNet,
-        /// the new hot key is the same as old one
+        /// The new hot key is the same as old one
         NewHotKeyIsSameWithOld,
-        /// the supplied pow hash block is in the future or negative.
+        /// The supplied PoW hash block is in the future or negative.
         InvalidWorkBlock,
-        /// the supplied pow hash block does not meet the network difficulty.
+        /// The supplied PoW hash block does not meet the network difficulty.
         InvalidDifficulty,
-        /// the supplied pow hash seal does not match the supplied work.
+        /// The supplied PoW hash seal does not match the supplied work.
         InvalidSeal,
-        /// the dispatch attempts to set weights on chain with where any normalized weight is more than MaxWeightLimit.
+        /// The dispatch is attempting to set weights on chain with weight value exceeding the MaxWeightLimit (max_weight_limit subnet hyperparameter).
         MaxWeightExceeded,
-        /// the hotkey attempts to become delegate when they are already.
+        /// The hotkey is attempting to become a delegate when the hotkey is already a delegate.
         HotKeyAlreadyDelegate,
-        /// the hotkey attempts to set weights twice within net_tempo/2 blocks.
+        /// The hotkey is attempting to set weights twice within the duration of net_tempo/2 blocks.
         SettingWeightsTooFast,
-        /// a validator attempts to set weights from a validator with incorrect code base key.
-        IncorrectNetworkVersionKey,
-        /// an axon or prometheus serving exceeds the rate limit for a registered neuron.
+        /// A validator is attempting to set weights from a validator with incorrect weight version.
+        IncorrectWeightVersionKey,
+        /// An axon or prometheus serving exceeds the rate limit for a registered neuron.
         ServingRateLimitExceeded,
-        /// the caller attempts to set weights with more uids than allowed.
+        /// The caller is attempting to set weights with more UIDs than allowed.
         UidsLengthExceedUidsInSubNet,
-        /// a transactor exceeds the rate limit for add network tx.
+        /// A transactor exceeded the rate limit for add network transaction.
         NetworkTxRateLimitExceeded,
-        /// a transactor exceeds the rate limit for delegate tx.
+        /// A transactor exceeded the rate limit for delegate transaction.
         DelegateTxRateLimitExceeded,
-        /// a transactor exceeds the rate limit for set or swap hot key.
+        /// A transactor exceeded the rate limit for set or swapping hot key.
         HotKeySetTxRateLimitExceeded,
-        /// a transactor exceeds the rate limit for stakes.
+        /// A transactor exceeded the rate limit for stakes.
         StakeRateLimitExceeded,
-        /// a transactor exceeds the rate limit for unstakes.
+        /// A transactor exceeded the rate limit for unstaking.
         UnstakeRateLimitExceeded,
-        /// registration is disabled
+        /// Registration is disabled.
         SubNetRegistrationDisabled,
-        /// registration attempt exceeds allowed in interval
+        /// The number of registration attempts exceeded the allowed number in the interval.
         TooManyRegistrationsThisInterval,
-        /// the hotkey passed is not the origin, but it should be
+        /// The hotkey is required to be the origin.
         TransactorAccountShouldBeHotKey,
-        /// a hotkey attempts to do something only senate members can do
+        /// A hotkey is attempting to do something only senate members can do.
         NotSenateMember,
-        /// the faucet is disabled
+        /// Faucet is disabled.
         FaucetDisabled,
-        /// not subnet owner
+        /// Not a subnet owner.
         NotSubnetOwner,
-        /// operation not permitted on root subnet
+        /// Operation is not permitted on root subnet.
         RegistrationNotPermittedOnRootSubnet,
-        /// a hotkey attempts to join the root subnet with too little stake
+        /// A hotkey with too little stake is attempting to join the root subnet.
         StakeTooLowForRoot,
-        /// all subnets are in the immunity period
+        /// All subnets are in the immunity period.
         AllNetworksInImmunity,
-        /// not enough balance to pay swap hot key
+        /// Not enough balance to pay swapping hot key.
         NotEnoughBalanceToPaySwapHotKey,
-        /// Set root network weights not match net uid
+        /// Netuid does not match for setting root network weights.
         NotRootSubnet,
-        /// can't set weights for root network
+        /// Can not set weights for the root network.
         CanNotSetRootNetworkWeights,
-        /// no neuron id is available
+        /// No neuron ID is available.
         NoNeuronIdAvailable,
-        /// Thrown a stake would be below the minimum threshold for nominator validations
+        /// Stake amount below the minimum threshold for nominator validations.
         NomStakeBelowMinimumThreshold,
-        /// delegate take is too low
+        /// Delegate take is too low.
         DelegateTakeTooLow,
-        /// delegate take is too high
+        /// Delegate take is too high.
         DelegateTakeTooHigh,
-        /// Not allowed to commit weights
+        /// Not allowed to commit weights.
         WeightsCommitNotAllowed,
-        /// No commit found for provided hotkey+netuid when attempting to reveal weights
+        /// No commit found for provided hotkey+netuid combination when attempting to reveal weights.
         NoWeightsCommitFound,
-        /// Not the correct block/range to reveal weights
+        /// Not the correct block/range to reveal weights.
         InvalidRevealCommitHashNotMatchTempo,
-        /// Committed hash does not equal the hashed reveal data
+        /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
     }
 }

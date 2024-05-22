@@ -1475,7 +1475,7 @@ pub mod pallet {
         /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
-        ///  * 'IncorrectNetworkVersionKey':
+        ///  * 'IncorrectWeightVersionKey':
         ///      - Attempting to set weights with the incorrect network version key.
         ///
         ///  * 'SettingWeightsTooFast':

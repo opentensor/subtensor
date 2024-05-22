@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
     ///  * 'NotRegistered':
     ///    - Attempting to set weights from a non registered account.
     ///
-    ///  * 'IncorrectNetworkVersionKey':
+    ///  * 'IncorrectWeightVersionKey':
     ///    - Attempting to set weights without having an up-to-date version_key.
     ///
     ///  * 'SettingWeightsTooFast':
@@ -220,7 +220,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Ensure version_key is up-to-date.
         ensure!(
             Self::check_version_key(netuid, version_key),
-            Error::<T>::IncorrectNetworkVersionKey
+            Error::<T>::IncorrectWeightVersionKey
         );
 
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
