@@ -1,4 +1,4 @@
-use frame_support::traits::{Hash, StorageMapShim};
+use frame_support::traits::Hash;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
@@ -8,24 +8,19 @@ use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    DispatchResult,
+    BuildStorage, DispatchResult,
 };
 
 use pallet_collective::MemberCount;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
         Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -72,17 +67,17 @@ impl pallet_balances::Config for Test {
     type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
-    type ExistentialDeposit = ();
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
     type MaxLocks = ();
     type WeightInfo = ();
     type MaxReserves = ();
     type ReserveIdentifier = ();
+
+    type RuntimeHoldReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 impl system::Config for Test {
@@ -92,31 +87,30 @@ impl system::Config for Test {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = U256;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type Nonce = u64;
+    type Block = Block;
 }
 
 parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_ref_time(1024));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -129,10 +123,12 @@ parameter_types! {
     pub const InitialBondsMovingAverage: u64 = 900_000;
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
-    pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const InitialDefaultTake: u16 = 11_796; // 18%, same as in production
+    pub const InitialMinTake: u16 =5_898; // 9%;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
+    pub const InitialTxDelegateTakeRateLimit: u64 = 1; // 1 block take rate limit for testing
     pub const InitialBurn: u64 = 0;
     pub const InitialMinBurn: u64 = 0;
     pub const InitialMaxBurn: u64 = 1_000_000_000;
@@ -145,7 +141,7 @@ parameter_types! {
     pub const InitialAdjustmentInterval: u16 = 100;
     pub const InitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
     pub const InitialMaxRegistrationsPerBlock: u16 = 3;
-    pub const InitialTargetRegistrationsPerInterval: u16 = 3;
+    pub const InitialTargetRegistrationsPerInterval: u16 = 2;
     pub const InitialPruningScore : u16 = u16::MAX;
     pub const InitialRegistrationRequirement: u16 = u16::MAX; // Top 100%
     pub const InitialMinDifficulty: u64 = 1;
@@ -159,7 +155,7 @@ parameter_types! {
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
-    pub const InitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialTargetStakesPerInterval: u16 = 2;
 }
 
 // Configure collective pallet for council
@@ -242,7 +238,7 @@ impl CollectiveInterface<AccountId, Hash, u32> for TriumvirateVotes {
         index: u32,
         approve: bool,
     ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(hotkey.clone(), proposal, index, approve)
+        Triumvirate::do_vote(*hotkey, proposal, index, approve)
     }
 }
 
@@ -340,11 +336,13 @@ impl pallet_subtensor::Config for Test {
     type InitialBondsMovingAverage = InitialBondsMovingAverage;
     type InitialMaxAllowedValidators = InitialMaxAllowedValidators;
     type InitialDefaultTake = InitialDefaultTake;
+    type InitialMinTake = InitialMinTake;
     type InitialWeightsVersionKey = InitialWeightsVersionKey;
     type InitialMaxDifficulty = InitialMaxDifficulty;
     type InitialMinDifficulty = InitialMinDifficulty;
     type InitialServingRateLimit = InitialServingRateLimit;
     type InitialTxRateLimit = InitialTxRateLimit;
+    type InitialTxDelegateTakeRateLimit = InitialTxDelegateTakeRateLimit;
     type InitialBurn = InitialBurn;
     type InitialMaxBurn = InitialMaxBurn;
     type InitialMinBurn = InitialMinBurn;
@@ -367,26 +365,23 @@ impl pallet_utility::Config for Test {
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Test>;
 }
 
-// Build genesis storage according to the mock runtime.
-//pub fn new_test_ext() -> sp_io::TestExternalities {
-//	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
-//}
-
-// Build genesis storage according to the mock runtime.
 #[allow(dead_code)]
-pub fn new_test_ext() -> sp_io::TestExternalities {
+// Build genesis storage according to the mock runtime.
+pub fn new_test_ext(block_number: BlockNumber) -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
-        .unwrap()
-        .into()
+    let t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
+        .unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(block_number));
+    ext
 }
 
 #[allow(dead_code)]
 pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
-    let mut t = frame_system::GenesisConfig::default()
-        .build_storage::<Test>()
+    let mut t = frame_system::GenesisConfig::<Test>::default()
+        .build_storage()
         .unwrap();
 
     pallet_balances::GenesisConfig::<Test> {
@@ -421,6 +416,20 @@ pub(crate) fn run_to_block(n: u64) {
         System::on_initialize(System::block_number());
         SubtensorModule::on_initialize(System::block_number());
     }
+}
+
+/// Increments current block by `1`, running all hooks associated with doing so, and asserts
+/// that the block number was in fact incremented.
+///
+/// Returns the new block number.
+#[allow(dead_code)]
+#[cfg(test)]
+pub(crate) fn next_block() -> u64 {
+    let mut block = System::block_number();
+    block += 1;
+    run_to_block(block);
+    assert_eq!(System::block_number(), block);
+    block
 }
 
 #[allow(dead_code)]

@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
@@ -89,8 +88,8 @@ impl Encode for Data {
             Data::None => vec![0u8; 1],
             Data::Raw(ref x) => {
                 let l = x.len().min(64);
-                let mut r = vec![l as u8 + 1; l + 1];
-                r[1..].copy_from_slice(&x[..l as usize]);
+                let mut r = vec![l as u8 + 1];
+                r.extend_from_slice(&x[..]);
                 r
             }
             Data::BlakeTwo256(ref h) => once(66u8).chain(h.iter().cloned()).collect(),
@@ -257,7 +256,7 @@ impl Decode for IdentityFields {
     fn decode<I: codec::Input>(input: &mut I) -> sp_std::result::Result<Self, codec::Error> {
         let field = u64::decode(input)?;
         Ok(Self(
-            <BitFlags<IdentityField>>::from_bits(field as u64).map_err(|_| "invalid value")?,
+            <BitFlags<IdentityField>>::from_bits(field).map_err(|_| "invalid value")?,
         ))
     }
 }
@@ -332,7 +331,7 @@ pub struct IdentityInfo<FieldLimit: Get<u32>> {
 }
 
 impl<FieldLimit: Get<u32>> IdentityInfo<FieldLimit> {
-    pub(crate) fn fields(&self) -> IdentityFields {
+    pub fn fields(&self) -> IdentityFields {
         let mut res = <BitFlags<IdentityField>>::empty();
         if !self.display.is_none() {
             res.insert(IdentityField::Display);
@@ -412,7 +411,7 @@ mod tests {
         let mut registry = scale_info::Registry::new();
         let type_id = registry.register_type(&scale_info::meta_type::<Data>());
         let registry: scale_info::PortableRegistry = registry.into();
-        let type_info = registry.resolve(type_id.id()).unwrap();
+        let type_info = registry.resolve(type_id.id).unwrap();
 
         let check_type_info = |data: &Data| {
             let variant_name = match data {
@@ -423,20 +422,20 @@ mod tests {
                 Data::ShaThree256(_) => "ShaThree256".to_string(),
                 Data::Raw(bytes) => format!("Raw{}", bytes.len()),
             };
-            if let scale_info::TypeDef::Variant(variant) = &type_info.type_def() {
+            if let scale_info::TypeDef::Variant(variant) = &type_info.type_def {
                 let variant = variant
-                    .variants()
+                    .variants
                     .iter()
                     .find(|v| v.name == variant_name)
-                    .expect(&format!("Expected to find variant {}", variant_name));
+                    .unwrap_or_else(|| panic!("Expected to find variant {}", variant_name));
 
                 let field_arr_len = variant
                     .fields
                     .first()
-                    .and_then(|f| registry.resolve(f.ty().id()))
+                    .and_then(|f| registry.resolve(f.ty.id))
                     .map(|ty| {
-                        if let scale_info::TypeDef::Array(arr) = &ty.type_def() {
-                            arr.len()
+                        if let scale_info::TypeDef::Array(arr) = &ty.type_def {
+                            arr.len
                         } else {
                             panic!("Should be an array type")
                         }

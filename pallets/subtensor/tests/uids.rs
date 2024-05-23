@@ -15,7 +15,7 @@ mod mock;
 
 #[test]
 fn test_replace_neuron() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -80,7 +80,7 @@ fn test_replace_neuron() {
 
 #[test]
 fn test_replace_neuron_multiple_subnets() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let netuid1: u16 = 2;
@@ -171,7 +171,7 @@ fn test_replace_neuron_multiple_subnets() {
 
 #[test]
 fn test_replace_neuron_multiple_subnets_unstake_all() {
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let block_number: u64 = 0;
         let netuid: u16 = 1;
         let netuid1: u16 = 2;
@@ -336,7 +336,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             ),
             0
         );
-        assert_eq!(Balances::free_balance(&coldkey_account_id), stake_amount);
+        assert_eq!(Balances::free_balance(coldkey_account_id), stake_amount);
 
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(
@@ -346,7 +346,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             0
         );
         assert_eq!(
-            Balances::free_balance(&coldkey_account1_id),
+            Balances::free_balance(coldkey_account1_id),
             stake_amount + 1
         );
 
@@ -358,7 +358,7 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
             0
         );
         assert_eq!(
-            Balances::free_balance(&coldkey_account2_id),
+            Balances::free_balance(coldkey_account2_id),
             stake_amount + 2
         );
 

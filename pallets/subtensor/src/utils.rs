@@ -1,7 +1,5 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
-use frame_support::inherent::Vec;
-use frame_support::pallet_prelude::DispatchResult;
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
@@ -12,7 +10,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed_or_root(o);
         match coldkey {
             Ok(Some(who)) if SubnetOwner::<T>::get(netuid) == who => Ok(()),
-            Ok(Some(_)) => Err(DispatchError::BadOrigin.into()),
+            Ok(Some(_)) => Err(DispatchError::BadOrigin),
             Ok(None) => Ok(()),
             Err(x) => Err(x.into()),
         }
@@ -104,17 +102,19 @@ impl<T: Config> Pallet<T> {
     // ==================================
     pub fn set_last_update_for_uid(netuid: u16, uid: u16, last_update: u64) {
         let mut updated_last_update_vec = Self::get_last_update(netuid);
-        if (uid as usize) < updated_last_update_vec.len() {
-            updated_last_update_vec[uid as usize] = last_update;
-            LastUpdate::<T>::insert(netuid, updated_last_update_vec);
-        }
+        let Some(updated_last_update) = updated_last_update_vec.get_mut(uid as usize) else {
+            return;
+        };
+        *updated_last_update = last_update;
+        LastUpdate::<T>::insert(netuid, updated_last_update_vec);
     }
     pub fn set_active_for_uid(netuid: u16, uid: u16, active: bool) {
         let mut updated_active_vec = Self::get_active(netuid);
-        if (uid as usize) < updated_active_vec.len() {
-            updated_active_vec[uid as usize] = active;
-            Active::<T>::insert(netuid, updated_active_vec);
-        }
+        let Some(updated_active) = updated_active_vec.get_mut(uid as usize) else {
+            return;
+        };
+        *updated_active = active;
+        Active::<T>::insert(netuid, updated_active_vec);
     }
     pub fn set_pruning_score_for_uid(netuid: u16, uid: u16, pruning_score: u16) {
         log::info!("netuid = {:?}", netuid);
@@ -124,14 +124,19 @@ impl<T: Config> Pallet<T> {
         );
         log::info!("uid = {:?}", uid);
         assert!(uid < SubnetworkN::<T>::get(netuid));
-        PruningScores::<T>::mutate(netuid, |v| v[uid as usize] = pruning_score);
+        PruningScores::<T>::mutate(netuid, |v| {
+            if let Some(s) = v.get_mut(uid as usize) {
+                *s = pruning_score;
+            }
+        });
     }
     pub fn set_validator_permit_for_uid(netuid: u16, uid: u16, validator_permit: bool) {
-        let mut updated_validator_permit = Self::get_validator_permit(netuid);
-        if (uid as usize) < updated_validator_permit.len() {
-            updated_validator_permit[uid as usize] = validator_permit;
-            ValidatorPermit::<T>::insert(netuid, updated_validator_permit);
-        }
+        let mut updated_validator_permits = Self::get_validator_permit(netuid);
+        let Some(updated_validator_permit) = updated_validator_permits.get_mut(uid as usize) else {
+            return;
+        };
+        *updated_validator_permit = validator_permit;
+        ValidatorPermit::<T>::insert(netuid, updated_validator_permits);
     }
     pub fn set_weights_min_stake(min_stake: u64) {
         WeightsMinStake::<T>::put(min_stake);
@@ -140,99 +145,64 @@ impl<T: Config> Pallet<T> {
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
     }
-    pub fn set_stakes_this_interval_for_coldkey_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId, stakes_this_interval: u64, last_staked_block_number: u64) {
-        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(coldkey, hotkey, (stakes_this_interval, last_staked_block_number));
+    pub fn set_stakes_this_interval_for_coldkey_hotkey(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        stakes_this_interval: u64,
+        last_staked_block_number: u64,
+    ) {
+        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
+            coldkey,
+            hotkey,
+            (stakes_this_interval, last_staked_block_number),
+        );
     }
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Trust::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_emission_for_uid(netuid: u16, uid: u16) -> u64 {
         let vec = Emission::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_active_for_uid(netuid: u16, uid: u16) -> bool {
         let vec = Active::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return false;
-        }
+        vec.get(uid as usize).copied().unwrap_or(false)
     }
     pub fn get_consensus_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Consensus::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_incentive_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Incentive::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_dividends_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Dividends::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_last_update_for_uid(netuid: u16, uid: u16) -> u64 {
         let vec = LastUpdate::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_pruning_score_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = PruningScores::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return u16::MAX;
-        }
+        vec.get(uid as usize).copied().unwrap_or(u16::MAX)
     }
     pub fn get_validator_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = ValidatorTrust::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return 0;
-        }
+        vec.get(uid as usize).copied().unwrap_or(0)
     }
     pub fn get_validator_permit_for_uid(netuid: u16, uid: u16) -> bool {
         let vec = ValidatorPermit::<T>::get(netuid);
-        if (uid as usize) < vec.len() {
-            return vec[uid as usize];
-        } else {
-            return false;
-        }
+        vec.get(uid as usize).copied().unwrap_or(false)
     }
     pub fn get_weights_min_stake() -> u64 {
         WeightsMinStake::<T>::get()
@@ -279,6 +249,25 @@ impl<T: Config> Pallet<T> {
     }
 
     // ========================
+    // ===== Take checks ======
+    // ========================
+    pub fn do_take_checks(coldkey: &T::AccountId, hotkey: &T::AccountId) -> Result<(), Error<T>> {
+        // Ensure we are delegating a known key.
+        ensure!(
+            Self::hotkey_account_exists(hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // Ensure that the coldkey is the owner.
+        ensure!(
+            Self::coldkey_owns_hotkey(coldkey, hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        Ok(())
+    }
+
+    // ========================
     // ==== Rate Limiting =====
     // ========================
     pub fn set_last_tx_block(key: &T::AccountId, block: u64) {
@@ -287,8 +276,22 @@ impl<T: Config> Pallet<T> {
     pub fn get_last_tx_block(key: &T::AccountId) -> u64 {
         LastTxBlock::<T>::get(key)
     }
+    pub fn set_last_tx_block_delegate_take(key: &T::AccountId, block: u64) {
+        LastTxBlockDelegateTake::<T>::insert(key, block)
+    }
+    pub fn get_last_tx_block_delegate_take(key: &T::AccountId) -> u64 {
+        LastTxBlockDelegateTake::<T>::get(key)
+    }
     pub fn exceeds_tx_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_rate_limit();
+        if rate_limit == 0 || prev_tx_block == 0 {
+            return false;
+        }
+
+        current_block - prev_tx_block <= rate_limit
+    }
+    pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
+        let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
         if rate_limit == 0 || prev_tx_block == 0 {
             return false;
         }
@@ -302,15 +305,19 @@ impl<T: Config> Pallet<T> {
     pub fn burn_tokens(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
     }
-    pub fn coinbase(amount: u64 ){
+    pub fn coinbase(amount: u64) {
         TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {
-        DefaultTake::<T>::get()
+        // Default to maximum
+        MaxTake::<T>::get()
     }
-    pub fn set_default_take(default_take: u16) {
-        DefaultTake::<T>::put(default_take);
+    pub fn set_max_take(default_take: u16) {
+        MaxTake::<T>::put(default_take);
         Self::deposit_event(Event::DefaultTakeSet(default_take));
+    }
+    pub fn get_min_take() -> u16 {
+        MinTake::<T>::get()
     }
 
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
@@ -332,6 +339,27 @@ impl<T: Config> Pallet<T> {
     pub fn set_tx_rate_limit(tx_rate_limit: u64) {
         TxRateLimit::<T>::put(tx_rate_limit);
         Self::deposit_event(Event::TxRateLimitSet(tx_rate_limit));
+    }
+    pub fn get_tx_delegate_take_rate_limit() -> u64 {
+        TxDelegateTakeRateLimit::<T>::get()
+    }
+    pub fn set_tx_delegate_take_rate_limit(tx_rate_limit: u64) {
+        TxDelegateTakeRateLimit::<T>::put(tx_rate_limit);
+        Self::deposit_event(Event::TxDelegateTakeRateLimitSet(tx_rate_limit));
+    }
+    pub fn set_min_delegate_take(take: u16) {
+        MinTake::<T>::put(take);
+        Self::deposit_event(Event::MinDelegateTakeSet(take));
+    }
+    pub fn set_max_delegate_take(take: u16) {
+        MaxTake::<T>::put(take);
+        Self::deposit_event(Event::MaxDelegateTakeSet(take));
+    }
+    pub fn get_min_delegate_take() -> u16 {
+        MinTake::<T>::get()
+    }
+    pub fn get_max_delegate_take() -> u16 {
+        MaxTake::<T>::get()
     }
 
     pub fn get_serving_rate_limit(netuid: u16) -> u64 {

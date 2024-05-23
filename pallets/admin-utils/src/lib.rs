@@ -88,7 +88,7 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::sudo_set_default_take())]
         pub fn sudo_set_default_take(origin: OriginFor<T>, default_take: u16) -> DispatchResult {
             ensure_root(origin)?;
-            T::Subtensor::set_default_take(default_take);
+            T::Subtensor::set_max_delegate_take(default_take);
             log::info!("DefaultTakeSet( default_take: {:?} ) ", default_take);
             Ok(())
         }
@@ -231,7 +231,7 @@ pub mod pallet {
 
         #[pallet::call_index(9)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1))
 				.saturating_add(T::DbWeight::get().reads(1)),
 			DispatchClass::Operational,
@@ -399,8 +399,8 @@ pub mod pallet {
 
         #[pallet::call_index(19)]
         #[pallet::weight((
-			Weight::from_ref_time(4_000_000)
-				.saturating_add(Weight::from_proof_size(0))
+			Weight::from_parts(4_000_000, 0)
+				.saturating_add(Weight::from_parts(0, 0))
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -422,7 +422,7 @@ pub mod pallet {
 
         #[pallet::call_index(20)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -604,7 +604,7 @@ pub mod pallet {
 
         #[pallet::call_index(28)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -624,7 +624,7 @@ pub mod pallet {
 
         #[pallet::call_index(29)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -667,7 +667,7 @@ pub mod pallet {
 
         #[pallet::call_index(35)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -687,7 +687,7 @@ pub mod pallet {
 
         #[pallet::call_index(36)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -707,7 +707,7 @@ pub mod pallet {
 
         #[pallet::call_index(37)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -723,7 +723,7 @@ pub mod pallet {
 
         #[pallet::call_index(38)]
         #[pallet::weight((
-			Weight::from_ref_time(14_000_000)
+			Weight::from_parts(14_000_000, 0)
 				.saturating_add(T::DbWeight::get().writes(1)),
 			DispatchClass::Operational,
 			Pays::No
@@ -785,6 +785,30 @@ pub mod pallet {
             }
             Ok(())
         }
+
+        #[pallet::call_index(45)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_tx_delegate_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_tx_delegate_take_rate_limit(tx_rate_limit);
+            log::info!(
+                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
+                tx_rate_limit
+            );
+            Ok(())
+        }
+
+        #[pallet::call_index(46)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_min_delegate_take(origin: OriginFor<T>, take: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_min_delegate_take(take);
+            log::info!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
+            Ok(())
+        }
     }
 }
 
@@ -806,8 +830,10 @@ impl<A, M> AuraInterface<A, M> for () {
 ///////////////////////////////////////////
 
 pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
-    fn set_default_take(default_take: u16);
+    fn set_min_delegate_take(take: u16);
+    fn set_max_delegate_take(take: u16);
     fn set_tx_rate_limit(rate_limit: u64);
+    fn set_tx_delegate_take_rate_limit(rate_limit: u64);
 
     fn set_serving_rate_limit(netuid: u16, rate_limit: u64);
 
@@ -836,7 +862,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
         hotkey: &AccountId,
         increment: u64,
     );
-    fn u64_to_balance(input: u64) -> Option<Balance>;
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance);
     fn get_current_block_as_u64() -> u64;
     fn get_subnetwork_n(netuid: u16) -> u16;
