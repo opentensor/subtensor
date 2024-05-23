@@ -2,9 +2,9 @@ name: Devnet CI
 
 on:
   push:
-    branches: [devnet, main]
+    branches: [devnet]
   pull_request:
-    branches: [devnet, main]
+    branches: [devnet]
 
 env:
   CARGO_TERM_COLOR: always

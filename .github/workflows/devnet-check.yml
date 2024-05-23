@@ -16,4 +16,3 @@ jobs:
           labels: |
             devnet-pass
             devnet-skip
-            hotfix

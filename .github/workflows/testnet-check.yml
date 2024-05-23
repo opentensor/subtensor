@@ -16,4 +16,3 @@ jobs:
           labels: |
             testnet-pass
             testnet-skip
-            hotfix
