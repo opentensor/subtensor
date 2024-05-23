@@ -1,2 +1,1 @@
 //! Module for standalone migrations
-
