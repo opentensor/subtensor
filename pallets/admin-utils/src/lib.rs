@@ -66,9 +66,9 @@ pub mod pallet {
     pub enum Error<T> {
         /// The subnet does not exist, check the netuid parameter
         SubnetDoesNotExist,
-        /// The max allowed validator number to be set is larger than max allowed UIDs  
+        /// The maximum number of subnet validators must be less than the maximum number of allowed UIDs in the subnet.
         MaxValidatorsLargerThanMaxUIds,
-        /// The maximum allowed UIDs is less than UIDs already in the subnet
+        /// The maximum number of subnet validators must be more than the current number of UIDs already in the subnet.
         MaxAllowedUIdsLessThanCurrentUIds,
     }
 
