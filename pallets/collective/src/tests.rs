@@ -1117,8 +1117,8 @@ fn motions_all_first_vote_free_works() {
         );
         assert_eq!(close_rval.unwrap().pays_fee, Pays::No);
 
-        // trying to close the proposal, which is already closed
-        // Expecting error "ProposalNotExists" with Pays::Yes
+        // Trying to close the proposal, which is already closed
+        // Error: "ProposalNotExists" with Pays::Yes.
         let close_rval: DispatchResultWithPostInfo = Collective::close(
             RuntimeOrigin::signed(2),
             hash,
