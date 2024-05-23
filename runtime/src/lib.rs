@@ -14,10 +14,9 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
+    traits::{fungible::HoldConsideration, LinearStoragePrice},
 };
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
-use migrations::{account_data_migration, init_storage_versions};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -1185,12 +1184,7 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = (
-    init_storage_versions::Migration,
-    account_data_migration::Migration,
-    pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-);
+type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
