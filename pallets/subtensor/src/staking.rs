@@ -443,7 +443,7 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_removed);
 
         // If the stake is below the minimum, we clear the nomination from storage.
-        // Not, this only applies to nominator stakes.
+        // This only applies to nominator stakes.
         // If the coldkey does not own the hotkey, it's a nominator stake.
         let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
         Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
