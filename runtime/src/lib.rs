@@ -1171,12 +1171,7 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = (
-    init_storage_versions::Migration,
-    account_data_migration::Migration,
-    pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_preimage::migration::v1::Migration<Runtime>,
-);
+type Migrations = ();
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
