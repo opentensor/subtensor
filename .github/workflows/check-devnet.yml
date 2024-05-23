@@ -1,4 +1,4 @@
-name: Devnet CI
+name: Devnet Deploy Check
 
 on:
   pull_request:

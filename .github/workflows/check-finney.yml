@@ -1,8 +1,8 @@
-name: Testnet Deploy Check
+name: Finney Deploy Check
 
 on:
   pull_request:
-    branches: [testnet]
+    branches: [finney]
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,7 +29,7 @@ jobs:
 
       - name: Check that spec_version has been bumped
         run: |
-          spec_version=$(PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://test.finney.opentensor.ai:443 | tr -d '\n')
+          spec_version=$(PATH=$PATH:$HOME/.cargo/.bin substrate-spec-version wss://entrypoint-finney.opentensor.ai:443 | tr -d '\n')
           echo "network spec_version: $spec_version"
           : ${spec_version:?bad spec version}
           local_spec_version=$(cargo run -p node-subtensor-runtime --bin spec_version | tr -d '\n')
