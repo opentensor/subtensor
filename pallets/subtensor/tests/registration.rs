@@ -249,9 +249,10 @@ fn test_registration_rate_limit_exceeded() {
         let coldkey_account_id = U256::from(667);
         let who: <Test as frame_system::Config>::AccountId = hotkey_account_id;
 
-        let max_registrants = 1;
-        SubtensorModule::set_target_registrations_per_interval(netuid, max_registrants);
-        SubtensorModule::set_registrations_this_interval(netuid, 1);
+        let target_registrants = 1;
+        let max_registrants = target_registrants * 3;
+        SubtensorModule::set_target_registrations_per_interval(netuid, target_registrants);
+        SubtensorModule::set_registrations_this_interval(netuid, max_registrants);
 
         let (nonce, work) = SubtensorModule::create_work_for_block_number(
             netuid,
@@ -370,7 +371,7 @@ fn test_burned_registration_rate_limit_exceeded() {
 #[test]
 fn test_burned_registration_rate_allows_burn_adjustment() {
     // We need to be able to register more than the *target* registrations per interval
-    new_test_ext().execute_with(|| {
+    new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let hotkey_account_id: U256 = U256::from(1);
         let coldkey_account_id = U256::from(667);
