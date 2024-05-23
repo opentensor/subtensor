@@ -27,11 +27,11 @@
 6. At some point, a core team administrator will open a PR merging the current `devnet-ready`
    branch into `devnet`, and the CI will enforce some additional safety checks on this PR
    including a requirement that the new `spec_version` be greater than the current on-chain
-   `spec_version`. The PR should included a bulleted list of all PRs included in the deploy so
+   `spec_version`. The PR should include a bulleted list of all PRs included in the deploy so
    they can be easily found after the fact (TODO: automate this). This PR will require two
    reviews from the core team as a sanity check. After merging, the administrator will then
    need to update all PRs with the `devnet-ready` label to instead have the `on-devnet` label
-   (TODO: automate this upon merge). The administrator will then run deploy `devnet`.
+   (TODO: automate this upon merge). The administrator will then deploy `devnet`.
 7. Once the `on-devnet` label appears on your PR, if you are a core team member it is your
    responsibility to verify that the features/changes/fixes introduced by your PR are
    functioning properly on `devnet` by interacting with the live network. If you are an
@@ -40,7 +40,7 @@
    be added. Otherwise if there are issues, the `devnet-fail` label should be added and you
    will need to make changes to your PR and repeat the previous steps in this process. In some
    cases a revert PR will need to be created reverting your changes from the `pre-devnet` and
-   `devnet` branches, respectively
+   `devnet` branches, respectively.
 9. Once `devnet-pass` has been added to your PR, it is eligible for inclusion in the next
    `testnet` deploy. We typically run `testnet` deploys every other wednesday.
 10. On the appropriate date, an administrator will open a PR merging the current `devnet`
@@ -60,8 +60,8 @@
     testing is successful. Once this has been verified, the `testnet-pass` label should be
     added. If testing fails, the `testnet-fail` label should be added and PRs should be opened
     reverting the change from `devnet-ready`, and then a PR should be opened merging the
-    modified `devnet` into `testnet`. These revert PRs _must_ be merged before a new deploy can
-    be run (TODO: enforce this via CI).
+    modified `devnet` into `testnet`. These revert PRs, if they occur, _must_ be merged before
+    a new deploy can be run (TODO: enforce this via CI).
 12. After the SOP period (72 hours on testnet) has passed and the `testnet-pass` label has been
     added, the CI checks on your PR should now turn all green and a core team member will be
     able to merge your PR into `main`. At this point your PR is done and is eligible to be
