@@ -6,7 +6,8 @@
    [Pull Request](https://github.com/opentensor/subtensor/compare) (PR) targeting the `main`
    branch of the subtensor GitHub repository. It is recommended to start your pull request as a
    draft initially until you are ready to have other developers actively look at it. Any
-   changes to pallet/runtime code should be accomp
+   changes to pallet/runtime code should be accompanied by integration and/or unit tests fully
+   testing all the edge cases of this functionality, if applicable.
 2. Once you have finished developing your change/feature/fix and the Rust portion of the CI is
    passing for your PR (everything prefixed with "CI"), you should mark your PR as "Ready for
    Review" and request review from "Nucleus".
@@ -94,4 +95,3 @@
 | `testnet-pass` | PR has passed manual testing on `testnet` | `testnet-pass` or `testnet-skip` required |
 | `testnet-skip` | Allows a critical hotfix PR to skip required manual testing and SOP on `testnet` | `testnet-pass` or `testnet-skip` required |
 | `testnet-fail` | PR has failed manual testing on `testnet` and requires modification | none |
-
