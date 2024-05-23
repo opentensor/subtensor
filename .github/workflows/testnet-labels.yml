@@ -1,4 +1,4 @@
-name: Tested on testnet
+name: Tested on Testnet
 on:
   pull_request:
     types: [opened, labeled, unlabeled, synchronize]
