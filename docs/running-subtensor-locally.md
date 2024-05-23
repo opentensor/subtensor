@@ -190,7 +190,7 @@ To run an archive node connected to the mainchain, execute the below command (no
 To run a lite node connected to the testchain, execute the below command:
 
 ```bash title="With bootnodes set to testnet and --sync=warp setting, for lite node."
-./target/release/node-subtensor --chain raw_testspec.json --base-path /tmp/blockchain --sync=warp --execution wasm --wasm-execution compiled --port 30333 --max-runtime-instances 32 --rpc-max-response-size 2048 --rpc-cors all --rpc-port  9944 --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWDe7g2JbNETiKypcKT1KsCEZJbTzEHCn8hpd4PHZ6pdz5 --no-mdns --in-peers 8000 --out-peers 8000 --prometheus-external --rpc-external 
+./target/release/node-subtensor --chain raw_testspec.json --base-path /tmp/blockchain --sync=warp --execution wasm --wasm-execution compiled --port 30333 --max-runtime-instances 32 --rpc-max-response-size 2048 --rpc-cors all --rpc-port  9944 --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr --no-mdns --in-peers 8000 --out-peers 8000 --prometheus-external --rpc-external 
 ```
 
 ### Archive node on testchain
@@ -198,7 +198,7 @@ To run a lite node connected to the testchain, execute the below command:
 To run an archive node connected to the testchain, execute the below command:
 
 ```bash title="With bootnodes set to testnet and --sync=full and --pruning archive setting, for archive node"
-./target/release/node-subtensor --chain raw_testspec.json --base-path /tmp/blockchain --sync=full --pruning archive --execution wasm --wasm-execution compiled --port 30333 --max-runtime-instances 32 --rpc-max-response-size 2048 --rpc-cors all --rpc-port 9944 --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWDe7g2JbNETiKypcKT1KsCEZJbTzEHCn8hpd4PHZ6pdz5 --no-mdns --in-peers 8000 --out-peers 8000 --prometheus-external --rpc-external 
+./target/release/node-subtensor --chain raw_testspec.json --base-path /tmp/blockchain --sync=full --pruning archive --execution wasm --wasm-execution compiled --port 30333 --max-runtime-instances 32 --rpc-max-response-size 2048 --rpc-cors all --rpc-port 9944 --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr --no-mdns --in-peers 8000 --out-peers 8000 --prometheus-external --rpc-external 
 ```
 
 ## Running on cloud
