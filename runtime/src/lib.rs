@@ -10,16 +10,12 @@ mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 
-use migrations::{account_data_migration, init_storage_versions};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
 
-use frame_support::{
-    pallet_prelude::{DispatchError, DispatchResult, Get},
-    traits::OnRuntimeUpgrade,
-};
+use frame_support::pallet_prelude::{DispatchError, DispatchResult, Get};
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
 
 use pallet_registry::CanRegisterIdentity;
@@ -1171,12 +1167,7 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = (
-    init_storage_versions::Migration,
-    account_data_migration::Migration,
-    pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_preimage::migration::v1::Migration<Runtime>,
-);
+type Migrations = ();
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
