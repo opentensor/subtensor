@@ -2698,16 +2698,55 @@ fn test_remove_stake_below_minimum_threshold() {
             stake_amount_to_remove
         ));
 
-        // Nomination stake cannot stake below min threshold.
-        assert_noop!(
-            SubtensorModule::remove_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
-                hotkey1,
-                stake_amount_to_remove
-            ),
-            Error::<Test>::NomStakeBelowMinimumThreshold
+        // Nomination stake cannot unstake below min threshold,
+        // without unstaking all and removing the nomination.
+        let total_hotkey_stake_before = SubtensorModule::get_total_stake_for_hotkey(&hotkey1);
+        let bal_before = Balances::free_balance(coldkey2);
+        let staked_before = SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1);
+        let total_network_stake_before = SubtensorModule::get_total_stake();
+        let total_issuance_before = SubtensorModule::get_total_issuance();
+        // check the premise of the test is correct
+        assert!(initial_stake - stake_amount_to_remove < minimum_threshold);
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            stake_amount_to_remove
+        ));
+
+        // Has no stake now
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1),
+            0
         );
-    })
+        let stake_removed = staked_before; // All stake was removed
+                                           // Has the full balance
+        assert_eq!(Balances::free_balance(coldkey2), bal_before + stake_removed);
+
+        // Stake map entry is removed
+        assert_eq!(
+            Stake::<Test>::try_get(hotkey1, coldkey2).is_err(),
+            true // Entry was removed
+        );
+        // Stake tracking is updated
+        assert_eq!(
+            TotalColdkeyStake::<Test>::try_get(coldkey2).unwrap(),
+            0 // Did not have any stake before; Entry is NOT removed
+        );
+        assert_eq!(
+            TotalHotkeyStake::<Test>::try_get(hotkey1).unwrap(),
+            total_hotkey_stake_before - stake_removed // Stake was removed from hotkey1 tracker
+        );
+        assert_eq!(
+            TotalStake::<Test>::try_get().unwrap(),
+            total_network_stake_before - stake_removed
+        );
+
+        // Total issuance is the same
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            total_issuance_before // Nothing was issued
+        );
+    });
 }
 
 // Verify delegate take can be decreased
