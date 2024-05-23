@@ -37,5 +37,5 @@ jobs:
           local_spec_version=$(cargo run -p node-subtensor-runtime --bin spec_version | tr -d '\n')
           echo "local spec_version: $local_spec_version"
           echo "network spec_version: $spec_version"
-          if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version <= $spec_version ❌"; exit 1; fi
-          echo "spec_version will correctly bump from $local_spec_version to $spec_version ✅"
+          if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version > $spec_version ❌"; exit 1; fi
+          echo "$local_spec_version > $spec_version ✅"
