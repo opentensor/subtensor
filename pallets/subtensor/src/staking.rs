@@ -679,17 +679,24 @@ impl<T: Config> Pallet<T> {
     /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
     /// and TotalIssuance by subtracting the removed stake amount.
     ///
+    /// Returns the amount of stake that was removed.
+    ///
     /// # Arguments
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId) {
+    pub fn empty_stake_on_coldkey_hotkey_account(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> u64 {
         let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
         TotalColdkeyStake::<T>::mutate(coldkey, |old| *old = old.saturating_sub(current_stake));
         TotalHotkeyStake::<T>::mutate(hotkey, |stake| *stake = stake.saturating_sub(current_stake));
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+
+        current_stake
     }
 
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
@@ -704,9 +711,9 @@ impl<T: Config> Pallet<T> {
             if stake < Self::get_nominator_min_required_stake() {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
-                Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
+                let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
                 // Add the stake to the coldkey account.
-                Self::add_balance_to_coldkey_account(coldkey, stake);
+                Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }
         }
     }
