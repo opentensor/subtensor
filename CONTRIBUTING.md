@@ -12,7 +12,7 @@
    passing for your PR (everything prefixed with "CI"), you should mark your PR as "Ready for
    Review" and request review from "Nucleus".
 3. Core Nucleus team members will review your PR, possibly requesting changes, and will also
-   add appropriate labels to your PR as shown below.
+   add appropriate labels to your PR as shown below. Three positive reviews are required.
 4. Once the required passing reviews have been obtained, you are ready to request that your PR
    be included in the next `devnet` deploy. To do this, you should open a companion PR merging
    your branch into the `devnet-ready` branch. You must include a link to the parent PR in the
@@ -95,3 +95,111 @@
 | `testnet-pass` | PR has passed manual testing on `testnet` | `testnet-pass` or `testnet-skip` required |
 | `testnet-skip` | Allows a critical hotfix PR to skip required manual testing and SOP on `testnet` | `testnet-pass` or `testnet-skip` required |
 | `testnet-fail` | PR has failed manual testing on `testnet` and requires modification | none |
+
+
+## Branches
+
+
+### `devnet-ready`
+
+Companion PRs merge into this branch, eventually accumulating into a merge of `devnet-ready`
+into `devnet`, coinciding with a deploy of `devnet`.
+
+#### Restrictions
+* no deleting the branch
+* no force pushes
+* no direct pushes
+* require 1 positive review from an administrator
+* new code changes invalidate existing reviews
+* only merge commit style merging allowed
+
+#### CI-Enforced Restrictions
+* `check-rust.yml` must pass
+* TODO: parent PR must be linked to in description
+* TODO: parent PR must have the required number of positive reviews
+
+
+### `devnet`
+
+Tracks the current state of what is deployed to `devnet`. Modified by an administrator via a PR
+merging `devnet-ready` into `devnet`, in concert with a deploy of `devnet`.
+
+#### Restrictions
+* no deleting the branch
+* no force pushes
+* no direct pushes
+* require 2 positive reviews from core team members
+* new code changes invalidate existing reviews
+* only merge commit style merging allowed
+
+#### CI-Enforced Restrictions
+* `check-rust.yml` must pass
+* `check-devnet.yml` must pass
+* spec_version must be greater than what is currently on live `devnet`
+* TODO: other pre-deploy sanity checks here
+
+
+### `testnet`
+
+Tracks the current state of what is deployed to `testnet`. Administrator will open a PR merging
+current `devnet` into `testnet` and merge it in concert with a deploy to `testnet`. Contains
+tags for `testnet` releases.
+
+#### Restrictions
+* no deleting the branch
+* no force pushes
+* no direct pushes
+* require 2 positive reviews from core team members
+* new code changes invalidate existing reviews
+* only merge commit style merging allowed
+
+#### CI-Enforced Restrictions
+* `check-rust.yml` must pass
+* `check-testnet.yml` must pass
+* spec_version must be greater than what is currently on live `testnet`
+* TODO: other pre-deploy sanity checks here
+
+
+### `main`
+
+Default branch for all new PRs. Slightly ahead of what is currently on `finney`. When a PR is all
+green and "done", meaning it has been tested on `devnet` and `testnet`, it can be merged into
+`main`. Contains tags for `finney` releases.
+
+#### Restrictions
+* no deleting the branch
+* no force pushes
+* no direct pushes
+* require 3 positive reviews from core team members
+* new code changes invalidate existing reviews
+* all conversations must be resolved
+* only merge commit style merging allowed
+
+#### CI-Enforced Restrictions
+* `check-rust.yml` must pass
+* `check-labels.yml` must pass
+* must have `devnet-skip` or `devnet-pass` label
+* must have `testnet-skip` or `testnet-pass` label
+* if `breaking-change` label is present, bot will message the appropriate teams
+* TODO: when we get auditing, presence of `needs-audit` label = require a review from auditor
+* TODO: track SOP on PR based on label age
+
+
+### `finney`
+
+Tracks the current state of what is deployed to `finney` (mainnet). Updated via an
+administrator-submitted PR merging `main` into `finney` in concert with a `finney` deploy.
+
+#### Restrictions
+* no deleting the branch
+* no force pushes
+* no direct pushes
+* require 3 positive reviews from core team members
+* new code changes invalidate existing reviews
+* only merge commit style merging allowed
+
+#### CI-Enforced Restrictions
+* `check-rust.yml` must pass
+* `check-finney.yml` must pass
+* spec_version must be greater than what is currently on live `finney`
+* TODO: other pre-deploy sanity checks here
