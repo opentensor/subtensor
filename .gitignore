@@ -45,3 +45,4 @@ specs/*.json
 alice.log
 bob.log
 charlie.log
+scripts/specs
