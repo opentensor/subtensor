@@ -15,6 +15,10 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bin]]
+name = "spec_version"
+path = "src/spec_version.rs"
+
 [dependencies]
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../pallets/subtensor" }
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
