@@ -11,7 +11,7 @@ env:
 
 jobs:
   check-spec-version:
-    name: Check that spec_version has been bumped
+    name: Check spec_version bump
     runs-on: SubtensorCI
     steps:
       - name: Dependencies
@@ -36,4 +36,6 @@ jobs:
           : ${spec_version:?bad spec version}
           local_spec_version=$(cargo run -p node-subtensor-runtime --bin spec_version | tr -d '\n')
           echo "local spec_version: $local_spec_version"
-          [ "$spec_version" != "$local_spec_version" ]
+          echo "network spec_version: $spec_version"
+          if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version < $spec_version ❌"; exit 1; fi
+          echo "spec_version will correctly bump from $spec_version to $local_spec_version ✅"
