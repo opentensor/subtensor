@@ -94,7 +94,7 @@ fn test_set_weights_is_root_error() {
 
         assert_err!(
             commit_reveal_set_weights(hotkey, root_netuid, uids, weights, version_key),
-            Error::<Test>::IsRoot
+            Error::<Test>::CanNotSetRootNetworkWeights
         );
     });
 }
@@ -119,7 +119,7 @@ fn test_weights_err_no_validator_permit() {
 
         let result =
             commit_reveal_set_weights(hotkey_account_id, netuid, weights_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::NoValidatorPermit.into()));
+        assert_eq!(result, Err(Error::<Test>::NeuronNoValidatorPermit.into()));
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
@@ -245,7 +245,7 @@ fn test_weights_version_key() {
                 weight_values.clone(),
                 key0
             ),
-            Err(Error::<Test>::IncorrectNetworkVersionKey.into())
+            Err(Error::<Test>::IncorrectWeightVersionKey.into())
         );
     });
 }
@@ -486,7 +486,10 @@ fn test_set_weights_err_not_active() {
         let weight_values: Vec<u16> = vec![1];
         // This hotkey is NOT registered.
         let result = commit_reveal_set_weights(U256::from(1), 1, weights_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::NotRegistered.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotRegisteredInSubNet.into())
+        );
     });
 }
 
@@ -506,7 +509,7 @@ fn test_set_weights_err_invalid_uid() {
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
         let result = commit_reveal_set_weights(hotkey_account_id, 1, weight_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::InvalidUid.into()));
+        assert_eq!(result, Err(Error::<Test>::UidVecContainInvalidOne.into()));
     });
 }
 
@@ -532,7 +535,7 @@ fn test_set_weight_not_enough_values() {
         let weight_keys: Vec<u16> = vec![1]; // not weight.
         let weight_values: Vec<u16> = vec![88]; // random value.
         let result = commit_reveal_set_weights(account_id, 1, weight_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::NotSettingEnoughWeights.into()));
+        assert_eq!(result, Err(Error::<Test>::WeightVecLengthIsLow.into()));
 
         // Shouldnt fail because we setting a single value but it is the self weight.
         let weight_keys: Vec<u16> = vec![0]; // self weight.
@@ -580,7 +583,10 @@ fn test_set_weight_too_many_uids() {
         let weight_keys: Vec<u16> = vec![0, 1, 2, 3, 4]; // more uids than neurons in subnet.
         let weight_values: Vec<u16> = vec![88, 102, 303, 1212, 11]; // random value.
         let result = commit_reveal_set_weights(U256::from(1), 1, weight_keys, weight_values, 0);
-        assert_eq!(result, Err(Error::<Test>::TooManyUids.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::UidsLengthExceedUidsInSubNet.into())
+        );
 
         // Shouldnt fail because we are setting less weights than there are neurons.
         let weight_keys: Vec<u16> = vec![0, 1]; // Only on neurons that exist.
@@ -1033,7 +1039,7 @@ fn test_commit_reveal_interval() {
         ));
         assert_err!(
             SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
-            Error::<Test>::CommitNotAllowed
+            Error::<Test>::WeightsCommitNotAllowed
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1043,12 +1049,12 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
         step_block(99);
         assert_err!(
             SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
-            Error::<Test>::CommitNotAllowed
+            Error::<Test>::WeightsCommitNotAllowed
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1058,7 +1064,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
         step_block(1);
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1070,7 +1076,7 @@ fn test_commit_reveal_interval() {
         ));
 
         // After the previous reveal the associated mapping entry was removed.
-        // Therefore we expect NoCommitFound
+        // Therefore we expect NoWeightsCommitFound
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -1079,7 +1085,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::NoCommitFound
+            Error::<Test>::NoWeightsCommitFound
         );
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1094,7 +1100,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
         step_block(100);
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1120,7 +1126,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealTempo
+            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
         );
 
         // Testing when you commit but do not reveal until later intervals
@@ -1151,7 +1157,7 @@ fn test_commit_reveal_interval() {
                 weight_values.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1205,7 +1211,7 @@ fn test_commit_reveal_hash() {
                 weight_values.clone(),
                 version_key
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1215,7 +1221,7 @@ fn test_commit_reveal_hash() {
                 weight_values.clone(),
                 7,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1225,7 +1231,7 @@ fn test_commit_reveal_hash() {
                 vec![10, 9],
                 version_key,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1235,7 +1241,7 @@ fn test_commit_reveal_hash() {
                 vec![10, 10, 33],
                 9,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
 
         assert_ok!(SubtensorModule::reveal_weights(

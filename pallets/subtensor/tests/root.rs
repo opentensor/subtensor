@@ -77,7 +77,7 @@ fn test_root_register_normal_on_root_fails() {
                 root_netuid,
                 hotkey_account_id
             ),
-            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
         );
         // Pow registration fails.
         let block_number: u64 = SubtensorModule::get_current_block_as_u64();
@@ -97,7 +97,7 @@ fn test_root_register_normal_on_root_fails() {
                 hotkey_account_id,
                 coldkey_account_id,
             ),
-            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
         );
     });
 }
@@ -968,7 +968,7 @@ fn test_dissolve_network_does_not_exist_err() {
 
         assert_err!(
             SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
-            Error::<Test>::NetworkDoesNotExist
+            Error::<Test>::SubNetworkDoesNotExist
         );
     });
 }
