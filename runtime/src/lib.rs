@@ -10,7 +10,6 @@ mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 
-use migrations::{account_data_migration, init_storage_versions};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,

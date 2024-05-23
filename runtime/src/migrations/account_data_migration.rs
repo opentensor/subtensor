@@ -50,6 +50,8 @@ enum PreUpgradeInfo {
 }
 
 const TARGET: &str = "runtime::account_data_migration";
+
+#[allow(unused)]
 pub struct Migration;
 impl OnRuntimeUpgrade for Migration {
     /// Save pre-upgrade account ids to check are decodable post-upgrade.
