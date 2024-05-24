@@ -1,4 +1,4 @@
-use sp_runtime::traits::CheckedAdd;
+use sp_runtime::{traits::CheckedAdd, Saturating};
 use sp_std::vec;
 use substrate_fixed::transcendental::exp;
 use substrate_fixed::types::{I32F32, I64F64};
@@ -44,12 +44,12 @@ pub fn u16_to_fixed(x: u16) -> I32F32 {
 
 #[allow(dead_code)]
 pub fn u16_proportion_to_fixed(x: u16) -> I32F32 {
-    I32F32::from_num(x) / I32F32::from_num(u16::MAX)
+    I32F32::from_num(x).saturating_div(I32F32::from_num(u16::MAX))
 }
 
 #[allow(dead_code)]
 pub fn fixed_proportion_to_u16(x: I32F32) -> u16 {
-    fixed_to_u16(x * I32F32::from_num(u16::MAX))
+    fixed_to_u16(x.saturating_mul(I32F32::from_num(u16::MAX)))
 }
 
 #[allow(dead_code)]
@@ -93,25 +93,38 @@ pub fn vec_max_upscale_to_u16(vec: &[I32F32]) -> Vec<u16> {
             if *val == I32F32::from_num(0) {
                 return vec
                     .iter()
-                    .map(|e: &I32F32| (e * u16_max).to_num::<u16>())
+                    .map(|e: &I32F32| e.saturating_mul(u16_max).to_num::<u16>())
                     .collect();
             }
             if *val > threshold {
                 return vec
                     .iter()
-                    .map(|e: &I32F32| (e * (u16_max / *val)).round().to_num::<u16>())
+                    .map(|e: &I32F32| {
+                        e.saturating_mul(u16_max.saturating_div(*val))
+                            .round()
+                            .to_num::<u16>()
+                    })
                     .collect();
             }
             return vec
                 .iter()
-                .map(|e: &I32F32| ((e * u16_max) / *val).round().to_num::<u16>())
+                .map(|e: &I32F32| {
+                    e.saturating_mul(u16_max)
+                        .saturating_div(*val)
+                        .round()
+                        .to_num::<u16>()
+                })
                 .collect();
         }
         None => {
             let sum: I32F32 = vec.iter().sum();
             return vec
                 .iter()
-                .map(|e: &I32F32| ((e * u16_max) / sum).to_num::<u16>())
+                .map(|e: &I32F32| {
+                    e.saturating_mul(u16_max)
+                        .saturating_div(sum)
+                        .to_num::<u16>()
+                })
                 .collect();
         }
     }
@@ -127,7 +140,8 @@ pub fn vec_u16_max_upscale_to_u16(vec: &[u16]) -> Vec<u16> {
 #[allow(dead_code)]
 // Checks if u16 vector, when normalized, has a max value not greater than a u16 ratio max_limit.
 pub fn check_vec_max_limited(vec: &[u16], max_limit: u16) -> bool {
-    let max_limit_fixed: I32F32 = I32F32::from_num(max_limit) / I32F32::from_num(u16::MAX);
+    let max_limit_fixed: I32F32 =
+        I32F32::from_num(max_limit).saturating_div(I32F32::from_num(u16::MAX));
     let mut vec_fixed: Vec<I32F32> = vec.iter().map(|e: &u16| I32F32::from_num(*e)).collect();
     inplace_normalize(&mut vec_fixed);
     let max_value: Option<&I32F32> = vec_fixed.iter().max();
@@ -196,7 +210,7 @@ pub fn exp_safe(input: I32F32) -> I32F32 {
 pub fn sigmoid_safe(input: I32F32, rho: I32F32, kappa: I32F32) -> I32F32 {
     let one: I32F32 = I32F32::from_num(1);
     let offset: I32F32 = input.saturating_sub(kappa); // (input - kappa)
-    let neg_rho: I32F32 = rho.saturating_mul(-one); // -rho
+    let neg_rho: I32F32 = rho.saturating_mul(one.saturating_neg()); // -rho
     let exp_input: I32F32 = neg_rho.saturating_mul(offset); // -rho*(input-kappa)
     let exp_output: I32F32 = exp_safe(exp_input); // exp(-rho*(input-kappa))
     let denominator: I32F32 = exp_output.saturating_add(one); // 1 + exp(-rho*(input-kappa))
@@ -214,7 +228,7 @@ pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
     }
     let mut idxs: Vec<usize> = (0..n).collect();
     idxs.sort_by_key(|&idx| &vector[idx]); // ascending stable sort
-    for &idx in idxs.iter().take(n - k) {
+    for &idx in idxs.iter().take(n.saturating_sub(k)) {
         result[idx] = false;
     }
     result
@@ -225,7 +239,7 @@ pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
 pub fn normalize(x: &[I32F32]) -> Vec<I32F32> {
     let x_sum: I32F32 = sum(x);
     if x_sum != I32F32::from_num(0.0_f32) {
-        return x.iter().map(|xi| xi / x_sum).collect();
+        return x.iter().map(|xi| xi.saturating_div(x_sum)).collect();
     } else {
         x.to_vec()
     }
@@ -238,7 +252,8 @@ pub fn inplace_normalize(x: &mut [I32F32]) {
     if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    x.iter_mut().for_each(|value| *value /= x_sum);
+    x.into_iter()
+        .for_each(|value| *value = value.saturating_div(x_sum));
 }
 
 // Normalizes (sum to 1 except 0) the input vector directly in-place, using the sum arg.
@@ -247,7 +262,8 @@ pub fn inplace_normalize_using_sum(x: &mut [I32F32], x_sum: I32F32) {
     if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    x.iter_mut().for_each(|value| *value /= x_sum);
+    x.into_iter()
+        .for_each(|value| *value = value.saturating_div(x_sum));
 }
 
 // Normalizes (sum to 1 except 0) the I64F64 input vector directly in-place.
@@ -257,7 +273,8 @@ pub fn inplace_normalize_64(x: &mut [I64F64]) {
     if x_sum == I64F64::from_num(0) {
         return;
     }
-    x.iter_mut().for_each(|value| *value /= x_sum);
+    x.into_iter()
+        .for_each(|value| *value = value.saturating_div(x_sum));
 }
 
 /// Normalizes (sum to 1 except 0) each row (dim=0) of a I64F64 matrix in-place.
@@ -267,7 +284,7 @@ pub fn inplace_row_normalize_64(x: &mut [Vec<I64F64>]) {
         let row_sum: I64F64 = row.iter().sum();
         if row_sum > I64F64::from_num(0.0_f64) {
             row.iter_mut()
-                .for_each(|x_ij: &mut I64F64| *x_ij /= row_sum);
+                .for_each(|x_ij: &mut I64F64| *x_ij = x_ij.saturating_div(row_sum));
         }
     }
 }
@@ -280,7 +297,7 @@ pub fn vecdiv(x: &[I32F32], y: &[I32F32]) -> Vec<I32F32> {
         .zip(y)
         .map(|(x_i, y_i)| {
             if *y_i != 0 {
-                x_i / y_i
+                x_i.saturating_div(*y_i)
             } else {
                 I32F32::from_num(0)
             }
@@ -294,8 +311,8 @@ pub fn inplace_row_normalize(x: &mut [Vec<I32F32>]) {
     for row in x {
         let row_sum: I32F32 = row.iter().sum();
         if row_sum > I32F32::from_num(0.0_f32) {
-            row.iter_mut()
-                .for_each(|x_ij: &mut I32F32| *x_ij /= row_sum);
+            row.into_iter()
+                .for_each(|x_ij: &mut I32F32| *x_ij = x_ij.saturating_div(row_sum));
         }
     }
 }
@@ -308,7 +325,7 @@ pub fn inplace_row_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>]) {
         if row_sum > I32F32::from_num(0.0) {
             sparse_row
                 .iter_mut()
-                .for_each(|(_j, value)| *value /= row_sum);
+                .for_each(|(_j, value)| *value = value.saturating_div(row_sum));
         }
     }
 }
@@ -347,7 +364,7 @@ pub fn col_sum(x: &[Vec<I32F32>]) -> Vec<I32F32> {
         .fold(vec![I32F32::from_num(0); cols], |acc, next_row| {
             acc.into_iter()
                 .zip(next_row)
-                .map(|(acc_elem, next_elem)| acc_elem + next_elem)
+                .map(|(acc_elem, next_elem)| acc_elem.saturating_add(*next_elem))
                 .collect()
         })
 }
@@ -358,7 +375,7 @@ pub fn col_sum_sparse(sparse_matrix: &[Vec<(u16, I32F32)>], columns: u16) -> Vec
     let mut result: Vec<I32F32> = vec![I32F32::from_num(0); columns as usize];
     for sparse_row in sparse_matrix {
         for (j, value) in sparse_row {
-            result[*j as usize] += value;
+            result[*j as usize] = result[*j as usize].saturating_add(*value);
         }
     }
     result
@@ -370,7 +387,7 @@ pub fn inplace_col_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], co
     let mut col_sum: Vec<I32F32> = vec![I32F32::from_num(0.0); columns as usize]; // assume square matrix, rows=cols
     for sparse_row in sparse_matrix.iter() {
         for (j, value) in sparse_row.iter() {
-            col_sum[*j as usize] += value;
+            col_sum[*j as usize] = col_sum[*j as usize].saturating_add(*value);
         }
     }
     for sparse_row in sparse_matrix {
@@ -378,7 +395,7 @@ pub fn inplace_col_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], co
             if col_sum[*j as usize] == I32F32::from_num(0.0_f32) {
                 continue;
             }
-            *value /= col_sum[*j as usize];
+            *value = value.saturating_div(col_sum[*j as usize]);
         }
     }
 }
@@ -398,7 +415,7 @@ pub fn inplace_col_normalize(x: &mut [Vec<I32F32>]) {
         .fold(vec![I32F32::from_num(0.0); cols], |acc, row| {
             row.iter_mut()
                 .zip(acc)
-                .map(|(&mut m_val, acc_val)| acc_val + m_val)
+                .map(|(&mut m_val, acc_val)| acc_val.saturating_add(m_val))
                 .collect()
         });
     x.iter_mut().for_each(|row| {
@@ -406,7 +423,7 @@ pub fn inplace_col_normalize(x: &mut [Vec<I32F32>]) {
             .zip(&col_sums)
             .filter(|(_, col_sum)| **col_sum != I32F32::from_num(0_f32))
             .for_each(|(m_val, col_sum)| {
-                *m_val /= col_sum;
+                *m_val = m_val.saturating_div(*col_sum);
             });
     });
 }
@@ -427,7 +444,7 @@ pub fn inplace_col_max_upscale_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], 
             if col_max[*j as usize] == I32F32::from_num(0.0_f32) {
                 continue;
             }
-            *value /= col_max[*j as usize];
+            *value = value.saturating_div(col_max[*j as usize]);
         }
     }
 }
@@ -455,7 +472,7 @@ pub fn inplace_col_max_upscale(x: &mut [Vec<I32F32>]) {
             .zip(&col_maxes)
             .filter(|(_, col_max)| **col_max != I32F32::from_num(0))
             .for_each(|(m_val, col_max)| {
-                *m_val /= col_max;
+                *m_val = m_val.saturating_div(*col_max);
             });
     });
 }
@@ -604,7 +621,11 @@ pub fn row_hadamard(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32
     matrix
         .iter()
         .zip(vector)
-        .map(|(row, vec_val)| row.iter().map(|m_val| vec_val * m_val).collect())
+        .map(|(row, vec_val)| {
+            row.into_iter()
+                .map(|m_val| vec_val.saturating_mul(*m_val))
+                .collect()
+        })
         .collect()
 }
 
@@ -619,8 +640,8 @@ pub fn row_hadamard_sparse(
         .zip(vector)
         .map(|(sparse_row, vec_val)| {
             sparse_row
-                .iter()
-                .map(|(j, value)| (*j, *value * *vec_val))
+                .into_iter()
+                .map(|(j, value)| (*j, value.saturating_mul(*vec_val)))
                 .collect()
         })
         .collect()
@@ -646,7 +667,7 @@ pub fn matmul(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32> {
                     // Compute ranks: r_j = SUM(i) w_ij * s_i
                     // Compute trust scores: t_j = SUM(i) w_ij * s_i
                     // result_j = SUM(i) vector_i * matrix_ij
-                    acc_val + vec_val * m_val
+                    acc_val.saturating_add(vec_val.saturating_mul(*m_val))
                 })
                 .collect()
         },
@@ -674,7 +695,7 @@ pub fn matmul_64(matrix: &[Vec<I64F64>], vector: &[I64F64]) -> Vec<I64F64> {
                     // Compute ranks: r_j = SUM(i) w_ij * s_i
                     // Compute trust scores: t_j = SUM(i) w_ij * s_i
                     // result_j = SUM(i) vector_i * matrix_ij
-                    acc_val + vec_val * m_val
+                    acc_val.saturating_add(vec_val.saturating_mul(*m_val))
                 })
                 .collect()
         })
@@ -699,7 +720,7 @@ pub fn matmul_transpose(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32
                     // Compute dividends: d_j = SUM(i) b_ji * inc_i
                     // result_j = SUM(i) vector_i * matrix_ji
                     // result_i = SUM(j) vector_j * matrix_ij
-                    acc + (velem * melem)
+                    acc.saturating_add(velem.saturating_mul(*melem))
                 })
         })
         .collect()
@@ -718,7 +739,8 @@ pub fn matmul_sparse(
             // Compute ranks: r_j = SUM(i) w_ij * s_i
             // Compute trust scores: t_j = SUM(i) w_ij * s_i
             // result_j = SUM(i) vector_i * matrix_ij
-            result[*j as usize] += vector[i] * value;
+            result[*j as usize] =
+                result[*j as usize].saturating_add(vector[i].saturating_mul(*value));
         }
     }
     result
@@ -736,7 +758,7 @@ pub fn matmul_transpose_sparse(
             // Compute dividends: d_j = SUM(i) b_ji * inc_i
             // result_j = SUM(i) vector_i * matrix_ji
             // result_i = SUM(j) vector_j * matrix_ij
-            result[i] += vector[*j as usize] * value;
+            result[i] = result[i].saturating_add(vector[*j as usize].saturating_mul(*value));
         }
     }
     result
@@ -871,7 +893,7 @@ pub fn weighted_median(
         return score[partition_idx[0]];
     }
     assert!(stake.len() == score.len());
-    let mid_idx: usize = n / 2;
+    let mid_idx: usize = n.saturating_div(2);
     let pivot: I32F32 = score[partition_idx[mid_idx]];
     let mut lo_stake: I32F32 = I32F32::from_num(0);
     let mut hi_stake: I32F32 = I32F32::from_num(0);
@@ -882,31 +904,33 @@ pub fn weighted_median(
             continue;
         }
         if score[idx] < pivot {
-            lo_stake += stake[idx];
+            lo_stake = lo_stake.saturating_add(stake[idx]);
             lower.push(idx);
         } else {
-            hi_stake += stake[idx];
+            hi_stake = hi_stake.saturating_add(stake[idx]);
             upper.push(idx);
         }
     }
-    if (partition_lo + lo_stake <= minority) && (minority < partition_hi - hi_stake) {
+    if (partition_lo.saturating_add(lo_stake) <= minority)
+        && (minority < partition_hi.saturating_sub(hi_stake))
+    {
         return pivot;
-    } else if (minority < partition_lo + lo_stake) && (!lower.is_empty()) {
+    } else if (minority < partition_lo.saturating_add(lo_stake)) && (!lower.is_empty()) {
         return weighted_median(
             stake,
             score,
             &lower,
             minority,
             partition_lo,
-            partition_lo + lo_stake,
+            partition_lo.saturating_add(lo_stake),
         );
-    } else if (partition_hi - hi_stake <= minority) && (!upper.is_empty()) {
+    } else if (partition_hi.saturating_sub(hi_stake) <= minority) && (!upper.is_empty()) {
         return weighted_median(
             stake,
             score,
             &upper,
             minority,
-            partition_hi - hi_stake,
+            partition_hi.saturating_sub(hi_stake),
             partition_hi,
         );
     }
@@ -939,7 +963,7 @@ pub fn weighted_median_col(
         if !use_stake.is_empty() {
             inplace_normalize(&mut use_stake);
             let stake_sum: I32F32 = use_stake.iter().sum();
-            let minority: I32F32 = stake_sum - majority;
+            let minority: I32F32 = stake_sum.saturating_sub(majority);
             median[c] = weighted_median(
                 &use_stake,
                 &use_score,
@@ -967,7 +991,7 @@ pub fn weighted_median_col_sparse(
     inplace_normalize(&mut use_stake);
     let stake_sum: I32F32 = use_stake.iter().sum();
     let stake_idx: Vec<usize> = (0..use_stake.len()).collect();
-    let minority: I32F32 = stake_sum - majority;
+    let minority: I32F32 = stake_sum.saturating_sub(majority);
     let mut use_score: Vec<Vec<I32F32>> = vec![vec![zero; use_stake.len()]; columns as usize];
     let mut median: Vec<I32F32> = vec![zero; columns as usize];
     let mut k: usize = 0;
@@ -978,7 +1002,7 @@ pub fn weighted_median_col_sparse(
         for (c, val) in score[r].iter() {
             use_score[*c as usize][k] = *val;
         }
-        k += 1;
+        k.saturating_inc();
     }
     for c in 0..columns as usize {
         median[c] = weighted_median(
@@ -1009,7 +1033,7 @@ pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> 
             assert!(row1.len() == row2.len());
             row1.iter()
                 .zip(row2)
-                .map(|(elem1, elem2)| elem1 * elem2)
+                .map(|(elem1, elem2)| elem1.saturating_mul(*elem2))
                 .collect()
         })
         .collect()
@@ -1029,14 +1053,14 @@ pub fn hadamard_sparse(
     for i in 0..rows {
         let mut row1: Vec<I32F32> = vec![zero; columns as usize];
         for (j, value) in mat1[i].iter() {
-            row1[*j as usize] += value;
+            row1[*j as usize] = row1[*j as usize].saturating_add(*value);
         }
         let mut row2: Vec<I32F32> = vec![zero; columns as usize];
         for (j, value) in mat2[i].iter() {
-            row2[*j as usize] += value;
+            row2[*j as usize] = row2[*j as usize].saturating_add(*value);
         }
         for j in 0..columns as usize {
-            let prod: I32F32 = row1[j] * row2[j];
+            let prod: I32F32 = row1[j].saturating_mul(row2[j]);
             if zero < prod {
                 result[i].push((j as u16, prod))
             }
@@ -1056,14 +1080,18 @@ pub fn mat_ema(new: &[Vec<I32F32>], old: &[Vec<I32F32>], alpha: I32F32) -> Vec<V
     if first_row.is_empty() {
         return vec![vec![]; 1];
     }
-    let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha;
+    let one_minus_alpha: I32F32 = I32F32::from_num(1.0).saturating_sub(alpha);
     new.iter()
         .zip(old)
         .map(|(new_row, old_row)| {
             new_row
                 .iter()
                 .zip(old_row)
-                .map(|(new_elem, old_elem)| alpha * new_elem + one_minus_alpha * old_elem)
+                .map(|(new_elem, old_elem)| {
+                    alpha
+                        .saturating_mul(*new_elem)
+                        .saturating_add(one_minus_alpha.saturating_mul(*old_elem))
+                })
                 .collect()
         })
         .collect()
@@ -1081,15 +1109,16 @@ pub fn mat_ema_sparse(
     assert!(new.len() == old.len());
     let n = new.len(); // assume square matrix, rows=cols
     let zero: I32F32 = I32F32::from_num(0.0);
-    let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha;
+    let one_minus_alpha: I32F32 = I32F32::from_num(1.0).saturating_sub(alpha);
     let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
     for i in 0..new.len() {
         let mut row: Vec<I32F32> = vec![zero; n];
         for (j, value) in new[i].iter() {
-            row[*j as usize] += alpha * value;
+            row[*j as usize] = row[*j as usize].saturating_add(alpha.saturating_mul(*value));
         }
         for (j, value) in old[i].iter() {
-            row[*j as usize] += one_minus_alpha * value;
+            row[*j as usize] =
+                row[*j as usize].saturating_add(one_minus_alpha.saturating_mul(*value));
         }
         for (j, value) in row.iter().enumerate() {
             if *value > zero {
@@ -1114,7 +1143,11 @@ pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<
 }
 
 #[cfg(test)]
-#[allow(clippy::indexing_slicing)]
+#[allow(
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects,
+    clippy::unwrap_used
+)]
 mod tests {
     use crate::math::*;
     use rand::{seq::SliceRandom, thread_rng, Rng};

@@ -20,7 +20,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     };
 
     let old_state: ColdkeyHotkeys =
-        json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {}", e))?;
+        json::from_slice(&bytes).map_err(|e| format!("Error parsing genesis file: {e}"))?;
 
     let mut processed_stakes: Vec<(
         sp_runtime::AccountId32,
@@ -53,7 +53,9 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
-        balances_issuance += *amount;
+        balances_issuance = balances_issuance
+            .checked_add(*amount)
+            .ok_or("Balances issuance overflowed".to_string())?;
     }
 
     // Give front-ends necessary data to present to users
