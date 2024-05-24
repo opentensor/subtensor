@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Staking pallet benchmarking.
+#![allow(clippy::arithmetic_side_effects, clippy::indexing_slicing)]
 
 use super::*;
 use crate::Pallet as Collective;
@@ -70,7 +71,7 @@ benchmarks_instance_pallet! {
                 // Proposals should be different so that different proposal hashes are generated
                 let proposal: T::Proposal = SystemCall::<T>::remark { remark: id_to_remark_data(i, length) }.into();
                 Collective::<T, I>::propose(
-                    SystemOrigin::Signed(old_members.last().unwrap().clone()).into(),
+                    SystemOrigin::Signed(old_members.last().expect("m is greater than 0; old_members must have at least 1 element; qed").clone()).into(),
                     Box::new(proposal.clone()),
                     MAX_BYTES,
                     TryInto::<BlockNumberFor<T>>::try_into(3u64).ok().expect("convert u64 to block number.")
