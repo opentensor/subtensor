@@ -206,6 +206,7 @@ pub fn sigmoid_safe(input: I32F32, rho: I32F32, kappa: I32F32) -> I32F32 {
 
 // Returns a bool vector where an item is true if the vector item is in topk values.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
     let n: usize = vector.len();
     let mut result: Vec<bool> = vec![true; n];
@@ -354,6 +355,7 @@ pub fn col_sum(x: &[Vec<I32F32>]) -> Vec<I32F32> {
 
 // Sum across each column (dim=1) of a sparse matrix.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn col_sum_sparse(sparse_matrix: &[Vec<(u16, I32F32)>], columns: u16) -> Vec<I32F32> {
     let mut result: Vec<I32F32> = vec![I32F32::from_num(0); columns as usize];
     for sparse_row in sparse_matrix {
@@ -366,6 +368,7 @@ pub fn col_sum_sparse(sparse_matrix: &[Vec<(u16, I32F32)>], columns: u16) -> Vec
 
 // Normalizes (sum to 1 except 0) each column (dim=1) of a sparse matrix in-place.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn inplace_col_normalize_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], columns: u16) {
     let mut col_sum: Vec<I32F32> = vec![I32F32::from_num(0.0); columns as usize]; // assume square matrix, rows=cols
     for sparse_row in sparse_matrix.iter() {
@@ -413,6 +416,7 @@ pub fn inplace_col_normalize(x: &mut [Vec<I32F32>]) {
 
 // Max-upscale each column (dim=1) of a sparse matrix in-place.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn inplace_col_max_upscale_sparse(sparse_matrix: &mut [Vec<(u16, I32F32)>], columns: u16) {
     let mut col_max: Vec<I32F32> = vec![I32F32::from_num(0.0); columns as usize]; // assume square matrix, rows=cols
     for sparse_row in sparse_matrix.iter() {
@@ -707,6 +711,7 @@ pub fn matmul_transpose(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<I32F32
 
 // Row-wise sparse_matrix-vector product, column-wise sum: result_j = SUM(i) vector_i * matrix_ij.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn matmul_sparse(
     sparse_matrix: &[Vec<(u16, I32F32)>],
     vector: &[I32F32],
@@ -726,6 +731,7 @@ pub fn matmul_sparse(
 
 // Column-wise sparse_matrix-vector product, row-wise sum: result_i = SUM(j) vector_j * matrix_ij.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn matmul_transpose_sparse(
     sparse_matrix: &[Vec<(u16, I32F32)>],
     vector: &[I32F32],
@@ -756,6 +762,7 @@ pub fn inplace_col_clip(x: &mut [Vec<I32F32>], col_threshold: &[I32F32]) {
 
 // Return sparse matrix with values above column threshold set to threshold value.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn col_clip_sparse(
     sparse_matrix: &[Vec<(u16, I32F32)>],
     col_threshold: &[I32F32],
@@ -855,6 +862,7 @@ pub fn clip_sparse(
 //         - median via random pivot binary search.
 //
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn weighted_median(
     stake: &[I32F32],
     score: &[I32F32],
@@ -915,6 +923,7 @@ pub fn weighted_median(
 
 /// Column-wise weighted median, e.g. stake-weighted median scores per server (column) over all validators (rows).
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn weighted_median_col(
     stake: &[I32F32],
     score: &[Vec<I32F32>],
@@ -955,6 +964,7 @@ pub fn weighted_median_col(
 
 /// Column-wise weighted median, e.g. stake-weighted median scores per server (column) over all validators (rows).
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn weighted_median_col_sparse(
     stake: &[I32F32],
     score: &[Vec<(u16, I32F32)>],
@@ -1017,6 +1027,7 @@ pub fn hadamard(mat1: &[Vec<I32F32>], mat2: &[Vec<I32F32>]) -> Vec<Vec<I32F32>> 
 
 // Element-wise product of two sparse matrices.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn hadamard_sparse(
     mat1: &[Vec<(u16, I32F32)>],
     mat2: &[Vec<(u16, I32F32)>],
@@ -1073,6 +1084,7 @@ pub fn mat_ema(new: &[Vec<I32F32>], old: &[Vec<I32F32>], alpha: I32F32) -> Vec<V
 // `alpha` is the EMA coefficient, how much to add of the new observation, typically small,
 // higher alpha discounts older observations faster.
 #[allow(dead_code, clippy::indexing_slicing)]
+#[test_fuzz::test_fuzz]
 pub fn mat_ema_sparse(
     new: &[Vec<(u16, I32F32)>],
     old: &[Vec<(u16, I32F32)>],

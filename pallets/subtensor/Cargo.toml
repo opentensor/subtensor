@@ -32,8 +32,9 @@ serde_bytes = { workspace = true, features = ["alloc"] }
 serde_with = { workspace = true, features = ["macros"] }
 sp-runtime = { workspace = true }
 sp-std = { workspace = true }
-log = { workspace = true }
 substrate-fixed = { workspace = true }
+test-fuzz = { workspace = true }
+log = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 ndarray = { workspace = true }
