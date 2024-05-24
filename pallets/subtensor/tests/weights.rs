@@ -1375,6 +1375,82 @@ fn test_commit_reveal_disabled_or_enabled() {
     });
 }
 
+#[test]
+fn test_toggle_commit_reveal_weights_and_set_weights() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let uids: Vec<u16> = vec![0, 1];
+        let weight_values: Vec<u16> = vec![10, 10];
+        let version_key: u64 = 0;
+        let hotkey: U256 = U256::from(1);
+
+        let commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
+        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+
+        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+
+        step_block(5);
+
+        // Set weights OK
+        let result = SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            0,
+        );
+        assert_ok!(result);
+
+        // Enable Commit/Reveal
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // Commit is enabled the same block
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash
+        ));
+
+        step_block(5); //Step to the next commit/reveal tempo
+
+        // Reveal OK
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            version_key,
+        ));
+
+        // Disable Commit/Reveal
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        // Cannot set weights the same block due to WeightsRateLimit
+        step_block(5); //step to avoid settingweightstofast
+
+        let result = SubtensorModule::set_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            0,
+        );
+        assert_ok!(result);
+    });
+}
+
 fn commit_reveal_set_weights(
     hotkey: U256,
     netuid: u16,
