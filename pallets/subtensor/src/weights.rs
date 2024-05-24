@@ -91,10 +91,10 @@ impl<T: Config> Pallet<T> {
 
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
             let (commit_hash, commit_block) =
-                maybe_commit.take().ok_or(Error::<T>::NoCommitFound)?;
+                maybe_commit.as_ref().ok_or(Error::<T>::NoCommitFound)?;
 
             ensure!(
-                Self::is_reveal_block_range(netuid, commit_block),
+                Self::is_reveal_block_range(netuid, *commit_block),
                 Error::<T>::InvalidRevealTempo
             );
 
@@ -105,7 +105,7 @@ impl<T: Config> Pallet<T> {
                 values.clone(),
                 version_key,
             ));
-            ensure!(provided_hash == commit_hash, Error::<T>::InvalidReveal);
+            ensure!(provided_hash == *commit_hash, Error::<T>::InvalidReveal);
 
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })

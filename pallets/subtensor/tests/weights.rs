@@ -1107,19 +1107,6 @@ fn test_commit_reveal_interval() {
             weight_values.clone(),
             version_key,
         ));
-
-        // After the previous reveal the associated mapping entry was removed.
-        // Therefore we expect NoCommitFound
-        assert_err!(
-            SubtensorModule::reveal_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                uids.clone(),
-                weight_values.clone(),
-                version_key,
-            ),
-            Error::<Test>::NoCommitFound
-        );
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
