@@ -255,7 +255,7 @@ impl<T: Config> Pallet<T> {
         // Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyAccountNotExists
         );
 
         // Ensure that the coldkey is the owner.
@@ -296,7 +296,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        return current_block - prev_tx_block <= rate_limit;
+        current_block - prev_tx_block <= rate_limit
     }
 
     // ========================

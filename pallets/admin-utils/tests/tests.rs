@@ -74,7 +74,7 @@ fn test_sudo_set_min_difficulty() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_min_difficulty(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_min_difficulty(
@@ -107,7 +107,7 @@ fn test_sudo_set_max_difficulty() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_difficulty(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_difficulty(
@@ -140,7 +140,7 @@ fn test_sudo_set_weights_version_key() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_weights_version_key(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_weights_version_key(
@@ -173,7 +173,7 @@ fn test_sudo_set_weights_set_rate_limit() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
             SubtensorModule::get_weights_set_rate_limit(netuid),
@@ -212,7 +212,7 @@ fn test_sudo_set_adjustment_interval() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_adjustment_interval(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_interval(
@@ -245,7 +245,7 @@ fn test_sudo_set_adjustment_alpha() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_adjustment_alpha(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_adjustment_alpha(
@@ -299,7 +299,7 @@ fn test_sudo_set_max_weight_limit() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_weight_limit(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_weight_limit(
@@ -351,7 +351,7 @@ fn test_sudo_set_immunity_period() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_immunity_period(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_immunity_period(
@@ -384,7 +384,7 @@ fn test_sudo_set_min_allowed_weights() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_min_allowed_weights(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_min_allowed_weights(
@@ -417,7 +417,7 @@ fn test_sudo_set_max_allowed_uids() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
@@ -450,7 +450,7 @@ fn test_sudo_set_and_decrease_max_allowed_uids() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_max_allowed_uids(
@@ -487,7 +487,7 @@ fn test_sudo_set_kappa() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_kappa(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_kappa(
@@ -520,7 +520,7 @@ fn test_sudo_set_rho() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_rho(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_rho(
@@ -553,7 +553,7 @@ fn test_sudo_set_activity_cutoff() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_activity_cutoff(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_activity_cutoff(
@@ -586,7 +586,7 @@ fn test_sudo_set_target_registrations_per_interval() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
             SubtensorModule::get_target_registrations_per_interval(netuid),
@@ -625,7 +625,7 @@ fn test_sudo_set_difficulty() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_difficulty_as_u64(netuid), init_value);
         assert_ok!(AdminUtils::sudo_set_difficulty(
@@ -658,7 +658,7 @@ fn test_sudo_set_max_allowed_validators() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
             SubtensorModule::get_max_allowed_validators(netuid),
@@ -718,7 +718,7 @@ fn test_sudo_set_bonds_moving_average() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(
             SubtensorModule::get_bonds_moving_average(netuid),
@@ -758,7 +758,7 @@ fn test_sudo_set_rao_recycled() {
                 netuid + 1,
                 to_be_set
             ),
-            Err(Error::<Test>::NetworkDoesNotExist.into())
+            Err(Error::<Test>::SubnetDoesNotExist.into())
         );
         assert_eq!(SubtensorModule::get_rao_recycled(netuid), init_value);
 
@@ -1071,7 +1071,7 @@ fn test_sudo_set_tx_delegate_take_rate_limit() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(
             SubtensorModule::get_tx_delegate_take_rate_limit(),
@@ -1098,7 +1098,7 @@ fn test_sudo_set_min_delegate_take() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_min_delegate_take(), init_value);
         assert_ok!(AdminUtils::sudo_set_min_delegate_take(
