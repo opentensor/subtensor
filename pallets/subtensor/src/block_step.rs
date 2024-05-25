@@ -115,6 +115,14 @@ impl<T: Config> Pallet<T> {
                 continue;
             }
 
+            // Check if the subnet has registrations turned off
+            if let Some(subnet_hyperparams) = Self::get_subnet_hyperparams(netuid) {
+                if !subnet_hyperparams.registration_allowed {
+                    // Subnet has registrations turned off, burn the emission
+                    continue;
+                }
+            }
+
             // --- 2. Queue the emission due to this network.
             let new_queued_emission: u64 = Self::get_subnet_emission_value(netuid);
             log::debug!(
