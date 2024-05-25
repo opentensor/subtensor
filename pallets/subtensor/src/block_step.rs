@@ -4,6 +4,13 @@ use sp_std::vec::Vec;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 
+struct SubnetInfo {
+    netuid: u16,
+    is_dynamic: bool,
+    price: I64F64,
+    tao_staked: u64,
+}
+
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
     pub fn block_step() -> Result<(), &'static str> {
@@ -138,111 +145,142 @@ impl<T: Config> Pallet<T> {
         tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
-    pub fn run_coinbase(block_number: u64) {
+    fn get_subnets() -> Vec<SubnetInfo> {
         // Get all the network uids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+        Self::get_all_subnet_netuids().iter().map(|&netuid| {
+            let dynamic = Self::is_subnet_dynamic(netuid);
+            SubnetInfo {
+                netuid: netuid,
+                is_dynamic: dynamic,
+                price: {
+                    if netuid == Self::get_root_netuid() {
+                        I64F64::from_num(0.0)
+                    } else if !dynamic {
+                        I64F64::from_num(0.0)
+                    } else {
+                        Self::get_tao_per_alpha_price(netuid)
+                    }
+                },
+                tao_staked: DynamicTAOReserve::<T>::get(netuid),
+            }
+        }).collect()
+    }
 
+    pub fn run_coinbase(block_number: u64) {
         // Compute and fill the prices from all subnets.
-        let mut prices: Vec<(u16, I64F64)> = Vec::new();
-        let mut total_prices: I64F64 = I64F64::from_num(0.0);
-        for netuid in netuids.iter() {
-            // If the subnet is root skip
-            if *netuid == Self::get_root_netuid() {
-                continue;
-            }
-            // If the subnet is not dynamic skip.
-            if !Self::is_subnet_dynamic(*netuid) {
-                continue;
-            }
-            // Calculate the price based on the reserve amounts.
-            let price = Self::get_tao_per_alpha_price(*netuid);
-            prices.push((*netuid, price));
-            total_prices += price;
-        }
+        let mut subnets = Self::get_subnets();
+        let total_prices: I64F64 = subnets.iter().map(|subnet_info| subnet_info.price).sum();
 
-        // Condition the inflation of TAO and alpha based on the sum of the prices.
-        // This keeps the market caps of ALPHA subsumed by TAO.
-        let tao_in: u64; // The total amount of TAO emitted this block into all pools.
-        let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
-        let alpha_out: u64 = Self::get_block_emission().unwrap(); // The amount of ALPHA emitted into each mechanism.
-        if total_prices <= I64F64::from_num(1.0) {
-            // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
-            tao_in = Self::get_block_emission().unwrap();
-            alpha_in = 0;
-        } else {
-            // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
-            tao_in = 0;
-            alpha_in = Self::get_block_emission().unwrap();
-        }
+        // Compute total TAO staked across all subnets
+        let total_tao_staked: u64 = subnets.iter().map(|subnet_info| subnet_info.tao_staked).sum();
 
-        for (netuid, price) in prices.iter() {
-            // Calculate the subnet's emission based on its normalized price as a proportion of tao_in.
-            let normalized_alpha_price: I64F64 = price / I64F64::from_num(total_prices);
-            let normalized_tao_in: u64 =
-                (normalized_alpha_price * I64F64::from_num(tao_in)).to_num::<u64>();
-            EmissionValues::<T>::insert(*netuid, normalized_tao_in);
+        // Compute emission per subnet as [p.tao_in/sum_tao for p in pools]
+        let total_block_emission = Self::get_block_emission().unwrap_or(0);
+        let total_block_emission_i64f64: I64F64 = I64F64::from_num(total_block_emission);
 
-            // Increment the pools tao reserve based on the block emission.
-            DynamicTAOReserve::<T>::mutate(netuid, |reserve| *reserve += normalized_tao_in);
-
-            // Increment the pools alpha reserve based on the alpha in emission.
-            DynamicAlphaReserve::<T>::mutate(netuid, |reserve| *reserve += alpha_in);
-
-            // Increment the total supply of alpha because we just added some to the reserve.
-            DynamicAlphaIssuance::<T>::mutate(netuid, |issuance| *issuance += alpha_in);
-
-            // Increment the amount of alpha that is waiting to be distributed through Yuma Consensus.
-            PendingAlphaEmission::<T>::mutate(netuid, |emission| *emission += alpha_out);
-
-            // Recalculate the Dynamic K value for the new pool.
-            DynamicK::<T>::insert(
-                netuid,
-                (DynamicTAOReserve::<T>::get(netuid) as u128)
-                    * (DynamicAlphaReserve::<T>::get(netuid) as u128),
-            );
-        }
-        // Increment the total amount of TAO in existence based on the total tao_in
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(tao_in));
-
-        // Iterate over network and run epochs.
-        for netuid in netuids.iter() {
-            // Check to see if this network has reached tempo.
-            let tempo: u16 = Self::get_tempo(*netuid);
-            if Self::blocks_until_next_epoch(*netuid, tempo, block_number) == 0 {
-                // Get the pending emission issuance to distribute for this subnet in alpha.
-                let alpha_emission: u64 = PendingAlphaEmission::<T>::get(netuid);
-
-                // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
-                let alpha_emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                    Self::epoch(*netuid, alpha_emission);
-
-                // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
-                // as well as all nominators.
-                for (hotkey, server_amount, validator_amount) in alpha_emission_tuples.iter() {
-                    Self::emit_inflation_through_hotkey_account(
-                        &hotkey,
-                        *netuid,
-                        *server_amount,
-                        *validator_amount,
+        if total_tao_staked != 0 {
+            subnets.iter_mut().for_each(|subnet_info| {
+                let subnet_proportion: I64F64 = I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked);
+                let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
+                let subnet_block_emission = emission_i64f64.to_num();
+                EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
+    
+                if subnet_info.is_dynamic {
+                    // Condition the inflation of TAO and alpha based on the sum of the prices.
+                    // This keeps the market caps of ALPHA subsumed by TAO.
+                    let tao_in: u64; // The total amount of TAO emitted this block into all pools.
+                    let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
+                    let alpha_out: u64 = subnet_block_emission; // The amount of ALPHA emitted into each mechanism.
+                    if total_prices <= I64F64::from_num(1.0) {
+                        // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
+                        tao_in = subnet_block_emission;
+                        alpha_in = 0;
+                    } else {
+                        // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
+                        tao_in = 0;
+                        alpha_in = subnet_block_emission;
+                    }
+    
+                    // Increment the pools tao reserve based on the block emission.
+                    DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+    
+                    // Increment the pools alpha reserve based on the alpha in emission.
+                    DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
+    
+                    // Increment the total supply of alpha because we just added some to the reserve.
+                    DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+    
+                    // Increment the amount of alpha that is waiting to be distributed through Yuma Consensus.
+                    PendingAlphaEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += alpha_out);
+    
+                    // Recalculate the Dynamic K value for the new pool.
+                    DynamicK::<T>::insert(
+                        subnet_info.netuid,
+                        (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
+                            * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
+                    );
+                } else {
+                    // Increment the pools tao reserve based on the block emission.
+                    DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += subnet_block_emission);
+    
+                    // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
+                    PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
+                }
+    
+                ////////////////////////////////
+                // run epochs.
+    
+                // Check to see if this network has reached tempo.
+                let tempo: u16 = Self::get_tempo(subnet_info.netuid);
+                if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
+                    // Get the pending emission issuance to distribute for this subnet
+                    let emission = if subnet_info.is_dynamic {
+                        PendingAlphaEmission::<T>::get(subnet_info.netuid)
+                    } else {
+                        PendingEmission::<T>::get(subnet_info.netuid)
+                    };
+    
+                    // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
+                    let emission_tuples: Vec<(T::AccountId, u64, u64)> =
+                        Self::epoch(subnet_info.netuid, emission);
+    
+                    // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
+                    // as well as all nominators.
+                    for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
+                        Self::emit_inflation_through_hotkey_account(
+                            &hotkey,
+                            subnet_info.netuid,
+                            *server_amount,
+                            *validator_amount,
+                        );
+                    }
+    
+                    // Drain emission and update dynamic pools
+                    if subnet_info.is_dynamic {
+                        // Drain the pending emission issuance for this subnet.
+                        PendingAlphaEmission::<T>::insert(subnet_info.netuid, 0);
+                        // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
+                        DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
+                        // Also increment the total amount of alpha in total everywhere.
+                        DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
+                    } else {
+                        // Drain the pending emission issuance for this subnet.
+                        PendingEmission::<T>::insert(subnet_info.netuid, 0);
+                    }
+    
+                    // Some other counters for accounting.
+                    Self::set_blocks_since_last_step(subnet_info.netuid, 0);
+                    Self::set_last_mechanism_step_block(subnet_info.netuid, block_number);
+                } else {
+                    Self::set_blocks_since_last_step(
+                        subnet_info.netuid,
+                        Self::get_blocks_since_last_step(subnet_info.netuid) + 1,
                     );
                 }
-
-                // Drain the pending emission issuance for this subnet.
-                PendingAlphaEmission::<T>::insert(netuid, 0);
-                // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
-                DynamicAlphaOutstanding::<T>::mutate(netuid, |reserve| *reserve += alpha_emission);
-                // Also increment the total amount of alpha in total everywhere.
-                DynamicAlphaIssuance::<T>::mutate(netuid, |issuance| *issuance += alpha_emission);
-                // Some other counters for accounting.
-                Self::set_blocks_since_last_step(*netuid, 0);
-                Self::set_last_mechanism_step_block(*netuid, block_number);
-            } else {
-                Self::set_blocks_since_last_step(
-                    *netuid,
-                    Self::get_blocks_since_last_step(*netuid) + 1,
-                );
-                continue;
-            }
+            });
+    
+            // Increment the total amount of TAO in existence based on the total tao_in
+            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(total_block_emission));
         }
     }
 

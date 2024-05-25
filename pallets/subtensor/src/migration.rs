@@ -456,8 +456,10 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
 
         // Assuming TotalHotkeySubStake needs to be updated similarly
         let mut total_stakes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
-        SubStake::<T>::iter().for_each(|((_, hotkey, _), stake)| {
+        let mut total_subnet_stakes: BTreeMap<u16, u64> = BTreeMap::new();
+        SubStake::<T>::iter().for_each(|((_, hotkey, netuid), stake)| {
             *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
+            *total_subnet_stakes.entry(netuid).or_insert(0) += stake;
         });
 
         for (hotkey, total_stake) in total_stakes.iter() {
@@ -467,6 +469,17 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
         log::info!(
             "Inserted {} entries into TotalHotkeySubStake",
             total_stakes.len()
+        );
+
+        // For STAO the total stake is the same thing as DynamicTAOReserve for DTAO, so
+        // we are using this map for both STAO and DTAO.
+        for (netuid, total_stake) in total_subnet_stakes.iter() {
+            DynamicTAOReserve::<T>::insert(netuid, total_stake);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+        }
+        log::info!(
+            "Inserted {} entries into DynamicTAOReserve",
+            total_subnet_stakes.len()
         );
 
         // Remove the old `TotalStake` type.

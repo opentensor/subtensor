@@ -611,9 +611,9 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 7. Ensure that we can conver this u64 to a balance.
-        let stake_to_be_added_as_currency = Self::u64_to_balance(stake_to_be_removed);
+        let stake_to_be_removed_as_currency = Self::u64_to_balance(stake_to_be_removed);
         ensure!(
-            stake_to_be_added_as_currency.is_some(),
+            stake_to_be_removed_as_currency.is_some(),
             Error::<T>::CouldNotConvertToBalance
         );
 
@@ -692,30 +692,32 @@ impl<T: Config> Pallet<T> {
     /// The function will panic if the new dynamic reserve calculation overflows, although this is highly unlikely due to the
     /// use of saturating arithmetic operations.
     pub fn compute_dynamic_unstake(netuid: u16, stake_to_be_removed: u64) -> u64 {
-        // Root network does not have dynamic stake.
+        // STAO networks do not have dynamic stake, but we are using DynamicTAOReserve
+        // to store total subnet stake, so update it here.        
         if !Self::is_subnet_dynamic(netuid) {
-            return stake_to_be_removed;
+            DynamicTAOReserve::<T>::mutate(netuid, |reserve| *reserve -= stake_to_be_removed);
+            stake_to_be_removed
+        } else {
+            let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+            let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+            let k = DynamicK::<T>::get(netuid);
+    
+            // Calculate the new dynamic reserve after adding the stake to be removed
+            let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
+            // Calculate the new tao reserve based on the new dynamic reserve
+            let new_tao_reserve: u64 = (k / (new_dynamic_reserve as u128)) as u64;
+            // Calculate the amount of tao to be pulled out based on the difference in tao reserves
+            let tao = tao_reserve.saturating_sub(new_tao_reserve);
+    
+            // Update the reserves with the new values
+            DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+            DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+            DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| {
+                *outstanding -= stake_to_be_removed
+            }); // Decrement outstanding alpha.
+    
+            tao
         }
-
-        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
-        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
-        let k = DynamicK::<T>::get(netuid);
-
-        // Calculate the new dynamic reserve after adding the stake to be removed
-        let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
-        // Calculate the new tao reserve based on the new dynamic reserve
-        let new_tao_reserve: u64 = (k / (new_dynamic_reserve as u128)) as u64;
-        // Calculate the amount of tao to be pulled out based on the difference in tao reserves
-        let tao = tao_reserve.saturating_sub(new_tao_reserve);
-
-        // Update the reserves with the new values
-        DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
-        DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
-        DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| {
-            *outstanding -= stake_to_be_removed
-        }); // Decrement outstanding alpha.
-
-        tao
     }
 
     /// Computes the dynamic stake amount based on the current reserves and the stake to be added.
@@ -746,28 +748,30 @@ impl<T: Config> Pallet<T> {
     /// The function will panic if the new tao reserve calculation overflows, although this is highly unlikely due to the
     /// use of saturating arithmetic operations.
     pub fn compute_dynamic_stake(netuid: u16, stake_to_be_added: u64) -> u64 {
-        // Root network does not have dynamic stake.
+        // STAO networks do not have dynamic stake, but we are using DynamicTAOReserve
+        // to store total subnet stake, so update it here.
         if !Self::is_subnet_dynamic(netuid) {
-            return stake_to_be_added;
+            DynamicTAOReserve::<T>::mutate(netuid, |reserve| *reserve += stake_to_be_added);
+            stake_to_be_added
+        } else {
+            let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+            let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+            let k = DynamicK::<T>::get(netuid);
+    
+            // Calculate the new tao reserve after adding the stake
+            let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
+            // Calculate the new dynamic reserve based on the new tao reserve
+            let new_dynamic_reserve: u64 = (k / (new_tao_reserve as u128)) as u64;
+            // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
+            let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
+    
+            // Update the reserves with the new values
+            DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+            DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+            DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| *outstanding += dynamic_token); // Increment outstanding alpha.
+    
+            dynamic_token
         }
-
-        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
-        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
-        let k = DynamicK::<T>::get(netuid);
-
-        // Calculate the new tao reserve after adding the stake
-        let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
-        // Calculate the new dynamic reserve based on the new tao reserve
-        let new_dynamic_reserve: u64 = (k / (new_tao_reserve as u128)) as u64;
-        // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
-        let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
-
-        // Update the reserves with the new values
-        DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
-        DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
-        DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| *outstanding += dynamic_token); // Increment outstanding alpha.
-
-        dynamic_token
     }
 
     // Returns true if the passed hotkey allow delegative staking.
