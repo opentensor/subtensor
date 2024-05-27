@@ -306,7 +306,6 @@ impl<T: Config> Pallet<T> {
             .unwrap_or(false)
     }
 
-
     /// Computes and sets emission values for the root network which determine the emission for all subnets.
     ///
     /// This function is responsible for calculating emission based on network weights, stake values,

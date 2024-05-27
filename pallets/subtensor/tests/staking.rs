@@ -2789,7 +2789,7 @@ fn test_delegate_take_can_be_decreased() {
                 hotkey0,
                 u16::MAX / 20
             ),
-            Error::<Test>::InvalidTake
+            Error::<Test>::DelegateTakeTooLow
         );
     });
 }
