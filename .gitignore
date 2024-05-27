@@ -38,3 +38,7 @@ specs/*.json
 
 # IntelliJ IDEA configuration
 .idea
+
+baedeker-config
+.baedeker/.bdk-env
+
