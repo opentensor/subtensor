@@ -45,6 +45,7 @@ sc-consensus = { workspace = true }
 sc-consensus-grandpa = { workspace = true }
 sc-consensus-grandpa-rpc = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
+sc-consensus-slots = { workspace = true }
 sc-client-api = { workspace = true }
 sp-runtime = { workspace = true }
 sp-io = { workspace = true }
