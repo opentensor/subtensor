@@ -1399,7 +1399,7 @@ pub mod pallet {
             Self::do_commit_weights(origin, netuid, commit_hash)
         }
 
-        /// ---- Used to reveal the weights for a previously committed hash.
+       /// ---- Used to reveal the weights for a previously committed hash.
         ///
         /// # Args:
         /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
@@ -1413,6 +1413,9 @@ pub mod pallet {
         ///
         /// * `values` (`Vec<u16>`):
         ///   - The values of the weights being revealed.
+        /// 
+        /// * `salt` (`Vec<u8>`):
+        ///   - The random salt to protect from brute-force guessing attack in case of small weight changes bit-wise.
         ///
         /// * `version_key` (`u64`):
         ///   - The network version key.
@@ -1436,10 +1439,12 @@ pub mod pallet {
             netuid: u16,
             uids: Vec<u16>,
             values: Vec<u16>,
+            salt: Vec<u8>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_reveal_weights(origin, netuid, uids, values, version_key)
+            Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
+
 
         /// # Args:
         /// * `origin`: (<T as frame_system::Config>Origin):
