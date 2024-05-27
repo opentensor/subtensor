@@ -2729,9 +2729,7 @@ fn test_remove_stake_below_minimum_threshold() {
         assert_eq!(Balances::free_balance(coldkey2), bal_before + stake_removed);
 
         // Stake map entry is removed
-        assert!(
-            Stake::<Test>::try_get(hotkey1, coldkey2).is_err(),
-        );
+        assert!(Stake::<Test>::try_get(hotkey1, coldkey2).is_err(),);
         // Stake tracking is updated
         assert_eq!(
             TotalColdkeyStake::<Test>::try_get(coldkey2).unwrap(),
