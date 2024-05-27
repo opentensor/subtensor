@@ -75,7 +75,7 @@
 # required_version = "1.5.1"
 # unstable_features = false
 # disable_all_formatting = false
-skip_children = true
+# skip_children = true
 # hide_parse_errors = false
 # error_on_line_overflow = false
 # error_on_unformatted = false
