@@ -6,6 +6,7 @@ use super::*;
 use crate::Pallet as Commitments;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
+use sp_std::vec;
 
 use sp_runtime::traits::Bounded;
 

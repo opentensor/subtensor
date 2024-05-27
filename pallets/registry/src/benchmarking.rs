@@ -8,6 +8,7 @@ use frame_benchmarking::v1::account;
 use frame_benchmarking::v2::*;
 use frame_support::traits::tokens::fungible::Mutate;
 use frame_system::RawOrigin;
+use sp_std::vec;
 
 use sp_runtime::traits::Bounded;
 

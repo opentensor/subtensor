@@ -12,6 +12,8 @@ pub use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFER
 pub use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
 #[cfg(feature = "runtime-benchmarks")]
 pub use sp_keyring::Sr25519Keyring;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::traits::HashingFor;
 
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
@@ -147,7 +149,7 @@ pub fn run() -> sc_cli::Result<()> {
                             );
                         }
 
-                        cmd.run::<Block, service::ExecutorDispatch>(config)
+                        cmd.run::<HashingFor<Block>, service::ExecutorDispatch>(config)
                     }
                     BenchmarkCmd::Block(cmd) => {
                         let PartialComponents { client, .. } = service::new_partial(&config)?;
