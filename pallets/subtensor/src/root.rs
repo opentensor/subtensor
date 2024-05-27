@@ -286,6 +286,24 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::NetworkRateLimitSet(limit));
     }
 
+    /// Checks if registrations are allowed for a given subnet.
+    ///
+    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the `registration_allowed` flag.
+    /// If the subnet doesn't exist or doesn't have hyperparameters defined, it returns `false`.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the subnet.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - `true` if registrations are allowed for the subnet, `false` otherwise.
+    pub fn is_registration_allowed(netuid: u16) -> bool {
+        Self::get_subnet_hyperparams(netuid)
+            .map(|params| params.registration_allowed)
+            .unwrap_or(false)
+    }
+
     // Computes and sets emission values for the root network which determine the emission for all subnets.
     //
     // This function is responsible for calculating emission based on network weights, stake values,
