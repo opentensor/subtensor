@@ -414,7 +414,7 @@ reveal_weights {
     );
 
     Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
-    Subtensor::<T>::set_weight_commit_interval(0);
+    Subtensor::<T>::set_commit_reveal_weights_interval(netuid, 0);
 
     let commit_hash: H256 = BlakeTwo256::hash_of(&(
       hotkey.clone(),

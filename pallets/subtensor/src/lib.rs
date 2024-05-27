@@ -934,10 +934,20 @@ pub mod pallet {
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
         1000
     }
-
+    // --- DMAP ( netuid ) --> interval
     #[pallet::storage]
     pub type WeightCommitRevealInterval<T> =
-        StorageValue<_, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+
+    /// Default value for weight commit/reveal enabled.
+    #[pallet::type_value]
+    pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
+        false
+    }
+    // --- DMAP ( netuid ) --> interval
+    #[pallet::storage]
+    pub type CommitRevealWeightsEnabled<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
@@ -1354,7 +1364,11 @@ pub mod pallet {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_weights(origin, netuid, dests, weights, version_key)
+            if !Self::get_commit_reveal_weights_enabled(netuid) {
+                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+            }
+
+            Err(Error::<T>::CommitRevealEnabled.into())
         }
 
         /// ---- Used to commit a hash of your weight values to later be revealed.
