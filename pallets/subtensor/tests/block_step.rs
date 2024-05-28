@@ -839,20 +839,24 @@ fn test_subnet_staking_emission() {
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             2,
-            lock_amount
+            3 * lock_amount / 2
         ));
         assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             3,
-            2 * lock_amount / 3
+            2 * lock_amount
         ));
 
         SubtensorModule::run_coinbase(1);
+        // Subnet block emission is subnet tao staked / total tao staked =
+        // Subnet 1: 0.5 / 2
+        // Subnet 2: 0.5 / 2
+        // Subnet 3: 1 / 2
         let tao = 1_000_000_000.;
-        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, 0.5); // 0.5 TAO
-        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, 0.25); // 0.25 TAO
-        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.25); // 0.25 TAO
+        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, 0.25);
+        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, 0.25);
+        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.5);
     });
 }
 
@@ -877,15 +881,15 @@ fn test_run_coinbase_price_greater_than_1() {
         log::info!("Tao reserve before: {:?}", tao_reserve_before);
         let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
         log::info!("Alpha reserve before: {:?}", alpha_reserve_before);
-        let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
-        log::info!("Pending alpha before: {:?}", pending_alpha_before);
+        let pending_before = SubtensorModule::get_pending_emission(netuid);
+        log::info!("Pending alpha before: {:?}", pending_before);
         SubtensorModule::run_coinbase(1);
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         log::info!("Tao reserve after: {:?}", tao_reserve_after);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
         log::info!("Alpha reserve after: {:?}", alpha_reserve_after);
-        let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
-        log::info!("Pending alpha after: {:?}", pending_alpha_after);
+        let pending_after = SubtensorModule::get_pending_emission(netuid);
+        log::info!("Pending alpha after: {:?}", pending_after);
         log::info!(
             "Tao emissions: {:?}",
             SubtensorModule::get_emission_value(netuid)
@@ -893,7 +897,7 @@ fn test_run_coinbase_price_greater_than_1() {
 
         assert_eq!(tao_reserve_after == tao_reserve_before, true);
         assert_eq!(alpha_reserve_after > alpha_reserve_before, true);
-        assert_eq!(pending_alpha_after > pending_alpha_before, true);
+        assert_eq!(pending_after > pending_before, true);
     })
 }
 
@@ -916,11 +920,11 @@ fn test_run_coinbase_price_less_than_1() {
         // Check that running run_coinbase behaves correctly
         let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
-        let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
+        let pending_before = SubtensorModule::get_pending_emission(netuid);
         SubtensorModule::run_coinbase(1);
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
-        let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
+        let pending_after = SubtensorModule::get_pending_emission(netuid);
         log::info!(
             "Subnet emissions: {:?}",
             SubtensorModule::get_emission_value(netuid)
@@ -934,7 +938,7 @@ fn test_run_coinbase_price_less_than_1() {
 
         assert_eq!(tao_reserve_after > tao_reserve_before, true);
         assert_eq!(alpha_reserve_after, alpha_reserve_before);
-        assert_eq!(pending_alpha_after > pending_alpha_before, true);
+        assert_eq!(pending_after > pending_before, true);
     })
 }
 

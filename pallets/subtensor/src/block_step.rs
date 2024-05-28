@@ -189,6 +189,8 @@ impl<T: Config> Pallet<T> {
                 let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
                 let subnet_block_emission = emission_i64f64.to_num();
                 EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
+                // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
+                PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
     
                 match subnet_info.subnet_type {
                     SubnetType::DTAO => {
@@ -196,7 +198,6 @@ impl<T: Config> Pallet<T> {
                         // This keeps the market caps of ALPHA subsumed by TAO.
                         let tao_in: u64; // The total amount of TAO emitted this block into all pools.
                         let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
-                        let alpha_out: u64 = subnet_block_emission; // The amount of ALPHA emitted into each mechanism.
                         if total_prices <= I64F64::from_num(1.0) {
                             // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
                             tao_in = subnet_block_emission;
@@ -216,9 +217,6 @@ impl<T: Config> Pallet<T> {
                         // Increment the total supply of alpha because we just added some to the reserve.
                         DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
         
-                        // Increment the amount of alpha that is waiting to be distributed through Yuma Consensus.
-                        PendingAlphaEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += alpha_out);
-        
                         // Recalculate the Dynamic K value for the new pool.
                         DynamicK::<T>::insert(
                             subnet_info.netuid,
@@ -226,10 +224,7 @@ impl<T: Config> Pallet<T> {
                                 * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
                         );
                     },
-                    SubnetType::STAO => {
-                        // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
-                        PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
-                    }
+                    SubnetType::STAO => {}
                 }
     
                 ////////////////////////////////
@@ -239,10 +234,7 @@ impl<T: Config> Pallet<T> {
                 let tempo: u16 = Self::get_tempo(subnet_info.netuid);
                 if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
                     // Get the pending emission issuance to distribute for this subnet
-                    let emission = match subnet_info.subnet_type {
-                        SubnetType::DTAO => PendingAlphaEmission::<T>::get(subnet_info.netuid),
-                        SubnetType::STAO => PendingEmission::<T>::get(subnet_info.netuid),
-                    };
+                    let emission = PendingEmission::<T>::get(subnet_info.netuid);
     
                     // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
                     let emission_tuples: Vec<(T::AccountId, u64, u64)> =
@@ -260,19 +252,16 @@ impl<T: Config> Pallet<T> {
                     }
     
                     // Drain emission and update dynamic pools
+                    // Drain the pending emission issuance for this subnet.
+                    PendingEmission::<T>::insert(subnet_info.netuid, 0);
                     match subnet_info.subnet_type {
                         SubnetType::DTAO => {
-                            // Drain the pending emission issuance for this subnet.
-                            PendingAlphaEmission::<T>::insert(subnet_info.netuid, 0);
                             // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
                             DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
                             // Also increment the total amount of alpha in total everywhere.
                             DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
                         },
-                        SubnetType::STAO => {
-                            // Drain the pending emission issuance for this subnet.
-                            PendingEmission::<T>::insert(subnet_info.netuid, 0);
-                        },
+                        SubnetType::STAO => {},
                     }
     
                     // Some other counters for accounting.

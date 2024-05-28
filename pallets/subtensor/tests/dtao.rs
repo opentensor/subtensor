@@ -216,23 +216,23 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the pending alpha emission of the 2 subnets is correct.
         let tao = 1_000_000_000;
 
-        assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(1), 0.9901); // diluted because of emissions in run_to_block
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(1), 0.9980); // diluted because of emissions in run_to_block
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(2), 0.125);
         step_block(1);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1), 100_000_000_000u64);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(2).div_ceil(tao), 101);
         assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 102);
-        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 802);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 801);
         run_to_block(10);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1).div_ceil(tao), 100);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(2).div_ceil(tao), 101);
         assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 108);
-        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 808);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 801);
         run_to_block(30);
-        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1).div_ceil(tao), 107);
+        assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(1).div_ceil(tao), 106);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_reserve(2).div_ceil(tao), 101);
-        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 121);
-        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 821);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(1).div_ceil(tao), 122);
+        assert_i64f64_approx_eq!(SubtensorModule::get_alpha_reserve(2).div_ceil(tao), 801);
 
         for _ in 0..100 {
             step_block(1);

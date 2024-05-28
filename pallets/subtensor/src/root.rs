@@ -737,7 +737,7 @@ impl<T: Config> Pallet<T> {
             ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
         }
         if !EmissionValues::<T>::contains_key(netuid) {
-            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
+            EmissionValues::<T>::insert(netuid, DefaultEmissionValues::<T>::get());
         }
         if !MaxWeightsLimit::<T>::contains_key(netuid) {
             MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
