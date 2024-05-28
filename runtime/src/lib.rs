@@ -1130,6 +1130,10 @@ impl
     fn get_nominator_min_required_stake() -> u64 {
         SubtensorModule::get_nominator_min_required_stake()
     }
+
+    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval)
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {
