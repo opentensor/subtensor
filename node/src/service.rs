@@ -5,6 +5,7 @@ use node_subtensor_runtime::{opaque::Block, RuntimeApi};
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
+use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_executor::sp_wasm_interface::{Function, HostFunctionRegistry, HostFunctions};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
@@ -240,7 +241,10 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 
     let role = config.role.clone();
     let force_authoring = config.force_authoring;
-    let backoff_authoring_blocks: Option<()> = None;
+    let backoff_authoring_blocks = Some(BackoffAuthoringOnFinalizedHeadLagging {
+        unfinalized_slack: 6,
+        ..Default::default()
+    });
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
