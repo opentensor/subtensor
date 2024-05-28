@@ -8,10 +8,14 @@ BASE_DIR="$SCRIPT_DIR/.."
 
 : "${CHAIN:=local}"
 : "${BUILD_BINARY:=1}"
-: "${FEATURES:=pow-faucet}"
+: "${FEATURES:="pow-faucet fast-blocks"}"
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
 FULL_PATH="$SPEC_PATH$CHAIN.json"
+
+# Kill any existing nodes which may have not exited correctly after a previous
+# run.
+pkill -9 'node-subtensor'
 
 if [ ! -d "$SPEC_PATH" ]; then
   echo "*** Creating directory ${SPEC_PATH}..."
@@ -59,8 +63,10 @@ bob_start=(
   --discover-local
 )
 
+trap 'pkill -P $$' EXIT SIGINT SIGTERM
+
 (
-  trap 'kill 0' SIGINT
   ("${alice_start[@]}" 2>&1) &
   ("${bob_start[@]}" 2>&1)
+  wait
 )
