@@ -65,7 +65,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the alpha reserve is 100 ALPHA
         // -- that the k factor is 100 TAO * 100 ALPHA.
         // -- that the new network is dynamic
-        assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // 200 TAO.
+        assert_eq!(SubtensorModule::get_network_lock_cost(), 199_999_999_000); // 200 TAO.
                                                                                // TODO:(sam)Decide how to deal with ED , as this account can only stake 199
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey),
@@ -103,8 +103,8 @@ fn test_add_subnet_stake_ok_no_emission() {
         );
 
         // Register a new network
-        assert_eq!(SubtensorModule::get_network_lock_cost(), lock_cost * 2);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_cost * 2);
+        assert_eq!(SubtensorModule::get_network_lock_cost(), 2 * (lock_cost - ExistentialDeposit::get()));
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 2 * (lock_cost - ExistentialDeposit::get()));
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey
@@ -124,8 +124,8 @@ fn test_add_subnet_stake_ok_no_emission() {
         // -- that the alpha reserve is 400 ALPHA
         // -- that the k factor is 200 TAO * 400 ALPHA.
         // -- that the new network is dynamic
-        assert_eq!(SubtensorModule::get_network_lock_cost(), 400_000_000_000); // 4 TAO.
-                                                                               // TODO:(sam)Decide how to deal with ED , as this account can only stake 199
+        // TODO:(sam)Decide how to deal with ED , as this account can only stake 199
+        assert_eq!(SubtensorModule::get_network_lock_cost(), 400_000_000_000 - ExistentialDeposit::get() * 4); // 400 TAO.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey),
             ExistentialDeposit::get()
@@ -142,18 +142,19 @@ fn test_add_subnet_stake_ok_no_emission() {
         );
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey, 2),
-            400_000_000_000
+            400_000_000_000 - ExistentialDeposit::get() * 4
         ); // 2 subnets * 2 TAO lock cost.
         assert_eq!(
             SubtensorModule::get_total_stake_for_subnet(2),
-            400_000_000_000
+            400_000_000_000 - ExistentialDeposit::get() * 4
         );
         assert_eq!(SubtensorModule::get_tao_per_alpha_price(2), 0.5);
-        assert_eq!(SubtensorModule::get_tao_reserve(2), 200_000_000_000);
-        assert_eq!(SubtensorModule::get_alpha_reserve(2), 400_000_000_000);
+        assert_eq!(SubtensorModule::get_tao_reserve(2), 200_000_000_000 - ExistentialDeposit::get() * 2);
+        assert_eq!(SubtensorModule::get_alpha_reserve(2), 400_000_000_000 - ExistentialDeposit::get() * 4);
         assert_eq!(
             SubtensorModule::get_pool_k(2),
-            200_000_000_000 * 400_000_000_000
+            (200_000_000_000 - ExistentialDeposit::get() as u128 * 2u128) * 
+            (400_000_000_000 - ExistentialDeposit::get() as u128 * 4u128)
         );
         assert_eq!(SubtensorModule::is_subnet_dynamic(2), true);
         log::info!(
@@ -177,7 +178,8 @@ fn test_add_subnet_stake_ok_no_emission() {
         SubtensorModule::set_subnet_owner_lock_period(0);
         assert_eq!(
             SubtensorModule::get_pool_k(2),
-            200_000_000_000 * 400_000_000_000
+            (200_000_000_000 - ExistentialDeposit::get() as u128 * 2u128) * 
+            (400_000_000_000 - ExistentialDeposit::get() as u128 * 4u128)
         );
 
         run_to_block(3);
@@ -185,7 +187,7 @@ fn test_add_subnet_stake_ok_no_emission() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
             2,
-            400_000_000_000
+            400_000_000_000 - ExistentialDeposit::get() * 4
         ));
         // assert_eq!( Balances::free_balance(coldkey), 100_000_000_000);
         // Also use more rigour calculation for slippage via K

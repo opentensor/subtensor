@@ -43,3 +43,8 @@ impl From<Vec<u8>> for TensorBytes {
         TensorBytes(sp_core::Bytes(bytes))
     }
 }
+
+pub enum SubnetType {
+    STAO,
+    DTAO
+}

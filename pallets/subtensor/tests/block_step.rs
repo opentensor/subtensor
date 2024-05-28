@@ -852,8 +852,7 @@ fn test_subnet_staking_emission() {
         let tao = 1_000_000_000.;
         assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, 0.5); // 0.5 TAO
         assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, 0.25); // 0.25 TAO
-        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.25);
-        // 0.25 TAO
+        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.25); // 0.25 TAO
     });
 }
 

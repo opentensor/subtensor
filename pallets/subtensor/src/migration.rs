@@ -474,7 +474,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
         // For STAO the total stake is the same thing as DynamicTAOReserve for DTAO, so
         // we are using this map for both STAO and DTAO.
         for (netuid, total_stake) in total_subnet_stakes.iter() {
-            DynamicTAOReserve::<T>::insert(netuid, total_stake);
+            TotalSubnetStake::<T>::insert(netuid, total_stake);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
         log::info!(
@@ -562,7 +562,7 @@ pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         });
     } else {
-        log::info!("Migration to remove deprecated storage variables already done!");
+        log::info!("Migration to populate subnet creator already done!");
     }
 
     log::info!("Final weight: {:?}", weight);

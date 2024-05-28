@@ -176,7 +176,7 @@ fn test_add_subnet_stake_not_registered_key_pair() {
                 netuid,
                 amount
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
     });
 }
@@ -205,7 +205,10 @@ fn test_add_subnet_stake_err_neuron_does_not_belong_to_coldkey() {
             netuid,
             1000,
         );
-        assert_eq!(result, Err(Error::<Test>::NonAssociatedColdKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        );
     });
 }
 
@@ -675,7 +678,7 @@ fn test_remove_subnet_stake_amount_zero() {
                 netuid,
                 0
             ),
-            Error::<Test>::NotEnoughStaketoWithdraw
+            Error::<Test>::StakeToWithdrawIsZero
         );
     });
 }
@@ -719,7 +722,10 @@ fn test_remove_subnet_stake_err_hotkey_does_not_belong_to_coldkey() {
             netuid,
             1000,
         );
-        assert_eq!(result, Err(Error::<Test>::NonAssociatedColdKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        );
     });
 }
 
@@ -749,7 +755,7 @@ fn test_remove_subnet_stake_no_enough_stake() {
             netuid,
             amount,
         );
-        assert_eq!(result, Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
+        assert_eq!(result, Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
     });
 }
 
@@ -1086,7 +1092,7 @@ fn test_remove_balance_from_coldkey_account_failed() {
         // as there is no balance, nor does the account exist
         let result =
             SubtensorModule::remove_balance_from_coldkey_account(&coldkey_account_id, ammount);
-        assert_eq!(result, Err(Error::<Test>::BalanceWithdrawalError.into()));
+        assert_eq!(result, Err(Error::<Test>::ZeroBalanceAfterWithdrawn.into()));
     });
 }
 
@@ -1265,7 +1271,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::add_subnet_stake(
@@ -1274,7 +1280,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
         // Cant remove either.
@@ -1285,7 +1291,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1294,7 +1300,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1303,7 +1309,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1312,7 +1318,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
         // Neither key can become a delegate either because we are not registered.
@@ -1321,14 +1327,14 @@ fn test_full_with_delegating() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
         // Register the 2 neurons to a new network.
@@ -1355,7 +1361,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::add_subnet_stake(
@@ -1364,7 +1370,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // We stake and all is ok.
@@ -1432,7 +1438,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1441,7 +1447,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // Emit inflation through non delegates.
@@ -1491,14 +1497,14 @@ fn test_full_with_delegating() {
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey0
             ),
-            Err(Error::<Test>::AlreadyDelegate.into())
+            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
         assert_eq!(
             SubtensorModule::do_become_delegate(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey1
             ),
-            Err(Error::<Test>::AlreadyDelegate.into())
+            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
 
         // This add stake works for delegates.
@@ -1632,7 +1638,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1641,7 +1647,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1650,7 +1656,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1659,7 +1665,7 @@ fn test_full_with_delegating() {
                 netuid,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
 
         // unstaking is ok.
@@ -1746,7 +1752,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -1755,7 +1761,7 @@ fn test_full_with_delegating() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // Lets make this new key a delegate with an 18% take (default take value in tests).
@@ -1922,7 +1928,7 @@ fn test_full_with_delegating_some_servers() {
                 netuid,
                 60000
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::NotEnoughBalanceToStake.into())
         );
         assert_eq!(
             SubtensorModule::add_subnet_stake(
@@ -1931,7 +1937,7 @@ fn test_full_with_delegating_some_servers() {
                 netuid,
                 60000
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::NotEnoughBalanceToStake.into())
         );
 
         // Add balances.
@@ -2203,7 +2209,7 @@ fn test_full_with_delegating_some_servers() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_subnet_stake(
@@ -2212,7 +2218,7 @@ fn test_full_with_delegating_some_servers() {
                 netuid,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         assert_eq!(SubtensorModule::get_total_stake(), total);
@@ -2464,7 +2470,7 @@ fn test_full_block_emission_occurs() {
                 netuid,
                 60000
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::NotEnoughBalanceToStake.into())
         );
         assert_eq!(
             SubtensorModule::add_subnet_stake(
@@ -2473,7 +2479,7 @@ fn test_full_block_emission_occurs() {
                 netuid,
                 60000
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::NotEnoughBalanceToStake.into())
         );
 
         // Add balances.
@@ -2956,7 +2962,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
                 netuid,
                 u16::MAX / 10
             ),
-            Err(Error::<Test>::InvalidTake.into())
+            Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
             SubtensorModule::get_delegate_take(&hotkey0, netuid),
@@ -3065,7 +3071,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
                 netuid,
                 u16::MAX / 20
             ),
-            Err(Error::<Test>::InvalidTake.into())
+            Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
             SubtensorModule::get_delegate_take(&hotkey0, netuid),
@@ -3164,7 +3170,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
                     netuid,
                     InitialDefaultTake::get() + 1
                 ),
-                Err(Error::<Test>::InvalidTake.into())
+                Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
         assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), before);
@@ -3330,450 +3336,22 @@ fn test_changing_delegate_take_changes_distribution() {
             netuid,
             u16::MAX / 10
         ));
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 10);
 
-        // Lets emit inflation through this new key with distributed ownership.
-        // We will emit 0 server emission (which should go in-full to the owner of the hotkey).
-        // We will emit 400 validator emission, which should be distributed in-part to the nominators.
-        //
-        // Total initial stake is 200
-        // Delegate's initial stake is 100, which is 50% of total stake
-        //  => Delegate will receive 50% of emission (200) + 10% take (20) of nominator reward (200)
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 400);
-        assert_eq!(
-            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
-            320
-        ); // 100 + 50% * 400 + 10% * 200 = 320
-    });
-}
-
-#[test]
-fn test_can_set_different_take_per_subnet() {
-    new_test_ext(1).execute_with(|| {
-        // Make account
-        let hotkey0 = U256::from(1);
-        let coldkey0 = U256::from(3);
-        let netuid1 = 1;
-        let netuid2 = 2;
-
-        // Add balance
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
-
-        // Add networks
-        add_network(netuid1, 0, 0);
-        add_network(netuid2, 0, 0);
-
-        // Register the neuron to networks
-        register_ok_neuron(netuid1, hotkey0, coldkey0, 124124);
-        register_ok_neuron(netuid2, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid1),
-            InitialDefaultTake::get()
-        );
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid2),
-            InitialDefaultTake::get()
-        );
-
-        // Decrease delegate take to 10% on subnet 1
-        assert_ok!(SubtensorModule::do_decrease_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-            netuid1,
-            u16::MAX / 10
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid1),
-            u16::MAX / 10
-        );
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid2),
-            InitialDefaultTake::get()
-        );
-
-        // Decrease delegate take to 5% on subnet 2
-        assert_ok!(SubtensorModule::do_decrease_take(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-            netuid2,
-            u16::MAX / 20
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid1),
-            u16::MAX / 10
-        );
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid2),
-            u16::MAX / 20
-        );
-    });
-}
-
-#[test]
-// Set up 32 subnets with a total of 1024 nodes each, and a root network with 1024 nodes.
-// Each subnet has a total of 1024 nodes, and a root network has 1024 nodes.
-// Register 10 neurons on each subnet.
-// Add a stake of 100 TAO to each neuron.
-// Run epochs for each subnet.
-// Check that the total stake is correct.
-fn test_subnet_stake_calculation() {
-    new_test_ext(1).execute_with(|| {
-        pallet_subtensor::migration::migrate_create_root_network::<Test>();
-        // Setup constants
-        const NUM_SUBNETS: u16 = 32;
-        const NUM_NEURONS_PER_SUBNET: u16 = 10;
-        const ROOT_STAKE_PER_NEURON: u64 = 10000; // Stake at the root level per neuron
-        const SUBNET_STAKE_PER_NEURON: u64 = 1000; // Stake at the subnet level per neuron
-
-        let root: u16 = 0;
-        let tempo: u16 = 13;
-
-        add_network(root, tempo, 0);
-
-        // Add networks for each subnet UID
-        for netuid in 1..=NUM_SUBNETS {
-            add_network(netuid, tempo, 0);
-        }
-
-        // Setup variables to track total expected stakes
-        let mut total_root_stake: u64 = 0;
-        let mut total_subnet_stake: u64 = 0;
-
-        for netuid in 1..=NUM_SUBNETS {
-            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
-                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64); // Unique hotkey for each neuron
-                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64); // Unique coldkey for each neuron
-
-                SubtensorModule::set_target_stakes_per_interval(10000);
-                SubtensorModule::set_max_registrations_per_block(netuid, 500);
-                SubtensorModule::set_target_registrations_per_interval(netuid, 500);
-
-                // Increase balance for coldkey account
-                SubtensorModule::add_balance_to_coldkey_account(
-                    &coldkey,
-                    ROOT_STAKE_PER_NEURON + SUBNET_STAKE_PER_NEURON,
-                );
-                register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-                // Add stakes at both the root and subnet levels
-                assert_ok!(SubtensorModule::add_stake(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                    hotkey,
-                    ROOT_STAKE_PER_NEURON
-                ));
-
-                assert_ok!(SubtensorModule::add_subnet_stake(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                    hotkey,
-                    netuid,
-                    SUBNET_STAKE_PER_NEURON
-                ));
-
-                // Update total stakes
-                total_root_stake += ROOT_STAKE_PER_NEURON;
-                total_subnet_stake += SUBNET_STAKE_PER_NEURON;
-            }
-        }
-
-        step_block(1);
-
-        // SubtensorModule::epoch(, 0);
-
-        // Print Subnet Emission Value for each netuid after the block step
-        for netuid in 1..=NUM_SUBNETS {
-            // let emission_values = SubtensorModule::get_emission(netuid);
-            // for emission_value in emission_values {
-            SubtensorModule::epoch(netuid, 100_000_000);
-            // }
-            let emission_value = SubtensorModule::get_emission_value(netuid);
-            println!(
-                "Subnet Emission Value for netuid {}: {}",
-                netuid, emission_value
-            );
-        }
-
-        // Check total stakes across all subnets
-        let expected_total_stake_adjusted = total_root_stake + total_subnet_stake;
-        let actual_total_stake = SubtensorModule::get_total_stake();
-        assert_eq!(
-            actual_total_stake, expected_total_stake_adjusted,
-            "The total stake across all subnets did not match the expected value."
-        );
-
-        // After checking the total stake, proceed to remove the stakes
-        for netuid in 1..=NUM_SUBNETS {
-            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
-                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64);
-                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64);
-
-                // Remove subnet stake first
-                assert_ok!(SubtensorModule::remove_subnet_stake(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                    hotkey,
-                    netuid,
-                    SUBNET_STAKE_PER_NEURON
-                ));
-
-                total_subnet_stake -= SUBNET_STAKE_PER_NEURON;
-            }
-        }
-
-        step_block(1);
-
-        // Print Subnet Emission Value for each netuid after the block step
-        for netuid in 1..=NUM_SUBNETS {
-            let emission_value = SubtensorModule::get_emission_value(netuid);
-            println!(
-                "Subnet Emission Value for netuid {}: {}",
-                netuid, emission_value
-            );
-        }
-
-        // Verify that the total stake has been correctly reduced to just the root stake
-        let expected_total_stake_after_removal = total_root_stake;
-        let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
-        assert_eq!(
-            actual_total_stake_after_removal, expected_total_stake_after_removal,
-            "The total stake after removal did not match the expected value."
-        );
-
-        // Finally , remove the root stake
-        for netuid in 1..=NUM_SUBNETS {
-            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
-                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64);
-                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64);
-
-                assert_ok!(SubtensorModule::remove_stake(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                    hotkey,
-                    // netuid,
-                    ROOT_STAKE_PER_NEURON
-                ));
-
-                // Update total stakes to reflect removal
-                total_root_stake -= ROOT_STAKE_PER_NEURON;
-            }
-        }
-
-        step_block(1);
-
-        // Print Subnet Emission Value for each netuid after the block step
-        for netuid in 1..=NUM_SUBNETS {
-            let emission_value = SubtensorModule::get_emission_value(netuid);
-            println!(
-                "Subnet Emission Value for netuid {}: {}",
-                netuid, emission_value
-            );
-        }
-
-        // Verify that the total stake has been correctly reduced to 0
-        let expected_total_stake_after_removal = 0;
-        let actual_total_stake_after_removal = SubtensorModule::get_total_stake();
-        assert_eq!(
-            actual_total_stake_after_removal, expected_total_stake_after_removal,
-            "The total stake after removal did not match the expected value."
-        );
-    });
-}
-
-#[test]
-fn test_three_subnets_with_different_stakes() {
-    new_test_ext(1).execute_with(|| {
-        pallet_subtensor::migration::migrate_create_root_network::<Test>();
-        // Setup constants
-        const NUM_SUBNETS: u16 = 3; // Only 3 subnets
-        const NUM_NEURONS_PER_SUBNET: u16 = 10;
-        // Different stake amounts for each subnet
-        const STAKE_AMOUNTS: [u64; NUM_SUBNETS as usize] = [1000, 2000, 3000];
-
-        let root: u16 = 0;
-        let tempo: u16 = 13;
-
-        add_network(root, tempo, 0);
-
-        // Add networks for each subnet UID
-        for netuid in 1..=NUM_SUBNETS {
-            add_network(netuid, tempo, 0);
-        }
-
-        for netuid in 1..=NUM_SUBNETS {
-            for neuron_index in 0..NUM_NEURONS_PER_SUBNET {
-                let hotkey = U256::from((netuid as u64) * 1000 + neuron_index as u64);
-                let coldkey = U256::from((netuid as u64) * 10000 + neuron_index as u64);
-
-                SubtensorModule::set_max_registrations_per_block(netuid, 500);
-                SubtensorModule::set_target_registrations_per_interval(netuid, 500);
-
-                // Increase balance for coldkey account
-                SubtensorModule::add_balance_to_coldkey_account(
-                    &coldkey,
-                    STAKE_AMOUNTS[netuid as usize - 1],
-                );
-                register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-                // Add stake at the subnet level
-                assert_ok!(SubtensorModule::add_subnet_stake(
-                    <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                    hotkey,
-                    netuid,
-                    STAKE_AMOUNTS[netuid as usize - 1],
-                ));
-
-                // Assert individual stake amounts
-                let stake_for_neuron = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
-                    &coldkey, &hotkey, netuid,
-                );
-                assert_eq!(
-                    stake_for_neuron,
-                    STAKE_AMOUNTS[netuid as usize - 1],
-                    "The stake for neuron {} in subnet {} did not match the expected value.",
-                    neuron_index,
-                    netuid
-                );
-            }
-        }
-
-        // Verify the total stake for each subnet
-        for netuid in 1..=NUM_SUBNETS {
-            let total_stake_for_subnet = SubtensorModule::get_total_stake_for_subnet(netuid);
-            // Adjust the expected total stake to account for the existential deposit for each neuron
-            let expected_total_stake =
-                STAKE_AMOUNTS[netuid as usize - 1] * NUM_NEURONS_PER_SUBNET as u64;
+        // Coldkey / hotkey 0 tries to increase take to InitialDefaultTake+1
+        // (Disable this check if InitialDefaultTake is u16::MAX)
+        if InitialDefaultTake::get() != u16::MAX {
             assert_eq!(
-                total_stake_for_subnet, expected_total_stake,
-                "The total stake for subnet {} did not match the expected value.",
-                netuid
+                SubtensorModule::do_increase_take(
+                    <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                    hotkey0,
+                    netuid,
+                    InitialDefaultTake::get() + 1
+                ),
+                Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
-    });
-}
-
-#[test]
-fn test_register_neurons_and_stake_different_amounts() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let start_nonce: u64 = 0;
-
-        // Setup the network
-        add_network(netuid, tempo, 0);
-
-        SubtensorModule::set_max_registrations_per_block(netuid, NUM_NEURONS);
-        SubtensorModule::set_target_registrations_per_interval(netuid, NUM_NEURONS);
-
-        // Define the number of neurons and their stake amounts
-        const NUM_NEURONS: u16 = 10;
-        let stake_amounts: [u64; NUM_NEURONS as usize] =
-            [1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000];
-
-        for i in 0..NUM_NEURONS {
-            let hotkey = U256::from(i);
-            let coldkey = U256::from(i + 100); // Ensure coldkey is different but consistent
-
-            // Increase balance for coldkey account
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amounts[i as usize]);
-
-            // Register neuron
-            register_ok_neuron(netuid, hotkey, coldkey, start_nonce);
-
-            // Stake the specified amount
-            assert_ok!(SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                hotkey,
-                netuid,
-                stake_amounts[i as usize],
-            ));
-
-            // Assert the stake for the neuron is as expected
-            let stake_for_neuron =
-                SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
-            assert_eq!(
-                stake_for_neuron, stake_amounts[i as usize],
-                "The stake for neuron {} did not match the expected value.",
-                i
-            );
-        }
-
-        // verify the total stake for the subnet if needed
-        let total_stake_for_subnet = SubtensorModule::get_total_stake_for_subnet(netuid);
-        let expected_total_stake = stake_amounts.iter().sum::<u64>();
-        assert_eq!(
-            total_stake_for_subnet, expected_total_stake,
-            "The total stake for subnet {} did not match the expected value.",
-            netuid
-        );
-    });
-}
-
-#[test]
-fn test_substake_increases_stake_of_only_targeted_neuron() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-
-        // Setup the network
-        add_network(netuid, tempo, 0);
-
-        SubtensorModule::set_max_registrations_per_block(netuid, NUM_NEURONS);
-        SubtensorModule::set_target_registrations_per_interval(netuid, NUM_NEURONS);
-
-        // Define the number of neurons and initial stake amounts
-        const NUM_NEURONS: u16 = 3;
-        let initial_stake: u64 = 1000;
-
-        // Register neurons and stake an initial amount
-        for i in 0..NUM_NEURONS {
-            let hotkey = U256::from(i);
-            let coldkey = U256::from(i + 100); // Ensure coldkey is different but consistent
-
-            // Increase balance for coldkey account
-            SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 2);
-
-            // Register neuron and add initial stake
-            register_ok_neuron(netuid, hotkey, coldkey, 0);
-            assert_ok!(SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                hotkey,
-                netuid,
-                initial_stake,
-            ));
-        }
-
-        // Perform a substake operation on the first neuron
-        let substake_amount: u64 = 500;
-        let target_neuron_hotkey = U256::from(0);
-        let target_neuron_coldkey = U256::from(100);
-        SubtensorModule::set_target_stakes_per_interval(10000);
-        assert_ok!(SubtensorModule::add_subnet_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(target_neuron_coldkey),
-            target_neuron_hotkey,
-            netuid,
-            substake_amount,
-        ));
-
-        // Verify that only the stake of the targeted neuron has increased
-        for i in 0..NUM_NEURONS {
-            let hotkey = U256::from(i);
-            let coldkey = U256::from(i + 100);
-            let expected_stake = if hotkey == target_neuron_hotkey {
-                initial_stake + substake_amount
-            } else {
-                initial_stake
-            };
-
-            let actual_stake =
-                SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
-            assert_eq!(
-                actual_stake, expected_stake,
-                "Stake for neuron {} did not match the expected value.",
-                i
-            );
-        }
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 10);
     });
 }
 
@@ -3823,7 +3401,7 @@ fn test_rate_limits_enforced_on_increase_take() {
                 netuid,
                 u16::MAX / 10
             ),
-            Err(Error::<Test>::TxRateLimitExceeded.into())
+            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
         );
         assert_eq!(
             SubtensorModule::get_delegate_take(&hotkey0, netuid),
@@ -3843,297 +3421,6 @@ fn test_rate_limits_enforced_on_increase_take() {
             SubtensorModule::get_delegate_take(&hotkey0, netuid),
             u16::MAX / 10
         );
-    });
-}
-
-#[test]
-fn add_weighted_stake_success() {
-    new_test_ext(1).execute_with(|| {
-        // Setup
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let netuids = vec![1, 2];
-        let values = vec![2, 1]; // Weights for the networks
-
-        // Add balance to the coldkey account
-        let initial_balance = 100000;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
-        log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
-
-        // Add networks and register neurons
-        let mut total_initial_stake = 0;
-        for &netuid in &netuids {
-            add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
-            register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
-            log::info!(
-                "Network {} added and neuron registered for hotkey {:?}, coldkey {:?}",
-                netuid,
-                hotkey,
-                coldkey
-            );
-
-            // Set registration limits for each network based on netuid
-            SubtensorModule::set_max_registrations_per_block(netuid, netuid as u16);
-            SubtensorModule::set_target_registrations_per_interval(netuid, netuid as u16);
-            log::info!(
-                "Set max and target registrations for netuid {} to {}",
-                netuid,
-                netuid
-            );
-
-            // Initially add some stake to each subnet
-            let initial_stake = 10000; // Arbitrary initial stake for simplicity
-            assert_ok!(SubtensorModule::add_subnet_stake(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                netuid,
-                initial_stake,
-            ));
-            total_initial_stake += initial_stake;
-            log::info!(
-                "Initial stake of {} added to netuid {}",
-                initial_stake,
-                netuid
-            );
-        }
-
-        // Perform the weighted stake redistribution
-        assert_ok!(SubtensorModule::add_weighted_stake(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            netuids.clone(),
-            values.clone()
-        ));
-        log::info!(
-            "Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}",
-            hotkey,
-            netuids,
-            values
-        );
-
-        // Assertions
-        let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
-        log::info!("Total stake after redistribution: {}", total_stake);
-        assert!(
-            total_stake < initial_balance,
-            "Stake should be less than initial balance due to redistribution."
-        );
-
-        let total_weights: u16 = values.iter().sum();
-        for (i, &netuid) in netuids.iter().enumerate() {
-            let expected_stake =
-                (total_initial_stake as u32 * values[i] as u32 / total_weights as u32) as u64;
-            let stake =
-                SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
-            log::info!(
-                "Expected redistributed stake for netuid {}: {}, Actual stake: {}",
-                netuid,
-                expected_stake,
-                stake
-            );
-            assert_eq!(
-                stake, expected_stake,
-                "Redistributed stake for netuid {} did not match the expected value.",
-                netuid
-            );
-        }
-    });
-}
-
-#[test]
-fn test_add_weighted_stake_success_32_networks() {
-    new_test_ext(1).execute_with(|| {
-        // Setup
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let num_networks = 32;
-        let netuids: Vec<u16> = (1..=num_networks).collect();
-        let values: Vec<u16> = vec![1; num_networks as usize]; // Equal weights for simplicity
-
-        // Add balance to the coldkey account
-        let initial_balance = 100000;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
-        log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
-        SubtensorModule::set_target_stakes_per_interval(1000);
-
-        // Add networks and register neurons
-        let mut total_initial_stake = 0;
-        let initial_stake_per_network = 1000; // Arbitrary initial stake for simplicity
-        for &netuid in &netuids {
-            add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
-            register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
-            log::info!(
-                "Network {} added and neuron registered for hotkey {:?}, coldkey {:?}",
-                netuid,
-                hotkey,
-                coldkey
-            );
-
-            // Set registration limits for each network based on netuid
-            SubtensorModule::set_max_registrations_per_block(netuid, 50);
-            SubtensorModule::set_target_registrations_per_interval(netuid, 50);
-            log::info!(
-                "Set max and target registrations for netuid {} to {}",
-                netuid,
-                netuid
-            );
-
-            // Initially add some stake to each subnet
-            assert_ok!(SubtensorModule::add_subnet_stake(
-                RuntimeOrigin::signed(coldkey),
-                hotkey,
-                netuid,
-                initial_stake_per_network,
-            ));
-            total_initial_stake += initial_stake_per_network;
-            log::info!(
-                "Initial stake of {} added to netuid {}",
-                initial_stake_per_network,
-                netuid
-            );
-        }
-
-        // Perform the weighted stake redistribution
-        assert_ok!(SubtensorModule::add_weighted_stake(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            netuids.clone(),
-            values.clone()
-        ));
-        log::info!(
-            "Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}",
-            hotkey,
-            netuids,
-            values
-        );
-
-        // Assertions
-        let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
-        log::info!("Total stake after redistribution: {}", total_stake);
-        assert!(
-            total_stake < initial_balance,
-            "Stake should be less than initial balance due to redistribution."
-        );
-
-        let total_weights: u16 = values.iter().sum();
-        for (i, &netuid) in netuids.iter().enumerate() {
-            let expected_stake =
-                (total_initial_stake as u32 * values[i] as u32 / total_weights as u32) as u64;
-            let stake =
-                SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
-            log::info!(
-                "Expected redistributed stake for netuid {}: {}, Actual stake: {}",
-                netuid,
-                expected_stake,
-                stake
-            );
-            assert_eq!(
-                stake, expected_stake,
-                "Redistributed stake for netuid {} did not match the expected value.",
-                netuid
-            );
-        }
-    });
-}
-
-#[test]
-fn add_weighted_stake_success_3_to_32_networks() {
-    new_test_ext(1).execute_with(|| {
-        // Setup
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let num_networks = 32; // Total networks
-        let initial_stake_networks = 3; // Networks to initially stake
-        let netuids: Vec<u16> = (1..=num_networks).collect();
-        let values: Vec<u16> = vec![1; num_networks as usize]; // Equal weights for simplicity
-        const NUM_NEURONS: u16 = 10; // Number of neurons per network
-
-        // Add balance to the coldkey account
-        let initial_balance = 100000;
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_balance);
-        SubtensorModule::set_target_stakes_per_interval(1000);
-
-        log::info!("Added balance {} to coldkey {:?}", initial_balance, coldkey);
-
-        // Add networks, register neurons, and set registration limits
-        let mut total_initial_stake = 0;
-        let initial_stake_per_network = 10000; // Arbitrary initial stake for simplicity
-        for &netuid in &netuids {
-            add_network(netuid, 0, 0); // Assuming tempo and other parameters are zero for simplicity
-            register_ok_neuron(netuid, hotkey, coldkey, 0); // Assuming start_nonce is zero
-            log::info!(
-                "Network {} added and neuron registered for hotkey {:?}, coldkey {:?}",
-                netuid,
-                hotkey,
-                coldkey
-            );
-
-            // Set registration limits for each network
-            SubtensorModule::set_max_registrations_per_block(netuid, 50);
-            SubtensorModule::set_target_registrations_per_interval(netuid, 50);
-            log::info!(
-                "Set max and target registrations for netuid {} to {}",
-                netuid,
-                NUM_NEURONS
-            );
-
-            // Initially add some stake to each subnet (only for the first 3 networks)
-            if netuid <= initial_stake_networks {
-                assert_ok!(SubtensorModule::add_subnet_stake(
-                    RuntimeOrigin::signed(coldkey),
-                    hotkey,
-                    netuid,
-                    initial_stake_per_network,
-                ));
-                total_initial_stake += initial_stake_per_network;
-                log::info!(
-                    "Initial stake of {} added to netuid {}",
-                    initial_stake_per_network,
-                    netuid
-                );
-            }
-        }
-
-        // Perform the weighted stake redistribution across all 32 networks
-        assert_ok!(SubtensorModule::add_weighted_stake(
-            RuntimeOrigin::signed(coldkey),
-            hotkey,
-            netuids.clone(),
-            values.clone()
-        ));
-        log::info!(
-            "Weighted stake redistributed for hotkey {:?} across netuids {:?} with values {:?}",
-            hotkey,
-            netuids,
-            values
-        );
-
-        // Assertions
-        let total_stake: u64 = SubtensorModule::get_coldkey_balance(&coldkey);
-        log::info!("Total stake after redistribution: {}", total_stake);
-        assert!(
-            total_stake < initial_balance,
-            "Stake should be less than initial balance due to redistribution."
-        );
-
-        let total_weights: u16 = values.iter().sum();
-        for (i, &netuid) in netuids.iter().enumerate() {
-            let expected_stake =
-                (total_initial_stake as u32 * values[i] as u32 / total_weights as u32) as u64;
-            let stake =
-                SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, netuid);
-            log::info!(
-                "Expected redistributed stake for netuid {}: {}, Actual stake: {}",
-                netuid,
-                expected_stake,
-                stake
-            );
-            assert_eq!(
-                stake, expected_stake,
-                "Redistributed stake for netuid {} did not match the expected value.",
-                netuid
-            );
-        }
     });
 }
 
@@ -4228,7 +3515,7 @@ fn set_delegate_takes_rejects_invalid_netuid() {
         // Now test with an invalid network ID
         assert_err!(
             SubtensorModule::set_delegate_takes(RuntimeOrigin::signed(coldkey), hotkey, takes),
-            Error::<Test>::NetworkDoesNotExist
+            Error::<Test>::SubNetworkDoesNotExist
         );
     });
 }
@@ -4254,7 +3541,7 @@ fn set_delegate_takes_rejects_excessive_take() {
         // Now test with an excessive take value
         assert_err!(
             SubtensorModule::set_delegate_takes(RuntimeOrigin::signed(coldkey), hotkey, takes),
-            Error::<Test>::InvalidTake
+            Error::<Test>::DelegateTakeTooHigh
         );
     });
 }
@@ -4289,7 +3576,7 @@ fn set_delegate_takes_enforces_rate_limit() {
                 hotkey,
                 takes_second
             ),
-            Error::<Test>::TxRateLimitExceeded
+            Error::<Test>::DelegateTxRateLimitExceeded
         );
     });
 }

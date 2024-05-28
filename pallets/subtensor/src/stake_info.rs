@@ -186,18 +186,8 @@ impl<T: Config> Pallet<T> {
     /// # Returns:
     /// The total stake as a `Compact<u64>`.
     pub fn get_total_subnet_stake(netuid: u16) -> Compact<u64> {
-        // Initialize a variable to hold the sum of stakes.
-        let mut total_stake: u64 = 0;
-
-        // Filter `SubStake` storage map for entries matching the netuid and sum their stakes.
-        for ((_, _, subnet), stake) in SubStake::<T>::iter() {
-            if netuid == subnet {
-                total_stake += stake; // Assuming stake is of type u64
-            }
-        }
-
         // Return the total stake wrapped in Compact.
-        Compact(total_stake)
+        Compact(TotalSubnetStake::<T>::get(netuid))
     }
 
     /// This function is used to get all the stake information for a given coldkey across all subnets.

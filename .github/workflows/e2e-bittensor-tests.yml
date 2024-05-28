@@ -72,7 +72,7 @@ jobs:
       - name: Setup bittensor repo
         working-directory: ${{ github.workspace }}/bittensor
         run: |
-          git checkout tests/e2e-tests-staging
+          git checkout staging
           python3 -m pip install -e .
           python3 -m pip install torch
 

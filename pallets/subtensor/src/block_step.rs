@@ -1,12 +1,13 @@
+use crate::types::SubnetType;
 use super::*;
 use sp_core::Get;
 use sp_std::vec::Vec;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 
-struct SubnetInfo {
+struct SubnetBlockStepInfo {
     netuid: u16,
-    is_dynamic: bool,
+    subnet_type: SubnetType,
     price: I64F64,
     tao_staked: u64,
 }
@@ -145,13 +146,17 @@ impl<T: Config> Pallet<T> {
         tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
-    fn get_subnets() -> Vec<SubnetInfo> {
+    fn get_subnets() -> Vec<SubnetBlockStepInfo> {
         // Get all the network uids.
         Self::get_all_subnet_netuids().iter().map(|&netuid| {
             let dynamic = Self::is_subnet_dynamic(netuid);
-            SubnetInfo {
+            SubnetBlockStepInfo {
                 netuid: netuid,
-                is_dynamic: dynamic,
+                subnet_type: if dynamic { 
+                    SubnetType::DTAO 
+                } else { 
+                    SubnetType::STAO 
+                },
                 price: {
                     if netuid == Self::get_root_netuid() {
                         I64F64::from_num(0.0)
@@ -161,7 +166,7 @@ impl<T: Config> Pallet<T> {
                         Self::get_tao_per_alpha_price(netuid)
                     }
                 },
-                tao_staked: DynamicTAOReserve::<T>::get(netuid),
+                tao_staked: TotalSubnetStake::<T>::get(netuid),
             }
         }).collect()
     }
@@ -185,46 +190,46 @@ impl<T: Config> Pallet<T> {
                 let subnet_block_emission = emission_i64f64.to_num();
                 EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
     
-                if subnet_info.is_dynamic {
-                    // Condition the inflation of TAO and alpha based on the sum of the prices.
-                    // This keeps the market caps of ALPHA subsumed by TAO.
-                    let tao_in: u64; // The total amount of TAO emitted this block into all pools.
-                    let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
-                    let alpha_out: u64 = subnet_block_emission; // The amount of ALPHA emitted into each mechanism.
-                    if total_prices <= I64F64::from_num(1.0) {
-                        // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
-                        tao_in = subnet_block_emission;
-                        alpha_in = 0;
-                    } else {
-                        // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
-                        tao_in = 0;
-                        alpha_in = subnet_block_emission;
+                match subnet_info.subnet_type {
+                    SubnetType::DTAO => {
+                        // Condition the inflation of TAO and alpha based on the sum of the prices.
+                        // This keeps the market caps of ALPHA subsumed by TAO.
+                        let tao_in: u64; // The total amount of TAO emitted this block into all pools.
+                        let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
+                        let alpha_out: u64 = subnet_block_emission; // The amount of ALPHA emitted into each mechanism.
+                        if total_prices <= I64F64::from_num(1.0) {
+                            // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
+                            tao_in = subnet_block_emission;
+                            alpha_in = 0;
+                        } else {
+                            // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
+                            tao_in = 0;
+                            alpha_in = subnet_block_emission;
+                        }
+        
+                        // Increment the pools tao reserve based on the block emission.
+                        DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+        
+                        // Increment the pools alpha reserve based on the alpha in emission.
+                        DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
+        
+                        // Increment the total supply of alpha because we just added some to the reserve.
+                        DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+        
+                        // Increment the amount of alpha that is waiting to be distributed through Yuma Consensus.
+                        PendingAlphaEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += alpha_out);
+        
+                        // Recalculate the Dynamic K value for the new pool.
+                        DynamicK::<T>::insert(
+                            subnet_info.netuid,
+                            (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
+                                * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
+                        );
+                    },
+                    SubnetType::STAO => {
+                        // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
+                        PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
                     }
-    
-                    // Increment the pools tao reserve based on the block emission.
-                    DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
-    
-                    // Increment the pools alpha reserve based on the alpha in emission.
-                    DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
-    
-                    // Increment the total supply of alpha because we just added some to the reserve.
-                    DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
-    
-                    // Increment the amount of alpha that is waiting to be distributed through Yuma Consensus.
-                    PendingAlphaEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += alpha_out);
-    
-                    // Recalculate the Dynamic K value for the new pool.
-                    DynamicK::<T>::insert(
-                        subnet_info.netuid,
-                        (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
-                            * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
-                    );
-                } else {
-                    // Increment the pools tao reserve based on the block emission.
-                    DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += subnet_block_emission);
-    
-                    // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
-                    PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
                 }
     
                 ////////////////////////////////
@@ -234,10 +239,9 @@ impl<T: Config> Pallet<T> {
                 let tempo: u16 = Self::get_tempo(subnet_info.netuid);
                 if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
                     // Get the pending emission issuance to distribute for this subnet
-                    let emission = if subnet_info.is_dynamic {
-                        PendingAlphaEmission::<T>::get(subnet_info.netuid)
-                    } else {
-                        PendingEmission::<T>::get(subnet_info.netuid)
+                    let emission = match subnet_info.subnet_type {
+                        SubnetType::DTAO => PendingAlphaEmission::<T>::get(subnet_info.netuid),
+                        SubnetType::STAO => PendingEmission::<T>::get(subnet_info.netuid),
                     };
     
                     // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
@@ -256,16 +260,19 @@ impl<T: Config> Pallet<T> {
                     }
     
                     // Drain emission and update dynamic pools
-                    if subnet_info.is_dynamic {
-                        // Drain the pending emission issuance for this subnet.
-                        PendingAlphaEmission::<T>::insert(subnet_info.netuid, 0);
-                        // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
-                        DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
-                        // Also increment the total amount of alpha in total everywhere.
-                        DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
-                    } else {
-                        // Drain the pending emission issuance for this subnet.
-                        PendingEmission::<T>::insert(subnet_info.netuid, 0);
+                    match subnet_info.subnet_type {
+                        SubnetType::DTAO => {
+                            // Drain the pending emission issuance for this subnet.
+                            PendingAlphaEmission::<T>::insert(subnet_info.netuid, 0);
+                            // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
+                            DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
+                            // Also increment the total amount of alpha in total everywhere.
+                            DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
+                        },
+                        SubnetType::STAO => {
+                            // Drain the pending emission issuance for this subnet.
+                            PendingEmission::<T>::insert(subnet_info.netuid, 0);
+                        },
                     }
     
                     // Some other counters for accounting.

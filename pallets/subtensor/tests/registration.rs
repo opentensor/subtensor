@@ -927,7 +927,10 @@ fn test_registration_already_active_hotkey() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::AlreadyRegistered.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyAlreadyRegisteredInSubNet.into())
+        );
     });
 }
 
@@ -1777,7 +1780,10 @@ fn test_registration_origin_hotkey_mismatch() {
             hotkey_account_id_2, // Not the same as the origin.
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::HotkeyOriginMismatch.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::TransactorAccountShouldBeHotKey.into())
+        );
     });
 }
 
@@ -1810,7 +1816,10 @@ fn test_registration_disabled() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::RegistrationDisabled.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::SubNetRegistrationDisabled.into())
+        );
     });
 }
 
@@ -1919,7 +1928,7 @@ fn test_hotkey_swap_same_key() {
                 hotkey_account_id,
                 hotkey_account_id
             ),
-            Error::<Test>::AlreadyRegistered
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
     });
 }
@@ -1960,7 +1969,7 @@ fn test_hotkey_swap_registered_key() {
                 hotkey_account_id,
                 new_hotkey
             ),
-            Error::<Test>::AlreadyRegistered
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
     });
 }
