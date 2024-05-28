@@ -66,6 +66,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
+        // --- 7. Delegate the key.
+        // With introduction of DelegatesTake Delegates became just a flag.
+        // Probably there is a migration needed to convert it to bool or something down the road
+        Self::delegate_hotkey(&hotkey, Self::get_default_take());
+                
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
@@ -138,7 +143,7 @@ impl<T: Config> Pallet<T> {
         Self::do_account_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
-        if let Ok(current_take) = Delegates::<T>::try_get(&hotkey) {
+        if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
             ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
         }
 
@@ -1053,7 +1058,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let credit = T::Currency::withdraw(
-                &coldkey,
+                coldkey,
                 amount,
                 Precision::BestEffort,
                 Preservation::Preserve,
