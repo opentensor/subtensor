@@ -3336,7 +3336,7 @@ fn test_changing_delegate_take_changes_distribution() {
             netuid,
             u16::MAX / 10
         ));
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 10);
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultTake+1
         // (Disable this check if InitialDefaultTake is u16::MAX)
@@ -3351,7 +3351,7 @@ fn test_changing_delegate_take_changes_distribution() {
                 Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
-        assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 10);
+        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 10);
     });
 }
 
