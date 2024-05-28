@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `salt` (`Vec<u8>`):
     ///   - The values of the weights being revealed.
-    /// 
+    ///
     /// * `version_key` (`u64`):
     ///   - The network version key.
     ///
