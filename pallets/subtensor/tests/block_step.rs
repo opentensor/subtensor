@@ -803,3 +803,94 @@ fn test_burn_adjustment_case_e_zero_registrations() {
         assert_eq!(adjusted_diff, 5_000);
     });
 }
+
+#[test]
+fn test_emission_based_on_registration_status() {
+    new_test_ext(1).execute_with(|| {
+        let n: u16 = 100;
+        let netuid_off: u16 = 1;
+        let netuid_on: u16 = 2;
+        let tempo: u16 = 1;
+        let netuids: Vec<u16> = vec![netuid_off, netuid_on];
+        let emissions: Vec<u64> = vec![1000000000, 1000000000];
+
+        // Add subnets with registration turned off and on
+        add_network(netuid_off, tempo, 0);
+        add_network(netuid_on, tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid_off, n);
+        SubtensorModule::set_max_allowed_uids(netuid_on, n);
+        SubtensorModule::set_emission_values(&netuids, emissions).unwrap();
+        SubtensorModule::set_network_registration_allowed(netuid_off, false);
+        SubtensorModule::set_network_registration_allowed(netuid_on, true);
+
+        // Populate the subnets with neurons
+        for i in 0..n {
+            SubtensorModule::append_neuron(netuid_off, &U256::from(i), 0);
+            SubtensorModule::append_neuron(netuid_on, &U256::from(i), 0);
+        }
+
+        // Generate emission at block 0
+        let block: u64 = 0;
+        SubtensorModule::generate_emission(block);
+
+        // Verify that no emission tuples are loaded for the subnet with registration off
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_none());
+
+        // Verify that emission tuples are loaded for the subnet with registration on
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_on).is_some());
+        assert_eq!(
+            SubtensorModule::get_loaded_emission_tuples(netuid_on)
+                .unwrap()
+                .len(),
+            n as usize
+        );
+
+        // Step to the next epoch block
+        let epoch_block: u16 = tempo;
+        step_block(epoch_block);
+
+        // Verify that no emission tuples are loaded for the subnet with registration off
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_none());
+        log::info!(
+            "Emissions for netuid with registration off: {:?}",
+            SubtensorModule::get_loaded_emission_tuples(netuid_off)
+        );
+
+        // Verify that emission tuples are loaded for the subnet with registration on
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_on).is_some());
+        log::info!(
+            "Emissions for netuid with registration on: {:?}",
+            SubtensorModule::get_loaded_emission_tuples(netuid_on)
+        );
+        assert_eq!(
+            SubtensorModule::get_loaded_emission_tuples(netuid_on)
+                .unwrap()
+                .len(),
+            n as usize
+        );
+
+        // drain the emission tuples for the subnet with registration on
+        SubtensorModule::drain_emission(next_block as u64);
+        // Turn on registration for the subnet with registration off
+        SubtensorModule::set_network_registration_allowed(netuid_off, true);
+        SubtensorModule::set_network_registration_allowed(netuid_on, false);
+
+        // Generate emission at the next block
+        let next_block: u64 = block + 1;
+        SubtensorModule::generate_emission(next_block);
+
+        // Verify that emission tuples are now loaded for the subnet with registration turned on
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_some());
+        log::info!(
+            "Emissions for netuid with registration on: {:?}",
+            SubtensorModule::get_loaded_emission_tuples(netuid_on)
+        );
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_on).is_none());
+        assert_eq!(
+            SubtensorModule::get_loaded_emission_tuples(netuid_off)
+                .unwrap()
+                .len(),
+            n as usize
+        );
+    });
+}
