@@ -932,11 +932,11 @@ pub mod pallet {
     /// Default value for weight commit reveal interval.
     #[pallet::type_value]
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
-        1000
+        1
     }
     // --- DMAP ( netuid ) --> interval
     #[pallet::storage]
-    pub type WeightCommitRevealInterval<T> =
+    pub type WeightCommitRevealTempo<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
 
     /// Default value for weight commit/reveal enabled.

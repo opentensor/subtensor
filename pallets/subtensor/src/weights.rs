@@ -435,9 +435,12 @@ impl<T: Config> Pallet<T> {
 
     pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
         if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
+            let epochs: u64 = Self::get_commit_reveal_weights_tempos_per_interval(netuid);
+            let root_netuid: u16 = Self::get_root_netuid();
+            let tempo: u16 = Self::get_tempo(root_netuid);
+            let interval: u64 = epochs * tempo as u64;
             if interval == 0 {
-                return true; //prevent division by 0
+                return true;
             }
 
             let current_block: u64 = Self::get_current_block_as_u64();
@@ -458,9 +461,12 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
-        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
+        let root_netuid: u16 = Self::get_root_netuid();
+        let tempo: u16 = Self::get_tempo(root_netuid);
+        let epochs: u64 = Self::get_commit_reveal_weights_tempos_per_interval(netuid);
+        let interval: u64 = epochs * tempo as u64;
         if interval == 0 {
-            return true; //prevent division by 0
+            return true;
         }
 
         let commit_interval_start: u64 = commit_block - (commit_block % interval); // Find the start of the interval in which the commit occurred

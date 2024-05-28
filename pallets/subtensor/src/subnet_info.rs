@@ -50,7 +50,7 @@ pub struct SubnetHyperparams {
     max_validators: Compact<u16>,
     adjustment_alpha: Compact<u64>,
     difficulty: Compact<u64>,
-    commit_reveal_weights_interval: Compact<u64>,
+    commit_reveal_weights_tempos_per_interval: Compact<u64>,
     commit_reveal_weights_enabled: bool,
 }
 
@@ -153,7 +153,8 @@ impl<T: Config> Pallet<T> {
         let max_validators = Self::get_max_allowed_validators(netuid);
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
-        let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
+        let commit_reveal_weights_tempos_per_interval =
+            Self::get_commit_reveal_weights_tempos_per_interval(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
 
         Some(SubnetHyperparams {
@@ -179,7 +180,8 @@ impl<T: Config> Pallet<T> {
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
             difficulty: difficulty.into(),
-            commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
+            commit_reveal_weights_tempos_per_interval: commit_reveal_weights_tempos_per_interval
+                .into(),
             commit_reveal_weights_enabled,
         })
     }

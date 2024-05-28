@@ -1132,7 +1132,7 @@ impl
     }
 
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
+        SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, interval);
     }
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
