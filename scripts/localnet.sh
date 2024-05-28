@@ -8,10 +8,14 @@ BASE_DIR="$SCRIPT_DIR/.."
 
 : "${CHAIN:=local}"
 : "${BUILD_BINARY:=1}"
-: "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
+: "${FEATURES:="pow-faucet fast-blocks"}"
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
 FULL_PATH="$SPEC_PATH$CHAIN.json"
+
+# Kill any existing nodes which may have not exited correctly after a previous
+# run.
+pkill -9 'node-subtensor'
 
 if [ ! -d "$SPEC_PATH" ]; then
   echo "*** Creating directory ${SPEC_PATH}..."
@@ -63,7 +67,6 @@ trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
 (
   ("${alice_start[@]}" 2>&1) &
-  sleep 0.5 # sleep 500ms between starting each node to help them peer
   ("${bob_start[@]}" 2>&1)
   wait
 )
