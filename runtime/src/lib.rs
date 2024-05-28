@@ -14,11 +14,9 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
+    traits::{fungible::HoldConsideration, LinearStoragePrice},
 };
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
-use migrations::{account_data_migration, init_storage_versions};
-
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -152,11 +150,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-#[cfg(feature = "pow-faucet")]
-pub const MILLISECS_PER_BLOCK: u64 = 1000;
-
-#[cfg(not(feature = "pow-faucet"))]
+#[cfg(not(feature = "fast-blocks"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
+
+/// Fast blocks for development
+#[cfg(feature = "fast-blocks")]
+pub const MILLISECS_PER_BLOCK: u64 = 250;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -1211,12 +1210,7 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = (
-    init_storage_versions::Migration,
-    account_data_migration::Migration,
-    pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-);
+type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =

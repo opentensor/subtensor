@@ -56,20 +56,15 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure we are not already a delegate
         ensure!(
             !Self::hotkey_is_delegate(&hotkey),
-            Error::<T>::AlreadyDelegate
+            Error::<T>::HotKeyAlreadyDelegate
         );
 
         // --- 6. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::DelegateTxRateLimitExceeded
         );
-
-        // --- 7. Delegate the key.
-        // With introduction of DelegatesTake Delegates became just a flag.
-        // Probably there is a migration needed to convert it to bool or something down the road
-        Self::delegate_hotkey(&hotkey, Self::get_default_take());
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -119,7 +114,7 @@ impl<T: Config> Pallet<T> {
     /// * 'NonAssociatedColdKey':
     ///     - The hotkey we are delegating is not owned by the calling coldket.
     ///
-    /// * 'InvalidTake':
+    /// * 'DelegateTakeTooLow':
     ///     - The delegate is setting a take which is not lower than the previous.
     ///
     pub fn do_decrease_take(
@@ -143,9 +138,13 @@ impl<T: Config> Pallet<T> {
         Self::do_account_checks(&coldkey, &hotkey)?;
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
-        if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
-            ensure!(take < current_take, Error::<T>::InvalidTake);
+        if let Ok(current_take) = Delegates::<T>::try_get(&hotkey) {
+            ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
         }
+
+        // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let min_take = MinTake::<T>::get();
+        ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
         // --- 4. Set the new take value.
         DelegatesTake::<T>::insert(hotkey.clone(), netuid, take);
@@ -192,7 +191,7 @@ impl<T: Config> Pallet<T> {
     /// * 'TxRateLimitExceeded':
     ///     - Thrown if key has hit transaction rate limit
     ///
-    /// * 'InvalidTake':
+    /// * 'DelegateTakeTooLow':
     ///     - The delegate is setting a take which is not greater than the previous.
     ///
     pub fn do_increase_take(
@@ -217,12 +216,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are strinctly increasing take
         if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
-            ensure!(take > current_take, Error::<T>::InvalidTake);
+            ensure!(take > current_take, Error::<T>::DelegateTakeTooLow);
         }
 
-        // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
-        let max_take = T::InitialDefaultTake::get();
-        ensure!(take <= max_take, Error::<T>::InvalidTake);
+        // --- 4. Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let max_take = MaxTake::<T>::get();
+        ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
         let block: u64 = Self::get_current_block_as_u64();
@@ -231,7 +230,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_last_tx_block_delegate_take(&coldkey),
                 block
             ),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::DelegateTxRateLimitExceeded
         );
 
         // Set last block for rate limiting
@@ -291,7 +290,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
@@ -301,52 +300,59 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // --- 2. Ensure that the netuid exists.
+        // Ensure that the netuid exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
-        // --- 3. We convert the stake u64 into a balance.
-        let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
+        // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
-            stake_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-
-        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::NotRegistered
-        );
-
-        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
-        ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 7. Remove balance.
-        Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())
-            .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
+        // Ensure that the hotkey account exists this is only possible through registration.
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
 
-        // --- 8. Ensure we don't exceed tx rate limit
+        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        ensure!(
+            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
+        );
+
+        // Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 9. Compute Dynamic Stake.
+        // If this is a nomination stake, check if total stake after adding will be above
+        // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_add =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
+
+            ensure!(
+                total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
+        // Ensure the remove operation from the coldkey is a success.
+        Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)
+            .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
+
+        // Compute Dynamic Stake.
         let dynamic_stake = Self::compute_dynamic_stake(netuid, stake_to_be_added);
 
-        // --- 10. If we reach here, add the balance to the hotkey.
+        // If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, dynamic_stake);
 
         // -- 12. Set last block for rate limiting
@@ -388,11 +394,8 @@ impl<T: Config> Pallet<T> {
     /// * 'NonAssociatedColdKey':
     ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
     ///
-    /// * 'NotEnoughStaketoWithdraw':
-    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    ///
-    /// * 'CouldNotConvertToBalance':
-    ///     - Thrown if we could not convert this amount to a balance.
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
     ///
     /// * 'TxRateLimitExceeded':
     ///     - Thrown if key has hit transaction rate limit
@@ -403,7 +406,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         stake_to_be_removed: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_remove_stake( origin:{:?} netuid:{:?}, hotkey:{:?}, stake_to_be_removed:{:?} )",
@@ -413,51 +416,55 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed
         );
 
-        // --- 2. Ensure that the netuid exists.
+        // Ensure that the netuid exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
-        // --- 3. Ensure that the hotkey account exists this is only possible through registration.
+        // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyAccountNotExists
         );
 
-        // --- 4. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
+            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
-        // --- 5. Ensure that the stake amount to be removed is above zero.
-        ensure!(
-            stake_to_be_removed > 0,
-            Error::<T>::NotEnoughStaketoWithdraw
-        );
+        // Ensure that the stake amount to be removed is above zero.
+        ensure!(stake_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
 
-        // --- 6. Ensure that the hotkey has enough stake to withdraw.
+        // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
             Self::has_enough_stake(&coldkey, &hotkey, netuid, stake_to_be_removed),
-            Error::<T>::NotEnoughStaketoWithdraw
+            Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // --- 7. Ensure that we can conver this u64 to a balance.
-        let stake_to_be_added_as_currency = Self::u64_to_balance(stake_to_be_removed);
-        ensure!(
-            stake_to_be_added_as_currency.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-
-        // --- 8. Ensure we don't exceed tx rate limit
+        // Ensure we don't exceed stake rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 8. We remove the balance from the hotkey.
+        // If this is a nomination stake, check if total stake after removing will be above
+        // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_remove =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
+
+            ensure!(
+                total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
+        // Ensure subnet lock period has not yet expired
         let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
         if Self::get_subnet_creator_hotkey(netuid) == hotkey {
             ensure!(
@@ -466,7 +473,7 @@ impl<T: Config> Pallet<T> {
             )
         }
 
-        // --- 9. We remove the balance from the hotkey.
+        // We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -474,14 +481,11 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed,
         );
 
-        // --- 10. Compute Dynamic un stake.
+        // Compute Dynamic unstake.
         let dynamic_unstake: u64 = Self::compute_dynamic_unstake(netuid, stake_to_be_removed);
 
-        // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(
-            &coldkey,
-            Self::u64_to_balance(dynamic_unstake).unwrap(),
-        );
+        // We add the balancer to the coldkey. If the above fails we will not credit this coldkey.
+        Self::add_balance_to_coldkey_account(&coldkey,dynamic_unstake );
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -726,12 +730,12 @@ impl<T: Config> Pallet<T> {
             // Check if the subnet exists before setting the take.
             ensure!(
                 Self::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubNetworkDoesNotExist
             );
 
             // Ensure the take does not exceed the initial default take.
             let max_take = T::InitialDefaultTake::get();
-            ensure!(take <= max_take, Error::<T>::InvalidTake);
+            ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
             // Enforce the rate limit (independently on do_add_stake rate limits)
             ensure!(
@@ -739,7 +743,7 @@ impl<T: Config> Pallet<T> {
                     Self::get_last_tx_block_delegate_take(&hotkey),
                     block
                 ),
-                Error::<T>::TxRateLimitExceeded
+                Error::<T>::DelegateTxRateLimitExceeded
             );
 
             // Insert the take into the storage.
@@ -1044,9 +1048,7 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
-        let amount_u64: u64 = amount.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
-
-        if amount_u64 == 0 {
+        if amount == 0 {
             return Ok(0);
         }
 
@@ -1060,10 +1062,8 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::BalanceWithdrawalError)?
             .peek();
 
-        let credit_u64: u64 = credit.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
-
-        if credit_u64 == 0 {
-            return Err(Error::<T>::BalanceWithdrawalError.into());
+        if credit == 0 {
+            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
         Ok(credit)
