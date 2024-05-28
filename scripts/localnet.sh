@@ -8,7 +8,7 @@ BASE_DIR="$SCRIPT_DIR/.."
 
 : "${CHAIN:=local}"
 : "${BUILD_BINARY:=1}"
-: "${FEATURES:=pow-faucet}"
+: "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
 FULL_PATH="$SPEC_PATH$CHAIN.json"
@@ -59,8 +59,11 @@ bob_start=(
   --discover-local
 )
 
+trap 'pkill -P $$' EXIT SIGINT SIGTERM
+
 (
-  trap 'kill 0' SIGINT
   ("${alice_start[@]}" 2>&1) &
+  sleep 0.5 # sleep 500ms between starting each node to help them peer
   ("${bob_start[@]}" 2>&1)
+  wait
 )
