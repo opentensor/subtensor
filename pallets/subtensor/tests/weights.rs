@@ -44,7 +44,7 @@ fn test_commit_weights_dispatch_info_ok() {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
         let netuid: u16 = 1;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -68,7 +68,7 @@ fn test_reveal_weights_dispatch_info_ok() {
         let dests = vec![1, 1];
         let weights = vec![1, 1];
         let netuid: u16 = 1;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
 
         let call = RuntimeCall::SubtensorModule(SubtensorCall::reveal_weights {
@@ -92,7 +92,7 @@ fn test_set_weights_is_root_error() {
 
         let uids = vec![0];
         let weights = vec![1];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey = U256::from(1);
 
@@ -120,7 +120,7 @@ fn test_weights_err_no_validator_permit() {
 
         let weights_keys: Vec<u16> = vec![1, 2];
         let weight_values: Vec<u16> = vec![1, 2];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
 
         let result = commit_reveal_set_weights(
             hotkey_account_id,
@@ -161,7 +161,7 @@ fn test_set_weights_min_stake_failed() {
         let version_key: u64 = 0;
         let hotkey = U256::from(0);
         let coldkey = U256::from(0);
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2143124);
         SubtensorModule::set_weights_min_stake(20_000_000_000_000);
@@ -208,7 +208,7 @@ fn test_weights_version_key() {
         let coldkey = U256::from(66);
         let netuid0: u16 = 1;
         let netuid1: u16 = 2;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid0, 0, 0);
         add_network(netuid1, 0, 0);
         register_ok_neuron(netuid0, hotkey, coldkey, 2143124);
@@ -345,7 +345,7 @@ fn test_weights_err_weights_vec_not_equal_size() {
         let hotkey_account_id = U256::from(55);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
         register_ok_neuron(1, hotkey_account_id, U256::from(66), 0);
         let neuron_uid: u16 =
@@ -373,7 +373,7 @@ fn test_weights_err_has_duplicate_ids() {
         let hotkey_account_id = U256::from(666);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
         SubtensorModule::set_max_allowed_uids(netuid, 100); // Allow many registrations per block.
@@ -425,7 +425,7 @@ fn test_weights_err_max_weight_limit() {
         // Add network.
         let netuid: u16 = 1;
         let tempo: u16 = 100;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
         // Set params.
@@ -520,7 +520,7 @@ fn test_set_weights_err_not_active() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
         // Register one neuron. Should have uid 0
@@ -544,7 +544,7 @@ fn test_set_weights_err_invalid_uid() {
         let hotkey_account_id = U256::from(55);
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
         register_ok_neuron(1, hotkey_account_id, U256::from(66), 0);
         let neuron_uid: u16 =
@@ -565,7 +565,7 @@ fn test_set_weight_not_enough_values() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let account_id = U256::from(1);
         add_network(netuid, tempo, 0);
 
@@ -618,7 +618,7 @@ fn test_set_weight_too_many_uids() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
         register_ok_neuron(1, U256::from(1), U256::from(2), 100_000);
@@ -663,7 +663,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
     new_test_ext(0).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = 13;
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         add_network(netuid, tempo, 0);
 
         register_ok_neuron(1, U256::from(1), U256::from(2), 100_000);
@@ -1062,7 +1062,7 @@ fn test_commit_reveal_weights_ok() {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -1110,7 +1110,7 @@ fn test_commit_reveal_interval() {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -1273,7 +1273,7 @@ fn test_commit_reveal_hash() {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -1366,7 +1366,7 @@ fn test_commit_reveal_disabled_or_enabled() {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -1458,7 +1458,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -1537,8 +1537,8 @@ fn test_commit_reveal_bad_salt_fail() {
         let netuid: u16 = 1;
         let uids: Vec<u16> = vec![0, 1];
         let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let bad_salt: Vec<u8> = vec![0, 2, 3, 4, 5, 6, 7, 8];
+        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+        let bad_salt: Vec<u16> = vec![0, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
@@ -1588,7 +1588,7 @@ fn commit_reveal_set_weights(
     netuid: u16,
     uids: Vec<u16>,
     weights: Vec<u16>,
-    salt: Vec<u8>,
+    salt: Vec<u16>,
     version_key: u64,
 ) -> DispatchResult {
     SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);

@@ -1439,7 +1439,7 @@ pub mod pallet {
             netuid: u16,
             uids: Vec<u16>,
             values: Vec<u16>,
-            salt: Vec<u8>,
+            salt: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
             Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
