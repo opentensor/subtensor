@@ -1,5 +1,11 @@
 use crate::*;
 
+pub mod deprecated_triumvirate_pallet {
+    use super::*;
+
+    // Renamed to Governance
+    pub type Triumvirate = Governance;
+}
 /// Init the on-chain storage versions of pallets added to the runtime prior to this being an automatic process.
 pub struct Migration;
 
@@ -7,6 +13,8 @@ impl OnRuntimeUpgrade for Migration {
     fn on_runtime_upgrade() -> Weight {
         use frame_support::traits::GetStorageVersion;
         use frame_support::traits::StorageVersion;
+
+        use deprecated_triumvirate_pallet::Triumvirate;
 
         if Triumvirate::on_chain_storage_version() == StorageVersion::new(0) {
             Triumvirate::current_storage_version().put::<Triumvirate>();

@@ -1,7 +1,7 @@
 use node_subtensor_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GrandpaConfig, RuntimeGenesisConfig,
+    AccountId, AuraConfig, BalancesConfig, GovernanceConfig, GrandpaConfig, RuntimeGenesisConfig,
     SenateMembersConfig, Signature, SubnetOwnersMembersConfig, SubtensorModuleConfig, SudoConfig,
-    SystemConfig, TriumvirateConfig, TriumvirateMembersConfig, WASM_BINARY,
+    SystemConfig, TriumvirateMembersConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -468,7 +468,7 @@ fn localnet_genesis(
         },
         transaction_payment: Default::default(),
         subtensor_module: Default::default(),
-        triumvirate: TriumvirateConfig {
+        governance: GovernanceConfig {
             members: Default::default(),
             phantom: Default::default(),
         },
@@ -539,7 +539,7 @@ fn testnet_genesis(
         },
         transaction_payment: Default::default(),
         subtensor_module: Default::default(),
-        triumvirate: TriumvirateConfig {
+        governance: GovernanceConfig {
             // Add initial authorities as collective members
             members: Default::default(), //initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
             phantom: Default::default(),
@@ -585,6 +585,11 @@ fn finney_genesis(
         aura: AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
         },
+        governance: GovernanceConfig {
+            // Add initial authorities as collective members
+            members: Default::default(), //initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+            phantom: Default::default(),
+        },
         grandpa: GrandpaConfig {
             authorities: initial_authorities
                 .iter()
@@ -602,11 +607,6 @@ fn finney_genesis(
         subtensor_module: SubtensorModuleConfig {
             stakes,
             balances_issuance,
-        },
-        triumvirate: TriumvirateConfig {
-            // Add initial authorities as collective members
-            members: Default::default(), //initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-            phantom: Default::default(),
         },
         triumvirate_members: TriumvirateMembersConfig {
             members: Default::default(),

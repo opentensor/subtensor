@@ -117,7 +117,7 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type SubnetOwnersMembers = ();
-    type TriumvirateInterface = ();
+    type GovernanceInterface = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;

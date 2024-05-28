@@ -22,7 +22,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Governance: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
         Senate: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -160,9 +160,9 @@ parameter_types! {
 
 // Configure collective pallet for council
 parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 100;
-    pub const CouncilMaxProposals: u32 = 10;
-    pub const CouncilMaxMembers: u32 = 3;
+    pub const GovernanceMotionDuration: BlockNumber = 100;
+    pub const GovernanceMaxProposals: u32 = 10;
+    pub const GovernanceMaxMembers: u32 = 3;
 }
 
 // Configure collective pallet for Senate
@@ -176,23 +176,27 @@ parameter_types! { // Based on the number of u16::MAX subnets
 }
 
 use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
+pub struct CanProposeToGovernance;
+impl CanPropose<AccountId> for CanProposeToGovernance {
     fn can_propose(account: &AccountId) -> bool {
-        Triumvirate::is_member(account)
+        TriumvirateMembers::members().contains(account)
     }
 }
 
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
-    fn can_vote(_: &AccountId) -> bool {
-        //Senate::is_member(account)
-        false // Disable voting from pallet_collective::vote
+pub struct CanVoteToGovernance;
+impl CanVote<AccountId> for CanVoteToGovernance {
+    fn can_vote(group: pallet_collective::VotingGroup) -> bool {
+        T::GovernanceGroups::contains(group)
     }
 
     fn can_vote_for_group(account: &AccountId, group: pallet_collective::VotingGroup) -> bool {
         match group {
-            pallet_collective::VotingGroup::Triumvirate => Triumvirate::is_member(account),
+            pallet_collective::VotingGroup::Triumvirate => {
+                TriumvirateMembers::members().contains(account)
+            }
+            pallet_collective::VotingGroup::Senate => Senate::members()
+                .any(|member| SubtensorModule::coldkey_owns_hotkey(account, *member)),
+            pallet_collective::VotingGroup::SubnetOwners => SubnetOwners::is_member(account),
             _ => false,
         }
     }
@@ -272,7 +276,7 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
         let remove = *rm;
         let add = *add;
 
-        Triumvirate::remove_votes(rm)?;
+        Governance::remove_votes(rm)?;
         SubnetOwnersMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
@@ -301,20 +305,21 @@ impl Get<MemberCount> for GetSubnetOwnersMemberCount {
     }
 }
 
-// We call pallet_collective TriumvirateCollective
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Test {
+// We call pallet_collective GovernanceCollective
+type GovernanceCollective = pallet_collective::Instance1;
+impl pallet_collective::Config<GovernanceCollective> for Test {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
+    type MotionDuration = GovernanceMotionDuration;
+    type MaxProposals = GovernanceMaxProposals;
     type MaxMembers = GetSenateMemberCount;
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
     type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
+    type CanPropose = CanProposeToGovernance;
+    type CanVote = CanVoteToGovernance;
+    type MaxVotingGroups = MaxVotingGroups;
     type GetVotingMembers = GetSenateMemberCount;
 }
 
@@ -327,28 +332,10 @@ impl pallet_membership::Config<TriumvirateMembership> for Test {
     type SwapOrigin = EnsureRoot<AccountId>;
     type ResetOrigin = EnsureRoot<AccountId>;
     type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
-    type MaxMembers = CouncilMaxMembers;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
+    type MaxMembers = GovernanceMaxMembers;
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
-// This is a dummy collective instance for managing senate members
-// Probably not the best solution, but fastest implementation
-type SenateCollective = pallet_collective::Instance2;
-impl pallet_collective::Config<SenateCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = SenateMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = ();
-    type CanVote = ();
-    type GetVotingMembers = ();
 }
 
 // We call our top K delegates membership Senate
@@ -360,28 +347,10 @@ impl pallet_membership::Config<SenateMembership> for Test {
     type SwapOrigin = EnsureRoot<AccountId>;
     type ResetOrigin = EnsureRoot<AccountId>;
     type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Senate;
-    type MembershipChanged = Senate;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
     type MaxMembers = SenateMaxMembers;
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
-}
-
-// This is a dummy collective instance for managing SubnetOwnersMembers
-// Probably not the best solution, but fastest implementation
-type SubnetOwnersCollective = pallet_collective::Instance3;
-impl pallet_collective::Config<SubnetOwnersCollective> for Test {
-    type RuntimeOrigin = RuntimeOrigin;
-    type Proposal = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type MotionDuration = CouncilMotionDuration;
-    type MaxProposals = CouncilMaxProposals;
-    type MaxMembers = SubnetOwnersMaxMembers;
-    type DefaultVote = pallet_collective::PrimeDefaultVote;
-    type WeightInfo = pallet_collective::weights::SubstrateWeight<Test>;
-    type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = ();
-    type CanVote = ();
-    type GetVotingMembers = ();
 }
 
 // We call our subnet owners membership SubnetOwnersMembership
@@ -393,8 +362,8 @@ impl pallet_membership::Config<SubnetOwnersMembership> for Test {
     type SwapOrigin = EnsureRoot<AccountId>;
     type ResetOrigin = EnsureRoot<AccountId>;
     type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = SubnetOwners;
-    type MembershipChanged = SubnetOwners;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
     type MaxMembers = SubnetOwnersMaxMembers;
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Test>;
 }
@@ -404,10 +373,10 @@ impl pallet_subtensor::Config for Test {
     type Currency = Balances;
     type InitialIssuance = InitialIssuance;
     type SudoRuntimeCall = TestRuntimeCall;
-    type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
+    type GovernanceOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
     type SubnetOwnersMembers = ManageSubnetOwnersMembers;
-    type TriumvirateInterface = TriumvirateVotes;
+    type GovernanceInterface = GovernanceVotes;
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;

@@ -93,8 +93,8 @@ pub mod pallet {
             + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
             + GetDispatchInfo;
 
-        /// Origin checking for council majority
-        type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+        /// Origin checking for Governance majority
+        type GovernanceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         // --- Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
@@ -106,7 +106,7 @@ pub mod pallet {
 
         type VotingGroup: Parameter + Member;
 
-        type TriumvirateInterface: crate::CollectiveInterface<
+        type GovernanceInterface: crate::GovernanceInterface<
             Self::AccountId,
             Self::VotingGroup,
             Self::Hash,
@@ -1629,9 +1629,9 @@ pub mod pallet {
         // 		- The value of the hyper parameter.
         //
 
-        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+        /// Authenticates a governance proposal and dispatches a function call with `Root` origin.
         ///
-        /// The dispatch origin for this call must be a council majority.
+        /// The dispatch origin for this call must be a governance majority.
         ///
         /// ## Complexity
         /// - O(1).
@@ -1641,8 +1641,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             call: Box<T::SudoRuntimeCall>,
         ) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is a council majority.
-            T::CouncilOrigin::ensure_origin(origin)?;
+            // This is a public call, so we ensure that the origin is a governance majority.
+            T::GovernanceOrigin::ensure_origin(origin)?;
 
             let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
             let error = result.map(|_| ()).map_err(|e| e.error);
@@ -1651,11 +1651,11 @@ pub mod pallet {
             return result;
         }
 
-        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+        /// Authenticates a governance proposal and dispatches a function call with `Root` origin.
         /// This function does not check the weight of the call, and instead allows the
         /// user to specify the weight of the call.
         ///
-        /// The dispatch origin for this call must be a council majority.
+        /// The dispatch origin for this call must be a governance majority.
         ///
         /// ## Complexity
         /// - O(1).
@@ -1666,8 +1666,8 @@ pub mod pallet {
             call: Box<T::SudoRuntimeCall>,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
-            // This is a public call, so we ensure that the origin is a council majority.
-            T::CouncilOrigin::ensure_origin(origin)?;
+            // This is a public call, so we ensure that the origin is a governance majority.
+            T::GovernanceOrigin::ensure_origin(origin)?;
 
             let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
             let error = result.map(|_| ()).map_err(|e| e.error);
@@ -2014,7 +2014,7 @@ impl<T> MemberManagement<T> for () {
 }
 
 /// Trait for interacting with collective pallets
-pub trait CollectiveInterface<AccountId, VotingGroup, Hash, ProposalIndex> {
+pub trait GovernanceInterface<AccountId, VotingGroup, Hash, ProposalIndex> {
     /// Remove vote
     fn remove_votes(who: &AccountId, group: VotingGroup) -> Result<bool, DispatchError>;
 
@@ -2027,7 +2027,7 @@ pub trait CollectiveInterface<AccountId, VotingGroup, Hash, ProposalIndex> {
     ) -> Result<bool, DispatchError>;
 }
 
-impl<T, G, H, P> CollectiveInterface<T, G, H, P> for () {
+impl<T, G, H, P> GovernanceInterface<T, G, H, P> for () {
     fn remove_votes(_: &T, _: G) -> Result<bool, DispatchError> {
         Ok(true)
     }

@@ -16,7 +16,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             members: bounded_vec![1.into(), 2.into(), 3.into(), 4.into(), 5.into()],
             phantom: Default::default(),
         },
-        triumvirate: pallet_collective::GenesisConfig::<Test, pallet_collective::Instance1> {
+        governance: pallet_collective::GenesisConfig::<Test, pallet_collective::Instance1> {
             members: vec![1.into()],
             phantom: Default::default(),
         },

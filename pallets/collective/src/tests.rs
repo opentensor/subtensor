@@ -115,14 +115,33 @@ impl frame_system::Config for Test {
 pub struct CanProposeCollective;
 impl CanPropose<<Test as frame_system::Config>::AccountId> for CanProposeCollective {
     fn can_propose(who: &<Test as frame_system::Config>::AccountId) -> bool {
-        Collective::is_member(who)
+        TriumvirateMembers::members().contains(who)
     }
 }
 
 pub struct CanVoteCollective;
 impl CanVote<<Test as frame_system::Config>::AccountId> for CanVoteCollective {
-    fn can_vote(who: &<Test as frame_system::Config>::AccountId) -> bool {
-        Collective::is_member(who)
+    fn can_vote_for_group(
+        who: &<Test as frame_system::Config>::AccountId,
+        group: VotingGroup,
+    ) -> bool {
+    }
+
+    fn can_vote(group: VotingGroup) -> bool {
+        Test::CouncilGroups::contains(group)
+    }
+
+    fn get_member_account(
+        account: &<Test as frame_system::Config>::AccountId,
+        group: VotingGroup,
+    ) -> <Test as frame_system::Config>::AccountId {
+        match group {
+            VotingGroup::Senate => {
+                // Grab the hotkey from the account.
+                // TODO
+            }
+            VotingGroup::SubnetOwners => *account,
+        }
     }
 }
 
@@ -207,8 +226,8 @@ impl CanPropose<<Test as frame_system::Config>::AccountId> for CanProposeDefault
 
 pub struct CanVoteDefaultCollective;
 impl CanVote<<Test as frame_system::Config>::AccountId> for CanVoteDefaultCollective {
-    fn can_vote(who: &<Test as frame_system::Config>::AccountId) -> bool {
-        DefaultCollective::is_member(who)
+    fn can_vote(group: pallet_collective::VotingGroup) -> bool {
+        T::CouncilGroup
     }
 }
 

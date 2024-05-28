@@ -355,27 +355,44 @@ parameter_types! { // Based on the number of u16::MAX subnets
     pub const SubnetOwnersMaxMembers: u32 = u16::MAX as u32;
 }
 
+// Thresholds for each voting group as a percent.
+pub const TRIUMVIRATE_THRESHOLD: u32 = 60; // e.g. 60%
+pub const SENATE_THRESHOLD: u32 = 50;
+pub const SUBNET_OWNERS_THRESHOLD: u32 = 40;
+
 parameter_types! {
     pub const MaxVotingGroups: u32 = 16;
+
+    pub const VoterThresholds: [CollectiveThreshold; 2] = [
+        //TRIUMVIRATE_THRESHOLD, Triumvirate doesn't vote (yet)
+        Permill::from_percent(SENATE_THRESHOLD),
+        Permill::from_percent(SUBNET_OWNERS_THRESHOLD),
+    ];
+
+    // The voting groups that form the council
+    pub const CouncilGroups: [VotingGroup; 2] = [
+        VotingGroup::Senate,
+        VotingGroup::SubnetOwners,
+    ];
 }
 
 pub use pallet_collective::VotingGroup;
-use pallet_collective::{CanPropose, CanVote, GetVotingMembers};
+use pallet_collective::{CanPropose, CanVote, CollectiveThreshold, GetVotingMembers};
 
-pub struct CanProposeToTriumvirate;
-impl CanPropose<AccountId> for CanProposeToTriumvirate {
+pub struct CanProposeToGovernance;
+impl CanPropose<AccountId> for CanProposeToGovernance {
     fn can_propose(account: &AccountId) -> bool {
-        // Only the Triumvirate members can propose
+        // Only the Triumvirate can propose to governance
         TriumvirateMembers::members().contains(account)
     }
 }
 
-pub struct CanVoteToTriumvirate;
-impl CanVote<AccountId> for CanVoteToTriumvirate {
+pub struct CanVoteToGovernance;
+impl CanVote<AccountId> for CanVoteToGovernance {
     fn can_vote_for_group(account: &AccountId, group: VotingGroup) -> bool {
         #[allow(unreachable_patterns)]
         match group {
-            VotingGroup::Triumvirate => Triumvirate::is_member(account),
+            VotingGroup::Triumvirate => TriumvirateMembers::members().contains(account),
             VotingGroup::Senate => {
                 // Check if the account coldkey is a member of the Senate
                 return ManageSenateMembers::members()
@@ -388,11 +405,8 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 
     fn can_vote(group: VotingGroup) -> bool {
-        match group {
-            VotingGroup::Senate => true,
-            VotingGroup::SubnetOwners => true,
-            _ => false, // Triumvirate cannot vote in the collective
-        }
+        // Any goups from the council can vote
+        Governance::group_is_in_council(group)
     }
 
     fn get_member_account(account: &AccountId, group: VotingGroup) -> AccountId {
@@ -411,7 +425,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
     }
 }
 
-use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use pallet_subtensor::{GovernanceInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResult {
@@ -422,7 +436,7 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
     fn remove_member(account: &AccountId) -> DispatchResult {
         let who = Address::Id(account.clone());
 
-        Triumvirate::remove_votes(account, VotingGroup::Senate)?;
+        GovernanceVotes::remove_votes(account, VotingGroup::Senate)?;
         SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
@@ -430,7 +444,7 @@ impl MemberManagement<AccountId> for ManageSenateMembers {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
-        Triumvirate::remove_votes(rm, VotingGroup::Senate)?;
+        GovernanceVotes::remove_votes(rm, VotingGroup::Senate)?;
         SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
@@ -477,7 +491,7 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
     fn remove_member(account: &AccountId) -> DispatchResult {
         let who = Address::Id(account.clone());
 
-        Triumvirate::remove_votes(account, VotingGroup::SubnetOwners)?;
+        GovernanceVotes::remove_votes(account, VotingGroup::SubnetOwners)?;
         SubnetOwnersMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
@@ -485,7 +499,7 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
         let remove = Address::Id(rm.clone());
         let add = Address::Id(add.clone());
 
-        Triumvirate::remove_votes(rm, VotingGroup::SubnetOwners)?;
+        GovernanceVotes::remove_votes(rm, VotingGroup::SubnetOwners)?;
         SubnetOwnersMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
@@ -502,13 +516,13 @@ impl MemberManagement<AccountId> for ManageSubnetOwnersMembers {
     }
 }
 
-pub struct TriumvirateVotes;
-impl CollectiveInterface<AccountId, VotingGroup, Hash, u32> for TriumvirateVotes {
+pub struct GovernanceVotes;
+impl GovernanceInterface<AccountId, VotingGroup, Hash, u32> for GovernanceVotes {
     fn remove_votes(
         who: &AccountId,
         group: VotingGroup,
     ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::remove_votes(who, group)
+        Governance::remove_votes(who, group)
     }
 
     fn add_vote(
@@ -518,22 +532,19 @@ impl CollectiveInterface<AccountId, VotingGroup, Hash, u32> for TriumvirateVotes
         index: u32,
         approve: bool,
     ) -> Result<bool, sp_runtime::DispatchError> {
-        Triumvirate::do_vote(who.clone(), group, proposal, index, approve)
+        Governance::do_vote(who.clone(), group, proposal, index, approve)
     }
 }
 
-type EnsureMajoritySenate =
-    pallet_collective::EnsureProportionMoreThan<AccountId, TriumvirateCollective, 1, 2>;
-
 type EnsureCouncilUnanimous = pallet_collective::EnsureUnanimous<
     AccountId,
-    TriumvirateCollective,
+    GovernanceCollective,
     pallet_collective::CouncilVariant,
 >;
 
-// We call pallet_collective TriumvirateCollective
-type TriumvirateCollective = pallet_collective::Instance1;
-impl pallet_collective::Config<TriumvirateCollective> for Runtime {
+// We call pallet_collective GovernanceCollective
+type GovernanceCollective = pallet_collective::Instance1;
+impl pallet_collective::Config<GovernanceCollective> for Runtime {
     type RuntimeOrigin = RuntimeOrigin;
     type Proposal = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
@@ -543,10 +554,12 @@ impl pallet_collective::Config<TriumvirateCollective> for Runtime {
     type DefaultVote = pallet_collective::PrimeDefaultVote;
     type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
     type SetMembersOrigin = EnsureNever<AccountId>;
-    type CanPropose = CanProposeToTriumvirate;
-    type CanVote = CanVoteToTriumvirate;
+    type CanPropose = CanProposeToGovernance;
+    type CanVote = CanVoteToGovernance;
     type GetVotingMembers = GetVotingMembersCount;
     type MaxVotingGroups = MaxVotingGroups;
+    type CouncilGroups = CouncilGroups;
+    type VoterThresholds = VoterThresholds;
 }
 
 // We call council members Triumvirate
@@ -558,8 +571,8 @@ impl pallet_membership::Config<TriumvirateMembership> for Runtime {
     type SwapOrigin = EnsureRoot<AccountId>;
     type ResetOrigin = EnsureRoot<AccountId>;
     type PrimeOrigin = EnsureRoot<AccountId>;
-    type MembershipInitialized = Triumvirate;
-    type MembershipChanged = Triumvirate;
+    type MembershipInitialized = ();
+    type MembershipChanged = ();
     type MaxMembers = CouncilMaxMembers;
     type WeightInfo = pallet_membership::weights::SubstrateWeight<Runtime>;
 }
@@ -685,17 +698,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
                 RuntimeCall::SubtensorModule(pallet_subtensor::Call::dissolve_network { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::root_register { .. })
                     | RuntimeCall::SubtensorModule(pallet_subtensor::Call::burned_register { .. })
-                    | RuntimeCall::Triumvirate(..)
+                    | RuntimeCall::TriumvirateMembers(..)
+                    | RuntimeCall::Governance(..)
             ),
             ProxyType::Triumvirate => matches!(
                 c,
-                RuntimeCall::Triumvirate(..) | RuntimeCall::TriumvirateMembers(..)
+                RuntimeCall::Governance(..) | RuntimeCall::TriumvirateMembers(..)
             ),
             ProxyType::Senate => matches!(c, RuntimeCall::SenateMembers(..)),
             ProxyType::Governance => matches!(
                 c,
                 RuntimeCall::SenateMembers(..)
-                    | RuntimeCall::Triumvirate(..)
+                    | RuntimeCall::Governance(..)
                     | RuntimeCall::TriumvirateMembers(..)
             ),
             ProxyType::Staking => matches!(
@@ -758,11 +772,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
             (OriginCaller::system(frame_system::RawOrigin::Root), _) => Some(Ordering::Greater),
             // Check which one has more yes votes.
             (
-                OriginCaller::Triumvirate(pallet_collective::RawOrigin::Members(
+                OriginCaller::Governance(pallet_collective::RawOrigin::Members(
                     l_yes_votes,
                     l_count,
                 )),
-                OriginCaller::Triumvirate(pallet_collective::RawOrigin::Members(
+                OriginCaller::Governance(pallet_collective::RawOrigin::Members(
                     r_yes_votes,
                     r_count,
                 )), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
@@ -918,10 +932,10 @@ impl pallet_subtensor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type SudoRuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type CouncilOrigin = EnsureMajoritySenate;
+    type GovernanceOrigin = EnsureCouncilUnanimous; // All council groups must agree
     type SenateMembers = ManageSenateMembers;
     type SubnetOwnersMembers = ManageSubnetOwnersMembers;
-    type TriumvirateInterface = TriumvirateVotes;
+    type GovernanceInterface = GovernanceVotes;
     type VotingGroup = VotingGroup;
 
     type InitialRho = SubtensorInitialRho;
@@ -1241,7 +1255,7 @@ construct_runtime!(
         Balances: pallet_balances,
         TransactionPayment: pallet_transaction_payment,
         SubtensorModule: pallet_subtensor,
-        Triumvirate: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        Governance: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TriumvirateMembers: pallet_membership::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         SubnetOwnersMembers: pallet_membership::<Instance3>::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -1280,6 +1294,7 @@ pub type SignedExtra = (
 type Migrations = (
     init_storage_versions::Migration,
     account_data_migration::Migration,
+    pallet_collective::migrations::rename_to_governance::MigrateName<Runtime>,
     pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
     pallet_preimage::migration::v1::Migration<Runtime>,
 );

@@ -44,7 +44,7 @@
 
 use scale_info::TypeInfo;
 use sp_io::storage;
-use sp_runtime::{traits::Hash, RuntimeDebug};
+use sp_runtime::{traits::Hash, BoundedVec, Permill, RuntimeDebug};
 use sp_std::{marker::PhantomData, prelude::*, result};
 
 use frame_support::{
@@ -55,7 +55,8 @@ use frame_support::{
     },
     ensure,
     traits::{
-        Backing, ChangeMembers, EnsureOrigin, Get, GetBacking, InitializeMembers, StorageVersion,
+        Backing, ChangeMembers, Defensive, DefensiveResult, EnsureOrigin, Get, GetBacking,
+        InitializeMembers, StorageVersion,
     },
     weights::Weight,
 };
@@ -69,6 +70,8 @@ pub mod weights;
 
 pub use pallet::*;
 pub use weights::WeightInfo;
+
+pub mod migrations;
 
 const LOG_TARGET: &str = "runtime::collective";
 
@@ -167,13 +170,15 @@ pub enum VotingGroup {
 
 pub type VotingGroupIndex = u32;
 
+pub type CollectiveThreshold = Permill;
+
 /// Info for keeping track of a motion being voted on.
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct Votes<AccountId, BlockNumber> {
     /// The proposal's unique index.
     index: ProposalIndex,
     /// The number of approval votes that are needed to pass the motion.
-    threshold: MemberCount,
+    threshold: CollectiveThreshold,
     /// The current set of voters that approved it.
     ayes: Vec<AccountId>,
     /// The current set of voters that rejected it.
@@ -250,6 +255,10 @@ pub mod pallet {
         /// collective vote.
         #[pallet::constant]
         type MaxVotingGroups: Get<VotingGroupIndex>;
+
+        type CouncilGroups: Get<[VotingGroup; 2]>;
+
+        type VoterThresholds: Get<[CollectiveThreshold; 2]>;
     }
 
     #[pallet::genesis_config]
@@ -336,7 +345,7 @@ pub mod pallet {
             account: T::AccountId,
             proposal_index: ProposalIndex,
             proposal_hash: T::Hash,
-            threshold: MemberCount,
+            threshold: BoundedVec<CollectiveThreshold, T::MaxVotingGroups>,
         },
         /// A motion (given hash) has been voted on by given account, leaving
         /// a tally (yes votes and no votes given respectively as `MemberCount`).
@@ -365,8 +374,8 @@ pub mod pallet {
         /// A proposal was closed because its threshold was reached or after its duration was up.
         Closed {
             proposal_hash: T::Hash,
-            yes: MemberCount,
-            no: MemberCount,
+            yes: Vec<MemberCount>,
+            no: Vec<MemberCount>,
         },
     }
 
@@ -400,6 +409,10 @@ pub mod pallet {
         NotPrivileged,
         /// The voting group has no members, or the members are not initialized
         EmptyVotingGroup,
+        /// There is no prime member set, or the prime member did not vote
+        NoPrimeMember,
+        /// There is no early agreement on the proposal
+        NoAgreement,
     }
 
     // Note that councillor operations are assigned to the operational class.
@@ -476,56 +489,6 @@ pub mod pallet {
             .into())
         }
 
-        /// Dispatch a proposal from a member using the `Member` origin.
-        ///
-        /// Origin must be a member of the collective.
-        ///
-        /// ## Complexity:
-        /// - `O(B + M + P)` where:
-        /// - `B` is `proposal` size in bytes (length-fee-bounded)
-        /// - `M` members-count (code-bounded)
-        /// - `P` complexity of dispatching `proposal`
-        #[pallet::call_index(1)]
-        #[pallet::weight((
-			T::WeightInfo::execute(
-				*length_bound, // B
-				T::MaxMembers::get(), // M
-			).saturating_add(proposal.get_dispatch_info().weight), // P
-			DispatchClass::Operational
-		))]
-        pub fn execute(
-            origin: OriginFor<T>,
-            proposal: Box<<T as Config<I>>::Proposal>,
-            #[pallet::compact] length_bound: u32,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-            let members = Self::members();
-            ensure!(members.contains(&who), Error::<T, I>::NotMember);
-
-            let proposal_len = proposal.encoded_size();
-            ensure!(
-                proposal_len <= length_bound as usize,
-                Error::<T, I>::WrongProposalLength
-            );
-
-            let proposal_hash = T::Hashing::hash_of(&proposal);
-            let result = proposal.dispatch(RawOrigin::Member(who).into());
-            Self::deposit_event(Event::MemberExecuted {
-                proposal_hash,
-                result: result.map(|_| ()).map_err(|e| e.error),
-            });
-
-            Ok(get_result_weight(result)
-                .map(|w| {
-                    T::WeightInfo::execute(
-                        proposal_len as u32,  // B
-                        members.len() as u32, // M
-                    )
-                    .saturating_add(w) // P
-                })
-                .into())
-        }
-
         /// Add a new proposal to either be voted on or executed directly.
         ///
         /// Requires the sender to be member.
@@ -566,7 +529,7 @@ pub mod pallet {
                 Error::<T, I>::WrongDuration
             );
 
-            let threshold = (T::GetVotingMembers::get_count(VotingGroup::Senate) / 2) + 1;
+            let threshold = BoundedVec::truncate_from(T::VoterThresholds::get().to_vec());
 
             let (proposal_len, voting_members, active_proposals) =
                 Self::do_propose_proposed(who, threshold, proposal, length_bound, duration)?;
@@ -608,8 +571,7 @@ pub mod pallet {
 
             let voter = if group == VotingGroup::Senate {
                 // If Senate, grab the hotkey
-                let hotkey = T::CanVote::get_member_account(&who, group);
-                hotkey // Set the hotkey as the voter
+                T::CanVote::get_member_account(&who, group) // Set the hotkey as the voter
             } else {
                 who
             };
@@ -619,7 +581,7 @@ pub mod pallet {
 
             // Detects first vote of the member in the motion
             let is_account_voting_first_time =
-                Self::do_vote((voter).clone(), group, proposal, index, approve)?;
+                Self::do_vote(voter, group, proposal, index, approve)?;
 
             if is_account_voting_first_time {
                 Ok((Some(T::WeightInfo::vote(member_count)), Pays::No).into())
@@ -754,7 +716,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Add a new proposal to be voted.
     pub fn do_propose_proposed(
         who: T::AccountId,
-        threshold: MemberCount,
+        threshold: BoundedVec<CollectiveThreshold, T::MaxVotingGroups>,
         proposal: Box<<T as Config<I>>::Proposal>,
         length_bound: u32,
         duration: BlockNumberFor<T>,
@@ -788,20 +750,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         let mut voting_members: u32 = 0;
 
         // Insert new vote tracker for each voting group.
-        // TODO: Iterate over all voting groups, not just Senate
-        let group_empty: Result<Vec<_>, Error<T, I>> = [VotingGroup::Senate]
+        let group_empty: Result<Vec<_>, Error<T, I>> = T::CouncilGroups::get()
             .iter()
             .enumerate()
-            .map(|(_, group)| {
+            .map(|(i, group)| {
                 let voting_group = *group;
                 let member_count = T::GetVotingMembers::get_count(voting_group);
                 voting_members += member_count;
 
                 let votes = Votes {
                     index,
+                    threshold: *threshold
+                        .get(i)
+                        .unwrap_or(&CollectiveThreshold::from_percent(50)), // Default to 50%
                     ayes: vec![],
                     nays: vec![],
-                    threshold,
                     end,
                 };
 
@@ -819,6 +782,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             threshold,
         });
         Ok((proposal_len as u32, voting_members, active_proposals as u32))
+    }
+
+    pub fn group_is_in_council(group: VotingGroup) -> bool {
+        T::CouncilGroups::get().contains(&group)
     }
 
     /// Add an aye or nay vote for the member to the given proposal, returns true if it's the first
@@ -887,10 +854,75 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(is_account_voting_first_time)
     }
 
-    pub fn passes_threshold(votes: MemberCount, threshold: MemberCount) -> bool {
+    fn passes_threshold(votes: MemberCount, seats: MemberCount, threshold: Permill) -> bool {
         // Return if the number of votes
         // surpasses the permill threshold of seats
-        votes >= threshold
+        votes * 1_000_000 >= threshold * seats
+    }
+
+    fn check_votes(
+        proposal_hash: T::Hash,
+        index: ProposalIndex,
+        group: VotingGroup,
+    ) -> Result<
+        (
+            Votes<T::AccountId, BlockNumberFor<T>>,
+            bool,
+            bool,
+            MemberCount,
+            MemberCount,
+            MemberCount,
+        ),
+        Error<T, I>,
+    > {
+        let group_voting =
+            Self::voting(proposal_hash, group).ok_or(Error::<T, I>::ProposalMissing)?;
+        ensure!(group_voting.index == index, Error::<T, I>::WrongIndex);
+
+        let no_votes = group_voting.nays.len() as MemberCount;
+        let yes_votes = group_voting.ayes.len() as MemberCount;
+
+        let seats = T::GetVotingMembers::get_count(group);
+
+        let approved = Self::passes_threshold(yes_votes, seats, group_voting.threshold);
+        let disapproved = Self::passes_threshold(no_votes, seats, group_voting.threshold);
+
+        Ok((
+            group_voting,
+            approved,
+            disapproved,
+            yes_votes,
+            no_votes,
+            seats,
+        ))
+    }
+
+    /// Get the default vote for a given group.
+    /// This function is used to determine the default vote for a group when a member abstains.
+    fn get_default_vote(
+        _: VotingGroup,
+        group_voting: Votes<T::AccountId, BlockNumberFor<T>>,
+        yes_votes: MemberCount,
+        no_votes: MemberCount,
+        seats: MemberCount,
+    ) -> bool {
+        // All groups use the same strategy.
+
+        let prime_vote: Option<bool> = match Self::prime() {
+            Some(who) => {
+                if group_voting.ayes.iter().any(|a| a == &who) {
+                    Some(true)
+                } else if group_voting.nays.iter().any(|a| a == &who) {
+                    Some(false)
+                } else {
+                    None // Prime member did not vote
+                }
+            }
+            None => None, // No Prime member
+        };
+
+        // get the default voting strategy.
+        T::DefaultVote::default_vote(prime_vote, yes_votes, no_votes, seats)
     }
 
     /// Close a vote that is either approved, disapproved or whose voting period has ended.
@@ -900,72 +932,184 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         proposal_weight_bound: Weight,
         length_bound: u32,
     ) -> DispatchResultWithPostInfo {
-        // TODO: Implement the rest of the function for SubnetOwners also.
-        let voting = Self::voting(proposal_hash, VotingGroup::Senate)
-            .ok_or(Error::<T, I>::ProposalMissing)?;
-        ensure!(voting.index == index, Error::<T, I>::WrongIndex);
+        let council_groups = T::CouncilGroups::get();
+        ensure!(!council_groups.is_empty(), Error::<T, I>::EmptyVotingGroup);
+        ensure!(
+            council_groups.len() <= T::MaxVotingGroups::get() as usize,
+            Error::<T, I>::TooManyProposals
+        );
 
-        let mut no_votes = voting.nays.len() as MemberCount;
-        let mut yes_votes = voting.ayes.len() as MemberCount;
-        let seats = T::GetVotingMembers::get_count(VotingGroup::Senate) as MemberCount;
-        let approved = yes_votes >= voting.threshold;
-        let disapproved = seats.saturating_sub(no_votes) < voting.threshold;
         // Allow (dis-)approving the proposal as soon as there are enough votes.
-        if approved {
-            let (proposal, len) = Self::validate_and_get_proposal(
-                &proposal_hash,
-                length_bound,
-                proposal_weight_bound,
-            )?;
-            Self::deposit_event(Event::Closed {
-                proposal_hash,
-                yes: yes_votes,
-                no: no_votes,
-            });
-            let (proposal_weight, proposal_count) =
-                Self::do_approve_proposal(seats, yes_votes, proposal_hash, proposal);
-            return Ok((
-                Some(
-                    T::WeightInfo::close_early_approved(len as u32, seats, proposal_count)
+        let mut decided_early_results: BoundedVec<
+            // This format allows unzip later.
+            // decision, (yes_votes, (no_votes, seats))
+            (bool, (MemberCount, (MemberCount, MemberCount))),
+            T::MaxVotingGroups,
+        > = BoundedVec::new();
+
+        let decided_early: Result<_, Error<T, I>> = council_groups.iter().try_for_each(|group| {
+            let (_group_voting, approved, disapproved, yes_votes, no_votes, seats) =
+                Self::check_votes(proposal_hash, index, *group)?;
+
+            if approved ^ disapproved {
+                let decision = !disapproved; // True for approval, false for disapproval
+
+                if decided_early_results
+                    .last()
+                    .unwrap_or(&(false, (0, (0, 0))))
+                    .0
+                    != decision
+                {
+                    // Different results, not in agreement with the previous group(s)
+                    return Err(Error::<T, I>::NoAgreement);
+                } // Otherwise, continue
+                decided_early_results
+                    .try_push((decision, (yes_votes, (no_votes, seats))))
+                    .defensive_map_err(|_|
+					// This should not happen, as we checked the length before
+					Error::<T, I>::TooManyProposals) // Continue
+            } else {
+                Err(Error::<T, I>::TooEarly) // Not decided yet
+            }
+        });
+
+        if decided_early.is_ok() {
+            // Threshold is passed and agreed for all groups
+
+            // Verify the length of results. Should not be different.
+            ensure!(
+                decided_early_results.len() == council_groups.len(),
+                Error::<T, I>::NoAgreement
+            );
+
+            let (approved_group, (yes_votes, (no_votes, seats))): (
+                Vec<bool>,
+                (Vec<MemberCount>, (Vec<MemberCount>, Vec<MemberCount>)),
+            ) = decided_early_results.into_iter().unzip();
+            // All groups have the same decision
+            let approved: bool = *approved_group.first().defensive_unwrap_or(&false);
+
+            let seats_total: u32 = seats.iter().sum();
+
+            if approved {
+                let (proposal, len) = Self::validate_and_get_proposal(
+                    &proposal_hash,
+                    length_bound,
+                    proposal_weight_bound,
+                )?;
+
+                Self::deposit_event(Event::Closed {
+                    proposal_hash,
+                    yes: yes_votes,
+                    no: no_votes,
+                });
+
+                let (proposal_weight, proposal_count) = Self::do_approve_proposal(
+                    approved_group.iter().filter(|&a| *a).count() as VotingGroupIndex,
+                    council_groups.len() as VotingGroupIndex,
+                    proposal_hash,
+                    proposal,
+                );
+
+                return Ok((
+                    Some(
+                        T::WeightInfo::close_early_approved(
+                            len as u32,
+                            seats_total,
+                            proposal_count,
+                        )
                         .saturating_add(proposal_weight),
-                ),
-                Pays::Yes,
-            )
-                .into());
-        } else if disapproved {
-            Self::deposit_event(Event::Closed {
-                proposal_hash,
-                yes: yes_votes,
-                no: no_votes,
-            });
-            let proposal_count = Self::do_disapprove_proposal(proposal_hash);
-            return Ok((
-                Some(T::WeightInfo::close_early_disapproved(
-                    seats,
-                    proposal_count,
-                )),
-                Pays::No,
-            )
-                .into());
+                    ),
+                    Pays::Yes,
+                )
+                    .into());
+            } else {
+                // Disapproved
+                Self::deposit_event(Event::Closed {
+                    proposal_hash,
+                    yes: yes_votes,
+                    no: no_votes,
+                });
+                let proposal_count = Self::do_disapprove_proposal(proposal_hash);
+                return Ok((
+                    Some(T::WeightInfo::close_early_disapproved(
+                        seats_total,
+                        proposal_count,
+                    )),
+                    Pays::No,
+                )
+                    .into());
+            }
         }
 
-        // Only allow actual closing of the proposal after the voting period has ended.
+        // If the proposal was not decided early, check if the voting period has ended
+        #[allow(clippy::single_match)] // May become more complex in the future
+        match decided_early {
+            Err(Error::<T, I>::TooEarly) => decided_early?,
+            _ => (),
+        }
+        // No early approval or disapproval, check if the voting period has ended
+        let (first_group_voting, _approved, _disapproved, _yes_votes, _no_votes, _seats) =
+            Self::check_votes(
+                proposal_hash,
+                index,
+                *council_groups
+                    .first()
+                    .defensive_unwrap_or(&VotingGroup::Senate),
+            )?;
+
+        // Only allow final closing of the proposal after the voting period has ended.
         ensure!(
-            frame_system::Pallet::<T>::block_number() >= voting.end,
+            frame_system::Pallet::<T>::block_number() >= first_group_voting.end,
             Error::<T, I>::TooEarly
         );
 
-        let prime_vote = Self::prime().map(|who| voting.ayes.iter().any(|a| a == &who));
+        // Iterate over all remaining groups (if any)
+        let last_index = decided_early_results.len() - 1;
+        let mut all_results = decided_early_results;
+        if council_groups.len() - 1 > last_index {
+            // Some groups were not tallied yet
+            let remaining_groups = &council_groups[last_index + 1..];
+            for group in remaining_groups.iter() {
+                let (group_voting, approved, disapproved, mut yes_votes, mut no_votes, seats) =
+                    Self::check_votes(proposal_hash, index, *group)?;
 
-        // default voting strategy.
-        let default = T::DefaultVote::default_vote(prime_vote, yes_votes, no_votes, seats);
+                if approved || disapproved {
+                    all_results
+                        .try_push((approved, (yes_votes, (no_votes, seats))))
+                        .defensive_map_err(|_| Error::<T, I>::TooManyProposals)?;
+                // Should not happen
+                } else {
+                    let group_threshold = group_voting.threshold;
+                    // Not decided yet, use the default vote for all abstentions in the group
+                    let default_vote: bool =
+                        Self::get_default_vote(*group, group_voting, yes_votes, no_votes, seats);
 
-        let abstentions = seats - (yes_votes + no_votes);
-        match default {
-            true => yes_votes += abstentions,
-            false => no_votes += abstentions,
+                    let abstentions = seats - (yes_votes + no_votes);
+                    match default_vote {
+                        true => yes_votes += abstentions,
+                        false => no_votes += abstentions,
+                    }
+
+                    // Check approval using the default vote; Disapproved if not approved
+                    let approved = Self::passes_threshold(yes_votes, seats, group_threshold);
+
+                    all_results
+                        .try_push((approved, (yes_votes, (no_votes, seats))))
+                        .defensive_map_err(|_| Error::<T, I>::TooManyProposals)?;
+                    // Should not happen
+                }
+            }
         }
-        let approved = yes_votes >= voting.threshold;
+
+        // Check if the proposal is approved or disapproved
+        let (approved_group, (yes_votes, (no_votes, seats))): (
+            Vec<bool>,
+            (Vec<MemberCount>, (Vec<MemberCount>, Vec<MemberCount>)),
+        ) = all_results.into_iter().unzip();
+        let approved = approved_group.iter().all(|&a| a);
+
+        let seats_total: u32 = seats.iter().sum();
 
         if approved {
             let (proposal, len) = Self::validate_and_get_proposal(
@@ -978,25 +1122,36 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 yes: yes_votes,
                 no: no_votes,
             });
-            let (proposal_weight, proposal_count) =
-                Self::do_approve_proposal(seats, yes_votes, proposal_hash, proposal);
+            let (proposal_weight, proposal_count) = Self::do_approve_proposal(
+                approved_group.iter().filter(|&a| *a).count() as VotingGroupIndex,
+                council_groups.len() as VotingGroupIndex,
+                proposal_hash,
+                proposal,
+            );
+
             Ok((
                 Some(
-                    T::WeightInfo::close_approved(len as u32, seats, proposal_count)
+                    T::WeightInfo::close_approved(len as u32, seats_total, proposal_count)
                         .saturating_add(proposal_weight),
                 ),
                 Pays::Yes,
             )
                 .into())
         } else {
+            // Disapproved by at least one group
+
             Self::deposit_event(Event::Closed {
                 proposal_hash,
                 yes: yes_votes,
                 no: no_votes,
             });
             let proposal_count = Self::do_disapprove_proposal(proposal_hash);
+
             Ok((
-                Some(T::WeightInfo::close_disapproved(seats, proposal_count)),
+                Some(T::WeightInfo::close_disapproved(
+                    seats_total,
+                    proposal_count,
+                )),
                 Pays::No,
             )
                 .into())
@@ -1044,15 +1199,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// Computation and i/o `O(P)` where:
     /// - `P` is number of active proposals
     fn do_approve_proposal(
-        seats: MemberCount,
-        yes_votes: MemberCount,
+        yes_votes: VotingGroupIndex,
+        groups: VotingGroupIndex,
         proposal_hash: T::Hash,
         proposal: <T as Config<I>>::Proposal,
     ) -> (Weight, u32) {
         Self::deposit_event(Event::Approved { proposal_hash });
 
         let dispatch_weight = proposal.get_dispatch_info().weight;
-        let origin = RawOrigin::Members(yes_votes, seats).into();
+
+        // Number of approving groups out of the total groups
+        let origin = RawOrigin::Council(yes_votes, groups).into();
         let result = proposal.dispatch(origin);
         Self::deposit_event(Event::Executed {
             proposal_hash,
@@ -1153,9 +1310,11 @@ impl<T: Config<I>, I: 'static> ChangeMembers<T::AccountId> for Pallet<T, I> {
         // remove accounts from all current voting in motions.
         let mut outgoing = outgoing.to_vec();
         outgoing.sort();
+        let council_groups = T::CouncilGroups::get();
+
         for h in Self::proposals().into_iter() {
-            // TODO: Iterate over all voting groups, not just Senate
-            for group in [VotingGroup::Senate].iter() {
+            // Iterate over all groups that can vote
+            for group in council_groups.iter() {
                 <Voting<T, I>>::mutate(h, group, |v| {
                     if let Some(mut votes) = v.take() {
                         votes.ayes.retain(|i| outgoing.binary_search(i).is_err());

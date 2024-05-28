@@ -17,11 +17,9 @@
 
 use super::*;
 use crate::math::*;
-use frame_support::dispatch::{DispatchResultWithPostInfo, Pays};
 use frame_support::sp_std::vec;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
-use frame_support::weights::Weight;
 use substrate_fixed::{
     transcendental::log2,
     types::{I64F64, I96F32},
