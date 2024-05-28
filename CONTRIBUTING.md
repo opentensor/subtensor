@@ -62,7 +62,7 @@
     reverting the change from `devnet-ready`, and then a PR should be opened merging the
     modified `devnet` into `testnet`. These revert PRs, if they occur, _must_ be merged before
     a new deploy can be run (TODO: enforce this via CI).
-12. After the SOP period (72 hours on testnet) has passed and the `testnet-pass` label has been
+12. After the SOP period (1 week on `testnet`) has passed and the `testnet-pass` label has been
     added, the CI checks on your PR should now turn all green and a core team member will be
     able to merge your PR into `main`. At this point your PR is done and is eligible to be
     included in the next `finney` deploy (TODO: track and enforce SOP compliance on a per-PR
