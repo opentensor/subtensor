@@ -1108,3 +1108,27 @@ fn test_sudo_set_min_delegate_take() {
         assert_eq!(SubtensorModule::get_min_delegate_take(), to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_set_target_stakes_per_interval() {
+    new_test_ext().execute_with(|| {
+        let to_be_set = 100;
+        let init_value = SubtensorModule::get_target_stakes_per_interval();
+        assert_eq!(
+            AdminUtils::sudo_set_target_stakes_per_interval(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            SubtensorModule::get_target_stakes_per_interval(),
+            init_value
+        );
+        assert_ok!(AdminUtils::sudo_set_target_stakes_per_interval(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_target_stakes_per_interval(), to_be_set);
+    });
+}
