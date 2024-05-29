@@ -1152,7 +1152,10 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
             SubtensorModule::get_commit_reveal_weights_enabled(netuid),
             to_be_set
         );
+    });
+}
 
+#[test]
 fn test_sudo_set_target_stakes_per_interval() {
     new_test_ext().execute_with(|| {
         let to_be_set = 100;
