@@ -226,10 +226,11 @@ impl<T: Config> Pallet<T> {
                     },
                     SubnetType::STAO => {}
                 }
+            });
     
-                ////////////////////////////////
-                // run epochs.
-    
+            ////////////////////////////////
+            // run epochs.
+            subnets.iter_mut().for_each(|subnet_info| {
                 // Check to see if this network has reached tempo.
                 let tempo: u16 = Self::get_tempo(subnet_info.netuid);
                 if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
@@ -251,9 +252,10 @@ impl<T: Config> Pallet<T> {
                         );
                     }
     
-                    // Drain emission and update dynamic pools
-                    // Drain the pending emission issuance for this subnet.
+                    // Drain pending emission and update dynamic pools
                     PendingEmission::<T>::insert(subnet_info.netuid, 0);
+
+                    // Increase subnet totals
                     match subnet_info.subnet_type {
                         SubnetType::DTAO => {
                             // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
