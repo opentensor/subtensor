@@ -931,6 +931,24 @@ pub mod pallet {
             log::info!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
             Ok(())
         }
+
+        /// The extrinsic sets the target stake per interval.
+        /// It is only callable by the root account.
+        /// The extrinsic will call the Subtensor pallet to set target stake per interval.
+        #[pallet::call_index(47)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_target_stakes_per_interval(
+            origin: OriginFor<T>,
+            target_stakes_per_interval: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_target_stakes_per_interval(target_stakes_per_interval);
+            log::info!(
+                "TxTargetStakesPerIntervalSet( set_target_stakes_per_interval: {:?} ) ",
+                target_stakes_per_interval
+            );
+            Ok(())
+        }
     }
 }
 
@@ -1023,4 +1041,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn get_nominator_min_required_stake() -> u64;
     fn set_nominator_min_required_stake(min_stake: u64);
     fn clear_small_nominations();
+    fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
 }
