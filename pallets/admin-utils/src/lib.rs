@@ -949,6 +949,54 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// The extrinsic sets the commit/reveal interval for a subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the interval.
+        #[pallet::call_index(48)]
+        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_interval())]
+        pub fn sudo_set_commit_reveal_weights_interval(
+            origin: OriginFor<T>,
+            netuid: u16,
+            interval: u64,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                T::Subtensor::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            T::Subtensor::set_commit_reveal_weights_interval(netuid, interval);
+            log::info!(
+                "SetWeightCommitInterval( netuid: {:?}, interval: {:?} ) ",
+                netuid,
+                interval
+            );
+            Ok(())
+        }
+
+        /// The extrinsic enabled/disables commit/reaveal for a given subnet.
+        /// It is only callable by the root account or subnet owner.
+        /// The extrinsic will call the Subtensor pallet to set the value.
+        #[pallet::call_index(49)]
+        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_enabled())]
+        pub fn sudo_set_commit_reveal_weights_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            enabled: bool,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+
+            ensure!(
+                T::Subtensor::if_subnet_exist(netuid),
+                Error::<T>::SubnetDoesNotExist
+            );
+
+            T::Subtensor::set_commit_reveal_weights_enabled(netuid, enabled);
+            log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
+            Ok(())
+        }
     }
 }
 
@@ -1042,4 +1090,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_nominator_min_required_stake(min_stake: u64);
     fn clear_small_nominations();
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
+    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
+    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
 }

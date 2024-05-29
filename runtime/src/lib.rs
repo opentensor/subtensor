@@ -1134,6 +1134,14 @@ impl
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval)
     }
+
+    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
+    }
+
+    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {

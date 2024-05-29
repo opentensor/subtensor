@@ -31,6 +31,11 @@ impl<T: Config> Pallet<T> {
         log::info!("do_commit_weights( hotkey:{:?} netuid:{:?})", who, netuid);
 
         ensure!(
+            Self::get_commit_reveal_weights_enabled(netuid),
+            Error::<T>::CommitRevealDisabled
+        );
+
+        ensure!(
             Self::can_commit(netuid, &who),
             Error::<T>::WeightsCommitNotAllowed
         );
@@ -58,6 +63,9 @@ impl<T: Config> Pallet<T> {
     /// * `values` (`Vec<u16>`):
     ///   - The values of the weights being revealed.
     ///
+    /// * `salt` (`Vec<u8>`):
+    ///   - The values of the weights being revealed.
+    ///
     /// * `version_key` (`u64`):
     ///   - The network version key.
     ///
@@ -76,20 +84,26 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         uids: Vec<u16>,
         values: Vec<u16>,
+        salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
 
         log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
 
+        ensure!(
+            Self::get_commit_reveal_weights_enabled(netuid),
+            Error::<T>::CommitRevealDisabled
+        );
+
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
             let (commit_hash, commit_block) = maybe_commit
-                .take()
+                .as_ref()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
             ensure!(
-                Self::is_reveal_block_range(commit_block),
-                Error::<T>::InvalidRevealCommitHashNotMatchTempo
+                Self::is_reveal_block_range(netuid, *commit_block),
+                Error::<T>::InvalidRevealCommitTempo
             );
 
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
@@ -97,10 +111,11 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 uids.clone(),
                 values.clone(),
+                salt.clone(),
                 version_key,
             ));
             ensure!(
-                provided_hash == commit_hash,
+                provided_hash == *commit_hash,
                 Error::<T>::InvalidRevealCommitHashNotMatch
             );
 
@@ -435,7 +450,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
         if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_weight_commit_interval();
+            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
             if interval == 0 {
                 return true; //prevent division by 0
             }
@@ -457,8 +472,8 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn is_reveal_block_range(commit_block: u64) -> bool {
-        let interval: u64 = Self::get_weight_commit_interval();
+    pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
+        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
         if interval == 0 {
             return true; //prevent division by 0
         }
@@ -475,13 +490,5 @@ impl<T: Config> Pallet<T> {
         }
 
         false
-    }
-
-    pub fn get_weight_commit_interval() -> u64 {
-        WeightCommitRevealInterval::<T>::get()
-    }
-
-    pub fn set_weight_commit_interval(interval: u64) {
-        WeightCommitRevealInterval::<T>::set(interval)
     }
 }

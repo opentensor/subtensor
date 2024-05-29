@@ -1110,6 +1110,52 @@ fn test_sudo_set_min_delegate_take() {
 }
 
 #[test]
+fn test_sudo_set_weight_commit_interval() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 10);
+
+        let to_be_set = 55;
+        let init_value = SubtensorModule::get_commit_reveal_weights_interval(netuid);
+
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+
+        assert!(init_value != to_be_set);
+        assert_eq!(
+            SubtensorModule::get_commit_reveal_weights_interval(netuid),
+            to_be_set
+        );
+    });
+}
+
+#[test]
+fn test_sudo_set_commit_reveal_weights_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        add_network(netuid, 10);
+
+        let to_be_set: bool = true;
+        let init_value: bool = SubtensorModule::get_commit_reveal_weights_enabled(netuid);
+
+        assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+
+        assert!(init_value != to_be_set);
+        assert_eq!(
+            SubtensorModule::get_commit_reveal_weights_enabled(netuid),
+            to_be_set
+        );
+    });
+}
+
+#[test]
 fn test_sudo_set_target_stakes_per_interval() {
     new_test_ext().execute_with(|| {
         let to_be_set = 100;
