@@ -1330,7 +1330,7 @@ pub mod pallet {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -1342,13 +1342,13 @@ pub mod pallet {
         /// * 'DuplicateUids':
         /// 	- Attempting to set weights with duplicate uids.
         ///
-        ///     * 'TooManyUids':
+        ///     * 'UidsLengthExceedUidsInSubNet':
         /// 	- Attempting to set weights above the max allowed uids.
         ///
-        /// * 'InvalidUid':
+        /// * 'UidVecContainInvalidOne':
         /// 	- Attempting to set weights with invalid uids.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
@@ -1384,7 +1384,7 @@ pub mod pallet {
         ///   - The hash representing the committed weights.
         ///
         /// # Raises:
-        /// * `CommitNotAllowed`:
+        /// * `WeightsCommitNotAllowed`:
         ///   - Attempting to commit when it is not allowed.
         ///
         #[pallet::call_index(96)]
@@ -1421,13 +1421,13 @@ pub mod pallet {
         ///   - The network version key.
         ///
         /// # Raises:
-        /// * `NoCommitFound`:
+        /// * `NoWeightsCommitFound`:
         ///   - Attempting to reveal weights without an existing commit.
         ///
-        /// * `InvalidRevealTempo`:
+        /// * `InvalidRevealCommitHashNotMatchTempo`:
         ///   - Attempting to reveal weights outside the valid tempo.
         ///
-        /// * `InvalidReveal`:
+        /// * `InvalidRevealCommitHashNotMatch`:
         ///   - The revealed hash does not match the committed hash.
         ///
         #[pallet::call_index(97)]
@@ -1475,7 +1475,7 @@ pub mod pallet {
         /// * NonAssociatedColdKey;
         /// 	- Attempting to set weights on a non-associated cold key.
         ///
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRootSubnet':
@@ -1484,22 +1484,22 @@ pub mod pallet {
         /// * 'WeightVecNotEqualSize':
         /// 	- Attempting to set weights with uids not of same length.
         ///
-        /// * 'InvalidUid':
+        /// * 'UidVecContainInvalidOne':
         /// 	- Attempting to set weights with invalid uids.
         ///
         /// * 'NotRegistered':
         /// 	- Attempting to set weights from a non registered account.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
-        ///  * 'IncorrectNetworkVersionKey':
+        ///  * 'IncorrectWeightVersionKey':
         ///      - Attempting to set weights with the incorrect network version key.
         ///
         ///  * 'SettingWeightsTooFast':
         ///      - Attempting to set weights too fast.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
@@ -1581,7 +1581,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'InvalidTake':
+        /// * 'DelegateTakeTooLow':
         /// 	- The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
@@ -1621,7 +1621,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'InvalidTake':
+        /// * 'DelegateTakeTooHigh':
         /// 	- The delegate is setting a take which is not greater than the previous.
         ///
         #[pallet::call_index(66)]
@@ -1701,7 +1701,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
         ///
-        /// * 'NotEnoughStaketoWithdraw':
+        /// * 'NotEnoughStakeToWithdraw':
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
@@ -1753,7 +1753,7 @@ pub mod pallet {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -1860,13 +1860,13 @@ pub mod pallet {
         /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to register to a non existent network.
         ///
         /// * 'TooManyRegistrationsThisBlock':
         /// 	- This registration exceeds the total allowed on this network this block.
         ///
-        /// * 'AlreadyRegistered':
+        /// * 'HotKeyAlreadyRegisteredInSubNet':
         /// 	- The hotkey is already registered on this network.
         ///
         /// * 'InvalidWorkBlock':

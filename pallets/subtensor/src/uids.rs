@@ -99,7 +99,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         neuron_uid: u16,
     ) -> Result<T::AccountId, DispatchError> {
-        Keys::<T>::try_get(netuid, neuron_uid).map_err(|_err| Error::<T>::NotRegistered.into())
+        Keys::<T>::try_get(netuid, neuron_uid)
+            .map_err(|_err| Error::<T>::HotKeyNotRegisteredInSubNet.into())
     }
 
     /// Returns the uid of the hotkey in the network as a Result. Ok if the hotkey has a slot.
@@ -108,7 +109,8 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         hotkey: &T::AccountId,
     ) -> Result<u16, DispatchError> {
-        Uids::<T>::try_get(netuid, hotkey).map_err(|_err| Error::<T>::NotRegistered.into())
+        Uids::<T>::try_get(netuid, hotkey)
+            .map_err(|_err| Error::<T>::HotKeyNotRegisteredInSubNet.into())
     }
 
     /// Returns the stake of the uid on network or 0 if it doesnt exist.

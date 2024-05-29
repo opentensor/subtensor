@@ -18,7 +18,7 @@ impl<T: Config> Pallet<T> {
     ///   - The hash representing the committed weights.
     ///
     /// # Raises:
-    /// * `CommitNotAllowed`:
+    /// * `WeightsCommitNotAllowed`:
     ///   - Attempting to commit when it is not allowed.
     ///
     pub fn do_commit_weights(
@@ -35,7 +35,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitRevealDisabled
         );
 
-        ensure!(Self::can_commit(netuid, &who), Error::<T>::CommitNotAllowed);
+        ensure!(
+            Self::can_commit(netuid, &who),
+            Error::<T>::WeightsCommitNotAllowed
+        );
 
         WeightCommits::<T>::insert(
             netuid,
@@ -67,13 +70,13 @@ impl<T: Config> Pallet<T> {
     ///   - The network version key.
     ///
     /// # Raises:
-    /// * `NoCommitFound`:
+    /// * `NoWeightsCommitFound`:
     ///   - Attempting to reveal weights without an existing commit.
     ///
-    /// * `InvalidRevealTempo`:
+    /// * `InvalidRevealCommitHashNotMatchTempo`:
     ///   - Attempting to reveal weights outside the valid tempo.
     ///
-    /// * `InvalidReveal`:
+    /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match the committed hash.
     ///
     pub fn do_reveal_weights(
@@ -139,19 +142,19 @@ impl<T: Config> Pallet<T> {
     ///    - On successfully setting the weights on chain.
     ///
     /// # Raises:
-    ///  * 'NetworkDoesNotExist':
+    ///  * 'SubNetworkDoesNotExist':
     ///    - Attempting to set weights on a non-existent network.
     ///
     ///  * 'NotRegistered':
     ///    - Attempting to set weights from a non registered account.
     ///
-    ///  * 'IncorrectNetworkVersionKey':
+    ///  * 'IncorrectWeightVersionKey':
     ///    - Attempting to set weights without having an up-to-date version_key.
     ///
     ///  * 'SettingWeightsTooFast':
     ///    - Attempting to set weights faster than the weights_set_rate_limit.
     ///
-    ///  * 'NoValidatorPermit':
+    ///  * 'NeuronNoValidatorPermit':
     ///    - Attempting to set non-self weights without a validator permit.
     ///
     ///  * 'WeightVecNotEqualSize':
@@ -160,13 +163,13 @@ impl<T: Config> Pallet<T> {
     ///  * 'DuplicateUids':
     ///    - Attempting to set weights with duplicate uids.
     ///
-    /// * 'TooManyUids':
+    /// * 'UidsLengthExceedUidsInSubNet':
     ///    - Attempting to set weights above the max allowed uids.
     ///
-    /// * 'InvalidUid':
+    /// * 'UidVecContainInvalidOne':
     ///    - Attempting to set weights with invalid uids.
     ///
-    /// * 'NotSettingEnoughWeights':
+    /// * 'WeightVecLengthIsLow':
     ///    - Attempting to set weights with fewer weights than min.
     ///
     /// * 'MaxWeightExceeded':
@@ -190,7 +193,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- Check that the netuid is not the root network.
-        ensure!(netuid != Self::get_root_netuid(), Error::<T>::IsRoot);
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::CanNotSetRootNetworkWeights
+        );
 
         // --- 2. Check that the length of uid list and value list are equal for this network.
         ensure!(
@@ -201,19 +207,19 @@ impl<T: Config> Pallet<T> {
         // --- 3. Check to see if this is a valid network.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 4. Check to see if the number of uids is within the max allowed uids for this network.
         ensure!(
             Self::check_len_uids_within_allowed(netuid, &uids),
-            Error::<T>::TooManyUids
+            Error::<T>::UidsLengthExceedUidsInSubNet
         );
 
         // --- 5. Check to see if the hotkey is registered to the passed network.
         ensure!(
             Self::is_hotkey_registered_on_network(netuid, &hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
         // --- 6. Check to see if the hotkey has enought stake to set weights.
@@ -225,7 +231,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Ensure version_key is up-to-date.
         ensure!(
             Self::check_version_key(netuid, version_key),
-            Error::<T>::IncorrectNetworkVersionKey
+            Error::<T>::IncorrectWeightVersionKey
         );
 
         // --- 9. Ensure the uid is not setting weights faster than the weights_set_rate_limit.
@@ -239,7 +245,7 @@ impl<T: Config> Pallet<T> {
         // --- 10. Check that the neuron uid is an allowed validator permitted to set non-self weights.
         ensure!(
             Self::check_validator_permit(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NoValidatorPermit
+            Error::<T>::NeuronNoValidatorPermit
         );
 
         // --- 11. Ensure the passed uids contain no duplicates.
@@ -248,13 +254,13 @@ impl<T: Config> Pallet<T> {
         // --- 12. Ensure that the passed uids are valid for the network.
         ensure!(
             !Self::contains_invalid_uids(netuid, &uids),
-            Error::<T>::InvalidUid
+            Error::<T>::UidVecContainInvalidOne
         );
 
         // --- 13. Ensure that the weights have the required length.
         ensure!(
             Self::check_length(netuid, neuron_uid, &uids, &values),
-            Error::<T>::NotSettingEnoughWeights
+            Error::<T>::WeightVecLengthIsLow
         );
 
         // --- 14. Max-upscale the weights.

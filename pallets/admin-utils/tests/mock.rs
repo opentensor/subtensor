@@ -451,6 +451,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::clear_small_nominations();
     }
 
+    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval);
+    }
+
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
         SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
     }
