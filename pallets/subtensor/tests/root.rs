@@ -1,5 +1,5 @@
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
 use pallet_subtensor::migration;
@@ -31,6 +31,34 @@ fn test_root_register_network_exist() {
 }
 
 #[test]
+fn test_set_weights_not_root_error() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+
+        let dests = vec![0];
+        let weights = vec![1];
+        let version_key: u64 = 0;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 2143124);
+
+        assert_err!(
+            SubtensorModule::set_root_weights(
+                RuntimeOrigin::signed(coldkey),
+                netuid,
+                hotkey,
+                dests.clone(),
+                weights.clone(),
+                version_key,
+            ),
+            Error::<Test>::NotRootSubnet
+        );
+    });
+}
+
+#[test]
 fn test_root_register_normal_on_root_fails() {
     new_test_ext(1).execute_with(|| {
         migration::migrate_create_root_network::<Test>();
@@ -49,7 +77,7 @@ fn test_root_register_normal_on_root_fails() {
                 root_netuid,
                 hotkey_account_id
             ),
-            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
         );
         // Pow registration fails.
         let block_number: u64 = SubtensorModule::get_current_block_as_u64();
@@ -69,7 +97,7 @@ fn test_root_register_normal_on_root_fails() {
                 hotkey_account_id,
                 coldkey_account_id,
             ),
-            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
         );
     });
 }
@@ -175,7 +203,7 @@ fn test_root_set_weights() {
         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
         for i in 0..n {
             let hotkey_account_id: U256 = U256::from(i);
-            let coldkey_account_id: U256 = U256::from(i);
+            let coldkey_account_id: U256 = U256::from(i + 456);
             SubtensorModule::add_balance_to_coldkey_account(
                 &coldkey_account_id,
                 1_000_000_000_000_000,
@@ -201,17 +229,57 @@ fn test_root_set_weights() {
         for netuid in 1..n {
             log::debug!("Adding network with netuid: {}", netuid);
             assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid + 456))
             ));
+        }
+
+        // Test that signing with hotkey will fail.
+        for i in 0..n {
+            let hotkey = U256::from(i);
+            let uids: Vec<u16> = vec![i as u16];
+            let values: Vec<u16> = vec![1];
+            assert_err!(
+                SubtensorModule::set_root_weights(
+                    <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+                    root_netuid,
+                    hotkey,
+                    uids,
+                    values,
+                    0,
+                ),
+                Error::<Test>::NonAssociatedColdKey
+            );
+        }
+
+        // Test that signing an unassociated coldkey will fail.
+        let unassociated_coldkey = U256::from(612);
+        for i in 0..n {
+            let hotkey = U256::from(i);
+            let uids: Vec<u16> = vec![i as u16];
+            let values: Vec<u16> = vec![1];
+            assert_err!(
+                SubtensorModule::set_root_weights(
+                    <<Test as Config>::RuntimeOrigin>::signed(unassociated_coldkey),
+                    root_netuid,
+                    hotkey,
+                    uids,
+                    values,
+                    0,
+                ),
+                Error::<Test>::NonAssociatedColdKey
+            );
         }
 
         // Set weights into diagonal matrix.
         for i in 0..n {
+            let hotkey = U256::from(i);
+            let coldkey = U256::from(i + 456);
             let uids: Vec<u16> = vec![i as u16];
             let values: Vec<u16> = vec![1];
-            assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+            assert_ok!(SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 root_netuid,
+                hotkey,
                 uids,
                 values,
                 0,
@@ -322,11 +390,14 @@ fn test_root_set_weights_out_of_order_netuids() {
         // Set weights into diagonal matrix.
         for (i, netuid) in subnets.iter().enumerate() {
             let uids: Vec<u16> = vec![*netuid];
-
             let values: Vec<u16> = vec![1];
-            assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(i)),
+
+            let coldkey = U256::from(i);
+            let hotkey = U256::from(i);
+            assert_ok!(SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 root_netuid,
+                hotkey,
                 uids,
                 values,
                 0,
@@ -503,9 +574,10 @@ fn test_network_pruning() {
                 &hot
             ));
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            assert_ok!(SubtensorModule::set_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(hot),
+            assert_ok!(SubtensorModule::set_root_weights(
+                <<Test as Config>::RuntimeOrigin>::signed(cold),
                 root_netuid,
+                hot,
                 uids,
                 values,
                 0
@@ -522,21 +594,33 @@ fn test_network_pruning() {
                 (i as u16) + 1
             );
         }
+        // Stakes
+        // 0 : 10_000
+        // 1 : 9_000
+        // 2 : 8_000
+        // 3 : 7_000
+        // 4 : 6_000
+        // 5 : 5_000
+        // 6 : 4_000
+        // 7 : 3_000
+        // 8 : 2_000
+        // 9 : 1_000
+
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 277_820_113);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 246_922_263);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 215_549_466);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 176_432_500);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 77_181_559);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 5_857_251);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 246_922_263);
+        assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 176_432_500);
+        assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 5_857_251);
+        assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
         step_block(1);
     });
 }
@@ -636,9 +720,10 @@ fn test_weights_after_network_pruning() {
         log::info!("uids set: {:?}", uids);
         log::info!("values set: {:?}", values);
         log::info!("In netuid: {:?}", root_netuid);
-        assert_ok!(SubtensorModule::set_weights(
-            <<Test as Config>::RuntimeOrigin>::signed(hot),
+        assert_ok!(SubtensorModule::set_root_weights(
+            <<Test as Config>::RuntimeOrigin>::signed(cold),
             root_netuid,
+            hot,
             uids,
             values,
             0
@@ -693,7 +778,7 @@ fn test_weights_after_network_pruning() {
 /// Run this test using the following command:
 /// `cargo test --package pallet-subtensor --test root test_issance_bounds`
 #[test]
-fn test_issance_bounds() {
+fn test_issuance_bounds() {
     new_test_ext(1).execute_with(|| {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
@@ -807,5 +892,83 @@ fn test_get_emission_across_entire_issuance_range() {
 
             issuance += expected_emission;
         }
+    });
+}
+
+#[test]
+fn test_dissolve_network_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+
+        add_network(netuid, 0, 0);
+        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid))
+    });
+}
+
+#[test]
+fn test_dissolve_network_refund_coldkey_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+        let subnet_locked_balance = 1000;
+
+        add_network(netuid, 0, 0);
+        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
+        let coldkey_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
+
+        let coldkey_new_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+
+        assert!(coldkey_new_balance > coldkey_balance);
+        assert_eq!(coldkey_new_balance, coldkey_balance + subnet_locked_balance);
+    });
+}
+
+#[test]
+fn test_dissolve_network_not_owner_err() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let random_coldkey = U256::from(3);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(random_coldkey), netuid),
+            Error::<Test>::NotSubnetOwner
+        );
+    });
+}
+
+#[test]
+fn test_dissolve_network_does_not_exist_err() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let coldkey = U256::from(2);
+
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
     });
 }

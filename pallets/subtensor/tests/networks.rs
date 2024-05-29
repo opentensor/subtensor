@@ -247,7 +247,7 @@
 //                 netuids,
 //                 emission
 //             ),
-//             Err(Error::<Test>::InvalidUid.into())
+//             Err(Error::<Test>::UidVecContainInvalidOne.into())
 //         );
 //     });
 // }

@@ -20,9 +20,7 @@
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
 use frame_support::{
-    assert_noop, assert_ok, parameter_types,
-    traits::{ConstU32, ConstU64},
-    Hashable,
+    assert_noop, assert_ok, derive_impl, parameter_types, traits::ConstU64, Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::H256;
@@ -86,6 +84,8 @@ parameter_types! {
     pub const MotionDuration: u64 = 3;
     pub const MaxProposals: u32 = 257;
 }
+
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
     type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
@@ -134,7 +134,7 @@ impl GetVotingMembers<MemberCount> for GetCollectiveCount {
 }
 impl Get<MemberCount> for GetCollectiveCount {
     fn get() -> MemberCount {
-        MaxMembers::get()
+        <MaxMembers as TypedGet>::get()
     }
 }
 
@@ -175,7 +175,7 @@ impl GetVotingMembers<MemberCount> for GetCollectiveMajorityCount {
 }
 impl Get<MemberCount> for GetCollectiveMajorityCount {
     fn get() -> MemberCount {
-        MaxMembers::get()
+        <MaxMembers as TypedGet>::get()
     }
 }
 
@@ -220,7 +220,7 @@ impl GetVotingMembers<MemberCount> for GetDefaultCollectiveCount {
 }
 impl Get<MemberCount> for GetDefaultCollectiveCount {
     fn get() -> MemberCount {
-        MaxMembers::get()
+        <MaxMembers as TypedGet>::get()
     }
 }
 
@@ -305,7 +305,7 @@ fn close_works() {
                 proposal_weight,
                 proposal_len
             ),
-            Error::<Test, Instance1>::TooEarly
+            Error::<Test, Instance1>::TooEarlyToCloseProposal
         );
 
         System::set_block_number(4);
@@ -352,7 +352,7 @@ fn proposal_weight_limit_works_on_approve() {
         let proposal = RuntimeCall::Collective(crate::Call::set_members {
             new_members: vec![1, 2, 3],
             prime: None,
-            old_count: MaxMembers::get(),
+            old_count: <MaxMembers as TypedGet>::get(),
         });
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let proposal_weight = proposal.get_dispatch_info().weight;
@@ -376,7 +376,7 @@ fn proposal_weight_limit_works_on_approve() {
                 proposal_weight - Weight::from_parts(100, 0),
                 proposal_len
             ),
-            Error::<Test, Instance1>::WrongProposalWeight
+            Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight
         );
         assert_ok!(Collective::close(
             RuntimeOrigin::signed(4),
@@ -394,7 +394,7 @@ fn proposal_weight_limit_ignored_on_disapprove() {
         let proposal = RuntimeCall::Collective(crate::Call::set_members {
             new_members: vec![1, 2, 3],
             prime: None,
-            old_count: MaxMembers::get(),
+            old_count: <MaxMembers as TypedGet>::get(),
         });
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         let proposal_weight = proposal.get_dispatch_info().weight;
@@ -429,7 +429,7 @@ fn close_with_prime_works() {
             RuntimeOrigin::root(),
             vec![1, 2, 3],
             Some(3),
-            MaxMembers::get()
+            <MaxMembers as TypedGet>::get()
         ));
 
         assert_ok!(Collective::propose(
@@ -489,7 +489,7 @@ fn close_with_voting_prime_works() {
             RuntimeOrigin::root(),
             vec![1, 2, 3],
             Some(1),
-            MaxMembers::get()
+            <MaxMembers as TypedGet>::get()
         ));
 
         assert_ok!(Collective::propose(
@@ -553,7 +553,7 @@ fn close_with_no_prime_but_majority_works() {
             RuntimeOrigin::root(),
             vec![1, 2, 3, 4, 5],
             Some(5),
-            MaxMembers::get()
+            <MaxMembers as TypedGet>::get()
         ));
 
         assert_ok!(CollectiveMajority::propose(
@@ -744,7 +744,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             RuntimeOrigin::root(),
             vec![2, 3, 4],
             None,
-            MaxMembers::get()
+            <MaxMembers as TypedGet>::get()
         ));
         assert_eq!(
             Collective::voting(hash),
@@ -782,7 +782,7 @@ fn removal_of_old_voters_votes_works_with_set_members() {
             RuntimeOrigin::root(),
             vec![2, 4],
             None,
-            MaxMembers::get()
+            <MaxMembers as TypedGet>::get()
         ));
         assert_eq!(
             Collective::voting(hash),
@@ -840,7 +840,7 @@ fn propose_works() {
 #[test]
 fn limit_active_proposals() {
     new_test_ext().execute_with(|| {
-        for i in 0..MaxProposals::get() {
+        for i in 0..<MaxProposals as TypedGet>::get() {
             let proposal = make_proposal(i as u64);
             let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
             assert_ok!(Collective::propose(
@@ -851,7 +851,7 @@ fn limit_active_proposals() {
                     .expect("convert u64 to block number.")
             ));
         }
-        let proposal = make_proposal(MaxProposals::get() as u64 + 1);
+        let proposal = make_proposal(<MaxProposals as TypedGet>::get() as u64 + 1);
         let proposal_len: u32 = proposal.using_encoded(|p| p.len() as u32);
         assert_noop!(
             Collective::propose(
@@ -861,7 +861,7 @@ fn limit_active_proposals() {
                 TryInto::<BlockNumberFor<Test>>::try_into(3u64)
                     .expect("convert u64 to block number.")
             ),
-            Error::<Test, Instance1>::TooManyProposals
+            Error::<Test, Instance1>::TooManyActiveProposals
         );
     })
 }
@@ -872,7 +872,7 @@ fn correct_validate_and_get_proposal() {
         let proposal = RuntimeCall::Collective(crate::Call::set_members {
             new_members: vec![1, 2, 3],
             prime: None,
-            old_count: MaxMembers::get(),
+            old_count: <MaxMembers as TypedGet>::get(),
         });
         let length = proposal.encode().len() as u32;
         assert_ok!(Collective::propose(
@@ -890,11 +890,11 @@ fn correct_validate_and_get_proposal() {
                 length,
                 weight
             ),
-            Error::<Test, Instance1>::ProposalMissing
+            Error::<Test, Instance1>::ProposalNotExists
         );
         assert_noop!(
             Collective::validate_and_get_proposal(&hash, length - 2, weight),
-            Error::<Test, Instance1>::WrongProposalLength
+            Error::<Test, Instance1>::ProposalLengthBoundLessThanProposalLength
         );
         assert_noop!(
             Collective::validate_and_get_proposal(
@@ -902,7 +902,7 @@ fn correct_validate_and_get_proposal() {
                 length,
                 weight - Weight::from_parts(10, 0)
             ),
-            Error::<Test, Instance1>::WrongProposalWeight
+            Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight
         );
         let res = Collective::validate_and_get_proposal(&hash, length, weight);
         assert_ok!(res.clone());
@@ -964,7 +964,7 @@ fn motions_ignoring_bad_index_collective_vote_works() {
         ));
         assert_noop!(
             Collective::vote(RuntimeOrigin::signed(2), hash, 1, true),
-            Error::<Test, Instance1>::WrongIndex,
+            Error::<Test, Instance1>::IndexMismatchProposalHash,
         );
     });
 }
@@ -1117,8 +1117,8 @@ fn motions_all_first_vote_free_works() {
         );
         assert_eq!(close_rval.unwrap().pays_fee, Pays::No);
 
-        // trying to close the proposal, which is already closed.
-        // Expecting error "ProposalMissing" with Pays::Yes
+        // Trying to close the proposal, which is already closed
+        // Error: "ProposalNotExists" with Pays::Yes.
         let close_rval: DispatchResultWithPostInfo = Collective::close(
             RuntimeOrigin::signed(2),
             hash,
@@ -1454,11 +1454,11 @@ fn motion_with_no_votes_closes_with_disapproval() {
                 proposal_weight,
                 proposal_len
             ),
-            Error::<Test, Instance1>::TooEarly
+            Error::<Test, Instance1>::TooEarlyToCloseProposal
         );
 
         // Once the motion duration passes,
-        let closing_block = System::block_number() + MotionDuration::get();
+        let closing_block = System::block_number() + <MotionDuration as TypedGet>::get();
         System::set_block_number(closing_block);
         // we can successfully close the motion.
         assert_ok!(Collective::close(
@@ -1508,7 +1508,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
         // It will not close with bad weight/len information
         assert_noop!(
             Collective::close(RuntimeOrigin::signed(2), hash, 0, Weight::zero(), 0),
-            Error::<Test, Instance1>::WrongProposalLength,
+            Error::<Test, Instance1>::ProposalLengthBoundLessThanProposalLength,
         );
         assert_noop!(
             Collective::close(
@@ -1518,7 +1518,7 @@ fn close_disapprove_does_not_care_about_weight_or_len() {
                 Weight::zero(),
                 proposal_len
             ),
-            Error::<Test, Instance1>::WrongProposalWeight,
+            Error::<Test, Instance1>::ProposalWeightLessThanDispatchCallWeight,
         );
         // Now we make the proposal fail
         assert_ok!(Collective::vote(RuntimeOrigin::signed(1), hash, 0, false));
