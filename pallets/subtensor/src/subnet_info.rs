@@ -40,7 +40,7 @@ pub struct SubnetHyperparams {
     weights_rate_limit: Compact<u64>,
     adjustment_interval: Compact<u16>,
     activity_cutoff: Compact<u16>,
-    registration_allowed: bool,
+    pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
     min_burn: Compact<u64>,
     max_burn: Compact<u64>,

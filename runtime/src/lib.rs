@@ -797,7 +797,7 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const SubtensorInitialMinTake: u16 = 11_796; // 18%, no change is allowed initially
+    pub const SubtensorInitialMinTake: u16 = 5_898; // 9%
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;

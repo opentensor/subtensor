@@ -76,7 +76,7 @@ parameter_types! {
     pub const InitialStakePruningMin: u16 = 0;
     pub const InitialFoundationDistribution: u64 = 0;
     pub const InitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const InitialMinTake: u16 = 0;
+    pub const InitialMinTake: u16 = 5_898; // 9%;
     pub const InitialWeightsVersionKey: u16 = 0;
     pub const InitialServingRateLimit: u64 = 0; // No limit.
     pub const InitialTxRateLimit: u64 = 0; // Disable rate limit for testing
