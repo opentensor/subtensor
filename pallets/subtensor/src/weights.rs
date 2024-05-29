@@ -60,6 +60,9 @@ impl<T: Config> Pallet<T> {
     /// * `values` (`Vec<u16>`):
     ///   - The values of the weights being revealed.
     ///
+    /// * `salt` (`Vec<u8>`):
+    ///   - The values of the weights being revealed.
+    ///
     /// * `version_key` (`u64`):
     ///   - The network version key.
     ///
@@ -78,6 +81,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         uids: Vec<u16>,
         values: Vec<u16>,
+        salt: Vec<u16>,
         version_key: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
@@ -103,6 +107,7 @@ impl<T: Config> Pallet<T> {
                 netuid,
                 uids.clone(),
                 values.clone(),
+                salt.clone(),
                 version_key,
             ));
             ensure!(provided_hash == *commit_hash, Error::<T>::InvalidReveal);
