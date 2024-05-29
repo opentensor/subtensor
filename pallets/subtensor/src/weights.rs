@@ -97,12 +97,13 @@ impl<T: Config> Pallet<T> {
         );
 
         WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
-            let (commit_hash, commit_block) =
-                maybe_commit.as_ref().ok_or(Error::<T>::NoCommitFound)?;
+            let (commit_hash, commit_block) = maybe_commit
+                .as_ref()
+                .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
             ensure!(
                 Self::is_reveal_block_range(netuid, *commit_block),
-                Error::<T>::InvalidRevealTempo
+                Error::<T>::InvalidRevealCommitTempo
             );
 
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
@@ -113,7 +114,10 @@ impl<T: Config> Pallet<T> {
                 salt.clone(),
                 version_key,
             ));
-            ensure!(provided_hash == *commit_hash, Error::<T>::InvalidReveal);
+            ensure!(
+                provided_hash == *commit_hash,
+                Error::<T>::InvalidRevealCommitHashNotMatch
+            );
 
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })

@@ -119,7 +119,7 @@ mod errors {
         /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
         NoWeightsCommitFound,
         /// Not the correct block/range to reveal weights.
-        InvalidRevealCommitHashNotMatchTempo,
+        InvalidRevealCommitTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
         /// Attempting to call set_weights when commit/reveal is enabled

@@ -1158,7 +1158,7 @@ fn test_commit_reveal_interval() {
                 salt.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
+            Error::<Test>::InvalidRevealCommitTempo
         );
         step_block(99);
         assert_err!(
@@ -1174,7 +1174,7 @@ fn test_commit_reveal_interval() {
                 salt.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
+            Error::<Test>::InvalidRevealCommitTempo
         );
         step_block(1);
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1199,7 +1199,7 @@ fn test_commit_reveal_interval() {
                 salt.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
+            Error::<Test>::InvalidRevealCommitTempo
         );
         step_block(100);
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1227,7 +1227,7 @@ fn test_commit_reveal_interval() {
                 salt.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidRevealCommitHashNotMatchTempo
+            Error::<Test>::InvalidRevealCommitTempo
         );
 
         // Testing when you commit but do not reveal until later intervals
@@ -1584,7 +1584,7 @@ fn test_commit_reveal_bad_salt_fail() {
                 bad_salt.clone(),
                 version_key,
             ),
-            Error::<Test>::InvalidReveal
+            Error::<Test>::InvalidRevealCommitHashNotMatch
         );
     });
 }
