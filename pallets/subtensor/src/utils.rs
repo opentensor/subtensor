@@ -143,7 +143,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
+        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
+        Self::deposit_event(Event::TargetStakesPerIntervalSet(
+            target_stakes_per_interval,
+        ));
     }
     pub fn set_stakes_this_interval_for_coldkey_hotkey(
         coldkey: &T::AccountId,

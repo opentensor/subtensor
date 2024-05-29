@@ -1152,5 +1152,26 @@ fn test_sudo_set_commit_reveal_weights_enabled() {
             SubtensorModule::get_commit_reveal_weights_enabled(netuid),
             to_be_set
         );
+
+fn test_sudo_set_target_stakes_per_interval() {
+    new_test_ext().execute_with(|| {
+        let to_be_set = 100;
+        let init_value = SubtensorModule::get_target_stakes_per_interval();
+        assert_eq!(
+            AdminUtils::sudo_set_target_stakes_per_interval(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(
+            SubtensorModule::get_target_stakes_per_interval(),
+            init_value
+        );
+        assert_ok!(AdminUtils::sudo_set_target_stakes_per_interval(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_target_stakes_per_interval(), to_be_set);
     });
 }
