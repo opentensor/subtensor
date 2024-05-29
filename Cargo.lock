@@ -4625,7 +4625,7 @@ checksum = "b93853da6d84c2e3c7d730d6473e8817692dd89be387eb01b94d7f108ecb5b8c"
 
 [[package]]
 name = "node-subtensor"
-version = "5.0.0"
+version = "5.0.1"
 dependencies = [
  "clap",
  "frame-benchmarking",
@@ -4645,6 +4645,7 @@ dependencies = [
  "sc-consensus-aura",
  "sc-consensus-grandpa",
  "sc-consensus-grandpa-rpc",
+ "sc-consensus-slots",
  "sc-executor",
  "sc-keystore",
  "sc-network",

@@ -1344,13 +1344,11 @@ pub mod pallet {
             ];
             weight = weight
                 // Initializes storage version (to 1)
-                // Initializes storage version (to 1)
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 // Storage version v1 -> v2
                 // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migrate_create_root_network::<T>())
-                // Storage version v2 -> v3
                 // Storage version v2 -> v3
                 .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
                     hex,
@@ -1364,7 +1362,9 @@ pub mod pallet {
                 // Storage version v6 -> v7
                 .saturating_add(migration::migrate_stake_to_substake::<T>())
                 // Storage version v7 -> v8
-                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>());
+                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>())
+                // Storage version v8 -> v9
+                .saturating_add(migration::migrate_populate_subnet_creator::<T>());
 
             log::info!(
                 "Runtime upgrade migration in subtensor pallet, total weight = ({})",
@@ -1415,7 +1415,7 @@ pub mod pallet {
         /// 	- On successfully setting the weights on chain.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -1427,13 +1427,13 @@ pub mod pallet {
         /// * 'DuplicateUids':
         /// 	- Attempting to set weights with duplicate uids.
         ///
-        ///     * 'TooManyUids':
+        ///     * 'UidsLengthExceedUidsInSubNet':
         /// 	- Attempting to set weights above the max allowed uids.
         ///
-        /// * 'InvalidUid':
+        /// * 'UidVecContainInvalidOne':
         /// 	- Attempting to set weights with invalid uids.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
@@ -1465,7 +1465,7 @@ pub mod pallet {
         ///   - The hash representing the committed weights.
         ///
         /// # Raises:
-        /// * `CommitNotAllowed`:
+        /// * `WeightsCommitNotAllowed`:
         ///   - Attempting to commit when it is not allowed.
         ///
         #[pallet::call_index(96)]
@@ -1499,13 +1499,13 @@ pub mod pallet {
         ///   - The network version key.
         ///
         /// # Raises:
-        /// * `NoCommitFound`:
+        /// * `NoWeightsCommitFound`:
         ///   - Attempting to reveal weights without an existing commit.
         ///
-        /// * `InvalidRevealTempo`:
+        /// * `InvalidRevealCommitHashNotMatchTempo`:
         ///   - Attempting to reveal weights outside the valid tempo.
         ///
-        /// * `InvalidReveal`:
+        /// * `InvalidRevealCommitHashNotMatch`:
         ///   - The revealed hash does not match the committed hash.
         ///
         #[pallet::call_index(97)]
@@ -1552,7 +1552,7 @@ pub mod pallet {
         /// * NonAssociatedColdKey;
         /// 	- Attempting to set weights on a non-associated cold key.
         ///
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRootSubnet':
@@ -1561,22 +1561,22 @@ pub mod pallet {
         /// * 'WeightVecNotEqualSize':
         /// 	- Attempting to set weights with uids not of same length.
         ///
-        /// * 'InvalidUid':
+        /// * 'UidVecContainInvalidOne':
         /// 	- Attempting to set weights with invalid uids.
         ///
         /// * 'NotRegistered':
         /// 	- Attempting to set weights from a non registered account.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
-        ///  * 'IncorrectNetworkVersionKey':
+        ///  * 'IncorrectWeightVersionKey':
         ///      - Attempting to set weights with the incorrect network version key.
         ///
         ///  * 'SettingWeightsTooFast':
         ///      - Attempting to set weights too fast.
         ///
-        /// * 'NotSettingEnoughWeights':
+        /// * 'WeightVecLengthIsLow':
         /// 	- Attempting to set weights with fewer weights than min.
         ///
         /// * 'MaxWeightExceeded':
@@ -1658,8 +1658,8 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         ///     - The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'InvalidTransaction':
-        ///     - The delegate is setting a take which is not lower than the previous.
+        /// * 'DelegateTakeTooLow':
+        /// 	- The delegate is setting a take which is not lower than the previous.
         ///
         #[pallet::call_index(65)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
@@ -1702,8 +1702,8 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         ///     - The hotkey we are delegating is not owned by the calling coldkey.
         ///
-        /// * 'InvalidTransaction':
-        ///     - The delegate is setting a take which is not lower than the previous.
+        /// * 'DelegateTakeTooHigh':
+        /// 	- The delegate is setting a take which is not greater than the previous.
         ///
         #[pallet::call_index(66)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
@@ -1806,9 +1806,6 @@ pub mod pallet {
         ///     - On the successfully adding stake to a global account.
         ///
         /// # Raises:
-        /// * 'CouldNotConvertToBalance':
-        ///     - Unable to convert the passed stake value to a balance.
-        ///
         /// * 'NotEnoughBalanceToStake':
         ///     - Not enough balance on the coldkey to add onto the global account.
         ///
@@ -1830,63 +1827,6 @@ pub mod pallet {
             amount_staked: u64,
         ) -> DispatchResult {
             Self::do_add_stake(origin, hotkey, netuid, amount_staked)
-        }
-
-        /// Adds or redistributes weighted stake across specified subnets for a given hotkey.
-        ///
-        /// This function allows a coldkey to allocate or reallocate stake across different subnets
-        /// based on provided weights. It first unstakes from all specified subnets, then redistributes
-        /// the stake according to the new weights. If there's any remainder from rounding errors or
-        /// unallocated stake, it is staked into the root network.
-        ///
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-        ///     - The signature of the caller's coldkey.
-        ///
-        /// * 'hotkey' (T::AccountId):
-        ///     - The associated hotkey account.
-        ///
-        /// * 'netuids' ( Vec<u16> ):
-        ///     - The netuids of the weights to be set on the chain.
-        ///
-        /// * 'values' ( Vec<u16> ):
-        ///     - The values of the weights to set on the chain. u16 normalized.
-        ///
-        /// * 'stake_to_be_added' (u64):
-        ///     - The amount of stake to be added to the hotkey staking account.
-        ///
-        /// # Event:
-        /// * StakeAdded;
-        ///     - On the successfully adding stake to a global account.
-        ///
-        /// # Raises:
-        /// * CouldNotConvertToBalance:
-        ///     - Unable to convert the passed stake value to a balance.
-        ///
-        /// * NotEnoughBalanceToStake:
-        ///     - Not enough balance on the coldkey to add onto the global account.
-        ///
-        /// * NonAssociatedColdKey:
-        ///     - The calling coldkey is not associated with this hotkey.
-        ///
-        /// * BalanceWithdrawalError:
-        ///     - Errors stemming from transaction pallet.
-        ///
-        /// * TxRateLimitExceeded:
-        ///     - Thrown if key has hit transaction rate limit
-        ///
-        /// TODO(const) this needs to be properly benchmarked (these values are copied from above.)
-        #[pallet::call_index(67)]
-        #[pallet::weight((Weight::from_parts(65_000_000,0)
-		.saturating_add(T::DbWeight::get().reads(8))
-		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
-        pub fn add_weighted_stake(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            netuids: Vec<u16>,
-            values: Vec<u16>,
-        ) -> DispatchResult {
-            Self::do_add_weighted_stake(origin, hotkey, netuids, values)
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -1914,7 +1854,7 @@ pub mod pallet {
         /// * 'NonAssociatedColdKey':
         /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
         ///
-        /// * 'NotEnoughStaketoWithdraw':
+        /// * 'NotEnoughStakeToWithdraw':
         /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
         ///
         #[pallet::call_index(3)]
@@ -2012,7 +1952,7 @@ pub mod pallet {
         /// 	- On successfully serving the axon info.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to set weights on a non-existent network.
         ///
         /// * 'NotRegistered':
@@ -2119,13 +2059,13 @@ pub mod pallet {
         /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
         ///
         /// # Raises:
-        /// * 'NetworkDoesNotExist':
+        /// * 'SubNetworkDoesNotExist':
         /// 	- Attempting to register to a non existent network.
         ///
         /// * 'TooManyRegistrationsThisBlock':
         /// 	- This registration exceeds the total allowed on this network this block.
         ///
-        /// * 'AlreadyRegistered':
+        /// * 'HotKeyAlreadyRegisteredInSubNet':
         /// 	- The hotkey is already registered on this network.
         ///
         /// * 'InvalidWorkBlock':
@@ -2330,11 +2270,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            if Self::get_hotkey_global_dynamic_tao(hotkey) >= Self::get_weights_min_stake() {
-                return true;
-            } else {
-                return false;
-            }
+            Self::get_hotkey_global_dynamic_tao(hotkey) >= Self::get_weights_min_stake()
         }
 
         /// Helper function to check if register is allowed

@@ -14,11 +14,9 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
+    traits::{fungible::HoldConsideration, LinearStoragePrice},
 };
 use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
-use migrations::{account_data_migration, init_storage_versions};
-
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -139,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 200,
+    spec_version: 201,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -152,11 +150,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-#[cfg(feature = "pow-faucet")]
-pub const MILLISECS_PER_BLOCK: u64 = 1000;
-
-#[cfg(not(feature = "pow-faucet"))]
+#[cfg(not(feature = "fast-blocks"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
+
+/// Fast blocks for development
+#[cfg(feature = "fast-blocks")]
+pub const MILLISECS_PER_BLOCK: u64 = 250;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -788,8 +787,8 @@ parameter_types! {
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
     pub const SubtensorInitialTempo: u16 = 99;
-    pub const SubtensorMinTempo: u16 = 1;
-    pub const SubtensorMaxTempo: u16 = 720;
+    pub const SubtensorMinTempo: u16 = 360;
+    pub const SubtensorMaxTempo: u16 = 360;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialAdjustmentInterval: u16 = 100;
     pub const SubtensorInitialAdjustmentAlpha: u64 = 0; // no weight to previous value.
@@ -1205,19 +1204,13 @@ pub type SignedExtra = (
     frame_system::CheckGenesis<Runtime>,
     frame_system::CheckEra<Runtime>,
     check_nonce::CheckNonce<Runtime>,
-    check_nonce::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = (
-    init_storage_versions::Migration,
-    account_data_migration::Migration,
-    pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-);
+type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1459,10 +1452,7 @@ impl_runtime_apis! {
             use baseline::Pallet as BaselineBench;
 
             #[allow(non_local_definitions)]
-            #[allow(non_local_definitions)]
             impl frame_system_benchmarking::Config for Runtime {}
-
-            #[allow(non_local_definitions)]
 
             #[allow(non_local_definitions)]
             impl baseline::Config for Runtime {}

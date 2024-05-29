@@ -10,7 +10,6 @@ use frame_support::{
     },
 };
 use sp_core::Get;
-use sp_std::vec;
 use sp_std::vec::Vec;
 use substrate_fixed::types::I64F64;
 
@@ -57,21 +56,21 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure we are not already a delegate
         ensure!(
             !Self::hotkey_is_delegate(&hotkey),
-            Error::<T>::AlreadyDelegate
+            Error::<T>::HotKeyAlreadyDelegate
         );
 
         // --- 6. Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::DelegateTxRateLimitExceeded
         );
 
         // --- 7. Delegate the key.
         // With introduction of DelegatesTake Delegates became just a flag.
         // Probably there is a migration needed to convert it to bool or something down the road
         Self::delegate_hotkey(&hotkey, Self::get_default_take());
-
+                
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
 
@@ -120,7 +119,7 @@ impl<T: Config> Pallet<T> {
     /// * 'NonAssociatedColdKey':
     ///     - The hotkey we are delegating is not owned by the calling coldket.
     ///
-    /// * 'InvalidTake':
+    /// * 'DelegateTakeTooLow':
     ///     - The delegate is setting a take which is not lower than the previous.
     ///
     pub fn do_decrease_take(
@@ -145,8 +144,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are always strictly decreasing, never increasing take
         if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
-            ensure!(take < current_take, Error::<T>::InvalidTake);
+            ensure!(take < current_take, Error::<T>::DelegateTakeTooLow);
         }
+
+        // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let min_take = MinTake::<T>::get();
+        ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
         // --- 4. Set the new take value.
         DelegatesTake::<T>::insert(hotkey.clone(), netuid, take);
@@ -193,7 +196,7 @@ impl<T: Config> Pallet<T> {
     /// * 'TxRateLimitExceeded':
     ///     - Thrown if key has hit transaction rate limit
     ///
-    /// * 'InvalidTake':
+    /// * 'DelegateTakeTooLow':
     ///     - The delegate is setting a take which is not greater than the previous.
     ///
     pub fn do_increase_take(
@@ -218,12 +221,12 @@ impl<T: Config> Pallet<T> {
 
         // --- 3. Ensure we are strinctly increasing take
         if let Ok(current_take) = DelegatesTake::<T>::try_get(&hotkey, netuid) {
-            ensure!(take > current_take, Error::<T>::InvalidTake);
+            ensure!(take > current_take, Error::<T>::DelegateTakeTooLow);
         }
 
-        // --- 4. Ensure take is within the 0 ..= InitialDefaultTake (18%) range
-        let max_take = T::InitialDefaultTake::get();
-        ensure!(take <= max_take, Error::<T>::InvalidTake);
+        // --- 4. Ensure take is within the min ..= InitialDefaultTake (18%) range
+        let max_take = MaxTake::<T>::get();
+        ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
         let block: u64 = Self::get_current_block_as_u64();
@@ -232,7 +235,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_last_tx_block_delegate_take(&coldkey),
                 block
             ),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::DelegateTxRateLimitExceeded
         );
 
         // Set last block for rate limiting
@@ -251,172 +254,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::TakeIncreased(coldkey, hotkey, take));
 
         // --- 8. Ok and return.
-        Ok(())
-    }
-
-    /// Adds or redistributes weighted stake across specified subnets for a given hotkey.
-    ///
-    /// This function allows a coldkey to allocate or reallocate stake across different subnets
-    /// based on provided weights. It first unstakes from all specified subnets, then redistributes
-    /// the stake according to the new weights. If there's any remainder from rounding errors or
-    /// unallocated stake, it is staked into the root network.
-    ///
-    /// # Args:
-    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the caller's coldkey.
-    ///
-    /// * 'hotkey' (T::AccountId):
-    ///     - The associated hotkey account.
-    ///
-    /// * 'netuids' ( Vec<u16> ):
-    ///     - The netuids of the weights to be set on the chain.
-    ///
-    /// * 'values' ( Vec<u16> ):
-    ///     - The values of the weights to set on the chain. u16 normalized.
-    ///
-    /// * 'stake_to_be_added' (u64):
-    ///     - The amount of stake to be added to the hotkey staking account.
-    ///
-    /// # Event:
-    /// * StakeAdded;
-    ///     - On the successfully adding stake to a global account.
-    ///
-    /// # Raises:
-    /// * CouldNotConvertToBalance:
-    ///     - Unable to convert the passed stake value to a balance.
-    ///
-    /// * NotEnoughBalanceToStake:
-    ///     - Not enough balance on the coldkey to add onto the global account.
-    ///
-    /// * NonAssociatedColdKey:
-    ///     - The calling coldkey is not associated with this hotkey.
-    ///
-    /// * BalanceWithdrawalError:
-    ///     - Errors stemming from transaction pallet.
-    ///
-    /// * TxRateLimitExceeded:
-    ///     - Thrown if key has hit transaction rate limit
-    ///
-    /// TODO(greg) test this.
-    pub fn do_add_weighted_stake(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-        netuids: Vec<u16>,
-        values: Vec<u16>,
-    ) -> dispatch::DispatchResult {
-        // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
-        let coldkey = ensure_signed(origin)?;
-        log::info!(
-            "do_add_weighted_stake( origin:{:?} hotkey:{:?}, netuids:{:?}, values:{:?} )",
-            coldkey,
-            hotkey,
-            netuids,
-            values
-        );
-
-        // --- 2. Ensure that the hotkey account exists.
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::NotRegistered
-        );
-
-        // --- 3. We are either moving nominated stake or we own the hotkey.
-        ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 4. Check weights rate limit.
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
-        );
-
-        // --- 5. Check that the length of netuid list and value list are equal for this network.
-        ensure!(
-            Self::uids_match_values(&netuids, &values),
-            Error::<T>::WeightVecNotEqualSize
-        );
-
-        // --- 6. Ensure the passed netuids contain no duplicates.
-        ensure!(
-            !Self::has_duplicate_uids(&netuids),
-            Error::<T>::DuplicateUids
-        );
-
-        // --- 7. Ensure that the netuids are valid.
-        for netuid in netuids.iter() {
-            ensure!(
-                Self::if_subnet_exist(*netuid),
-                Error::<T>::NetworkDoesNotExist
-            );
-        }
-
-        // --- 8. Unstake from all subnets here.
-        let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut total_tao_unstaked: u64 = 0;
-        for netuid_i in all_netuids.iter() {
-            // --- 8.a Get the stake on all of the subnets.
-            let netuid_stake_for_coldkey_i: u64 =
-                Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey, &hotkey, *netuid_i);
-
-            // --- 8.b Compute the dynamic unstake amount.
-            let dynamic_unstake_amount_tao: u64 =
-                Self::compute_dynamic_unstake(*netuid_i, netuid_stake_for_coldkey_i);
-
-            // --- 8.c Remove this stake from this network.
-            Self::decrease_stake_on_coldkey_hotkey_account(
-                &coldkey,
-                &hotkey,
-                *netuid_i,
-                netuid_stake_for_coldkey_i,
-            );
-
-            // --- 8.d Increment tao unstaked
-            total_tao_unstaked += dynamic_unstake_amount_tao;
-        }
-
-        // --- 9. Get sum of stake weights being set.
-        let value_sum: u64 = values.iter().map(|&val| val as u64).sum();
-        let weights_sum: I64F64 = I64F64::from_num(value_sum);
-
-        // -- 10. Iterate over netuid value and stake to individual subnets proportional to weights.
-        let mut amounts_staked: Vec<u64> = vec![];
-        for (netuid_i, weight_i) in netuids.iter().zip(values.iter()) {
-            // 10.a -- Normalize the weight.
-            let normalized_weight: I64F64 = I64F64::from_num(*weight_i) / weights_sum;
-            // 10.b -- Calculate effective stake based on the total removed in the previous step.
-            let stake_to_be_added_netuid: u64 =
-                (normalized_weight * I64F64::from_num(total_tao_unstaked)).to_num::<u64>();
-            // 10.c Compute the dynamic stake amount.
-            let dynamic_stake_amount_added: u64 =
-                Self::compute_dynamic_stake(*netuid_i, stake_to_be_added_netuid);
-            // 10.c -- Set stake on subnet the effective stake.
-            Self::increase_stake_on_coldkey_hotkey_account(
-                &coldkey,
-                &hotkey,
-                *netuid_i,
-                dynamic_stake_amount_added,
-            );
-            // 10.d -- Sum amounts for accounting remainder
-            amounts_staked.push(dynamic_stake_amount_added);
-        }
-
-        // -- 11. Set last block for rate limiting
-        Self::set_last_tx_block(&coldkey, block);
-
-        // --- 12. Emit the staking event.
-        log::info!(
-            "StakeWeightAdded( hotkey:{:?}, netuids:{:?}, values:{:?}, stakes:{:?} )",
-            hotkey,
-            netuids,
-            values,
-            amounts_staked
-        );
-        Self::deposit_event(Event::StakeAdded(hotkey, 0, total_tao_unstaked)); // Restaking the total_removed amount.
-
-        // --- 13. Ok and return.
         Ok(())
     }
 
@@ -458,7 +295,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         stake_to_be_added: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_add_stake( origin:{:?} hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
@@ -468,52 +305,59 @@ impl<T: Config> Pallet<T> {
             stake_to_be_added
         );
 
-        // --- 2. Ensure that the netuid exists.
+        // Ensure that the netuid exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
-        // --- 3. We convert the stake u64 into a balance.
-        let stake_as_balance = Self::u64_to_balance(stake_to_be_added);
+        // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
-            stake_as_balance.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-
-        // --- 4. Ensure that the hotkey account exists this is only possible through registration.
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::NotRegistered
-        );
-
-        // --- 5. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
-        ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 6. Ensure the callers coldkey has enough stake to perform the transaction.
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap()),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 7. Remove balance.
-        Self::remove_balance_from_coldkey_account(&coldkey, stake_as_balance.unwrap())
-            .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
+        // Ensure that the hotkey account exists this is only possible through registration.
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
 
-        // --- 8. Ensure we don't exceed tx rate limit
+        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        ensure!(
+            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
+        );
+
+        // Ensure we don't exceed tx rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::StakeRateLimitExceeded
         );
 
-        // --- 9. Compute Dynamic Stake.
+        // If this is a nomination stake, check if total stake after adding will be above
+        // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_add =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
+
+            ensure!(
+                total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
+        // Ensure the remove operation from the coldkey is a success.
+        Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)
+            .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
+
+        // Compute Dynamic Stake.
         let dynamic_stake = Self::compute_dynamic_stake(netuid, stake_to_be_added);
 
-        // --- 10. If we reach here, add the balance to the hotkey.
+        // If we reach here, add the balance to the hotkey.
         Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, dynamic_stake);
 
         // -- 12. Set last block for rate limiting
@@ -555,11 +399,8 @@ impl<T: Config> Pallet<T> {
     /// * 'NonAssociatedColdKey':
     ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
     ///
-    /// * 'NotEnoughStaketoWithdraw':
-    ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
-    ///
-    /// * 'CouldNotConvertToBalance':
-    ///     - Thrown if we could not convert this amount to a balance.
+    /// * 'NotEnoughStakeToWithdraw':
+    ///     -  Thrown if there is not enough stake on the hotkey to withdwraw this amount.
     ///
     /// * 'TxRateLimitExceeded':
     ///     - Thrown if key has hit transaction rate limit
@@ -570,7 +411,7 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         stake_to_be_removed: u64,
     ) -> dispatch::DispatchResult {
-        // --- 1. We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
+        // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
             "do_remove_stake( origin:{:?} netuid:{:?}, hotkey:{:?}, stake_to_be_removed:{:?} )",
@@ -580,51 +421,55 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed
         );
 
-        // --- 2. Ensure that the netuid exists.
+        // Ensure that the netuid exists.
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
-        // --- 3. Ensure that the hotkey account exists this is only possible through registration.
+        // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
             Self::hotkey_account_exists(&hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyAccountNotExists
         );
 
-        // --- 4. Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
             Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
+            Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
-        // --- 5. Ensure that the stake amount to be removed is above zero.
-        ensure!(
-            stake_to_be_removed > 0,
-            Error::<T>::NotEnoughStaketoWithdraw
-        );
+        // Ensure that the stake amount to be removed is above zero.
+        ensure!(stake_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
 
-        // --- 6. Ensure that the hotkey has enough stake to withdraw.
+        // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
             Self::has_enough_stake(&coldkey, &hotkey, netuid, stake_to_be_removed),
-            Error::<T>::NotEnoughStaketoWithdraw
+            Error::<T>::NotEnoughStakeToWithdraw
         );
 
-        // --- 7. Ensure that we can conver this u64 to a balance.
-        let stake_to_be_added_as_currency = Self::u64_to_balance(stake_to_be_removed);
-        ensure!(
-            stake_to_be_added_as_currency.is_some(),
-            Error::<T>::CouldNotConvertToBalance
-        );
-
-        // --- 8. Ensure we don't exceed tx rate limit
+        // Ensure we don't exceed stake rate limit
         let block: u64 = Self::get_current_block_as_u64();
         ensure!(
             !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
+            Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // --- 8. We remove the balance from the hotkey.
+        // If this is a nomination stake, check if total stake after removing will be above
+        // the minimum required stake.
+
+        // If coldkey is not owner of the hotkey, it's a nomination stake.
+        if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
+            let total_stake_after_remove =
+                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
+
+            ensure!(
+                total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+                Error::<T>::NomStakeBelowMinimumThreshold
+            );
+        }
+
+        // Ensure subnet lock period has not yet expired
         let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
         if Self::get_subnet_creator_hotkey(netuid) == hotkey {
             ensure!(
@@ -633,7 +478,7 @@ impl<T: Config> Pallet<T> {
             )
         }
 
-        // --- 9. We remove the balance from the hotkey.
+        // We remove the balance from the hotkey.
         Self::decrease_stake_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
@@ -641,14 +486,11 @@ impl<T: Config> Pallet<T> {
             stake_to_be_removed,
         );
 
-        // --- 10. Compute Dynamic un stake.
+        // Compute Dynamic unstake.
         let dynamic_unstake: u64 = Self::compute_dynamic_unstake(netuid, stake_to_be_removed);
 
-        // --- 10. We add the balancer to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(
-            &coldkey,
-            Self::u64_to_balance(dynamic_unstake).unwrap(),
-        );
+        // We add the balancer to the coldkey. If the above fails we will not credit this coldkey.
+        Self::add_balance_to_coldkey_account(&coldkey,dynamic_unstake );
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -896,12 +738,12 @@ impl<T: Config> Pallet<T> {
             // Check if the subnet exists before setting the take.
             ensure!(
                 Self::if_subnet_exist(netuid),
-                Error::<T>::NetworkDoesNotExist
+                Error::<T>::SubNetworkDoesNotExist
             );
 
             // Ensure the take does not exceed the initial default take.
             let max_take = T::InitialDefaultTake::get();
-            ensure!(take <= max_take, Error::<T>::InvalidTake);
+            ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
             // Enforce the rate limit (independently on do_add_stake rate limits)
             ensure!(
@@ -909,7 +751,7 @@ impl<T: Config> Pallet<T> {
                     Self::get_last_tx_block_delegate_take(&hotkey),
                     block
                 ),
-                Error::<T>::TxRateLimitExceeded
+                Error::<T>::DelegateTxRateLimitExceeded
             );
 
             // Insert the take into the storage.
@@ -1220,14 +1062,12 @@ impl<T: Config> Pallet<T> {
         coldkey: &T::AccountId,
         amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
     ) -> Result<u64, DispatchError> {
-        let amount_u64: u64 = amount.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
-
-        if amount_u64 == 0 {
+        if amount == 0 {
             return Ok(0);
         }
 
         let credit = T::Currency::withdraw(
-                &coldkey,
+                coldkey,
                 amount,
                 Precision::BestEffort,
                 Preservation::Preserve,
@@ -1236,10 +1076,8 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::BalanceWithdrawalError)?
             .peek();
 
-        let credit_u64: u64 = credit.try_into().map_err(|_| Error::<T>::CouldNotConvertToU64)?;
-
-        if credit_u64 == 0 {
-            return Err(Error::<T>::BalanceWithdrawalError.into());
+        if credit == 0 {
+            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
         }
 
         Ok(credit)

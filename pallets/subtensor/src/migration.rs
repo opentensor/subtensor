@@ -464,13 +464,16 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
             TotalHotkeySubStake::<T>::insert(hotkey, &0u16, *total_stake);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
-        log::info!("Inserted {} entries into TotalHotkeySubStake", total_stakes.len());
+        log::info!(
+            "Inserted {} entries into TotalHotkeySubStake",
+            total_stakes.len()
+        );
 
-		// Remove the old `TotalStake` type.
-		frame_support::storage::unhashed::kill(&frame_support::storage::storage_prefix(
-			"SubtensorModule".as_bytes(),
-			"TotalStake".as_bytes(),
-		));
+        // Remove the old `TotalStake` type.
+        frame_support::storage::unhashed::kill(&frame_support::storage::storage_prefix(
+            "SubtensorModule".as_bytes(),
+            "TotalStake".as_bytes(),
+        ));
 
         // Update the storage version to indicate this migration has been completed
         log::info!(
@@ -525,9 +528,30 @@ pub fn migrate_remove_deprecated_stake_variables<T: Config>() -> Weight {
             }
         });
     } else {
-        log::info!("Migration to remove deprecated storage variables already done!"); // Debug print
+        log::info!("Migration to remove deprecated storage variables already done!");
+        // Debug print
     }
 
     log::info!("Final weight: {:?}", weight); // Debug print
+    weight
+}
+
+pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
+    let new_storage_version = 9;
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: Populate subnet creator.");
+        SubnetOwner::<T>::iter().for_each(|(netuid, owner)| {
+            SubnetCreator::<T>::insert(netuid, owner);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        });
+    } else {
+        log::info!("Migration to remove deprecated storage variables already done!");
+    }
+
+    log::info!("Final weight: {:?}", weight);
     weight
 }
