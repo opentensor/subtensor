@@ -46,6 +46,14 @@ impl<T: Config> Pallet<T> {
         Uids::<T>::insert(netuid, new_hotkey.clone(), uid_to_replace); // Make uid - hotkey association.
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
+
+		// HEREEE
+        Trust::<T>::insert(netuid, 0);
+        Emission::<T>::insert(netuid, 0);
+        Consensus::<T>::insert(netuid, 0);
+        Incentive::<T>::insert(netuid, 0);
+        Dividends::<T>::insert(netuid, 0);
+
     }
 
     // Appends the uid to the network.

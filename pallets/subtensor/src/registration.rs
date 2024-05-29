@@ -327,6 +327,9 @@ impl<T: Config> Pallet<T> {
             Self::append_neuron(netuid, &hotkey, current_block_number);
             log::info!("add new neuron account");
         } else {
+
+		// HEREEE
+
             // --- 11.1.1 Replacement required.
             // We take the neuron with the lowest pruning score here.
             subnetwork_uid = Self::get_neuron_to_prune(netuid);
