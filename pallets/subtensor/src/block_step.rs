@@ -146,17 +146,21 @@ impl<T: Config> Pallet<T> {
         tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
+    pub fn get_subnet_type(netuid: u16) -> SubnetType {
+        if Self::is_subnet_dynamic(netuid) { 
+            SubnetType::DTAO 
+        } else { 
+            SubnetType::STAO 
+        }
+    }
+
     fn get_subnets() -> Vec<SubnetBlockStepInfo> {
         // Get all the network uids.
         Self::get_all_subnet_netuids().iter().map(|&netuid| {
             let dynamic = Self::is_subnet_dynamic(netuid);
             SubnetBlockStepInfo {
                 netuid: netuid,
-                subnet_type: if dynamic { 
-                    SubnetType::DTAO 
-                } else { 
-                    SubnetType::STAO 
-                },
+                subnet_type: Self::get_subnet_type(netuid),
                 price: {
                     if netuid == Self::get_root_netuid() {
                         I64F64::from_num(0.0)
@@ -166,7 +170,7 @@ impl<T: Config> Pallet<T> {
                         Self::get_tao_per_alpha_price(netuid)
                     }
                 },
-                tao_staked: TotalSubnetStake::<T>::get(netuid),
+                tao_staked: TotalSubnetTAO::<T>::get(netuid),
             }
         }).collect()
     }
@@ -205,17 +209,24 @@ impl<T: Config> Pallet<T> {
                         } else {
                             // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
                             tao_in = 0;
-                            alpha_in = subnet_block_emission;
+                            alpha_in = 1_000_000_000; // 10^9 rao
                         }
-        
-                        // Increment the pools tao reserve based on the block emission.
-                        DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
-        
-                        // Increment the pools alpha reserve based on the alpha in emission.
-                        DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
-        
-                        // Increment the total supply of alpha because we just added some to the reserve.
-                        DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+
+                        if tao_in > 0 {
+                            // Increment total TAO on subnet
+                            TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(tao_in));
+
+                            // Increment the pools tao reserve based on the block emission.
+                            DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+                        }
+
+                        if alpha_in > 0 {
+                            // Increment the pools alpha reserve based on the alpha in emission.
+                            DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
+            
+                            // Increment the total supply of alpha because we just added some to the reserve.
+                            DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+                        }
         
                         // Recalculate the Dynamic K value for the new pool.
                         DynamicK::<T>::insert(
@@ -224,7 +235,9 @@ impl<T: Config> Pallet<T> {
                                 * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
                         );
                     },
-                    SubnetType::STAO => {}
+                    SubnetType::STAO => {
+                        TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                    }
                 }
             });
     
@@ -321,12 +334,12 @@ impl<T: Config> Pallet<T> {
         // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
         if !Self::hotkey_is_delegate(delegate) {
             let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_stake_on_hotkey_account(delegate, netuid, total_delegate_emission);
+            Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
             let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
             let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
             Self::add_balance_to_coldkey_account(
                 &coldkey,
-                Self::u64_to_balance(tao_server_emission).unwrap(),
+                tao_server_emission,
             );
             return;
         }
@@ -351,8 +364,7 @@ impl<T: Config> Pallet<T> {
         );
 
         if delegate_local_stake + delegate_global_dynamic_tao != 0 {
-            Stake::<T>::iter_prefix(delegate)
-                .filter(|(_, stake)| *stake > 0)
+            Staker::<T>::iter_prefix(delegate)
                 .for_each(|(nominator_i, _)| {
                     // 3.a Compute the stake weight percentage for the nominatore weight.
                     let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey(
@@ -402,7 +414,7 @@ impl<T: Config> Pallet<T> {
                         nominator_local_emission_i
                     );
                     residual -= nominator_emission_u64;
-                    Self::increase_stake_on_coldkey_hotkey_account(
+                    Self::increase_subnet_token_on_coldkey_hotkey_account(
                         &nominator_i,
                         delegate,
                         netuid,
@@ -418,12 +430,12 @@ impl<T: Config> Pallet<T> {
             "total_delegate_emission: {:?}",
             delegate_take_u64 + server_emission
         );
-        Self::increase_stake_on_hotkey_account(delegate, netuid, total_delegate_emission);
+        Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
         let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
         let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
         Self::add_balance_to_coldkey_account(
             &coldkey,
-            Self::u64_to_balance(tao_server_emission).unwrap(),
+            tao_server_emission,
         );
     }
 

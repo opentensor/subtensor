@@ -154,9 +154,9 @@ fn test_set_weights_min_stake_failed() {
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
         assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), false);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, netuid, 19_000_000_000_000);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey, netuid, 19_000_000_000_000);
         assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), false);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, netuid, 20_000_000_000_000);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey, netuid, 20_000_000_000_000);
         assert_eq!(SubtensorModule::check_weights_min_stake(&hotkey), true);
 
         // Check that it fails at the pallet level.
@@ -166,7 +166,7 @@ fn test_set_weights_min_stake_failed() {
             Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
         );
         // Now passes
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, netuid, 100_000_000_000_000);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey, netuid, 100_000_000_000_000);
         assert_ok!(SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,

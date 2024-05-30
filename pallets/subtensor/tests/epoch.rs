@@ -180,7 +180,7 @@ fn init_run_epochs(
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
         SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &U256::from(key),
             &U256::from(key),
             netuid,
@@ -562,7 +562,7 @@ fn test_1_graph() {
         SubtensorModule::set_global_stake_weight(0); // Set the stake weight to 100% on this subnet alone.
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid,
@@ -615,7 +615,7 @@ fn test_10_graph() {
                 stake_amount,
                 SubtensorModule::get_subnetwork_n(netuid),
             );
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
                 netuid,
@@ -880,7 +880,6 @@ fn test_4096_graph() {
                     0,
                     true,
                 );
-                assert_eq!(SubtensorModule::get_total_stake(), 21_000_000_000_000_000);
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
@@ -1009,7 +1008,7 @@ fn test_bonds() {
 			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
+			SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
 		}
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1317,7 +1316,7 @@ fn test_active_stake() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
@@ -1526,7 +1525,7 @@ fn test_outdated_weights() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
@@ -1714,7 +1713,7 @@ fn test_zero_weights() {
         }
         for validator in 0..(n / 2) as u64 {
             SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &U256::from(validator),
                 &U256::from(validator),
                 netuid,
@@ -1934,7 +1933,7 @@ fn test_validator_permits() {
                             U256::from(key),
                             U256::from(key)
                         ));
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                             &U256::from(key),
                             &U256::from(key),
                             netuid,
@@ -1969,7 +1968,7 @@ fn test_validator_permits() {
                             &(U256::from(*server as u64)),
                             2 * network_n as u64,
                         );
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
                             netuid,

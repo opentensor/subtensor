@@ -290,19 +290,15 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
     }
 
-    fn increase_stake_on_coldkey_hotkey_account(
+    fn increase_subnet_token_on_coldkey_hotkey_account(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: u16,
-        increment: u64,
+        increment_alpha: u64,
     ) {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-            coldkey, hotkey, netuid, increment,
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
+            coldkey, hotkey, netuid, increment_alpha,
         );
-    }
-
-    fn u64_to_balance(input: u64) -> Option<Balance> {
-        SubtensorModule::u64_to_balance(input)
     }
 
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {

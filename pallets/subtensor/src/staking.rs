@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::{
-    storage::IterableStorageDoubleMap,
     traits::{
         tokens::{
             fungible::{Balanced as _, Inspect as _, Mutate as _},
@@ -12,6 +11,7 @@ use frame_support::{
 use sp_core::Get;
 use sp_std::vec::Vec;
 use substrate_fixed::types::I64F64;
+use types::SubnetType;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -293,7 +293,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: u16,
-        stake_to_be_added: u64,
+        tao_to_be_added: u64,
     ) -> dispatch::DispatchResult {
         // We check that the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -302,7 +302,7 @@ impl<T: Config> Pallet<T> {
             coldkey,
             hotkey,
             netuid,
-            stake_to_be_added
+            tao_to_be_added
         );
 
         // Ensure that the netuid exists.
@@ -313,7 +313,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, stake_to_be_added),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, tao_to_be_added),
             Error::<T>::NotEnoughBalanceToStake
         );
 
@@ -341,8 +341,9 @@ impl<T: Config> Pallet<T> {
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_add =
-                Stake::<T>::get(&hotkey, &coldkey).saturating_add(stake_to_be_added);
+            let current_stake_alpha = SubStake::<T>::get((&coldkey, &hotkey, netuid));
+            let current_stake_tao = Self::compute_dynamic_unstake(netuid, current_stake_alpha);
+            let total_stake_after_add = current_stake_tao.saturating_add(tao_to_be_added);
 
             ensure!(
                 total_stake_after_add >= NominatorMinRequiredStake::<T>::get(),
@@ -351,14 +352,15 @@ impl<T: Config> Pallet<T> {
         }
 
         // Ensure the remove operation from the coldkey is a success.
-        Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)
+        Self::remove_balance_from_coldkey_account(&coldkey, tao_to_be_added)
             .map_err(|_| Error::<T>::BalanceWithdrawalError)?;
 
         // Compute Dynamic Stake.
-        let dynamic_stake = Self::compute_dynamic_stake(netuid, stake_to_be_added);
+        let dynamic_stake = Self::compute_dynamic_stake(netuid, tao_to_be_added);
 
         // If we reach here, add the balance to the hotkey.
-        Self::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, dynamic_stake);
+        Self::increase_subnet_token_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, dynamic_stake);
+        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_add(tao_to_be_added));
 
         // -- 12. Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -368,9 +370,9 @@ impl<T: Config> Pallet<T> {
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
             hotkey,
             netuid,
-            stake_to_be_added
+            tao_to_be_added
         );
-        Self::deposit_event(Event::StakeAdded(hotkey, netuid, stake_to_be_added));
+        Self::deposit_event(Event::StakeAdded(hotkey, netuid, tao_to_be_added));
 
         // --- 14. Ok and return.
         Ok(())
@@ -409,7 +411,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
         netuid: u16,
-        stake_to_be_removed: u64,
+        alpha_to_be_removed: u64,
     ) -> dispatch::DispatchResult {
         // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
@@ -418,7 +420,7 @@ impl<T: Config> Pallet<T> {
             coldkey,
             hotkey,
             netuid,
-            stake_to_be_removed
+            alpha_to_be_removed
         );
 
         // Ensure that the netuid exists.
@@ -440,11 +442,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above zero.
-        ensure!(stake_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
+        ensure!(alpha_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            Self::has_enough_stake(&coldkey, &hotkey, netuid, stake_to_be_removed),
+            Self::has_enough_stake(&coldkey, &hotkey, netuid, alpha_to_be_removed),
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
@@ -460,8 +462,9 @@ impl<T: Config> Pallet<T> {
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
-            let total_stake_after_remove =
-                Stake::<T>::get(&hotkey, &coldkey).saturating_sub(stake_to_be_removed);
+            let current_stake_alpha = SubStake::<T>::get((&coldkey, &hotkey, netuid));
+            let alpha_after_remove = current_stake_alpha.saturating_sub(alpha_to_be_removed);
+            let total_stake_after_remove = Self::compute_dynamic_unstake(netuid, alpha_after_remove);
 
             ensure!(
                 total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
@@ -479,18 +482,19 @@ impl<T: Config> Pallet<T> {
         }
 
         // We remove the balance from the hotkey.
-        Self::decrease_stake_on_coldkey_hotkey_account(
+        Self::decrease_subnet_token_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid,
-            stake_to_be_removed,
+            alpha_to_be_removed,
         );
 
         // Compute Dynamic unstake.
-        let dynamic_unstake: u64 = Self::compute_dynamic_unstake(netuid, stake_to_be_removed);
-
+        let tao_unstaked: u64 = Self::compute_dynamic_unstake(netuid, alpha_to_be_removed);
+        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_sub(tao_unstaked));
+        
         // We add the balancer to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey,dynamic_unstake );
+        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -498,9 +502,9 @@ impl<T: Config> Pallet<T> {
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
-            stake_to_be_removed
+            alpha_to_be_removed
         );
-        Self::deposit_event(Event::StakeRemoved(hotkey, netuid, stake_to_be_removed));
+        Self::deposit_event(Event::StakeRemoved(hotkey, netuid, alpha_to_be_removed));
 
         // --- 11. Done and ok.
         Ok(())
@@ -534,29 +538,32 @@ impl<T: Config> Pallet<T> {
     /// The function will panic if the new dynamic reserve calculation overflows, although this is highly unlikely due to the
     /// use of saturating arithmetic operations.
     pub fn compute_dynamic_unstake(netuid: u16, stake_to_be_removed: u64) -> u64 {
+        let subnet_type = Self::get_subnet_type(netuid);
+
         // STAO networks do not have dynamic stake
-        if !Self::is_subnet_dynamic(netuid) {
-            stake_to_be_removed
-        } else {
-            let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
-            let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
-            let k = DynamicK::<T>::get(netuid);
-    
-            // Calculate the new dynamic reserve after adding the stake to be removed
-            let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
-            // Calculate the new tao reserve based on the new dynamic reserve
-            let new_tao_reserve: u64 = (k / (new_dynamic_reserve as u128)) as u64;
-            // Calculate the amount of tao to be pulled out based on the difference in tao reserves
-            let tao = tao_reserve.saturating_sub(new_tao_reserve);
-    
-            // Update the reserves with the new values
-            DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
-            DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
-            DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| {
-                *outstanding -= stake_to_be_removed
-            }); // Decrement outstanding alpha.
-    
-            tao
+        match subnet_type {
+            SubnetType::DTAO => {
+                let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+                let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+                let k = DynamicK::<T>::get(netuid);
+        
+                // Calculate the new dynamic reserve after adding the stake to be removed
+                let new_dynamic_reserve = dynamic_reserve.saturating_add(stake_to_be_removed);
+                // Calculate the new tao reserve based on the new dynamic reserve
+                let new_tao_reserve: u64 = (k / (new_dynamic_reserve as u128)) as u64;
+                // Calculate the amount of tao to be pulled out based on the difference in tao reserves
+                let tao = tao_reserve.saturating_sub(new_tao_reserve);
+        
+                // Update the reserves with the new values
+                DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+                DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+                DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| {
+                    *outstanding -= stake_to_be_removed
+                }); // Decrement outstanding alpha.
+        
+                tao
+            }
+            SubnetType::STAO => stake_to_be_removed
         }
     }
 
@@ -588,27 +595,30 @@ impl<T: Config> Pallet<T> {
     /// The function will panic if the new tao reserve calculation overflows, although this is highly unlikely due to the
     /// use of saturating arithmetic operations.
     pub fn compute_dynamic_stake(netuid: u16, stake_to_be_added: u64) -> u64 {
+        let subnet_type = Self::get_subnet_type(netuid);
+
         // STAO networks do not have dynamic stake
-        if !Self::is_subnet_dynamic(netuid) {
-            stake_to_be_added
-        } else {
-            let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
-            let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
-            let k = DynamicK::<T>::get(netuid);
-    
-            // Calculate the new tao reserve after adding the stake
-            let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
-            // Calculate the new dynamic reserve based on the new tao reserve
-            let new_dynamic_reserve: u64 = (k / (new_tao_reserve as u128)) as u64;
-            // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
-            let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
-    
-            // Update the reserves with the new values
-            DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
-            DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
-            DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| *outstanding += dynamic_token); // Increment outstanding alpha.
-    
-            dynamic_token
+        match subnet_type {
+            SubnetType::DTAO => {
+                let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+                let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+                let k = DynamicK::<T>::get(netuid);
+        
+                // Calculate the new tao reserve after adding the stake
+                let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
+                // Calculate the new dynamic reserve based on the new tao reserve
+                let new_dynamic_reserve: u64 = (k / (new_tao_reserve as u128)) as u64;
+                // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
+                let dynamic_token = dynamic_reserve.saturating_sub(new_dynamic_reserve);
+        
+                // Update the reserves with the new values
+                DynamicTAOReserve::<T>::insert(netuid, new_tao_reserve);
+                DynamicAlphaReserve::<T>::insert(netuid, new_dynamic_reserve);
+                DynamicAlphaOutstanding::<T>::mutate(netuid, |outstanding| *outstanding += dynamic_token); // Increment outstanding alpha.
+        
+                dynamic_token
+            }
+            SubnetType::STAO => stake_to_be_added
         }
     }
 
@@ -622,12 +632,6 @@ impl<T: Config> Pallet<T> {
     //
     pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
         Delegates::<T>::insert(hotkey, take);
-    }
-
-    // Returns the total amount of stake in the staking table.
-    //
-    pub fn get_total_stake() -> u64 {
-        TotalStake::<T>::get()
     }
 
     // Getters for Dynamic terms
@@ -789,8 +793,8 @@ impl<T: Config> Pallet<T> {
     }
     // Increases the stake on the hotkey account under its owning coldkey.
     //
-    pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, increment: u64) {
-        Self::increase_stake_on_coldkey_hotkey_account(
+    pub fn increase_subnet_token_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, increment: u64) {
+        Self::increase_subnet_token_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
             hotkey,
             netuid,
@@ -800,8 +804,8 @@ impl<T: Config> Pallet<T> {
 
     // Decreases the stake on the hotkey account under its owning coldkey.
     //
-    pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, decrement: u64) {
-        Self::decrease_stake_on_coldkey_hotkey_account(
+    pub fn decrease_subnet_token_on_hotkey_account(hotkey: &T::AccountId, netuid: u16, decrement: u64) {
+        Self::decrease_subnet_token_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
             hotkey,
             netuid,
@@ -829,9 +833,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
-    // TODO: We could probably store this total as a state variable
+    /// Returns the stake under the cold - hot pairing in the staking table.
+    ///
+    /// TODO: We could probably store this total as a state variable
     pub fn get_hotkey_global_dynamic_tao(hotkey: &T::AccountId) -> u64 {
         let mut global_dynamic_tao: I64F64 = I64F64::from_num(0.0);
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
@@ -860,8 +864,8 @@ impl<T: Config> Pallet<T> {
         return global_dynamic_tao.to_num::<u64>();
     }
 
-    // Returns the stake under the cold - hot pairing in the staking table.
-    //
+    /// Returns the stake under the cold - hot pairing in the staking table.
+    ///
     pub fn get_nominator_global_dynamic_tao(coldkey: &T::AccountId, hotkey: &T::AccountId) -> u64 {
         let mut global_dynamic_tao: I64F64 = I64F64::from_num(0.0);
         let netuids: Vec<u16> = Self::get_all_subnet_netuids();
@@ -891,77 +895,64 @@ impl<T: Config> Pallet<T> {
         return global_dynamic_tao.to_num::<u64>();
     }
 
-    // Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    // This function should be called rather than set_stake under account.
-    //
-    pub fn increase_stake_on_coldkey_hotkey_account(
+    /// Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
+    /// This function should be called rather than set_stake under account.
+    ///
+    pub fn increase_subnet_token_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: u16,
-        increment: u64,
+        increment_alpha: u64,
     ) {
-        if increment == 0 {
+        if increment_alpha == 0 {
             return;
         }
         TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
-            *stake = stake.saturating_add(increment);
+            *stake = stake.saturating_add(increment_alpha);
         });
-        Stake::<T>::mutate(hotkey, coldkey, |stake| {
-            *stake = stake.saturating_add(increment);
+        SubStake::<T>::mutate((coldkey, hotkey, netuid), |stake| {
+            *stake = stake.saturating_add(increment_alpha)
         });
-        SubStake::<T>::insert(
-            (coldkey, hotkey, netuid),
-            SubStake::<T>::try_get((coldkey, hotkey, netuid))
-                .unwrap_or(0)
-                .saturating_add(increment),
-        );
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_add(increment));
-        TotalSubnetStake::<T>::mutate(netuid, |stake| *stake = stake.saturating_add(increment));
+        Staker::<T>::insert(coldkey, hotkey, true);
     }
 
-    // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    //
-    pub fn decrease_stake_on_coldkey_hotkey_account(
+    /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
+    ///
+    pub fn decrease_subnet_token_on_coldkey_hotkey_account(
         coldkey: &T::AccountId,
         hotkey: &T::AccountId,
         netuid: u16,
-        decrement: u64,
+        decrement_alpha: u64,
     ) {
-        if decrement == 0 {
+        if decrement_alpha == 0 {
             return;
         }
-        TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
-            *stake = stake.saturating_sub(decrement);
-        });
-
-        // Delete stake map entry if all stake is removed
-        let existing_stake = Stake::<T>::get(hotkey, coldkey);
-        if existing_stake == decrement {
-            Stake::<T>::remove(hotkey, coldkey);
+        let existing_total_stake = TotalHotkeySubStake::<T>::get(&hotkey, netuid);
+        if existing_total_stake == decrement_alpha {
+            TotalHotkeySubStake::<T>::remove(hotkey, netuid);
         } else {
-            Stake::<T>::insert(hotkey, coldkey, existing_stake.saturating_sub(decrement));
+            TotalHotkeySubStake::<T>::insert(
+                hotkey, 
+                netuid, 
+                existing_total_stake.saturating_sub(decrement_alpha)
+            );
         }
 
         // Delete substake map entry if all stake is removed
         let existing_substake = SubStake::<T>::get((coldkey, hotkey, netuid));
-        if existing_substake == decrement {
+        if existing_substake == decrement_alpha {
             SubStake::<T>::remove((coldkey, hotkey, netuid));
         } else {
             SubStake::<T>::insert(
                 (coldkey, hotkey, netuid),
-                existing_substake.saturating_sub(decrement),
+                existing_substake.saturating_sub(decrement_alpha),
             );
         }
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(decrement));
-        TotalSubnetStake::<T>::mutate(netuid, |stake| *stake = stake.saturating_sub(decrement));
-    }
 
-    pub fn u64_to_balance(
-        input: u64,
-    ) -> Option<
-        <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance,
-    > {
-        input.try_into().ok()
+        // Delete staker map entry if all stake is removed
+        if SubStake::<T>::iter_prefix((&coldkey, &hotkey)).next().is_none() {
+            Staker::<T>::remove(hotkey, coldkey);
+        }
     }
 
     /// Empties the stake associated with a given coldkey-hotkey account pairing.
@@ -973,17 +964,38 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId) {
-        let current_stake: u64 = Stake::<T>::get(hotkey, coldkey);
-        Stake::<T>::remove(hotkey, coldkey);
-        TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
-        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+    pub fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid: u16) {
+        let unstaked_tao = {
+            let stake = SubStake::<T>::get((&coldkey, &hotkey, netuid));
+            // Determine the type of network. 
+            // For STAO stake is TAO, for DTAO stake is alpha and needs to be unstaked
+            match Self::get_subnet_type(netuid) {
+                SubnetType::DTAO => {
+                    Self::compute_dynamic_unstake(netuid, stake)
+                },
+                SubnetType::STAO => {
+                    stake
+                }
+            }
+        };
+        
+        // Clear SubStake entry
+        SubStake::<T>::remove((coldkey, hotkey, netuid));
+
+        // Clear Staker entry
+        if SubStake::<T>::iter_prefix((&coldkey, &hotkey)).next().is_none() {
+            Staker::<T>::remove(hotkey, coldkey);
+        }
+
+        // Reduce Total Issuance by total unstaked TAO
+        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(unstaked_tao));
     }
 
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
     pub fn clear_small_nomination_if_required(
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
+        netuid: u16,
         stake: u64,
     ) {
         // Verify if the account is a nominator account by checking ownership of the hotkey by the coldkey.
@@ -992,7 +1004,7 @@ impl<T: Config> Pallet<T> {
             if stake < Self::get_nominator_min_required_stake() {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
-                Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey);
+                Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid);
                 // Add the stake to the coldkey account.
                 Self::add_balance_to_coldkey_account(coldkey, stake);
             }
@@ -1005,8 +1017,8 @@ impl<T: Config> Pallet<T> {
     /// used with caution.
     pub fn clear_small_nominations() {
         // Loop through all staking accounts to identify and clear nominations below the minimum stake.
-        for (hotkey, coldkey, stake) in Stake::<T>::iter() {
-            Self::clear_small_nomination_if_required(&hotkey, &coldkey, stake);
+        for ((coldkey, hotkey, netuid), stake) in SubStake::<T>::iter() {
+            Self::clear_small_nomination_if_required(&hotkey, &coldkey, netuid, stake);
         }
     }
 
@@ -1080,30 +1092,34 @@ impl<T: Config> Pallet<T> {
         // Iterate through all coldkeys that have a stake on this hotkey account.
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         for (coldkey_i, _) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
+            Staker::<T>::iter_prefix(
                 hotkey,
             )
         {
-            for netuid_i in all_netuids.iter() {
+            for &netuid_i in all_netuids.iter() {
+                // Get the subnet type
+                let subnet_type = Self::get_subnet_type(netuid_i);
+
                 // Get the stake on this uid.
-                let stake_i =
-                    Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, *netuid_i);
+                let stake_alpha_i =
+                    Self::get_subnet_stake_for_coldkey_and_hotkey(&coldkey_i, hotkey, netuid_i);
 
-                // Convert to balance and add to the coldkey account.
-                let stake_i_as_balance = Self::u64_to_balance(stake_i);
-                if stake_i_as_balance.is_none() {
-                    continue; // Don't unstake if we can't convert to balance.
-                } else {
-                    // Stake is successfully converted to balance.
+                let stake_tao_i = match subnet_type {
+                    SubnetType::DTAO => {
+                        Self::compute_dynamic_unstake(netuid_i, stake_alpha_i)
+                    },
+                    SubnetType::STAO => {
+                        stake_alpha_i
+                    },
+                };
 
-                    // Remove the stake from the coldkey - hotkey pairing.
-                    Self::decrease_stake_on_coldkey_hotkey_account(
-                        &coldkey_i, hotkey, *netuid_i, stake_i,
-                    );
+                // Remove the stake from the coldkey - hotkey pairing.
+                Self::decrease_subnet_token_on_coldkey_hotkey_account(
+                    &coldkey_i, hotkey, netuid_i, stake_alpha_i
+                );
 
-                    // Add the balance to the coldkey account.
-                    Self::add_balance_to_coldkey_account(&coldkey_i, stake_i_as_balance.unwrap());
-                }
+                // Add the balance to the coldkey account.
+                Self::add_balance_to_coldkey_account(&coldkey_i, stake_tao_i);
             }
         }
     }

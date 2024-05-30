@@ -187,7 +187,7 @@ impl<T: Config> Pallet<T> {
     /// The total stake as a `Compact<u64>`.
     pub fn get_total_subnet_stake(netuid: u16) -> Compact<u64> {
         // Return the total stake wrapped in Compact.
-        Compact(TotalSubnetStake::<T>::get(netuid))
+        Compact(TotalSubnetTAO::<T>::get(netuid))
     }
 
     /// This function is used to get all the stake information for a given coldkey across all subnets.

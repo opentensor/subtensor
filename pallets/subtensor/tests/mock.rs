@@ -503,7 +503,7 @@ pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16) {
     SubtensorModule::set_pool_k(netuid, initial_dynamic_k);
     SubtensorModule::set_subnet_dynamic(netuid); // Turn on dynamic staking.
 
-    SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+    SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
         &coldkey,
         &hotkey,
         netuid,
@@ -526,7 +526,7 @@ pub fn add_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64) {
     SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
 
     let dynamic_stake = SubtensorModule::compute_dynamic_stake(netuid, amount);
-    SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+    SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
         &coldkey,
         &hotkey,
         netuid,
@@ -540,7 +540,7 @@ pub fn remove_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64)
     let hotkey = U256::from(hot_id);
 
     let dynamic_unstake_amount_tao = SubtensorModule::compute_dynamic_unstake(netuid, amount);
-    SubtensorModule::decrease_stake_on_coldkey_hotkey_account(
+    SubtensorModule::decrease_subnet_token_on_coldkey_hotkey_account(
         &coldkey,
         &hotkey,
         netuid,

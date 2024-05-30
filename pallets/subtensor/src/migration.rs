@@ -2,7 +2,7 @@ use super::*;
 use alloc::collections::BTreeMap;
 use frame_support::traits::DefensiveResult;
 use frame_support::{
-    pallet_prelude::{Identity, OptionQuery, ValueQuery},
+    pallet_prelude::{Blake2_128Concat, Identity, OptionQuery, ValueQuery},
     storage_alias,
     traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
@@ -35,6 +35,16 @@ pub mod deprecated_stake_variables {
     #[storage_alias] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
     pub type TotalColdkeyStake<T: Config> =
         StorageMap<Pallet<T>, Identity, AccountIdOf<T>, u64, ValueQuery>;
+    #[storage_alias] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
+    pub type Stake<T: Config> = StorageDoubleMap<
+        Pallet<T>,
+        Blake2_128Concat,
+        AccountIdOf<T>,
+        Identity,
+        AccountIdOf<T>,
+        u64,
+        ValueQuery,
+    >;
 }
 
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
@@ -45,14 +55,16 @@ pub mod deprecated_stake_variables {
 pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
     let mut weight = T::DbWeight::get().reads(1); // Initialize migration weight
 
+    use deprecated_stake_variables as old;
+
     // Execute migration if the current storage version is 5
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
         // Calculate the sum of all stake values
-        let stake_sum: u64 = Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
+        let stake_sum: u64 = old::Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
             accumulator.saturating_add(stake_value)
         });
         weight = weight
-            .saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
+            .saturating_add(T::DbWeight::get().reads_writes(old::Stake::<T>::iter().count() as u64, 0));
 
         // Calculate the sum of all stake values
         let locked_sum: u64 = SubnetLocked::<T>::iter()
@@ -437,12 +449,14 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
     let new_storage_version = 7;
     let mut weight = T::DbWeight::get().reads_writes(1, 1);
 
+    use deprecated_stake_variables as old;
+
     let onchain_version = Pallet::<T>::on_chain_storage_version();
     log::info!("Current on-chain storage version: {:?}", onchain_version); // Debug print
     if onchain_version < new_storage_version {
         log::info!("Starting migration from Stake to SubStake."); // Debug print
         let mut counter = 0;
-        Stake::<T>::iter().for_each(|(coldkey, hotkey, stake)| {
+        old::Stake::<T>::iter().for_each(|(coldkey, hotkey, stake)| {
             if stake > 0 {
                 // Ensure we're only migrating non-zero stakes
                 // Insert into SubStake with netuid set to 0 for all entries
@@ -457,9 +471,13 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
         // Assuming TotalHotkeySubStake needs to be updated similarly
         let mut total_stakes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
         let mut total_subnet_stakes: BTreeMap<u16, u64> = BTreeMap::new();
-        SubStake::<T>::iter().for_each(|((_, hotkey, netuid), stake)| {
+        SubStake::<T>::iter().for_each(|((coldkey, hotkey, netuid), stake)| {
             *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
             *total_subnet_stakes.entry(netuid).or_insert(0) += stake;
+            if stake > 0 {
+                Staker::<T>::insert(&coldkey, &hotkey, true);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+            }
         });
 
         for (hotkey, total_stake) in total_stakes.iter() {
@@ -474,7 +492,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
         // For STAO the total stake is the same thing as DynamicTAOReserve for DTAO, so
         // we are using this map for both STAO and DTAO.
         for (netuid, total_stake) in total_subnet_stakes.iter() {
-            TotalSubnetStake::<T>::insert(netuid, total_stake);
+            TotalSubnetTAO::<T>::insert(netuid, total_stake);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
         log::info!(
@@ -531,15 +549,11 @@ pub fn migrate_remove_deprecated_stake_variables<T: Config>() -> Weight {
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
-        // Remove Stake zero values
-        Stake::<T>::translate(|_, _, stake| {
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
-            if stake > 0 {
-                Some(stake)
-            } else {
-                None
-            }
-        });
+        // Remove Stake values
+        // old::Stake::<T>::translate(|_, _, _| {
+        //     weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+        //     None
+        // });
     } else {
         log::info!("Migration to remove deprecated storage variables already done!");
         // Debug print

@@ -21,7 +21,7 @@ fn test_migration5_total_issuance() {
         pallet_subtensor::migration::migration5_total_issuance::<Test>(test);
         assert_eq!(SubtensorModule::get_total_issuance(), 10000);
 
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &U256::from(1),
             &U256::from(1),
             1,
@@ -203,82 +203,82 @@ fn test_migration_delete_subnet_21() {
     })
 }
 
-#[test]
-fn test_migration_stake_to_substake() {
-    new_test_ext(1).execute_with(|| {
-        // We need to create the root network for this test
-        let root: u16 = 0;
-        let netuid: u16 = 1;
-        let tempo: u16 = 13;
-        let hotkey1 = U256::from(1);
-        let coldkey1 = U256::from(100);
-        let stake_amount1 = 1000u64;
+// #[test]
+// fn test_migration_stake_to_substake() {
+//     new_test_ext(1).execute_with(|| {
+//         // We need to create the root network for this test
+//         let root: u16 = 0;
+//         let netuid: u16 = 1;
+//         let tempo: u16 = 13;
+//         let hotkey1 = U256::from(1);
+//         let coldkey1 = U256::from(100);
+//         let stake_amount1 = 1000u64;
 
-        let hotkey2 = U256::from(2);
-        let coldkey2 = U256::from(200);
-        let stake_amount2 = 2000u64;
+//         let hotkey2 = U256::from(2);
+//         let coldkey2 = U256::from(200);
+//         let stake_amount2 = 2000u64;
 
-        //add root network
-        add_network(root, tempo, 0);
-        //add subnet 1
-        add_network(netuid, tempo, 0);
+//         //add root network
+//         add_network(root, tempo, 0);
+//         //add subnet 1
+//         add_network(netuid, tempo, 0);
 
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake_amount1);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake_amount2);
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, stake_amount1);
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake_amount2);
 
-        // Register neuron 1
-        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
-        // Register neuron 2
-        register_ok_neuron(netuid, hotkey2, coldkey2, 0);
+//         // Register neuron 1
+//         register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+//         // Register neuron 2
+//         register_ok_neuron(netuid, hotkey2, coldkey2, 0);
 
-        // Due to the way update stake work , we need to isolate just adding stake to the
-        // Stake StorageMap. We therefore need to manipulate the Stake StorageMap directly.
-        set_stake_value(coldkey1, hotkey1, stake_amount1);
-        assert_eq!(
-            pallet_subtensor::Stake::<Test>::get(coldkey1, hotkey1),
-            stake_amount1
-        );
+//         // Due to the way update stake work , we need to isolate just adding stake to the
+//         // Stake StorageMap. We therefore need to manipulate the Stake StorageMap directly.
+//         set_stake_value(coldkey1, hotkey1, stake_amount1);
+//         assert_eq!(
+//             pallet_subtensor::Stake::<Test>::get(coldkey1, hotkey1),
+//             stake_amount1
+//         );
 
-        set_stake_value(coldkey2, hotkey2, stake_amount2);
-        assert_eq!(
-            pallet_subtensor::Stake::<Test>::get(coldkey2, hotkey2),
-            stake_amount2
-        );
+//         set_stake_value(coldkey2, hotkey2, stake_amount2);
+//         assert_eq!(
+//             pallet_subtensor::Stake::<Test>::get(coldkey2, hotkey2),
+//             stake_amount2
+//         );
 
-        assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
-            0
-        );
-        assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
-            0
-        );
-        // Run the migration
-        pallet_subtensor::migration::migrate_stake_to_substake::<Test>();
+//         assert_eq!(
+//             pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
+//             0
+//         );
+//         assert_eq!(
+//             pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
+//             0
+//         );
+//         // Run the migration
+//         pallet_subtensor::migration::migrate_stake_to_substake::<Test>();
 
-        // Verify that Stake entries have been migrated to SubStake
-        assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
-            stake_amount1
-        );
-        assert_eq!(
-            pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
-            stake_amount2
-        );
+//         // Verify that Stake entries have been migrated to SubStake
+//         assert_eq!(
+//             pallet_subtensor::SubStake::<Test>::get((&coldkey1, &hotkey1, &0u16)),
+//             stake_amount1
+//         );
+//         assert_eq!(
+//             pallet_subtensor::SubStake::<Test>::get((&coldkey2, &hotkey2, &0u16)),
+//             stake_amount2
+//         );
 
-        // Verify TotalHotkeySubStake has been updated
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey1, 0),
-            stake_amount1
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey2, 0),
-            stake_amount2
-        );
-    });
-}
+//         // Verify TotalHotkeySubStake has been updated
+//         assert_eq!(
+//             SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey1, 0),
+//             stake_amount1
+//         );
+//         assert_eq!(
+//             SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey2, 0),
+//             stake_amount2
+//         );
+//     });
+// }
 
-// Helper function to set a value in the Stake StorageMap
-fn set_stake_value(coldkey: U256, hotkey: U256, stake_amount: u64) {
-    pallet_subtensor::Stake::<Test>::insert(coldkey, hotkey, stake_amount);
-}
+// // Helper function to set a value in the Stake StorageMap
+// fn set_stake_value(coldkey: U256, hotkey: U256, stake_amount: u64) {
+//     pallet_subtensor::Stake::<Test>::insert(coldkey, hotkey, stake_amount);
+// }

@@ -627,7 +627,7 @@ impl<T: Config> Pallet<T> {
         Self::append_neuron(netuid_to_register, &hotkey, current_block_number);
 
         // --- 10. Distribute initial supply of tokens to the owners.
-        Self::increase_stake_on_coldkey_hotkey_account(
+        Self::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid_to_register,

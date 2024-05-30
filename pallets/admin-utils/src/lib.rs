@@ -1006,13 +1006,12 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn if_subnet_exist(netuid: u16) -> bool;
     fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId);
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool;
-    fn increase_stake_on_coldkey_hotkey_account(
+    fn increase_subnet_token_on_coldkey_hotkey_account(
         coldkey: &AccountId,
         hotkey: &AccountId,
         netuid: u16,
-        increment: u64,
+        increment_alpha: u64,
     );
-    fn u64_to_balance(input: u64) -> Option<Balance>;
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance);
     fn get_current_block_as_u64() -> u64;
     fn get_subnetwork_n(netuid: u16) -> u16;

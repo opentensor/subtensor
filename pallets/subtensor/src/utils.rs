@@ -349,9 +349,9 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
     ) -> u64 {
-        Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
+        SubStake::<T>::iter_prefix((coldkey, hotkey))
+            .fold(0, |sum, (_, stake)| sum + stake)
     }
-
 
     // ========================
     // ========= Sudo =========
