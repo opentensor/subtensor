@@ -60,7 +60,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
     let mut properties = sc_service::Properties::new();
     properties.insert("tokenSymbol".into(), "TAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
-    properties.insert("ss58Format".into(), 13116.into());
+    properties.insert("ss58Format".into(), 42.into());
 
     Ok(ChainSpec::builder(
         wasm_binary,
@@ -70,6 +70,7 @@ pub fn finney_testnet_config() -> Result<ChainSpec, String> {
         },
     )
     .with_name("Bittensor")
+    .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Development)
     .with_genesis_config_patch(testnet_genesis(

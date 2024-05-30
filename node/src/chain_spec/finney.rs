@@ -60,7 +60,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let mut properties = sc_service::Properties::new();
     properties.insert("tokenSymbol".into(), "TAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
-    properties.insert("ss58Format".into(), 13116.into());
+    properties.insert("ss58Format".into(), 42.into());
 
     Ok(ChainSpec::builder(
         wasm_binary,
@@ -70,6 +70,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         },
     )
     .with_name("Bittensor")
+    .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Live)
     .with_genesis_config_patch(finney_genesis(
@@ -191,9 +192,9 @@ fn finney_genesis(
                 .collect::<Vec<_>>(),
         },
         "sudo": { "key": Some(<AccountId32 as Ss58Codec>::from_ss58check("5FCM3DBXWiGcwYYQtT8z4ZD93TqYpYxjaAfgv6aMStV1FTCT").unwrap()) },
-        "subtensor_module": {
+        "subtensorModule": {
             "stakes": stakes,
-            "balances_issuance": balances_issuance,
+            "balancesIssuance": balances_issuance,
         }
     })
 }
