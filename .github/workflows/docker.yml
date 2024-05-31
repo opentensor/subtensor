@@ -6,6 +6,9 @@ on:
       - main
     tags:
       - '*'
+  pull_request:
+    branches:
+    - main
   workflow_dispatch:
 
 permissions:
@@ -13,7 +16,7 @@ permissions:
     packages: write
     actions: read
     security-events: write
-    
+
 jobs:
   publish:
     runs-on: ubuntu-latest
