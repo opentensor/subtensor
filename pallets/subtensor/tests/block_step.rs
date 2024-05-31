@@ -828,7 +828,7 @@ fn test_subnet_staking_emission() {
         assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
         assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 2), 2 * lock_amount);
 
-        let netuid_1_tao_unstaked = get_dynamic_unstake_tao(1, lock_amount / 2);
+        let netuid_1_tao_unstaked = SubtensorModule::estimate_dynamic_unstake(1, lock_amount / 2);
         let netuid_1_tao: I64F64 = I64F64::from_num(lock_amount - netuid_1_tao_unstaked);
         let netuid_2_tao: I64F64 = I64F64::from_num(lock_amount);
         let total_tao_staked: I64F64 = netuid_1_tao + netuid_2_tao;
