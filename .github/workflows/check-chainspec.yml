@@ -31,6 +31,9 @@ env:
 jobs:
   check-chainspecs:
     runs-on: SubtensorCI
+    permissions:
+      contents: write
+
     strategy:
       matrix:
         rust-branch:
@@ -46,7 +49,6 @@ jobs:
       RUSTV: ${{ matrix.rust-branch }}
       RUST_BACKTRACE: full
       RUST_BIN_DIR: target/${{ matrix.rust-target }}
-      SKIP_WASM_BUILD: 1
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
@@ -69,51 +71,12 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: Build node
-        run: cargo build
-
-      - name: Build finney chainspecs
+      - name: Build chainspecs
         run: |
-          ./target/debug/node-subtensor build-spec --raw --chain finney > __CI_TESTING__raw_spec_finney.json
-          ./target/debug/node-subtensor build-spec --chain finney > __CI_TESTING__plain_spec_finney.json
+          rustup target add wasm32-unknown-unknown --toolchain nightly-2024-03-05-x86_64-unknown-linux-gnu
+          rustup component add rust-src --toolchain nightly-2024-03-05-x86_64-unknown-linux-gnu
+          ./scripts/build_all_chainspecs.sh
 
-      - name: Build testnet chainspecs
-        run: |
-          ./target/debug/node-subtensor build-spec --raw --chain test_finney > __CI_TESTING__raw_spec_testfinney.json
-          ./target/debug/node-subtensor build-spec --chain test_finney > __CI_TESTING__plain_spec_testfinney.json
-
-      - name: Check raw_spec_finney.json
-        run: |
-          if [ "$(sha256sum __CI_TESTING__raw_spec_finney.json | awk '{print $1}')" != "$(sha256sum raw_spec_finney.json | awk '{print $1}')" ]; then
-            echo "raw_spec_finney.json needs to be updated."
-            exit 1
-          else
-            echo "raw_spec_finney.json is up to date."
-          fi
-
-      - name: Check plain_spec_finney.json
-        run: |
-          if [ "$(sha256sum __CI_TESTING__plain_spec_finney.json | awk '{print $1}')" != "$(sha256sum plain_spec_finney.json | awk '{print $1}')" ]; then
-            echo "plain_spec_finney.json needs to be updated."
-            exit 1
-          else
-            echo "plain_spec_finney.json is up to date."
-          fi
-
-      - name: Check raw_spec_testfinney.json
-        run: |
-          if [ "$(sha256sum __CI_TESTING__raw_spec_testfinney.json | awk '{print $1}')" != "$(sha256sum raw_spec_testfinney.json | awk '{print $1}')" ]; then
-            echo "raw_spec_testfinney.json needs to be updated."
-            exit 1
-          else
-            echo "raw_spec_testfinney.json is up to date."
-          fi
-
-      - name: Check plain_spec_testfinney.json
-        run: |
-          if [ "$(sha256sum __CI_TESTING__plain_spec_testfinney.json | awk '{print $1}')" != "$(sha256sum plain_spec_testfinney.json | awk '{print $1}')" ]; then
-            echo "plain_spec_testfinney.json needs to be updated."
-            exit 1
-          else
-            echo "plain_spec_testfinney.json is up to date."
-          fi
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Update chain specs
