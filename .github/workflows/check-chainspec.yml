@@ -1,0 +1,119 @@
+name: Check Chainspec
+
+concurrency:
+  group: check-chainspec-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  ## Run automatically for all PRs against main, regardless of what the changes are
+  ## to be safe and so we can more easily force re-run the CI when github is being
+  ## weird by using a blank commit
+  push:
+    branches: [main, development, staging]
+
+  ##
+  # Run automatically for PRs against default/main branch if Rust files change
+  pull_request:
+    branches: [main, development, staging]
+
+  ## Allow running workflow manually from the Actions tab
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: "Output more information when triggered manually"
+        required: false
+        default: ""
+
+env:
+  CARGO_TERM_COLOR: always
+  VERBOSE: ${{ github.events.input.verbose }}
+
+jobs:
+  check-chainspecs:
+    runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - nightly-2024-03-05
+        rust-target:
+          - x86_64-unknown-linux-gnu
+        os:
+          - ubuntu-latest
+        include:
+          - os: ubuntu-latest
+    env:
+      RELEASE_NAME: development
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
+          profile: minimal
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+
+      - name: Build node
+        run: cargo build
+
+      - name: Build finney chainspecs
+        run: |
+          ./target/debug/node-subtensor build-spec --raw --chain finney > __CI_TESTING__raw_spec_finney.json
+          ./target/debug/node-subtensor build-spec --chain finney > __CI_TESTING__plain_spec_finney.json
+
+      - name: Build testnet chainspecs
+        run: |
+          ./target/debug/node-subtensor build-spec --raw --chain test_finney > __CI_TESTING__raw_spec_testfinney.json
+          ./target/debug/node-subtensor build-spec --chain test_finney > __CI_TESTING__plain_spec_testfinney.json
+
+      - name: Check raw_spec_finney.json
+        run: |
+          if [ "$(sha256sum __CI_TESTING__raw_spec_finney.json | awk '{print $1}')" != "$(sha256sum raw_spec_finney.json | awk '{print $1}')" ]; then
+            echo "raw_spec_finney.json needs to be updated."
+            exit 1
+          else
+            echo "raw_spec_finney.json is up to date."
+          fi
+
+      - name: Check plain_spec_finney.json
+        run: |
+          if [ "$(sha256sum __CI_TESTING__plain_spec_finney.json | awk '{print $1}')" != "$(sha256sum plain_spec_finney.json | awk '{print $1}')" ]; then
+            echo "plain_spec_finney.json needs to be updated."
+            exit 1
+          else
+            echo "plain_spec_finney.json is up to date."
+          fi
+
+      - name: Check raw_spec_testfinney.json
+        run: |
+          if [ "$(sha256sum __CI_TESTING__raw_spec_testfinney.json | awk '{print $1}')" != "$(sha256sum raw_spec_testfinney.json | awk '{print $1}')" ]; then
+            echo "raw_spec_testfinney.json needs to be updated."
+            exit 1
+          else
+            echo "raw_spec_testfinney.json is up to date."
+          fi
+
+      - name: Check plain_spec_testfinney.json
+        run: |
+          if [ "$(sha256sum __CI_TESTING__plain_spec_testfinney.json | awk '{print $1}')" != "$(sha256sum plain_spec_testfinney.json | awk '{print $1}')" ]; then
+            echo "plain_spec_testfinney.json needs to be updated."
+            exit 1
+          else
+            echo "plain_spec_testfinney.json is up to date."
+          fi
