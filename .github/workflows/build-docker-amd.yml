@@ -3,6 +3,7 @@ name: Build and Publish Docker Image AMD
 on:
   push:
     branches:
+      - main
       - development
 
 jobs:
@@ -21,7 +22,7 @@ jobs:
 
       - name: Build and push Docker image
         env:
-          IMAGE_NAME: ghcr.io/masa-finance/subtensor
+          IMAGE_NAME: ghcr.io/masa-finance/subtensor/${{ github.ref_name }}
         run: |
           docker buildx create --use
           docker buildx build --file Dockerfile.masa --tag $IMAGE_NAME:amd-latest --push .
