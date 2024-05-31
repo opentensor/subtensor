@@ -818,45 +818,34 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 fn test_subnet_staking_emission() {
     new_test_ext(1).execute_with(|| {
         let delegate = U256::from(1);
-        let nominator1 = U256::from(2);
-        let nominator2 = U256::from(3);
         SubtensorModule::set_target_stakes_per_interval(20);
         let lock_amount = SubtensorModule::get_network_lock_cost();
         add_dynamic_network(1, 1, 1, 1);
         add_dynamic_network(2, 1, 1, 1);
-        add_dynamic_network(3, 1, 1, 1);
-        assert_eq!(SubtensorModule::get_num_subnets(), 3);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100000);
+        assert_eq!(SubtensorModule::get_num_subnets(), 2);
+
+        // Alpha on delegate should be lock_amount, lock_amount * 2, and lock_amount * 3 respectively
+        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
+        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 2), 2 * lock_amount);
+
+        let netuid_1_tao_unstaked = get_dynamic_unstake_tao(1, lock_amount / 2);
+        let netuid_1_tao: I64F64 = I64F64::from_num(lock_amount - netuid_1_tao_unstaked);
+        let netuid_2_tao: I64F64 = I64F64::from_num(lock_amount);
+        let total_tao_staked: I64F64 = netuid_1_tao + netuid_2_tao;
+
+        // Unstake half of alpha for subnets 1 to achieve skew on emisson values
         assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             1,
             lock_amount / 2
         ));
-        assert_ok!(SubtensorModule::remove_subnet_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate),
-            delegate,
-            2,
-            3 * lock_amount / 2
-        ));
-        assert_ok!(SubtensorModule::remove_subnet_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate),
-            delegate,
-            3,
-            2 * lock_amount
-        ));
 
         SubtensorModule::run_coinbase(1);
         // Subnet block emission is subnet tao staked / total tao staked =
-        // Subnet 1: 0.5 / 2
-        // Subnet 2: 0.5 / 2
-        // Subnet 3: 1 / 2
         let tao = 1_000_000_000.;
-        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, 0.25);
-        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, 0.25);
-        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.5);
+        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, (netuid_1_tao / total_tao_staked).to_num::<f64>());
+        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, (netuid_2_tao / total_tao_staked).to_num::<f64>());
     });
 }
 

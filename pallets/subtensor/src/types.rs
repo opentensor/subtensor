@@ -44,6 +44,7 @@ impl From<Vec<u8>> for TensorBytes {
     }
 }
 
+#[derive(PartialEq)]
 pub enum SubnetType {
     STAO,
     DTAO

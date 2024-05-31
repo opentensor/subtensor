@@ -17,6 +17,7 @@
 
 use super::*;
 use crate::math::*;
+use crate::types::SubnetType;
 use frame_support::dispatch::Pays;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -621,6 +622,10 @@ impl<T: Config> Pallet<T> {
         DynamicAlphaOutstanding::<T>::insert(netuid_to_register, initial_dynamic_outstanding);
         DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k);
         IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+        TotalSubnetTAO::<T>::insert(netuid_to_register, actual_lock_amount);
+
+        // Add the staker for nominator iterations
+        Staker::<T>::insert(&hotkey, &coldkey, true);
 
         // --- 9. Register the owner to the network and expand size.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
@@ -673,6 +678,12 @@ impl<T: Config> Pallet<T> {
         ensure!(
             SubnetOwner::<T>::get(netuid) == coldkey,
             Error::<T>::NotSubnetOwner
+        );
+
+        // Ensure the network is of STAO type. We don't allow to dissolve DTAO subnets
+        ensure!(
+            Self::get_subnet_type(netuid) == SubnetType::STAO,
+            Error::<T>::NotAllowedToDissolve
         );
 
         // --- 4. Explicitly erase the network and all its parameters.
@@ -798,6 +809,9 @@ impl<T: Config> Pallet<T> {
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
+        // Remove TotalSubnetTAO
+        TotalSubnetTAO::<T>::remove(netuid);
+
         // --- 8. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
@@ -855,6 +869,8 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
+
+        // TODO: Unstake all nominators and return their stakes
     }
 
     /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.

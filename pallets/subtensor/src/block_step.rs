@@ -209,7 +209,7 @@ impl<T: Config> Pallet<T> {
                         } else {
                             // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
                             tao_in = 0;
-                            alpha_in = 1_000_000_000; // 10^9 rao
+                            alpha_in = subnet_block_emission; // 10^9 rao
                         }
 
                         if tao_in > 0 {
@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
                         if alpha_in > 0 {
                             // Increment the pools alpha reserve based on the alpha in emission.
                             DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
-            
+
                             // Increment the total supply of alpha because we just added some to the reserve.
                             DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
                         }

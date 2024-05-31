@@ -124,5 +124,7 @@ mod errors {
         InvalidRevealCommitHashNotMatchTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
+        /// Only STAO subnets are allowed to be dissolved
+        NotAllowedToDissolve,
     }
 }

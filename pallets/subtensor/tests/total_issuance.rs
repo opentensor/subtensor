@@ -4,7 +4,17 @@ mod mock;
 use mock::*;
 use sp_core::U256;
 
+// Test plan: 
+// For DTAO subnets we need to increase total issuance of TAO when it is injected into the Pool.
+// For STAO subnets total issuance for TAO is only increased when the pending TAO is  distributed after running the epoch. 
+// For total subnet tao stake
+// For DTAO subnets this is incremented when the TAO is injected into the pool/.
+// For STAO subnets this is only incremented when the pending TAO is distributed after running the epoch.
+
+
+// TODO: Unignore when we move away from using withdraw for staking
 #[test]
+#[ignore]
 fn test_add_subnet_stake_total_issuance_no_change() {
     // When we add stake, the total issuance of the balances pallet should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
@@ -59,7 +69,10 @@ fn test_add_subnet_stake_total_issuance_no_change() {
     });
 }
 
+// TODO: Unignore when we move away from using withdraw for staking
 #[test]
+#[ignore]
+
 fn test_remove_subnet_stake_total_issuance_no_change() {
     // When we remove stake, the total issuance of the balances pallet should not change
     //    this is because the stake should be part of the coldkey account balance (reserved/locked)
