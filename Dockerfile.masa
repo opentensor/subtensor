@@ -1,0 +1,35 @@
+# Use the Rust slim image to speed up build times
+FROM rust:slim-buster
+
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    clang \
+    libclang-dev \
+    llvm-dev \
+    git \
+    protobuf-compiler \
+    procps
+
+# Create a new directory for the application
+WORKDIR /usr/src/subtensor
+
+# Copy the entire application code into the container
+COPY . .
+
+# Build the Rust application
+RUN cargo build --release --features pow-faucet
+
+# Ensure the localnet.sh script is executable
+RUN chmod +x scripts/localnet.sh
+
+# Expose necessary ports
+EXPOSE 30333 9933 9944 9945 9946
+
+# Set the entry point to run the localnet.sh script
+ENTRYPOINT ["./scripts/localnet.sh"]
+
+# Usage example
+# docker build -f Dockerfile.masa -t masa-subtensor .
+# docker run -d --name masa-subtensor -p 30333:30333 -p 9933:9933 -p 9944:9944 -p 9945:9945 -p 9946:9946 masa-subtensor
+
