@@ -504,6 +504,7 @@ pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16) {
     SubtensorModule::set_subnet_dynamic(netuid); // Turn on dynamic staking.
     pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid, lock_amount);
     pallet_subtensor::Staker::<Test>::insert(&hotkey, &coldkey, true);
+    pallet_subtensor::SubnetOwner::<Test>::insert(netuid, &coldkey);
 
     SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
         &coldkey,
@@ -563,16 +564,3 @@ pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
         .sum()
 }
 
-#[allow(dead_code)]
-pub fn get_dynamic_unstake_tao(netuid: u16, alpha_to_remove: u64) -> u64 {
-    let tao_reserve = pallet_subtensor::DynamicTAOReserve::<Test>::get(netuid);
-    let dynamic_reserve = pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid);
-    let k = pallet_subtensor::DynamicK::<Test>::get(netuid);
-    
-    // Calculate the new dynamic reserve after adding the stake to be removed
-    let new_dynamic_reserve = dynamic_reserve.saturating_add(alpha_to_remove);
-    // Calculate the new tao reserve based on the new dynamic reserve
-    let new_tao_reserve: u64 = (k / (new_dynamic_reserve as u128)) as u64;
-    // Calculate the amount of tao to be pulled out based on the difference in tao reserves
-    tao_reserve.saturating_sub(new_tao_reserve)
-}

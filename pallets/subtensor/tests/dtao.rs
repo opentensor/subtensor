@@ -1,6 +1,8 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
+use itertools::izip;
+use pallet_subtensor::*;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
 mod mock;
@@ -387,6 +389,295 @@ fn test_calculate_tempos() {
             high_precision_tempos,
             vec![(1, 59), (2, 30), (3, 20)],
             "High precision prices should affect tempo calculations"
+        );
+    });
+}
+
+////////////////////////////////////////////////////////////////////////////////
+/// Price tests
+/// 
+/// - Price of a single subnet is 1 if TAO is 1 and Alpha is 1
+/// - Price of a single subnet with numerous unstakes
+/// - Price of a single subnet with numerous stakes
+
+#[test]
+fn test_price_tao_1_alpha_1() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(1);
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        add_dynamic_network(1, 1, 1, 1);
+
+        // Alpha on delegate should be lock_amount
+        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
+
+        let expected_price = I64F64::from_num(1.0);
+        let actual_price: I64F64 = SubtensorModule::get_tao_per_alpha_price(1);
+
+        assert_eq!(expected_price, actual_price);
+    });
+}
+
+#[test]
+fn test_price_tao_alpha_unstake() {
+    [1u64, 2, 3, 4, 5, 100, 200, 1234, 1_000_000_000, 100_000_000_000].iter().for_each(|&unstake_alpha_amount| {
+        new_test_ext(1).execute_with(|| {
+            let delegate = U256::from(1);
+            SubtensorModule::set_target_stakes_per_interval(20);
+            let lock_amount = SubtensorModule::get_network_lock_cost();
+            add_dynamic_network(1, 1, 1, 1);
+    
+            // Alpha on delegate should be lock_amount
+            assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
+    
+            let unstaked_tao = SubtensorModule::estimate_dynamic_unstake(1, unstake_alpha_amount);
+    
+            // Unstake half of alpha for subnets 1
+            assert_ok!(SubtensorModule::remove_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(delegate),
+                delegate,
+                1,
+                unstake_alpha_amount
+            ));
+    
+            let tao_reserve = lock_amount - unstaked_tao;
+            let alpha_reserve = lock_amount + unstake_alpha_amount;
+    
+            let expected_price = I64F64::from_num(tao_reserve) / I64F64::from_num(alpha_reserve);
+            let actual_price: I64F64 = SubtensorModule::get_tao_per_alpha_price(1);
+    
+            // assert_approx_eq!(expected_price.to_num::<f64>(), actual_price.to_num::<f64>());
+    
+            assert_eq!(expected_price, actual_price);
+        });
+    });
+}
+
+#[test]
+fn test_price_tao_alpha_stake() {
+    [1, 2, 3, 100, 1000, 1000000000u64, 10000000000u64, 100000000000u64].iter().for_each(|&stake_tao_amount| {
+        new_test_ext(1).execute_with(|| {
+            let delegate = U256::from(1);
+            SubtensorModule::set_target_stakes_per_interval(20);
+            let lock_amount = SubtensorModule::get_network_lock_cost();
+            add_dynamic_network(1, 1, 1, 1);
+            SubtensorModule::add_balance_to_coldkey_account(&delegate, stake_tao_amount + ExistentialDeposit::get());
+    
+            // Alpha on delegate should be lock_amount
+            assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
+    
+            let k = lock_amount as u128 * lock_amount as u128;
+            let new_tao_reserve = lock_amount + stake_tao_amount;
+            let new_alpha_reserve: I64F64 = I64F64::from_num(k / new_tao_reserve as u128);
+            let expected_price = I64F64::from_num(new_tao_reserve) / I64F64::from_num(new_alpha_reserve);
+    
+            // Unstake half of alpha for subnets 1
+            assert_ok!(SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(delegate),
+                delegate,
+                1,
+                stake_tao_amount
+            ));
+
+            // Get actual price
+            let actual_price: I64F64 = SubtensorModule::get_tao_per_alpha_price(1);
+            // assert_approx_eq!(expected_price.to_num::<f64>(), actual_price.to_num::<f64>());
+            assert_eq!(expected_price, actual_price);
+        });
+    });
+}
+
+#[test]
+fn test_sum_prices_diverges_2_subnets() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_dynamic_network(1, 1, 1, 1);
+        add_dynamic_network(2, 1, 1, 1);
+
+        for block in 1..=1000 {
+            SubtensorModule::run_coinbase(block);
+        }
+
+        let expected_sum = 1.0;
+        let actual_price_1: I64F64 = SubtensorModule::get_tao_per_alpha_price(1);
+        let actual_price_2: I64F64 = SubtensorModule::get_tao_per_alpha_price(2);
+        let actual_sum = (actual_price_1 + actual_price_2).to_num::<f64>();
+
+        assert_approx_eq!(expected_sum, actual_sum);
+    });
+}
+
+#[test]
+fn test_sum_prices_diverges_3_subnets() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_dynamic_network(1, 1, 1, 1);
+        add_dynamic_network(2, 1, 1, 1);
+        add_dynamic_network(3, 1, 1, 1);
+
+        for block in 1..=1000 {
+            SubtensorModule::run_coinbase(block);
+        }
+
+        let expected_sum = 1.0;
+        let actual_price_1: I64F64 = SubtensorModule::get_tao_per_alpha_price(1);
+        let actual_price_2: I64F64 = SubtensorModule::get_tao_per_alpha_price(2);
+        let actual_price_3: I64F64 = SubtensorModule::get_tao_per_alpha_price(3);
+        let actual_sum = (actual_price_1 + actual_price_2 + actual_price_3).to_num::<f64>();
+
+        assert_approx_eq!(expected_sum, actual_sum);
+    });
+}
+
+/////////////////////////////////
+/// Dissolve tests 
+/// 
+
+#[test]
+fn test_dissolve_dtao_fail() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_dynamic_network(1, 1, 1, 1);
+
+        assert_eq!(
+            SubtensorModule::dissolve_network(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                1,
+            ),
+            Err(Error::<Test>::NotAllowedToDissolve.into())
+        );
+    });
+}
+
+/////////////////////////////////
+/// Block emission tests:
+/// Check that TotalSubnetTAO + DynamicAlphaReserve have properly increased
+/// 
+
+#[test]
+fn test_block_emission_adds_up_1_subnet() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        add_dynamic_network(1, 1, 1, 1);
+
+        let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
+
+        let total_subnet_tao_before = pallet_subtensor::TotalSubnetTAO::<Test>::get(1);
+        let dynamic_alpha_reserve_before = pallet_subtensor::DynamicAlphaReserve::<Test>::get(1);
+
+        SubtensorModule::run_coinbase(1);
+        
+        let total_subnet_tao_after = pallet_subtensor::TotalSubnetTAO::<Test>::get(1);
+        let dynamic_alpha_reserve_after = pallet_subtensor::DynamicAlphaReserve::<Test>::get(1);
+
+        assert_eq!(
+            total_subnet_tao_before + dynamic_alpha_reserve_before + block_emission,
+            total_subnet_tao_after + dynamic_alpha_reserve_after
+        );
+    });
+}
+
+#[test]
+fn test_block_emission_adds_up_many_subnets() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(1000);
+
+        let subnet_count = 20;
+
+        for netuid in 1u16..=subnet_count {
+            add_dynamic_network(netuid, 1, 1, 1);
+        }
+
+        let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
+
+        let all_total_subnet_tao_before: u64 = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        }).sum();
+        let all_dynamic_alpha_reserve_before: u64 = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid)
+        }).sum();
+
+        SubtensorModule::run_coinbase(1);
+        
+        let all_total_subnet_tao_after: u64 = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        }).sum();
+        let all_dynamic_alpha_reserve_after: u64 = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid)
+        }).sum();
+
+        // Approximate equality
+        assert_eq!(
+            (all_total_subnet_tao_before + all_dynamic_alpha_reserve_before + block_emission) / 10_000_000_000,
+            (all_total_subnet_tao_after + all_dynamic_alpha_reserve_after) / 10_000_000_000
+        );
+    });
+}
+
+#[test]
+fn test_block_emission_are_proportional() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+
+        let subnet_count = 10;
+
+        for netuid in 1u16..=subnet_count {
+            add_dynamic_network(netuid, 1, 1, 1);
+        }
+
+        let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
+
+        let total_subnet_tao_before: Vec<u64> = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        }).collect();
+        let dynamic_alpha_reserve_before: Vec<u64> = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid)
+        }).collect();
+        let total_total_subnet_tao_before: u64 = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        }).sum();
+
+        SubtensorModule::run_coinbase(1);
+        
+        let total_subnet_tao_after: Vec<u64> = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        }).collect();
+        let dynamic_alpha_reserve_after: Vec<u64> = (1u16..=subnet_count).into_iter().map(|netuid| {
+            pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid)
+        }).collect();
+
+        // Ensure subnet emissions are proportional to the their total TAO
+        izip!(
+            &total_subnet_tao_after,
+            &dynamic_alpha_reserve_after,
+            &total_subnet_tao_before,
+            &dynamic_alpha_reserve_before,
+        )
+        .map(|(alpha_bef, tao_bef, alpha_af, tao_af)| {
+            (tao_bef, alpha_bef + tao_bef - alpha_af - tao_af)
+        }).for_each(|(tao_bef, emission)| {
+            let expected_emission = block_emission as f64 * *tao_bef as f64 /
+                total_total_subnet_tao_before as f64;
+            println!("error = {}", ((emission as f64 - expected_emission as f64).abs() / expected_emission as f64));
+            assert!(
+                ((emission as f64 - expected_emission as f64).abs() / expected_emission as f64) < 0.01
+            );
+        });
+
+        // Also ensure emissions add up to block emission
+        let actual_block_emission: u64 = 
+            izip!(
+                &total_subnet_tao_after,
+                &dynamic_alpha_reserve_after,
+                &total_subnet_tao_before,
+                &dynamic_alpha_reserve_before,
+            )
+            .map(|(alpha_bef, tao_bef, alpha_af, tao_af)| {
+                alpha_bef + tao_bef - alpha_af - tao_af
+            }).sum();            
+        assert_approx_eq!(
+            block_emission as f64 / 1_000_000., 
+            actual_block_emission as f64 / 1_000_000.
         );
     });
 }

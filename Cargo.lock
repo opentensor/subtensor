@@ -5173,6 +5173,7 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
+ "itertools",
  "log",
  "ndarray",
  "pallet-balances",

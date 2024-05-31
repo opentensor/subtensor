@@ -492,7 +492,7 @@ impl<T: Config> Pallet<T> {
         // Compute Dynamic unstake.
         let tao_unstaked: u64 = Self::compute_dynamic_unstake(netuid, alpha_to_be_removed);
         TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_sub(tao_unstaked));
-        
+
         // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
