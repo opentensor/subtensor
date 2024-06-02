@@ -1116,7 +1116,7 @@ fn test_sudo_set_weight_commit_interval() {
         add_network(netuid, 10);
 
         let to_be_set = 55;
-        let init_value = SubtensorModule::get_commit_reveal_weights_interval(netuid);
+        let init_value = SubtensorModule::get_commit_reveal_weights_tempos_per_interval(netuid);
 
         assert_ok!(AdminUtils::sudo_set_commit_reveal_weights_interval(
             <<Test as Config>::RuntimeOrigin>::root(),
@@ -1126,7 +1126,7 @@ fn test_sudo_set_weight_commit_interval() {
 
         assert!(init_value != to_be_set);
         assert_eq!(
-            SubtensorModule::get_commit_reveal_weights_interval(netuid),
+            SubtensorModule::get_commit_reveal_weights_tempos_per_interval(netuid),
             to_be_set
         );
     });

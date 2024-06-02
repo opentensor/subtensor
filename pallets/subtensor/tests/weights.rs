@@ -1071,6 +1071,8 @@ fn test_commit_reveal_weights_ok() {
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
+        let tempo: u16 = 360;
+        let epochs: u64 = 5;
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1084,12 +1086,13 @@ fn test_commit_reveal_weights_ok() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
+        SubtensorModule::set_weights_set_rate_limit(netuid, epochs);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, 5);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_tempo(0, tempo);
 
         assert_ok!(SubtensorModule::commit_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1097,7 +1100,7 @@ fn test_commit_reveal_weights_ok() {
             commit_hash
         ));
 
-        step_block(5);
+        step_block(epochs as u16 * tempo);
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1119,6 +1122,9 @@ fn test_commit_reveal_interval() {
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
+        let tempo: u16 = 360;
+        let epochs: u64 = 10;
+        let blocks_to_step: u16 = epochs as u16 * tempo;
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1136,8 +1142,9 @@ fn test_commit_reveal_interval() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 100);
+        SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, epochs);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+        SubtensorModule::set_tempo(0, tempo);
         System::set_block_number(0);
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -1160,7 +1167,7 @@ fn test_commit_reveal_interval() {
             ),
             Error::<Test>::InvalidRevealCommitTempo
         );
-        step_block(99);
+        step_block(blocks_to_step - 1);
         assert_err!(
             SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash),
             Error::<Test>::WeightsCommitNotAllowed
@@ -1201,7 +1208,7 @@ fn test_commit_reveal_interval() {
             ),
             Error::<Test>::InvalidRevealCommitTempo
         );
-        step_block(100);
+        step_block(blocks_to_step);
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
             netuid,
@@ -1217,7 +1224,7 @@ fn test_commit_reveal_interval() {
             netuid,
             commit_hash
         ));
-        step_block(205);
+        step_block((blocks_to_step * 2) + 5);
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -1236,7 +1243,7 @@ fn test_commit_reveal_interval() {
             netuid,
             commit_hash
         ));
-        step_block(425);
+        step_block((blocks_to_step * 4) + 25);
         let commit_hash_2: H256 = BlakeTwo256::hash_of(&(
             hotkey,
             netuid,
@@ -1250,7 +1257,7 @@ fn test_commit_reveal_interval() {
             netuid,
             commit_hash_2
         ));
-        step_block(100);
+        step_block(blocks_to_step);
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -1282,6 +1289,9 @@ fn test_commit_reveal_hash() {
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
+        let tempo: u16 = 360;
+        let epochs: u64 = 10;
+        let blocks_to_step: u16 = epochs as u16 * tempo;
 
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
@@ -1290,7 +1300,8 @@ fn test_commit_reveal_hash() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, epochs);
+        SubtensorModule::set_tempo(0, tempo);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
@@ -1308,7 +1319,7 @@ fn test_commit_reveal_hash() {
             commit_hash
         ));
 
-        step_block(5);
+        step_block(blocks_to_step);
 
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1375,6 +1386,9 @@ fn test_commit_reveal_disabled_or_enabled() {
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
+        let tempo: u16 = 360;
+        let epochs: u64 = 10;
+        let blocks_to_step: u16 = epochs as u16 * tempo;
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1392,7 +1406,8 @@ fn test_commit_reveal_disabled_or_enabled() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, epochs);
+        SubtensorModule::set_tempo(0, tempo);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
 
         assert_err!(
@@ -1400,7 +1415,7 @@ fn test_commit_reveal_disabled_or_enabled() {
             Error::<Test>::CommitRevealDisabled
         );
 
-        step_block(5);
+        step_block(blocks_to_step);
 
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1422,7 +1437,7 @@ fn test_commit_reveal_disabled_or_enabled() {
             Error::<Test>::CommitRevealDisabled
         );
 
-        step_block(5);
+        step_block(blocks_to_step);
 
         assert_err!(
             SubtensorModule::reveal_weights(
@@ -1445,7 +1460,7 @@ fn test_commit_reveal_disabled_or_enabled() {
             commit_hash
         ));
 
-        step_block(5);
+        step_block(blocks_to_step);
 
         assert_ok!(SubtensorModule::reveal_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1467,6 +1482,9 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
+        let tempo: u16 = 360;
+        let epochs: u64 = 10;
+        let blocks_to_step: u16 = epochs as u16 * tempo;
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1484,9 +1502,10 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+        SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, epochs);
+        SubtensorModule::set_tempo(0, tempo);
 
-        step_block(5);
+        step_block(blocks_to_step);
 
         // Set weights OK
         let result = SubtensorModule::set_weights(
@@ -1508,7 +1527,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
             commit_hash
         ));
 
-        step_block(5); //Step to the next commit/reveal tempo
+        step_block(blocks_to_step); //Step to the next commit/reveal tempo
 
         // Reveal OK
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1524,7 +1543,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
 
         // Cannot set weights the same block due to WeightsRateLimit
-        step_block(5); //step to avoid settingweightstofast
+        step_block(blocks_to_step); //step to avoid settingweightstofast
 
         let result = SubtensorModule::set_weights(
             RuntimeOrigin::signed(hotkey),
@@ -1597,7 +1616,7 @@ fn commit_reveal_set_weights(
     salt: Vec<u16>,
     version_key: u64,
 ) -> DispatchResult {
-    SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
+    SubtensorModule::set_commit_reveal_weights_tempos_per_interval(netuid, 5);
     SubtensorModule::set_weights_set_rate_limit(netuid, 5);
     SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
 
