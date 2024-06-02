@@ -483,41 +483,24 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
 }
 
 #[allow(dead_code)]
-pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16) {
-    let lock_amount = SubtensorModule::get_network_lock_cost();
+pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16, lock_amount: u64) {
     let coldkey = U256::from(cold_id);
     let hotkey = U256::from(hot_id);
 
-    add_network(netuid, tempo, 0);
-    register_ok_neuron(netuid, hotkey, coldkey, 11234);
-    SubtensorModule::append_neuron(netuid, &hotkey, 1);
-
-    let initial_tao_reserve: u64 = lock_amount as u64;
-    let initial_dynamic_reserve: u64 = lock_amount * SubtensorModule::get_num_subnets() as u64;
-    let initial_dynamic_outstanding: u64 = lock_amount * SubtensorModule::get_num_subnets() as u64;
-    let initial_dynamic_k: u128 = (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
-
-    SubtensorModule::set_tao_reserve(netuid, initial_tao_reserve);
-    SubtensorModule::set_alpha_reserve(netuid, initial_dynamic_reserve);
-    SubtensorModule::set_alpha_outstanding(netuid, initial_dynamic_outstanding);
-    SubtensorModule::set_pool_k(netuid, initial_dynamic_k);
-    SubtensorModule::set_subnet_dynamic(netuid); // Turn on dynamic staking.
-    pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid, lock_amount);
-    pallet_subtensor::Staker::<Test>::insert(&hotkey, &coldkey, true);
-    pallet_subtensor::SubnetOwner::<Test>::insert(netuid, &coldkey);
-
-    SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
-        &coldkey,
-        &hotkey,
+    SubtensorModule::user_add_network_no_checks(
+        coldkey,
+        hotkey,
         netuid,
-        initial_dynamic_outstanding,
-    );
+        lock_amount,
+        lock_amount,
+        tempo,
+    )
 }
 
 #[allow(dead_code)]
-pub fn setup_dynamic_network(netuid: u16, cold_id: u16, hot_id: u16) {
+pub fn setup_dynamic_network(netuid: u16, cold_id: u16, hot_id: u16, lock_amount: u64) {
     SubtensorModule::set_global_stake_weight(0);
-    add_dynamic_network(netuid, 10, cold_id, hot_id);
+    add_dynamic_network(netuid, 10, cold_id, hot_id, lock_amount);
     SubtensorModule::set_max_allowed_uids(netuid, 1);
 }
 

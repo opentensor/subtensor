@@ -476,7 +476,7 @@ impl<T: Config> Pallet<T> {
         let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
         if Self::get_subnet_creator_hotkey(netuid) == hotkey {
             ensure!(
-                block - Self::get_network_registered_block(netuid) > subnet_lock_period,
+                block - Self::get_network_registered_block(netuid) >= subnet_lock_period,
                 Error::<T>::SubnetCreatorLock
             )
         }

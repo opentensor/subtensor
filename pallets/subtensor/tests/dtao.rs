@@ -393,20 +393,20 @@ fn test_calculate_tempos() {
     });
 }
 
-////////////////////////////////////////////////////////////////////////////////
-/// Price tests
-/// 
-/// - Price of a single subnet is 1 if TAO is 1 and Alpha is 1
-/// - Price of a single subnet with numerous unstakes
-/// - Price of a single subnet with numerous stakes
+///////////////////////////////////////////////////////////////////////////////
+// Price tests
+// 
+// - Price of a single subnet is 1 if TAO is 1 and Alpha is 1
+// - Price of a single subnet with numerous unstakes
+// - Price of a single subnet with numerous stakes
 
 #[test]
 fn test_price_tao_1_alpha_1() {
     new_test_ext(1).execute_with(|| {
         let delegate = U256::from(1);
         SubtensorModule::set_target_stakes_per_interval(20);
-        let lock_amount = SubtensorModule::get_network_lock_cost();
-        add_dynamic_network(1, 1, 1, 1);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
 
         // Alpha on delegate should be lock_amount
         assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
@@ -424,9 +424,12 @@ fn test_price_tao_alpha_unstake() {
         new_test_ext(1).execute_with(|| {
             let delegate = U256::from(1);
             SubtensorModule::set_target_stakes_per_interval(20);
-            let lock_amount = SubtensorModule::get_network_lock_cost();
-            add_dynamic_network(1, 1, 1, 1);
-    
+            let lock_amount = 100_000_000_000;
+            add_dynamic_network(1, 1, 1, 1, lock_amount);
+
+            // Remove subnet creator lock 
+            SubtensorModule::set_subnet_owner_lock_period(0);
+
             // Alpha on delegate should be lock_amount
             assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
     
@@ -459,8 +462,8 @@ fn test_price_tao_alpha_stake() {
         new_test_ext(1).execute_with(|| {
             let delegate = U256::from(1);
             SubtensorModule::set_target_stakes_per_interval(20);
-            let lock_amount = SubtensorModule::get_network_lock_cost();
-            add_dynamic_network(1, 1, 1, 1);
+            let lock_amount = 100_000_000_000;
+            add_dynamic_network(1, 1, 1, 1, lock_amount);
             SubtensorModule::add_balance_to_coldkey_account(&delegate, stake_tao_amount + ExistentialDeposit::get());
     
             // Alpha on delegate should be lock_amount
@@ -491,8 +494,9 @@ fn test_price_tao_alpha_stake() {
 fn test_sum_prices_diverges_2_subnets() {
     new_test_ext(1).execute_with(|| {
         SubtensorModule::set_target_stakes_per_interval(20);
-        add_dynamic_network(1, 1, 1, 1);
-        add_dynamic_network(2, 1, 1, 1);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
+        add_dynamic_network(2, 1, 1, 1, lock_amount);
 
         for block in 1..=1000 {
             SubtensorModule::run_coinbase(block);
@@ -511,9 +515,10 @@ fn test_sum_prices_diverges_2_subnets() {
 fn test_sum_prices_diverges_3_subnets() {
     new_test_ext(1).execute_with(|| {
         SubtensorModule::set_target_stakes_per_interval(20);
-        add_dynamic_network(1, 1, 1, 1);
-        add_dynamic_network(2, 1, 1, 1);
-        add_dynamic_network(3, 1, 1, 1);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
+        add_dynamic_network(2, 1, 1, 1, lock_amount);
+        add_dynamic_network(3, 1, 1, 1, lock_amount);
 
         for block in 1..=1000 {
             SubtensorModule::run_coinbase(block);
@@ -529,15 +534,16 @@ fn test_sum_prices_diverges_3_subnets() {
     });
 }
 
-/////////////////////////////////
-/// Dissolve tests 
-/// 
+////////////////////////////////
+// Dissolve tests 
+// 
 
 #[test]
 fn test_dissolve_dtao_fail() {
     new_test_ext(1).execute_with(|| {
         SubtensorModule::set_target_stakes_per_interval(20);
-        add_dynamic_network(1, 1, 1, 1);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
 
         assert_eq!(
             SubtensorModule::dissolve_network(
@@ -549,16 +555,17 @@ fn test_dissolve_dtao_fail() {
     });
 }
 
-/////////////////////////////////
-/// Block emission tests:
-/// Check that TotalSubnetTAO + DynamicAlphaReserve have properly increased
-/// 
+////////////////////////////////
+// Block emission tests:
+// Check that TotalSubnetTAO + DynamicAlphaReserve have properly increased
+// 
 
 #[test]
 fn test_block_emission_adds_up_1_subnet() {
     new_test_ext(1).execute_with(|| {
         SubtensorModule::set_target_stakes_per_interval(20);
-        add_dynamic_network(1, 1, 1, 1);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
 
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
 
@@ -585,7 +592,8 @@ fn test_block_emission_adds_up_many_subnets() {
         let subnet_count = 20;
 
         for netuid in 1u16..=subnet_count {
-            add_dynamic_network(netuid, 1, 1, 1);
+            let lock_amount = 100_000_000_000 * netuid as u64;
+            add_dynamic_network(netuid, 1, 1, 1, lock_amount);
         }
 
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
@@ -622,7 +630,8 @@ fn test_block_emission_are_proportional() {
         let subnet_count = 10;
 
         for netuid in 1u16..=subnet_count {
-            add_dynamic_network(netuid, 1, 1, 1);
+            let lock_amount = 100_000_000_000 * netuid as u64;
+            add_dynamic_network(netuid, 1, 1, 1, lock_amount);
         }
 
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
@@ -648,19 +657,18 @@ fn test_block_emission_are_proportional() {
 
         // Ensure subnet emissions are proportional to the their total TAO
         izip!(
-            &total_subnet_tao_after,
-            &dynamic_alpha_reserve_after,
-            &total_subnet_tao_before,
             &dynamic_alpha_reserve_before,
+            &total_subnet_tao_before,
+            &dynamic_alpha_reserve_after,
+            &total_subnet_tao_after,
         )
         .map(|(alpha_bef, tao_bef, alpha_af, tao_af)| {
-            (tao_bef, alpha_bef + tao_bef - alpha_af - tao_af)
+            (tao_bef,  alpha_af + tao_af - alpha_bef - tao_bef)
         }).for_each(|(tao_bef, emission)| {
-            let expected_emission = block_emission as f64 * *tao_bef as f64 /
+            let expected_emission = block_emission as f64 * (*tao_bef) as f64 /
                 total_total_subnet_tao_before as f64;
-            println!("error = {}", ((emission as f64 - expected_emission as f64).abs() / expected_emission as f64));
             assert!(
-                ((emission as f64 - expected_emission as f64).abs() / expected_emission as f64) < 0.01
+                ((emission as f64 - expected_emission as f64).abs() / expected_emission as f64) < 0.00001
             );
         });
 
@@ -678,6 +686,186 @@ fn test_block_emission_are_proportional() {
         assert_approx_eq!(
             block_emission as f64 / 1_000_000., 
             actual_block_emission as f64 / 1_000_000.
+        );
+    });
+}
+
+
+///////////////////////////////////////////////////////////////////
+// Lock cost tests 
+// 
+// - Back to back lock price in the same block doubles
+// - Lock price is the same as previous in 14 * 7200 blocks
+// - Lock price is get_network_min_lock() in 28 * 7200 blocks 
+// - No panics or errors in 28 * 7200 + 1 blocks, lock price remains get_network_min_lock()
+// - Cases when remaining balance after lock is ED+1, ED, ED-1, 
+//   - test what can_remove_balance_from_coldkey_account returns
+//   - test that we don't register network and kill account
+// 
+// get_network_lock_cost()
+
+#[test]
+fn test_lock_cost_doubles_in_same_block() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount1 = SubtensorModule::get_network_lock_cost();
+        add_dynamic_network(1, 1, 1, 1, lock_amount1);
+        let lock_amount2 = SubtensorModule::get_network_lock_cost();
+
+        assert_eq!(
+            lock_amount1 * 2,
+            lock_amount2
+        );
+    });
+}
+
+#[test]
+fn test_lock_cost_remains_same_after_lock_reduction_interval() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount1 = SubtensorModule::get_network_lock_cost();
+        add_dynamic_network(1, 1, 1, 1, lock_amount1);
+        step_block(SubtensorModule::get_lock_reduction_interval() as u16);
+        let lock_amount2 = SubtensorModule::get_network_lock_cost();
+
+        assert_eq!(
+            lock_amount1,
+            lock_amount2
+        );
+    });
+}
+
+#[test]
+fn test_lock_cost_is_min_after_2_lock_reduction_intervals() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount1 = SubtensorModule::get_network_lock_cost();
+        let min_lock_cost = SubtensorModule::get_network_min_lock();
+        add_dynamic_network(1, 1, 1, 1, lock_amount1);
+        step_block(2 * SubtensorModule::get_lock_reduction_interval() as u16);
+        let lock_amount2 = SubtensorModule::get_network_lock_cost();
+
+        assert_eq!(
+            lock_amount2,
+            min_lock_cost
+        );
+    });
+}
+
+#[test]
+fn test_lock_cost_is_min_after_2_lock_reduction_intervals_2_subnets() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount1 = SubtensorModule::get_network_lock_cost();
+        let min_lock_cost = SubtensorModule::get_network_min_lock();
+        add_dynamic_network(1, 1, 1, 1, lock_amount1);
+        let lock_amount2 = SubtensorModule::get_network_lock_cost();
+        add_dynamic_network(2, 1, 1, 1, lock_amount2);
+        step_block(2 * SubtensorModule::get_lock_reduction_interval() as u16);
+        let lock_amount3 = SubtensorModule::get_network_lock_cost();
+
+        assert_eq!(
+            lock_amount3,
+            min_lock_cost
+        );
+    });
+}
+
+#[test]
+fn test_registration_after_2_lock_reduction_intervals_ok() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount1 = SubtensorModule::get_network_lock_cost();
+        add_dynamic_network(1, 1, 1, 1, lock_amount1);
+        step_block(2 * SubtensorModule::get_lock_reduction_interval() as u16 + 1);
+        add_dynamic_network(2, 1, 1, 1, lock_amount1);
+    });
+}
+
+#[test]
+fn test_registration_balance_minimal_ok() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount);
+        assert_ok!(SubtensorModule::user_add_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+
+        let account = System::account(coldkey);
+        assert_eq!(
+            account.data.free, 
+            ExistentialDeposit::get()
+        );
+    });
+}
+
+#[test]
+fn test_registration_balance_minimal_plus_ed_ok() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount + ExistentialDeposit::get());
+        assert_ok!(SubtensorModule::user_add_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+
+        let account = System::account(coldkey);
+        assert_eq!(
+            account.data.free, 
+            ExistentialDeposit::get()
+        );
+    });
+}
+
+#[test]
+fn test_registration_balance_minimal_plus_ed_plus_1_ok() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount + ExistentialDeposit::get() + 1);
+        assert_ok!(SubtensorModule::user_add_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+
+        let account = System::account(coldkey);
+        assert_eq!(
+            account.data.free, 
+            ExistentialDeposit::get() + 1
+        );
+    });
+}
+
+#[test]
+fn test_registration_balance_minimal_plus_ed_minus_1_ok() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount + ExistentialDeposit::get() - 1);
+        assert_ok!(SubtensorModule::user_add_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+
+        let account = System::account(coldkey);
+        assert_eq!(
+            account.data.free, 
+            ExistentialDeposit::get()
         );
     });
 }

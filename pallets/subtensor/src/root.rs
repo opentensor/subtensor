@@ -596,11 +596,41 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+
+        Self::user_add_network_no_checks(
+            coldkey,
+            hotkey,
+            netuid_to_register,
+            lock_amount,
+            actual_lock_amount,
+            360,
+        );
+
+        // --- 8. Emit the NetworkAdded event.
+        log::info!(
+            "NetworkAdded( netuid:{:?}, modality:{:?} )",
+            netuid_to_register,
+            0
+        );
+        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
+
+        // --- 9. Return success.
+        Ok(())
+    }
+
+    pub fn user_add_network_no_checks(
+        coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        netuid_to_register: u16,
+        lock_amount: u64,
+        actual_lock_amount: u64,
+        tempo: u16,
+    ) {
         Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
         Self::set_network_last_lock(actual_lock_amount);
 
         // --- 6. Create a new network and set initial and custom parameters for the network.
-        Self::init_new_network(netuid_to_register, 360);
+        Self::init_new_network(netuid_to_register, tempo);
         let current_block_number: u64 = Self::get_current_block_as_u64();
         NetworkLastRegistered::<T>::set(current_block_number);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
@@ -638,17 +668,6 @@ impl<T: Config> Pallet<T> {
             netuid_to_register,
             initial_dynamic_outstanding,
         );
-
-        // --- 8. Emit the NetworkAdded event.
-        log::info!(
-            "NetworkAdded( netuid:{:?}, modality:{:?} )",
-            netuid_to_register,
-            0
-        );
-        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
-
-        // --- 9. Return success.
-        Ok(())
     }
 
     /// Facilitates the removal of a user's subnetwork.

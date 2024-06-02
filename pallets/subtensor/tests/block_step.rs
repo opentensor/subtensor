@@ -819,12 +819,15 @@ fn test_subnet_staking_emission() {
     new_test_ext(1).execute_with(|| {
         let delegate = U256::from(1);
         SubtensorModule::set_target_stakes_per_interval(20);
-        let lock_amount = SubtensorModule::get_network_lock_cost();
-        add_dynamic_network(1, 1, 1, 1);
-        add_dynamic_network(2, 1, 1, 1);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
+        add_dynamic_network(2, 1, 1, 1, lock_amount);
         assert_eq!(SubtensorModule::get_num_subnets(), 2);
 
-        // Alpha on delegate should be lock_amount, lock_amount * 2, and lock_amount * 3 respectively
+        // Remove subnet creator lock 
+        SubtensorModule::set_subnet_owner_lock_period(0);
+
+        // Alpha on delegate should be lock_amount, lock_amount * 2
         assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
         assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 2), 2 * lock_amount);
 
@@ -854,7 +857,8 @@ fn test_run_coinbase_price_greater_than_1() {
     new_test_ext(1).execute_with(|| {
         // Create subnet with price 4
         let netuid: u16 = 1;
-        setup_dynamic_network(netuid, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid, 1u16, 1u16, lock_amount);
         add_dynamic_stake(netuid, 1u16, 1u16, 100_000_000_000u64);
         assert_eq!(SubtensorModule::get_tao_per_alpha_price(netuid), 4.0);
 
@@ -895,7 +899,8 @@ fn test_run_coinbase_price_less_than_1() {
     new_test_ext(1).execute_with(|| {
         // Create subnet with price 0.64 by unstaking 25 TAO
         let netuid: u16 = 1;
-        setup_dynamic_network(netuid, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid, 1u16, 1u16, lock_amount);
         remove_dynamic_stake(netuid, 1u16, 1u16, 25_000_000_000u64);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(netuid), 0.64);
 
@@ -940,14 +945,11 @@ fn test_10_subnet_take_basic_ok() {
         let coldkey1 = U256::from(4);
 
         // Create networks.
-        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid1, 3u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
-
-        // The tests below assume lock costs of LC1 = 100
-        assert_eq!(lock_cost_1, 100_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1040,14 +1042,11 @@ fn test_20_subnet_take_basic_ok() {
         let coldkey1 = U256::from(4);
 
         // Create networks.
-        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid1, 3u16, 1u16);
+        let lock_amount = SubtensorModule::get_network_lock_cost();
+        setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
-
-        // The tests below assume lock costs of LC1 = 100
-        assert_eq!(lock_cost_1, 100_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1142,18 +1141,13 @@ fn test_two_subnets_take_ok() {
         let coldkey1 = U256::from(4);
 
         // Create networks.
-        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid1, 3u16, 1u16);
-        let lock_cost_2 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid2, 3u16, 2u16);
+        let lock_cost = 100_000_000_000;
+        setup_dynamic_network(netuid1, 3u16, 1u16, lock_cost);
+        setup_dynamic_network(netuid2, 3u16, 2u16, lock_cost);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey1, 1000_000_000_000);
-
-        // The tests below assume lock costs of LC1 = LC2 = 100
-        assert_eq!(lock_cost_1, 100_000_000_000);
-        assert_eq!(lock_cost_2, 100_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
