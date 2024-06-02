@@ -10,4 +10,4 @@ echo "*** Building chainspecs..."
 ./target/debug/node-subtensor build-spec --raw --chain test_finney >raw_spec_testfinney.json
 ./target/debug/node-subtensor build-spec --chain test_finney >plain_spec_testfinney.json
 
-echo "*** Done"
+echo "*** Done!"
