@@ -11,11 +11,6 @@ on:
   push:
     branches: [main, development, staging]
 
-  ##
-  # Run automatically for PRs against default/main branch if Rust files change
-  pull_request:
-    branches: [main, development, staging]
-
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
