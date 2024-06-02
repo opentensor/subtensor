@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "*** Building node..."
-cargo +nightly-2024-03-05 build
+cargo build
 
 echo "*** Building chainspecs..."
 ./target/debug/node-subtensor build-spec --raw --chain finney >raw_spec_finney.json
