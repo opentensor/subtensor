@@ -546,3 +546,41 @@ fn test_dissolve_network_does_not_exist_err() {
         );
     });
 }
+
+#[test]
+fn test_swap_hotkey_ok() {
+    new_test_ext(1).execute_with(|| {
+        // init params.
+        let hotkey1 = U256::from(0);
+        let coldkey = U256::from(1);
+        let hotkey2 = U256::from(2);
+
+        // Register subnet.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 200_000_000_000); // 200 TAO.
+        assert_ok!(SubtensorModule::register_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey1
+        ));
+
+        // Swap the hotkey
+        assert_ok!(SubtensorModule::swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey1,
+            hotkey2,
+        ));
+
+        // Check that SubnetCreator didn't change because it is set forever
+
+        // Check that account got created (Owner record was added)
+
+        // Keys - old removed, new created
+        // Uids - old removed, new created
+        // IsNetworkMember - old removed, new created
+
+        // Stake variables - old removed, new added
+        // TotalHotkeySubStake
+        // SubStake
+        // Staker
+
+    })
+}
