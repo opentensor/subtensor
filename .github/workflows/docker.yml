@@ -6,7 +6,16 @@ on:
       - main
     tags:
       - '*'
+  pull_request:
+    branches:
+    - main
   workflow_dispatch:
+
+permissions:
+    contents: read
+    packages: write
+    actions: read
+    security-events: write
 
 jobs:
   publish:
@@ -40,5 +49,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ steps.meta.outputs.tags }}
+            ghcr.io/${{ github.repository }}:latest
           labels: ${{ steps.meta.outputs.labels }}
