@@ -5,10 +5,16 @@ concurrency:
   cancel-in-progress: true
 
 on:
+  ## Run automatically for all PRs against main, regardless of what the changes are
+  ## to be safe and so we can more easily force re-run the CI when github is being
+  ## weird by using a blank commit
   push:
-    branches: [main, devnet-ready, devnet, testnet, finney]
+    branches: [main, development, staging]
 
+  ##
+  # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
+    branches: [main, development, staging]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
@@ -50,7 +56,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential
@@ -91,7 +97,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Install dependencies
         run: |
@@ -188,7 +194,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Install dependencies
         run: |
@@ -237,7 +243,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Install dependencies
         run: |
@@ -286,7 +292,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Install dependencies
         run: |
@@ -333,7 +339,7 @@ jobs:
         run: cargo install --locked -q zepter && zepter --version
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0 # Dont clone historic commits.
 
@@ -345,7 +351,7 @@ jobs:
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"
@@ -384,4 +390,3 @@ jobs:
           node-uri: "wss://test.chain.opentensor.ai:443"
           checks: "pre-and-post"
           extra-args: "--disable-spec-version-check --no-weight-warnings"
-
