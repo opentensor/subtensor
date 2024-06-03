@@ -130,5 +130,7 @@ mod events {
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
+        /// the target stakes per interval is set by sudo/admin transaction
+        TargetStakesPerIntervalSet(u64),
     }
 }

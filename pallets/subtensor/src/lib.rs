@@ -363,6 +363,18 @@ pub mod pallet {
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> stake | Returns the total amount of stake attached to a subnet.
     pub type TotalSubnetStake<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    #[pallet::storage]
+    ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
+    pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
+        _,
+        Identity,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        (u64, u64),
+        ValueQuery,
+        DefaultStakesPerInterval<T>,
+    >;
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
@@ -1022,10 +1034,20 @@ pub mod pallet {
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {
         1000
     }
-
+    // --- DMAP ( netuid ) --> interval
     #[pallet::storage]
     pub type WeightCommitRevealInterval<T> =
-        StorageValue<_, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultWeightCommitRevealInterval<T>>;
+
+    /// Default value for weight commit/reveal enabled.
+    #[pallet::type_value]
+    pub fn DefaultCommitRevealWeightsEnabled<T: Config>() -> bool {
+        false
+    }
+    // --- DMAP ( netuid ) --> interval
+    #[pallet::storage]
+    pub type CommitRevealWeightsEnabled<T> =
+        StorageMap<_, Identity, u16, bool, ValueQuery, DefaultCommitRevealWeightsEnabled<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
@@ -1449,7 +1471,11 @@ pub mod pallet {
             weights: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_weights(origin, netuid, dests, weights, version_key)
+            if !Self::get_commit_reveal_weights_enabled(netuid) {
+                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+            }
+
+            Err(Error::<T>::CommitRevealEnabled.into())
         }
 
         /// ---- Used to commit a hash of your weight values to later be revealed.
@@ -1495,6 +1521,9 @@ pub mod pallet {
         /// * `values` (`Vec<u16>`):
         ///   - The values of the weights being revealed.
         ///
+        /// * `salt` (`Vec<u8>`):
+        ///   - The random salt to protect from brute-force guessing attack in case of small weight changes bit-wise.
+        ///
         /// * `version_key` (`u64`):
         ///   - The network version key.
         ///
@@ -1517,9 +1546,10 @@ pub mod pallet {
             netuid: u16,
             uids: Vec<u16>,
             values: Vec<u16>,
+            salt: Vec<u16>,
             version_key: u64,
         ) -> DispatchResult {
-            Self::do_reveal_weights(origin, netuid, uids, values, version_key)
+            Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
         }
 
         /// # Args:
@@ -2443,7 +2473,7 @@ where
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
                     Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= max_registrations_per_interval {
+                if registrations_this_interval >= (max_registrations_per_interval * 3) {
                     // If the registration limit for the interval is exceeded, reject the transaction
                     return InvalidTransaction::ExhaustsResources.into();
                 }

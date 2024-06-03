@@ -388,6 +388,7 @@ reveal_weights {
     let version_key: u64 = 0;
     let uids: Vec<u16> = vec![0];
     let weight_values: Vec<u16> = vec![10];
+    let salt: Vec<u16> = vec![8];
     let hotkey: T::AccountId = account("hot", 0, 1);
     let coldkey: T::AccountId = account("cold", 1, 2);
 
@@ -414,16 +415,17 @@ reveal_weights {
     );
 
     Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
-    Subtensor::<T>::set_weight_commit_interval(0);
+    Subtensor::<T>::set_commit_reveal_weights_interval(netuid, 0);
 
     let commit_hash: H256 = BlakeTwo256::hash_of(&(
       hotkey.clone(),
       netuid,
       uids.clone(),
       weight_values.clone(),
+      salt.clone(),
       version_key,
   ));
     let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
 
-  }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, version_key)
+  }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
 }

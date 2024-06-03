@@ -8,7 +8,7 @@ BASE_DIR="$SCRIPT_DIR/.."
 
 : "${CHAIN:=local}"
 : "${BUILD_BINARY:=1}"
-: "${FEATURES:="pow-faucet fast-blocks"}"
+: "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
 FULL_PATH="$SPEC_PATH$CHAIN.json"
