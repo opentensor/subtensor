@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 echo "*** Building node..."
 cargo build
 

@@ -1,7 +1,7 @@
-name: Check Chainspec
+name: Update Chainspecs
 
 concurrency:
-  group: check-chainspec-${{ github.ref }}
+  group: update-chainspec-${{ github.ref }}
   cancel-in-progress: true
 
 on:
@@ -24,7 +24,7 @@ env:
   VERBOSE: ${{ github.events.input.verbose }}
 
 jobs:
-  check-chainspecs:
+  update-chainspecs:
     runs-on: SubtensorCI
     permissions:
       contents: write
