@@ -223,5 +223,21 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16/*netuid*/, 1u16/*tempo*/)/*sudo_set_tempo*/;
     }
 
+    #[benchmark]
+    fn sudo_set_commit_reveal_weights_interval() {
+        T::Subtensor::init_new_network(1u16 /*netuid*/, 1u16 /*sudo_tempo*/);
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 1u16/*netuid*/, 3u64/*interval*/)/*set_commit_reveal_weights_interval()*/;
+    }
+
+    #[benchmark]
+    fn sudo_set_commit_reveal_weights_enabled() {
+        T::Subtensor::init_new_network(1u16 /*netuid*/, 1u16 /*sudo_tempo*/);
+
+        #[extrinsic_call]
+		_(RawOrigin::Root, 1u16/*netuid*/, true/*enabled*/)/*set_commit_reveal_weights_enabled*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }

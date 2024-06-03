@@ -9,6 +9,7 @@ use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DynamicPoolInfo {
+    pub subnet_stake: Compact<u64>,
     pub alpha_issuance: Compact<u64>,
     pub alpha_outstanding: Compact<u64>,
     pub alpha_reserve: Compact<u64>,
@@ -24,6 +25,7 @@ impl<T: Config> Pallet<T> {
             return None;
         }
 
+        let subnet_stake: u64 = Self::get_total_stake_on_subnet(netuid);
         let alpha_issuance: u64 = Self::get_alpha_issuance(netuid);
         let alpha_outstanding: u64 = Self::get_alpha_outstanding(netuid);
         let alpha_reserve: u64 = Self::get_alpha_reserve(netuid);
@@ -33,6 +35,7 @@ impl<T: Config> Pallet<T> {
 
         // Return the dynamic pool info.
         Some(DynamicPoolInfo {
+            subnet_stake: Compact(subnet_stake),
             alpha_issuance: Compact(alpha_issuance),
             alpha_outstanding: Compact(alpha_outstanding),
             alpha_reserve: Compact(alpha_reserve),

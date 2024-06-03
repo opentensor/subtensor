@@ -149,7 +149,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 3.1 Ensure take is within the min ..= InitialDefaultTake (18%) range
         let min_take = MinTake::<T>::get();
+        let max_take = MaxTake::<T>::get();
         ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
+        ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
 
         // --- 4. Set the new take value.
         DelegatesTake::<T>::insert(hotkey.clone(), netuid, take);
@@ -329,10 +331,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
-        // Ensure we don't exceed tx rate limit
-        let block: u64 = Self::get_current_block_as_u64();
+        // Ensure we don't exceed stake rate limit
+        let stakes_this_interval =
+            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            stakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::StakeRateLimitExceeded
         );
 
@@ -363,8 +366,15 @@ impl<T: Config> Pallet<T> {
         TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_add(tao_to_be_added));
 
         // -- 12. Set last block for rate limiting
+        let block: u64 = Self::get_current_block_as_u64();
         Self::set_last_tx_block(&coldkey, block);
-
+        Self::set_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey,
+            &hotkey,
+            stakes_this_interval + 1,
+            block,
+        );
+                
         // --- 13. Emit the staking event.
         log::info!(
             "StakeAdded( hotkey:{:?}, netuid:{:?}, stake_to_be_added:{:?} )",
@@ -451,9 +461,10 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure we don't exceed stake rate limit
-        let block: u64 = Self::get_current_block_as_u64();
+        let unstakes_this_interval =
+            Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
         ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
+            unstakes_this_interval < Self::get_target_stakes_per_interval(),
             Error::<T>::UnstakeRateLimitExceeded
         );
 
@@ -467,12 +478,13 @@ impl<T: Config> Pallet<T> {
             let total_stake_after_remove = Self::estimate_dynamic_unstake(netuid, alpha_after_remove);
 
             ensure!(
-                total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
+                total_stake_after_remove == 0 || total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold
             );
         }
 
         // Ensure subnet lock period has not yet expired
+        let block: u64 = Self::get_current_block_as_u64();
         let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
         if Self::get_subnet_creator_hotkey(netuid) == hotkey {
             ensure!(
@@ -498,7 +510,14 @@ impl<T: Config> Pallet<T> {
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
+        Self::set_stakes_this_interval_for_coldkey_hotkey(
+            &coldkey,
+            &hotkey,
+            unstakes_this_interval + 1,
+            block,
+        );
 
+        // Emit the unstaking event.
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
             hotkey,
@@ -660,6 +679,9 @@ impl<T: Config> Pallet<T> {
 
     // Getters for Dynamic terms
     //
+    pub fn get_total_stake_on_subnet(netuid: u16) -> u64 {
+        TotalSubnetStake::<T>::get(netuid)
+    }
     pub fn get_tao_reserve(netuid: u16) -> u64 {
         DynamicTAOReserve::<T>::get(netuid)
     }
@@ -707,12 +729,44 @@ impl<T: Config> Pallet<T> {
         return TotalHotkeySubStake::<T>::get(hotkey, netuid);
     }
 
-    pub fn get_target_stakes_per_interval() -> u64 {
-        TargetStakesPerInterval::<T>::get()
+    // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
+    pub fn get_stakes_this_interval_for_coldkey_hotkey(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> u64 {
+        // Retrieve the configured stake interval duration from storage.
+        let stake_interval = StakeInterval::<T>::get();
+
+        // Obtain the current block number as an unsigned 64-bit integer.
+        let current_block = Self::get_current_block_as_u64();
+
+        // Fetch the total stakes and the last block number when stakes were made for the hotkey.
+        let (stakes, block_last_staked_at) =
+            TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
+
+        // Calculate the block number after which the stakes for the hotkey should be reset.
+        let block_to_reset_after = block_last_staked_at + stake_interval;
+
+        // If the current block number is beyond the reset point,
+        // it indicates the end of the staking interval for the hotkey.
+        if block_to_reset_after <= current_block {
+            // Reset the stakes for this hotkey for the current interval.
+            Self::set_stakes_this_interval_for_coldkey_hotkey(
+                coldkey,
+                hotkey,
+                0,
+                block_last_staked_at,
+            );
+            // Return 0 as the stake amount since we've just reset the stakes.
+            return 0;
+        }
+
+        // If the staking interval has not yet ended, return the current stake amount.
+        stakes
     }
 
-    pub fn set_target_stakes_per_interval(stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::put(stakes_per_interval);
+    pub fn get_target_stakes_per_interval() -> u64 {
+        TargetStakesPerInterval::<T>::get()
     }
 
     // Creates a cold - hot pairing account if the hotkey is not already an active account.
@@ -727,12 +781,6 @@ impl<T: Config> Pallet<T> {
     //
     pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
         Owner::<T>::get(hotkey)
-    }
-
-    // Returns the hotkey take
-    //
-    pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
-        Delegates::<T>::get(hotkey)
     }
 
     // Returns the hotkey take
@@ -984,11 +1032,13 @@ impl<T: Config> Pallet<T> {
     /// It also removes the stake entry for the hotkey-coldkey pairing and adjusts the TotalStake
     /// and TotalIssuance by subtracting the removed stake amount.
     ///
+    /// Returns the amount of stake that was removed.
+    ///
     /// # Arguments
     ///
     /// * `coldkey` - A reference to the AccountId of the coldkey involved in the staking.
     /// * `hotkey` - A reference to the AccountId of the hotkey associated with the coldkey.
-    pub fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid: u16) {
+    pub fn empty_stake_on_coldkey_hotkey_account(coldkey: &T::AccountId, hotkey: &T::AccountId, netuid: u16) -> u64 {
         let unstaked_tao = {
             let stake = SubStake::<T>::get((&coldkey, &hotkey, netuid));
             // Determine the type of network. 
@@ -1013,6 +1063,8 @@ impl<T: Config> Pallet<T> {
 
         // Reduce Total Issuance by total unstaked TAO
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(unstaked_tao));
+
+        unstaked_tao
     }
 
     /// Clears the nomination for an account, if it is a nominator account and the stake is below the minimum required threshold.
@@ -1028,9 +1080,9 @@ impl<T: Config> Pallet<T> {
             if stake < Self::get_nominator_min_required_stake() {
                 // Remove the stake from the nominator account. (this is a more forceful unstake operation which )
                 // Actually deletes the staking account.
-                Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid);
+                let cleared_stake = Self::empty_stake_on_coldkey_hotkey_account(coldkey, hotkey, netuid);
                 // Add the stake to the coldkey account.
-                Self::add_balance_to_coldkey_account(coldkey, stake);
+                Self::add_balance_to_coldkey_account(coldkey, cleared_stake);
             }
         }
     }

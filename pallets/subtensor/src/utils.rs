@@ -144,6 +144,24 @@ impl<T: Config> Pallet<T> {
         WeightsMinStake::<T>::put(min_stake);
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
+    pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
+        Self::deposit_event(Event::TargetStakesPerIntervalSet(
+            target_stakes_per_interval,
+        ));
+    }
+    pub fn set_stakes_this_interval_for_coldkey_hotkey(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        stakes_this_interval: u64,
+        last_staked_block_number: u64,
+    ) {
+        TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
+            coldkey,
+            hotkey,
+            (stakes_this_interval, last_staked_block_number),
+        );
+    }
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
@@ -500,6 +518,19 @@ impl<T: Config> Pallet<T> {
     pub fn set_kappa(netuid: u16, kappa: u16) {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
+    }
+
+    pub fn get_commit_reveal_weights_interval(netuid: u16) -> u64 {
+        WeightCommitRevealInterval::<T>::get(netuid)
+    }
+    pub fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        WeightCommitRevealInterval::<T>::set(netuid, interval);
+    }
+    pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
+        CommitRevealWeightsEnabled::<T>::get(netuid)
+    }
+    pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
 
     pub fn get_rho(netuid: u16) -> u16 {
