@@ -48,7 +48,7 @@ alice_start=(
   --validator
   --rpc-cors=all
   --allow-private-ipv4
-  --discover-local
+  --node-key 0000000000000000000000000000000000000000000000000000000000000001
 )
 
 bob_start=(
@@ -60,7 +60,7 @@ bob_start=(
   --rpc-port 9945
   --validator
   --allow-private-ipv4
-  --discover-local
+  --bootnodes /ip4/127.0.0.1/tcp/30334/p2p/12D3KooWEyoppNCUx8Yx66oV9fJnriXwCcXwDDUA2kj6vnc6iDEp
 )
 
 trap 'pkill -P $$' EXIT SIGINT SIGTERM
