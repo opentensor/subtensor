@@ -37,7 +37,7 @@ mod benchmarks;
 mod block_step;
 
 mod epoch;
-mod math;
+pub mod math;
 mod registration;
 mod root;
 mod serving;
@@ -302,6 +302,14 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    /// -- ITEM (switches liquid alpha on)
+    #[pallet::type_value]
+    pub fn DefaultLiquidAlpha<T: Config>() -> bool {
+        return false;
+    }
+    #[pallet::storage] // --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
+    pub type LiquidAlphaOn<T> =
+        StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
 
     // =====================================
     // ==== Difficulty / Registrations =====
