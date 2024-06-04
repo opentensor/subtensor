@@ -798,8 +798,8 @@ parameter_types! {
     pub const SubtensorInitialMaxRegistrationsPerBlock: u16 = 1;
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
-    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number (65535 * 0.18 = 11_796)
-    pub const SubtensorInitialMinTake: u16 = 0;
+    pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
+    pub const SubtensorInitialMinTake: u16 = 5_898; // 9%
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -1146,6 +1146,18 @@ impl
 
     fn set_subnet_staking(subnet_staking: bool) {
         SubtensorModule::set_subnet_staking(subnet_staking);
+    }
+
+    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval)
+    }
+
+    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
+    }
+
+    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
     }
 }
 

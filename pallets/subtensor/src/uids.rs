@@ -1,6 +1,5 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageMap;
 use sp_std::vec;
 use sp_std::vec::Vec;
 
@@ -121,16 +120,6 @@ impl<T: Config> Pallet<T> {
             Ok(hotkey) => SubStake::<T>::get((Owner::<T>::get(&hotkey), &hotkey, netuid)),
             Err(_) => 0,
         }
-    }
-
-    /// Return the total number of subnetworks available on the chain.
-    ///
-    pub fn get_number_of_subnets() -> u16 {
-        let mut number_of_subnets: u16 = 0;
-        for (_, _) in <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter() {
-            number_of_subnets += 1;
-        }
-        number_of_subnets
     }
 
     /// Return a list of all networks a hotkey is registered on.

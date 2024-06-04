@@ -121,10 +121,14 @@ mod errors {
         /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
         NoWeightsCommitFound,
         /// Not the correct block/range to reveal weights.
-        InvalidRevealCommitHashNotMatchTempo,
+        InvalidRevealCommitTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
         /// Only STAO subnets are allowed to be dissolved
         NotAllowedToDissolve,
+        /// Attempting to call set_weights when commit/reveal is enabled
+        CommitRevealEnabled,
+        /// Attemtping to commit/reveal weights when disabled.
+        CommitRevealDisabled,
     }
 }

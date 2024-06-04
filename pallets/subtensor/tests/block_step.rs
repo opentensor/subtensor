@@ -1042,7 +1042,7 @@ fn test_20_subnet_take_basic_ok() {
         let coldkey1 = U256::from(4);
 
         // Create networks.
-        let lock_amount = SubtensorModule::get_network_lock_cost();
+        let lock_amount = 100_000_000_000;
         setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
@@ -1067,6 +1067,10 @@ fn test_20_subnet_take_basic_ok() {
             SubtensorModule::get_alpha_outstanding(netuid1),
             100_000_000_000
         );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey0, netuid1),
+            100_000_000_000
+        );
 
         // Coldkey / hotkey 0 become a delegate
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -1074,12 +1078,12 @@ fn test_20_subnet_take_basic_ok() {
             hotkey0
         ));
 
-        // Coldkey / hotkey 0 sets the take on subnet 1 to 20%
+        // Coldkey / hotkey 0 sets the take on subnet 1 to 10%
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             netuid1,
-            u16::MAX / 5
+            u16::MAX / 10
         ));
 
         // Nominate 100 from coldkey/hotkey 1 to hotkey0 on subnet 1
@@ -1122,11 +1126,11 @@ fn test_20_subnet_take_basic_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
 
         // SubStake (Alpha balance)
-        //   Subnet 1, cold0, hot0: 350 - 103.3333 ~ 246.67
-        //             cold1, hot0: 103.3333
+        //   Subnet 1, cold0, hot0: 100 + 10% * 200 + 90% * 200 * 2/3 = 
+        //             cold1, hot0: 50 + 90% * 200 * 1/3
         //
-        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 246.67);
-        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 103.33);
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 240.);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 110.);
     });
 }
 
@@ -1139,6 +1143,8 @@ fn test_two_subnets_take_ok() {
         let hotkey1 = U256::from(2);
         let coldkey0 = U256::from(3);
         let coldkey1 = U256::from(4);
+        let take1 = u16::MAX / 20 * 3;
+        let take2 = u16::MAX / 10;
 
         // Create networks.
         let lock_cost = 100_000_000_000;
@@ -1191,20 +1197,20 @@ fn test_two_subnets_take_ok() {
             hotkey1
         ));
 
-        // Hotkey 0 sets the take on subnet 1 to 10%
+        // Hotkey 0 sets the take on subnet 1
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             netuid1,
-            u16::MAX / 10
+            take1
         ));
 
-        // Hotkey 1 sets the take on subnet 2 to 20%
+        // Hotkey 1 sets the take on subnet 2
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey1,
             netuid2,
-            u16::MAX / 5
+            take2
         ));
 
         // Nominate 100 from coldkey1 to hotkey0 on subnet 1
@@ -1266,15 +1272,18 @@ fn test_two_subnets_take_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid2, 0, emission);
 
-        // SubStake (Alpha balance)
-        //   Subnet 1, cold0, hot0: 170
-        //             cold1, hot0: 80
-        //   Subnet 2, cold0, hot1: 273.34
-        //             cold1, hot1: 126.67
-        //
-        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 170.);
-        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 80.);
-        assert_substake_approx_eq!(&coldkey0, &hotkey1, netuid2, 273.33);
-        assert_substake_approx_eq!(&coldkey1, &hotkey1, netuid2, 126.67);
+        let emission_take_1 = emission as f64 / 1_000_000_000 as f64 * take1 as f64 / u16::MAX as f64;
+        let emission_take_2 = emission as f64 / 1_000_000_000 as f64 * take2 as f64 / u16::MAX as f64;
+        let remaining_emission_1 = emission as f64 / 1_000_000_000 as f64 - emission_take_1;
+        let remaining_emission_2 = emission as f64 / 1_000_000_000 as f64 - emission_take_2;
+        let substake_0_0_1 = 100. + emission_take_1 + remaining_emission_1 * 2. / 3.;
+        let substake_1_0_1 = 50. + remaining_emission_1 * 1. / 3.;
+        let substake_0_1_1 = 200. + emission_take_2 + remaining_emission_2 * 2. / 3.;
+        let substake_1_1_1 = 100. + remaining_emission_2 * 1. / 3.;
+
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, substake_0_0_1);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, substake_1_0_1);
+        assert_substake_approx_eq!(&coldkey0, &hotkey1, netuid2, substake_0_1_1);
+        assert_substake_approx_eq!(&coldkey1, &hotkey1, netuid2, substake_1_1_1);
     });
 }
