@@ -67,6 +67,7 @@ pub mod migration;
 #[frame_support::pallet]
 pub mod pallet {
 
+    use crate::types::SubnetTransition;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -1162,6 +1163,15 @@ pub mod pallet {
         Vec<(u16, u16)>,
         ValueQuery,
         DefaultBonds<T>,
+    >;
+
+    // --- MAP ( netuid ) --> SubnetTransition. If present, then subnet is in the state of type transition (e.g. stao -> dtao)
+    #[pallet::storage]
+    pub type SubnetInTransition<T: Config> = StorageMap<
+        Hasher = Identity,
+        Key = u16,
+        Value = SubnetTransition<T::AccountId>,
+        QueryKind = OptionQuery,
     >;
 
     /// ==================
@@ -2288,6 +2298,16 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
+        }
+
+        /// Change subnet type (from stao to dtao)
+        /// 
+        #[pallet::call_index(67)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn change_network_type(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            Self::do_start_stao_dtao_transition(origin, netuid)
         }
     }
 

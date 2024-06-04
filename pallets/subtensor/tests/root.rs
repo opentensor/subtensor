@@ -2,8 +2,7 @@ use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use pallet_subtensor::migration;
-use pallet_subtensor::Error;
+use pallet_subtensor::{Error, migration, PendingEmission, SubnetInTransition, TotalSubnetTAO};
 use sp_core::{Get, H256, U256};
 
 mod mock;
@@ -546,3 +545,445 @@ fn test_dissolve_network_does_not_exist_err() {
         );
     });
 }
+
+#[test]
+fn test_stao_dtao_transition_basic() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Make sure TotalSubnetTAO and SubStake were initialized
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
+            stake,
+        );
+        assert_eq!(
+            TotalSubnetTAO::<Test>::get(netuid),
+            lock_cost + stake,
+        );
+
+        let coldkey1_balance_before = SubtensorModule::get_coldkey_balance(&coldkey1);
+        let coldkey2_balance_before = SubtensorModule::get_coldkey_balance(&coldkey2);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run 
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that everybody but owner got unstaked
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
+            0,
+        );
+
+        // TotalSubnetTAO will be reduced by the amount of forcefully unstaked TAO
+        assert_eq!(
+            TotalSubnetTAO::<Test>::get(netuid),
+            lock_cost,
+        );
+
+        // Unstaked balance is returned to the staker
+        let coldkey2_balance_after = SubtensorModule::get_coldkey_balance(&coldkey2);
+        assert_eq!(
+            coldkey2_balance_after - coldkey2_balance_before,
+            stake,
+        );
+
+        // Re-staked balance of owner is not available as balance
+        let coldkey1_balance_after = SubtensorModule::get_coldkey_balance(&coldkey1);
+        assert_eq!(
+            coldkey1_balance_after, 
+            coldkey1_balance_before,
+        );
+    });
+}
+
+#[test]
+fn test_stao_dtao_transition_non_owner_fail() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey2 = U256::from(2);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition using non-owner coldkey
+        assert_err!(
+            SubtensorModule::do_start_stao_dtao_transition(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+                netuid,
+            ),
+            Error::<Test>::NotSubnetOwner
+        );
+    });
+}
+
+#[test]
+fn test_stao_dtao_transition_waits_for_drain() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Set emission values for this subnet
+        PendingEmission::<Test>::insert(netuid, 123);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run (pending emission is non-zero)
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that everybody is still staked
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
+            stake,
+        );
+        assert_eq!(
+            TotalSubnetTAO::<Test>::get(netuid),
+            lock_cost + stake,
+        );
+
+        // Drain emission
+        PendingEmission::<Test>::insert(netuid, 0);
+
+        // Let transition run (pending emission is zero)
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that everybody got unstaked
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
+            0,
+        );
+        assert_eq!(
+            TotalSubnetTAO::<Test>::get(netuid),
+            lock_cost,
+        );
+    });
+}
+
+#[test]
+fn test_staking_during_dtao_transition_fails() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake);
+    
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Check that staking fails
+        assert_err!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+                hotkey1,
+                netuid,
+                stake
+            ),
+            Error::<Test>::TemporarilyNotAllowed
+        );
+    });
+}
+
+#[test]
+fn test_staking_after_dtao_transition_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run 
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that everybody got unstaked
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            TotalSubnetTAO::<Test>::get(netuid),
+            lock_cost,
+        );
+
+        // Check that staking succeeds
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            netuid,
+            stake
+        ));
+    });
+}
+
+#[test]
+fn test_run_coinbase_during_dtao_transition_no_effect() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Check that run_coinbase doesn't increase PendingEmission or TotalSubnetTAO for this subnet
+        SubtensorModule::run_coinbase(2);
+        assert_eq!(
+            PendingEmission::<Test>::get(netuid),
+            0,
+        );
+        assert_eq!(
+            TotalSubnetTAO::<Test>::get(netuid),
+            lock_cost + stake,
+        );
+
+    });
+}
+
+#[test]
+fn test_run_coinbase_after_dtao_transition_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that run_coinbase increases PendingEmission or TotalSubnetTAO for this subnet
+        let total_tao_before = TotalSubnetTAO::<Test>::get(netuid);
+        SubtensorModule::run_coinbase(2);
+        let total_tao_after = TotalSubnetTAO::<Test>::get(netuid);
+        assert_eq!(
+            PendingEmission::<Test>::get(netuid),
+            SubtensorModule::get_block_emission().unwrap(),
+        );
+        assert!(total_tao_before < total_tao_after);
+    });
+}
+
+// Own stake of subnet owner key is converted to dynamic pool as if it was the creation of the dynamic subnet.
+#[test]
+fn test_stao_dtao_transition_dynamic_variables() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run 
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check dynamic variables
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
+            lock_cost,
+        );
+        assert_eq!(
+            pallet_subtensor::DynamicTAOReserve::<Test>::get(netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            pallet_subtensor::DynamicAlphaOutstanding::<Test>::get(netuid),
+            lock_cost,
+        );
+        assert_eq!(
+            pallet_subtensor::DynamicK::<Test>::get(netuid),
+            lock_cost as u128 * lock_cost as u128,
+        );
+        assert_eq!(
+            pallet_subtensor::IsDynamic::<Test>::get(netuid),
+            true,
+        );
+
+        // DynamicTAOReserve will be set to equal the new value of TotalSubnetTAO (test)
+        assert_eq!(
+            pallet_subtensor::DynamicTAOReserve::<Test>::get(netuid),
+            TotalSubnetTAO::<Test>::get(netuid),
+        );
+    });
+}
+
+#[test]
+fn test_stao_dtao_transition_clears_staker() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run 
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check staker map for owner (should remain) and for staker (should be cleared)
+        assert_eq!(
+            pallet_subtensor::Staker::<Test>::get(&hotkey1, &coldkey1),
+            true,
+        );
+        assert_eq!(
+            pallet_subtensor::Staker::<Test>::get(&hotkey1, &coldkey2),
+            false,
+        );
+    });
+}
+
+// Subnet tempo is set to default value
+#[test]
+fn test_stao_dtao_transition_resets_tempo() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run 
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that tempo went default
+        assert_eq!(
+            pallet_subtensor::Tempo::<Test>::get(netuid),
+            <mock::Test as pallet_subtensor::Config>::InitialTempo::get(),
+        );
+    });
+}
+
+// High weight test - many SubStake records, so that do_continue_stao_dtao_transition runs multiple times 
+#[test]
+fn test_stao_dtao_transition_high_weight_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(1);
+        let hotkey1 = U256::from(1);
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid, lock_cost, stake);
+
+        let items = 1000;
+
+        for i in 3..=items+2 {
+            let coldkey = U256::from(i);
+            SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake);
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
+                &coldkey,
+                &hotkey1,
+                netuid,
+                stake,
+            );
+            TotalSubnetTAO::<Test>::mutate(netuid, |locked| *locked = locked.saturating_add(stake));        
+        }
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            netuid,
+        ));
+
+        // Let transition run one time
+        SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+        // Check that transition hasn't finished yet
+        assert!(
+            SubnetInTransition::<Test>::get(netuid).is_some()
+        );
+
+        // Check that transition finishes eventually
+        loop {
+            SubtensorModule::do_continue_stao_dtao_transition(netuid);
+
+            if SubnetInTransition::<Test>::get(netuid).is_none() {
+                break;
+            }
+        }
+    });
+}
+

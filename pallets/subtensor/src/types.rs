@@ -6,7 +6,7 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::hexdisplay::AsBytesRef;
 use sp_core::Bytes;
-use sp_runtime::codec::{Decode, Encode};
+use sp_runtime::codec::{Decode, Encode, MaxEncodedLen};
 
 /// Wrapper for Bytes that implements TypeInfo
 /// Needed as Bytes doesnt implement it anymore , and the node can't serialize Vec<u8>
@@ -48,4 +48,14 @@ impl From<Vec<u8>> for TensorBytes {
 pub enum SubnetType {
     STAO,
     DTAO
+}
+
+/// Subnet type transtion state
+/// 
+#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]
+pub struct SubnetTransition<AccountId> {
+    pub substake_current_key: Option<(AccountId, AccountId, u16)>,
+    pub owner_stake_tao: u64,
+    pub coldkey: AccountId,
+    pub hotkey: AccountId,
 }

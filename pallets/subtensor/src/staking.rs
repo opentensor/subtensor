@@ -331,6 +331,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
+        // Ensure no type transition is in progress for subnet
+        ensure!(
+            SubnetInTransition::<T>::get(netuid).is_none(),
+            Error::<T>::TemporarilyNotAllowed
+        );
+        
         // Ensure we don't exceed stake rate limit
         let stakes_this_interval =
             Self::get_stakes_this_interval_for_coldkey_hotkey(&coldkey, &hotkey);
@@ -493,20 +499,13 @@ impl<T: Config> Pallet<T> {
             )
         }
 
-        // We remove the balance from the hotkey.
-        Self::decrease_subnet_token_on_coldkey_hotkey_account(
+        // Remove stake from state maps
+        Self::do_remove_stake_no_checks(
             &coldkey,
             &hotkey,
             netuid,
             alpha_to_be_removed,
         );
-
-        // Compute Dynamic unstake.
-        let tao_unstaked: u64 = Self::compute_dynamic_unstake(netuid, alpha_to_be_removed);
-        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_sub(tao_unstaked));
-
-        // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // Set last block for rate limiting
         Self::set_last_tx_block(&coldkey, block);
@@ -527,6 +526,30 @@ impl<T: Config> Pallet<T> {
 
         // --- 11. Done and ok.
         Ok(())
+    }
+
+    /// Removes the stake assuming all checks have passed
+    /// 
+    pub fn do_remove_stake_no_checks(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+        netuid: u16,
+        alpha_to_be_removed: u64,
+    ) {
+        // We remove the balance from the hotkey.
+        Self::decrease_subnet_token_on_coldkey_hotkey_account(
+            coldkey,
+            hotkey,
+            netuid,
+            alpha_to_be_removed,
+        );
+
+        // Compute Dynamic unstake.
+        let tao_unstaked: u64 = Self::compute_dynamic_unstake(netuid, alpha_to_be_removed);
+        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_sub(tao_unstaked));
+
+        // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+        Self::add_balance_to_coldkey_account(coldkey, tao_unstaked);
     }
 
     /// Computes the dynamic unstake amount based on the current reserves and the stake to be removed.
