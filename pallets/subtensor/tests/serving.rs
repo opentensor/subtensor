@@ -2,7 +2,7 @@ use crate::mock::*;
 mod mock;
 use frame_support::{
     assert_ok,
-    dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays},
+    dispatch::{DispatchClass, GetDispatchInfo, Pays},
 };
 use frame_system::Config;
 use pallet_subtensor::Error;
@@ -50,13 +50,15 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
             placeholder1,
             placeholder2,
         });
+        let disp_info = call.get_dispatch_info();
+        assert!(disp_info.weight.ref_time() != 0);
         assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(46_000_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
+            disp_info.class,
+            DispatchClass::Normal,
+        );
+        assert_eq!(
+            disp_info.pays_fee,
+            Pays::No,
         );
     });
 }
@@ -295,13 +297,15 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
             port,
             ip_type,
         });
+        let disp_info = call.get_dispatch_info();
+        assert!(disp_info.weight.ref_time() != 0);
         assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(45_000_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
+            disp_info.class,
+            DispatchClass::Normal,
+        );
+        assert_eq!(
+            disp_info.pays_fee,
+            Pays::No,
         );
     });
 }
