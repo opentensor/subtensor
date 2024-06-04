@@ -818,42 +818,37 @@ fn test_burn_adjustment_case_e_zero_registrations() {
 fn test_subnet_staking_emission() {
     new_test_ext(1).execute_with(|| {
         let delegate = U256::from(1);
-        let nominator1 = U256::from(2);
-        let nominator2 = U256::from(3);
         SubtensorModule::set_target_stakes_per_interval(20);
-        let lock_amount = SubtensorModule::get_network_lock_cost();
-        add_dynamic_network(1, 1, 1, 1);
-        add_dynamic_network(2, 1, 1, 1);
-        add_dynamic_network(3, 1, 1, 1);
-        assert_eq!(SubtensorModule::get_num_subnets(), 3);
-        SubtensorModule::add_balance_to_coldkey_account(&delegate, 100000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 100000);
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 100000);
+        let lock_amount = 100_000_000_000;
+        add_dynamic_network(1, 1, 1, 1, lock_amount);
+        add_dynamic_network(2, 1, 1, 1, lock_amount);
+        assert_eq!(SubtensorModule::get_num_subnets(), 2);
+
+        // Remove subnet creator lock 
+        SubtensorModule::set_subnet_owner_lock_period(0);
+
+        // Alpha on delegate should be lock_amount, lock_amount * 2
+        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
+        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 2), 2 * lock_amount);
+
+        let netuid_1_tao_unstaked = SubtensorModule::estimate_dynamic_unstake(1, lock_amount / 2);
+        let netuid_1_tao: I64F64 = I64F64::from_num(lock_amount - netuid_1_tao_unstaked);
+        let netuid_2_tao: I64F64 = I64F64::from_num(lock_amount);
+        let total_tao_staked: I64F64 = netuid_1_tao + netuid_2_tao;
+
+        // Unstake half of alpha for subnets 1 to achieve skew on emisson values
         assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(delegate),
             delegate,
             1,
             lock_amount / 2
         ));
-        assert_ok!(SubtensorModule::remove_subnet_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate),
-            delegate,
-            2,
-            lock_amount
-        ));
-        assert_ok!(SubtensorModule::remove_subnet_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate),
-            delegate,
-            3,
-            2 * lock_amount / 3
-        ));
 
         SubtensorModule::run_coinbase(1);
+        // Subnet block emission is subnet tao staked / total tao staked =
         let tao = 1_000_000_000.;
-        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, 0.5); // 0.5 TAO
-        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, 0.25); // 0.25 TAO
-        assert_approx_eq!(SubtensorModule::get_emission_value(3) as f64 / tao, 0.25);
-        // 0.25 TAO
+        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, (netuid_1_tao / total_tao_staked).to_num::<f64>());
+        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, (netuid_2_tao / total_tao_staked).to_num::<f64>());
     });
 }
 
@@ -862,7 +857,8 @@ fn test_run_coinbase_price_greater_than_1() {
     new_test_ext(1).execute_with(|| {
         // Create subnet with price 4
         let netuid: u16 = 1;
-        setup_dynamic_network(netuid, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid, 1u16, 1u16, lock_amount);
         add_dynamic_stake(netuid, 1u16, 1u16, 100_000_000_000u64);
         assert_eq!(SubtensorModule::get_tao_per_alpha_price(netuid), 4.0);
 
@@ -878,15 +874,15 @@ fn test_run_coinbase_price_greater_than_1() {
         log::info!("Tao reserve before: {:?}", tao_reserve_before);
         let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
         log::info!("Alpha reserve before: {:?}", alpha_reserve_before);
-        let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
-        log::info!("Pending alpha before: {:?}", pending_alpha_before);
+        let pending_before = SubtensorModule::get_pending_emission(netuid);
+        log::info!("Pending alpha before: {:?}", pending_before);
         SubtensorModule::run_coinbase(1);
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         log::info!("Tao reserve after: {:?}", tao_reserve_after);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
         log::info!("Alpha reserve after: {:?}", alpha_reserve_after);
-        let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
-        log::info!("Pending alpha after: {:?}", pending_alpha_after);
+        let pending_after = SubtensorModule::get_pending_emission(netuid);
+        log::info!("Pending alpha after: {:?}", pending_after);
         log::info!(
             "Tao emissions: {:?}",
             SubtensorModule::get_emission_value(netuid)
@@ -894,7 +890,7 @@ fn test_run_coinbase_price_greater_than_1() {
 
         assert_eq!(tao_reserve_after == tao_reserve_before, true);
         assert_eq!(alpha_reserve_after > alpha_reserve_before, true);
-        assert_eq!(pending_alpha_after > pending_alpha_before, true);
+        assert_eq!(pending_after > pending_before, true);
     })
 }
 
@@ -903,7 +899,8 @@ fn test_run_coinbase_price_less_than_1() {
     new_test_ext(1).execute_with(|| {
         // Create subnet with price 0.64 by unstaking 25 TAO
         let netuid: u16 = 1;
-        setup_dynamic_network(netuid, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid, 1u16, 1u16, lock_amount);
         remove_dynamic_stake(netuid, 1u16, 1u16, 25_000_000_000u64);
         assert_i64f64_approx_eq!(SubtensorModule::get_tao_per_alpha_price(netuid), 0.64);
 
@@ -917,11 +914,11 @@ fn test_run_coinbase_price_less_than_1() {
         // Check that running run_coinbase behaves correctly
         let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_before = SubtensorModule::get_alpha_reserve(netuid);
-        let pending_alpha_before = SubtensorModule::get_alpha_pending_emission(netuid);
+        let pending_before = SubtensorModule::get_pending_emission(netuid);
         SubtensorModule::run_coinbase(1);
         let tao_reserve_after = SubtensorModule::get_tao_reserve(netuid);
         let alpha_reserve_after = SubtensorModule::get_alpha_reserve(netuid);
-        let pending_alpha_after = SubtensorModule::get_alpha_pending_emission(netuid);
+        let pending_after = SubtensorModule::get_pending_emission(netuid);
         log::info!(
             "Subnet emissions: {:?}",
             SubtensorModule::get_emission_value(netuid)
@@ -935,7 +932,7 @@ fn test_run_coinbase_price_less_than_1() {
 
         assert_eq!(tao_reserve_after > tao_reserve_before, true);
         assert_eq!(alpha_reserve_after, alpha_reserve_before);
-        assert_eq!(pending_alpha_after > pending_alpha_before, true);
+        assert_eq!(pending_after > pending_before, true);
     })
 }
 
@@ -948,14 +945,11 @@ fn test_10_subnet_take_basic_ok() {
         let coldkey1 = U256::from(4);
 
         // Create networks.
-        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid1, 3u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
-
-        // The tests below assume lock costs of LC1 = 100
-        assert_eq!(lock_cost_1, 100_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1048,14 +1042,11 @@ fn test_20_subnet_take_basic_ok() {
         let coldkey1 = U256::from(4);
 
         // Create networks.
-        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid1, 3u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
-
-        // The tests below assume lock costs of LC1 = 100
-        assert_eq!(lock_cost_1, 100_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1076,6 +1067,10 @@ fn test_20_subnet_take_basic_ok() {
             SubtensorModule::get_alpha_outstanding(netuid1),
             100_000_000_000
         );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey0, netuid1),
+            100_000_000_000
+        );
 
         // Coldkey / hotkey 0 become a delegate
         assert_ok!(SubtensorModule::do_become_delegate(
@@ -1083,12 +1078,12 @@ fn test_20_subnet_take_basic_ok() {
             hotkey0
         ));
 
-        // Coldkey / hotkey 0 sets the take on subnet 1 to 20%
+        // Coldkey / hotkey 0 sets the take on subnet 1 to 10%
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             netuid1,
-            u16::MAX / 5
+            u16::MAX / 10
         ));
 
         // Nominate 100 from coldkey/hotkey 1 to hotkey0 on subnet 1
@@ -1131,11 +1126,11 @@ fn test_20_subnet_take_basic_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
 
         // SubStake (Alpha balance)
-        //   Subnet 1, cold0, hot0: 350 - 103.3333 ~ 246.67
-        //             cold1, hot0: 103.3333
+        //   Subnet 1, cold0, hot0: 100 + 10% * 200 + 90% * 200 * 2/3 = 
+        //             cold1, hot0: 50 + 90% * 200 * 1/3
         //
-        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 246.67);
-        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 103.33);
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 240.);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 110.);
     });
 }
 
@@ -1148,20 +1143,17 @@ fn test_two_subnets_take_ok() {
         let hotkey1 = U256::from(2);
         let coldkey0 = U256::from(3);
         let coldkey1 = U256::from(4);
+        let take1 = u16::MAX / 20 * 3;
+        let take2 = u16::MAX / 10;
 
         // Create networks.
-        let lock_cost_1 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid1, 3u16, 1u16);
-        let lock_cost_2 = SubtensorModule::get_network_lock_cost();
-        setup_dynamic_network(netuid2, 3u16, 2u16);
+        let lock_cost = 100_000_000_000;
+        setup_dynamic_network(netuid1, 3u16, 1u16, lock_cost);
+        setup_dynamic_network(netuid2, 3u16, 2u16, lock_cost);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
         SubtensorModule::add_balance_to_coldkey_account(&hotkey1, 1000_000_000_000);
-
-        // The tests below assume lock costs of LC1 = LC2 = 100
-        assert_eq!(lock_cost_1, 100_000_000_000);
-        assert_eq!(lock_cost_2, 100_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1205,20 +1197,20 @@ fn test_two_subnets_take_ok() {
             hotkey1
         ));
 
-        // Hotkey 0 sets the take on subnet 1 to 10%
+        // Hotkey 0 sets the take on subnet 1
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey0,
             netuid1,
-            u16::MAX / 10
+            take1
         ));
 
-        // Hotkey 1 sets the take on subnet 2 to 20%
+        // Hotkey 1 sets the take on subnet 2
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey1,
             netuid2,
-            u16::MAX / 5
+            take2
         ));
 
         // Nominate 100 from coldkey1 to hotkey0 on subnet 1
@@ -1280,15 +1272,18 @@ fn test_two_subnets_take_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid2, 0, emission);
 
-        // SubStake (Alpha balance)
-        //   Subnet 1, cold0, hot0: 170
-        //             cold1, hot0: 80
-        //   Subnet 2, cold0, hot1: 273.34
-        //             cold1, hot1: 126.67
-        //
-        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 170.);
-        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, 80.);
-        assert_substake_approx_eq!(&coldkey0, &hotkey1, netuid2, 273.33);
-        assert_substake_approx_eq!(&coldkey1, &hotkey1, netuid2, 126.67);
+        let emission_take_1 = emission as f64 / 1_000_000_000 as f64 * take1 as f64 / u16::MAX as f64;
+        let emission_take_2 = emission as f64 / 1_000_000_000 as f64 * take2 as f64 / u16::MAX as f64;
+        let remaining_emission_1 = emission as f64 / 1_000_000_000 as f64 - emission_take_1;
+        let remaining_emission_2 = emission as f64 / 1_000_000_000 as f64 - emission_take_2;
+        let substake_0_0_1 = 100. + emission_take_1 + remaining_emission_1 * 2. / 3.;
+        let substake_1_0_1 = 50. + remaining_emission_1 * 1. / 3.;
+        let substake_0_1_1 = 200. + emission_take_2 + remaining_emission_2 * 2. / 3.;
+        let substake_1_1_1 = 100. + remaining_emission_2 * 1. / 3.;
+
+        assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, substake_0_0_1);
+        assert_substake_approx_eq!(&coldkey1, &hotkey0, netuid1, substake_1_0_1);
+        assert_substake_approx_eq!(&coldkey0, &hotkey1, netuid2, substake_0_1_1);
+        assert_substake_approx_eq!(&coldkey1, &hotkey1, netuid2, substake_1_1_1);
     });
 }

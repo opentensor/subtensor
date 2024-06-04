@@ -43,3 +43,9 @@ impl From<Vec<u8>> for TensorBytes {
         TensorBytes(sp_core::Bytes(bytes))
     }
 }
+
+#[derive(PartialEq)]
+pub enum SubnetType {
+    STAO,
+    DTAO
+}

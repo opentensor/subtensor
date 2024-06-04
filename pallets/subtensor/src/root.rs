@@ -17,6 +17,7 @@
 
 use super::*;
 use crate::math::*;
+use crate::types::SubnetType;
 use frame_support::dispatch::Pays;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -595,11 +596,41 @@ impl<T: Config> Pallet<T> {
 
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
+
+        Self::user_add_network_no_checks(
+            coldkey,
+            hotkey,
+            netuid_to_register,
+            lock_amount,
+            actual_lock_amount,
+            360,
+        );
+
+        // --- 8. Emit the NetworkAdded event.
+        log::info!(
+            "NetworkAdded( netuid:{:?}, modality:{:?} )",
+            netuid_to_register,
+            0
+        );
+        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
+
+        // --- 9. Return success.
+        Ok(())
+    }
+
+    pub fn user_add_network_no_checks(
+        coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        netuid_to_register: u16,
+        lock_amount: u64,
+        actual_lock_amount: u64,
+        tempo: u16,
+    ) {
         Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
         Self::set_network_last_lock(actual_lock_amount);
 
         // --- 6. Create a new network and set initial and custom parameters for the network.
-        Self::init_new_network(netuid_to_register, 360);
+        Self::init_new_network(netuid_to_register, tempo);
         let current_block_number: u64 = Self::get_current_block_as_u64();
         NetworkLastRegistered::<T>::set(current_block_number);
         NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
@@ -621,29 +652,22 @@ impl<T: Config> Pallet<T> {
         DynamicAlphaOutstanding::<T>::insert(netuid_to_register, initial_dynamic_outstanding);
         DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k);
         IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+        TotalSubnetTAO::<T>::insert(netuid_to_register, actual_lock_amount);
+
+        // Add the staker for nominator iterations
+        Staker::<T>::insert(&hotkey, &coldkey, true);
 
         // --- 9. Register the owner to the network and expand size.
         Self::create_account_if_non_existent(&coldkey, &hotkey);
         Self::append_neuron(netuid_to_register, &hotkey, current_block_number);
 
         // --- 10. Distribute initial supply of tokens to the owners.
-        Self::increase_stake_on_coldkey_hotkey_account(
+        Self::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid_to_register,
             initial_dynamic_outstanding,
         );
-
-        // --- 8. Emit the NetworkAdded event.
-        log::info!(
-            "NetworkAdded( netuid:{:?}, modality:{:?} )",
-            netuid_to_register,
-            0
-        );
-        Self::deposit_event(Event::NetworkAdded(netuid_to_register, 0));
-
-        // --- 9. Return success.
-        Ok(())
     }
 
     /// Facilitates the removal of a user's subnetwork.
@@ -673,6 +697,12 @@ impl<T: Config> Pallet<T> {
         ensure!(
             SubnetOwner::<T>::get(netuid) == coldkey,
             Error::<T>::NotSubnetOwner
+        );
+
+        // Ensure the network is of STAO type. We don't allow to dissolve DTAO subnets
+        ensure!(
+            Self::get_subnet_type(netuid) == SubnetType::STAO,
+            Error::<T>::NotAllowedToDissolve
         );
 
         // --- 4. Explicitly erase the network and all its parameters.
@@ -737,7 +767,7 @@ impl<T: Config> Pallet<T> {
             ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
         }
         if !EmissionValues::<T>::contains_key(netuid) {
-            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
+            EmissionValues::<T>::insert(netuid, DefaultEmissionValues::<T>::get());
         }
         if !MaxWeightsLimit::<T>::contains_key(netuid) {
             MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
@@ -798,6 +828,9 @@ impl<T: Config> Pallet<T> {
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
+        // Remove TotalSubnetTAO
+        TotalSubnetTAO::<T>::remove(netuid);
+
         // --- 8. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
@@ -855,6 +888,8 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
+
+        // TODO: Unstake all nominators and return their stakes
     }
 
     /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.

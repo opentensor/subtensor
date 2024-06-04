@@ -291,6 +291,11 @@ pub mod pallet {
     pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
     }
+    /// Default bool value
+    #[pallet::type_value]
+    pub fn DefaultBool<T: Config>() -> bool {
+        false
+    }
     /// Default u16 MAX value
     #[pallet::type_value]
     pub fn DefaultMaxU16<T: Config>() -> u16 {
@@ -347,8 +352,6 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
     pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( default_take )
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )
     pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
@@ -392,17 +395,18 @@ pub mod pallet {
         ValueQuery,
         DefaultDefaultTake<T>,
     >;
-    #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
+    #[pallet::storage] // --- DMAP ( hot, cold ) --> is_staker | Allows to iterate over all nominators of a hotkey
+    pub type Staker<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Identity,
         T::AccountId,
-        u64,
+        bool,
         ValueQuery,
-        DefaultZeroU64<T>,
+        DefaultBool<T>,
     >;
+    // This value is alpha for DTAO networks and TAO for STAO networks
     #[pallet::storage] // --- DMAP ( hot, netuid ) --> stake | Returns the total stake attached to a hotkey on a subnet.
     pub type TotalHotkeySubStake<T: Config> = StorageDoubleMap<
         _,
@@ -414,6 +418,7 @@ pub mod pallet {
         ValueQuery,
         DefaultZeroU64<T>,
     >;
+    // This value is alpha for DTAO networks and TAO for STAO networks
     #[pallet::storage] // --- NMAP ( cold, hot, netuid ) --> stake | Returns the stake under a subnet prefixed by coldkey, hotkey, netuid triplet.
     pub type SubStake<T: Config> = StorageNMap<
         _,
@@ -717,6 +722,11 @@ pub mod pallet {
     pub fn DefaultSubnetLocked<T: Config>() -> u64 {
         0
     }
+    /// Default value for subnet total stake.
+    #[pallet::type_value]
+    pub fn DefaultTotalSubnetTAO<T: Config>() -> u64 {
+        0
+    }
     /// Default value for network tempo
     #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
@@ -732,9 +742,6 @@ pub mod pallet {
     pub type EmissionValues<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultEmissionValues<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
-    pub type PendingAlphaEmission<T> =
-        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> pending_alpha_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
@@ -752,7 +759,10 @@ pub mod pallet {
     #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
-
+    #[pallet::storage]
+    pub type TotalSubnetTAO<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultTotalSubnetTAO<T>>;
+    
     /// =================================
     /// ==== Axon / Promo Endpoints =====
     /// =================================
@@ -1277,8 +1287,6 @@ pub mod pallet {
 
                     // Update total issuance value
                     TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
-
-                    Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
                     next_uid += 1;
                 }

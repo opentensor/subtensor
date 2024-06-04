@@ -180,7 +180,7 @@ fn init_run_epochs(
         // let stake: u64 = 1; // alternative test: all nodes receive stake, should be same outcome, except stake
         SubtensorModule::add_balance_to_coldkey_account(&(U256::from(key)), stake);
         SubtensorModule::append_neuron(netuid, &(U256::from(key)), 0);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &U256::from(key),
             &U256::from(key),
             netuid,
@@ -562,7 +562,7 @@ fn test_1_graph() {
         SubtensorModule::set_global_stake_weight(0); // Set the stake weight to 100% on this subnet alone.
         SubtensorModule::set_max_allowed_uids(netuid, 1);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake_amount);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey,
             &hotkey,
             netuid,
@@ -615,7 +615,7 @@ fn test_10_graph() {
                 stake_amount,
                 SubtensorModule::get_subnetwork_n(netuid),
             );
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &coldkey,
                 &hotkey,
                 netuid,
@@ -880,7 +880,6 @@ fn test_4096_graph() {
                     0,
                     true,
                 );
-                assert_eq!(SubtensorModule::get_total_stake(), 21_000_000_000_000_000);
                 let bonds = SubtensorModule::get_bonds(netuid);
                 for uid in &validators {
                     assert_eq!(
@@ -1009,7 +1008,7 @@ fn test_bonds() {
 			SubtensorModule::add_balance_to_coldkey_account( &U256::from(key), max_stake );
 			let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number( netuid, block_number, key * 1_000_000, &U256::from(key));
 			assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-			SubtensorModule::increase_stake_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
+			SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account( &U256::from(key), &U256::from(key), netuid, stakes[key as usize] );
 		}
 		assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), n);
 		assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1317,7 +1316,7 @@ fn test_active_stake() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
@@ -1526,7 +1525,7 @@ fn test_outdated_weights() {
                 U256::from(key),
                 U256::from(key)
             ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &U256::from(key),
                 &U256::from(key),
                 netuid,
@@ -1714,7 +1713,7 @@ fn test_zero_weights() {
         }
         for validator in 0..(n / 2) as u64 {
             SubtensorModule::add_balance_to_coldkey_account(&U256::from(validator), stake);
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                 &U256::from(validator),
                 &U256::from(validator),
                 netuid,
@@ -1934,7 +1933,7 @@ fn test_validator_permits() {
                             U256::from(key),
                             U256::from(key)
                         ));
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                             &U256::from(key),
                             &U256::from(key),
                             netuid,
@@ -1969,7 +1968,7 @@ fn test_validator_permits() {
                             &(U256::from(*server as u64)),
                             2 * network_n as u64,
                         );
-                        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
                             &(U256::from(*server as u64)),
                             &(U256::from(*server as u64)),
                             netuid,
@@ -2003,7 +2002,8 @@ fn test_validator_permits() {
 #[test]
 fn test_get_stakes_division_by_zero_is_checked() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
         SubtensorModule::set_alpha_outstanding(1u16, 0);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
@@ -2017,7 +2017,8 @@ fn test_get_stakes_division_by_zero_is_checked() {
 #[test]
 fn test_gsw_1_subnet_1_hotkey_1_nominator_0_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
         let gsw = SubtensorModule::get_global_stake_weights(&hotkey_tuples);
@@ -2030,8 +2031,9 @@ fn test_gsw_1_subnet_1_hotkey_1_nominator_0_stake() {
 #[test]
 fn test_gsw_2_subnets_2_hotkeys_0_nominators_0_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
 
         let hotkey_tuples = vec![(0u16, U256::from(1)), (1u16, U256::from(2))];
         let gsw = SubtensorModule::get_global_stake_weights(&hotkey_tuples);
@@ -2045,7 +2047,8 @@ fn test_gsw_2_subnets_2_hotkeys_0_nominators_0_stake() {
 #[test]
 fn test_gsw_1_subnet_1_hotkey_1_nominator_1_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 1_000_000_000u64);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
@@ -2059,8 +2062,9 @@ fn test_gsw_1_subnet_1_hotkey_1_nominator_1_stake() {
 #[test]
 fn test_gsw_2_subnets_2_hotkeys_2_nominators_100_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(2u16, 2u16, 2u16, 100_000_000_000u64);
 
@@ -2076,7 +2080,8 @@ fn test_gsw_2_subnets_2_hotkeys_2_nominators_100_stake() {
 #[test]
 fn test_gsw_1_subnet_2_hotkeys_2_nominators_uneven_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 300_000_000_000u64);
 
@@ -2092,8 +2097,9 @@ fn test_gsw_1_subnet_2_hotkeys_2_nominators_uneven_stake() {
 #[test]
 fn test_gsw_2_subnets_2_hotkeys_2_nominators_uneven_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(2u16, 1u16, 2u16, 300_000_000_000u64);
 
@@ -2109,8 +2115,9 @@ fn test_gsw_2_subnets_2_hotkeys_2_nominators_uneven_stake() {
 #[test]
 fn test_gsw_2_subnets_2_hotkeys_2_nominators_uneven_cross_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 200_000_000_000u64);
         add_dynamic_stake(2u16, 1u16, 1u16, 300_000_000_000u64);
@@ -2128,7 +2135,8 @@ fn test_gsw_2_subnets_2_hotkeys_2_nominators_uneven_cross_stake() {
 #[test]
 fn test_lsw_1_subnet_1_hotkey_1_nominator_0_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
         let lsw1 = SubtensorModule::get_local_stake_weights(1, &hotkey_tuples);
@@ -2141,8 +2149,9 @@ fn test_lsw_1_subnet_1_hotkey_1_nominator_0_stake() {
 #[test]
 fn test_lsw_2_subnets_2_hotkeys_0_nominators_0_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
 
         let hotkey_tuples = vec![(0u16, U256::from(1)), (1u16, U256::from(2))];
         let lsw1 = SubtensorModule::get_local_stake_weights(1, &hotkey_tuples);
@@ -2160,7 +2169,8 @@ fn test_lsw_2_subnets_2_hotkeys_0_nominators_0_stake() {
 #[test]
 fn test_lsw_1_subnet_1_hotkey_1_nominator_1_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 1_000_000_000u64);
 
         let hotkey_tuples = vec![(0u16, U256::from(1))];
@@ -2174,8 +2184,9 @@ fn test_lsw_1_subnet_1_hotkey_1_nominator_1_stake() {
 #[test]
 fn test_lsw_2_subnets_2_hotkeys_2_nominators_100_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(2u16, 2u16, 2u16, 100_000_000_000u64);
 
@@ -2195,7 +2206,8 @@ fn test_lsw_2_subnets_2_hotkeys_2_nominators_100_stake() {
 #[test]
 fn test_lsw_1_subnet_2_hotkeys_2_nominators_uneven_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 300_000_000_000u64);
 
@@ -2211,8 +2223,9 @@ fn test_lsw_1_subnet_2_hotkeys_2_nominators_uneven_stake() {
 #[test]
 fn test_lsw_2_subnets_2_hotkeys_2_nominators_uneven_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(2u16, 1u16, 2u16, 300_000_000_000u64);
 
@@ -2232,8 +2245,9 @@ fn test_lsw_2_subnets_2_hotkeys_2_nominators_uneven_stake() {
 #[test]
 fn test_lsw_2_subnets_2_hotkeys_2_nominators_uneven_cross_stake() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 200_000_000_000u64);
         add_dynamic_stake(2u16, 1u16, 1u16, 300_000_000_000u64);
@@ -2255,8 +2269,9 @@ fn test_lsw_2_subnets_2_hotkeys_2_nominators_uneven_cross_stake() {
 #[test]
 fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_0_global() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
         add_dynamic_stake(1u16, 1u16, 2u16, 200_000_000_000u64);
         add_dynamic_stake(2u16, 1u16, 1u16, 300_000_000_000u64);
@@ -2278,8 +2293,9 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_0_global() 
 #[test]
 fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_1_global() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         SubtensorModule::set_global_stake_weight(u16::MAX);
 
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);
@@ -2303,8 +2319,9 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_1_global() 
 #[test]
 fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_05_global() {
     new_test_ext(1).execute_with(|| {
-        setup_dynamic_network(1u16, 1u16, 1u16);
-        setup_dynamic_network(2u16, 2u16, 2u16);
+        let lock_amount = 100_000_000_000;
+        setup_dynamic_network(1u16, 1u16, 1u16, lock_amount);
+        setup_dynamic_network(2u16, 2u16, 2u16, lock_amount);
         SubtensorModule::set_global_stake_weight(u16::MAX / 2);
 
         add_dynamic_stake(1u16, 1u16, 1u16, 100_000_000_000u64);

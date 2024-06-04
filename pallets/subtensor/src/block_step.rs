@@ -1,8 +1,16 @@
+use crate::types::SubnetType;
 use super::*;
 use sp_core::Get;
 use sp_std::vec::Vec;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
+
+struct SubnetBlockStepInfo {
+    netuid: u16,
+    subnet_type: SubnetType,
+    price: I64F64,
+    tao_staked: u64,
+}
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -138,169 +146,152 @@ impl<T: Config> Pallet<T> {
         tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
-    pub fn run_coinbase(block_number: u64) {
+    pub fn get_subnet_type(netuid: u16) -> SubnetType {
+        if Self::is_subnet_dynamic(netuid) { 
+            SubnetType::DTAO 
+        } else { 
+            SubnetType::STAO 
+        }
+    }
+
+    fn get_subnets() -> Vec<SubnetBlockStepInfo> {
         // Get all the network uids.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-
-
-        // Fill STAO params.
-        let mut stao_subnets: Vec<(u16, I64F64)> = Vec::new();
-        let mut stao_total_stake: I64F64 = I64F64::from_num(0.0); 
-        for netuid in netuids.iter() {
-            if *netuid == Self::get_root_netuid() { continue }
-            if !Self::is_subnet_dynamic(*netuid) {
-                // The subnet is STAO, record the total subnet stake.
-                let stao_stake_i: I64F64 = I64F64::from_num( Self::get_total_stake_on_subnet(*netuid) );
-                stao_subnets.push((*netuid, stao_stake_i));
-                stao_total_stake += stao_stake_i;
+        Self::get_all_subnet_netuids().iter().map(|&netuid| {
+            let dynamic = Self::is_subnet_dynamic(netuid);
+            SubnetBlockStepInfo {
+                netuid: netuid,
+                subnet_type: Self::get_subnet_type(netuid),
+                price: {
+                    if netuid == Self::get_root_netuid() {
+                        I64F64::from_num(0.0)
+                    } else if !dynamic {
+                        I64F64::from_num(0.0)
+                    } else {
+                        Self::get_tao_per_alpha_price(netuid)
+                    }
+                },
+                tao_staked: TotalSubnetTAO::<T>::get(netuid),
             }
-        }
+        }).collect()
+    }
 
-        // Fill DTAO params
-        let mut dtao_subnets: Vec<(u16, I64F64)> = Vec::new();
-        let mut dtao_total_prices: I64F64 = I64F64::from_num(0.0);
-        let mut dtao_total_reserves: I64F64 = I64F64::from_num(0.0);
-        for netuid in netuids.iter() {
-            // If the subnet is root skip
-            if *netuid == Self::get_root_netuid() { continue; }
-            if Self::is_subnet_dynamic(*netuid) {
-                let reserve_i: I64F64 = I64F64::from_num( Self::get_tao_reserve(*netuid) );
-                dtao_total_prices += Self::get_tao_per_alpha_price(*netuid);
-                dtao_subnets.push((*netuid, reserve_i));
-                dtao_total_reserves += reserve_i;
-            } 
-        }
+    pub fn run_coinbase(block_number: u64) {
+        // Compute and fill the prices from all subnets.
+        let mut subnets = Self::get_subnets();
+        let total_prices: I64F64 = subnets.iter().map(|subnet_info| subnet_info.price).sum();
 
-        // Check that there are subnets available for emission.
-        // Other wise there is no block emission on bittensor.
-        let total_live_subnets: usize = stao_subnets.len() + dtao_subnets.len();
-        if total_live_subnets == 0 {
-            // If there are no subnets, the emission is 0.
-            return;
-        }
+        // Compute total TAO staked across all subnets
+        let total_tao_staked: u64 = subnets.iter().map(|subnet_info| subnet_info.tao_staked).sum();
 
-        // Determine STAO <--> DTAO emission split. 
-        let block_emission: I64F64 = I64F64::from_num( Self::get_block_emission().unwrap() );
-        let stao_subnet_proportion: I64F64 = I64F64::from_num( stao_subnets.len() ) / I64F64::from_num( total_live_subnets );
-        let dtao_subnet_proportion: I64F64 = I64F64::from_num( dtao_subnets.len() ) / I64F64::from_num( total_live_subnets );
-        let stao_emission: I64F64 = block_emission * stao_subnet_proportion;
-        let dtao_emission: I64F64 = block_emission * dtao_subnet_proportion;
+        // Compute emission per subnet as [p.tao_in/sum_tao for p in pools]
+        let total_block_emission = Self::get_block_emission().unwrap_or(0);
+        let total_block_emission_i64f64: I64F64 = I64F64::from_num(total_block_emission);
 
+        if total_tao_staked != 0 {
+            subnets.iter_mut().for_each(|subnet_info| {
+                let subnet_proportion: I64F64 = I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked);
+                let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
+                let subnet_block_emission = emission_i64f64.to_num();
+                EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
+                // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
+                PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
+    
+                match subnet_info.subnet_type {
+                    SubnetType::DTAO => {
+                        // Condition the inflation of TAO and alpha based on the sum of the prices.
+                        // This keeps the market caps of ALPHA subsumed by TAO.
+                        let tao_in: u64; // The total amount of TAO emitted this block into all pools.
+                        let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
+                        if total_prices <= I64F64::from_num(1.0) {
+                            // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
+                            tao_in = subnet_block_emission;
+                            alpha_in = 0;
+                        } else {
+                            // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
+                            tao_in = 0;
+                            alpha_in = subnet_block_emission; // 10^9 rao
+                        }
 
-        // Emit to STAO subnets.
-        // If there are STAO subnets with non-zero stake we compute their emission scores.
-        if stao_total_stake != I64F64::from_num(0.0) && stao_subnets.len() != 0 {
-            for (netuid, subnet_stake) in stao_subnets.iter() {
-                // Compute the subnet normalized stake.
-                let normalized_subnet_stake: I64F64 = subnet_stake / I64F64::from_num( stao_total_stake );
-                // Compute the emission based on the stake normalized.
-                let subnet_tao_emission: I64F64 = stao_emission * normalized_subnet_stake;
-                // Insert the emission value in the emission values table.
-                EmissionValues::<T>::insert( *netuid, subnet_tao_emission.to_num::<u64>() );
-                // Insert the pending emission as alpha emission.
-                PendingEmission::<T>::insert(netuid, subnet_tao_emission.to_num::<u64>());
-            }
-        }
+                        if tao_in > 0 {
+                            // Increment total TAO on subnet
+                            TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(tao_in));
 
-        // Emit to DTAO subnets
-        // If there are DTAO subnets with non-zero stake we compute their emission scores.
-        if dtao_total_prices != I64F64::from_num(0.0) && dtao_subnets.len() != 0 {
-            for (netuid, subnet_reserve) in dtao_subnets.iter() {
-                // Compute the subnet normalized reserve.
-                let normalized_subnet_reserve: I64F64 = subnet_reserve / I64F64::from_num( dtao_total_reserves );
-                // Compute the emission based on the reserve normalized.
-                let subnet_tao_emission: I64F64 = dtao_emission * normalized_subnet_reserve;
-                // Get alpha side emission
-                let subnet_alpha_emission: I64F64 = I64F64::from_num( Self::get_block_emission().unwrap() );
-                // Insert the emission value into the emission values table.
-                EmissionValues::<T>::insert( *netuid, subnet_tao_emission.to_num::<u64>() );
-                // Now add values to the pools.
-                if dtao_total_prices <= dtao_subnet_proportion {
-                    // If prices are less than dtao/stao ratio, we inject TAO in the pools.
-                    // Increment the pools tao reserve based on the block emission.
-                    DynamicTAOReserve::<T>::mutate(netuid, |reserve| *reserve += subnet_tao_emission.to_num::<u64>());
-                    // Increment the total stake in this subnet also, since this is equal in DTAO.
-                    TotalSubnetStake::<T>::mutate(netuid, |substake| *substake += subnet_tao_emission.to_num::<u64>());
-                    // Increment the total issuance of TAO here since it has been minted here and is available 
-                    // for others to withdraw.
-                    TotalIssuance::<T>::mutate(|issuance| *issuance += subnet_tao_emission.to_num::<u64>());
-                } else {
-                    // If prices are below the dtao_subnet_proportion.
-                    // Increment the pools alpha reserve based on the alpha in emission.
-                    DynamicAlphaReserve::<T>::mutate(netuid, |reserve| *reserve += subnet_alpha_emission.to_num::<u64>());
+                            // Increment the pools tao reserve based on the block emission.
+                            DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+                        }
 
-                    // Increment the total supply of alpha because we just added some to the reserve.
-                    DynamicAlphaIssuance::<T>::mutate(netuid, |issuance| *issuance += subnet_alpha_emission.to_num::<u64>());
+                        if alpha_in > 0 {
+                            // Increment the pools alpha reserve based on the alpha in emission.
+                            DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
+
+                            // Increment the total supply of alpha because we just added some to the reserve.
+                            DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+                        }
+        
+                        // Recalculate the Dynamic K value for the new pool.
+                        DynamicK::<T>::insert(
+                            subnet_info.netuid,
+                            (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
+                                * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
+                        );
+                    },
+                    SubnetType::STAO => {
+                        TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                    }
                 }
-                // Increment the amount of alpha that is waiting to be distributed through Yuma Consensus.
-                PendingAlphaEmission::<T>::mutate(netuid, |emission| *emission += subnet_alpha_emission.to_num::<u64>() );
+            });
+    
+            ////////////////////////////////
+            // run epochs.
+            subnets.iter_mut().for_each(|subnet_info| {
+                // Check to see if this network has reached tempo.
+                let tempo: u16 = Self::get_tempo(subnet_info.netuid);
+                if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
+                    // Get the pending emission issuance to distribute for this subnet
+                    let emission = PendingEmission::<T>::get(subnet_info.netuid);
+    
+                    // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
+                    let emission_tuples: Vec<(T::AccountId, u64, u64)> =
+                        Self::epoch(subnet_info.netuid, emission);
+    
+                    // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
+                    // as well as all nominators.
+                    for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
+                        Self::emit_inflation_through_hotkey_account(
+                            &hotkey,
+                            subnet_info.netuid,
+                            *server_amount,
+                            *validator_amount,
+                        );
+                    }
+    
+                    // Drain pending emission and update dynamic pools
+                    PendingEmission::<T>::insert(subnet_info.netuid, 0);
 
-                // Recalculate the Dynamic K value for the new pool.
-                DynamicK::<T>::insert(
-                    netuid,
-                    (DynamicTAOReserve::<T>::get(netuid) as u128)
-                        * (DynamicAlphaReserve::<T>::get(netuid) as u128),
-                );
-            }
-        }
-
-
-        // Iterate over network and run epochs.
-        for netuid in netuids.iter() {
-            // Check to see if this network has reached tempo.
-            let tempo: u16 = Self::get_tempo(*netuid);
-            if Self::blocks_until_next_epoch(*netuid, tempo, block_number) == 0 {
-
-                // If the subnet is dynamic we get the subnet's alpha emission.
-                // This check is essential incase a subnet moves from dtao --> stao or vice versa.
-                let subnet_emission: u64;
-                if Self::is_subnet_dynamic(*netuid) {
-                    // Get the pending emission issuance to distribute for this subnet in alpha.
-                    subnet_emission = PendingAlphaEmission::<T>::get(netuid);
+                    // Increase subnet totals
+                    match subnet_info.subnet_type {
+                        SubnetType::DTAO => {
+                            // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
+                            DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
+                            // Also increment the total amount of alpha in total everywhere.
+                            DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
+                        },
+                        SubnetType::STAO => {},
+                    }
+    
+                    // Some other counters for accounting.
+                    Self::set_blocks_since_last_step(subnet_info.netuid, 0);
+                    Self::set_last_mechanism_step_block(subnet_info.netuid, block_number);
                 } else {
-                    // Get the pending emission issuance to distribute for this subnet in TAO.
-                    subnet_emission = PendingEmission::<T>::get(netuid);
-                }
-
-                // Run the epoch mechanism and return emission tuples for hotkeys in the network.
-                let emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::epoch( *netuid, subnet_emission );
-
-                // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
-                // as well as all nominators.
-                for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
-                    Self::emit_inflation_through_hotkey_account(
-                        &hotkey,
-                        *netuid,
-                        *server_amount,
-                        *validator_amount,
+                    Self::set_blocks_since_last_step(
+                        subnet_info.netuid,
+                        Self::get_blocks_since_last_step(subnet_info.netuid) + 1,
                     );
                 }
-
-                // Drain the pending emission issuance for this subnet.
-                PendingEmission::<T>::insert(netuid, 0);
-
-                // Switching here on dtao stao. If the subnet is DTAO then the emission is in alpha.
-                // If the subnet is STAO then the emission is in terms of TAO.
-                if Self::is_subnet_dynamic(*netuid) {
-                    // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
-                    DynamicAlphaOutstanding::<T>::mutate( netuid, |reserve| *reserve += subnet_emission );
-                    // Also increment the total amount of alpha in total everywhere.
-                    DynamicAlphaIssuance::<T>::mutate( netuid, |issuance| *issuance += subnet_emission );
-                } else {
-                    // Update the total issuance here since it has become available here.
-                    TotalIssuance::<T>::mutate(|issuance| *issuance += subnet_emission);
-                }
-
-                // Some other counters for accounting.
-                Self::set_blocks_since_last_step(*netuid, 0);
-                Self::set_last_mechanism_step_block(*netuid, block_number);
-            } else {
-                Self::set_blocks_since_last_step(
-                    *netuid,
-                    Self::get_blocks_since_last_step(*netuid) + 1,
-                );
-                continue;
-            }
+            });
+    
+            // Increment the total amount of TAO in existence based on the total tao_in
+            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(total_block_emission));
         }
     }
 
@@ -343,12 +334,12 @@ impl<T: Config> Pallet<T> {
         // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
         if !Self::hotkey_is_delegate(delegate) {
             let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_stake_on_hotkey_account(delegate, netuid, total_delegate_emission);
+            Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
             let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
             let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
             Self::add_balance_to_coldkey_account(
                 &coldkey,
-                Self::u64_to_balance(tao_server_emission).unwrap(),
+                tao_server_emission,
             );
             return;
         }
@@ -373,8 +364,7 @@ impl<T: Config> Pallet<T> {
         );
 
         if delegate_local_stake + delegate_global_dynamic_tao != 0 {
-            Stake::<T>::iter_prefix(delegate)
-                .filter(|(_, stake)| *stake > 0)
+            Staker::<T>::iter_prefix(delegate)
                 .for_each(|(nominator_i, _)| {
                     // 3.a Compute the stake weight percentage for the nominatore weight.
                     let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey(
@@ -424,7 +414,7 @@ impl<T: Config> Pallet<T> {
                         nominator_local_emission_i
                     );
                     residual -= nominator_emission_u64;
-                    Self::increase_stake_on_coldkey_hotkey_account(
+                    Self::increase_subnet_token_on_coldkey_hotkey_account(
                         &nominator_i,
                         delegate,
                         netuid,
@@ -440,12 +430,12 @@ impl<T: Config> Pallet<T> {
             "total_delegate_emission: {:?}",
             delegate_take_u64 + server_emission
         );
-        Self::increase_stake_on_hotkey_account(delegate, netuid, total_delegate_emission);
+        Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
         let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
         let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
         Self::add_balance_to_coldkey_account(
             &coldkey,
-            Self::u64_to_balance(tao_server_emission).unwrap(),
+            tao_server_emission,
         );
     }
 

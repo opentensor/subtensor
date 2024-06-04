@@ -95,7 +95,7 @@ impl<T: Config> Pallet<T> {
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
         let registration_cost_as_u64 = Self::get_burn_as_u64(netuid);
-        let registration_cost_as_balance = Self::u64_to_balance(registration_cost_as_u64).unwrap();
+        let registration_cost_as_balance = registration_cost_as_u64;
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance),
             Error::<T>::NotEnoughBalanceToStake
@@ -625,7 +625,7 @@ impl<T: Config> Pallet<T> {
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = 1_000_000_000u64;
-        let swap_cost_as_balance = Self::u64_to_balance(swap_cost).unwrap();
+        let swap_cost_as_balance = swap_cost;
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
@@ -660,16 +660,16 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(2));
         }
 
-        let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
-        for (coldkey, stake_amount) in Stake::<T>::iter_prefix(old_hotkey) {
-            coldkey_stake.push((coldkey.clone(), stake_amount));
+        let mut coldkey_stake: Vec<(T::AccountId, bool)> = vec![];
+        for (coldkey, is_staker) in Staker::<T>::iter_prefix(old_hotkey) {
+            coldkey_stake.push((coldkey.clone(), is_staker));
         }
 
-        let _ = Stake::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
+        let _ = Staker::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
         weight.saturating_accrue(T::DbWeight::get().writes(coldkey_stake.len() as u64));
 
         for (coldkey, stake_amount) in coldkey_stake {
-            Stake::<T>::insert(new_hotkey, coldkey, stake_amount);
+            Staker::<T>::insert(new_hotkey, coldkey, stake_amount);
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 

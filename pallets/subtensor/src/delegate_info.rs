@@ -3,7 +3,6 @@ use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use sp_core::{hexdisplay::AsBytesRef, Get};
 use substrate_fixed::types::U64F64;
-use sp_std::vec;
 use sp_std::vec::Vec;
 
 extern crate alloc;
@@ -54,25 +53,17 @@ impl<T: Config> Pallet<T> {
         }
         let hotkey: AccountIdOf<T> =
             T::AccountId::decode(&mut hotkey_bytes.as_bytes_ref()).unwrap();
-        let mut response: Vec<SubStakeElement<T>> = vec![];
-        Self::get_all_subnet_netuids()
-            .into_iter()
-            .for_each(|netuid_i| {
-                Stake::<T>::iter_prefix(hotkey.clone()).for_each(|(coldkey_i, _)| {
-                    let stake_i = Self::get_subnet_stake_for_coldkey_and_hotkey(
-                        &coldkey_i, &hotkey, netuid_i,
-                    );
-                    if stake_i != 0 {
-                        response.push(SubStakeElement {
-                            hotkey: hotkey.clone(),
-                            coldkey: coldkey_i,
-                            netuid: netuid_i.into(),
-                            stake: stake_i.into(),
-                        });
-                    }
-                })
-            });
-        response
+        let coldkey = Self::get_owning_coldkey_for_hotkey(&hotkey);
+
+        SubStake::<T>::iter_prefix((&coldkey, &hotkey))
+            .map(|(netuid, stake)| {
+                SubStakeElement {
+                    hotkey: hotkey.clone(),
+                    coldkey: coldkey.clone(),
+                    netuid: Compact(netuid),
+                    stake: Compact(stake),
+                }
+            }).collect()
     }
 
     /// Returns all `SubStakeElement` instances associated with a given coldkey.
@@ -182,18 +173,17 @@ impl<T: Config> Pallet<T> {
 
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
-        for (nominator, _) in Stake::<T>::iter_prefix(delegate.clone()) {
+        let nominators = 
+        Staker::<T>::iter_prefix(&delegate).map(|(nominator, _)| {
             let mut total_staked_to_delegate_i: u64 = 0;
             for netuid_i in all_netuids.iter() {
                 total_staked_to_delegate_i +=
                     Self::get_subnet_stake_for_coldkey_and_hotkey(&nominator, &delegate, *netuid_i);
             }
-            if total_staked_to_delegate_i == 0 {
-                continue;
-            }
-            nominators.push((nominator.clone(), total_staked_to_delegate_i.into()));
-        }
+            (nominator, total_staked_to_delegate_i)
+        }).filter(|(_nominator, total_staked_to_delegate)| *total_staked_to_delegate != 0)
+        .map(|(nominator, total_staked_to_delegate_i)| (nominator, Compact(total_staked_to_delegate_i)))
+        .collect();
         let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
         let mut validator_permits = Vec::<Compact<u16>>::new();
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);

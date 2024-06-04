@@ -237,9 +237,6 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
     }
-    pub fn get_alpha_pending_emission(netuid: u16) -> u64 {
-        PendingEmission::<T>::get(netuid)
-    }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
     }
@@ -360,7 +357,6 @@ impl<T: Config> Pallet<T> {
         SubnetLocked::<T>::get(netuid)
     }
 
-
     // ===========================
     // ========= Staking =========
     // ===========================
@@ -371,9 +367,9 @@ impl<T: Config> Pallet<T> {
         hotkey: &T::AccountId,
         coldkey: &T::AccountId,
     ) -> u64 {
-        Stake::<T>::try_get(hotkey, coldkey).unwrap_or(0)
+        SubStake::<T>::iter_prefix((coldkey, hotkey))
+            .fold(0, |sum, (_, stake)| sum + stake)
     }
-
 
     // ========================
     // ========= Sudo =========

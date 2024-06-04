@@ -231,19 +231,19 @@ fn test_replace_neuron_multiple_subnets_unstake_all() {
         assert_ok!(neuron_uid);
 
         // Stake on neuron with multiple coldkeys.
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey_account_id,
             &hotkey_account_id,
             netuid,
             stake_amount,
         );
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey_account1_id,
             &hotkey_account_id,
             netuid,
             stake_amount + 1,
         );
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
             &coldkey_account2_id,
             &hotkey_account_id,
             netuid,
