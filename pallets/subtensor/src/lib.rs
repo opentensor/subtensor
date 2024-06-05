@@ -947,6 +947,10 @@ pub mod pallet {
         }, // Event created when a hotkey is swapped
         MaxDelegateTakeSet(u16), // Event emitted when maximum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16), // Event emitted when minimum delegate take is set by sudo/admin transaction
+        SenateAdjusted {
+            old_member: Option<T::AccountId>,
+            new_member: T::AccountId,
+        }, // Event emitted when a member of the senate is adjusted
     }
 
     // Errors inform users that something went wrong.
@@ -1014,7 +1018,9 @@ pub mod pallet {
         NoNeuronIdAvailable, // -- Thrown when no neuron id is available
         /// Thrown a stake would be below the minimum threshold for nominator validations
         NomStakeBelowMinimumThreshold,
-        InvalidTake, // --- Thrown when delegate take is being set out of bounds
+        InvalidTake,          // --- Thrown when delegate take is being set out of bounds
+        StakeTooLowForSenate, // --- Thrown when a hotkey attempts to join the senate with less stake than the lowest incumbent.
+        CouldNotJoinSenate,   // --- Thrown when we cannot join the Senate for whatever reason.
     }
 
     // ==================
