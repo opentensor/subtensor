@@ -17,7 +17,7 @@
 
 use super::*;
 use crate::math::*;
-use crate::types::SubnetType;
+use crate::types::{SubnetType, SubnetTransition};
 use frame_support::dispatch::Pays;
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
@@ -967,4 +967,161 @@ impl<T: Config> Pallet<T> {
     pub fn get_lock_reduction_interval() -> u64 {
         NetworkLockReductionInterval::<T>::get()
     }
+
+    pub fn do_start_stao_dtao_transition(
+        coldkey: T::AccountId,
+        netuid: u16,
+    ) -> DispatchResult {
+        // Ensure this subnet exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        // Ensure the caller owns this subnet.
+        ensure!(
+            SubnetOwner::<T>::get(netuid) == coldkey,
+            Error::<T>::NotSubnetOwner
+        );
+
+        // Ensure the network is of STAO type.
+        ensure!(
+            Self::get_subnet_type(netuid) == SubnetType::STAO,
+            Error::<T>::CannotBeConverted
+        );
+
+        // Ensure that owner has stake in this subnet
+        let subnet_creator = SubnetCreator::<T>::get(netuid);
+        let owner_stake = SubStake::<T>::get((&coldkey, &subnet_creator, netuid));
+        ensure!(
+            owner_stake >= NominatorMinRequiredStake::<T>::get(),
+            Error::<T>::NotEnoughBalanceToStake
+        );
+
+        // Ensure another transition for this subnet is not already in progress
+        ensure!(
+            SubnetInTransition::<T>::get(netuid).is_none(),
+            Error::<T>::TranstinioAlreadyInProgress
+        );
+
+        // All looks good: Add the starting transition record for this subnet
+        SubnetInTransition::<T>::insert(
+            netuid,
+            SubnetTransition {
+                substake_current_key: SubStake::<T>::iter_keys().next(),
+                owner_stake_tao: owner_stake,
+                coldkey: coldkey,
+                hotkey: subnet_creator,
+            }
+        );
+
+        Ok(())
+    }
+
+    pub fn do_continue_stao_dtao_transition(
+        netuid: u16,
+        weight_limit: bool,
+    ) -> Weight {
+        let max_block_weight = T::BlockWeights::get().max_block;
+        let mut weight = T::DbWeight::get().reads_writes(1, 0);
+
+        // Check if there's any pending emission for this subnet
+        // If there is, don't proceed. We need to wait until it is drained.
+        if PendingEmission::<T>::get(netuid) != 0 {
+            return weight;
+        }
+
+        // Get current SubnetTransition
+        if let Some(mut transition) = SubnetInTransition::<T>::get(netuid) {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+
+            // SubStake can change for other subnets => no guarantees for iteration from a key
+            // We should run this loop multiple times until TotalSubnetTAO is 0.
+            while let Some(substake_key) = transition.substake_current_key {
+                // Remove stake from state maps (including TotalSubnetTAO)
+                let stake = SubStake::<T>::get(&substake_key);
+                Self::do_remove_stake_no_checks(
+                    &substake_key.0,
+                    &substake_key.1,
+                    netuid,
+                    stake,
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(5, 5));
+
+                // Continue iteration
+                if let Some(key) = SubStake::<T>::iter_keys_from(substake_key.encode()).next() {
+                    transition.substake_current_key = Some(key);
+                } else {
+                    // Start over because we are not guaranteed to go over all keys: 
+                    // SubStake is changing as we do this iteration
+                    transition.substake_current_key = SubStake::<T>::iter_keys().next();
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+                }
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+
+                // See if we can stop because we unstaked everyone
+                if TotalSubnetTAO::<T>::get(netuid) == 0 {
+                    let complete_weight = Self::do_complete_stao_dtao_transition(netuid, &transition);
+                    weight.saturating_accrue(complete_weight);
+                    return weight;
+                }
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+
+                // See if we have to stop because of weight. 
+                // Do not allow this to take more than ~10% of block by compute time
+                if weight_limit && weight.ref_time() >= max_block_weight.ref_time() / 10 {
+                    break;
+                }
+            }
+    
+            SubnetInTransition::<T>::insert(
+                netuid,
+                transition,
+            );
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+        }
+
+        weight
+    }
+
+    fn do_complete_stao_dtao_transition(
+        netuid: u16,
+        transition: &SubnetTransition<T::AccountId>,
+    ) -> Weight {
+        // Remove transition record
+        SubnetInTransition::<T>::remove(netuid);
+
+        // Initialize dynamic variables
+        let lock_amount = transition.owner_stake_tao;
+        let actual_lock_amount = Self::remove_balance_from_coldkey_account(&transition.coldkey, lock_amount).unwrap_or(0);
+
+        let num_subnets = Self::get_num_subnets() as u64;
+        let initial_tao_reserve: u64 = lock_amount as u64;
+        let initial_dynamic_reserve: u64 = lock_amount * num_subnets;
+        let initial_dynamic_outstanding: u64 = lock_amount * num_subnets;
+        let initial_dynamic_k: u128 =
+            (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
+
+        DynamicTAOReserve::<T>::insert(netuid, initial_tao_reserve);
+        DynamicAlphaReserve::<T>::insert(netuid, initial_dynamic_reserve);
+        DynamicAlphaOutstanding::<T>::insert(netuid, initial_dynamic_outstanding);
+        DynamicK::<T>::insert(netuid, initial_dynamic_k);
+        IsDynamic::<T>::insert(netuid, true);
+        TotalSubnetTAO::<T>::insert(netuid, actual_lock_amount);
+
+        // Re-stake subnet owner
+        Self::increase_subnet_token_on_coldkey_hotkey_account(
+            &transition.coldkey,
+            &transition.hotkey,
+            netuid,
+            initial_dynamic_outstanding,
+        );
+
+        // Reset subnet tempo
+        Tempo::<T>::insert(netuid, T::InitialTempo::get());
+
+        T::DbWeight::get().reads_writes(2, 12)
+    }
+
+
 }

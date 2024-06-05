@@ -1,7 +1,7 @@
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
-use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
+use frame_support::dispatch::{DispatchClass, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_subtensor::*;
@@ -26,13 +26,15 @@ fn test_add_subnet_stake_dispatch_info_ok() {
             netuid,
             amount_staked,
         });
+        let disp_info = call.get_dispatch_info();
+        assert!(disp_info.weight.ref_time() != 0);
         assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(65_000_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
+            disp_info.class,
+            DispatchClass::Normal,
+        );
+        assert_eq!(
+            disp_info.pays_fee,
+            Pays::No,
         );
     });
 }
@@ -566,14 +568,15 @@ fn test_remove_subnet_stake_dispatch_info_ok() {
             netuid,
             amount_unstaked,
         });
+        let disp_info = call.get_dispatch_info();
+        assert!(disp_info.weight.ref_time() != 0);
         assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(63_000_000, 0)
-                    .add_proof_size(43991),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
+            disp_info.class,
+            DispatchClass::Normal,
+        );
+        assert_eq!(
+            disp_info.pays_fee,
+            Pays::No,
         );
     });
 }

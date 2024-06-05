@@ -1,11 +1,12 @@
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
-use frame_system as system;
+use frame_system::{self as system, Config};
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
@@ -89,7 +90,7 @@ impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
@@ -480,6 +481,44 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
+    let coldkey1 = U256::from(1);
+    let hotkey1 = U256::from(1);
+    let coldkey2 = U256::from(2);
+    let hotkey2 = U256::from(2);
+    SubtensorModule::add_balance_to_coldkey_account(&coldkey1, lock_amount + ExistentialDeposit::get());
+    SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake + ExistentialDeposit::get());
+    SubtensorModule::set_max_registrations_per_block(netuid, 4);
+    SubtensorModule::set_max_allowed_uids(netuid, 10);
+
+    add_network(netuid, 0, 0);
+    pallet_subtensor::SubnetCreator::<Test>::insert(netuid, hotkey1);
+    pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey1);
+
+    register_ok_neuron(netuid, hotkey1, coldkey1, 124124);
+    register_ok_neuron(netuid, hotkey2, coldkey2, 987907);
+
+    SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
+        &coldkey1,
+        &hotkey1,
+        netuid,
+        lock_amount,
+    );
+    pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid, lock_amount);
+
+    assert_ok!(SubtensorModule::do_become_delegate(
+        <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+        hotkey1
+    ));
+    assert_ok!(SubtensorModule::add_subnet_stake(
+        <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+        hotkey1,
+        netuid,
+        stake
+    ));
 }
 
 #[allow(dead_code)]

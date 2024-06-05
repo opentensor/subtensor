@@ -67,6 +67,7 @@ pub mod migration;
 #[frame_support::pallet]
 pub mod pallet {
 
+    use crate::types::SubnetTransition;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -1162,6 +1163,15 @@ pub mod pallet {
         Vec<(u16, u16)>,
         ValueQuery,
         DefaultBonds<T>,
+    >;
+
+    // --- MAP ( netuid ) --> SubnetTransition. If present, then subnet is in the state of type transition (e.g. stao -> dtao)
+    #[pallet::storage]
+    pub type SubnetInTransition<T: Config> = StorageMap<
+        Hasher = Identity,
+        Key = u16,
+        Value = SubnetTransition<T::AccountId>,
+        QueryKind = OptionQuery,
     >;
 
     /// ==================

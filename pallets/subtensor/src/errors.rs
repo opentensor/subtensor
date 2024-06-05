@@ -130,5 +130,11 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// This subnet cannot be converted to DTAO
+        CannotBeConverted,
+        /// Subnet type transition is already in progress
+        TranstinioAlreadyInProgress,
+        /// Operation is temporarily not allowed
+        TemporarilyNotAllowed,
     }
 }

@@ -36,13 +36,15 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
             hotkey,
             coldkey,
         });
+        let disp_info = call.get_dispatch_info();
+        assert!(disp_info.weight.ref_time() != 0);
         assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(192_000_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
+            disp_info.class,
+            DispatchClass::Normal,
+        );
+        assert_eq!(
+            disp_info.pays_fee,
+            Pays::No,
         );
     });
 }

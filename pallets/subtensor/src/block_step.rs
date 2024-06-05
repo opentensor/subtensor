@@ -10,6 +10,7 @@ struct SubnetBlockStepInfo {
     subnet_type: SubnetType,
     price: I64F64,
     tao_staked: u64,
+    transition_in_progress: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -171,6 +172,7 @@ impl<T: Config> Pallet<T> {
                     }
                 },
                 tao_staked: TotalSubnetTAO::<T>::get(netuid),
+                transition_in_progress: SubnetInTransition::<T>::get(netuid).is_some(),
             }
         }).collect()
     }
@@ -189,54 +191,56 @@ impl<T: Config> Pallet<T> {
 
         if total_tao_staked != 0 {
             subnets.iter_mut().for_each(|subnet_info| {
-                let subnet_proportion: I64F64 = I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked);
-                let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
-                let subnet_block_emission = emission_i64f64.to_num();
-                EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
-                // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
-                PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
-    
-                match subnet_info.subnet_type {
-                    SubnetType::DTAO => {
-                        // Condition the inflation of TAO and alpha based on the sum of the prices.
-                        // This keeps the market caps of ALPHA subsumed by TAO.
-                        let tao_in: u64; // The total amount of TAO emitted this block into all pools.
-                        let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
-                        if total_prices <= I64F64::from_num(1.0) {
-                            // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
-                            tao_in = subnet_block_emission;
-                            alpha_in = 0;
-                        } else {
-                            // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
-                            tao_in = 0;
-                            alpha_in = subnet_block_emission; // 10^9 rao
-                        }
-
-                        if tao_in > 0 {
-                            // Increment total TAO on subnet
-                            TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(tao_in));
-
-                            // Increment the pools tao reserve based on the block emission.
-                            DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
-                        }
-
-                        if alpha_in > 0 {
-                            // Increment the pools alpha reserve based on the alpha in emission.
-                            DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
-
-                            // Increment the total supply of alpha because we just added some to the reserve.
-                            DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
-                        }
+                if !subnet_info.transition_in_progress {
+                    let subnet_proportion: I64F64 = I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked);
+                    let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
+                    let subnet_block_emission = emission_i64f64.to_num();
+                    EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
+                    // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
+                    PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
         
-                        // Recalculate the Dynamic K value for the new pool.
-                        DynamicK::<T>::insert(
-                            subnet_info.netuid,
-                            (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
-                                * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
-                        );
-                    },
-                    SubnetType::STAO => {
-                        TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                    match subnet_info.subnet_type {
+                        SubnetType::DTAO => {
+                            // Condition the inflation of TAO and alpha based on the sum of the prices.
+                            // This keeps the market caps of ALPHA subsumed by TAO.
+                            let tao_in: u64; // The total amount of TAO emitted this block into all pools.
+                            let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
+                            if total_prices <= I64F64::from_num(1.0) {
+                                // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
+                                tao_in = subnet_block_emission;
+                                alpha_in = 0;
+                            } else {
+                                // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
+                                tao_in = 0;
+                                alpha_in = subnet_block_emission; // 10^9 rao
+                            }
+
+                            if tao_in > 0 {
+                                // Increment total TAO on subnet
+                                TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(tao_in));
+
+                                // Increment the pools tao reserve based on the block emission.
+                                DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+                            }
+
+                            if alpha_in > 0 {
+                                // Increment the pools alpha reserve based on the alpha in emission.
+                                DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
+
+                                // Increment the total supply of alpha because we just added some to the reserve.
+                                DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+                            }
+            
+                            // Recalculate the Dynamic K value for the new pool.
+                            DynamicK::<T>::insert(
+                                subnet_info.netuid,
+                                (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
+                                    * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
+                            );
+                        },
+                        SubnetType::STAO => {
+                            TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                        }
                     }
                 }
             });

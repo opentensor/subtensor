@@ -2,10 +2,10 @@
 
 pub use pallet::*;
 pub mod weights;
+use sp_weights::Weight;
 pub use weights::WeightInfo;
 
-use sp_runtime::DispatchError;
-use sp_runtime::{traits::Member, RuntimeAppPublic};
+use sp_runtime::{DispatchError, DispatchResult, traits::Member, RuntimeAppPublic};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -1024,6 +1024,20 @@ pub mod pallet {
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
+
+        /// Change subnet type (from stao to dtao)
+        #[pallet::call_index(51)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn change_network_type(
+            origin: OriginFor<T>,
+            owner: T::AccountId,
+            netuid: u16
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::do_start_stao_dtao_transition(owner, netuid)?;
+            T::Subtensor::do_continue_stao_dtao_transition(netuid, false);
+            Ok(())
+        }
     }
 }
 
@@ -1122,4 +1136,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
+    fn do_start_stao_dtao_transition(owner: AccountId, netuid: u16) -> DispatchResult;
+    fn do_continue_stao_dtao_transition(netuid: u16, weight_limit: bool) -> Weight;
 }
