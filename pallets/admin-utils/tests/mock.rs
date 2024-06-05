@@ -10,8 +10,9 @@ use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, DispatchError,
+    BuildStorage, DispatchError, DispatchResult,
 };
+use sp_weights::Weight;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -478,6 +479,18 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn do_start_stao_dtao_transition(netuid: u16) -> DispatchResult {
+        SubtensorModule::do_start_stao_dtao_transition(netuid)
+    }
+
+    fn do_continue_stao_dtao_transition() -> Weight {
+        SubtensorModule::do_continue_stao_dtao_transition()
+    }
+
+    fn get_pending_emission(netuid: u16) -> u64 {
+        SubtensorModule::get_pending_emission(netuid)
     }
 }
 

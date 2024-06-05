@@ -137,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 201,
+    spec_version: 202,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1160,12 +1160,16 @@ impl
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
     }
 
-    fn do_start_stao_dtao_transition(owner: AccountId, netuid: u16) -> DispatchResult {
-        SubtensorModule::do_start_stao_dtao_transition(owner, netuid)
+    fn do_start_stao_dtao_transition(netuid: u16) -> DispatchResult {
+        SubtensorModule::do_start_stao_dtao_transition(netuid)
     }
 
-    fn do_continue_stao_dtao_transition(netuid: u16, weight_limit: bool) -> Weight {
-        SubtensorModule::do_continue_stao_dtao_transition(netuid, weight_limit)
+    fn do_continue_stao_dtao_transition() -> Weight {
+        SubtensorModule::do_continue_stao_dtao_transition()
+    }
+
+    fn get_pending_emission(netuid: u16) -> u64 {
+        SubtensorModule::get_pending_emission(netuid)
     }
 }
 

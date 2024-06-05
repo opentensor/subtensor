@@ -332,10 +332,15 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure no type transition is in progress for subnet
+        // TODOSDT: Only block for networks in transition (see commented below)
         ensure!(
-            SubnetInTransition::<T>::get(netuid).is_none(),
+            SubnetInTransition::<T>::iter().next().is_none(),
             Error::<T>::TemporarilyNotAllowed
         );
+        // ensure!(
+        //     SubnetInTransition::<T>::get(netuid).is_none(),
+        //     Error::<T>::TemporarilyNotAllowed
+        // );
         
         // Ensure we don't exceed stake rate limit
         let stakes_this_interval =

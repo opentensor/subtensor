@@ -72,6 +72,14 @@ pub mod pallet {
         MaxAllowedUIdsLessThanCurrentUIds,
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            // Continue to change subnet type (from stao to dtao)
+            T::Subtensor::do_continue_stao_dtao_transition()
+        }
+    }
+
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -1025,18 +1033,18 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Change subnet type (from stao to dtao)
+        /// Start changing subnet type (from stao to dtao)
+        /// Call this extrinsic to initiate the transition, 
+        /// wait until PendingEmission is 0, and then call 
+        /// continue_changing_network_type
         #[pallet::call_index(51)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn change_network_type(
             origin: OriginFor<T>,
-            owner: T::AccountId,
             netuid: u16
         ) -> DispatchResult {
             ensure_root(origin)?;
-            T::Subtensor::do_start_stao_dtao_transition(owner, netuid)?;
-            T::Subtensor::do_continue_stao_dtao_transition(netuid, false);
-            Ok(())
+            T::Subtensor::do_start_stao_dtao_transition(netuid)
         }
     }
 }
@@ -1136,6 +1144,7 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
-    fn do_start_stao_dtao_transition(owner: AccountId, netuid: u16) -> DispatchResult;
-    fn do_continue_stao_dtao_transition(netuid: u16, weight_limit: bool) -> Weight;
+    fn do_start_stao_dtao_transition(netuid: u16) -> DispatchResult;
+    fn do_continue_stao_dtao_transition() -> Weight;
+    fn get_pending_emission(netuid: u16) -> u64;
 }

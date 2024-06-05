@@ -172,7 +172,9 @@ impl<T: Config> Pallet<T> {
                     }
                 },
                 tao_staked: TotalSubnetTAO::<T>::get(netuid),
-                transition_in_progress: SubnetInTransition::<T>::get(netuid).is_some(),
+                // TODOSDT: Only consider current subnet, not all (see commented below)
+                transition_in_progress: SubnetInTransition::<T>::iter().next().is_some(),
+                // transition_in_progress: SubnetInTransition::<T>::get(netuid).is_some(),
             }
         }).collect()
     }
