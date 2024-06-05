@@ -502,14 +502,14 @@ impl<T: Config> Pallet<T> {
         // --- 8. Check if the root net is below its allowed size.
         // max allowed is senate size.
         if current_num_root_validators < Self::get_max_root_validators() {
-            // --- 12.1.1 We can append to the subnetwork as it's not full.
+            // --- 8.1.1 We can append to the subnetwork as it's not full.
             subnetwork_uid = current_num_root_validators;
 
-            // --- 12.1.2 Add the new account and make them a member of the Senate.
+            // --- 8.1.2 Add the new account and make them a member of the Senate.
             Self::append_neuron(root_netuid, &hotkey, current_block_number);
             log::info!("add new neuron: {:?} on uid {:?}", hotkey, subnetwork_uid);
         } else {
-            // --- 13.1.1 The network is full. Perform replacement.
+            // --- 8.2.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
             let mut lowest_stake: u64 = u64::MAX;
             let mut lowest_uid: u16 = 0;
@@ -530,13 +530,13 @@ impl<T: Config> Pallet<T> {
             let replaced_hotkey: T::AccountId =
                 Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid)?;
 
-            // --- 13.1.2 The new account has a higher stake than the one being replaced.
+            // --- 8.2.2 The new account has a higher stake than the one being replaced.
             ensure!(
                 lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
                 Error::<T>::StakeTooLowForRoot
             );
 
-            // --- 13.1.3 The new account has a higher stake than the one being replaced.
+            // --- 8.2.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
             Self::replace_neuron(root_netuid, lowest_uid, &hotkey, current_block_number);
 
