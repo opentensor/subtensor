@@ -548,40 +548,20 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
-        // If we're full, we'll swap out the lowest stake member.
-        let members = T::SenateMembers::members();
-        if (members.len() as u32) == T::SenateMembers::max_members() {
-            let mut sorted_members = members.clone();
-            sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
+        // --- 9. Join the Senate if eligible.
+        // Returns the replaced member, if any.
+        let _ = Self::join_senate_if_eligible(&hotkey)?;
 
-                b_stake.cmp(&a_stake)
-            });
-
-            if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
-
-                if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey)?;
-                    T::TriumvirateInterface::remove_votes(last)?;
-                }
-            }
-        } else {
-            T::SenateMembers::add_member(&hotkey)?;
-        }
-
-        // --- 13. Force all members on root to become a delegate.
+        // --- 10. Force all members on root to become a delegate.
         if !Self::hotkey_is_delegate(&hotkey) {
             Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
         }
 
-        // --- 14. Update the registration counters for both the block and interval.
+        // --- 11. Update the registration counters for both the block and interval.
         RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
         RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
 
-        // --- 15. Log and announce the successful registration.
+        // --- 12. Log and announce the successful registration.
         log::info!(
             "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
             root_netuid,
@@ -590,7 +570,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
 
-        // --- 16. Finish and return success.
+        // --- 13. Finish and return success.
         Ok(())
     }
 
@@ -638,6 +618,67 @@ impl<T: Config> Pallet<T> {
             },
         )
             .into())
+    }
+
+    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
+    //
+    // # Arguments:
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'Result<Option<&T::AccountId>, Error<T>>': A result containing the replaced member, if any.
+    //
+    fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
+        // Get the root network UID.
+        let root_netuid: u16 = Self::get_root_netuid();
+
+        // --- 1. Check the hotkey is registered in the root network.
+        ensure!(
+            Uids::<T>::contains_key(root_netuid, hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // --- 2. Verify the hotkey is NOT already a member of the Senate.
+        ensure!(
+            !T::SenateMembers::is_member(hotkey),
+            Error::<T>::AlreadySenateMember
+        );
+
+        // --- 3. Grab the hotkey's stake.
+        let current_stake = Self::get_total_stake_for_hotkey(hotkey);
+
+        // Add the hotkey to the Senate.
+        // If we're full, we'll swap out the lowest stake member.
+        let members = T::SenateMembers::members();
+        let last: Option<&T::AccountId> = None;
+        if (members.len() as u32) == T::SenateMembers::max_members() {
+            let mut sorted_members = members.clone();
+            sorted_members.sort_by(|a, b| {
+                let a_stake = Self::get_total_stake_for_hotkey(a);
+                let b_stake = Self::get_total_stake_for_hotkey(b);
+
+                b_stake.cmp(&a_stake)
+            });
+
+            if let Some(last) = sorted_members.last() {
+                let last_stake = Self::get_total_stake_for_hotkey(last);
+
+                if last_stake < current_stake {
+                    T::SenateMembers::swap_member(last, hotkey)
+                        .map_err(|_| Error::<T>::CouldNotJoinSenate)?;
+                    T::TriumvirateInterface::remove_votes(last)
+                        .map_err(|_| Error::<T>::CouldNotJoinSenate)?;
+                } else {
+                    // Not eligible to join the Senate.
+                    return Ok(None); // Return early. Not an error, as we only join if eligible.
+                }
+            }
+        } else {
+            T::SenateMembers::add_member(hotkey).map_err(|_| Error::<T>::CouldNotJoinSenate)?;
+        }
+
+        // Return the swapped out member, if any.
+        Ok(last)
     }
 
     // Facilitates user registration of a new subnetwork.
