@@ -2299,16 +2299,6 @@ pub mod pallet {
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
         }
-
-        /// Change subnet type (from stao to dtao)
-        /// 
-        #[pallet::call_index(67)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
-        pub fn change_network_type(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
-            Self::do_start_stao_dtao_transition(origin, netuid)
-        }
     }
 
     // ---- Subtensor helper functions.

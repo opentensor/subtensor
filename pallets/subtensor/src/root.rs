@@ -969,12 +969,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn do_start_stao_dtao_transition(
-        origin: T::RuntimeOrigin,
+        coldkey: T::AccountId,
         netuid: u16,
     ) -> DispatchResult {
-        // Ensure the function caller is a signed user.
-        let coldkey = ensure_signed(origin)?;
-
         // Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),
@@ -1023,6 +1020,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn do_continue_stao_dtao_transition(
         netuid: u16,
+        weight_limit: bool,
     ) -> Weight {
         let max_block_weight = T::BlockWeights::get().max_block;
         let mut weight = T::DbWeight::get().reads_writes(1, 0);
@@ -1071,7 +1069,7 @@ impl<T: Config> Pallet<T> {
 
                 // See if we have to stop because of weight. 
                 // Do not allow this to take more than ~10% of block by compute time
-                if weight.ref_time() >= max_block_weight.ref_time() / 10 {
+                if weight_limit && weight.ref_time() >= max_block_weight.ref_time() / 10 {
                     break;
                 }
             }
