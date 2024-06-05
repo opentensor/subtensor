@@ -622,6 +622,72 @@ impl<T: Config> Pallet<T> {
 
     // Checks if a hotkey should be a member of the Senate, and if so, adds them.
     //
+    // This function is responsible for adding a hotkey to the Senate if they meet the requirements.
+    // The root key with the least stake is pruned in the event of a filled membership.
+    //
+    // # Arguments:
+    // * 'origin': Represents the origin of the call.
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'DispatchResult': A result type indicating success or failure of the registration.
+    //
+    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+        // --- 0. Get the unique identifier (UID) for the root network.
+        let root_netuid: u16 = Self::get_root_netuid();
+        ensure!(
+            Self::if_subnet_exist(root_netuid),
+            Error::<T>::NetworkDoesNotExist
+        );
+
+        // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
+            coldkey,
+            hotkey
+        );
+
+        // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
+        ensure!(
+            Uids::<T>::contains_key(root_netuid, &hotkey),
+            Error::<T>::NotRegistered
+        );
+
+        // --- 3. Create a network account for the user if it doesn't exist.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // --- 4. Join the Senate if eligible.
+        // Returns the replaced member, if any.
+        let replaced = Self::join_senate_if_eligible(&hotkey)?;
+
+        if replaced.is_none() {
+            // Not eligible to join the Senate, or no replacement needed.
+            // Check if the hotkey is *now* a member of the Senate.
+            // Otherwise, error out.
+            ensure!(
+                T::SenateMembers::is_member(&hotkey),
+                Error::<T>::StakeTooLowForSenate, // Had less stake than the lowest stake incumbent.
+            );
+        }
+
+        // --- 5. Log and announce the successful Senate adjustment.
+        log::info!(
+            "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
+            replaced,
+            hotkey
+        );
+        Self::deposit_event(Event::SenateAdjusted {
+            old_member: replaced.cloned(),
+            new_member: hotkey,
+        });
+
+        // --- 6. Finish and return success.
+        Ok(())
+    }
+
+    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
+    //
     // # Arguments:
     // * 'hotkey': The hotkey that the user wants to register to the root network.
     //

@@ -1006,7 +1006,7 @@ pub mod pallet {
         SenateMember, // --- Thrown when attempting to do something to a senate member that is limited
         NotSenateMember, // --- Thrown when a hotkey attempts to do something only senate members can do
         AlreadySenateMember, // --- Thrown when a hotkey attempts to join the senate while already being a member
-        BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate without enough stake
+        BelowStakeThreshold, // --- Thrown when a hotkey attempts to join the senate with a stake below the threshold
         NotDelegate, // --- Thrown when a hotkey attempts to join the senate without being a delegate first
         IncorrectNetuidsLength, // --- Thrown when an incorrect amount of Netuids are passed as input
         FaucetDisabled,         // --- Thrown when the faucet is disabled
@@ -1704,6 +1704,14 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
         pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
             Self::do_root_register(origin, hotkey)
+        }
+
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::No))]
+        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_adjust_senate(origin, hotkey)
         }
 
         #[pallet::call_index(7)]
