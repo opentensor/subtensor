@@ -428,14 +428,4 @@ reveal_weights {
     let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
-
-  benchmark_change_network_type {
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
-    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-    let tempo: u16 = 0;
-    let netuid: u16 = 1;
-
-    Subtensor::<T>::init_new_network(netuid, tempo);
-    Subtensor::<T>::IsDynamic::insert(netuid, false);
-  }: change_network_type(RawOrigin::Signed( coldkey.clone() ), netuid )
 }
