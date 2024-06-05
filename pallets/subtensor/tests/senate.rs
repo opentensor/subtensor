@@ -596,7 +596,7 @@ fn test_senate_join_current_delegate() {
             netuid,
             hotkey_account_id
         ));
-        // Check if balance has  decreased to pay for the burn.
+        // Check if balance has decreased to pay for the burn.
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&coldkey_account_id),
             (10000 - burn_cost)
@@ -609,34 +609,18 @@ fn test_senate_join_current_delegate() {
             coldkey_account_id
         );
 
-        // Register in the root network *before* having enough stake to join the senate
+        // Register in the root network
         assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
         ));
-
-        // Should *NOT* be a member of the senate
-        assert!(!Senate::is_member(&hotkey_account_id));
-
-        // Add/delegate enough stake to join the senate
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            100_000
+        // But, remove from the senate
+        assert_ok!(SenateMembers::remove_member(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            hotkey_account_id
         ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                &coldkey_account_id,
-                &hotkey_account_id
-            ),
-            99_999
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
-        );
 
-        // We expect to still NOT be a member of the senate
+        // Should *NOT* be a member of the senate now
         assert!(!Senate::is_member(&hotkey_account_id));
 
         System::reset_events();
@@ -651,14 +635,13 @@ fn test_senate_join_current_delegate() {
         assert!(Senate::is_member(&hotkey_account_id));
 
         // Check the events
-        assert_eq!(
-            System::events(),
-            vec![record(RuntimeEvent::SubtensorModule(
+        assert!(
+            System::events().contains(&record(RuntimeEvent::SubtensorModule(
                 SubtensorEvent::SenateAdjusted {
                     old_member: None,
                     new_member: hotkey_account_id
                 }
-            )),],
+            )))
         );
     });
 }
@@ -677,10 +660,10 @@ fn test_adjust_senate_events() {
         let root_netuid = SubtensorModule::get_root_netuid();
 
         let max_senate_size: u16 = SenateMaxMembers::get() as u16;
-        let stake_threshold: u64 = 100_000; // If everyone has this much stake plus or minus 12, they allow have sufficient threshold
+        let stake_threshold: u64 = 100_000; // Give this much to every senator
 
-        // We will be registering MaxMembers hotkeys and one more to replace hotkey_account_id
-        let balance_to_add = 50_000 + (stake_threshold + burn_cost) * (max_senate_size + 1) as u64;
+        // We will be registering MaxMembers hotkeys and two more to try a replace
+        let balance_to_add = 50_000 + (stake_threshold + burn_cost) * (max_senate_size + 2) as u64;
 
         let replacement_hotkey_account_id = U256::from(7); // Will be added to the senate to replace hotkey_account_id
 
@@ -715,61 +698,20 @@ fn test_adjust_senate_events() {
             coldkey_account_id
         );
 
-        // Register in the root network *before* having enough stake to join the senate
-        assert_ok!(SubtensorModule::root_register(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
-        ));
-
         // Should *NOT* be a member of the senate
         assert!(!Senate::is_member(&hotkey_account_id));
 
-        // Add/delegate enough stake to join the senate
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            stake_threshold
-        ));
-        assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(
-                &coldkey_account_id,
-                &hotkey_account_id
-            ),
-            stake_threshold
-        );
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_threshold
-        );
-
-        // We expect to still NOT be a member of the senate
-        assert!(!Senate::is_member(&hotkey_account_id));
-
-        System::reset_events();
-
-        // We can call now to adjust the senate
-        assert_ok!(SubtensorModule::adjust_senate(
+        // root register
+        assert_ok!(SubtensorModule::root_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             hotkey_account_id
-        ));
+        )); // Has no stake, but is now a senate member
 
-        // This should make the hotkey a member of the senate
+        // Check if they are a member of the senate
         assert!(Senate::is_member(&hotkey_account_id));
 
-        // Check the events
-        assert_eq!(
-            System::events(),
-            vec![record(RuntimeEvent::SubtensorModule(
-                SubtensorEvent::SenateAdjusted {
-                    old_member: None, // Replaced nothing
-                    new_member: hotkey_account_id
-                }
-            )),],
-        );
-
-        // Register MaxMembers - 2 more hotkeys
-        // Give them enough Stake to join the senate, and leave hotkey_account_id last
-        for i in 0..(max_senate_size - 2) {
+        // Register MaxMembers - 1 more hotkeys, add stake and join the senate
+        for i in 0..(max_senate_size - 1) {
             let new_hotkey_account_id = U256::from(8 + i);
 
             assert_ok!(SubtensorModule::burned_register(
@@ -800,19 +742,43 @@ fn test_adjust_senate_events() {
         // Verify we are at max senate size
         assert_eq!(Senate::members().len(), max_senate_size as usize);
 
-        // Register the replacement hotkey
+        // Verify the replacement hotkey is not a member of the senate
+        assert!(!Senate::is_member(&replacement_hotkey_account_id));
+
+        // Register
         assert_ok!(SubtensorModule::burned_register(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             netuid,
             replacement_hotkey_account_id
         ));
 
-        // Add enough stake to join the senate
+        // Register in root network
+        assert_ok!(SubtensorModule::root_register(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+            replacement_hotkey_account_id
+        ));
+
+        // Check if they are a member of the senate, should not be,
+        // as they have no stake
+        assert!(!Senate::is_member(&replacement_hotkey_account_id));
+
+        // Add/delegate enough stake to join the senate
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
             replacement_hotkey_account_id,
-            stake_threshold + 1 + max_senate_size as u64
-        )); // Will be more than hotkey_account_id, the last one in the senate by stake
+            1 // Will be more than the last one in the senate by stake (has 0 stake)
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(
+                &coldkey_account_id,
+                &replacement_hotkey_account_id
+            ),
+            1
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&replacement_hotkey_account_id),
+            1
+        );
 
         System::reset_events();
 
@@ -822,18 +788,17 @@ fn test_adjust_senate_events() {
             replacement_hotkey_account_id
         ));
 
-        // This should make the replacement hotkey a member of the senate
+        // This should make the hotkey a member of the senate
         assert!(Senate::is_member(&replacement_hotkey_account_id));
 
         // Check the events
-        assert_eq!(
-            System::events(),
-            vec![record(RuntimeEvent::SubtensorModule(
+        assert!(
+            System::events().contains(&record(RuntimeEvent::SubtensorModule(
                 SubtensorEvent::SenateAdjusted {
-                    old_member: Some(hotkey_account_id), // Replaced hotkey_account_id
+                    old_member: None,
                     new_member: replacement_hotkey_account_id
                 }
-            )),],
+            )))
         );
     });
 }
