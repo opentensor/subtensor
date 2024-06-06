@@ -1471,10 +1471,10 @@ impl_runtime_apis! {
             use frame_system_benchmarking::Pallet as SystemBench;
             use baseline::Pallet as BaselineBench;
 
-            #[allow(non_local_definitions)]
+            #[allow(dead_code)]
             impl frame_system_benchmarking::Config for Runtime {}
 
-            #[allow(non_local_definitions)]
+            #[allow(dead_code)]
             impl baseline::Config for Runtime {}
 
             use frame_support::traits::WhitelistedStorageKeys;
