@@ -1073,6 +1073,10 @@ impl<T: Config> Pallet<T> {
             // SubStake can change for other subnets => no guarantees for iteration from a key
             // We should run this loop multiple times until TotalSubnetTAO is 0.
             while let Some(substake_key) = transition.substake_current_key {
+                // Find the key next after the current before removing
+                let encoded_start_key = SubStake::<T>::hashed_key_for(&substake_key);
+                let maybe_next_key = SubStake::<T>::iter_keys_from(encoded_start_key).next();
+
                 // Remove stake from state maps (including TotalSubnetTAO)
                 let stake = SubStake::<T>::get(&substake_key);
                 Self::do_remove_stake_no_checks(
@@ -1085,8 +1089,7 @@ impl<T: Config> Pallet<T> {
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(5, 5));
 
                 // Continue iteration
-                let encoded_start_key = SubStake::<T>::hashed_key_for(substake_key);
-                if let Some(key) = SubStake::<T>::iter_keys_from(encoded_start_key).next() {
+                if let Some(key) = maybe_next_key {
                     transition.substake_current_key = Some(key);
                 } else {
                     // Start over because we are not guaranteed to go over all keys: 
