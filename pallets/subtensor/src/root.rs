@@ -594,6 +594,13 @@ impl<T: Config> Pallet<T> {
             }
         };
 
+        // Ensure no type transition is in progress for subnet
+        // TODOSDT: Remove this check
+        ensure!(
+            SubnetInTransition::<T>::iter().next().is_none(),
+            Error::<T>::TemporarilyNotAllowed
+        );
+
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
 
