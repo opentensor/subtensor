@@ -1379,42 +1379,42 @@ pub mod pallet {
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            // // --- Migrate storage
-            // use crate::migration;
-            // let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+            // --- Migrate storage
+            use crate::migration;
+            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            // // Hex encoded foundation coldkey
-            // let hex = hex_literal::hex![
-            //     "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
-            // ];
-            // weight = weight
-            //     // Initializes storage version (to 1)
-            //     .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
-            //     // Storage version v1 -> v2
-            //     // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
-            //     // Doesn't check storage version. TODO: Remove after upgrade
-            //     .saturating_add(migration::migrate_create_root_network::<T>())
-            //     // Storage version v2 -> v3
-            //     .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
-            //         hex,
-            //     ))
-            //     // Storage version v3 -> v4
-            //     .saturating_add(migration::migrate_delete_subnet_3::<T>())
-            //     // Storage version v4 -> v5
-            //     .saturating_add(migration::migrate_delete_subnet_21::<T>())
-            //     // Doesn't check storage version. TODO: Remove after upgrade
-            //     .saturating_add(migration::migration5_total_issuance::<T>(false))
-            //     // Storage version v6 -> v7
-            //     .saturating_add(migration::migrate_stake_to_substake::<T>())
-            //     // Storage version v7 -> v8
-            //     .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>())
-            //     // Storage version v8 -> v9
-            //     .saturating_add(migration::migrate_populate_subnet_creator::<T>());
+            // Hex encoded foundation coldkey
+            let hex = hex_literal::hex![
+                "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
+            ];
+            weight = weight
+                // Initializes storage version (to 1)
+                .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
+                // Storage version v1 -> v2
+                // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
+                // Doesn't check storage version. TODO: Remove after upgrade
+                .saturating_add(migration::migrate_create_root_network::<T>())
+                // Storage version v2 -> v3
+                .saturating_add(migration::migrate_transfer_ownership_to_foundation::<T>(
+                    hex,
+                ))
+                // Storage version v3 -> v4
+                .saturating_add(migration::migrate_delete_subnet_3::<T>())
+                // Storage version v4 -> v5
+                .saturating_add(migration::migrate_delete_subnet_21::<T>())
+                // Doesn't check storage version. TODO: Remove after upgrade
+                .saturating_add(migration::migration5_total_issuance::<T>(false))
+                // Storage version v6 -> v7
+                .saturating_add(migration::migrate_stake_to_substake::<T>())
+                // Storage version v7 -> v8
+                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>())
+                // Storage version v8 -> v9
+                .saturating_add(migration::migrate_populate_subnet_creator::<T>());
 
-            // log::info!(
-            //     "Runtime upgrade migration in subtensor pallet, total weight = ({})",
-            //     weight
-            // );
+            log::info!(
+                "Runtime upgrade migration in subtensor pallet, total weight = ({})",
+                weight
+            );
 
             return frame_support::weights::Weight::from_parts(0, 0);
         }

@@ -57,39 +57,46 @@ pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
 
     use deprecated_stake_variables as old;
 
-    // Execute migration if the current storage version is 5
-    if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
-        // Calculate the sum of all stake values
-        let stake_sum: u64 = old::Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
-            accumulator.saturating_add(stake_value)
-        });
-        weight = weight
-            .saturating_add(T::DbWeight::get().reads_writes(old::Stake::<T>::iter().count() as u64, 0));
+    // Grab current version
+    let new_storage_version = 6;
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
 
-        // Calculate the sum of all stake values
-        let locked_sum: u64 = SubnetLocked::<T>::iter()
-            .fold(0, |accumulator, (_, locked_value)| {
-                accumulator.saturating_add(locked_value)
+    // Only runs if we haven't already updated version past above new_storage_version.
+    if onchain_version < new_storage_version {
+        // Execute migration if the current storage version is 5
+        if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
+            // Calculate the sum of all stake values
+            let stake_sum: u64 = old::Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
+                accumulator.saturating_add(stake_value)
             });
-        weight = weight.saturating_add(
-            T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0),
-        );
+            weight = weight
+                .saturating_add(T::DbWeight::get().reads_writes(old::Stake::<T>::iter().count() as u64, 0));
 
-        // Retrieve the total balance sum
-        let total_balance = T::Currency::total_issuance();
-        weight = weight.saturating_add(T::DbWeight::get().reads(1));
+            // Calculate the sum of all stake values
+            let locked_sum: u64 = SubnetLocked::<T>::iter()
+                .fold(0, |accumulator, (_, locked_value)| {
+                    accumulator.saturating_add(locked_value)
+                });
+            weight = weight.saturating_add(
+                T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0),
+            );
 
-        // Compute the total issuance value
-        let total_issuance_value: u64 = stake_sum + total_balance + locked_sum;
+            // Retrieve the total balance sum
+            let total_balance = T::Currency::total_issuance();
+            weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
-        // Update the total issuance in storage
-        TotalIssuance::<T>::put(total_issuance_value);
+            // Compute the total issuance value
+            let total_issuance_value: u64 = stake_sum + total_balance + locked_sum;
+
+            // Update the total issuance in storage
+            TotalIssuance::<T>::put(total_issuance_value);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        }
+
+        // Update the storage version to 6
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
         weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
-
-    // Update the storage version to 6
-    StorageVersion::new(6).put::<Pallet<T>>();
-    weight = weight.saturating_add(T::DbWeight::get().writes(1));
 
     weight // Return the computed weight of the migration process
 }
@@ -575,6 +582,7 @@ pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
             SubnetCreator::<T>::insert(netuid, owner);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         });
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
     } else {
         log::info!("Migration to populate subnet creator already done!");
     }
