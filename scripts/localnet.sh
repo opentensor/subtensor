@@ -6,9 +6,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # The base directory of the subtensor project
 BASE_DIR="$SCRIPT_DIR/.."
 
-: "${CHAIN:=local}"
-: "${BUILD_BINARY:=1}"
-: "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
+# get parameters
+# Get the value of fast_blocks from the first argument
+fast_blocks=${1:-"True"}
+
+# Check the value of fast_blocks
+if [ "$fast_blocks" == "False" ]; then
+  # Block of code to execute if fast_blocks is False
+  echo "fast_blocks is Off"
+  : "${CHAIN:=local}"
+  : "${BUILD_BINARY:=1}"
+  : "${FEATURES:="pow-faucet runtime-benchmarks"}"
+else
+  # Block of code to execute if fast_blocks is not False
+  echo "fast_blocks is On"
+  : "${CHAIN:=local}"
+  : "${BUILD_BINARY:=1}"
+  : "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
+fi
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
 FULL_PATH="$SPEC_PATH$CHAIN.json"
