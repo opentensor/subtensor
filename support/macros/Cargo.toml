@@ -15,7 +15,6 @@ proc-macro = true
 syn = { version = "2", features = ["full", "visit-mut", "extra-traits"] }
 proc-macro2 = "1"
 quote = "1"
-hex = "0.4.3"
 
 [lints]
 workspace = true
