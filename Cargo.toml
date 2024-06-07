@@ -5,6 +5,7 @@ members = [
     "pallets/commitments",
     "pallets/subtensor",
     "runtime",
+    "support/macros",
 ]
 resolver = "2"
 

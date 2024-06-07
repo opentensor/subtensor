@@ -1,0 +1,17 @@
+[package]
+name = "subtensor-macros"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+description = "support macros for Subtensor"
+repository = "https://github.com/opentensor/subtensor"
+homepage = "https://bittensor.com/"
+
+[dependencies]
+syn = "2"
+proc-macro2 = "1"
+quote = "1"
+
+[lints]
+workspace = true
