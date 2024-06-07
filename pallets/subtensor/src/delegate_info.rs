@@ -89,14 +89,12 @@ impl<T: Config> Pallet<T> {
         if coldkey_bytes.len() != 32 {
             return Vec::new();
         }
-        let coldkey_account_id: AccountIdOf<T> =
+        let coldkey: AccountIdOf<T> =
             T::AccountId::decode(&mut coldkey_bytes.as_slice()).expect("Coldkey decoding failed");
-        SubStake::<T>::iter().filter(|((coldkey, _, _), stake)| {
-            *coldkey == coldkey_account_id && *stake != 0
-        }).map(|((coldkey, hotkey, nid), stake)|{
+        SubStake::<T>::iter_prefix((&coldkey,)).map(|((hotkey, nid), stake)|{
             SubStakeElement {
                 hotkey: hotkey,
-                coldkey: coldkey,
+                coldkey: coldkey.clone(),
                 netuid: Compact(nid),
                 stake: Compact(stake),
             }
@@ -166,15 +164,15 @@ impl<T: Config> Pallet<T> {
             T::AccountId::decode(&mut coldkey_bytes.as_slice()).expect("Coldkey decoding failed");
 
         // O(1) complexity on number of coldkeys in storage
-        SubStake::<T>::iter_key_prefix((account_id,)).map(|(hotkey, _)| {
-            Self::get_hotkey_global_dynamic_tao(&hotkey)
+        SubStake::<T>::iter_prefix((account_id,)).map(|((_hotkey, netuid), stake)| {
+            Self::estimate_dynamic_unstake(netuid, stake)
         }).sum()
     }
 
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let nominators = 
-        Staker::<T>::iter_prefix(&delegate).map(|(nominator, _)| {
+        Staker::<T>::iter_key_prefix(&delegate).map(|nominator| {
             let mut total_staked_to_delegate_i: u64 = 0;
             for netuid_i in all_netuids.iter() {
                 total_staked_to_delegate_i +=
@@ -234,7 +232,7 @@ impl<T: Config> Pallet<T> {
                 / (total_stake / U64F64::from_num(1000));
         }
 
-        return DelegateInfo {
+        DelegateInfo {
             delegate_ss58: delegate.clone(),
             take,
             nominators,
@@ -243,7 +241,7 @@ impl<T: Config> Pallet<T> {
             validator_permits,
             return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
             total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
-        };
+        }
     }
 
     pub fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<DelegateInfo<T>> {

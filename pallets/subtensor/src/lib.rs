@@ -302,6 +302,11 @@ pub mod pallet {
     pub fn DefaultMaxU16<T: Config>() -> u16 {
         u16::MAX
     }
+    /// Default value of global stake weight (0.5)
+    #[pallet::type_value]
+    pub fn DefaultGlobalStakeWeight<T: Config>() -> u16 {
+        u16::MAX / 2
+    }
     /// Default stakes per interval.
     #[pallet::type_value]
     pub fn DefaultStakesPerInterval<T: Config>() -> (u64, u64) {
@@ -351,7 +356,7 @@ pub mod pallet {
     }
 
     #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
-    pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultMaxU16<T>>;
+    pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultGlobalStakeWeight<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )

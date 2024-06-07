@@ -2341,3 +2341,76 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_05_global()
         assert_i32f32_approx_eq!(stakes2[1], 0.523810);
     });
 }
+
+
+#[test]
+fn test_stao_dtao_epoch() {
+    new_test_ext(1).execute_with(|| {
+        let rootid: u16 = 0;
+        let netuid: u16 = 1;
+        let coldkey1 = U256::from(0);
+        let hotkey1 = U256::from(0);
+        let coldkey2 = U256::from(1);
+        // let uid: u16 = 0;
+        let lock_amount: u64 = 100_000_000_000;
+        let stake_amount: u64 = 100_000_000_000;
+        SubtensorModule::set_global_stake_weight(65535);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, lock_amount);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake_amount);
+
+        // Setup root network
+        add_network(rootid, u16::MAX - 1, 0);
+        SubtensorModule::set_max_allowed_uids(rootid, 1);
+        SubtensorModule::append_neuron(rootid, &hotkey1, 0);
+
+        // Setup a dynamic network
+        add_dynamic_network(netuid, u16::MAX - 1, 0, 0, lock_amount);
+
+        // Coldkey / hotkey 1 become a delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1
+        ));
+
+        // Stake from coldkey2 on root network, nominate hotkey1
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            rootid,
+            stake_amount
+        ));
+
+        // Distribute emission for root network
+        let emission_tuples_root = SubtensorModule::epoch(rootid, 1_000_000_000);
+        emission_tuples_root.iter().for_each(|(hotkey, server, validator)| {
+            println!("emission_tuples (root) = {}, {}, {}", hotkey, server, validator);
+            SubtensorModule::emit_inflation_through_hotkey_account(
+                hotkey,
+                rootid,
+                *server,
+                *validator,
+            );
+        });
+
+
+        // Distribute emission for dynamic network
+        let emission_tuples = SubtensorModule::epoch(netuid, 1_000_000_000);
+        emission_tuples.iter().for_each(|(hotkey, server, validator)| {
+            println!("emission_tuples (net)  = {}, {}, {}", hotkey, server, validator);
+            SubtensorModule::emit_inflation_through_hotkey_account(
+                hotkey,
+                netuid,
+                *server,
+                *validator,
+            );
+        });
+
+        // coldkey2 shouldn't expect the substake to increase on netuid because it only staked to root network
+        assert_substake_eq!(&coldkey2, &hotkey1, netuid, 0);
+
+        // assert_substake_eq!(&coldkey2, &hotkey1, rootid, 100_000_000_000);
+
+
+
+    });
+}

@@ -153,9 +153,15 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 #[cfg(not(feature = "fast-blocks"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
+#[cfg(not(feature = "fast-blocks"))]
+pub const SUBNET_CREATOR_LOCK: u64 = 7 * 7200 * 3; // 3 months
+
 /// Fast blocks for development
 #[cfg(feature = "fast-blocks")]
 pub const MILLISECS_PER_BLOCK: u64 = 250;
+
+#[cfg(feature = "fast-blocks")]
+pub const SUBNET_CREATOR_LOCK: u64 = 240; // 1 minute
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -819,7 +825,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
-    pub const SubtensorInitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3; // 3 months
+    pub const SubtensorInitialSubnetOwnerLockPeriod: u64 = SUBNET_CREATOR_LOCK;
 }
 
 impl pallet_subtensor::Config for Runtime {

@@ -483,6 +483,7 @@ impl<T: Config> Pallet<T> {
         // the minimum required stake.
 
         // If coldkey is not owner of the hotkey, it's a nomination stake.
+        let block: u64 = Self::get_current_block_as_u64();
         if !Self::coldkey_owns_hotkey(&coldkey, &hotkey) {
             let current_stake_alpha = SubStake::<T>::get((&coldkey, &hotkey, netuid));
             let alpha_after_remove = current_stake_alpha.saturating_sub(alpha_to_be_removed);
@@ -492,16 +493,15 @@ impl<T: Config> Pallet<T> {
                 total_stake_after_remove == 0 || total_stake_after_remove >= NominatorMinRequiredStake::<T>::get(),
                 Error::<T>::NomStakeBelowMinimumThreshold
             );
-        }
-
-        // Ensure subnet lock period has not yet expired
-        let block: u64 = Self::get_current_block_as_u64();
-        let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
-        if Self::get_subnet_creator_hotkey(netuid) == hotkey {
-            ensure!(
-                block - Self::get_network_registered_block(netuid) >= subnet_lock_period,
-                Error::<T>::SubnetCreatorLock
-            )
+        } else {
+            // If coldkey is owner of the hotkey, then ensure that subnet lock period has expired
+            let subnet_lock_period: u64 = Self::get_subnet_owner_lock_period();
+            if Self::get_subnet_creator_hotkey(netuid) == hotkey {
+                ensure!(
+                    block - Self::get_network_registered_block(netuid) >= subnet_lock_period,
+                    Error::<T>::SubnetCreatorLock
+                )
+            }
         }
 
         // Remove stake from state maps
