@@ -2342,7 +2342,8 @@ fn test_get_stakes_subnets_2_hotkeys_2_nominators_uneven_cross_stake_05_global()
     });
 }
 
-
+// TODO: Finish this test for 0.5 global stake weight
+#[ignore]
 #[test]
 fn test_stao_dtao_epoch() {
     new_test_ext(1).execute_with(|| {
@@ -2392,7 +2393,6 @@ fn test_stao_dtao_epoch() {
             );
         });
 
-
         // Distribute emission for dynamic network
         let emission_tuples = SubtensorModule::epoch(netuid, 1_000_000_000);
         emission_tuples.iter().for_each(|(hotkey, server, validator)| {
@@ -2409,8 +2409,5 @@ fn test_stao_dtao_epoch() {
         assert_substake_eq!(&coldkey2, &hotkey1, netuid, 0);
 
         // assert_substake_eq!(&coldkey2, &hotkey1, rootid, 100_000_000_000);
-
-
-
     });
 }

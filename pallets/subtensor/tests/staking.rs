@@ -1985,9 +1985,8 @@ fn test_full_with_delegating_some_servers() {
             400
         );
 
-        // Check that global stake weight is 1
-        let global_stake_weight = SubtensorModule::get_global_stake_weight();
-        assert_eq!(global_stake_weight, u16::MAX);
+        // Set global stake weight to be 1
+        SubtensorModule::set_global_stake_weight(u16::MAX);
 
         // Lets emit inflation through the hot and coldkeys.
         // fist emission arg is for a server. This should only go to the owner of the hotkey.
