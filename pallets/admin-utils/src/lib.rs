@@ -5,7 +5,7 @@ pub mod weights;
 use sp_weights::Weight;
 pub use weights::WeightInfo;
 
-use sp_runtime::{DispatchError, DispatchResult, traits::Member, RuntimeAppPublic};
+use sp_runtime::{traits::Member, DispatchError, DispatchResult, RuntimeAppPublic};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -1034,15 +1034,12 @@ pub mod pallet {
         }
 
         /// Start changing subnet type (from stao to dtao)
-        /// Call this extrinsic to initiate the transition, 
-        /// wait until PendingEmission is 0, and then call 
+        /// Call this extrinsic to initiate the transition,
+        /// wait until PendingEmission is 0, and then call
         /// continue_changing_network_type
         #[pallet::call_index(51)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn change_network_type(
-            origin: OriginFor<T>,
-            netuid: u16
-        ) -> DispatchResult {
+        pub fn change_network_type(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             ensure_root(origin)?;
             T::Subtensor::do_start_stao_dtao_transition(netuid)
         }

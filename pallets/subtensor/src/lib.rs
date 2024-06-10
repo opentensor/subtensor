@@ -371,7 +371,8 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM (default_stake_interval)
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> stake | Returns the total amount of stake attached to a subnet.
-    pub type TotalSubnetStake<T: Config> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
+    pub type TotalSubnetStake<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
@@ -768,7 +769,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type TotalSubnetTAO<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultTotalSubnetTAO<T>>;
-    
+
     /// =================================
     /// ==== Axon / Promo Endpoints =====
     /// =================================

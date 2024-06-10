@@ -824,12 +824,18 @@ fn test_subnet_staking_emission() {
         add_dynamic_network(2, 1, 1, 1, lock_amount);
         assert_eq!(SubtensorModule::get_num_subnets(), 2);
 
-        // Remove subnet creator lock 
+        // Remove subnet creator lock
         SubtensorModule::set_subnet_owner_lock_period(0);
 
         // Alpha on delegate should be lock_amount, lock_amount * 2
-        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1), lock_amount);
-        assert_eq!(SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 2), 2 * lock_amount);
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 1),
+            lock_amount
+        );
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, 2),
+            2 * lock_amount
+        );
 
         let netuid_1_tao_unstaked = SubtensorModule::estimate_dynamic_unstake(1, lock_amount / 2);
         let netuid_1_tao: I64F64 = I64F64::from_num(lock_amount - netuid_1_tao_unstaked);
@@ -847,8 +853,14 @@ fn test_subnet_staking_emission() {
         SubtensorModule::run_coinbase(1);
         // Subnet block emission is subnet tao staked / total tao staked =
         let tao = 1_000_000_000.;
-        assert_approx_eq!(SubtensorModule::get_emission_value(1) as f64 / tao, (netuid_1_tao / total_tao_staked).to_num::<f64>());
-        assert_approx_eq!(SubtensorModule::get_emission_value(2) as f64 / tao, (netuid_2_tao / total_tao_staked).to_num::<f64>());
+        assert_approx_eq!(
+            SubtensorModule::get_emission_value(1) as f64 / tao,
+            (netuid_1_tao / total_tao_staked).to_num::<f64>()
+        );
+        assert_approx_eq!(
+            SubtensorModule::get_emission_value(2) as f64 / tao,
+            (netuid_2_tao / total_tao_staked).to_num::<f64>()
+        );
     });
 }
 
@@ -1126,7 +1138,7 @@ fn test_20_subnet_take_basic_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
 
         // SubStake (Alpha balance)
-        //   Subnet 1, cold0, hot0: 100 + 10% * 200 + 90% * 200 * 2/3 = 
+        //   Subnet 1, cold0, hot0: 100 + 10% * 200 + 90% * 200 * 2/3 =
         //             cold1, hot0: 50 + 90% * 200 * 1/3
         //
         assert_substake_approx_eq!(&coldkey0, &hotkey0, netuid1, 240.);
@@ -1272,8 +1284,10 @@ fn test_two_subnets_take_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid2, 0, emission);
 
-        let emission_take_1 = emission as f64 / 1_000_000_000 as f64 * take1 as f64 / u16::MAX as f64;
-        let emission_take_2 = emission as f64 / 1_000_000_000 as f64 * take2 as f64 / u16::MAX as f64;
+        let emission_take_1 =
+            emission as f64 / 1_000_000_000 as f64 * take1 as f64 / u16::MAX as f64;
+        let emission_take_2 =
+            emission as f64 / 1_000_000_000 as f64 * take2 as f64 / u16::MAX as f64;
         let remaining_emission_1 = emission as f64 / 1_000_000_000 as f64 - emission_take_1;
         let remaining_emission_2 = emission as f64 / 1_000_000_000 as f64 - emission_take_2;
         let substake_0_0_1 = 100. + emission_take_1 + remaining_emission_1 * 2. / 3.;

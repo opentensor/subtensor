@@ -2,7 +2,7 @@ use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
-use pallet_subtensor::{Error, migration, PendingEmission, SubnetInTransition, TotalSubnetTAO};
+use pallet_subtensor::{migration, Error, PendingEmission, SubnetInTransition, TotalSubnetTAO};
 use sp_core::{Get, H256, U256};
 
 mod mock;
@@ -566,20 +566,15 @@ fn test_stao_dtao_transition_basic() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
             stake,
         );
-        assert_eq!(
-            TotalSubnetTAO::<Test>::get(netuid),
-            lock_cost + stake,
-        );
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost + stake,);
 
         let coldkey1_balance_before = SubtensorModule::get_coldkey_balance(&coldkey1);
         let coldkey2_balance_before = SubtensorModule::get_coldkey_balance(&coldkey2);
 
         // Start transition
-        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(
-            netuid,
-        ));
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition(netuid,));
 
-        // Let transition run 
+        // Let transition run
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check that everybody but owner got unstaked
@@ -593,27 +588,17 @@ fn test_stao_dtao_transition_basic() {
         );
 
         // TotalSubnetTAO will be reduced by the amount of forcefully unstaked TAO
-        assert_eq!(
-            TotalSubnetTAO::<Test>::get(netuid),
-            lock_cost,
-        );
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost,);
 
         // Unstaked balance is returned to the staker
         let coldkey2_balance_after = SubtensorModule::get_coldkey_balance(&coldkey2);
-        assert_eq!(
-            coldkey2_balance_after - coldkey2_balance_before,
-            stake,
-        );
+        assert_eq!(coldkey2_balance_after - coldkey2_balance_before, stake,);
 
         // Re-staked balance of owner is not available as balance
         let coldkey1_balance_after = SubtensorModule::get_coldkey_balance(&coldkey1);
-        assert_eq!(
-            coldkey1_balance_after, 
-            coldkey1_balance_before,
-        );
+        assert_eq!(coldkey1_balance_after, coldkey1_balance_before,);
     });
 }
-
 
 // TODOSDT: Unignore and fix
 #[ignore]
@@ -662,10 +647,7 @@ fn test_stao_dtao_transition_waits_for_drain() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
             stake,
         );
-        assert_eq!(
-            TotalSubnetTAO::<Test>::get(netuid),
-            lock_cost + stake,
-        );
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost + stake,);
 
         // Drain emission
         PendingEmission::<Test>::insert(netuid, 0);
@@ -682,10 +664,7 @@ fn test_stao_dtao_transition_waits_for_drain() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid),
             0,
         );
-        assert_eq!(
-            TotalSubnetTAO::<Test>::get(netuid),
-            lock_cost,
-        );
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost,);
     });
 }
 
@@ -699,7 +678,7 @@ fn test_staking_during_dtao_transition_fails() {
         let stake = 100_000_000_000;
         create_staked_stao_network(netuid, lock_cost, stake);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake);
-    
+
         // Start transition
         assert_ok!(SubtensorModule::do_start_stao_dtao_transition(netuid));
 
@@ -730,7 +709,7 @@ fn test_staking_after_dtao_transition_ok() {
         // Start transition
         assert_ok!(SubtensorModule::do_start_stao_dtao_transition(netuid));
 
-        // Let transition run 
+        // Let transition run
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check that everybody got unstaked
@@ -738,10 +717,7 @@ fn test_staking_after_dtao_transition_ok() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey1, netuid),
             lock_cost,
         );
-        assert_eq!(
-            TotalSubnetTAO::<Test>::get(netuid),
-            lock_cost,
-        );
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost,);
 
         // Check that staking succeeds
         assert_ok!(SubtensorModule::add_subnet_stake(
@@ -766,15 +742,8 @@ fn test_run_coinbase_during_dtao_transition_no_effect() {
 
         // Check that run_coinbase doesn't increase PendingEmission or TotalSubnetTAO for this subnet
         SubtensorModule::run_coinbase(2);
-        assert_eq!(
-            PendingEmission::<Test>::get(netuid),
-            0,
-        );
-        assert_eq!(
-            TotalSubnetTAO::<Test>::get(netuid),
-            lock_cost + stake,
-        );
-
+        assert_eq!(PendingEmission::<Test>::get(netuid), 0,);
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost + stake,);
     });
 }
 
@@ -817,7 +786,7 @@ fn test_stao_dtao_transition_dynamic_variables() {
         // Start transition
         assert_ok!(SubtensorModule::do_start_stao_dtao_transition(netuid));
 
-        // Let transition run 
+        // Let transition run
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check dynamic variables
@@ -841,10 +810,7 @@ fn test_stao_dtao_transition_dynamic_variables() {
             pallet_subtensor::DynamicK::<Test>::get(netuid),
             lock_cost as u128 * lock_cost as u128,
         );
-        assert_eq!(
-            pallet_subtensor::IsDynamic::<Test>::get(netuid),
-            true,
-        );
+        assert_eq!(pallet_subtensor::IsDynamic::<Test>::get(netuid), true,);
 
         // DynamicTAOReserve will be set to equal the new value of TotalSubnetTAO (test)
         assert_eq!(
@@ -868,7 +834,7 @@ fn test_stao_dtao_transition_clears_staker() {
         // Start transition
         assert_ok!(SubtensorModule::do_start_stao_dtao_transition(netuid));
 
-        // Let transition run 
+        // Let transition run
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check staker map for owner (should remain) and for staker (should be cleared)
@@ -895,7 +861,7 @@ fn test_stao_dtao_transition_resets_tempo() {
         // Start transition
         assert_ok!(SubtensorModule::do_start_stao_dtao_transition(netuid));
 
-        // Let transition run 
+        // Let transition run
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check that tempo went default
@@ -906,7 +872,7 @@ fn test_stao_dtao_transition_resets_tempo() {
     });
 }
 
-// High weight test - many SubStake records, so that do_continue_stao_dtao_transition runs multiple times 
+// High weight test - many SubStake records, so that do_continue_stao_dtao_transition runs multiple times
 #[test]
 fn test_stao_dtao_transition_high_weight_ok() {
     new_test_ext(1).execute_with(|| {
@@ -918,16 +884,13 @@ fn test_stao_dtao_transition_high_weight_ok() {
 
         let items = 1000;
 
-        for i in 3..=items+2 {
+        for i in 3..=items + 2 {
             let coldkey = U256::from(i);
             SubtensorModule::add_balance_to_coldkey_account(&coldkey, stake);
             SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
-                &coldkey,
-                &hotkey1,
-                netuid,
-                stake,
+                &coldkey, &hotkey1, netuid, stake,
             );
-            TotalSubnetTAO::<Test>::mutate(netuid, |locked| *locked = locked.saturating_add(stake));        
+            TotalSubnetTAO::<Test>::mutate(netuid, |locked| *locked = locked.saturating_add(stake));
         }
 
         // Start transition
@@ -937,9 +900,7 @@ fn test_stao_dtao_transition_high_weight_ok() {
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check that transition hasn't finished yet
-        assert!(
-            SubnetInTransition::<Test>::get(netuid).is_some()
-        );
+        assert!(SubnetInTransition::<Test>::get(netuid).is_some());
 
         // Check that transition finishes eventually
         loop {
@@ -951,4 +912,3 @@ fn test_stao_dtao_transition_high_weight_ok() {
         }
     });
 }
-

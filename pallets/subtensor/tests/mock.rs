@@ -489,7 +489,10 @@ pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
     let hotkey1 = U256::from(1);
     let coldkey2 = U256::from(2);
     let hotkey2 = U256::from(2);
-    SubtensorModule::add_balance_to_coldkey_account(&coldkey1, lock_amount + ExistentialDeposit::get());
+    SubtensorModule::add_balance_to_coldkey_account(
+        &coldkey1,
+        lock_amount + ExistentialDeposit::get(),
+    );
     SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake + ExistentialDeposit::get());
     SubtensorModule::set_max_registrations_per_block(netuid, 4);
     SubtensorModule::set_max_allowed_uids(netuid, 10);
@@ -585,4 +588,3 @@ pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
         .map(|((_, _, _), stake)| stake)
         .sum()
 }
-

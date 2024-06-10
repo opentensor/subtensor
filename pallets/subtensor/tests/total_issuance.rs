@@ -4,13 +4,12 @@ mod mock;
 use mock::*;
 use sp_core::U256;
 
-// Test plan: 
+// Test plan:
 // For DTAO subnets we need to increase total issuance of TAO when it is injected into the Pool.
-// For STAO subnets total issuance for TAO is only increased when the pending TAO is  distributed after running the epoch. 
+// For STAO subnets total issuance for TAO is only increased when the pending TAO is  distributed after running the epoch.
 // For total subnet tao stake
 // For DTAO subnets this is incremented when the TAO is injected into the pool/.
 // For STAO subnets this is only incremented when the pending TAO is distributed after running the epoch.
-
 
 // TODO: Unignore when we move away from using withdraw for staking
 #[test]
@@ -103,7 +102,11 @@ fn test_remove_subnet_stake_total_issuance_no_change() {
         assert_eq!(inital_total_issuance, 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey_account_id, netuid, amount);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey_account_id,
+            netuid,
+            amount,
+        );
 
         let total_issuance_after_stake = Balances::total_issuance();
 

@@ -298,7 +298,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         increment_alpha: u64,
     ) {
         SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
-            coldkey, hotkey, netuid, increment_alpha,
+            coldkey,
+            hotkey,
+            netuid,
+            increment_alpha,
         );
     }
 

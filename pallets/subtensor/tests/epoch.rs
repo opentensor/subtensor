@@ -2383,27 +2383,31 @@ fn test_stao_dtao_epoch() {
 
         // Distribute emission for root network
         let emission_tuples_root = SubtensorModule::epoch(rootid, 1_000_000_000);
-        emission_tuples_root.iter().for_each(|(hotkey, server, validator)| {
-            println!("emission_tuples (root) = {}, {}, {}", hotkey, server, validator);
-            SubtensorModule::emit_inflation_through_hotkey_account(
-                hotkey,
-                rootid,
-                *server,
-                *validator,
-            );
-        });
+        emission_tuples_root
+            .iter()
+            .for_each(|(hotkey, server, validator)| {
+                println!(
+                    "emission_tuples (root) = {}, {}, {}",
+                    hotkey, server, validator
+                );
+                SubtensorModule::emit_inflation_through_hotkey_account(
+                    hotkey, rootid, *server, *validator,
+                );
+            });
 
         // Distribute emission for dynamic network
         let emission_tuples = SubtensorModule::epoch(netuid, 1_000_000_000);
-        emission_tuples.iter().for_each(|(hotkey, server, validator)| {
-            println!("emission_tuples (net)  = {}, {}, {}", hotkey, server, validator);
-            SubtensorModule::emit_inflation_through_hotkey_account(
-                hotkey,
-                netuid,
-                *server,
-                *validator,
-            );
-        });
+        emission_tuples
+            .iter()
+            .for_each(|(hotkey, server, validator)| {
+                println!(
+                    "emission_tuples (net)  = {}, {}, {}",
+                    hotkey, server, validator
+                );
+                SubtensorModule::emit_inflation_through_hotkey_account(
+                    hotkey, netuid, *server, *validator,
+                );
+            });
 
         // coldkey2 shouldn't expect the substake to increase on netuid because it only staked to root network
         assert_substake_eq!(&coldkey2, &hotkey1, netuid, 0);

@@ -38,14 +38,8 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         });
         let disp_info = call.get_dispatch_info();
         assert!(disp_info.weight.ref_time() != 0);
-        assert_eq!(
-            disp_info.class,
-            DispatchClass::Normal,
-        );
-        assert_eq!(
-            disp_info.pays_fee,
-            Pays::No,
-        );
+        assert_eq!(disp_info.class, DispatchClass::Normal,);
+        assert_eq!(disp_info.pays_fee, Pays::No,);
     });
 }
 

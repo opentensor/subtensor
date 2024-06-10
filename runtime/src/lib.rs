@@ -28,12 +28,12 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, RuntimeDebug};
 use sp_runtime::{
-    create_runtime_str, DispatchResult, generic, impl_opaque_keys,
+    create_runtime_str, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify,
     },
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    ApplyExtrinsicResult, DispatchResult, MultiSignature,
 };
 use sp_std::cmp::Ordering;
 use sp_std::prelude::*;
@@ -983,7 +983,10 @@ impl
         increment_alpha: u64,
     ) {
         SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
-            coldkey, hotkey, netuid, increment_alpha,
+            coldkey,
+            hotkey,
+            netuid,
+            increment_alpha,
         );
     }
 

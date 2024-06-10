@@ -28,14 +28,8 @@ fn test_add_subnet_stake_dispatch_info_ok() {
         });
         let disp_info = call.get_dispatch_info();
         assert!(disp_info.weight.ref_time() != 0);
-        assert_eq!(
-            disp_info.class,
-            DispatchClass::Normal,
-        );
-        assert_eq!(
-            disp_info.pays_fee,
-            Pays::No,
-        );
+        assert_eq!(disp_info.class, DispatchClass::Normal,);
+        assert_eq!(disp_info.pays_fee, Pays::No,);
     });
 }
 
@@ -570,14 +564,8 @@ fn test_remove_subnet_stake_dispatch_info_ok() {
         });
         let disp_info = call.get_dispatch_info();
         assert!(disp_info.weight.ref_time() != 0);
-        assert_eq!(
-            disp_info.class,
-            DispatchClass::Normal,
-        );
-        assert_eq!(
-            disp_info.pays_fee,
-            Pays::No,
-        );
+        assert_eq!(disp_info.class, DispatchClass::Normal,);
+        assert_eq!(disp_info.pays_fee, Pays::No,);
     });
 }
 
@@ -605,7 +593,11 @@ fn test_remove_subnet_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey_account_id, netuid, amount);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey_account_id,
+            netuid,
+            amount,
+        );
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_subnet_stake(
@@ -650,7 +642,11 @@ fn test_remove_subnet_stake_amount_zero() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey_account_id), 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey_account_id, netuid, amount);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey_account_id,
+            netuid,
+            amount,
+        );
 
         // Do the magic
         assert_noop!(
@@ -770,7 +766,11 @@ fn test_remove_subnet_stake_total_balance_no_change() {
         assert_eq!(initial_total_balance, 0);
 
         // Give the neuron some stake to remove
-        SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey_account_id, netuid, amount);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey_account_id,
+            netuid,
+            amount,
+        );
 
         // Do the magic
         assert_ok!(SubtensorModule::remove_subnet_stake(
@@ -2898,8 +2898,14 @@ fn test_remove_stake_below_minimum_threshold() {
         let stake_amount_to_remove = 51_000;
 
         // Add balances.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, initial_balance + ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, initial_balance + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey1,
+            initial_balance + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey2,
+            initial_balance + ExistentialDeposit::get(),
+        );
         SubtensorModule::set_nominator_min_required_stake(minimum_threshold);
         SubtensorModule::set_target_stakes_per_interval(10);
 
@@ -2936,7 +2942,8 @@ fn test_remove_stake_below_minimum_threshold() {
         // Nomination stake cannot unstake below min threshold,
         // without unstaking all and removing the nomination.
         let bal_before = Balances::free_balance(coldkey2);
-        let staked_before = SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid);
+        let staked_before =
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey1, netuid);
         let total_issuance_before = SubtensorModule::get_total_issuance();
         // check the premise of the test is correct
         assert!(initial_stake - stake_amount_to_remove < minimum_threshold);
@@ -3158,7 +3165,10 @@ fn test_delegate_take_can_be_increased() {
             netuid,
             u16::MAX / 8
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 8);
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey0, netuid),
+            u16::MAX / 8
+        );
     });
 }
 
@@ -3468,7 +3478,10 @@ fn test_changing_delegate_take_changes_distribution() {
             netuid,
             u16::MAX / 10
         ));
-        assert_eq!(SubtensorModule::get_delegate_take(&hotkey0, netuid), u16::MAX / 10);
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey0, netuid),
+            u16::MAX / 10
+        );
 
         // Coldkey / hotkey 0 tries to increase take to InitialDefaultTake+1
         // (Disable this check if InitialDefaultTake is u16::MAX)
