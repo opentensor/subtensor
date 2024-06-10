@@ -428,4 +428,169 @@ reveal_weights {
     let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
+
+  benchmark_root_epoch_full {
+    migration::migrate_create_root_network::<T>();
+
+    let subnets_n: u16 = 36;
+    let version_key: u64 = 1;
+    let tempo: u16 = 1;
+    let amount_to_be_staked = 1000000_u64;
+    Subtensor::<T>::set_max_registrations_per_block( 0, u16::MAX );
+    Subtensor::<T>::set_target_registrations_per_interval( 0, u16::MAX );
+    Subtensor::<T>::set_max_subnets(subnets_n);
+    Subtensor::<T>::set_network_rate_limit(0);
+    Subtensor::<T>::set_tempo(0, tempo);
+
+    let signer: T::AccountId = account("Alice", 0, 1);
+    let root_dests: Vec<u16> = vec![0];
+    let root_weights: Vec<u16> = vec![1];
+
+    // Setup Subnets
+    let mut subnet_seed: u32 = 1;
+    for netuid in 1..subnets_n {
+      let hot: T::AccountId = account("Alice", 0, subnet_seed);
+      let cold: T::AccountId = account("Test", 0, subnet_seed);
+      subnet_seed += 1;
+      Subtensor::<T>::add_balance_to_coldkey_account(&cold.clone(), 1_000_000_000_000_000);
+      Subtensor::<T>::root_register(RawOrigin::Signed(cold.clone()).into(), hot.clone()).unwrap();
+      Subtensor::<T>::set_root_weights(RawOrigin::Signed( cold.clone() ).into(), 0, hot.clone(), root_dests.clone(), root_weights.clone(), version_key).unwrap();
+
+      assert_ok!(Subtensor::<T>::register_network(
+        RawOrigin::Signed(cold.clone()).into()
+      ));
+      Subtensor::<T>::set_max_allowed_uids( netuid, u16::MAX );
+      Subtensor::<T>::set_network_registration_allowed( netuid, true );
+      Subtensor::<T>::set_max_registrations_per_block( netuid, u16::MAX );
+      Subtensor::<T>::set_target_registrations_per_interval( netuid, u16::MAX );
+      Subtensor::<T>::set_burn(netuid, 1);
+      Subtensor::<T>::set_target_stakes_per_interval(u64::MAX);
+      
+      // Register neurons
+      let mut dests: Vec<u16> = vec![];
+      let mut weights: Vec<u16> = vec![];
+      let mut seed : u32 = 1;
+      for uid in 0..2_222_u16 {
+        let hotkey: T::AccountId = account("Alice", 0, seed);
+        let coldkey: T::AccountId = account("Test", 0, seed);
+        seed += 1;
+
+        Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+        Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()).unwrap();
+        Subtensor::<T>::add_stake(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), amount_to_be_staked - 100).unwrap();
+        Subtensor::<T>::set_validator_permit_for_uid(netuid, uid, true);
+        dests.push(uid);
+        weights.push(1);
+      }
+      Subtensor::<T>::set_weights(RawOrigin::Signed( signer.clone() ).into(), netuid, dests.clone(), weights.clone(), version_key).unwrap();
+      Subtensor::<T>::epoch(netuid, 100_000_000_000);
+    }
+  }: {
+    assert_ok!(Subtensor::<T>::root_epoch(100_000_000));
+  }
+
+  benchmark_root_epoch {
+    let n: u32 = 36;
+    let root_netuid: u16 = 0;
+    let tempo = 1;
+    migration::migrate_create_root_network::<T>();
+    Subtensor::<T>::set_max_registrations_per_block(root_netuid, u16::MAX);
+    Subtensor::<T>::set_target_registrations_per_interval(root_netuid, u16::MAX);
+    Subtensor::<T>::set_max_allowed_uids(root_netuid, u16::MAX);
+    Subtensor::<T>::set_max_subnets(n as u16);
+    Subtensor::<T>::set_network_rate_limit(0);
+
+    for i in 0..n {
+        let hotkey: T::AccountId = account("Alice", 0, i);
+        let coldkey: T::AccountId = account("Alice", 0, i + 456);
+        Subtensor::<T>::add_balance_to_coldkey_account(
+            &coldkey,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(Subtensor::<T>::root_register(
+            RawOrigin::Signed(coldkey.clone()).into(),
+            hotkey.clone(),
+        ));
+        assert_ok!(Subtensor::<T>::add_stake(
+          RawOrigin::Signed(coldkey.clone()).into(),
+          hotkey.clone(),
+            1000
+        ));
+    }
+
+    for netuid in 1..n as u32 {
+        let coldkey: T::AccountId = account("Alice", 0, netuid + 456);
+        assert_ok!(Subtensor::<T>::register_network(
+          RawOrigin::Signed(coldkey.clone()).into()
+      ));
+    }
+
+    for i in 0..n {
+      let hotkey: T::AccountId = account("Alice", 0, i);
+      let coldkey: T::AccountId = account("Alice", 0, i + 456);
+        let uids: Vec<u16> = vec![i as u16];
+        let values: Vec<u16> = vec![1];
+        assert_ok!(Subtensor::<T>::set_root_weights(
+          RawOrigin::Signed(coldkey).into(),
+            root_netuid,
+            hotkey,
+            uids,
+            values,
+            0,
+        ));
+    }
+
+    Subtensor::<T>::set_tempo(root_netuid, tempo);
+  }: {
+    assert_ok!(Subtensor::<T>::root_epoch(100_000_000));
+  }
+
+  benchmark_epoch {
+    migration::migrate_create_root_network::<T>();
+
+    let netuid: u16 = 1;
+    let version_key: u64 = 1;
+    let tempo: u16 = 1;
+    let amount_to_be_staked = 1000000_u64;
+
+    Subtensor::<T>::set_max_registrations_per_block( 0, u16::MAX );
+    Subtensor::<T>::set_target_registrations_per_interval( 0, u16::MAX );
+    Subtensor::<T>::set_max_subnets(36);
+    Subtensor::<T>::set_network_rate_limit(0);
+    Subtensor::<T>::set_tempo(0, tempo);
+
+    let signer: T::AccountId = account("Alice", 0, 1);
+    let cold: T::AccountId = account("Test", 0, 1);
+    Subtensor::<T>::add_balance_to_coldkey_account(&cold.clone(), 1_000_000_000_000_000);
+
+    assert_ok!(Subtensor::<T>::register_network(
+      RawOrigin::Signed(cold.clone()).into()
+    ));
+    Subtensor::<T>::set_max_allowed_uids( netuid, u16::MAX );
+    Subtensor::<T>::set_network_registration_allowed( netuid, true );
+    Subtensor::<T>::set_max_registrations_per_block( netuid, u16::MAX );
+    Subtensor::<T>::set_target_registrations_per_interval( netuid, u16::MAX );
+    Subtensor::<T>::set_burn(netuid, 1);
+    Subtensor::<T>::set_target_stakes_per_interval(u64::MAX);
+    
+    // Register neurons
+    let mut dests: Vec<u16> = vec![];
+    let mut weights: Vec<u16> = vec![];
+    let mut seed : u32 = 1;
+    for uid in 0..2_222_u16 {
+      let hotkey: T::AccountId = account("Alice", 0, seed);
+      let coldkey: T::AccountId = account("Test", 0, seed);
+      seed += 1;
+
+      Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+      Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()).unwrap();
+      Subtensor::<T>::add_stake(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), amount_to_be_staked - 100).unwrap();
+      Subtensor::<T>::set_validator_permit_for_uid(netuid, uid, true);
+      dests.push(uid);
+      weights.push(1);
+    }
+    Subtensor::<T>::set_weights(RawOrigin::Signed( signer.clone() ).into(), netuid, dests.clone(), weights.clone(), version_key).unwrap();
+  }: {
+    Subtensor::<T>::epoch(netuid, 100_000_000_000);
+  }
 }
