@@ -1108,3 +1108,51 @@ fn test_sudo_set_min_delegate_take() {
         assert_eq!(SubtensorModule::get_min_delegate_take(), to_be_set);
     });
 }
+
+#[test]
+fn test_sudo_set_alpha_high() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        let init_value: u16 = SubtensorModule::get_alpha_high(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_high(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_alpha_high(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_alpha_low() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        let init_value: u16 = SubtensorModule::get_alpha_low(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_low(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin.into())
+        );
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_alpha_low(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), to_be_set);        
+    });
+}   

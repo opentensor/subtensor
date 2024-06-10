@@ -719,6 +719,15 @@ pub mod pallet {
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
         0
     }
+    #[pallet::type_value]
+    pub fn DefaultAlphaHigh<T: Config>() -> u16 {
+        900 // Represents 0.9
+    }
+
+    #[pallet::type_value]
+    pub fn DefaultAlphaLow<T: Config>() -> u16 {
+        700 // Represents 0.7
+    }
 
     #[pallet::storage] // ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
@@ -789,6 +798,12 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
+    //  MAP ( netuid ) --> alpha_high
+    #[pallet::storage]
+    pub type AlphaHigh<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaHigh<T>>;
+    //  MAP ( netuid ) --> alpha_low
+    #[pallet::storage]
+    pub type AlphaLow<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaLow<T>>;
 
     // =======================================
     // ==== Subnetwork Consensus Storage  ====

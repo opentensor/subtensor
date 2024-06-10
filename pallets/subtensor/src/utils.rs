@@ -642,4 +642,20 @@ impl<T: Config> Pallet<T> {
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
+
+    pub fn get_alpha_high(netuid: u16) -> u16 {
+        AlphaHigh::<T>::get(netuid)
+    }
+
+    pub fn set_alpha_high(netuid: u16, alpha_high: u16) {
+        AlphaHigh::<T>::insert(netuid, alpha_high);
+    }
+
+    pub fn get_alpha_low(netuid: u16) -> u16 {
+        AlphaLow::<T>::get(netuid)
+    }
+
+    pub fn set_alpha_low(netuid: u16, alpha_low: u16) {
+        AlphaLow::<T>::insert(netuid, alpha_low);
+    }
 }

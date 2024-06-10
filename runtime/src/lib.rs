@@ -1108,6 +1108,14 @@ impl
     fn get_nominator_min_required_stake() -> u64 {
         SubtensorModule::get_nominator_min_required_stake()
     }
+
+    fn set_alpha_high(netuid: u16, alpha_high: u16) {
+        SubtensorModule::set_alpha_high(netuid, alpha_high);
+    }
+
+    fn set_alpha_low(netuid: u16, alpha_low: u16) {
+        SubtensorModule::set_alpha_low(netuid, alpha_low);
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {

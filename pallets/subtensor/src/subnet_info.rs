@@ -50,6 +50,8 @@ pub struct SubnetHyperparams {
     max_validators: Compact<u16>,
     adjustment_alpha: Compact<u64>,
     difficulty: Compact<u64>,
+    alpha_high: Compact<u16>,
+    alpha_low: Compact<u16>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -151,6 +153,8 @@ impl<T: Config> Pallet<T> {
         let max_validators = Self::get_max_allowed_validators(netuid);
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
+        let alpha_high = Self::get_alpha_high(netuid);
+        let alpha_low = Self::get_alpha_low(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),
@@ -175,6 +179,8 @@ impl<T: Config> Pallet<T> {
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
             difficulty: difficulty.into(),
+            alpha_high: alpha_high.into(),
+            alpha_low: alpha_low.into(),
         })
     }
 }

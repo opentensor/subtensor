@@ -2256,13 +2256,13 @@ fn test_mat_ema_alpha_vec_sparse_different_lengths() {
         vec![(0, I32F32::from_num(7.0)), (1, I32F32::from_num(8.0))],
     ];
     let alpha: Vec<I32F32> = vec![I32F32::from_num(0.1), I32F32::from_num(0.2)];
-    
+
     log::info!("new: {:?}", new);
     log::info!("old: {:?}", old);
     log::info!("alpha: {:?}", alpha);
 
     let result = mat_ema_alpha_vec_sparse(&new, &old, &alpha);
-    
+
     log::info!("result: {:?}", result);
 
     assert_eq!(

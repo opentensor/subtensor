@@ -449,6 +449,14 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn clear_small_nominations() {
         SubtensorModule::clear_small_nominations();
     }
+
+    fn set_alpha_high(netuid: u16, alpha_high: u16) {
+        SubtensorModule::set_alpha_high(netuid, alpha_high);
+    }
+
+    fn set_alpha_low(netuid: u16, alpha_low: u16) {
+        SubtensorModule::set_alpha_low(netuid, alpha_low);
+    }
 }
 
 impl pallet_admin_utils::Config for Test {

@@ -809,6 +809,24 @@ pub mod pallet {
             log::info!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
             Ok(())
         }
+
+        #[pallet::call_index(47)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_high(origin: OriginFor<T>, netuid: u16, alpha_high: u16) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+            T::Subtensor::set_alpha_high(netuid, alpha_high);
+            log::info!("AlphaHighSet( netuid: {:?}, alpha_high: {:?} ) ", netuid, alpha_high);
+            Ok(())
+        }
+
+        #[pallet::call_index(48)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_low(origin: OriginFor<T>, netuid: u16, alpha_low: u16) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+            T::Subtensor::set_alpha_low(netuid, alpha_low);
+            log::info!("AlphaLowSet( netuid: {:?}, alpha_low: {:?} ) ", netuid, alpha_low);
+            Ok(())
+        }
     }
 }
 
@@ -901,4 +919,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn get_nominator_min_required_stake() -> u64;
     fn set_nominator_min_required_stake(min_stake: u64);
     fn clear_small_nominations();
+    fn set_alpha_high(netuid: u16, alpha_high: u16);
+    fn set_alpha_low(netuid: u16, alpha_low: u16);
 }
