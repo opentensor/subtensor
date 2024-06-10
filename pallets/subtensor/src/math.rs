@@ -1,6 +1,6 @@
 use sp_runtime::traits::CheckedAdd;
 use sp_std::vec;
-use substrate_fixed::transcendental::exp;
+use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64};
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
@@ -1222,4 +1222,22 @@ pub fn mat_ema_alpha_vec(
         }
     }
     result
+}
+
+/// Return the quantile of a vector of I32F32 values.
+pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
+    let mut sorted_data = data.clone();
+    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let idx = (quantile * (sorted_data.len() - 1) as f64).round() as usize;
+    sorted_data[idx]
+}
+
+/// Safe ln function, returns 0 if value is 0.
+pub fn safe_ln(value: I32F32) -> I32F32 {
+    ln(value).unwrap_or(I32F32::from_num(0.0))
+}
+
+/// Safe exp function, returns 0 if value is 0.
+pub fn safe_exp(value: I32F32) -> I32F32 {
+    exp(value).unwrap_or(I32F32::from_num(0.0))
 }

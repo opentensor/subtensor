@@ -1153,6 +1153,6 @@ fn test_sudo_set_alpha_low() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_alpha_low(netuid), to_be_set);        
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), to_be_set);
     });
-}   
+}

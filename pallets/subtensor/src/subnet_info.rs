@@ -153,8 +153,8 @@ impl<T: Config> Pallet<T> {
         let max_validators = Self::get_max_allowed_validators(netuid);
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
-        let alpha_high = Self::get_alpha_high(netuid);
-        let alpha_low = Self::get_alpha_low(netuid);
+        let alpha_high = AlphaHigh::<T>::get(netuid);
+        let alpha_low = AlphaLow::<T>::get(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),

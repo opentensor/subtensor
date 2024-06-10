@@ -2,6 +2,8 @@ use super::*;
 use crate::math::*;
 use frame_support::IterableStorageDoubleMap;
 use sp_std::vec;
+use substrate_fixed::transcendental::exp;
+use substrate_fixed::transcendental::ln;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
@@ -547,12 +549,33 @@ impl<T: Config> Pallet<T> {
         // Compute bonds moving average.
         let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
         if LiquidAlphaOn::<T>::get(netuid) {
+            let consensus_high = quantile(&consensus, 0.75);
+            let consensus_low = quantile(&consensus, 0.25);
+
+            let alpha_high = Self::get_alpha_high(netuid);
+            let alpha_low = Self::get_alpha_low(netuid);
+
+            let a = (safe_ln(I32F32::from_num(1.0) / alpha_high - I32F32::from_num(1.0))
+                - safe_ln(I32F32::from_num(1.0) / alpha_low - I32F32::from_num(1.0)))
+                / (consensus_low - consensus_high);
+            let b = safe_ln(I32F32::from_num(1.0) / alpha_low - I32F32::from_num(1.0))
+                + a * consensus_low;
+
             let alpha: Vec<I32F32> = consensus
                 .iter()
-                .map(|c: &I32F32| I32F32::from_num(1.0) - c)
+                .map(|c| {
+                    let exp_val = safe_exp(a * *c - b);
+                    I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val)
+                })
                 .collect();
-            ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &alpha);
+
+            let bond_alpha: Vec<I32F32> = alpha
+                .iter()
+                .map(|a| I32F32::from_num(1.0) - a.clamp(&alpha_low, &alpha_high))
+                .collect();
+            ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &bond_alpha);
         } else {
+            // Compute bonds moving average.
             let bonds_moving_average: I64F64 =
                 I64F64::from_num(Self::get_bonds_moving_average(netuid))
                     / I64F64::from_num(1_000_000);

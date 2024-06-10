@@ -1,6 +1,7 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
 use sp_core::U256;
+use substrate_fixed::types::I32F32;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -643,16 +644,16 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_alpha_high(netuid: u16) -> u16 {
-        AlphaHigh::<T>::get(netuid)
+    pub fn get_alpha_high(netuid: u16) -> I32F32 {
+        I32F32::from_num(AlphaHigh::<T>::get(netuid) as f64 / 1000.0)
     }
 
     pub fn set_alpha_high(netuid: u16, alpha_high: u16) {
         AlphaHigh::<T>::insert(netuid, alpha_high);
     }
 
-    pub fn get_alpha_low(netuid: u16) -> u16 {
-        AlphaLow::<T>::get(netuid)
+    pub fn get_alpha_low(netuid: u16) -> I32F32 {
+        I32F32::from_num(AlphaLow::<T>::get(netuid) as f64 / 1000.0)
     }
 
     pub fn set_alpha_low(netuid: u16, alpha_low: u16) {
