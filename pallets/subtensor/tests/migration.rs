@@ -199,7 +199,7 @@ fn test_migration_delete_subnet_21() {
         // Run the migration to transfer ownership
         pallet_subtensor::migration::migrate_delete_subnet_21::<Test>();
 
-        assert_eq!(SubtensorModule::if_subnet_exist(21), false);
+        assert!(!SubtensorModule::if_subnet_exist(21));
     })
 }
 

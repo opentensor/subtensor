@@ -879,7 +879,7 @@ fn test_run_coinbase_price_greater_than_1() {
         let total_issuance = SubtensorModule::get_total_issuance();
         let block_emission = SubtensorModule::get_block_emission().unwrap();
         assert_eq!(total_issuance, 100);
-        assert_eq!(block_emission > 0, true);
+        assert!(block_emission > 0);
 
         // Check that running run_coinbase behaves correctly
         let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
@@ -900,9 +900,9 @@ fn test_run_coinbase_price_greater_than_1() {
             SubtensorModule::get_emission_value(netuid)
         );
 
-        assert_eq!(tao_reserve_after == tao_reserve_before, true);
-        assert_eq!(alpha_reserve_after > alpha_reserve_before, true);
-        assert_eq!(pending_after > pending_before, true);
+        assert!(tao_reserve_after == tao_reserve_before);
+        assert!(alpha_reserve_after > alpha_reserve_before);
+        assert!(pending_after > pending_before);
     })
 }
 
@@ -921,7 +921,7 @@ fn test_run_coinbase_price_less_than_1() {
         let total_issuance = SubtensorModule::get_total_issuance();
         let block_emission = SubtensorModule::get_block_emission().unwrap();
         assert_eq!(total_issuance, 100);
-        assert_eq!(block_emission > 0, true);
+        assert!(block_emission > 0);
 
         // Check that running run_coinbase behaves correctly
         let tao_reserve_before = SubtensorModule::get_tao_reserve(netuid);
@@ -942,9 +942,9 @@ fn test_run_coinbase_price_less_than_1() {
                 .emission_values
         );
 
-        assert_eq!(tao_reserve_after > tao_reserve_before, true);
+        assert!(tao_reserve_after > tao_reserve_before);
         assert_eq!(alpha_reserve_after, alpha_reserve_before);
-        assert_eq!(pending_after > pending_before, true);
+        assert!(pending_after > pending_before);
     })
 }
 
@@ -959,9 +959,9 @@ fn test_10_subnet_take_basic_ok() {
         // Create networks.
         let lock_amount = 100_000_000_000;
         setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1_000_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1056,9 +1056,9 @@ fn test_20_subnet_take_basic_ok() {
         // Create networks.
         let lock_amount = 100_000_000_000;
         setup_dynamic_network(netuid1, 3u16, 1u16, lock_amount);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1_000_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1162,10 +1162,10 @@ fn test_two_subnets_take_ok() {
         let lock_cost = 100_000_000_000;
         setup_dynamic_network(netuid1, 3u16, 1u16, lock_cost);
         setup_dynamic_network(netuid2, 3u16, 2u16, lock_cost);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1000_000_000_000);
-        SubtensorModule::add_balance_to_coldkey_account(&hotkey1, 1000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey0, 1_000_000_000_000);
+        SubtensorModule::add_balance_to_coldkey_account(&hotkey1, 1_000_000_000_000);
 
         // SubStake (Alpha balance)
         //   Subnet 1, cold0, hot0: LC1     (100)
@@ -1284,12 +1284,10 @@ fn test_two_subnets_take_ok() {
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid1, 0, emission);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid2, 0, emission);
 
-        let emission_take_1 =
-            emission as f64 / 1_000_000_000 as f64 * take1 as f64 / u16::MAX as f64;
-        let emission_take_2 =
-            emission as f64 / 1_000_000_000 as f64 * take2 as f64 / u16::MAX as f64;
-        let remaining_emission_1 = emission as f64 / 1_000_000_000 as f64 - emission_take_1;
-        let remaining_emission_2 = emission as f64 / 1_000_000_000 as f64 - emission_take_2;
+        let emission_take_1 = emission as f64 / 1_000_000_000_f64 * take1 as f64 / u16::MAX as f64;
+        let emission_take_2 = emission as f64 / 1_000_000_000_f64 * take2 as f64 / u16::MAX as f64;
+        let remaining_emission_1 = emission as f64 / 1_000_000_000_f64 - emission_take_1;
+        let remaining_emission_2 = emission as f64 / 1_000_000_000_f64 - emission_take_2;
         let substake_0_0_1 = 100. + emission_take_1 + remaining_emission_1 * 2. / 3.;
         let substake_1_0_1 = 50. + remaining_emission_1 * 1. / 3.;
         let substake_0_1_1 = 200. + emission_take_2 + remaining_emission_2 * 2. / 3.;

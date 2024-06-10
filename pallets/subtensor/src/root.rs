@@ -342,7 +342,7 @@ impl<T: Config> Pallet<T> {
 
                 if last_stake < current_stake {
                     T::SenateMembers::swap_member(last, &hotkey).map_err(|e| e.error)?;
-                    T::TriumvirateInterface::remove_votes(&last)?;
+                    T::TriumvirateInterface::remove_votes(last)?;
                 }
             }
         } else {
@@ -648,7 +648,7 @@ impl<T: Config> Pallet<T> {
         SubnetCreator::<T>::insert(netuid_to_register, hotkey.clone()); // Set the creator hotkey (which is forever.)
 
         // --- 8. Instantiate initial token supply based on lock cost.
-        let initial_tao_reserve: u64 = lock_amount as u64;
+        let initial_tao_reserve: u64 = lock_amount;
         let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
         let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
         let initial_dynamic_k: u128 =
@@ -1038,7 +1038,7 @@ impl<T: Config> Pallet<T> {
             SubnetTransition {
                 substake_current_key: SubStake::<T>::iter_keys().next(),
                 owner_stake_tao: actual_lock_amount,
-                coldkey: coldkey,
+                coldkey,
                 hotkey: subnet_creator,
             }
         );
@@ -1153,7 +1153,7 @@ impl<T: Config> Pallet<T> {
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&transition.coldkey, lock_amount).unwrap_or(0);
 
         let num_subnets = Self::get_num_subnets() as u64;
-        let initial_tao_reserve: u64 = lock_amount as u64;
+        let initial_tao_reserve: u64 = lock_amount;
         let initial_dynamic_reserve: u64 = lock_amount * num_subnets;
         let initial_dynamic_outstanding: u64 = lock_amount * num_subnets;
         let initial_dynamic_k: u128 =

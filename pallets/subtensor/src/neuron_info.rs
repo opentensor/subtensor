@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
-        let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
+        let stake_weight = Self::get_stake_weight_for_uid(netuid, uid) as u64;
         let stake: Vec<(T::AccountId, Compact<u64>)> =
             vec![(coldkey.clone(), Compact(stake_weight))];
 
@@ -161,25 +161,25 @@ impl<T: Config> Pallet<T> {
         let axon_info = Self::get_axon_info(netuid, &hotkey);
         let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
         let coldkey = Owner::<T>::get(&hotkey);
-        let active = Self::get_active_for_uid(netuid, uid as u16);
-        let rank = Self::get_rank_for_uid(netuid, uid as u16);
-        let emission = Self::get_emission_for_uid(netuid, uid as u16);
-        let incentive = Self::get_incentive_for_uid(netuid, uid as u16);
-        let consensus = Self::get_consensus_for_uid(netuid, uid as u16);
-        let trust = Self::get_trust_for_uid(netuid, uid as u16);
-        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid as u16);
-        let dividends = Self::get_dividends_for_uid(netuid, uid as u16);
-        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid as u16);
-        let last_update = Self::get_last_update_for_uid(netuid, uid as u16);
-        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid as u16);
+        let active = Self::get_active_for_uid(netuid, uid);
+        let rank = Self::get_rank_for_uid(netuid, uid);
+        let emission = Self::get_emission_for_uid(netuid, uid);
+        let incentive = Self::get_incentive_for_uid(netuid, uid);
+        let consensus = Self::get_consensus_for_uid(netuid, uid);
+        let trust = Self::get_trust_for_uid(netuid, uid);
+        let validator_trust = Self::get_validator_trust_for_uid(netuid, uid);
+        let dividends = Self::get_dividends_for_uid(netuid, uid);
+        let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
+        let last_update = Self::get_last_update_for_uid(netuid, uid);
+        let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
-        let stake_weight = Self::get_stake_weight_for_uid(netuid, uid as u16) as u64;
+        let stake_weight = Self::get_stake_weight_for_uid(netuid, uid) as u64;
         let stake: Vec<(T::AccountId, Compact<u64>)> =
             vec![(coldkey.clone(), Compact(stake_weight))];
 
         let neuron = NeuronInfoLite {
-            hotkey: hotkey,
-            coldkey: coldkey,
+            hotkey,
+            coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,

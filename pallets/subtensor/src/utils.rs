@@ -168,17 +168,17 @@ impl<T: Config> Pallet<T> {
     pub fn get_stake_weight_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = StakeWeight::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
         if (uid as usize) < vec.len() {
-            return vec[uid as usize];
+            vec[uid as usize]
         } else {
-            return 0;
+            0
         }
     }
     pub fn get_trust_for_uid(netuid: u16, uid: u16) -> u16 {
@@ -722,7 +722,7 @@ impl<T: Config> Pallet<T> {
         let new_dynamic_reserve = if stake_change > 0 {
             dynamic_reserve.saturating_add(stake_change as u64)
         } else {
-            dynamic_reserve.saturating_sub(stake_change.abs() as u64)
+            dynamic_reserve.saturating_sub(stake_change.unsigned_abs())
         };
 
         let new_tao_reserve = (k / new_dynamic_reserve as u128) as u64;
@@ -731,8 +731,7 @@ impl<T: Config> Pallet<T> {
         let new_price = I64F64::from_num(new_tao_reserve) / I64F64::from_num(new_dynamic_reserve);
 
         // Slippage is the difference in price
-        let slippage = initial_price - new_price;
-        slippage
+        initial_price - new_price
     }
 
     pub fn get_nominator_min_required_stake() -> u64 {

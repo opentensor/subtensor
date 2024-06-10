@@ -1079,10 +1079,12 @@ fn test_has_enough_stake_yes() {
             ),
             10000
         );
-        assert_eq!(
-            SubtensorModule::has_enough_stake(&coldkey_id, &hotkey_id, netuid, 5000),
-            true
-        );
+        assert!(SubtensorModule::has_enough_stake(
+            &coldkey_id,
+            &hotkey_id,
+            netuid,
+            5000
+        ),);
     });
 }
 
@@ -1098,10 +1100,12 @@ fn test_has_enough_stake_no() {
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey_id, coldkey_id, start_nonce);
         SubtensorModule::increase_subnet_token_on_hotkey_account(&hotkey_id, netuid, intial_amount);
-        assert_eq!(
-            SubtensorModule::has_enough_stake(&coldkey_id, &hotkey_id, netuid, 5000),
-            false
-        );
+        assert!(!SubtensorModule::has_enough_stake(
+            &coldkey_id,
+            &hotkey_id,
+            netuid,
+            5000
+        ));
     });
 }
 
@@ -2258,9 +2262,9 @@ fn test_stao_delegation() {
             SubtensorModule::get_owning_coldkey_for_hotkey(&delegate),
             delegate
         );
-        assert_eq!(SubtensorModule::hotkey_account_exists(&delegate), true);
-        assert_eq!(SubtensorModule::hotkey_account_exists(&nominator1), false);
-        assert_eq!(SubtensorModule::hotkey_account_exists(&nominator2), false);
+        assert!(SubtensorModule::hotkey_account_exists(&delegate));
+        assert!(!SubtensorModule::hotkey_account_exists(&nominator1));
+        assert!(!SubtensorModule::hotkey_account_exists(&nominator2));
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&delegate, &delegate, netuid),
             100_000
@@ -3589,12 +3593,12 @@ fn set_delegate_takes_updates_delegates_correctly() {
         // Action: Call set_delegate_takes
         assert_ok!(SubtensorModule::set_delegate_takes(
             RuntimeOrigin::signed(coldkey),
-            hotkey.into(),
+            hotkey,
             takes.clone()
         ));
 
         for (netuid, take) in takes {
-            let actual_take = SubtensorModule::get_delegate_take(&hotkey.into(), netuid);
+            let actual_take = SubtensorModule::get_delegate_take(&hotkey, netuid);
             log::info!(
                 "Checking delegate take for netuid {}: Expected take: {}, Actual take: {}",
                 netuid,
@@ -3712,7 +3716,7 @@ fn set_delegate_takes_enforces_rate_limit() {
         // First call to set_delegate_takes should succeed
         assert_ok!(SubtensorModule::set_delegate_takes(
             RuntimeOrigin::signed(coldkey),
-            hotkey.into(),
+            hotkey,
             takes_initial
         ));
 

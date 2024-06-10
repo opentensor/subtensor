@@ -93,7 +93,7 @@ impl<T: Config> Pallet<T> {
             T::AccountId::decode(&mut coldkey_bytes.as_slice()).expect("Coldkey decoding failed");
         SubStake::<T>::iter_prefix((&coldkey,)).map(|((hotkey, nid), stake)|{
             SubStakeElement {
-                hotkey: hotkey,
+                hotkey,
                 coldkey: coldkey.clone(),
                 netuid: Compact(nid),
                 stake: Compact(stake),
@@ -120,8 +120,8 @@ impl<T: Config> Pallet<T> {
             *nid == netuid && *stake != 0
         }).map(|((coldkey, hotkey, nid), stake)|{
             SubStakeElement {
-                hotkey: hotkey,
-                coldkey: coldkey,
+                hotkey,
+                coldkey,
                 netuid: Compact(nid),
                 stake: Compact(stake),
             }

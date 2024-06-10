@@ -68,13 +68,11 @@ impl<T: Config> Pallet<T> {
             coldkeys.push(coldkey);
         }
 
-        if coldkeys.len() == 0 {
+        if coldkeys.is_empty() {
             return Vec::new(); // Invalid coldkey
         }
 
-        let stake_info = Self::_get_stake_info_for_coldkeys(coldkeys);
-
-        return stake_info;
+        Self::_get_stake_info_for_coldkeys(coldkeys)
     }
 
     /// This function is used to retrieve the all the stake associated with a coldkey
@@ -91,10 +89,11 @@ impl<T: Config> Pallet<T> {
             T::AccountId::decode(&mut coldkey_account_bytes.as_bytes_ref()).unwrap();
         let stake_info = Self::_get_stake_info_for_coldkeys(vec![coldkey]);
 
-        if stake_info.len() == 0 {
-            return Vec::new(); // Invalid coldkey
+        if stake_info.is_empty() {
+            // Invalid coldkey
+            Vec::new()
         } else {
-            return stake_info.get(0).unwrap().1.clone();
+            stake_info.first().unwrap().1.clone()
         }
     }
 

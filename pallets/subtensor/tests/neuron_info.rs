@@ -328,7 +328,7 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neurons_lite() {
                 hotkey,
                 coldkey
             );
-            register_ok_neuron(netuid, hotkey, coldkey, 0 as u64);
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
             SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 5);
             assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -417,7 +417,7 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
                 hotkey,
                 coldkey
             );
-            register_ok_neuron(netuid, hotkey, coldkey, 0 as u64);
+            register_ok_neuron(netuid, hotkey, coldkey, 0);
             SubtensorModule::add_balance_to_coldkey_account(&coldkey, initial_stake * 5);
             assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
@@ -446,7 +446,7 @@ fn test_adding_substake_affects_only_targeted_neuron_with_get_neuron_lite() {
         // Retrieve and check all neurons to ensure only the targeted neuron's stake has increased
         let total_stake = (neuron_count as u64 * initial_stake + additional_stake) as f32;
         for i in 0..neuron_count {
-            let neuron_index = i as u16;
+            let neuron_index = i;
             if let Some(neuron_lite) = SubtensorModule::get_neuron_lite(netuid, neuron_index) {
                 let neuron_hotkey = U256::from(i);
                 let found_stake_tuple = neuron_lite

@@ -714,7 +714,7 @@ fn test_sudo_global_stake_weight() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_global_stake_weight(), init_value);
         assert_ok!(AdminUtils::sudo_set_global_stake_weight(
@@ -735,7 +735,7 @@ fn test_sudo_subnet_staking() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::subnet_staking_on(), init_value);
         assert_ok!(AdminUtils::sudo_set_subnet_staking(
@@ -1170,7 +1170,7 @@ fn test_sudo_set_tx_rate_limit() {
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 to_be_set
             ),
-            Err(DispatchError::BadOrigin.into())
+            Err(DispatchError::BadOrigin)
         );
         assert_eq!(SubtensorModule::get_tx_rate_limit(), init_value);
         assert_ok!(AdminUtils::sudo_set_tx_rate_limit(

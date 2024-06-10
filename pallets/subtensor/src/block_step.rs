@@ -79,9 +79,9 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * A result containing either a vector of tuples where each tuple contains a network UID and its corresponding tempo, or an error string if there's a mismatch in vector sizes or other issues.
     pub fn calculate_tempos(
-        netuids: &Vec<u16>,
+        netuids: &[u16],
         k: I64F64,
-        prices: &Vec<I64F64>,
+        prices: &[I64F64],
     ) -> Result<Vec<(u16, u16)>, &'static str> {
         // Check for mismatched vector sizes
         if netuids.len() != prices.len() {
@@ -160,12 +160,10 @@ impl<T: Config> Pallet<T> {
         Self::get_all_subnet_netuids().iter().map(|&netuid| {
             let dynamic = Self::is_subnet_dynamic(netuid);
             SubnetBlockStepInfo {
-                netuid: netuid,
+                netuid,
                 subnet_type: Self::get_subnet_type(netuid),
                 price: {
-                    if netuid == Self::get_root_netuid() {
-                        I64F64::from_num(0.0)
-                    } else if !dynamic {
+                    if netuid == Self::get_root_netuid() || !dynamic {
                         I64F64::from_num(0.0)
                     } else {
                         Self::get_tao_per_alpha_price(netuid)
@@ -264,7 +262,7 @@ impl<T: Config> Pallet<T> {
                     // as well as all nominators.
                     for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
                         Self::emit_inflation_through_hotkey_account(
-                            &hotkey,
+                            hotkey,
                             subnet_info.netuid,
                             *server_amount,
                             *validator_amount,

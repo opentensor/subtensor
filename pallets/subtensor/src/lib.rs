@@ -441,11 +441,7 @@ pub mod pallet {
     /// Flag that determines if subnet staking is on by default
     #[pallet::type_value]
     pub fn DefaultSubnetStaking<T: Config>() -> bool {
-        if cfg!(feature = "subnet-staking") {
-            return true;
-        } else {
-            return false;
-        }
+        cfg!(feature = "subnet-staking")
     }
     #[pallet::storage] // --- ITEM( SubnetStakingOn ) --> Subnet staking enabled
     pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
@@ -1417,7 +1413,7 @@ pub mod pallet {
                 weight
             );
 
-            return frame_support::weights::Weight::from_parts(0, 0);
+            frame_support::weights::Weight::from_parts(0, 0)
         }
     }
 
@@ -2311,7 +2307,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
-            if Uids::<T>::contains_key(netuid, &hotkey) {
+            if Uids::<T>::contains_key(netuid, hotkey) {
                 let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =

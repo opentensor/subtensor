@@ -184,7 +184,7 @@ fn init_run_epochs(
             &U256::from(key),
             &U256::from(key),
             netuid,
-            stake as u64,
+            stake,
         );
     }
     assert_eq!(SubtensorModule::get_subnetwork_n(netuid), n);
@@ -1879,7 +1879,7 @@ fn test_validator_permits() {
         // network_n - total number of neurons in the network
         // validators_n - number of validators among these neurons
         // servers - neurons that don't have validator permit
-        for (network_n, validators_n) in vec![(2, 1), (4, 2), (8, 4)] {
+        for (network_n, validators_n) in [(2, 1), (4, 2), (8, 4)] {
             for assignment in 0..=1 {
                 let (validators, servers) =
                     distribute_nodes(validators_n as usize, network_n, interleave as usize);

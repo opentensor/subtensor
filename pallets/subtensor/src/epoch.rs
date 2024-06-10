@@ -5,9 +5,9 @@ use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-    pub fn get_global_stake_weights(hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I64F64> {
+    pub fn get_global_stake_weights(hotkeys: &[(u16, T::AccountId)]) -> Vec<I64F64> {
         // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
-        let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len() as usize];
+        let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len()];
 
         // Iterate over each hotkey to calculate and assign the global stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
@@ -20,9 +20,9 @@ impl<T: Config> Pallet<T> {
         global_stake_64
     }
 
-    pub fn get_local_stake_weights(netuid: u16, hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I64F64> {
+    pub fn get_local_stake_weights(netuid: u16, hotkeys: &[(u16, T::AccountId)]) -> Vec<I64F64> {
         // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
-        let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len() as usize];
+        let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len()];
 
         // Iterate over each hotkey to calculate and assign the local stake values.
         for (uid_i, hotkey) in hotkeys.iter() {
@@ -36,13 +36,13 @@ impl<T: Config> Pallet<T> {
         local_stake_64
     }
 
-    pub fn get_stakes(netuid: u16, hotkeys: &Vec<(u16, T::AccountId)>) -> Vec<I32F32> {
+    pub fn get_stakes(netuid: u16, hotkeys: &[(u16, T::AccountId)]) -> Vec<I32F32> {
         // Get the stake weight alpha
         let alpha: I64F64 = Self::get_global_stake_weight_float();
 
         // Get local and global terms.
-        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights(netuid, &hotkeys);
-        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights(&hotkeys);
+        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights(netuid, hotkeys);
+        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights(hotkeys);
 
         // Average local and global weights.
         let averaged_stake_64: Vec<I64F64> = local_stake_weights
@@ -442,13 +442,13 @@ impl<T: Config> Pallet<T> {
         // =============
 
         // Keys stores (netuid, uid) --> hotkey association, which is initially added in append_neuron
-        let hotkeys = Keys::<T>::iter_prefix(netuid).collect();
+        let hotkeys: Vec<(u16,  T::AccountId)> = Keys::<T>::iter_prefix(netuid).collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
         // ===========
         // == Stake ==
         // ===========
-        let stake = Self::get_stakes(netuid, &hotkeys);
+        let stake = Self::get_stakes(netuid, hotkeys.as_slice());
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================

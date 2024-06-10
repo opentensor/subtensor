@@ -40,7 +40,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         assert_eq!(SubtensorModule::get_tao_reserve(0), 0);
         assert_eq!(SubtensorModule::get_alpha_reserve(0), 0);
         assert_eq!(SubtensorModule::get_pool_k(0), 0);
-        assert_eq!(SubtensorModule::is_subnet_dynamic(0), false);
+        assert!(!SubtensorModule::is_subnet_dynamic(0));
 
         log::info!(
             "Alpha Outstanding is {:?}",
@@ -98,7 +98,7 @@ fn test_add_subnet_stake_ok_no_emission() {
             SubtensorModule::get_pool_k(1),
             100_000_000_000 * 100_000_000_000
         );
-        assert_eq!(SubtensorModule::is_subnet_dynamic(1), true);
+        assert!(SubtensorModule::is_subnet_dynamic(1));
         log::info!(
             "Alpha Outstanding is {:?}",
             SubtensorModule::get_alpha_outstanding(1)
@@ -173,7 +173,7 @@ fn test_add_subnet_stake_ok_no_emission() {
             (200_000_000_000 - ExistentialDeposit::get() as u128 * 2u128)
                 * (400_000_000_000 - ExistentialDeposit::get() as u128 * 4u128)
         );
-        assert_eq!(SubtensorModule::is_subnet_dynamic(2), true);
+        assert!(SubtensorModule::is_subnet_dynamic(2));
         log::info!(
             "Alpha Outstanding is {:?}",
             SubtensorModule::get_alpha_outstanding(2)
@@ -651,23 +651,19 @@ fn test_block_emission_adds_up_many_subnets() {
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
 
         let all_total_subnet_tao_before: u64 = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid))
+            .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
             .sum();
         let all_dynamic_alpha_reserve_before: u64 = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid))
+            .map(pallet_subtensor::DynamicAlphaReserve::<Test>::get)
             .sum();
 
         SubtensorModule::run_coinbase(1);
 
         let all_total_subnet_tao_after: u64 = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid))
+            .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
             .sum();
         let all_dynamic_alpha_reserve_after: u64 = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid))
+            .map(pallet_subtensor::DynamicAlphaReserve::<Test>::get)
             .sum();
 
         // Approximate equality
@@ -694,27 +690,22 @@ fn test_block_emission_are_proportional() {
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
 
         let total_subnet_tao_before: Vec<u64> = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid))
+            .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
             .collect();
         let dynamic_alpha_reserve_before: Vec<u64> = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid))
+            .map(pallet_subtensor::DynamicAlphaReserve::<Test>::get)
             .collect();
         let total_total_subnet_tao_before: u64 = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid))
+            .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
             .sum();
 
         SubtensorModule::run_coinbase(1);
 
         let total_subnet_tao_after: Vec<u64> = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid))
+            .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
             .collect();
         let dynamic_alpha_reserve_after: Vec<u64> = (1u16..=subnet_count)
-            .into_iter()
-            .map(|netuid| pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid))
+            .map(pallet_subtensor::DynamicAlphaReserve::<Test>::get)
             .collect();
 
         // Ensure subnet emissions are proportional to the their total TAO
@@ -730,10 +721,7 @@ fn test_block_emission_are_proportional() {
         .for_each(|(tao_bef, emission)| {
             let expected_emission =
                 block_emission as f64 * (*tao_bef) as f64 / total_total_subnet_tao_before as f64;
-            assert!(
-                ((emission as f64 - expected_emission as f64).abs() / expected_emission as f64)
-                    < 0.00001
-            );
+            assert!(((emission as f64 - expected_emission).abs() / expected_emission) < 0.00001);
         });
 
         // Also ensure emissions add up to block emission

@@ -754,7 +754,7 @@ impl<T: Config> Pallet<T> {
     // Returns the total amount of stake under a hotkey for a subnet (delegative or otherwise)
     //
     pub fn get_total_stake_for_hotkey_and_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        return TotalHotkeySubStake::<T>::get(hotkey, netuid);
+        TotalHotkeySubStake::<T>::get(hotkey, netuid)
     }
 
     // Retrieves the total stakes for a given hotkey (account ID) for the current staking interval.
@@ -832,7 +832,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
-        Self::do_account_checks(&coldkey, &hotkey)?;
+        Self::do_account_checks(&coldkey, hotkey)?;
         let block: u64 = Self::get_current_block_as_u64();
 
         for (netuid, take) in takes {
@@ -849,7 +849,7 @@ impl<T: Config> Pallet<T> {
             // Enforce the rate limit (independently on do_add_stake rate limits)
             ensure!(
                 !Self::exceeds_tx_delegate_take_rate_limit(
-                    Self::get_last_tx_block_delegate_take(&hotkey),
+                    Self::get_last_tx_block_delegate_take(hotkey),
                     block
                 ),
                 Error::<T>::DelegateTxRateLimitExceeded
@@ -927,9 +927,9 @@ impl<T: Config> Pallet<T> {
         let tao_reserve: u64 = DynamicTAOReserve::<T>::get(netuid);
         let alpha_reserve: u64 = DynamicAlphaReserve::<T>::get(netuid);
         if alpha_reserve == 0 {
-            return I64F64::from_num(1.0);
+            I64F64::from_num(1.0)
         } else {
-            return I64F64::from_num(tao_reserve) / I64F64::from_num(alpha_reserve);
+            I64F64::from_num(tao_reserve) / I64F64::from_num(alpha_reserve)
         }
     }
 
@@ -961,7 +961,7 @@ impl<T: Config> Pallet<T> {
                 global_dynamic_tao += I64F64::from_num(other_subnet_token_tao);
             }
         }
-        return global_dynamic_tao.to_num::<u64>();
+        global_dynamic_tao.to_num::<u64>()
     }
 
     /// Returns the stake under the cold - hot pairing in the staking table.
@@ -992,7 +992,7 @@ impl<T: Config> Pallet<T> {
                 global_dynamic_tao += I64F64::from_num(other_subnet_token_tao);
             }
         }
-        return global_dynamic_tao.to_num::<u64>();
+        global_dynamic_tao.to_num::<u64>()
     }
 
     /// Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
@@ -1151,19 +1151,18 @@ impl<T: Config> Pallet<T> {
         }
 
         // This bit is currently untested. @todo
-        let can_withdraw = T::Currency::can_withdraw(
-            &coldkey,
+        T::Currency::can_withdraw(
+            coldkey,
             amount,
         )
         .into_result(false)
-        .is_ok();
-        can_withdraw
+        .is_ok()
     }
 
     pub fn get_coldkey_balance(
         coldkey: &T::AccountId,
     ) -> <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance {
-        return T::Currency::reducible_balance(&coldkey, Preservation::Expendable, Fortitude::Polite);
+        T::Currency::reducible_balance(coldkey, Preservation::Expendable, Fortitude::Polite)
     }
 
     #[must_use = "Balance must be used to preserve total issuance of token"]

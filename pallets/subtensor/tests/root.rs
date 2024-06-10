@@ -358,7 +358,7 @@ fn test_issuance_bounds() {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
         let n_halvings: usize = 100;
-        let total_issuance = (0..n_halvings).into_iter().fold(0, |total, _| {
+        let total_issuance = (0..n_halvings).fold(0, |total, _| {
             let block_emission_10_500_000x: u64 =
                 SubtensorModule::get_block_emission_for_issuance(total).unwrap() * 10_500_000;
             total + block_emission_10_500_000x
@@ -810,7 +810,7 @@ fn test_stao_dtao_transition_dynamic_variables() {
             pallet_subtensor::DynamicK::<Test>::get(netuid),
             lock_cost as u128 * lock_cost as u128,
         );
-        assert_eq!(pallet_subtensor::IsDynamic::<Test>::get(netuid), true,);
+        assert!(pallet_subtensor::IsDynamic::<Test>::get(netuid));
 
         // DynamicTAOReserve will be set to equal the new value of TotalSubnetTAO (test)
         assert_eq!(
@@ -838,14 +838,8 @@ fn test_stao_dtao_transition_clears_staker() {
         SubtensorModule::do_continue_stao_dtao_transition();
 
         // Check staker map for owner (should remain) and for staker (should be cleared)
-        assert_eq!(
-            pallet_subtensor::Staker::<Test>::get(&hotkey1, &coldkey1),
-            true,
-        );
-        assert_eq!(
-            pallet_subtensor::Staker::<Test>::get(&hotkey1, &coldkey2),
-            false,
-        );
+        assert!(pallet_subtensor::Staker::<Test>::get(hotkey1, coldkey1));
+        assert!(!pallet_subtensor::Staker::<Test>::get(hotkey1, coldkey2));
     });
 }
 
