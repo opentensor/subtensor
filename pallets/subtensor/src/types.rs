@@ -58,4 +58,6 @@ pub struct SubnetTransition<AccountId> {
     pub owner_stake_tao: u64,
     pub coldkey: AccountId,
     pub hotkey: AccountId,
+    pub initial_total_tao: u64,
+    pub initial_alpha_per_tao: u64,
 }

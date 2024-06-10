@@ -512,10 +512,12 @@ pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
     );
     pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid, lock_amount);
 
-    assert_ok!(SubtensorModule::do_become_delegate(
-        <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-        hotkey1
-    ));
+    if !pallet_subtensor::Delegates::<Test>::contains_key(coldkey1) {
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
+            hotkey1
+        ));
+    }
     assert_ok!(SubtensorModule::add_subnet_stake(
         <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
         hotkey1,
