@@ -555,6 +555,7 @@ impl<T: Config> Pallet<T> {
     pub fn user_add_network(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
+        subnet_type: SubnetType,
     ) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
@@ -605,6 +606,7 @@ impl<T: Config> Pallet<T> {
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
 
         Self::user_add_network_no_checks(
+            subnet_type,
             coldkey,
             hotkey,
             netuid_to_register,
@@ -626,6 +628,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn user_add_network_no_checks(
+        subnet_type: SubnetType,
         coldkey: T::AccountId,
         hotkey: T::AccountId,
         netuid_to_register: u16,
@@ -647,18 +650,28 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); // Set the owner (which can change.)
         SubnetCreator::<T>::insert(netuid_to_register, hotkey.clone()); // Set the creator hotkey (which is forever.)
 
-        // --- 8. Instantiate initial token supply based on lock cost.
-        let initial_tao_reserve: u64 = lock_amount;
-        let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
-        let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
-        let initial_dynamic_k: u128 =
-            (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
+        let initial_alpha = match subnet_type {
+            SubnetType::STAO => {
+                lock_amount
+            },
+            SubnetType::DTAO => {
+                // --- 8. Instantiate initial token supply based on lock cost.
+                let initial_tao_reserve: u64 = lock_amount;
+                let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
+                let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
+                let initial_dynamic_k: u128 =
+                    (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
 
-        DynamicTAOReserve::<T>::insert(netuid_to_register, initial_tao_reserve);
-        DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve);
-        DynamicAlphaOutstanding::<T>::insert(netuid_to_register, initial_dynamic_outstanding);
-        DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k);
-        IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+                DynamicTAOReserve::<T>::insert(netuid_to_register, initial_tao_reserve);
+                DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve);
+                DynamicAlphaOutstanding::<T>::insert(netuid_to_register, initial_dynamic_outstanding);
+                DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k);
+                IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+
+                initial_dynamic_outstanding
+            },
+        };
+
         TotalSubnetTAO::<T>::insert(netuid_to_register, actual_lock_amount);
 
         // Add the staker for nominator iterations
@@ -673,7 +686,7 @@ impl<T: Config> Pallet<T> {
             &coldkey,
             &hotkey,
             netuid_to_register,
-            initial_dynamic_outstanding,
+            initial_alpha,
         );
     }
 

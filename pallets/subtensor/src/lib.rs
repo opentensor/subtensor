@@ -67,7 +67,7 @@ pub mod migration;
 #[frame_support::pallet]
 pub mod pallet {
 
-    use crate::types::SubnetTransition;
+    use crate::types::{SubnetType, SubnetTransition};
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -2269,7 +2269,7 @@ pub mod pallet {
         .saturating_add(T::DbWeight::get().reads(16))
         .saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
         pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::user_add_network(origin, hotkey)
+            Self::user_add_network(origin, hotkey, SubnetType::DTAO)
         }
 
         /// Facility extrinsic for user to get taken from faucet

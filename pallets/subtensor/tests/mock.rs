@@ -8,6 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, Config};
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use pallet_subtensor::types::SubnetType;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
@@ -532,6 +533,7 @@ pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16, l
     let hotkey = U256::from(hot_id);
 
     SubtensorModule::user_add_network_no_checks(
+        SubnetType::DTAO,
         coldkey,
         hotkey,
         netuid,

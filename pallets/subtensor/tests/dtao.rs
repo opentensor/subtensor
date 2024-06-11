@@ -5,6 +5,7 @@ use itertools::izip;
 use pallet_subtensor::*;
 use sp_core::U256;
 use substrate_fixed::types::I64F64;
+use types::SubnetType;
 mod mock;
 
 #[macro_use]
@@ -48,9 +49,10 @@ fn test_add_subnet_stake_ok_no_emission() {
         );
         // Register a network with this coldkey + hotkey for a lock cost of 100 TAO.
         step_block(1);
-        assert_ok!(SubtensorModule::register_network(
+        assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
 
         // Check:
@@ -830,7 +832,8 @@ fn test_registration_balance_minimal_ok() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount);
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
 
         let account = System::account(coldkey);
@@ -852,7 +855,8 @@ fn test_registration_balance_minimal_plus_ed_ok() {
         );
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
 
         let account = System::account(coldkey);
@@ -874,7 +878,8 @@ fn test_registration_balance_minimal_plus_ed_plus_1_ok() {
         );
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
 
         let account = System::account(coldkey);
@@ -896,7 +901,8 @@ fn test_registration_balance_minimal_plus_ed_minus_1_ok() {
         );
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
 
         let account = System::account(coldkey);
