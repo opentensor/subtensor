@@ -5,16 +5,10 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  ## Run automatically for all PRs against main, regardless of what the changes are
-  ## to be safe and so we can more easily force re-run the CI when github is being
-  ## weird by using a blank commit
   push:
-    branches: [main, development, staging]
+    branches: [main, devnet-ready, devnet, testnet, finney]
 
-  ##
-  # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches: [main, development, staging]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
@@ -56,7 +50,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential
@@ -73,6 +67,54 @@ jobs:
 
   cargo-clippy-default-features:
     name: cargo clippy
+    runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - nightly-2024-03-05
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+    env:
+      RELEASE_NAME: development
+      # RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
+          profile: minimal
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+
+      - name: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  cargo-clippy-all-features:
+    name: cargo clippy --all-features
     runs-on: SubtensorCI
     strategy:
       matrix:
@@ -116,8 +158,8 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: cargo clippy --workspace --all-targets -- -D warnings
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   cargo-clippy-all-features:
     name: cargo clippy --all-features
@@ -194,7 +236,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -243,7 +285,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -292,7 +334,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -339,7 +381,7 @@ jobs:
         run: cargo install --locked -q zepter && zepter --version
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Dont clone historic commits.
 
@@ -351,7 +393,7 @@ jobs:
     runs-on: SubtensorCI
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Try Runtime Checks
         uses: "paritytech/try-runtime-gha@v0.1.0"

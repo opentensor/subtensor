@@ -868,5 +868,29 @@ fn test_emission_based_on_registration_status() {
                 .len(),
             n as usize
         );
+
+        // drain the emission tuples for the subnet with registration on
+        SubtensorModule::drain_emission(next_block as u64);
+        // Turn on registration for the subnet with registration off
+        SubtensorModule::set_network_registration_allowed(netuid_off, true);
+        SubtensorModule::set_network_registration_allowed(netuid_on, false);
+
+        // Generate emission at the next block
+        let next_block: u64 = block + 1;
+        SubtensorModule::generate_emission(next_block);
+
+        // Verify that emission tuples are now loaded for the subnet with registration turned on
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_some());
+        log::info!(
+            "Emissions for netuid with registration on: {:?}",
+            SubtensorModule::get_loaded_emission_tuples(netuid_on)
+        );
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_on).is_none());
+        assert_eq!(
+            SubtensorModule::get_loaded_emission_tuples(netuid_off)
+                .unwrap()
+                .len(),
+            n as usize
+        );
     });
 }
