@@ -5,6 +5,7 @@
 use crate::service::FullClient;
 
 use node_subtensor_runtime as runtime;
+use node_subtensor_runtime::check_nonce;
 use node_subtensor_runtime::pallet_subtensor;
 use runtime::{AccountId, Balance, BalancesCall, SystemCall};
 use sc_cli::Result;
@@ -130,7 +131,7 @@ pub fn create_benchmark_extrinsic(
             period,
             best_block.saturated_into(),
         )),
-        frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
+        check_nonce::CheckNonce::<runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<runtime::Runtime>::new(),
         pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(0),
         pallet_subtensor::SubtensorSignedExtension::<runtime::Runtime>::new(),
@@ -158,7 +159,7 @@ pub fn create_benchmark_extrinsic(
     runtime::UncheckedExtrinsic::new_signed(
         call.clone(),
         sp_runtime::AccountId32::from(sender.public()).into(),
-        runtime::Signature::Sr25519(signature.clone()),
+        runtime::Signature::Sr25519(signature),
         extra.clone(),
     )
 }

@@ -12,6 +12,8 @@ pub use frame_benchmarking_cli::{BenchmarkCmd, ExtrinsicFactory, SUBSTRATE_REFER
 pub use node_subtensor_runtime::EXISTENTIAL_DEPOSIT;
 #[cfg(feature = "runtime-benchmarks")]
 pub use sp_keyring::Sr25519Keyring;
+#[cfg(feature = "runtime-benchmarks")]
+use sp_runtime::traits::HashingFor;
 
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
@@ -44,9 +46,9 @@ impl SubstrateCli for Cli {
 
     fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
-            "local" => Box::new(chain_spec::localnet_config()?),
-            "finney" => Box::new(chain_spec::finney_mainnet_config()?),
-            "" | "test_finney" => Box::new(chain_spec::finney_testnet_config()?),
+            "local" => Box::new(chain_spec::localnet::localnet_config()?),
+            "finney" => Box::new(chain_spec::finney::finney_mainnet_config()?),
+            "" | "test_finney" => Box::new(chain_spec::testnet::finney_testnet_config()?),
             path => Box::new(chain_spec::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
@@ -147,7 +149,7 @@ pub fn run() -> sc_cli::Result<()> {
                             );
                         }
 
-                        cmd.run::<Block, service::ExecutorDispatch>(config)
+                        cmd.run::<HashingFor<Block>, service::ExecutorDispatch>(config)
                     }
                     BenchmarkCmd::Block(cmd) => {
                         let PartialComponents { client, .. } = service::new_partial(&config)?;

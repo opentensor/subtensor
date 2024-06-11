@@ -1,7 +1,7 @@
-name: CI
+name: Check Rust
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: check-rust-${{ github.ref }}
   cancel-in-progress: true
 
 on:
@@ -65,8 +65,7 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --check --all
 
-  # runs cargo clippy --workspace --all-targets --all-features
-  cargo-clippy:
+  cargo-clippy-default-features:
     name: cargo clippy
     runs-on: SubtensorCI
     strategy:
@@ -111,8 +110,104 @@ jobs:
         with:
           key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-      - name: cargo clippy --workspace --all-targets --all-features
-        run: cargo clippy --workspace --all-targets --all-features
+      - name: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  cargo-clippy-all-features:
+    name: cargo clippy --all-features
+    runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - nightly-2024-03-05
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+    env:
+      RELEASE_NAME: development
+      # RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
+          profile: minimal
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+
+      - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  cargo-clippy-all-features:
+    name: cargo clippy --all-features
+    runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - nightly-2024-03-05
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+    env:
+      RELEASE_NAME: development
+      # RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v2
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
+          profile: minimal
+
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+
+      - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   # runs cargo test --workspace
   cargo-test:
@@ -273,7 +368,7 @@ jobs:
 
   check-feature-propagation:
     name: zepter run check
-    runs-on: ubuntu-22.04
+    runs-on: SubtensorCI
 
     steps:
       - name: Install stable Rust
@@ -295,7 +390,7 @@ jobs:
 
   check-finney-migrations:
     name: check finney migrations
-    runs-on: ubuntu-22.04
+    runs-on: SubtensorCI
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -306,40 +401,34 @@ jobs:
           runtime-package: "node-subtensor-runtime"
           node-uri: "wss://entrypoint-finney.opentensor.ai:443"
           checks: "pre-and-post"
-          extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
+          extra-args: "--disable-spec-version-check --no-weight-warnings"
 
-  # ----
-  # We can enable devnet and finney migrations once Polkadot v1.0 is deployed to finney, after
-  # which time all future migrations should be idempotent and won't start failing after the
-  # upgrade is deployed.
-  # ----
-  # check-devnet-migrations:
-  #   name: check devnet migrations
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Checkout sources
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Run Try Runtime Checks
-  #       uses: "paritytech/try-runtime-gha@v0.1.0"
-  #       with:
-  #         runtime-package: "node-subtensor-runtime"
-  #         node-uri: "wss://dev.chain.opentensor.ai:443"
-  #         checks: "pre-and-post"
-  #         extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
-  #
-  # check-testnet-migrations:
-  #   name: check testnet migrations
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Checkout sources
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Run Try Runtime Checks
-  #       uses: "paritytech/try-runtime-gha@v0.1.0"
-  #       with:
-  #         runtime-package: "node-subtensor-runtime"
-  #         node-uri: "wss://test.chain.opentensor.ai:443"
-  #         checks: "pre-and-post"
-  #         extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
-  #
+  check-devnet-migrations:
+    name: check devnet migrations
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Run Try Runtime Checks
+        uses: "paritytech/try-runtime-gha@v0.1.0"
+        with:
+          runtime-package: "node-subtensor-runtime"
+          node-uri: "wss://dev.chain.opentensor.ai:443"
+          checks: "pre-and-post"
+          extra-args: "--disable-spec-version-check --no-weight-warnings"
+
+  check-testnet-migrations:
+    name: check testnet migrations
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Run Try Runtime Checks
+        uses: "paritytech/try-runtime-gha@v0.1.0"
+        with:
+          runtime-package: "node-subtensor-runtime"
+          node-uri: "wss://test.chain.opentensor.ai:443"
+          checks: "pre-and-post"
+          extra-args: "--disable-spec-version-check --no-weight-warnings"

@@ -143,7 +143,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
+        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
+        Self::deposit_event(Event::TargetStakesPerIntervalSet(
+            target_stakes_per_interval,
+        ));
     }
     pub fn set_stakes_this_interval_for_coldkey_hotkey(
         coldkey: &T::AccountId,
@@ -255,7 +258,7 @@ impl<T: Config> Pallet<T> {
         // Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyAccountNotExists
         );
 
         // Ensure that the coldkey is the owner.
@@ -296,7 +299,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        return current_block - prev_tx_block <= rate_limit;
+        current_block - prev_tx_block <= rate_limit
     }
 
     // ========================
@@ -475,6 +478,19 @@ impl<T: Config> Pallet<T> {
     pub fn set_kappa(netuid: u16, kappa: u16) {
         Kappa::<T>::insert(netuid, kappa);
         Self::deposit_event(Event::KappaSet(netuid, kappa));
+    }
+
+    pub fn get_commit_reveal_weights_interval(netuid: u16) -> u64 {
+        WeightCommitRevealInterval::<T>::get(netuid)
+    }
+    pub fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        WeightCommitRevealInterval::<T>::set(netuid, interval);
+    }
+    pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
+        CommitRevealWeightsEnabled::<T>::get(netuid)
+    }
+    pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
     }
 
     pub fn get_rho(netuid: u16) -> u16 {
