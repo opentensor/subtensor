@@ -2,8 +2,6 @@ use super::*;
 use crate::math::*;
 use frame_support::IterableStorageDoubleMap;
 use sp_std::vec;
-use substrate_fixed::transcendental::exp;
-use substrate_fixed::transcendental::ln;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
@@ -555,31 +553,31 @@ impl<T: Config> Pallet<T> {
             let alpha_high = Self::get_alpha_high(netuid);
             let alpha_low = Self::get_alpha_low(netuid);
 
-            let a = (safe_ln(I32F32::from_num(1.0) / alpha_high - I32F32::from_num(1.0))
-                - safe_ln(I32F32::from_num(1.0) / alpha_low - I32F32::from_num(1.0)))
-                / (consensus_low - consensus_high);
-            let b = safe_ln(I32F32::from_num(1.0) / alpha_low - I32F32::from_num(1.0))
-                + a * consensus_low;
+            let a = (safe_ln(I32F32::from_num(1.0).saturating_div(alpha_high).saturating_sub(I32F32::from_num(1.0)))
+                .saturating_sub(safe_ln(I32F32::from_num(1.0).saturating_div(alpha_low).saturating_sub(I32F32::from_num(1.0)))))
+                .saturating_div(consensus_low.saturating_sub(consensus_high));
+            let b = safe_ln(I32F32::from_num(1.0).saturating_div(alpha_low).saturating_sub(I32F32::from_num(1.0)))
+                .saturating_add(a.saturating_mul(consensus_low));
 
             let alpha: Vec<I32F32> = consensus
                 .iter()
                 .map(|c| {
-                    let exp_val = safe_exp(a * *c - b);
-                    I32F32::from_num(1.0) / (I32F32::from_num(1.0) + exp_val)
+                    let exp_val = safe_exp(a.saturating_mul(*c).saturating_sub(b));
+                    I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
                 })
                 .collect();
 
-            let bond_alpha: Vec<I32F32> = alpha
+            let alpha: Vec<I32F32> = alpha
                 .iter()
-                .map(|a| I32F32::from_num(1.0) - a.clamp(&alpha_low, &alpha_high))
+                .map(|a| I32F32::from_num(1.0).saturating_sub(a.clamp(I32F32::from_num(*alpha_low), I32F32::from_num(*alpha_high))))
                 .collect();
-            ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &bond_alpha);
+            ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &alpha);
         } else {
             // Compute bonds moving average.
             let bonds_moving_average: I64F64 =
                 I64F64::from_num(Self::get_bonds_moving_average(netuid))
-                    / I64F64::from_num(1_000_000);
-            let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num(bonds_moving_average);
+                    .saturating_div(I64F64::from_num(1_000_000));
+            let alpha: I32F32 = I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
             ema_bonds = mat_ema_sparse(&bonds_delta, &bonds, alpha);
         }
         // Normalize EMA bonds.
