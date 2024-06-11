@@ -75,7 +75,7 @@ jobs:
           git checkout staging
           python3 -m pip install -e .
           python3 -m pip install torch
-          python3 -m install pytest
+          python3 -m pip install pytest
 
       - name: Run tests
         working-directory: ${{ github.workspace }}/bittensor
