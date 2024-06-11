@@ -672,9 +672,9 @@ pub mod pallet {
         ///  Axon version
         pub version: u32,
         ///  Axon u128 encoded ip address of type v6 or v4.
-        pub port: u16,
-        ///  Axon u16 encoded port.
         pub ip: u128,
+        ///  Axon u16 encoded port.
+        pub port: u16,
         ///  Axon ip type, 4 for ipv4 and 6 for ipv6.
         pub ip_type: u8,
         ///  Axon protocol. TCP, UDP, other.
