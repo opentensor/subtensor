@@ -1385,6 +1385,10 @@ pub mod pallet {
                 "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
             ];
             weight = weight
+                // Fast-forward to v9 if version is initialized
+                // (There was a bug in migrations where they executed, 
+                // but didn't update version number, which affected dAO Testnet)
+                .saturating_add(migration::migrate_version_fix_to_v9::<T>())
                 // Initializes storage version (to 1)
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 // Storage version v1 -> v2
