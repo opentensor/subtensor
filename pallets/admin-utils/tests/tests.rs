@@ -4,6 +4,7 @@ use frame_system::Config;
 use pallet_admin_utils::Error;
 use pallet_subtensor::Event;
 use sp_core::U256;
+use substrate_fixed::types::I32F32;
 
 mod mock;
 use mock::*;
@@ -1129,7 +1130,8 @@ fn test_sudo_set_alpha_high() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_alpha_high(netuid), to_be_set);
+        let expected_value: I32F32 = I32F32::from_num(to_be_set as f64 / 1000.0);
+        assert_eq!(SubtensorModule::get_alpha_high(netuid),  expected_value);
     });
 }
 
@@ -1153,6 +1155,7 @@ fn test_sudo_set_alpha_low() {
             netuid,
             to_be_set
         ));
-        assert_eq!(SubtensorModule::get_alpha_low(netuid), to_be_set);
+        let expected_value: I32F32 = I32F32::from_num(to_be_set as f64 / 1000.0);
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), expected_value);
     });
 }

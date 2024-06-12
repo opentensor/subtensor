@@ -39,6 +39,7 @@ sp-consensus-aura = { version = "0.10.0-dev", default-features = false, git = "h
 pallet-balances = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0", features = [
 	"std",
 ] }
+substrate-fixed = { git = 'https://github.com/encointer/substrate-fixed.git', tag = "v0.5.9" }
 
 
 [features]

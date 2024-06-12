@@ -4458,6 +4458,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing",
  "sp-weights",
+ "substrate-fixed",
 ]
 
 [[package]]
