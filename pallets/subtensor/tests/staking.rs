@@ -3125,3 +3125,53 @@ fn test_rate_limits_enforced_on_increase_take() {
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
     });
 }
+
+#[test]
+fn test_stake_unstake_total_issuance_ok() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let lock_amount = 100_000_000_000_u64;
+        let stake = 100_000_000_000_u64;
+        let ed = ExistentialDeposit::get();
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 124124);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            SubtensorModule::get_min_take()
+        ));
+
+        // Total issuance in balances pallet should be equal to stake + lock amount 
+        // because we don't reserve lock amount in tests
+        assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), lock_amount + stake);
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey,
+            stake
+        ));
+
+        // Total issuance goes down to lock_amount + ED because we staked everything
+        assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), lock_amount + ed);
+
+        // Unstake everything
+        assert_ok!(SubtensorModule::remove_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey,
+            stake - ed
+        ));
+
+        // Total issuance goes up to lock_amount + stake because we unstaked everything and got the balance back
+        assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), lock_amount + stake);
+    });
+}
