@@ -1288,16 +1288,20 @@ fn test_bonds_with_liquid_alpha() {
             SubtensorModule::increase_stake_on_coldkey_hotkey_account(&U256::from(key), &U256::from(key), stakes[key as usize]);
         }
 
+        // Initilize with first epoch
+        SubtensorModule::epoch( netuid, 1_000_000_000 ); 
+        next_block();
+
         // Set weights
-        for uid in 0..(n/2) as u64 {
+        for uid in 0..(n/2) as u16 {
+            SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
             assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((n/2)..n).collect(), vec![u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX], 0));
         }
 
         // Enable Liquid Alpha
         // LiquidAlphaOn::<Test>::put(true);
-        SubtensorModule::set_alpha_high(netuid, I32F32::from_num(0.9));
-        SubtensorModule::set_alpha_low(netuid, I32F32::from_num(0.1));
-
+        SubtensorModule::set_alpha_high(netuid, 900);
+        SubtensorModule::set_alpha_low(netuid, 100);
         // Run epoch with Liquid Alpha
         if sparse { 
             SubtensorModule::epoch(netuid, 1_000_000_000); 
