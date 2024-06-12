@@ -115,9 +115,10 @@ fn test_add_subnet_stake_ok_no_emission() {
             &coldkey,
             2 * (lock_cost - ExistentialDeposit::get()),
         );
-        assert_ok!(SubtensorModule::register_network(
+        assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
 
         // Check:
@@ -273,9 +274,10 @@ fn test_stake_unstake() {
 
         // Register subnet.
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 100_000_000_000); // 100 TAO.
-        assert_ok!(SubtensorModule::register_network(
+        assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
+            hotkey,
+            SubnetType::DTAO
         ));
         assert_eq!(SubtensorModule::get_tao_reserve(1), 100_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(1), 100_000_000_000);
@@ -908,4 +910,65 @@ fn test_registration_balance_minimal_plus_ed_minus_1_ok() {
         let account = System::account(coldkey);
         assert_eq!(account.data.free, ExistentialDeposit::get());
     });
+}
+
+#[ignore]
+#[test]
+fn test_stake_unstake_total_issuance() {
+    new_test_ext(1).execute_with(|| {
+        // init params.
+        let hotkey = U256::from(0);
+        let coldkey = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let lock_amount = 100_000_000_000_u64;
+        let stake = 100_000_000_000_u64;
+        let ed = ExistentialDeposit::get();
+
+        // Register subnet and become a delegate.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, lock_amount);
+        assert_ok!(SubtensorModule::user_add_network(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey,
+            SubnetType::DTAO
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey
+        ));
+        assert_eq!(SubtensorModule::get_tao_reserve(1), lock_amount);
+        assert_eq!(SubtensorModule::get_alpha_reserve(1), lock_amount);
+        assert_eq!(SubtensorModule::get_tao_per_alpha_price(1), 1.0);
+
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake);
+
+        // Total issuance in balances pallet should be equal to stake + ED now
+        assert_eq!(PalletBalances::total_issuance(), stake + ed);
+
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey,
+            1,
+            stake
+        ));
+
+        assert_eq!(SubtensorModule::get_tao_reserve(1), lock_amount + stake);
+        let expected_alpha =
+            lock_amount as f64 * stake as f64 / (lock_amount as f64 + stake as f64);
+        assert_eq!(SubtensorModule::get_alpha_reserve(1), expected_alpha as u64);
+        assert_eq!(SubtensorModule::get_tao_per_alpha_price(1), 4); // Price is increased from the stake operation.
+
+        // Total issuance goes down to 2 * ED because we staked everything
+        assert_eq!(PalletBalances::total_issuance(), 2 * ed);
+
+        // Unstake everything
+        assert_ok!(SubtensorModule::remove_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey,
+            1,
+            expected_alpha as u64
+        ));
+
+        // Total issuance goes up to stake + ED because we unstaked everything and got the balance back
+        assert_eq!(PalletBalances::total_issuance(), stake + ed);
+    })
 }

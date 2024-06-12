@@ -2,6 +2,7 @@ mod mock;
 use frame_support::assert_ok;
 use frame_system::Config;
 use mock::*;
+use pallet_subtensor::types::SubnetType;
 use sp_core::U256;
 
 #[test]
@@ -16,9 +17,10 @@ fn test_dynamic_pool_info() {
         log::info!("Network lock cost is {:?}", lock_cost);
 
         // Register a network
-        assert_ok!(SubtensorModule::register_network(
+        assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
+            SubnetType::DTAO
         ));
 
         // Check initial dynamic pool info after registration
