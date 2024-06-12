@@ -189,6 +189,12 @@ pub mod pallet {
         type InitialNetworkRateLimit: Get<u64>;
         #[pallet::constant] // Initial target stakes per interval issuance.
         type InitialTargetStakesPerInterval: Get<u64>;
+        #[pallet::constant]
+        type AlphaHigh: Get<u16>;
+        #[pallet::constant]
+        type AlphaLow: Get<u16>;
+        #[pallet::constant]
+        type LiquidAlphaOn: Get<bool>;
     }
 
     pub type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
