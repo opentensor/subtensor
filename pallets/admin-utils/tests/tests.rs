@@ -1137,7 +1137,7 @@ fn test_sudo_set_alpha_high() {
 fn test_sudo_set_alpha_low() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let to_be_set: u16 = 10; ;
+        let to_be_set: u16 = 10;
         let init_value= SubtensorModule::get_alpha_low(netuid);
         assert_eq!(
             AdminUtils::sudo_set_alpha_low(
