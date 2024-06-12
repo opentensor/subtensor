@@ -659,4 +659,8 @@ impl<T: Config> Pallet<T> {
     pub fn set_alpha_low(netuid: u16, alpha_low: u16) {
         AlphaLow::<T>::insert(netuid, alpha_low);
     }
+
+    pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        LiquidAlphaOn::<T>::set(netuid, enabled);
+    }
 }
