@@ -584,7 +584,7 @@ impl<T: Config> Pallet<T> {
         let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
         let consensus_high = quantile(&consensus, 0.75);
         let consensus_low = quantile(&consensus, 0.25);
-        if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high == consensus_low) {
+        if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high <= consensus_low) {
             let alpha_high = Self::get_alpha_high(netuid);
             let alpha_low = Self::get_alpha_low(netuid);
 
