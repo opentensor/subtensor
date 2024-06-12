@@ -1122,6 +1122,10 @@ impl
     fn set_alpha_low(netuid: u16, alpha_low: u16) {
         SubtensorModule::set_alpha_low(netuid, alpha_low);
     }
+
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {

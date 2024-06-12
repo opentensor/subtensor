@@ -1159,3 +1159,20 @@ fn test_sudo_set_alpha_low() {
         assert_eq!(SubtensorModule::get_alpha_low(netuid), expected_value);
     });
 }
+
+#[test]
+fn test_sudo_set_liquid_alpha_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let enabled: bool = true;
+        assert_eq!(!enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            enabled
+        ));
+
+        assert_eq!(enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+    });
+}

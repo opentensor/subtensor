@@ -843,6 +843,23 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        #[pallet::call_index(49)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_liquid_alpha_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            enabled: bool,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+            T::Subtensor::set_liquid_alpha_enabled(netuid, enabled);
+            log::info!(
+                "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                netuid,
+                enabled
+            );
+            Ok(())
+        }
     }
 }
 
@@ -937,4 +954,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn clear_small_nominations();
     fn set_alpha_high(netuid: u16, alpha_high: u16);
     fn set_alpha_low(netuid: u16, alpha_low: u16);
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool);
 }

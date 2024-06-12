@@ -663,4 +663,8 @@ impl<T: Config> Pallet<T> {
     pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         LiquidAlphaOn::<T>::set(netuid, enabled);
     }
+
+    pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
+        LiquidAlphaOn::<T>::get(netuid)
+    }
 }
