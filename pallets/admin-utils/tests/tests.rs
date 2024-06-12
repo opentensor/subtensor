@@ -1114,7 +1114,7 @@ fn test_sudo_set_alpha_high() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_alpha_high(netuid);
+        let init_value = SubtensorModule::get_alpha_high(netuid);
         assert_eq!(
             AdminUtils::sudo_set_alpha_high(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
@@ -1137,8 +1137,8 @@ fn test_sudo_set_alpha_high() {
 fn test_sudo_set_alpha_low() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
-        let to_be_set: u16 = 10;
-        let init_value: u16 = SubtensorModule::get_alpha_low(netuid);
+        let to_be_set: u16 = 10; ;
+        let init_value= SubtensorModule::get_alpha_low(netuid);
         assert_eq!(
             AdminUtils::sudo_set_alpha_low(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
