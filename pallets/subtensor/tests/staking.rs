@@ -3151,9 +3151,12 @@ fn test_stake_unstake_total_issuance_ok() {
             SubtensorModule::get_min_take()
         ));
 
-        // Total issuance in balances pallet should be equal to stake + lock amount 
+        // Total issuance in balances pallet should be equal to stake + lock amount
         // because we don't reserve lock amount in tests
-        assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), lock_amount + stake);
+        assert_eq!(
+            pallet_balances::TotalIssuance::<Test>::get(),
+            lock_amount + stake
+        );
 
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
@@ -3162,7 +3165,10 @@ fn test_stake_unstake_total_issuance_ok() {
         ));
 
         // Total issuance goes down to lock_amount + ED because we staked everything
-        assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), lock_amount + ed);
+        assert_eq!(
+            pallet_balances::TotalIssuance::<Test>::get(),
+            lock_amount + ed
+        );
 
         // Unstake everything
         assert_ok!(SubtensorModule::remove_stake(
@@ -3172,6 +3178,9 @@ fn test_stake_unstake_total_issuance_ok() {
         ));
 
         // Total issuance goes up to lock_amount + stake because we unstaked everything and got the balance back
-        assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), lock_amount + stake);
+        assert_eq!(
+            pallet_balances::TotalIssuance::<Test>::get(),
+            lock_amount + stake
+        );
     });
 }
