@@ -2,6 +2,7 @@ use sp_runtime::traits::CheckedAdd;
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64};
+use num_traits::float::Float;
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
@@ -1228,7 +1229,7 @@ pub fn mat_ema_alpha_vec(
 pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
     let mut sorted_data = data.clone();
     sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let idx = (quantile * (sorted_data.len() - 1) as f64).round() as usize;
+    let idx: usize = Float::round(quantile * (sorted_data.len() - 1) as f64) as usize;
     sorted_data[idx]
 }
 
