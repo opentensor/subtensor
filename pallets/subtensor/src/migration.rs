@@ -590,21 +590,3 @@ pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
     log::info!("Final weight: {:?}", weight);
     weight
 }
-
-pub fn migrate_version_fix_to_v9<T: Config>() -> Weight {
-    let fixed_storage_version = 9;
-
-    let onchain_version = Pallet::<T>::on_chain_storage_version();
-    log::info!("Current on-chain storage version: {:?}", onchain_version);
-
-    // Grab current version
-    let onchain_version = Pallet::<T>::on_chain_storage_version();
-    if onchain_version >= 1 {
-        log::info!("Starting migration: Fix migration storage version");
-        StorageVersion::new(fixed_storage_version).put::<Pallet<T>>();
-    } else {
-        log::info!("Migration to populate subnet creator already done!");
-    }
-
-    T::DbWeight::get().reads_writes(1, 1)
-}
