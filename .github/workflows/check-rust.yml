@@ -6,9 +6,16 @@ concurrency:
 
 on:
   push:
-    branches: [main, devnet-ready, devnet, testnet, finney]
+    branches:
+      - main
+      - devnet-ready
+      - devnet
+      - testnet
+      - finney
 
   pull_request:
+    branches:
+      - '**'  # This ensures it runs on pull requests to all branches
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
