@@ -2221,7 +2221,7 @@ where
             }
             Some(Call::set_root_weights { netuid, hotkey,  .. }) => {
                 if Self::check_weights_min_stake(hotkey) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+                    let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
                     Ok(ValidTransaction {
                         priority,
                         longevity: 1,
