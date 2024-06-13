@@ -948,22 +948,6 @@ pub mod pallet {
                 target_stakes_per_interval
             );
             Ok(())
-    
-        #[pallet::call_index(47)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_alpha_high(
-            origin: OriginFor<T>,
-            netuid: u16,
-            alpha_high: u16,
-        ) -> DispatchResult {
-            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
-            T::Subtensor::set_alpha_high(netuid, alpha_high);
-            log::info!(
-                "AlphaHighSet( netuid: {:?}, alpha_high: {:?} ) ",
-                netuid,
-                alpha_high
-            );
-            Ok(())
         }
 
         /// The extrinsic sets the commit/reveal interval for a subnet.
@@ -1013,9 +997,8 @@ pub mod pallet {
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
-    }
 
-        #[pallet::call_index(48)]
+        #[pallet::call_index(50)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_alpha_low(
             origin: OriginFor<T>,
@@ -1032,7 +1015,24 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::call_index(49)]
+        #[pallet::call_index(51)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_high(
+            origin: OriginFor<T>,
+            netuid: u16,
+            alpha_high: u16,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+            T::Subtensor::set_alpha_high(netuid, alpha_high);
+            log::info!(
+                "AlphaHighSet( netuid: {:?}, alpha_high: {:?} ) ",
+                netuid,
+                alpha_high
+            );
+            Ok(())
+        }
+
+        #[pallet::call_index(52)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_liquid_alpha_enabled(
             origin: OriginFor<T>,
