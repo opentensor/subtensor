@@ -23,14 +23,21 @@ fn freeze_struct_impl(
 
     let item = parse2::<ItemStruct>(tokens)?;
     let mut item_clone = item.clone();
+
+    let calculated_hash = generate_hash(&item);
+    let calculated_hash_hex = format!("{:x}", calculated_hash);
+
+    if attr.is_empty() {
+        return Err(Error::new_spanned(item,
+            format!("You must provide a hashcode in the `freeze_struct` attribute to freeze this struct.\n\n\
+            expected hashcode: `#[freeze_struct(\"{calculated_hash_hex}\")]`"),
+        ));
+    }
     let hash_lit = parse2::<LitStr>(attr)?;
     let provided_hash_hex = hash_lit.value().to_lowercase();
 
     let mut visitor = CleanDocComments::new();
     visit_item_struct_mut(&mut visitor, &mut item_clone);
-
-    let calculated_hash = generate_hash(&item);
-    let calculated_hash_hex = format!("{:x}", calculated_hash);
 
     if provided_hash_hex != calculated_hash_hex {
         return Err(Error::new_spanned(item,
