@@ -4706,6 +4706,7 @@ dependencies = [
  "sp-version",
  "substrate-wasm-builder",
  "subtensor-custom-rpc-runtime-api",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -4906,6 +4907,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
  "sp-weights",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -4969,6 +4971,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -4986,6 +4989,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -5104,6 +5108,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
+ "subtensor-macros",
 ]
 
 [[package]]
@@ -5177,6 +5182,7 @@ dependencies = [
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
  "sp-version",
  "substrate-fixed",
+ "subtensor-macros",
 ]
 
 [[package]]

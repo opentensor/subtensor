@@ -74,6 +74,8 @@ pub mod pallet {
     use sp_std::vec;
     use sp_std::vec::Vec;
 
+    use subtensor_macros::freeze_struct;
+
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
@@ -665,6 +667,7 @@ pub mod pallet {
     pub type AxonInfoOf = AxonInfo;
 
     /// Data structure for Axon information.
+    #[freeze_struct("66109b7ef33baabd")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
         ///  Axon serving block.
@@ -688,6 +691,7 @@ pub mod pallet {
     ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
     /// Data structure for Prometheus information.
+    #[freeze_struct("66b04cc1fbd155ea")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
         /// Prometheus serving block.
@@ -2116,6 +2120,7 @@ pub enum CallType {
     Other,
 }
 
+#[freeze_struct("61e2b893d5ce6701")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
@@ -2348,6 +2353,7 @@ use sp_std::vec;
 // used not 25 lines below
 #[allow(unused)]
 use sp_std::vec::Vec;
+use subtensor_macros::freeze_struct;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {

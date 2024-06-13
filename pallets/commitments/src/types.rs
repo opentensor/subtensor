@@ -29,6 +29,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, prelude::*};
+use subtensor_macros::freeze_struct;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -283,6 +284,7 @@ impl Default for Data {
     }
 }
 
+#[freeze_struct("1053e03f8a8f6a67")]
 #[derive(
     CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]

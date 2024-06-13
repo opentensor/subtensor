@@ -16,6 +16,9 @@ impl VisitMut for CleanDocComments {
         if attr.path().is_ident("doc") {
             *attr = parse_quote!(#[doc = ""]);
         }
+        if attr.path().is_ident("freeze_struct") {
+            *attr = parse_quote!(#[freeze_struct]);
+        }
         syn::visit_mut::visit_attribute_mut(self, attr);
     }
 }

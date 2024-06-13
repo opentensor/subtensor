@@ -34,7 +34,7 @@ serde_with = { version = "=2.0.0", default-features = false }
 smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }
 
-macros = { path = "support/macros" }
+subtensor-macros = { path = "support/macros" }
 
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0" }

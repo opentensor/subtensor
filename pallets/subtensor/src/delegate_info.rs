@@ -7,6 +7,7 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
+#[freeze_struct("5752e4c650a83e0d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DelegateInfo<T: Config> {
     delegate_ss58: T::AccountId,
