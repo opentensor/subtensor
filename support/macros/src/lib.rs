@@ -75,7 +75,5 @@ fn freeze_struct_impl(
 
 /// Returns true if the current build is being run by rust-analyzer.
 fn is_rust_analyzer() -> bool {
-    std::env::var("RUSTC_WRAPPER")
-        .map(|v| v.contains("rust-analyzer"))
-        .unwrap_or(false)
+    std::env!("RUSTC_WRAPPER").contains("rust-analyzer")
 }
