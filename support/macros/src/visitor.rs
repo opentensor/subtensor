@@ -1,5 +1,5 @@
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use ahash::RandomState;
+use std::hash::{BuildHasher, Hash, Hasher};
 use syn::{self, parse_quote, visit_mut::VisitMut};
 
 pub struct CleanDocComments;
@@ -22,7 +22,16 @@ impl VisitMut for CleanDocComments {
 
 pub fn generate_hash<T: Into<syn::Item> + Clone>(item: &T) -> u64 {
     let item = item.clone();
-    let mut hasher = DefaultHasher::new();
+
+    // Define a fixed seed
+    const SEED1: u64 = 0x12345678;
+    const SEED2: u64 = 0x87654321;
+
+    // Create a RandomState with the fixed seed
+    let fixed_state = RandomState::with_seeds(SEED1, SEED2, SEED1, SEED2);
+
+    // Create a hasher with the fixed seed
+    let mut hasher = fixed_state.build_hasher();
     let item = Into::<syn::Item>::into(item);
     item.hash(&mut hasher);
     hasher.finish()
