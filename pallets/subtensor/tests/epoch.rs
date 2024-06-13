@@ -1392,19 +1392,27 @@ fn test_bonds_with_liquid_alpha() {
         assert_eq!(bonds[2][4], 49151); // Note: Calculated as explained above
         assert_eq!(bonds[3][4], 65535); // Note: Calculated as explained above
 
-        	// === Set self-weight only on val1
-		let uid = 0;
-		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
+        // === Set self-weight only on val1
+        let uid = 0;
+        assert_ok!(SubtensorModule::set_weights(
+            RuntimeOrigin::signed(U256::from(uid)),
+            netuid,
+            vec![uid],
+            vec![u16::MAX],
+            0
+        ));
         next_block();
-		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
-		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
 
-        let bonds = SubtensorModule::get_bonds( netuid );
-		assert_eq!(bonds[0][4], 14582);
-		assert_eq!(bonds[1][4], 32767);
-		assert_eq!(bonds[2][4], 49151);
-		assert_eq!(bonds[3][4], 65535);
-
+        let bonds = SubtensorModule::get_bonds(netuid);
+        assert_eq!(bonds[0][4], 14582);
+        assert_eq!(bonds[1][4], 32767);
+        assert_eq!(bonds[2][4], 49151);
+        assert_eq!(bonds[3][4], 65535);
 
         // Check the calculations for each bond and emission
         // assert_eq!(SubtensorModule::get_emission_for_uid(netuid, uid), calculated_value); // Note E = detailed calculation steps
@@ -1472,8 +1480,6 @@ fn test_bonds_with_extreme_alpha_values() {
             .flatten()
             .all(|&bond| bond >= 0 && bond <= 65535));
     });
-
-
 }
 
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
