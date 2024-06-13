@@ -1,1 +1,1 @@
-//! Module for standalone migrations
+//! Export migrations from here.
