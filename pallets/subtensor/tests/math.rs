@@ -2219,9 +2219,9 @@ fn test_mat_ema_alpha_vec_sparse_mixed_alpha() {
         &result,
         &vec![
             vec![(0, I32F32::from_num(3.8)), (1, I32F32::from_num(3.2))],
-            vec![(0, I32F32::from_num(5.8)), (1, I32F32::from_num(5.2))]
+            vec![(0, I32F32::from_num(5.8)), (1, I32F32::from_num(5.2))],
         ],
-        I32F32::from_num(0.000001)
+        I32F32::from_num(0.000001),
     );
 }
 

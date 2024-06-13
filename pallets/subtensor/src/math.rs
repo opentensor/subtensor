@@ -1,8 +1,8 @@
+use num_traits::float::Float;
 use sp_runtime::traits::CheckedAdd;
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64};
-use num_traits::float::Float;
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]

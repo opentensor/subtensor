@@ -401,7 +401,7 @@ impl<T: Config> Pallet<T> {
     pub fn epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
-        log::trace!("n: {:?}", n);
+        log::trace!("Number of Neurons in Network: {:?}", n);
 
         // ======================
         // == Active & updated ==
@@ -447,10 +447,11 @@ impl<T: Config> Pallet<T> {
         for (uid_i, hotkey) in &hotkeys {
             stake_64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
         }
+        log::trace!("Stake : {:?}", &stake_64);
         inplace_normalize_64(&mut stake_64);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
         // range: I32F32(0, 1)
-        log::trace!("S: {:?}", &stake);
+        log::trace!("Normalised Stake: {:?}", &stake);
 
         // =======================
         // == Validator permits ==
@@ -485,7 +486,7 @@ impl<T: Config> Pallet<T> {
 
         // Normalize active stake.
         inplace_normalize(&mut active_stake);
-        log::trace!("S:\n{:?}\n", &active_stake);
+        log::trace!("Active Stake:\n{:?}\n", &active_stake);
 
         // =============
         // == Weights ==
@@ -493,15 +494,15 @@ impl<T: Config> Pallet<T> {
 
         // Access network weights row unnormalized.
         let mut weights: Vec<Vec<(u16, I32F32)>> = Self::get_weights_sparse(netuid);
-        // log::trace!( "W: {:?}", &weights );
+        log::trace!("Weights: {:?}", &weights);
 
         // Mask weights that are not from permitted validators.
         weights = mask_rows_sparse(&validator_forbids, &weights);
-        // log::trace!( "W (permit): {:?}", &weights );
+        log::trace!("Weights (permit): {:?}", &weights);
 
         // Remove self-weight by masking diagonal.
         weights = mask_diag_sparse(&weights);
-        // log::trace!( "W (permit+diag): {:?}", &weights );
+        log::trace!("Weights (permit+diag): {:?}", &weights);
 
         // Remove weights referring to deregistered neurons.
         weights = vec_mask_sparse_matrix(
@@ -510,11 +511,11 @@ impl<T: Config> Pallet<T> {
             &block_at_registration,
             &|updated, registered| updated <= registered,
         );
-        log::trace!("W (permit+diag+outdate): {:?}", &weights);
+        log::trace!("Weights (permit+diag+outdate): {:?}", &weights);
 
         // Normalize remaining weights.
         inplace_row_normalize_sparse(&mut weights);
-        log::trace!("W (mask+norm): {:?}", &weights);
+        log::trace!("Weights (mask+norm): {:?}", &weights);
 
         // ================================
         // == Consensus, Validator Trust ==
@@ -522,18 +523,18 @@ impl<T: Config> Pallet<T> {
 
         // Compute preranks: r_j = SUM(i) w_ij * s_i
         let preranks: Vec<I32F32> = matmul_sparse(&weights, &active_stake, n);
-        log::trace!("R (before): {:?}", &preranks);
+        log::trace!("Ranks (before): {:?}", &preranks);
 
         // Clip weights at majority consensus
         let kappa: I32F32 = Self::get_float_kappa(netuid); // consensus majority ratio, e.g. 51%.
         let consensus: Vec<I32F32> = weighted_median_col_sparse(&active_stake, &weights, n, kappa);
-        log::trace!("C: {:?}", &consensus);
+        log::trace!("Consensus: {:?}", &consensus);
 
         weights = col_clip_sparse(&weights, &consensus);
-        log::trace!("W: {:?}", &weights);
+        log::trace!("Weights: {:?}", &weights);
 
         let validator_trust: Vec<I32F32> = row_sum_sparse(&weights);
-        log::trace!("Tv: {:?}", &validator_trust);
+        log::trace!("Validator Trust: {:?}", &validator_trust);
 
         // =============================
         // == Ranks, Trust, Incentive ==
@@ -541,7 +542,7 @@ impl<T: Config> Pallet<T> {
 
         // Compute ranks: r_j = SUM(i) w_ij * s_i.
         let mut ranks: Vec<I32F32> = matmul_sparse(&weights, &active_stake, n);
-        log::trace!("R (after): {:?}", &ranks);
+        log::trace!("Ranks (after): {:?}", &ranks);
 
         // Compute server trust: ratio of rank after vs. rank before.
         let trust: Vec<I32F32> = vecdiv(&ranks, &preranks); // range: I32F32(0, 1)
@@ -549,7 +550,7 @@ impl<T: Config> Pallet<T> {
 
         inplace_normalize(&mut ranks); // range: I32F32(0, 1)
         let incentive: Vec<I32F32> = ranks.clone();
-        log::trace!("I (=R): {:?}", &incentive);
+        log::trace!("Incentive (=Rank): {:?}", &incentive);
 
         // =========================
         // == Bonds and Dividends ==
@@ -586,7 +587,9 @@ impl<T: Config> Pallet<T> {
         let consensus_low = quantile(&consensus, 0.25);
         if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high <= consensus_low) {
             let alpha_high = Self::get_alpha_high(netuid);
+            log::trace!("alpha_high: {:?}", alpha_high);
             let alpha_low = Self::get_alpha_low(netuid);
+            log::trace!("alpha_low: {:?}", alpha_low);
 
             let a = (safe_ln(
                 I32F32::from_num(1.0)
@@ -599,12 +602,14 @@ impl<T: Config> Pallet<T> {
                     .saturating_sub(I32F32::from_num(1.0)),
             )))
             .saturating_div(consensus_low.saturating_sub(consensus_high));
+            log::trace!("a: {:?}", a);
             let b = safe_ln(
                 I32F32::from_num(1.0)
                     .saturating_div(alpha_low)
                     .saturating_sub(I32F32::from_num(1.0)),
             )
             .saturating_add(a.saturating_mul(consensus_low));
+            log::trace!("b: {:?}", b);
 
             let alpha: Vec<I32F32> = consensus
                 .iter()
@@ -615,6 +620,8 @@ impl<T: Config> Pallet<T> {
                 })
                 .collect();
 
+            log::trace!("alpha: {:?}", alpha);
+
             let alpha: Vec<I32F32> = alpha
                 .iter()
                 .map(|a| {
@@ -622,7 +629,12 @@ impl<T: Config> Pallet<T> {
                     I32F32::from_num(1.0).saturating_sub(*clamped_a)
                 })
                 .collect();
+            log::trace!("alpha_clamped: {:?}", alpha);
             ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &alpha);
+            log::trace!(
+                "Exponential Moving Average Bonds Liquid Alpha: {:?}",
+                ema_bonds
+            );
         } else {
             // Compute bonds moving average.
             let bonds_moving_average: I64F64 =
@@ -631,16 +643,17 @@ impl<T: Config> Pallet<T> {
             let alpha: I32F32 =
                 I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
             ema_bonds = mat_ema_sparse(&bonds_delta, &bonds, alpha);
+            log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
         }
         // Normalize EMA bonds.
         inplace_col_normalize_sparse(&mut ema_bonds, n); // sum_i b_ij = 1
-        log::trace!("emaB: {:?}", &ema_bonds);
+        log::trace!("Exponential Moving Average Bonds: {:?}", &ema_bonds);
 
         // Compute dividends: d_i = SUM(j) b_ij * inc_j.
         // range: I32F32(0, 1)
         let mut dividends: Vec<I32F32> = matmul_transpose_sparse(&ema_bonds, &incentive);
         inplace_normalize(&mut dividends);
-        log::trace!("D: {:?}", &dividends);
+        log::trace!("Dividends: {:?}", &dividends);
 
         // =================================
         // == Emission and Pruning scores ==
@@ -706,16 +719,25 @@ impl<T: Config> Pallet<T> {
             .map(|e: &I96F32| e.to_num::<u64>())
             .collect();
 
-        log::trace!("nSE: {:?}", &normalized_server_emission);
-        log::trace!("SE: {:?}", &server_emission);
-        log::trace!("nVE: {:?}", &normalized_validator_emission);
-        log::trace!("VE: {:?}", &validator_emission);
-        log::trace!("nCE: {:?}", &normalized_combined_emission);
-        log::trace!("CE: {:?}", &combined_emission);
+        log::trace!(
+            "Normalized Server Emission: {:?}",
+            &normalized_server_emission
+        );
+        log::trace!("Server Emission: {:?}", &server_emission);
+        log::trace!(
+            "Normalized Validator Emission: {:?}",
+            &normalized_validator_emission
+        );
+        log::trace!("Validator Emission: {:?}", &validator_emission);
+        log::trace!(
+            "Normalized Combined Emission: {:?}",
+            &normalized_combined_emission
+        );
+        log::trace!("Combined Emission: {:?}", &combined_emission);
 
         // Set pruning scores using combined emission scores.
         let pruning_scores: Vec<I32F32> = normalized_combined_emission.clone();
-        log::trace!("P: {:?}", &pruning_scores);
+        log::trace!("Pruning Scores: {:?}", &pruning_scores);
 
         // ===================
         // == Value storage ==

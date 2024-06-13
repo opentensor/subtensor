@@ -1131,7 +1131,7 @@ fn test_sudo_set_alpha_high() {
             to_be_set
         ));
         let expected_value: I32F32 = I32F32::from_num(to_be_set as f64 / 1000.0);
-        assert_eq!(SubtensorModule::get_alpha_high(netuid),  expected_value);
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), expected_value);
     });
 }
 
@@ -1140,7 +1140,7 @@ fn test_sudo_set_alpha_low() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
         let to_be_set: u16 = 10;
-        let init_value= SubtensorModule::get_alpha_low(netuid);
+        let init_value = SubtensorModule::get_alpha_low(netuid);
         assert_eq!(
             AdminUtils::sudo_set_alpha_low(
                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),

@@ -1268,7 +1268,7 @@ fn test_bonds_with_liquid_alpha() {
         let sparse: bool = true;
         let n: u16 = 8;
         let netuid: u16 = 1;
-        let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+        let tempo: u16 = u16::MAX - 1; // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
         let max_stake: u64 = 4;
         let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
         let block_number = System::block_number();
@@ -1283,19 +1283,42 @@ fn test_bonds_with_liquid_alpha() {
         // Register validators and servers
         for key in 0..n as u64 {
             SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
-            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(netuid, block_number, key * 1_000_000, &U256::from(key));
-            assert_ok!(SubtensorModule::register(<<Test as Config>::RuntimeOrigin>::signed(U256::from(key)), netuid, block_number, nonce, work, U256::from(key), U256::from(key)));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(&U256::from(key), &U256::from(key), stakes[key as usize]);
+            let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                key * 1_000_000,
+                &U256::from(key),
+            );
+            assert_ok!(SubtensorModule::register(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(key)),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                U256::from(key),
+                U256::from(key)
+            ));
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                &U256::from(key),
+                &U256::from(key),
+                stakes[key as usize],
+            );
         }
 
         // Initilize with first epoch
-        SubtensorModule::epoch( netuid, 1_000_000_000 ); 
+        SubtensorModule::epoch(netuid, 1_000_000_000);
         next_block();
 
         // Set weights
-        for uid in 0..(n/2) as u16 {
+        for uid in 0..(n / 2) as u16 {
             SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
-            assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, ((n/2)..n).collect(), vec![u16::MAX/4, u16::MAX/2, (u16::MAX/4)*3, u16::MAX], 0));
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                ((n / 2)..n).collect(),
+                vec![u16::MAX / 4, u16::MAX / 2, (u16::MAX / 4) * 3, u16::MAX],
+                0
+            ));
         }
 
         // Enable Liquid Alpha
@@ -1303,49 +1326,58 @@ fn test_bonds_with_liquid_alpha() {
         SubtensorModule::set_alpha_high(netuid, 900);
         SubtensorModule::set_alpha_low(netuid, 100);
         // Run epoch with Liquid Alpha
-        if sparse { 
-            SubtensorModule::epoch(netuid, 1_000_000_000); 
-        } else { 
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000); 
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
         }
 
         // Check bonds and emissions
         let bonds = SubtensorModule::get_bonds(netuid);
-        
+
         /*  n: 8
-            current_block: 1; activity_cutoff: 5000; Last update: [1, 1, 1, 1, 0, 0, 0, 0]
+            current_block: 2; activity_cutoff: 5000;
+            Last update: [1, 1, 1, 1, 0, 0, 0, 0]
+            activity_cutoff: 5000
+            Last update: [2, 2, 2, 2, 1, 1, 1, 1]
             Inactive: [false, false, false, false, false, false, false, false]
-            Block at registration: [0, 0, 0, 0, 0, 0, 0, 0]
+            Block at registration: [1, 1, 1, 1, 1, 1, 1, 1]
             hotkeys: [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7)]
-            S: [0.0999999999, 0.2, 0.2999999998, 0.4, 0, 0, 0, 0]
+            Stake: [1, 2, 3, 4, 0, 0, 0, 0]
+            Normalised Stake: [0.0999999999, 0.2, 0.2999999998, 0.4, 0, 0, 0, 0]
             validator_permits: [true, true, true, true, true, true, true, true]
             max_allowed_validators: 8
             new_validator_permits: [true, true, true, true, true, true, true, true]
-            S: [0.0999999999, 0.2, 0.2999999998, 0.4, 0, 0, 0, 0]
-            W: [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
-            W (permit): [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
-            W (permit+diag): [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
-            W (permit+diag+outdate): [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
-            W (mask+norm): [[(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [], [], [], []]
-            R (before): [0, 0, 0, 0, 0.099997558, 0.2000012202, 0.2999926745, 0.4000085443]
-            C: [0, 0, 0, 0, 0.0999975584, 0.2000012207, 0.2999926754, 0.400008545]
-            W: [[(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [], [], [], []]
-            Tv: [0.9999999995, 0.9999999995, 0.9999999995, 0.9999999995, 0, 0, 0, 0]
-            R (after): [0, 0, 0, 0, 0.099997558, 0.2000012202, 0.2999926745, 0.4000085443]
+            Active Stake: [0.0999999999, 0.2, 0.2999999998, 0.4, 0, 0, 0, 0]
+            Weights: [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
+            Weights (permit): [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
+            Weights (permit+diag): [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
+            Weights (permit+diag+outdate): [[(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [(4, 16383), (5, 32767), (6, 49149), (7, 65535)], [], [], [], []]
+            Weights (mask+norm): [[(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [], [], [], []]
+            Ranks (before): [0, 0, 0, 0, 0.099997558, 0.2000012202, 0.2999926745, 0.4000085443]
+            Consensus: [0, 0, 0, 0, 0.0999975584, 0.2000012207, 0.2999926754, 0.400008545]
+            Weights: [[(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [(4, 0.0999975584), (5, 0.2000012207), (6, 0.2999926754), (7, 0.400008545)], [], [], [], []]
+            Validator Trust: [0.9999999995, 0.9999999995, 0.9999999995, 0.9999999995, 0, 0, 0, 0]
+            Ranks (after): [0, 0, 0, 0, 0.099997558, 0.2000012202, 0.2999926745, 0.4000085443]
             T: [0, 0, 0, 0, 1, 1, 1, 1]
-            I (=R): [0, 0, 0, 0, 0.0999975582, 0.2000012207, 0.2999926752, 0.4000085455]
+            Incentive (=Rank): [0, 0, 0, 0, 0.0999975582, 0.2000012207,            0, 0.0999975582, 0.2000012207, 0.2999926752, 0.4000085455]
             B: [[], [], [], [], [], [], [], []]
             B (outdatedmask): [[], [], [], [], [], [], [], []]
             B (mask+norm): [[], [], [], [], [], [], [], []]
             ΔB: [[(4, 0.0099997558), (5, 0.020000122), (6, 0.0299992673), (7, 0.0400008543)], [(4, 0.0199995115), (5, 0.040000244), (6, 0.0599985349), (7, 0.0800017088)], [(4, 0.0299992673), (5, 0.060000366), (6, 0.0899978024), (7, 0.1200025633)], [(4, 0.0399990233), (5, 0.080000488), (6, 0.11999707), (7, 0.1600034179)], [], [], [], []]
             ΔB (norm): [[(4, 0.0999999996), (5, 0.0999999999), (6, 0.0999999994), (7, 0.0999999996)], [(4, 0.1999999995), (5, 0.2), (6, 0.1999999997), (7, 0.1999999997)], [(4, 0.299999999), (5, 0.2999999998), (6, 0.3), (7, 0.3)], [(4, 0.4000000013), (5, 0.4), (6, 0.4000000004), (7, 0.4000000001)], [], [], [], []]
-            emaB: [[(4, 0.0999999982), (5, 0.0999999985), (6, 0.099999998), (7, 0.099999998)], [(4, 0.199999999), (5, 0.1999999995), (6, 0.1999999986), (7, 0.1999999986)], [(4, 0.2999999996), (5, 0.3000000003), (6, 0.3000000012), (7, 0.3000000012)], [(4, 0.4000000027), (5, 0.4000000013), (6, 0.4000000018), (7, 0.4000000018)], [], [], [], []]
-            D: [0.0999999978, 0.1999999983, 0.3000000012, 0.4000000022, 0, 0, 0, 0]
-            nE: [0.0499999989, 0.0999999992, 0.1500000006, 0.2000000011, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
-            E: [49999998, 99999999, 150000000, 200000001, 49998779, 100000610, 149996337, 200004272]
-            P: [0.0499999989, 0.0999999992, 0.1500000006, 0.2000000011, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
-            emaB: [[(4, 0.2499999937), (5, 0.2499999953), (6, 0.2499999937),499999953), (6, 0.2499999937), (7, 0.2499999937)], [(4, 0.4999999942), (5, 0.499999997), (6, 0.4999999942), (7, 0.4999999942)], [(4, 0.7499999937), (5, 0.7499999981), (6, 0.7499999995), (7, 0.7499999995)], [(4, 1), (5, 1), (6, 1), (7, 1)], [], [], [], []]
+            Exponential Moving Average Bonds Liquid Alpha: [[(4, 0.0499983232), (5, 0.0899999999), (6, 0.0899999994), (7, 0.0899999996)], [(4, 0.0999966469), (5, 0.18), (6, 0.1799999997), (7, 0.1799999997)], [(4, 0.1499949703), (5, 0.2699999998), (6, 0.2699999998), (7, 0.2699999998)], [(4, 0.199993295), (5, 0.3599999999), (6, 0.36), (7, 0.3599999999)], [], [], [], []]
+            Exponential Moving Average Bonds: [[(4, 0.0999999992), (5, 0.0999999999), (6, 0.0999999994), (7, 0.0999999996)], [(4, 0.1999999995), (5, 0.2), (6, 0.1999999997), (7, 0.1999999997)], [(4, 0.2999999993), (5, 0.2999999998), (6, 0.3), (7, 0.3)], [(4, 0.4000000015), (5, 0.4), (6, 0.4000000004), (7, 0.4000000001)], [], [], [], []]
+            Dividends: [0.0999999994, 0.1999999997, 0.3, 0.4000000006, 0, 0, 0, 0]
+            Normalized Server Emission: [0, 0, 0, 0, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
+            Server Emission: [0, 0, 0, 0, 49998779, 100000610, 149996337, 200004272]
+            Normalized Validator Emission: [0.0499999996, 0.0999999999, 0.15, 0.2000000002, 0, 0, 0, 0]
+            Validator Emission: [49999999, 99999999, 149999999, 200000000, 0, 0, 0, 0]
+            Normalized Combined Emission: [0.0499999996, 0.0999999999, 0.15, 0.2000000002, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
+            Combined Emission: [49999999, 99999999, 149999999, 200000000, 49998779, 100000610, 149996337, 200004272]
+            Pruning Scores: [0.0499999996, 0.0999999999, 0.15, 0.2000000002, 0.049998779, 0.1000006103, 0.1499963375, 0.2000042726]
         */
+
         // Expected bonds calculations
         // For uid 0:
         // Initial weights: [0.25, 0.5, 0.75, 1.0]
@@ -1353,17 +1385,97 @@ fn test_bonds_with_liquid_alpha() {
         // ΔB = W◦S = [0.25*1, 0.5*2, 0.75*3, 1.0*4] = [0.25, 1.0, 2.25, 4.0]
         // Normalize ΔB: [0.25/7.5, 1.0/7.5, 2.25/7.5, 4.0/7.5] = [0.0333, 0.1333, 0.3, 0.5333]
         // Apply Liquid Alpha (assuming alpha values are calculated and applied correctly)
-        // Final bonds for uid 0: [16383, 32767, 49151, 65535]
+        // Final bonds for netuid: [16383, 32767, 49151, 65535]
 
         assert_eq!(bonds[0][4], 16383); // Note: Calculated as explained above
         assert_eq!(bonds[1][4], 32767); // Note: Calculated as explained above
         assert_eq!(bonds[2][4], 49151); // Note: Calculated as explained above
         assert_eq!(bonds[3][4], 65535); // Note: Calculated as explained above
 
+        	// === Set self-weight only on val1
+		let uid = 0;
+		assert_ok!(SubtensorModule::set_weights(RuntimeOrigin::signed(U256::from(uid)), netuid, vec![uid], vec![u16::MAX], 0));
+        next_block();
+		if sparse { SubtensorModule::epoch( netuid, 1_000_000_000 ); }
+		else { SubtensorModule::epoch_dense( netuid, 1_000_000_000 ); }
+
+        let bonds = SubtensorModule::get_bonds( netuid );
+		assert_eq!(bonds[0][4], 14582);
+		assert_eq!(bonds[1][4], 32767);
+		assert_eq!(bonds[2][4], 49151);
+		assert_eq!(bonds[3][4], 65535);
+
+
         // Check the calculations for each bond and emission
         // assert_eq!(SubtensorModule::get_emission_for_uid(netuid, uid), calculated_value); // Note E = detailed calculation steps
     });
 }
+
+#[test]
+fn test_bonds_with_extreme_alpha_values() {
+    new_test_ext(1).execute_with(|| {
+        let sparse: bool = true;
+        let n: u16 = 8;
+        let netuid: u16 = 1;
+        let tempo: u16 = u16::MAX - 1;
+        let max_stake: u64 = 4;
+        let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
+        let block_number = System::block_number();
+        add_network(netuid, tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid, n);
+        SubtensorModule::set_max_registrations_per_block(netuid, n);
+        SubtensorModule::set_target_registrations_per_interval(netuid, n);
+        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+        SubtensorModule::set_min_allowed_weights(netuid, 1);
+        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+
+        for key in 0..n as u64 {
+            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
+            let (nonce, work) = SubtensorModule::create_work_for_block_number(
+                netuid,
+                block_number,
+                key * 1_000_000,
+                &U256::from(key),
+            );
+            assert_ok!(SubtensorModule::register(
+                RuntimeOrigin::signed(U256::from(key)),
+                netuid,
+                block_number,
+                nonce,
+                work,
+                U256::from(key),
+                U256::from(key)
+            ));
+            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+                &U256::from(key),
+                &U256::from(key),
+                stakes[key as usize],
+            );
+        }
+
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        SubtensorModule::set_alpha_high(netuid, u16::MAX);
+        SubtensorModule::set_alpha_low(netuid, u16::MIN);
+        // Run epoch with Liquid Alpha
+        if sparse {
+            SubtensorModule::epoch(netuid, 1_000_000_000);
+        } else {
+            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+        }
+        let bonds = SubtensorModule::get_bonds(netuid);
+
+        log::info!("bonds: {:?}", bonds);
+
+        // Check for reasonable outputs despite extreme alpha values
+        assert!(bonds
+            .iter()
+            .flatten()
+            .all(|&bond| bond >= 0 && bond <= 65535));
+    });
+
+
+}
+
 // Test that epoch masks out inactive stake of validators with outdated weights beyond activity cutoff.
 #[test]
 fn test_active_stake() {

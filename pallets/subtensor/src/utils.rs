@@ -667,4 +667,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
     }
+
+    // pub fn set_consensus_for_uid(netuid: u16, uid: u16, consensus: u16) {
+    //     Consensus::<T>::insert(netuid, uid, consensus);
+    // }
 }
