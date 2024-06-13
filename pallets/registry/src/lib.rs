@@ -21,7 +21,7 @@ use sp_std::boxed::Box;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as fungible::Inspect<<T as frame_system::Config>::AccountId>>::Balance;
-
+#[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -35,20 +35,20 @@ pub mod pallet {
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        // Currency type that will be used to place deposits on neurons
+        /// Currency type that will be used to place deposits on neurons
         type Currency: fungible::Mutate<Self::AccountId>
             + fungible::MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
 
-        // Weight information for extrinsics in this pallet.
+        /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
-        // Interface to allow other pallets to control who can register identities
+        /// Interface to allow other pallets to control who can register identities
         type CanRegister: crate::CanRegisterIdentity<Self::AccountId>;
 
-        // Configuration fields
+        /// Configuration fields
         /// Maximum user-configured additional fields
         #[pallet::constant]
         type MaxAdditionalFields: Get<u32>;
@@ -68,22 +68,32 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        IdentitySet { who: T::AccountId }, // Emitted when a user registers an identity
-        IdentityDissolved { who: T::AccountId }, // Emitted when a user dissolves an identity
+        /// Emitted when a user registers an identity
+        IdentitySet {
+            /// The account that registered the identity
+            who: T::AccountId,
+        },
+        /// Emitted when a user dissolves an identity
+        IdentityDissolved {
+            /// The account that dissolved the identity
+            who: T::AccountId,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        /// Account attempted to register an identity but doesn't meet the requirements.
+        /// Account attempted to register an identity but does not meet the requirements.
         CannotRegister,
         /// Account passed too many additional fields to their identity
-        TooManyFields,
+        TooManyFieldsInIdentityInfo,
         /// Account doesn't have a registered identity
         NotRegistered,
     }
 
+    /// Enum to hold reasons for putting funds on hold.
     #[pallet::composite_enum]
     pub enum HoldReason {
+        /// Funds are held for identity registration
         RegistryIdentity,
     }
 
@@ -100,6 +110,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Register an identity for an account. This will overwrite any existing identity.
         #[pallet::call_index(0)]
         #[pallet::weight((
 			T::WeightInfo::set_identity(),
@@ -119,7 +130,7 @@ pub mod pallet {
             let extra_fields = info.additional.len() as u32;
             ensure!(
                 extra_fields <= T::MaxAdditionalFields::get(),
-                Error::<T>::TooManyFields
+                Error::<T>::TooManyFieldsInIdentityInfo
             );
 
             let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
@@ -160,6 +171,7 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Clear the identity of an account.
         #[pallet::call_index(1)]
         #[pallet::weight(T::WeightInfo::clear_identity())]
         pub fn clear_identity(
@@ -167,10 +179,6 @@ pub mod pallet {
             identified: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
-            ensure!(
-                T::CanRegister::can_register(&who, &identified),
-                Error::<T>::CannotRegister
-            );
 
             let id = <IdentityOf<T>>::take(&identified).ok_or(Error::<T>::NotRegistered)?;
             let deposit = id.total_deposit();

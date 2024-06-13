@@ -1,5 +1,5 @@
 use frame_support::{
-    assert_ok, parameter_types,
+    assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
@@ -167,6 +167,7 @@ impl pallet_subtensor::Config for Test {
     type LiquidAlphaOn = InitialLiquidAlphaOn;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
@@ -193,6 +194,7 @@ impl system::Config for Test {
     type Nonce = u64;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type MaxLocks = ();
     type MaxReserves = ();
@@ -206,7 +208,6 @@ impl pallet_balances::Config for Test {
     type FreezeIdentifier = ();
     type MaxFreezes = ();
     type RuntimeHoldReason = ();
-    type MaxHolds = ();
 }
 
 pub struct SubtensorIntrf;
@@ -453,6 +454,18 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn clear_small_nominations() {
         SubtensorModule::clear_small_nominations();
+    }
+
+    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval);
+    }
+
+    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
+    }
+
+    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
     }
 
     fn set_alpha_high(netuid: u16, alpha_high: u16) {

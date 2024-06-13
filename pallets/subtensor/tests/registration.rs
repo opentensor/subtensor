@@ -36,7 +36,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(91000000, 0),
+                weight: frame_support::weights::Weight::from_parts(192_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -970,7 +970,10 @@ fn test_registration_already_active_hotkey() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::AlreadyRegistered.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyAlreadyRegisteredInSubNet.into())
+        );
     });
 }
 
@@ -1820,7 +1823,10 @@ fn test_registration_origin_hotkey_mismatch() {
             hotkey_account_id_2, // Not the same as the origin.
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::HotkeyOriginMismatch.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::TransactorAccountShouldBeHotKey.into())
+        );
     });
 }
 
@@ -1853,7 +1859,10 @@ fn test_registration_disabled() {
             hotkey_account_id,
             coldkey_account_id,
         );
-        assert_eq!(result, Err(Error::<Test>::RegistrationDisabled.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::SubNetRegistrationDisabled.into())
+        );
     });
 }
 
@@ -1962,7 +1971,7 @@ fn test_hotkey_swap_same_key() {
                 hotkey_account_id,
                 hotkey_account_id
             ),
-            Error::<Test>::AlreadyRegistered
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
     });
 }
@@ -2003,7 +2012,7 @@ fn test_hotkey_swap_registered_key() {
                 hotkey_account_id,
                 new_hotkey
             ),
-            Error::<Test>::AlreadyRegistered
+            Error::<Test>::HotKeyAlreadyRegisteredInSubNet
         );
     });
 }
