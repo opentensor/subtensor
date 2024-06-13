@@ -6,7 +6,7 @@ concurrency:
 
 on:
   push:
-    # branches: [main, devnet-ready, devnet, testnet, finney]
+    branches: [main, devnet-ready, devnet, testnet, finney]
 
   pull_request:
 
