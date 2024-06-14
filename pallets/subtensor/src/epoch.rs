@@ -202,7 +202,7 @@ impl<T: Config> Pallet<T> {
             let alpha: Vec<I32F32> = consensus
                 .iter()
                 .map(|c| {
-                    let exp_val = safe_exp(a.saturating_mul(*c).saturating_sub(b));
+                    let exp_val = safe_exp(b.saturating_sub(a.saturating_mul(*c)));
                     I32F32::from_num(1.0)
                         .saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
                 })
@@ -211,7 +211,7 @@ impl<T: Config> Pallet<T> {
             let alpha: Vec<I32F32> = alpha
                 .iter()
                 .map(|a| {
-                    let clamped_a = a.max(&alpha_low).min(&alpha_high);
+                    let clamped_a = a.max(&alpha_high).min(&alpha_low);
                     I32F32::from_num(1.0).saturating_sub(*clamped_a)
                 })
                 .collect();
@@ -614,7 +614,7 @@ impl<T: Config> Pallet<T> {
             let alpha: Vec<I32F32> = consensus
                 .iter()
                 .map(|c| {
-                    let exp_val = safe_exp(a.saturating_mul(*c).saturating_sub(b));
+                    let exp_val = safe_exp(b.saturating_sub(a.saturating_mul(*c)));
                     I32F32::from_num(1.0)
                         .saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
                 })
@@ -625,7 +625,7 @@ impl<T: Config> Pallet<T> {
             let alpha: Vec<I32F32> = alpha
                 .iter()
                 .map(|a| {
-                    let clamped_a = a.max(&alpha_low).min(&alpha_high);
+                    let clamped_a = a.max(&alpha_high).min(&alpha_low);
                     I32F32::from_num(1.0).saturating_sub(*clamped_a)
                 })
                 .collect();
