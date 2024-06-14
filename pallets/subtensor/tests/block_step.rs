@@ -872,7 +872,7 @@ fn test_emission_based_on_registration_status() {
         let block: u64 = 0;
         // drain the emission tuples for the subnet with registration on
         #[allow(clippy::fn_to_numeric_cast)]
-        SubtensorModule::drain_emission(next_block as u64);
+        SubtensorModule::drain_emission(block as u64);
         // Turn on registration for the subnet with registration off
         SubtensorModule::set_network_registration_allowed(netuid_off, true);
         SubtensorModule::set_network_registration_allowed(netuid_on, false);
