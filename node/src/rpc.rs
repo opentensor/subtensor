@@ -74,7 +74,7 @@ where
         pool,
         deny_unsafe,
         grandpa,
-        backend: _,
+        _backend: _,
     } = deps;
 
     // Custom RPC methods for Paratensor
