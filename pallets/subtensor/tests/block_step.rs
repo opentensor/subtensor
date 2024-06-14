@@ -49,7 +49,7 @@ fn test_loaded_emission() {
         // Try draining the emission tuples
         // None remaining because we are at epoch.
         let block: u64 = 8;
-        SubtensorModule::drain_emission(block);
+        SubtensorModule::drain_emission();
         assert!(SubtensorModule::get_loaded_emission_tuples(netuid).is_none());
 
         // Generate more emission.
@@ -69,7 +69,7 @@ fn test_loaded_emission() {
                 n_to_drain =
                     SubtensorModule::tuples_to_drain_this_block(netuid, tempo, block, tuples.len());
             }
-            SubtensorModule::drain_emission(block); // drain it with 9 more blocks to go
+            SubtensorModule::drain_emission(); // drain it with 9 more blocks to go
             if let Some(tuples) = SubtensorModule::get_loaded_emission_tuples(netuid) {
                 assert_eq!(tuples.len(), n_remaining - n_to_drain);
             }
@@ -870,7 +870,7 @@ fn test_emission_based_on_registration_status() {
         );
 
         // drain the emission tuples for the subnet with registration on
-        SubtensorModule::drain_emission(next_block as u64);
+        SubtensorModule::drain_emission();
         // Turn on registration for the subnet with registration off
         SubtensorModule::set_network_registration_allowed(netuid_off, true);
         SubtensorModule::set_network_registration_allowed(netuid_on, false);

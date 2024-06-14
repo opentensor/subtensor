@@ -20,7 +20,7 @@ impl<T: Config> Pallet<T> {
             }
         }
         // --- 3. Drains emission tuples ( hotkey, amount ).
-        Self::drain_emission(block_number);
+        Self::drain_emission();
         // --- 4. Generates emission tuples from epoch functions.
         Self::generate_emission(block_number);
         // Return ok.
@@ -81,7 +81,7 @@ impl<T: Config> Pallet<T> {
     /// Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
     /// and distributes small chunks of them at a time.
     ///
-    pub fn drain_emission(_: u64) {
+    pub fn drain_emission() {
         // --- 1. We iterate across each network.
         for (netuid, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
             let Some(tuples_to_drain) = Self::get_loaded_emission_tuples(netuid) else {
