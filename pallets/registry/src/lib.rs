@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod types;
 pub mod weights;
