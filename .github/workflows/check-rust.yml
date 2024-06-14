@@ -65,101 +65,101 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --check --all
 
-  # cargo-clippy-default-features:
-  #   name: cargo clippy
-  #   runs-on: SubtensorCI
-  #   strategy:
-  #     matrix:
-  #       rust-branch:
-  #         - stable
-  #       rust-target:
-  #         - x86_64-unknown-linux-gnu
-  #         # - x86_64-apple-darwin
-  #       os:
-  #         - ubuntu-latest
-  #         # - macos-latest
-  #       include:
-  #         - os: ubuntu-latest
-  #         # - os: macos-latest
-  #   env:
-  #     RELEASE_NAME: development
-  #     # RUSTFLAGS: -A warnings
-  #     RUSTV: ${{ matrix.rust-branch }}
-  #     RUST_BACKTRACE: full
-  #     RUST_BIN_DIR: target/${{ matrix.rust-target }}
-  #     SKIP_WASM_BUILD: 1
-  #     TARGET: ${{ matrix.rust-target }}
-  #   steps:
-  #     - name: Check-out repository under $GITHUB_WORKSPACE
-  #       uses: actions/checkout@v4
+  cargo-clippy-default-features:
+    name: cargo clippy
+    runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - stable
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+    env:
+      RELEASE_NAME: development
+      # RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v4
 
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update &&
-  #         sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-  #     - name: Install Rust ${{ matrix.rust-branch }}
-  #       uses: actions-rs/toolchain@v1.0.6
-  #       with:
-  #         toolchain: ${{ matrix.rust-branch }}
-  #         components: rustfmt, clippy
-  #         profile: minimal
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
+          profile: minimal
 
-  #     - name: Utilize Shared Rust Cache
-  #       uses: Swatinem/rust-cache@v2.2.1
-  #       with:
-  #         key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-  #     - name: cargo clippy --workspace --all-targets -- -D warnings
-  #       run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-  # cargo-clippy-all-features:
-  #   name: cargo clippy --all-features
-  #   runs-on: SubtensorCI
-  #   strategy:
-  #     matrix:
-  #       rust-branch:
-  #         - stable
-  #       rust-target:
-  #         - x86_64-unknown-linux-gnu
-  #         # - x86_64-apple-darwin
-  #       os:
-  #         - ubuntu-latest
-  #         # - macos-latest
-  #       include:
-  #         - os: ubuntu-latest
-  #         # - os: macos-latest
-  #   env:
-  #     RELEASE_NAME: development
-  #     # RUSTFLAGS: -A warnings
-  #     RUSTV: ${{ matrix.rust-branch }}
-  #     RUST_BACKTRACE: full
-  #     RUST_BIN_DIR: target/${{ matrix.rust-target }}
-  #     SKIP_WASM_BUILD: 1
-  #     TARGET: ${{ matrix.rust-target }}
-  #   steps:
-  #     - name: Check-out repository under $GITHUB_WORKSPACE
-  #       uses: actions/checkout@v2
+  cargo-clippy-all-features:
+    name: cargo clippy --all-features
+    runs-on: SubtensorCI
+    strategy:
+      matrix:
+        rust-branch:
+          - stable
+        rust-target:
+          - x86_64-unknown-linux-gnu
+          # - x86_64-apple-darwin
+        os:
+          - ubuntu-latest
+          # - macos-latest
+        include:
+          - os: ubuntu-latest
+          # - os: macos-latest
+    env:
+      RELEASE_NAME: development
+      # RUSTFLAGS: -A warnings
+      RUSTV: ${{ matrix.rust-branch }}
+      RUST_BACKTRACE: full
+      RUST_BIN_DIR: target/${{ matrix.rust-target }}
+      SKIP_WASM_BUILD: 1
+      TARGET: ${{ matrix.rust-target }}
+    steps:
+      - name: Check-out repository under $GITHUB_WORKSPACE
+        uses: actions/checkout@v2
 
-  #     - name: Install dependencies
-  #       run: |
-  #         sudo apt-get update &&
-  #         sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
+      - name: Install dependencies
+        run: |
+          sudo apt-get update &&
+          sudo apt-get install -y clang curl libssl-dev llvm libudev-dev protobuf-compiler
 
-  #     - name: Install Rust ${{ matrix.rust-branch }}
-  #       uses: actions-rs/toolchain@v1.0.6
-  #       with:
-  #         toolchain: ${{ matrix.rust-branch }}
-  #         components: rustfmt, clippy
-  #         profile: minimal
+      - name: Install Rust ${{ matrix.rust-branch }}
+        uses: actions-rs/toolchain@v1.0.6
+        with:
+          toolchain: ${{ matrix.rust-branch }}
+          components: rustfmt, clippy
+          profile: minimal
 
-  #     - name: Utilize Shared Rust Cache
-  #       uses: Swatinem/rust-cache@v2.2.1
-  #       with:
-  #         key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
+      - name: Utilize Shared Rust Cache
+        uses: Swatinem/rust-cache@v2.2.1
+        with:
+          key: ${{ matrix.os }}-${{ env.RUST_BIN_DIR }}
 
-  #     - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
-  #       run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
   # runs cargo test --workspace
   cargo-test:
     name: cargo test
