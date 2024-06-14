@@ -486,7 +486,10 @@ fn test_senate_leave_vote_removal() {
         assert!(
             SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hotkey_account_id).is_err()
         );
+        // No longer a member of the senate
+        assert!(!Senate::is_member(&hotkey_account_id));
         assert_eq!(
+            // Vote is removed
             Triumvirate::has_voted(hash, 0, &hotkey_account_id),
             Ok(false)
         );
