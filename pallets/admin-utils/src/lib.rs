@@ -1043,6 +1043,18 @@ pub mod pallet {
             ensure_root(origin)?;
             T::Subtensor::do_start_stao_dtao_transition(netuid)
         }
+
+        /// Start changing subnet type (from stao to dtao) for 
+        /// all subnets. 
+        /// Call this extrinsic to initiate the transition,
+        /// wait until PendingEmission is 0, and then call
+        /// continue_changing_network_type
+        #[pallet::call_index(52)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn change_network_type_all(origin: OriginFor<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::do_start_stao_dtao_transition_for_all()
+        }
     }
 }
 
@@ -1142,6 +1154,7 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
     fn do_start_stao_dtao_transition(netuid: u16) -> DispatchResult;
+    fn do_start_stao_dtao_transition_for_all() -> DispatchResult;
     fn do_continue_stao_dtao_transition() -> Weight;
     fn get_pending_emission(netuid: u16) -> u64;
 }

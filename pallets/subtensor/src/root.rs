@@ -1008,12 +1008,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CannotBeConverted
         );
 
-        // Ensure that owner has stake in this subnet
+        // Ensure somebody has stake in this subnet
         let subnet_creator = SubnetCreator::<T>::get(netuid);
-        let owner_stake = SubStake::<T>::get((&coldkey, &subnet_creator, netuid));
+        let total_stake = TotalSubnetTAO::<T>::get(netuid);
         ensure!(
-            owner_stake != 0,
-            Error::<T>::CannotBeConverted
+            total_stake != 0,
+            Error::<T>::NoStakeInSubnet
         );
 
         // Ensure another transition for this subnet is not already in progress
@@ -1028,6 +1028,60 @@ impl<T: Config> Pallet<T> {
         // );
 
         // All looks good: Add the starting transition record for this subnet
+        Self::do_start_stao_dtao_transition_no_checks(
+            netuid,
+            coldkey,
+            subnet_creator,
+        );
+
+        Ok(())
+    }
+
+    /// Starts stao->dtao transition for all STAO subnets
+    pub fn do_start_stao_dtao_transition_for_all() -> DispatchResult {
+        // Ensure no transition is already in progress
+        ensure!(
+            SubnetInTransition::<T>::iter().next().is_none(),
+            Error::<T>::TemporarilyNotAllowed
+        );
+
+        Self::get_all_subnet_netuids().iter()
+        .filter(|&netuid| *netuid != Self::get_root_netuid())
+        .filter(|&netuid| Self::get_subnet_type(*netuid) == SubnetType::STAO)
+        .map(|netuid| {
+            // Find the owner
+            let coldkey = SubnetOwner::<T>::get(netuid);
+
+            // Ensure somebody has stake in every subnet
+            let subnet_creator = SubnetCreator::<T>::get(netuid);
+            let total_stake = TotalSubnetTAO::<T>::get(netuid);
+            ensure!(
+                total_stake != 0,
+                Error::<T>::NoStakeInSubnet
+            );
+
+            // All looks good: Add the starting transition record for this subnet
+            Self::do_start_stao_dtao_transition_no_checks(
+                *netuid,
+                coldkey,
+                subnet_creator,
+            );
+
+            Ok(())
+        })
+        .fold(Ok(()), |cumulative, local| {
+            match local {
+                Err(_) => local,
+                Ok(()) => cumulative
+            }
+        })
+    }    
+
+    fn do_start_stao_dtao_transition_no_checks(
+        netuid: u16,
+        coldkey: T::AccountId,
+        subnet_creator: T::AccountId,
+    ) {
         let num_subnets = Self::get_num_subnets() as u64;
         let initial_total_tao = TotalSubnetTAO::<T>::get(netuid);
         let initial_alpha_per_tao = num_subnets;
@@ -1035,7 +1089,6 @@ impl<T: Config> Pallet<T> {
             netuid,
             SubnetTransition {
                 substake_current_key: SubStake::<T>::iter_keys().next(),
-                owner_stake_tao: owner_stake,
                 coldkey,
                 hotkey: subnet_creator,
                 initial_total_tao,
@@ -1056,8 +1109,6 @@ impl<T: Config> Pallet<T> {
         DynamicAlphaOutstanding::<T>::insert(netuid, initial_dynamic_outstanding);
         DynamicK::<T>::insert(netuid, initial_dynamic_k);
         IsDynamic::<T>::insert(netuid, true);
-
-        Ok(())
     }
 
     pub fn do_continue_stao_dtao_transition() -> Weight {
@@ -1066,19 +1117,17 @@ impl<T: Config> Pallet<T> {
         let mut counter: u32 = 0;
         let mut tao_counter: u64 = 0;
 
-        // Find if there's a network to convert 
-        let netuid = match SubnetInTransition::<T>::iter_keys().next() {
+        // Find if there's a network to convert with zero pending emission
+        let netuid = match SubnetInTransition::<T>::iter_keys().filter(|&netuid| {
+            // If pending emission is non-zero, don't proceed. We need to wait until it is drained.
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+            PendingEmission::<T>::get(netuid) == 0
+        }).next() {
             Some(netuid) => netuid,
             None => {
                 return weight;
             }
         };
-
-        // Check if there's any pending emission for this subnet
-        // If there is, don't proceed. We need to wait until it is drained.
-        if PendingEmission::<T>::get(netuid) != 0 {
-            return weight;
-        }
 
         // Get current SubnetTransition
         if let Some(mut transition) = SubnetInTransition::<T>::get(netuid) {
@@ -1086,32 +1135,36 @@ impl<T: Config> Pallet<T> {
 
             // TODOSDT: SubStake can change for other subnets => no guarantees for iteration from a key
             while let Some(substake_key) = transition.substake_current_key {
-                // Find the key next after the current before removing
+                // Find the key next after the current before making changes
                 let encoded_start_key = SubStake::<T>::hashed_key_for(&substake_key);
                 let maybe_next_key = SubStake::<T>::iter_keys_from(encoded_start_key).next();
 
-                // Replace TAO stake with Alpha stake in state maps
-                let coldkey = &substake_key.0;
-                let hotkey = &substake_key.1;
-                let tao_stake = SubStake::<T>::get(&substake_key);
-                let alpha_stake = tao_stake * transition.initial_alpha_per_tao;
+                // Apply transition changes only for current netuid
+                if substake_key.2 == netuid {
+                    // Replace TAO stake with Alpha stake in state maps
+                    let coldkey = &substake_key.0;
+                    let hotkey = &substake_key.1;
+                    let tao_stake = SubStake::<T>::get(&substake_key);
+                    let alpha_stake = tao_stake * transition.initial_alpha_per_tao;
 
-                // Leaving some flexibility for future design of pool initialization
-                if alpha_stake >= tao_stake {
-                    let change = alpha_stake - tao_stake;
-                    TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
-                        *stake = stake.saturating_add(change);
-                    });
-                } else {
-                    let change = tao_stake - alpha_stake;
-                    TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
-                        *stake = stake.saturating_sub(change);
-                    });
+                    // Alpha stake for now is always greater than tao amount.
+                    // Leaving some flexibility for future design of pool initialization
+                    if alpha_stake >= tao_stake {
+                        let change = alpha_stake - tao_stake;
+                        TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
+                            *stake = stake.saturating_add(change);
+                        });
+                    } else {
+                        let change = tao_stake - alpha_stake;
+                        TotalHotkeySubStake::<T>::mutate(hotkey, netuid, |stake| {
+                            *stake = stake.saturating_sub(change);
+                        });
+                    }
+                    SubStake::<T>::insert((coldkey, hotkey, netuid), alpha_stake);
+
+                    tao_counter = tao_counter.saturating_add(tao_stake);
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(5, 5));
                 }
-                SubStake::<T>::insert((coldkey, hotkey, netuid), alpha_stake);
-
-                tao_counter = tao_counter.saturating_add(tao_stake);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(5, 5));
 
                 // Continue iteration
                 if let Some(key) = maybe_next_key {
@@ -1124,8 +1177,12 @@ impl<T: Config> Pallet<T> {
 
                     // TODOSDT: Start over here (or think of something better) for mainnet version
                     transition.substake_current_key = None;
-                    let complete_weight = Self::do_complete_stao_dtao_transition(netuid, &transition);
+                    let complete_weight = Self::do_complete_stao_dtao_transition(netuid);
                     weight.saturating_accrue(complete_weight);
+                    log::info!(
+                        "STAO -> DTAO transition processed {} entries with the total of {} TAO for subnet {}",
+                        counter, tao_counter as f64 / 1000000000., netuid
+                    );
                     log::info!("STAO -> DTAO transition: Finished one iteration over SubStake map");
                     return weight;
                 }
@@ -1135,7 +1192,7 @@ impl<T: Config> Pallet<T> {
                 // TODOSDT: Didn't work when experimented with subnet 0. After full iteration, 1 rao remained. 
                 // We need a better way to detect this.
                 // if TotalSubnetTAO::<T>::get(netuid) == 0 {
-                //     let complete_weight = Self::do_complete_stao_dtao_transition(netuid, &transition);
+                //     let complete_weight = Self::do_complete_stao_dtao_transition(netuid);
                 //     weight.saturating_accrue(complete_weight);
                 //     return weight;
                 // }
@@ -1152,8 +1209,8 @@ impl<T: Config> Pallet<T> {
             }
 
             log::info!(
-                "STAO -> DTAO transition processed {} entries with the total of {} TAO",
-                counter, tao_counter as f64 / 1000000000.
+                "STAO -> DTAO transition processed {} entries with the total of {} TAO for subnet {}",
+                counter, tao_counter as f64 / 1000000000., netuid
             );
     
             SubnetInTransition::<T>::insert(
@@ -1168,15 +1225,13 @@ impl<T: Config> Pallet<T> {
 
     fn do_complete_stao_dtao_transition(
         netuid: u16,
-        transition: &SubnetTransition<T::AccountId>,
     ) -> Weight {
         // Remove transition record
         SubnetInTransition::<T>::remove(netuid);
 
         log::info!(
-            "STAO -> DTAO transition completed for netuid {}\nOwner stake TAO: {}",
+            "STAO -> DTAO transition completed for netuid {}",
             netuid,
-            transition.owner_stake_tao,
         );
 
         // Reset subnet tempo

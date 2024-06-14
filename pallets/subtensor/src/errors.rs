@@ -136,5 +136,7 @@ mod errors {
         TranstinioAlreadyInProgress,
         /// Operation is temporarily not allowed
         TemporarilyNotAllowed,
+        /// Subnet has zero stake
+        NoStakeInSubnet,
     }
 }

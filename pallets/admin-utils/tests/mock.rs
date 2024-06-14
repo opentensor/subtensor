@@ -488,6 +488,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::do_start_stao_dtao_transition(netuid)
     }
 
+    fn do_start_stao_dtao_transition_for_all() -> DispatchResult {
+        SubtensorModule::do_start_stao_dtao_transition_for_all()
+    }
+
     fn do_continue_stao_dtao_transition() -> Weight {
         SubtensorModule::do_continue_stao_dtao_transition()
     }

@@ -55,7 +55,6 @@ pub enum SubnetType {
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]
 pub struct SubnetTransition<AccountId> {
     pub substake_current_key: Option<(AccountId, AccountId, u16)>,
-    pub owner_stake_tao: u64,
     pub coldkey: AccountId,
     pub hotkey: AccountId,
     pub initial_total_tao: u64,

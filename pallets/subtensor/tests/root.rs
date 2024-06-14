@@ -750,7 +750,7 @@ fn test_run_coinbase_during_dtao_transition_no_effect() {
         // Check that run_coinbase doesn't increase PendingEmission or TotalSubnetTAO for this subnet
         SubtensorModule::run_coinbase(2);
         assert_eq!(PendingEmission::<Test>::get(netuid), 0,);
-        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost + stake,);
+        assert_eq!(TotalSubnetTAO::<Test>::get(netuid), lock_cost + stake);
     });
 }
 
@@ -911,5 +911,55 @@ fn test_stao_dtao_transition_high_weight_ok() {
                 break;
             }
         }
+    });
+}
+
+#[test]
+fn test_stao_dtao_transition_multi_network() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid1, lock_cost, stake);
+        create_staked_stao_network(netuid2, lock_cost, stake);
+
+        // Start transition
+        assert_ok!(SubtensorModule::do_start_stao_dtao_transition_for_all());
+
+        // Check that transition started for all networks
+        assert!(pallet_subtensor::IsDynamic::<Test>::get(netuid1));
+        assert!(pallet_subtensor::IsDynamic::<Test>::get(netuid2));
+        assert!(SubnetInTransition::<Test>::get(netuid1).is_some());
+        assert!(SubnetInTransition::<Test>::get(netuid2).is_some());
+
+        // Let transition run (two times)
+        SubtensorModule::do_continue_stao_dtao_transition();
+        SubtensorModule::do_continue_stao_dtao_transition();
+
+        // Check that all transitions finished
+        assert!(SubnetInTransition::<Test>::get(netuid1).is_none());
+        assert!(SubnetInTransition::<Test>::get(netuid2).is_none());
+    });
+}
+
+#[test]
+fn test_stao_dtao_transition_multi_network_fails_on_no_stake() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        let lock_cost = 100_000_000_000;
+        let stake = 100_000_000_000;
+        create_staked_stao_network(netuid1, lock_cost, stake);
+        create_staked_stao_network(netuid2, lock_cost, stake);
+
+        // Remove stake from netuid 2
+        pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid2, 0);
+
+        // Start transition
+        assert_err!(
+            SubtensorModule::do_start_stao_dtao_transition_for_all(),
+            Error::<Test>::NoStakeInSubnet
+        );
     });
 }
