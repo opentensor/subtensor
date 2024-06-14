@@ -2063,7 +2063,7 @@ pub mod pallet {
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid);
-                return default_priority + u32::max_value() as u64;
+                return default_priority + u32::MAX as u64;
             }
             0
         }
@@ -2141,7 +2141,7 @@ where
     pub fn get_priority_vanilla() -> u64 {
         // Return high priority so that every extrinsic except set_weights function will
         // have a higher priority than the set_weights call
-        u64::max_value()
+        u64::MAX
     }
 
     pub fn get_priority_set_weights(who: &T::AccountId, netuid: u16) -> u64 {
