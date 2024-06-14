@@ -1,6 +1,6 @@
 use ahash::RandomState;
 use std::hash::{BuildHasher, Hash, Hasher};
-use syn::{self, parse_quote, visit_mut::VisitMut};
+use syn::{parse_quote, visit_mut::VisitMut};
 
 pub struct CleanDocComments;
 
@@ -12,7 +12,6 @@ impl CleanDocComments {
 
 impl VisitMut for CleanDocComments {
     fn visit_attribute_mut(&mut self, attr: &mut syn::Attribute) {
-        // Check if the attribute is a doc comment and remove it if it is
         if attr.path().is_ident("doc") {
             *attr = parse_quote!(#[doc = ""]);
         }

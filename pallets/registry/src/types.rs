@@ -30,7 +30,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, ops::Add, prelude::*};
-use subtensor_macros::freeze_struct_ignore_ra;
+use subtensor_macros::freeze_struct;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -279,12 +279,12 @@ impl TypeInfo for IdentityFields {
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
-#[freeze_struct_ignore_ra("fa02e2abde778fc4")]
+#[freeze_struct("70b183c8753429f1")]
 #[derive(
     CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
+#[derive(frame_support::DefaultNoBound)]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct IdentityInfo<FieldLimit: Get<u32>> {
     /// Additional fields of the identity that are not catered for with the struct's explicit

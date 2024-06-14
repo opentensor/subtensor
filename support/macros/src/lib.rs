@@ -9,21 +9,19 @@ use visitor::*;
 /// Freezes the layout of a struct to the current hash of its fields, ensuring that future
 /// changes require updating the hash.
 ///
-/// If you ever get in a loop where rust analyzer insists that the hash is wrong each time you
-/// update, but `cargo check` is passing, you should use [`freeze_struct_ignore_ra`] instead.
+/// ```
+/// use subtensor_macros::freeze_struct;
+///
+/// #[freeze_struct("13f75e4ea46b4e80")]
+/// #[derive(Copy, Clone, PartialEq, Eq)]
+/// pub struct MyStruct {
+///     pub a: u32,
+///     pub b: u64,
+/// }
+/// ```
 #[proc_macro_attribute]
 pub fn freeze_struct(attr: TokenStream, tokens: TokenStream) -> TokenStream {
-    match freeze_struct_impl(attr, tokens, false) {
-        Ok(item_struct) => item_struct.to_token_stream().into(),
-        Err(err) => err.to_compile_error().into(),
-    }
-}
-
-/// More permissive version of [`freeze_struct`] that ignores the hash check when running in
-/// rust-analyzer since in some rare situations rust-analyzer will generate an incorrect hash code
-#[proc_macro_attribute]
-pub fn freeze_struct_ignore_ra(attr: TokenStream, tokens: TokenStream) -> TokenStream {
-    match freeze_struct_impl(attr, tokens, true) {
+    match freeze_struct_impl(attr, tokens) {
         Ok(item_struct) => item_struct.to_token_stream().into(),
         Err(err) => err.to_compile_error().into(),
     }
@@ -32,7 +30,6 @@ pub fn freeze_struct_ignore_ra(attr: TokenStream, tokens: TokenStream) -> TokenS
 fn freeze_struct_impl(
     attr: impl Into<TokenStream2>,
     tokens: impl Into<TokenStream2>,
-    ignore_ra: bool,
 ) -> Result<ItemStruct> {
     let attr = attr.into();
     let tokens = tokens.into();
@@ -49,15 +46,12 @@ fn freeze_struct_impl(
             expected hashcode: `#[freeze_struct(\"{calculated_hash_hex}\")]`"),
         ));
     }
-    let hash_lit = parse2::<LitStr>(attr)?;
-    let provided_hash_hex = hash_lit.value().to_lowercase();
+
+    let parsed_attr = parse2::<LitStr>(attr)?;
+    let provided_hash_hex = parsed_attr.value().to_lowercase();
 
     let mut visitor = CleanDocComments::new();
     visit_item_struct_mut(&mut visitor, &mut item_clone);
-
-    if ignore_ra && is_rust_analyzer() {
-        return Ok(item);
-    }
 
     if provided_hash_hex != calculated_hash_hex {
         return Err(Error::new_spanned(item,
@@ -71,9 +65,4 @@ fn freeze_struct_impl(
         ));
     }
     Ok(item)
-}
-
-/// Returns true if the current build is being run by rust-analyzer.
-fn is_rust_analyzer() -> bool {
-    std::env!("RUSTC_WRAPPER").contains("rust-analyzer")
 }
