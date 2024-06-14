@@ -1,5 +1,4 @@
 use ahash::RandomState;
-use std::hash::{BuildHasher, Hash, Hasher};
 use syn::{parse_quote, visit_mut::VisitMut};
 
 pub struct CleanDocComments;
@@ -29,14 +28,12 @@ pub fn generate_hash<T: Into<syn::Item> + Clone>(item: &T) -> u64 {
     const SEED1: u64 = 0x12345678;
     const SEED2: u64 = 0x87654321;
 
-    // Create a RandomState with the fixed seed
+    // use a fixed seed for predictable hashes
     let fixed_state = RandomState::with_seeds(SEED1, SEED2, SEED1, SEED2);
 
-    // Create a hasher with the fixed seed
-    let mut hasher = fixed_state.build_hasher();
+    // hash item
     let item = Into::<syn::Item>::into(item);
-    item.hash(&mut hasher);
-    hasher.finish()
+    fixed_state.hash_one(&item)
 }
 
 #[cfg(test)]
