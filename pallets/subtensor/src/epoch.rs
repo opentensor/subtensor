@@ -177,7 +177,7 @@ impl<T: Config> Pallet<T> {
         // Compute bonds moving average.
         let consensus_high = quantile(&consensus, 0.75);
         let consensus_low = quantile(&consensus, 0.25);
-        if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high <= consensus_low) {
+        if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high > consensus_low) {
             let alpha_high = Self::get_alpha_high(netuid);
             let alpha_low = Self::get_alpha_low(netuid);
 
@@ -585,17 +585,21 @@ impl<T: Config> Pallet<T> {
         let mut ema_bonds: Vec<Vec<(u16, I32F32)>>;
         let consensus_high = quantile(&consensus, 0.75);
         let consensus_low = quantile(&consensus, 0.25);
-        if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high <= consensus_low) {
+        // Check if LiquidAlpha is enabled and consensus range is valid.
+
+        if LiquidAlphaOn::<T>::get(netuid) && !(consensus_high > consensus_low) {
             let alpha_high = Self::get_alpha_high(netuid);
             log::trace!("alpha_high: {:?}", alpha_high);
             let alpha_low = Self::get_alpha_low(netuid);
             log::trace!("alpha_low: {:?}", alpha_low);
 
+            // Calculate the slope 'a' for the logistic function.
             let a = (safe_ln(
                 I32F32::from_num(1.0)
                     .saturating_div(alpha_high)
                     .saturating_sub(I32F32::from_num(1.0)),
             )
+            // Calculate the intercept 'b' for the logistic function.
             .saturating_sub(safe_ln(
                 I32F32::from_num(1.0)
                     .saturating_div(alpha_low)
@@ -610,7 +614,7 @@ impl<T: Config> Pallet<T> {
             )
             .saturating_add(a.saturating_mul(consensus_low));
             log::trace!("b: {:?}", b);
-
+            // Compute the alpha values using the logistic function.
             let alpha: Vec<I32F32> = consensus
                 .iter()
                 .map(|c| {
@@ -621,7 +625,7 @@ impl<T: Config> Pallet<T> {
                 .collect();
 
             log::trace!("alpha: {:?}", alpha);
-
+            // Clamp the alpha values between alpha_high and alpha_low.
             let alpha: Vec<I32F32> = alpha
                 .iter()
                 .map(|a| {
@@ -630,6 +634,7 @@ impl<T: Config> Pallet<T> {
                 })
                 .collect();
             log::trace!("alpha_clamped: {:?}", alpha);
+            // Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values.
             ema_bonds = mat_ema_alpha_vec_sparse(&bonds_delta, &bonds, &alpha);
             log::trace!(
                 "Exponential Moving Average Bonds Liquid Alpha: {:?}",

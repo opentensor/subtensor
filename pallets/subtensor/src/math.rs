@@ -1147,9 +1147,9 @@ pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<
 /// Calculates the exponential moving average (EMA) for a sparse matrix using dynamic alpha values.
 #[allow(dead_code)]
 pub fn mat_ema_alpha_vec_sparse(
-    new: &Vec<Vec<(u16, I32F32)>>,
-    old: &Vec<Vec<(u16, I32F32)>>,
-    alpha: &Vec<I32F32>,
+    new: &[Vec<(u16, I32F32)>],
+    old: &[Vec<(u16, I32F32)>],
+    alpha: &[I32F32],
 ) -> Vec<Vec<(u16, I32F32)>> {
     assert!(new.len() == old.len());
     let n = new.len(); // assume square matrix, rows=cols

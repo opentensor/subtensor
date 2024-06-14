@@ -1428,9 +1428,9 @@ fn test_bonds_with_liquid_alpha() {
         } else {
             SubtensorModule::epoch_dense(netuid, 1_000_000_000);
         }
-        let bonds = SubtensorModule::get_bonds( netuid );
+        let bonds = SubtensorModule::get_bonds(netuid);
 
-                /*  n: 8
+        /*  n: 8
             current_block: 4; activity_cutoff: 5000;
             Last update: [2, 3, 2, 2, 1, 1, 1, 1]
             Inactive: [false, false, false, false, false, false, false, false]
@@ -1471,10 +1471,10 @@ fn test_bonds_with_liquid_alpha() {
             Pruning Scores: [0.0016997808, 0.0151777493, 0.2070524206, 0.2760700488, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
         */
 
-		assert_eq!(bonds[0][4], 3297); //12603
-		assert_eq!(bonds[1][4], 13923); // 28321
-		assert_eq!(bonds[2][4], 49151);
-		assert_eq!(bonds[3][4], 65535);
+        assert_eq!(bonds[0][4], 3297); //12603
+        assert_eq!(bonds[1][4], 13923); // 28321
+        assert_eq!(bonds[2][4], 49151);
+        assert_eq!(bonds[3][4], 65535);
     });
 }
 
