@@ -1,13 +1,14 @@
 mod mock;
 use frame_support::{
     assert_err, assert_ok,
-    dispatch::{DispatchClass, DispatchResult, GetDispatchInfo, Pays},
+    dispatch::{DispatchClass, DispatchInfo, DispatchResult, GetDispatchInfo, Pays},
+    pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use mock::*;
-use pallet_subtensor::Error;
+use pallet_subtensor::{Error, Owner};
 use sp_core::{H256, U256};
 use sp_runtime::{
-    traits::{BlakeTwo256, Hash},
+    traits::{BlakeTwo256, DispatchInfoOf, Hash, SignedExtension},
     DispatchError,
 };
 use substrate_fixed::types::I32F32;
@@ -59,6 +60,82 @@ fn test_set_rootweights_dispatch_info_ok() {
         assert_eq!(dispatch_info.pays_fee, Pays::No);
     });
 }
+
+#[test]
+fn test_set_rootweights_validate() {
+    // Testing the signed extension validate function
+    // correctly filters this transaction.
+
+    new_test_ext(0).execute_with(|| {
+        let dests = vec![1, 1];
+        let weights = vec![1, 1];
+        let netuid: u16 = 1;
+        let version_key: u64 = 0;
+        let coldkey = U256::from(0);
+        let hotkey: U256 = U256::from(1); // Add the hotkey field
+        assert_ne!(hotkey, coldkey); // Ensure hotkey is NOT the same as coldkey !!!
+
+        let who = coldkey; // The coldkey signs this transaction
+
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_root_weights {
+            netuid,
+            dests,
+            weights,
+            version_key,
+            hotkey, // Include the hotkey field
+        });
+
+        // Create netuid
+        add_network(netuid, 0, 0);
+        // Register the hotkey
+        SubtensorModule::append_neuron(netuid, &hotkey, 0);
+        Owner::<Test>::insert(hotkey, coldkey);
+
+        let min_stake = 500_000_000_000;
+        // Set the minimum stake
+        SubtensorModule::set_weights_min_stake(min_stake);
+
+        // Verify stake is less than minimum
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) < min_stake);
+        let info: DispatchInfo =
+            DispatchInfoOf::<<Test as frame_system::Config>::RuntimeCall>::default();
+
+        let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
+        // Submit to the signed extension validate function
+        let result_no_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        // Should fail
+        assert_err!(
+            // Should get an invalid transaction error
+            result_no_stake,
+            TransactionValidityError::Invalid(InvalidTransaction::Call,)
+        );
+
+        // Increase the stake to be equal to the minimum
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, min_stake);
+
+        // Verify stake is equal to minimum
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
+            min_stake
+        );
+
+        // Submit to the signed extension validate function
+        let result_min_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        // Now the call should pass
+        assert_ok!(result_min_stake);
+
+        // Try with more stake than minimum
+        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 1);
+
+        // Verify stake is more than minimum
+        assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
+
+        let result_more_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        // The call should still pass
+        assert_ok!(result_more_stake);
+    });
+}
+
 #[test]
 fn test_commit_weights_dispatch_info_ok() {
     new_test_ext(0).execute_with(|| {
