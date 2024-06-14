@@ -239,10 +239,13 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;
+        /// The lower bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaLow: Get<u16>;
+        /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
     }
@@ -861,11 +864,13 @@ pub mod pallet {
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
         0
     }
+    /// Provides the default value for the upper bound of the alpha parameter.
+
     #[pallet::type_value]
     pub fn DefaultAlphaHigh<T: Config>() -> u16 {
         900 // Represents 0.9
     }
-
+    /// Provides the default value for the lower bound of the alpha parameter.
     #[pallet::type_value]
     pub fn DefaultAlphaLow<T: Config>() -> u16 {
         700 // Represents 0.7

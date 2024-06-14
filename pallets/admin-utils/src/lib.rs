@@ -997,7 +997,15 @@ pub mod pallet {
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
-
+        /// Sets the lower bound for the alpha parameter for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `alpha_low`: The new lower bound value for the alpha parameter.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(50)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_alpha_low(
@@ -1014,7 +1022,15 @@ pub mod pallet {
             );
             Ok(())
         }
-
+        /// Sets the upper bound for the alpha parameter for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `alpha_high`: The new upper bound value for the alpha parameter.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(51)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_alpha_high(
@@ -1031,7 +1047,15 @@ pub mod pallet {
             );
             Ok(())
         }
-
+        /// Enables or disables Liquid Alpha for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Liquid Alpha.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
         #[pallet::call_index(52)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_liquid_alpha_enabled(
