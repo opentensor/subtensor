@@ -102,7 +102,7 @@ fn test_set_rootweights_validate() {
 
         let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
         assert_err!(
             // Should get an invalid transaction error
@@ -120,7 +120,7 @@ fn test_set_rootweights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -130,7 +130,7 @@ fn test_set_rootweights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -202,7 +202,7 @@ fn test_commit_weights_validate() {
 
         let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
         assert_err!(
             // Should get an invalid transaction error
@@ -220,7 +220,7 @@ fn test_commit_weights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -230,7 +230,7 @@ fn test_commit_weights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
         assert_ok!(result_more_stake);
     });
@@ -301,7 +301,7 @@ fn test_reveal_weights_validate() {
 
         let extension = pallet_subtensor::SubtensorSignedExtension::<Test>::new();
         // Submit to the signed extension validate function
-        let result_no_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_no_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Should fail
         assert_err!(
             // Should get an invalid transaction error
@@ -319,7 +319,7 @@ fn test_reveal_weights_validate() {
         );
 
         // Submit to the signed extension validate function
-        let result_min_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_min_stake = extension.validate(&who, &call.clone(), &info, 10);
         // Now the call should pass
         assert_ok!(result_min_stake);
 
@@ -329,7 +329,7 @@ fn test_reveal_weights_validate() {
         // Verify stake is more than minimum
         assert!(SubtensorModule::get_total_stake_for_hotkey(&hotkey) > min_stake);
 
-        let result_more_stake = extension.validate(&who, &call.clone().into(), &info, 10);
+        let result_more_stake = extension.validate(&who, &call.clone(), &info, 10);
         // The call should still pass
         assert_ok!(result_more_stake);
     });
