@@ -1903,7 +1903,7 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
-		/// Attempt to adjust the senate membership to include a hotkey
+        /// Attempt to adjust the senate membership to include a hotkey
         #[pallet::call_index(63)]
         #[pallet::weight((Weight::from_parts(0, 0)
 		.saturating_add(T::DbWeight::get().reads(0))

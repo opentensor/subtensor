@@ -554,7 +554,7 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-		 // --- 13. Join the Senate if eligible.
+        // --- 13. Join the Senate if eligible.
         // Returns the replaced member, if any.
         let _ = Self::join_senate_if_eligible(&hotkey)?;
 
@@ -579,7 +579,6 @@ impl<T: Config> Pallet<T> {
         // --- 17. Finish and return success.
         Ok(())
     }
-
 
     // Checks if a hotkey should be a member of the Senate, and if so, adds them.
     //
@@ -677,7 +676,7 @@ impl<T: Config> Pallet<T> {
         // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
-		let last: Option<&T::AccountId> = None;
+        let last: Option<&T::AccountId> = None;
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
@@ -691,14 +690,13 @@ impl<T: Config> Pallet<T> {
                 let last_stake = Self::get_total_stake_for_hotkey(last);
 
                 if last_stake < current_stake {
-					// Swap the member with the lowest stake.
+                    // Swap the member with the lowest stake.
                     T::SenateMembers::swap_member(last, hotkey)
-						.map_err(|_| Error::<T>::CouldNotJoinSenate)?;
+                        .map_err(|_| Error::<T>::CouldNotJoinSenate)?;
                 }
             }
         } else {
-            T::SenateMembers::add_member(hotkey)
-				.map_err(|_| Error::<T>::CouldNotJoinSenate)?;
+            T::SenateMembers::add_member(hotkey).map_err(|_| Error::<T>::CouldNotJoinSenate)?;
         }
 
         // Return the swapped out member, if any.
