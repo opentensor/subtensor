@@ -1009,12 +1009,12 @@ impl<T: Config> Pallet<T> {
         NetworkRegisteredAt::<T>::remove(netuid);
 
         // --- 8. Remove incentive mechanism memory.
-        let _ = Uids::<T>::clear_prefix(netuid, u32::MAX(), None);
-        let _ = Keys::<T>::clear_prefix(netuid, u32::MAX(), None);
-        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX(), None);
+        let _ = Uids::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Keys::<T>::clear_prefix(netuid, u32::MAX, None);
+        let _ = Bonds::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // --- 8. Removes the weights for this subnet (do not remove).
-        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX(), None);
+        let _ = Weights::<T>::clear_prefix(netuid, u32::MAX, None);
 
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
