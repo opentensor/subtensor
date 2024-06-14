@@ -1,38 +1,39 @@
 //! Subtensor pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
-//mod benchmarking;
 
 use crate::Pallet as Subtensor;
 use crate::*;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::assert_ok;
-use frame_support::sp_std::vec;
 use frame_system::RawOrigin;
 pub use pallet::*;
-use sp_std::vec::Vec;
-//use mock::{Test, new_test_ext};
+use sp_core::H256;
+use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_std::vec;
 
 benchmarks! {
   // Add individual benchmarks here
   benchmark_register {
-    // Lets create a single network.
-    let n: u16 = 10;
     let netuid: u16 = 1; //11 is the benchmark network.
     let tempo: u16 = 1;
     let modality: u16 = 0;
-    let seed : u32 = 1;
-
-    let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let start_nonce: u64 = 39420842u64 + 100u64*netuid as u64;
-    let hotkey: T::AccountId = account("Alice", 0, seed);
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number( netuid, block_number, start_nonce, &hotkey);
+    let hotkey: T::AccountId = account("Alice", 0, 1);
+    let coldkey: T::AccountId = account("Test", 0, 2);
 
     Subtensor::<T>::init_new_network(netuid, tempo);
-    Subtensor::<T>::set_network_registration_allowed( netuid, true);
+    Subtensor::<T>::set_network_registration_allowed(netuid, true);
+    Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let coldkey: T::AccountId = account("Test", 0, seed);
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+        netuid,
+        block_number,
+        3,
+        &hotkey,
+    );
+
+
   }: register( RawOrigin::Signed( hotkey.clone() ), netuid, block_number, nonce, work, hotkey.clone(), coldkey.clone() )
 
   benchmark_set_weights {
@@ -110,6 +111,8 @@ benchmarks! {
     let modality: u16 = 0;
     let seed : u32 = 1;
 
+    Subtensor::<T>::set_target_stakes_per_interval(100);
+
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     Subtensor::<T>::set_burn(netuid, 1);
@@ -136,6 +139,8 @@ benchmarks! {
     let tempo: u16 = 1;
     let modality: u16 = 0;
     let seed : u32 = 1;
+
+    Subtensor::<T>::set_target_stakes_per_interval(100);
 
     // Set our total stake to 1000 TAO
     Subtensor::<T>::increase_total_stake(1_000_000_000_000);
@@ -336,4 +341,91 @@ benchmarks! {
         assert_ok!(Subtensor::<T>::add_stake(RawOrigin::Signed(coldkey).into(), old_hotkey.clone(), 1_000_000_000));
     }
   }: _(RawOrigin::Signed(coldkey), old_hotkey, new_hotkey)
+
+  commit_weights {
+    let tempo: u16 = 1;
+    let netuid: u16 = 1;
+    let version_key: u64 = 0;
+    let uids: Vec<u16> = vec![0];
+    let weight_values: Vec<u16> = vec![10];
+    let hotkey: T::AccountId = account("hot", 0, 1);
+    let coldkey: T::AccountId = account("cold", 0, 2);
+    let start_nonce = 300000;
+
+    let commit_hash: H256 = BlakeTwo256::hash_of(&(
+        hotkey.clone(),
+        netuid,
+        uids.clone(),
+        weight_values.clone(),
+        version_key,
+    ));
+
+    Subtensor::<T>::init_new_network(netuid, tempo);
+
+    let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+        netuid,
+        block_number,
+        start_nonce,
+        &hotkey,
+    );
+    let result = Subtensor::<T>::register(
+      <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
+        netuid,
+        block_number,
+        nonce,
+        work,
+        hotkey.clone(),
+        coldkey,
+    );
+    Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
+
+}: commit_weights(RawOrigin::Signed(hotkey.clone()), netuid, commit_hash)
+
+reveal_weights {
+    let tempo: u16 = 0;
+    let netuid: u16 = 1;
+    let version_key: u64 = 0;
+    let uids: Vec<u16> = vec![0];
+    let weight_values: Vec<u16> = vec![10];
+    let salt: Vec<u16> = vec![8];
+    let hotkey: T::AccountId = account("hot", 0, 1);
+    let coldkey: T::AccountId = account("cold", 1, 2);
+
+    Subtensor::<T>::init_new_network(netuid, tempo);
+    Subtensor::<T>::set_network_registration_allowed(netuid, true);
+    Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+
+    let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
+    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+        netuid,
+        block_number,
+        3,
+        &hotkey,
+    );
+
+    let _ = Subtensor::<T>::register(
+      <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
+        netuid,
+        block_number,
+        nonce,
+        work.clone(),
+        hotkey.clone(),
+        coldkey.clone(),
+    );
+
+    Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
+    Subtensor::<T>::set_commit_reveal_weights_interval(netuid, 0);
+
+    let commit_hash: H256 = BlakeTwo256::hash_of(&(
+      hotkey.clone(),
+      netuid,
+      uids.clone(),
+      weight_values.clone(),
+      salt.clone(),
+      version_key,
+  ));
+    let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
+
+  }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
 }

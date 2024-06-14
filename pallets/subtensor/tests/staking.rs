@@ -24,7 +24,7 @@ fn test_add_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(65000000, 0),
+                weight: frame_support::weights::Weight::from_parts(124_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -157,7 +157,7 @@ fn test_add_stake_not_registered_key_pair() {
                 hotkey_account_id,
                 amount
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
     });
 }
@@ -185,7 +185,10 @@ fn test_add_stake_err_neuron_does_not_belong_to_coldkey() {
             hotkey_id,
             1000,
         );
-        assert_eq!(result, Err(Error::<Test>::NonAssociatedColdKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        );
     });
 }
 
@@ -527,7 +530,7 @@ fn test_remove_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(63000000, 0)
+                weight: frame_support::weights::Weight::from_parts(111_000_000, 0)
                     .add_proof_size(43991),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
@@ -616,7 +619,7 @@ fn test_remove_stake_amount_zero() {
                 hotkey_account_id,
                 0
             ),
-            Error::<Test>::NotEnoughStaketoWithdraw
+            Error::<Test>::StakeToWithdrawIsZero
         );
     });
 }
@@ -657,7 +660,10 @@ fn test_remove_stake_err_hotkey_does_not_belong_to_coldkey() {
             hotkey_id,
             1000,
         );
-        assert_eq!(result, Err(Error::<Test>::NonAssociatedColdKey.into()));
+        assert_eq!(
+            result,
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        );
     });
 }
 
@@ -683,7 +689,7 @@ fn test_remove_stake_no_enough_stake() {
             hotkey_id,
             amount,
         );
-        assert_eq!(result, Err(Error::<Test>::NotEnoughStaketoWithdraw.into()));
+        assert_eq!(result, Err(Error::<Test>::NotEnoughStakeToWithdraw.into()));
     });
 }
 
@@ -1040,7 +1046,7 @@ fn test_remove_balance_from_coldkey_account_failed() {
         // as there is no balance, nor does the account exist
         let result =
             SubtensorModule::remove_balance_from_coldkey_account(&coldkey_account_id, ammount);
-        assert_eq!(result, Err(Error::<Test>::BalanceWithdrawalError.into()));
+        assert_eq!(result, Err(Error::<Test>::ZeroBalanceAfterWithdrawn.into()));
     });
 }
 
@@ -1230,7 +1236,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::add_stake(
@@ -1238,7 +1244,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
         // Cant remove either.
@@ -1248,7 +1254,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1256,7 +1262,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1264,7 +1270,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1272,7 +1278,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 10
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
         // Neither key can become a delegate either because we are not registered.
@@ -1282,7 +1288,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
         assert_eq!(
             SubtensorModule::do_become_delegate(
@@ -1290,7 +1296,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NotRegistered.into())
+            Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
         // Register the 2 neurons to a new network.
@@ -1316,7 +1322,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 100
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::add_stake(
@@ -1324,7 +1330,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // We stake and all is ok.
@@ -1383,7 +1389,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1391,7 +1397,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // Emit inflation through non delegates.
@@ -1440,7 +1446,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 SubtensorModule::get_min_take()
             ),
-            Err(Error::<Test>::AlreadyDelegate.into())
+            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
         assert_eq!(
             SubtensorModule::do_become_delegate(
@@ -1448,7 +1454,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 u16::MAX / 10
             ),
-            Err(Error::<Test>::AlreadyDelegate.into())
+            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
 
         // This add stake works for delegates.
@@ -1537,7 +1543,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1545,7 +1551,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1553,7 +1559,7 @@ fn test_full_with_delegating() {
                 hotkey1,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1561,7 +1567,7 @@ fn test_full_with_delegating() {
                 hotkey0,
                 100000
             ),
-            Err(Error::<Test>::NotEnoughStaketoWithdraw.into())
+            Err(Error::<Test>::NotEnoughStakeToWithdraw.into())
         );
 
         // unstaking is ok.
@@ -1636,7 +1642,7 @@ fn test_full_with_delegating() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -1644,7 +1650,7 @@ fn test_full_with_delegating() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         // Lets make this new key a delegate with a 10% take.
@@ -2014,7 +2020,7 @@ fn test_full_with_delegating_some_servers() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
         assert_eq!(
             SubtensorModule::remove_stake(
@@ -2022,7 +2028,7 @@ fn test_full_with_delegating_some_servers() {
                 hotkey2,
                 10
             ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
+            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
         );
 
         assert_eq!(SubtensorModule::get_total_stake(), 5_623); // 4_723 + 900 = 5_623
@@ -2723,10 +2729,7 @@ fn test_remove_stake_below_minimum_threshold() {
         assert_eq!(Balances::free_balance(coldkey2), bal_before + stake_removed);
 
         // Stake map entry is removed
-        assert_eq!(
-            Stake::<Test>::try_get(hotkey1, coldkey2).is_err(),
-            true // Entry was removed
-        );
+        assert!(Stake::<Test>::try_get(hotkey1, coldkey2).is_err(),);
         // Stake tracking is updated
         assert_eq!(
             TotalColdkeyStake::<Test>::try_get(coldkey2).unwrap(),
@@ -2783,7 +2786,7 @@ fn test_delegate_take_can_be_decreased() {
                 hotkey0,
                 u16::MAX / 20
             ),
-            Error::<Test>::InvalidTake
+            Error::<Test>::DelegateTakeTooLow
         );
     });
 }
@@ -2858,7 +2861,7 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
                 hotkey0,
                 u16::MAX / 8
             ),
-            Err(Error::<Test>::InvalidTake.into())
+            Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
@@ -2940,7 +2943,7 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
                 hotkey0,
                 u16::MAX / 20
             ),
-            Err(Error::<Test>::InvalidTake.into())
+            Err(Error::<Test>::DelegateTakeTooLow.into())
         );
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),
@@ -3017,7 +3020,7 @@ fn test_delegate_take_can_not_be_set_beyond_limit() {
                     hotkey0,
                     InitialDefaultTake::get() + 1
                 ),
-                Err(Error::<Test>::InvalidTake.into())
+                Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), before);
@@ -3060,7 +3063,7 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
                     hotkey0,
                     InitialDefaultTake::get() + 1
                 ),
-                Err(Error::<Test>::InvalidTake.into())
+                Err(Error::<Test>::DelegateTakeTooHigh.into())
             );
         }
         assert_eq!(
@@ -3104,7 +3107,7 @@ fn test_rate_limits_enforced_on_increase_take() {
                 hotkey0,
                 u16::MAX / 8
             ),
-            Err(Error::<Test>::TxRateLimitExceeded.into())
+            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
         );
         assert_eq!(
             SubtensorModule::get_hotkey_take(&hotkey0),

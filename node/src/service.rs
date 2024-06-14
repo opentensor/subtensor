@@ -5,6 +5,7 @@ use node_subtensor_runtime::{opaque::Block, RuntimeApi};
 use sc_client_api::{Backend, BlockBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_consensus_grandpa::SharedVoterState;
+use sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging;
 use sc_executor::sp_wasm_interface::{Function, HostFunctionRegistry, HostFunctions};
 pub use sc_executor::NativeElseWasmExecutor;
 use sc_service::{error::Error as ServiceError, Configuration, TaskManager, WarpSyncParams};
@@ -12,6 +13,10 @@ use sc_telemetry::{Telemetry, TelemetryWorker};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use std::{sync::Arc, time::Duration};
+
+/// The minimum period of blocks on which justifications will be
+/// imported and generated.
+const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
 
 // Our native executor instance.
 pub struct ExecutorDispatch;
@@ -59,7 +64,7 @@ pub fn new_partial(
         FullClient,
         FullBackend,
         FullSelectChain,
-        sc_consensus::DefaultImportQueue<Block, FullClient>,
+        sc_consensus::DefaultImportQueue<Block>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
             sc_consensus_grandpa::GrandpaBlockImport<
@@ -114,6 +119,7 @@ pub fn new_partial(
 
     let (grandpa_block_import, grandpa_link) = sc_consensus_grandpa::block_import(
         client.clone(),
+        GRANDPA_JUSTIFICATION_PERIOD,
         &(client.clone() as Arc<_>),
         select_chain.clone(),
         telemetry.as_ref().map(|x| x.handle()),
@@ -180,9 +186,10 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         &config.chain_spec,
     );
 
-    net_config.add_notification_protocol(sc_consensus_grandpa::grandpa_peers_set_config(
-        grandpa_protocol_name.clone(),
-    ));
+    let (grandpa_protocol_config, grandpa_notification_service) =
+        sc_consensus_grandpa::grandpa_peers_set_config(grandpa_protocol_name.clone());
+    net_config.add_notification_protocol(grandpa_protocol_config);
+
     let warp_sync = Arc::new(sc_consensus_grandpa::warp_proof::NetworkProvider::new(
         backend.clone(),
         grandpa_link.shared_authority_set().clone(),
@@ -199,6 +206,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             import_queue,
             block_announce_validator_builder: None,
             warp_sync_params: Some(WarpSyncParams::WithProvider(warp_sync)),
+            block_relay: None,
         })?;
 
     if config.offchain_worker.enabled {
@@ -233,7 +241,10 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
 
     let role = config.role.clone();
     let force_authoring = config.force_authoring;
-    let backoff_authoring_blocks: Option<()> = None;
+    let backoff_authoring_blocks = Some(BackoffAuthoringOnFinalizedHeadLagging {
+        unfinalized_slack: 6,
+        ..Default::default()
+    });
     let name = config.network.node_name.clone();
     let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
@@ -337,7 +348,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         let grandpa_config = sc_consensus_grandpa::Config {
             // FIXME #1578 make this available through chainspec
             gossip_duration: Duration::from_millis(333),
-            justification_period: 512,
+            justification_generation_period: GRANDPA_JUSTIFICATION_PERIOD,
             name: Some(name),
             observer_enabled: false,
             keystore,
@@ -362,6 +373,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             telemetry: telemetry.as_ref().map(|x| x.handle()),
             offchain_tx_pool_factory: OffchainTransactionPoolFactory::new(transaction_pool),
             sync: Arc::new(sync_service),
+            notification_service: grandpa_notification_service,
         };
 
         // the GRANDPA voter task is considered infallible, i.e.
