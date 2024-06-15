@@ -77,7 +77,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -125,7 +125,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -166,7 +166,6 @@ jobs:
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-
   # runs cargo test --workspace
   cargo-test:
     name: cargo test
@@ -174,7 +173,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -223,7 +222,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -272,7 +271,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin

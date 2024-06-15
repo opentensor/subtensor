@@ -7,7 +7,6 @@ pub use weights::WeightInfo;
 use sp_runtime::DispatchError;
 use sp_runtime::{traits::Member, RuntimeAppPublic};
 
-#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
 #[deny(missing_docs)]

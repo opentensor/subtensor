@@ -38,7 +38,7 @@ fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
         return weights;
     }
     weights.iter_mut().for_each(|x| {
-        *x = (*x as u64 * u16::max_value() as u64 / sum) as u16;
+        *x = (*x as u64 * u16::MAX as u64 / sum) as u16;
     });
     weights
 }
