@@ -313,6 +313,21 @@ pub mod pallet {
     pub fn DefaultStakeInterval<T: Config>() -> u64 {
         360
     }
+    /// Default account linkage
+    #[pallet::type_value]
+    pub fn DefaultAccountLinkage<T: Config>() -> Vec<(u64,T::AccountId)> {
+        vec![]
+    }
+    /// Default account linkage
+    #[pallet::type_value]
+    pub fn DefaultProportion<T: Config>() -> u64 {
+        0
+    }
+    /// Default accumulated emission for a hotkey
+    #[pallet::type_value]
+    pub fn DefaultAccumulatedEmission<T: Config>() -> u64 {
+        0
+    }
 
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -364,6 +379,80 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+
+    /// ========================
+    /// ==== Coinbase =====
+    /// ========================
+
+    // Record the last time we performed a hotkey emission drain.
+    #[pallet::storage] // --- Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
+    pub type LastHotkeyEmissionDrain<T> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
+
+    // Maps from hotkey to emission accumulated on that key, before distribution.
+    #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.
+    pub type AccumulatedHotkeyEmission<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
+
+    // Maps from hot, cold to the last time the pair manually increased the staking amount.
+    #[pallet::storage] // --- Map ( hot, cold ) --> block_number | Last add stake increase. 
+    pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccountTake<T>,
+    >;
+
+    // Maps between a parent & network to a child key on a network.
+    #[pallet::storage] // --- DMAP ( parent, netuid ) --> Vec<(proportion,child)>
+    pub type ChildKeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        Vec<(u64,T::AccountId)>,
+        ValueQuery,
+        DefaultAccountLinkage<T>,
+    >;
+    // // Maps between a parent & network to a proportion.
+    // #[pallet::storage] // --- DMAP ( parent, netuid, child ) --> proportion>
+    // pub type IsChildKey<T: Config> = StorageDoubleMap<
+    //     _,
+    //     Blake2_128Concat,
+    //     T::AccountId,
+    //     Identity,
+    //     u16,
+    //     u64,
+    //     ValueQuery,
+    //     DefaultProportion<T>,
+    // >;
+    // Maps between child & network to a list of proportions and parents.
+    #[pallet::storage] // --- DMAP ( child, netuid ) --> Vec<(proportion,parent)>
+    pub type ParentKeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        Vec<(u64,T::AccountId)>,
+        ValueQuery,
+        DefaultAccountLinkage<T>,
+    >;
+    // // Maps between a parent & network to a proportion.
+    // #[pallet::storage] // --- DMAP ( parent, netuid ) --> proportion
+    // pub type IsParentKey<T: Config> = StorageDoubleMap<
+    //     _,
+    //     Blake2_128Concat,
+    //     T::AccountId,
+    //     Identity,
+    //     u16,
+    //     u64,
+    //     ValueQuery,
+    //     DefaultProportion<T>,
+    // >;
 
     /// =====================================
     /// ==== Difficulty / Registrations =====

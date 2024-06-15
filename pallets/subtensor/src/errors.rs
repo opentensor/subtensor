@@ -126,5 +126,7 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Attempting to set an invalid child for a hotkey on a network.
+        InvalidChild,
     }
 }

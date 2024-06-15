@@ -132,5 +132,7 @@ mod events {
         MinDelegateTakeSet(u16),
         /// the target stakes per interval is set by sudo/admin transaction
         TargetStakesPerIntervalSet(u64),
+        /// a child has been added to a hotkey on network with proportion.
+        SetChildSingular(T::AccountId, T::AccountId, u16, u64),
     }
 }
