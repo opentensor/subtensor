@@ -36,6 +36,14 @@ impl<T: Config> Pallet<T> {
     // --- 2. Accumulates the subnet block emission as pending emission, which increases until the tempo is reached.
     // We use the block-wise emission values computed by the root epoch here, and for each network accumulate the block emission.
     // subnet_block_emission -> subnet_pending_emission
+    ///
+    /// Detailed Steps:
+    /// 1. Iterate through each subnet to accumulate block-wise emissions.
+    /// 2. For each subnet:
+    ///    a. Skip the root network or subnets with registrations turned off.
+    ///    b. Retrieve the block-wise emission amount for the subnet.
+    ///    c. Increase the accumulated pending emission for the subnet with the block-wise value.
+    ///    d. Update the total issuance of the token.
     pub fn accumulate_subnet_emission() {
 
         // --- 2.1. Accumulate block-wise emission from each subnet.
@@ -53,13 +61,29 @@ impl<T: Config> Pallet<T> {
             PendingEmission::<T>::mutate(netuid_i, |emission| *emission += blockwise_emission);
 
             // --- 2.1.4. Here we actually increase the issuance of the token since it exists in a counter.
-            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add( emission_sum ));
+            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add( blockwise_emission ));
         }
     }
 
-    // --- 3. Drain accumulated subnet emissions through the epoch() accumulate the emission tuples on hotkeys.
-    // Note: The function also computes hotkey parent/child relationships and distributes the validator emission amongst parents.
-    // subnets --> epoch() --> hotkeys
+    /// Drains accumulated subnet emissions through the epoch() and accumulates the emission tuples on hotkeys.
+    /// This function also computes hotkey parent/child relationships and distributes the validator emission amongst parents.
+    /// The process involves several steps:
+    /// 1. Iterate through each subnet to check if it's time to run the epoch based on the tempo.
+    /// 2. For each subnet that has reached its epoch:
+    ///    a. Retrieve and reset the accumulated subnet emission.
+    ///    b. Run the epoch function for the subnet, which returns a list of emission tuples for hotkeys.
+    ///    c. Perform a sanity check to ensure that the total emission calculated by the epoch does not exceed the drained emission.
+    ///    d. For each emission tuple (hotkey, mining emission, validator emission):
+    ///       i. Accumulate the emissions on the hotkey.
+    ///       ii. Distribute the validator emission among the hotkey's parents based on their stake proportions.
+    /// 3. This function ensures that emissions are properly distributed according to the network's operational rules and relationships between accounts.
+    ///
+    /// # Arguments
+    /// * `netuid_i` - The unique identifier of the network.
+    /// * `tempo_i` - The tempo (rate of emission) associated with the network.
+    ///
+    /// # Panics
+    /// This function may panic if the total emission exceeds the drained amount, which indicates a logical error in the emission calculation.
     pub fn accumulate_hotkey_emission() {
 
         // --- 3.1 Iterate through subnets checking the tempo to see if it is time to run the epoch.
@@ -92,7 +116,21 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // --- Accumulate the mining and validator emission on a hotkey. Also distributes the validator emission amongst parents.
+    /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.
+    ///
+    /// This function is responsible for distributing the mining and validator emissions associated with a hotkey.
+    /// It first calculates the total stake of the hotkey, considering the stakes contributed by its parents and reduced by its children.
+    /// It then retrieves the list of parents of the hotkey and distributes the validator emission proportionally based on the stake contributed by each parent.
+    /// The remaining validator emission, after distribution to the parents, along with the mining emission, is then added to the hotkey's own accumulated emission.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The account ID of the hotkey for which emissions are being calculated.
+    /// * `netuid` - The unique identifier of the network to which the hotkey belongs.
+    /// * `mining_emission` - The amount of mining emission allocated to the hotkey.
+    /// * `validator_emission` - The amount of validator emission allocated to the hotkey.
+    ///
+    /// # Panics
+    /// This function may panic if the total stake calculation results in a zero, which would lead to a division by zero error during emission distribution.
     pub fn accumulate_emission_on_hotkey( hotkey: T::AccountId, netuid: u16, mining_emission: u64, validator_emission: u64 ) {
 
         // --- 1 Get the the hotkey total stake with parent additions and child reductions. 
@@ -131,7 +169,18 @@ impl<T: Config> Pallet<T> {
         PendingdHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_validator_emission + mining_emission );
     }
 
-    // Drain the accumulated hotkey emissions through delegations.
+    /// Drains the accumulated emissions for each hotkey and distributes them to the respective delegators.
+    ///
+    /// This function iterates over all hotkeys that have accumulated emissions and performs several operations:
+    /// 1. It resets the accumulated emissions for each hotkey to zero.
+    /// 2. It checks if the hotkey's emissions should be drained based on a modulo operation with a fixed interval (currently hardcoded as 7200).
+    /// 3. If it's time to drain, it updates the last emission drain time to the current block number.
+    /// 4. It calculates the total stake for the hotkey and determines the hotkey's own take from the emissions based on its delegation status.
+    /// 5. It then calculates the remaining emissions after the hotkey's take and distributes this remaining amount proportionally among the hotkey's nominators.
+    /// 6. Each nominator's share of the emissions is added to their stake, but only if their stake was not manually increased since the last emission drain.
+    /// 7. Finally, the hotkey's own take and any undistributed emissions are added to the hotkey's total stake.
+    ///
+    /// This function ensures that emissions are fairly distributed according to stake proportions and delegation agreements, and it updates the necessary records to reflect these changes.
     pub fn drain_accumulated_hotkey_emissions() {
 
         // --- 0. Get the current block number 
