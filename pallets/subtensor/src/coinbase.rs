@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
     pub fn should_drain_hotkey( index, block ){
-        return index % block != 7200
+        return block % 7200 == index % 7200 // True once per day for each index assumer we run this every block.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
