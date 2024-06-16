@@ -106,12 +106,13 @@ impl<T: Config> Pallet<T> {
         ChildKeys::<T>::insert( hotkey, netuid, new_children );
 
         // --- 8.2. Update the parents list for my new children.
-        for ( proportion, new_child) in new_children {
+        for (proportion, new_child) in new_children {
             
             // --- 8.2.1. Get the child's parents on this network.
             let new_child_previous_parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get( new_child, netuid );
 
             // --- 8.2.2. Append my hotkey and proportion to my new child's parents list.
+            // NOTE: There are no duplicates possible because I previously removed my self from my old children.
             new_child_previous_parents.push((proportion, hotkey.clone()));
 
             // --- 8.2.3. Update the parents list in storage.

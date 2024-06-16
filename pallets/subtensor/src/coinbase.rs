@@ -21,10 +21,10 @@ impl<T: Config> Pallet<T> {
     
     // Step 3: Distribute the accumulated emissions through epochs.
     // Subnets periodically distribute their accumulated emissions to hotkeys (active validators/miners)
-    // in the network on a `tempo` --- the time between an epoch. This step runs Yuma consensus to 
+    // in the network on a `tempo` --- the time between epochs. This step runs Yuma consensus to 
     // determine how emissions are split among hotkeys based on their contributions and roles.
     // The accumulation of hotkey emissions is done through the `accumulate_hotkey_emission` function.
-    // The accumulate splits the rewards for a hotkey amongst itself and its `parents`. The parents are 
+    // The function splits the rewards for a hotkey amongst itself and its `parents`. The parents are 
     // the hotkeys that are delegating their stake to the hotkey. 
     
     // Step 4: Further distribute emissions from hotkeys to nominators.
@@ -42,7 +42,7 @@ impl<T: Config> Pallet<T> {
         // coinbase --> root() --> subnet_block_emission
         match Self::root_epoch(block_number) { Ok(_) => (), Err(e) => {log::trace!("Error while running root epoch: {:?}", e);}}
 
-        // --- 3. Drains the subnet block emission and accumulates it as subnet emission, which increases until the tempo is reached in #4.
+        // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
         // subnet_blockwise_emission -> subnet_pending_emission
         for netuid in subnets {
 
@@ -54,8 +54,8 @@ impl<T: Config> Pallet<T> {
             PendingEmission::<T>::mutate( netuid, |subnet_emission| *subnet_emission += subnet_blockwise_emission);
         }
 
-        // --- 4. Drains the accumulated subnet emissions, passes them through the epoch(). 
-        // Before accumulating on the hotkeys the function re-distributes the emission towards hotkey parents.
+        // --- 4. Drain the accumulated subnet emissions, pass them through the epoch(). 
+        // Before accumulating on the hotkeys the function redistributes the emission towards hotkey parents.
         // subnet_emission --> epoch() --> hotkey_emission --> (hotkey + parent hotkeys)
         for netuid in subnets {
 
@@ -73,14 +73,14 @@ impl<T: Config> Pallet<T> {
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
 
                     // 4.4 Accumulate the emission on the hotkey and parent hotkeys.
-                    Self::accumulate_hotkey_emission( hotkey, netuid, mining_emission, validator_emission );
+                    Self::accumulate_hotkey_emission( hotkey, netuid, mining_emission + validator_emission );
                 }
             }
         }
 
-        // --- 5. Drains the accumulated hotkey emissions through to the nominators. 
+        // --- 5. Drain the accumulated hotkey emissions through to the nominators. 
         /// The hotkey takes a proportion of the emission, the remainder is drained through to the nominators.
-        // We keeping track of the last stake increase event for accounting purposes.
+        // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
         for (index, ( hotkey, hotkey_emission )) in PendingdHotkeyEmission::<T>::iter().enumerate() {
 
@@ -110,46 +110,47 @@ impl<T: Config> Pallet<T> {
     /// * `mining_emission` - The amount of mining emission allocated to the hotkey.
     /// * `validator_emission` - The amount of validator emission allocated to the hotkey.
     ///
-    pub fn accumulate_hotkey_emission( hotkey: T::AccountId, netuid: u16, mining_emission: u64, validator_emission: u64 ) {
+    pub fn accumulate_hotkey_emission( hotkey: T::AccountId, netuid: u16, emission: u64 ) {
 
-        // --- 1 Get the the hotkey total stake with parent additions and child reductions. 
-        // Parents contribute stake and children remove a proportion of the hotkey stake.
+        // --- 1. First, calculate the hotkey's share of the emission.
+        let take_proportion: I64F64 = I64F64::from_num( Delegates::<T>::get( hotkey ) ) / I64F64::from_num( u16::MAX );
+        let hotkey_take: I64F64 = ( take_proportion * I64F64::from_num( emission ) ).to_num::<u64>();
+
+        // --- 2. Compute the remaining emission after the hotkey's share is deducted.
+        let emission_minus_take: u64 = emission - hotkey_take;
+
+        // --- 3. Track the remaining emission for accounting purposes.
+        let mut remaining_emission: u64 = emission_minus_take;
+        
+        // --- 4. Calculate the total stake of the hotkey, adjusted by the stakes of parents and children. 
+        // Parents contribute to the stake, while children reduce it.
+        // If this value is zero, no distribution to anyone is necessary.
         let total_hotkey_stake: u64 = Self::get_stake_with_children_and_parents( hotkey, netuid );
-
-        // --- 2 Get this hotkey's parents.
-        let parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get( hotkey, netuid );
-
-        // --- 3 Remainder counter, decrements emissions as we pay out parents.
-        let mut remaining_validator_emission: u64 = validator_emission;
-
-        // Ensure the denominator is not zero. Removing this line can cause a panic division by zero.
         if total_hotkey_stake != 0 { 
 
-            // --- 4 For each parent, determine the amount of stake added to this key.
-            for (proportion, parent) in parents {
+            // --- 5. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
+            // and calculate their share of the emission accordingly.
+            for (proportion, parent) in ParentKeys::<T>::get( hotkey, netuid ) {
 
-                // --- 4.1 Retrieve the parent's stake. This is the hotkey's raw stake value.
+                // --- 5.1 Retrieve the parent's stake. This is the raw stake value including nominators.
                 let parent_stake: u64 = Self::get_total_stake_for_hotkey( parent );
 
-                // --- 4.2 Calculate the stake proportion received from the parent.
+                // --- 5.2 Calculate the portion of the hotkey's total stake contributed by this parent.
+                // Then, determine the parent's share of the remaining emission.
                 let stake_from_parent: I96F32 = I96F32::from_num( parent_stake ) * ( I96F32::from_num( proportion ) / I96F32::from_num( u64::MAX ) );
-
-                // --- 4.3 Compute parent proportion to hotkey stake. The amount due to the parent via being a parent of the hotkey.
                 let proportion_from_parent: I96F32 = stake_from_parent / I96F32::from_num( total_hotkey_stake );
+                let parent_emission_take: u64 = ( proportion_from_parent * I96F32::from_num( emission_minus_take ) ).to_num::<u64>();  
 
-                // --- 4.4 Compute parent emission proportion. 
-                let parent_validator_emission: u64 = ( proportion_from_parent * I96F32::from_num( validator_emission ) ).to_num::<u64>();  
+                // --- 5.5. Accumulate emissions for the parent hotkey.
+                PendingdHotkeyEmission::<T>::mutate( parent, |parent_accumulated| *parent_accumulated += parent_emission_take );
 
-                // --- 4.5. Accumulate hotkey emission for the parent.
-                PendingdHotkeyEmission::<T>::mutate( parent, |parent_accumulated| *parent_accumulated += parent_validator_emission );
-
-                // --- 4.6. Decrement remaining validator emission for this hotkey.
-                remaining_validator_emission -= parent_validator_emission;
+                // --- 5.6. Subtract the parent's share from the remaining emission for this hotkey.
+                remaining_emission -= parent_emission_take;
             }
         }
 
-        // --- 5 Add remaining validator emission + mining emission to hotkey
-        PendingdHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_validator_emission + mining_emission );
+        // --- 6. Add the remaining emission plus the hotkey's initial take to the pending emission for this hotkey.
+        PendingdHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_emission + hotkey_take );
     }
 
     //. --- 4. Drains the accumulated hotkey emission through to the nominators. The hotkey takes a proportion of the emission.
@@ -169,43 +170,43 @@ impl<T: Config> Pallet<T> {
         // --- 1.0 Drain the hotkey emission.
         PendingdHotkeyEmission::<T>::insert( hotkey, 0 );
 
-        // --- 1.1 Get the last time we drained this hotkey's emissions.
+        // --- 1.1 Retrieve the last time this hotkey's emissions were drained.
         let last_hotkey_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get( hotkey );
 
-        // --- 1.2 Set the new block value here.
+        // --- 1.2 Update the block value to the current block number.
         LastHotkeyEmissionDrain::<T>::insert( hotkey, block_number );
 
-        // --- 1.3 Get hotkey total stake from all nominations.
+        // --- 1.3 Retrieve the total stake for the hotkey from all nominations.
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
 
-        // --- 1.4 Calculate emission take for hotkey.
+        // --- 1.4 Calculate the emission take for the hotkey.
         let take_proportion: I64F64 = I64F64::from_num( Delegates::<T>::get( hotkey ) ) / I64F64::from_num( u16::MAX );
         let hotkey_take: I64F64 = ( take_proportion * I64F64::from_num( emission ) ).to_num::<u64>();
 
-        // --- 1.5 Compute remaining emission after hotkey take.
-        let emission_minus_take: u64 = emission_i - hotkey_take;
+        // --- 1.5 Compute the remaining emission after deducting the hotkey's take.
+        let emission_minus_take: u64 = emission - hotkey_take;
 
-        // --- 1.6 Remove emission take from remaining emission
+        // --- 1.6 Calculate the remaining emission after the hotkey's take.
         let mut remainder: u64 = emission_minus_take;
 
-        // --- 1.7 Iterate each nominator.
+        // --- 1.7 Iterate over each nominator.
         for ( nominator, nominator_stake ) in <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix( hotkey ) {
 
-            // --- 1.7.0 Check if the hot cold was manually increased by the user since the last time the hotkey drained emissions.
-            // In this case we will skip over the hot cold pair and they will not attain their emission proportion.
+            // --- 1.7.0 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
+            // If it was, skip this nominator as they will not receive their proportion of the emission.
             if LastAddStakeIncrease::<T>::get( hotkey, nominator ) > last_hotkey_emission_drain { continue; }
 
-            // --- 1.7.2 Compute this nominator's proportion of the emission.
+            // --- 1.7.2 Calculate this nominator's share of the emission.
             let nominator_emission: I64F64 = I64F64::from_num( emission_minus_take ) * ( I64F64::from_num( nominator_stake ) / I64F64::from_num( total_hotkey_stake ) );
 
             // --- 1.7.2 Increase the stake for the nominator.
             Self::increase_stake_on_coldkey_hotkey_account( &nominator, hotkey, nominator_emission.to_num::<u64>() );
 
-            // --- 1.7.4 Decrement the remainder by the nominator's emission.
+            // --- 1.7.4 Subtract the nominator's emission from the remainder.
             remainder -= nominator_emission.to_num::<u64>();
         }
 
-        // --- 1.8. Finally add the stake to the hotkey itself including its take and the emission remainder.
+        // --- 1.8. Finally, add the stake to the hotkey itself, including its take and the remaining emission.
         Self::increase_stake_on_hotkey_account( hotkey, hotkey_take + remainder );
     }
 
@@ -223,7 +224,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
     pub fn should_drain_hotkey( index, block ){
-        return block % 7200 == index % 7200 // True once per day for each index assumer we run this every block.
+        return block % 7200 == index % 7200 // True once per day for each index assuming we run this every block.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
