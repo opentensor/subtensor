@@ -121,14 +121,14 @@ impl<T: Config> Pallet<T> {
             let parent_validator_emission: u64 = ( proportion_from_parent * I96F32::from_num( validator_emission ) ).to_num::<u64>();  
 
             // --- 4.5. Accumulate hotkey emission for the parent.
-            AccumulatedHotkeyEmission::<T>::mutate( parent, |parent_accumulated| *parent_accumulated += parent_validator_emission );
+            PendingdHotkeyEmission::<T>::mutate( parent, |parent_accumulated| *parent_accumulated += parent_validator_emission );
 
             // --- 4.6. Decrement remaining validator emission for this hotkey.
             remaining_validator_emission -= parent_validator_emission;
         }
 
         // --- 5 Add remaining validator emission + mining emission to hotkey
-        AccumulatedHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_validator_emission + mining_emission );
+        PendingdHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_validator_emission + mining_emission );
     }
 
     // Drain the accumulated hotkey emissions through delegations.
@@ -138,7 +138,10 @@ impl<T: Config> Pallet<T> {
         let current_block_number: u64 = Self::get_current_block_as_u64();
 
         // --- 1. Iterate each hotkey and drain its accumulated hotkey emissions.
-        for (index, (hotkey_i, emission_i)) in AccumulatedHotkeyEmission::<T>::iter().enumerate() {
+        for (index, (hotkey_i, emission_i)) in PendingdHotkeyEmission::<T>::iter().enumerate() {
+
+            // --- 1.1 Drain the hotkey emission.
+            PendingdHotkeyEmission::<T>::insert( hotkey_i, 0 );
 
             // --- 1.0 Get the last time we drained this hotkey's emissions.
             let last_hotkey_emission_drain: u64 = LastHotkeyEmissionDrain::<T>::get( hotkey_i );

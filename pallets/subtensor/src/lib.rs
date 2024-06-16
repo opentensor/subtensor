@@ -390,7 +390,7 @@ pub mod pallet {
 
     // Maps from hotkey to emission accumulated on that key, before distribution.
     #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.
-    pub type AccumulatedHotkeyEmission<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
+    pub type PendingdHotkeyEmission<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
 
     // Maps from hot, cold to the last time the pair manually increased the staking amount.
     #[pallet::storage] // --- Map ( hot, cold ) --> block_number | Last add stake increase. 
