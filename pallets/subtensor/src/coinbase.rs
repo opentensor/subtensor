@@ -6,140 +6,129 @@ use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
 
-
+    // Coinbase
+    // Performs a four part emission distribution process:
+    //  1. coinbase --> root() --> subnet_block_emission: Compute the block-wise emission per subnet.
+    //  2. subnet_block_emission --> subnet_pending_emission: accumulate the subnet block emission as subnet pending emission.
+    //  3. subnet_pending_emission --> epoch() --> hotkey_pending_emission: distributes subnet emission through the epoch onto hotkey accounts.
+    //  4. hotkey_pending_emission --> nominators: distributes hotkey emission onto nominators.
     pub fn coinbase() {
 
-        // Appends the emission for a block to each network's pending emission.
-        Self::add_pending_subnet_emission();
+        // --- 1. Run the epoch function which computes the block emission for each subnet.
+        // coinbase --> root() --> subnet_block_emission
+        match Self::root_epoch(block_number) { Ok(_) => (), Err(e) => {log::trace!("Error while running root epoch: {:?}", e);}}
 
-        // Distribute pending emission into accumulated hotkey emission.
+        // --- 2. Accumulates the subnet block emission as pending emission, which increases until the tempo is reached.
+        // We use the block-wise emission values computed by the root epoch here, and for each network accumulate the block emission.
+        // subnet_block_emission -> subnet_pending_emission
+        Self::accumulate_subnet_emission();
+
+        // --- 3. Drain accumulated subnet emissions through the epoch() accumulate the emission tuples on hotkeys.
+        // Note: The function also computes hotkey parent/child relationships and distributes the validator emission amongst parents.
+        // subnets --> epoch() --> hotkeys
         Self::accumulate_hotkey_emission();
 
-        // Drain the accumulated hotkey emissions through to nominators.
+        // Drains the accumulated hotkey emissions through to the nominators.
+        // hotkeys --> nominators.
         Self::drain_accumulated_hotkey_emissions();
     }
 
-    // Appends the emission for a block to each network's pending emission.
-    // coinbase --> emission --> pending_emission
-    pub fn add_pending_subnet_emission() {
+    // --- 2. Accumulates the subnet block emission as pending emission, which increases until the tempo is reached.
+    // We use the block-wise emission values computed by the root epoch here, and for each network accumulate the block emission.
+    // subnet_block_emission -> subnet_pending_emission
+    pub fn accumulate_subnet_emission() {
 
-        // --- 1. For each network append emission from coinbase.
+        // --- 2.1. Accumulate block-wise emission from each subnet.
         for (netuid_i, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
 
-            // --- 1.1 Skip the root network or subnets with registrations turned off.
-            // These networks burn their emission here.
+            // --- 2.1.1 Skip the root network or subnets with registrations turned off.
+            // These networks burn their block-wise emission.
             if netuid_i == Self::get_root_netuid() || !Self::is_registration_allowed( netuid_i ) { continue; }
 
-            // --- 1.2 Get the network's emission value.
-            let block_emission: u64 = Self::get_subnet_emission_value( netuid_i );
+            // --- 2.1.2 Get the network's block-wise emission amount.
+            // This value is newly minted TAO which has not reached staking accounts yet.
+            let blockwise_emission: u64 = Self::get_subnet_emission_value( netuid_i );
 
-            // --- 1.3 Get current pending emission.
-            let current_pending_emission: u64 = PendingEmission::<T>::get( netuid_i );
+            // --- 2.1.3. Increase the accumulated pending emission for this network with the blockwise value.
+            PendingEmission::<T>::mutate(netuid_i, |emission| *emission += blockwise_emission);
 
-            // --- 1.4 Increase pending emission.
-            let new_pending_emission: u64 = current_pending_emission + block_emission;
-
-            // --- 1.5 Insert new pending emission.
-            PendingEmission::<T>::insert( netuid_i, new_pending_emission );
-
-            // --- 1.6. Here we actually increase the issuance of the token.
+            // --- 2.1.4. Here we actually increase the issuance of the token since it exists in a counter.
             TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add( emission_sum ));
         }
     }
 
-     /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    ///
-    pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
-        // tempo | netuid | # first epoch block
-        //   1        0               0
-        //   1        1               1
-        //   2        0               1
-        //   2        1               0
-        //   100      0              99
-        //   100      1              98
-        // Special case: tempo = 0, the network never runs.
-        if tempo == 0 {
-            return 1000;
-        }
-        tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
-    }
-
-    // Distribute pending emission onto accumualted hotkey emission.
-    // coinbase --> emission --> pending_emission --> accumulated hotkey emission
+    // --- 3. Drain accumulated subnet emissions through the epoch() accumulate the emission tuples on hotkeys.
+    // Note: The function also computes hotkey parent/child relationships and distributes the validator emission amongst parents.
+    // subnets --> epoch() --> hotkeys
     pub fn accumulate_hotkey_emission() {
 
-        // --- 1. For each network append emission from coinbase.
+        // --- 3.1 Iterate through subnets checking the tempo to see if it is time to run the epoch.
         for (netuid_i, tempo_i) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
 
-            // --- 1.1 Skip networks that do not have an epoch.
+            // --- 3.2 Only continue if the subnet has hit its epoch.
             if Self::blocks_until_next_epoch( netuid_i, tempo_i, Self::get_current_block_as_u64() ) == 0 {
 
-                // --- 1. Get all pending emission associated with this network.
+                // --- 3.3 Pull & Drain the accumulated subnet emission.
                 let pending_subnet_emissions: u64 = PendingEmission::<T>::get( netuid_i );
+                PendingEmission::<T>::insert( netuid_i, 0 ); // Drain the accumulated the subnet emission.
 
-                // --- 2. Remove pending emission associated with this network.
-                PendingEmission::<T>::insert( netuid_i, 0 );
-
-                // --- 3. Run the epoch for this network.
+                // --- 3.4 Run the epoch() for this network.
                 let emission_per_hotkey: Vec<(T::AccountId, u64, u64)> = Self::epoch( netuid_i, pending_subnet_emissions );
 
-                // --- 4. Check that the emission does not exceed the input pending_subnet_emission.
+                // --- 3.5 Check that the emission does not exceed the input pending_subnet_emission.
+                // NOTE: this is a sanity check to ensure that the epoch is written properly.
                 let emission_sum: u128 = emission_per_hotkey.iter().map(|(_, se, ve)| *ve as u128 + *se as u128).sum();
+                if emission_sum > emission_to_drain as u128 { continue; } // If the emission_sum exceeds the emission, we skip this network.
 
-                // --- 4.1 If the emission_sum exceeds the emission, we skip this network.
-                if emission_sum > emission_to_drain as u128 { continue; } 
-
-                // --- 5. Accumulate the hotkey emission for each hotkey.
+                // --- 3.6 For each emission tuple run accumulate_emission_on_hotkey
                 for ( hotkey_j, new_mining_emission_j, new_validator_emission_j ) in emission_per_hotkey.iter() {
 
-                    // --- 5.1 Accumulate the hotkey mining and validator emission but first distribute the validator emission amongst parents.
-                    Self::accumulate_hotkey_emission_for_netuid_and_tuples( hotkey_j, netuid_i, new_mining_emission_j, new_validator_emission_j );
+                    // --- 3.6.1 Accumulates the emission on the hotkey
+                    // NOTE: Also distributes to parents. 
+                    Self::accumulate_emission_on_hotkey( hotkey_j, netuid_i, new_mining_emission_j, new_validator_emission_j );
                 }
 
             }
         }
     }
 
-    // Accumulate the hotkey mining and validator emission but first distribute the validator emission amongst parents.
-    pub fn accumulate_hotkey_emission_for_netuid_and_tuples( hotkey: T::AccountId, netuid: u16, mining_emission: u64, validator_emission: u64 ) {
+    // --- Accumulate the mining and validator emission on a hotkey. Also distributes the validator emission amongst parents.
+    pub fn accumulate_emission_on_hotkey( hotkey: T::AccountId, netuid: u16, mining_emission: u64, validator_emission: u64 ) {
 
-        // --- 1 First get the total amount of stake for this hotkey after child and parent removal and additions.
+        // --- 1 Get the the hotkey total stake with parent additions and child reductions. 
+        // Parents contribute stake and children remove a proportion of the hotkey stake.
         let total_hotkey_stake: u64 = Self::get_stake_with_children_and_parents( hotkey, netuid );
 
-        // --- 2. Get this hotkey's parents.
+        // --- 2 Get this hotkey's parents.
         let parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get( hotkey, netuid );
 
-        // --- 3.0 Record remaining validator emission for this hotkey, decrements as we pay out parents.
+        // --- 3 Remainder counter, decrements emissions as we pay out parents.
         let mut remaining_validator_emission: u64 = validator_emission;
 
-        // --- 3. For each parent, determine the amount of stake added to this key.
+        // --- 4 For each parent, determine the amount of stake added to this key.
         for (proportion, parent) in parents {
 
-            // --- 3.1 Retrieve the parent's stake.
+            // --- 4.1 Retrieve the parent's stake. This is the hotkey's raw stake value.
             let parent_stake: u64 = Self::get_total_stake_for_hotkey( parent );
 
-            // --- 3.2 Calculate the stake proportion received from the parent.
-            let stake_from_parent: I96F32 = I96F32::from_num( parent_stake ) * I96F32::from_num( proportion ) / I96F32::from_num( u64::MAX );
+            // --- 4.2 Calculate the stake proportion received from the parent.
+            let stake_from_parent: I96F32 = I96F32::from_num( parent_stake ) * ( I96F32::from_num( proportion ) / I96F32::from_num( u64::MAX ) );
 
-            // --- 3.3 Compute parent proportion to hotkey stake. The amount due to the parent via being a parent of the hotkey.
+            // --- 4.3 Compute parent proportion to hotkey stake. The amount due to the parent via being a parent of the hotkey.
             let proportion_from_parent: I96F32 = stake_from_parent / I96F32::from_num( total_hotkey_stake );
 
-            // --- 3.4 Compute parent emission proportion. 
+            // --- 4.4 Compute parent emission proportion. 
             let parent_validator_emission: u64 = ( proportion_from_parent * I96F32::from_num( validator_emission ) ).to_num::<u64>();  
 
-            // --- 3.5. Accumulate validator emission for the parent.
+            // --- 4.5. Accumulate hotkey emission for the parent.
             AccumulatedHotkeyEmission::<T>::mutate( parent, |parent_accumulated| *parent_accumulated += parent_validator_emission );
 
-            // --- 3.6. Decrement remaining validator emission for this hotkey.
+            // --- 4.6. Decrement remaining validator emission for this hotkey.
             remaining_validator_emission -= parent_validator_emission;
         }
 
-        // --- 4 Add remaining validator emission + mining emission to hotkey
-        AccumulatedHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_validator_emission  );
-
-        // --- 5. Directly increase the stake amount on the hotkey from the mining emission.
-        Self::increase_stake_on_hotkey_account( hotkey, mining_emission );
+        // --- 5 Add remaining validator emission + mining emission to hotkey
+        AccumulatedHotkeyEmission::<T>::mutate( hotkey, |hotkey_accumulated| *hotkey_accumulated += remaining_validator_emission + mining_emission );
     }
 
     // Drain the accumulated hotkey emissions through delegations.
@@ -190,6 +179,22 @@ impl<T: Config> Pallet<T> {
             // --- 1.8. Finally add the stake to the hotkey itself including its take and the emission remainder.
             Self::increase_stake_on_hotkey_account( hotkey_i, hotkey_emission_take_i + emission_remainder_i );
         }
+    }
+
+    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
+    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
+    /// tempo | netuid | # first epoch block
+    ///   1        0               0
+    ///   1        1               1
+    ///   2        0               1
+    ///   2        1               0
+    ///   100      0              99
+    ///   100      1              98
+    /// Special case: tempo = 0, the network never runs.
+    ///
+    pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
+        if tempo == 0 { return u64::MAX; }
+        tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
     /// Returns emission awarded to a hotkey as a function of its proportion of the total stake.
