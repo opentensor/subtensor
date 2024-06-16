@@ -34,6 +34,8 @@ mod benchmarks;
 // =========================
 //	==== Pallet Imports =====
 // =========================
+mod coinbase;
+mod children;
 mod block_step;
 mod epoch;
 mod errors;
@@ -386,7 +388,7 @@ pub mod pallet {
 
     // Record the last time we performed a hotkey emission drain.
     #[pallet::storage] // --- Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
-    pub type LastHotkeyEmissionDrain<T> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
+    pub type LastHotkeyEmissionDrain<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
 
     // Maps from hotkey to emission accumulated on that key, before distribution.
     #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.

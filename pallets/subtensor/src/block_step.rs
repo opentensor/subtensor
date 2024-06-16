@@ -1,9 +1,6 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
-use substrate_fixed::types::I64F64;
-use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -13,7 +10,7 @@ impl<T: Config> Pallet<T> {
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
         // --- 2. Run emission through network.
-        Self::coinbase();
+        Self::run_coinbase();
         // Return ok.
         Ok(())
     }
