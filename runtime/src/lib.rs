@@ -879,6 +879,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type HotkeySwapCost = ConstU64<1_000_000_000>;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;

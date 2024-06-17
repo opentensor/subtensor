@@ -239,6 +239,9 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// Cost of swapping a hotkey.
+        #[pallet::constant]
+        type HotkeySwapCost: Get<u64>;
         /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;
@@ -271,6 +274,11 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn TotalSupply<T: Config>() -> u64 {
         21_000_000_000_000_000 // Rao => 21_000_000 Tao
+    }
+    /// Hotkey swap cost.
+    #[pallet::type_value]
+    pub fn HotkeySwapCost<T: Config>() -> u64 {
+        1_000_000_000
     }
     /// Default total stake.
     #[pallet::type_value]
