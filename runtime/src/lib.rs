@@ -817,6 +817,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialHotkeySwapCost: u64 = 1_000_000_000;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -868,7 +869,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
-    type HotkeySwapCost = ConstU64<1_000_000_000>;
+    type HotkeySwapCost = SubtensorInitialHotkeySwapCost;
 }
 
 use sp_runtime::BoundedVec;
