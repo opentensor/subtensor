@@ -3783,16 +3783,10 @@ fn test_log_subnet_emission_values_dynamic_registration() {
         // Log the emission values for each subnet using subnet_info
         for i in 1..=num_networks {
             let netuid = i;
-            let subnet_info = SubtensorModule::get_subnet_info(netuid).unwrap();
             let subnet_emission_value = SubtensorModule::get_emission_value(netuid);
             log::info!(
                 "tao per alpha price = {:?}",
                 SubtensorModule::get_tao_per_alpha_price(netuid)
-            );
-            log::info!(
-                "Subnet {}: Emission = {:?}",
-                netuid,
-                subnet_info.emission_values
             );
             log::info!(
                 "Subnet {}: Emission Value = {:?}",

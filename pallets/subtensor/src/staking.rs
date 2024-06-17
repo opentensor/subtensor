@@ -708,7 +708,7 @@ impl<T: Config> Pallet<T> {
     // Getters for Dynamic terms
     //
     pub fn get_total_stake_on_subnet(netuid: u16) -> u64 {
-        TotalSubnetStake::<T>::get(netuid)
+        TotalSubnetTAO::<T>::get(netuid)
     }
     pub fn get_tao_reserve(netuid: u16) -> u64 {
         DynamicTAOReserve::<T>::get(netuid)
