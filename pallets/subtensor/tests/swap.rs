@@ -55,24 +55,24 @@ fn test_do_swap_hotkey_ok() {
 
         // Verify raw storage maps
         // Stake
-        for (coldkey, stake_amount) in Stake::<Test>::iter_prefix(&old_hotkey) {
-            assert_eq!(Stake::<Test>::get(&new_hotkey, &coldkey), stake_amount);
+        for (coldkey, stake_amount) in Stake::<Test>::iter_prefix(old_hotkey) {
+            assert_eq!(Stake::<Test>::get(new_hotkey, coldkey), stake_amount);
         }
 
         let mut weight = Weight::zero();
         // UIDs
         for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight).unwrap() {
             assert_eq!(
-                Uids::<Test>::get(netuid, &new_hotkey),
-                Uids::<Test>::get(netuid, &old_hotkey)
+                Uids::<Test>::get(netuid, new_hotkey),
+                Uids::<Test>::get(netuid, old_hotkey)
             );
         }
 
         // Prometheus
         for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight).unwrap() {
             assert_eq!(
-                Prometheus::<Test>::get(netuid, &new_hotkey),
-                Prometheus::<Test>::get(netuid, &old_hotkey)
+                Prometheus::<Test>::get(netuid, new_hotkey),
+                Prometheus::<Test>::get(netuid, old_hotkey)
             );
         }
 
@@ -86,43 +86,43 @@ fn test_do_swap_hotkey_ok() {
 
         // IsNetworkMember
         for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight).unwrap() {
-            assert!(IsNetworkMember::<Test>::contains_key(&new_hotkey, netuid));
-            assert!(!IsNetworkMember::<Test>::contains_key(&old_hotkey, netuid));
+            assert!(IsNetworkMember::<Test>::contains_key(new_hotkey, netuid));
+            assert!(!IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
         }
 
         // Owner
-        assert_eq!(Owner::<Test>::get(&new_hotkey), coldkey);
+        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
 
         // TotalHotkeyStake
         assert_eq!(
-            TotalHotkeyStake::<Test>::get(&new_hotkey),
-            TotalHotkeyStake::<Test>::get(&old_hotkey)
+            TotalHotkeyStake::<Test>::get(new_hotkey),
+            TotalHotkeyStake::<Test>::get(old_hotkey)
         );
 
         // Delegates
         assert_eq!(
-            Delegates::<Test>::get(&new_hotkey),
-            Delegates::<Test>::get(&old_hotkey)
+            Delegates::<Test>::get(new_hotkey),
+            Delegates::<Test>::get(old_hotkey)
         );
 
         // LastTxBlock
         assert_eq!(
-            LastTxBlock::<Test>::get(&new_hotkey),
-            LastTxBlock::<Test>::get(&old_hotkey)
+            LastTxBlock::<Test>::get(new_hotkey),
+            LastTxBlock::<Test>::get(old_hotkey)
         );
 
         // Axons
         for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight).unwrap() {
             assert_eq!(
-                Axons::<Test>::get(netuid, &new_hotkey),
-                Axons::<Test>::get(netuid, &old_hotkey)
+                Axons::<Test>::get(netuid, new_hotkey),
+                Axons::<Test>::get(netuid, old_hotkey)
             );
         }
 
         // TotalHotkeyColdkeyStakesThisInterval
         assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(&new_hotkey, &coldkey),
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(&old_hotkey, &coldkey)
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(old_hotkey, coldkey)
         );
     });
 }
@@ -161,8 +161,8 @@ fn test_do_swap_hotkey_ok_robust() {
         }
 
         // Add balance to coldkeys for swap cost
-        for i in 0..10 {
-            SubtensorModule::add_balance_to_coldkey_account(&coldkeys[i], swap_cost);
+        for coldkey in coldkeys.iter().take(10) {
+            SubtensorModule::add_balance_to_coldkey_account(coldkey, swap_cost);
         }
 
         // Perform the swaps for only two hotkeys
@@ -178,7 +178,7 @@ fn test_do_swap_hotkey_ok_robust() {
         ));
 
         // Verify the swaps
-        for netuid in 1..=num_subnets {
+        for _netuid in 1..=num_subnets {
             for i in 0..10 {
                 if i == 0 || i == 1 {
                     assert_eq!(
@@ -208,8 +208,8 @@ fn test_do_swap_hotkey_ok_robust() {
 
                     // Verify raw storage maps
                     // Stake
-                    for (coldkey, stake_amount) in Stake::<Test>::iter_prefix(&old_hotkeys[i]) {
-                        assert_eq!(Stake::<Test>::get(&new_hotkeys[i], &coldkey), stake_amount);
+                    for (coldkey, stake_amount) in Stake::<Test>::iter_prefix(old_hotkeys[i]) {
+                        assert_eq!(Stake::<Test>::get(new_hotkeys[i], coldkey), stake_amount);
                     }
 
                     let mut weight = Weight::zero();
@@ -218,8 +218,8 @@ fn test_do_swap_hotkey_ok_robust() {
                         SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
                     {
                         assert_eq!(
-                            Uids::<Test>::get(netuid, &new_hotkeys[i]),
-                            Uids::<Test>::get(netuid, &old_hotkeys[i])
+                            Uids::<Test>::get(netuid, new_hotkeys[i]),
+                            Uids::<Test>::get(netuid, old_hotkeys[i])
                         );
                     }
 
@@ -228,8 +228,8 @@ fn test_do_swap_hotkey_ok_robust() {
                         SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
                     {
                         assert_eq!(
-                            Prometheus::<Test>::get(netuid, &new_hotkeys[i]),
-                            Prometheus::<Test>::get(netuid, &old_hotkeys[i])
+                            Prometheus::<Test>::get(netuid, new_hotkeys[i]),
+                            Prometheus::<Test>::get(netuid, old_hotkeys[i])
                         );
                     }
 
@@ -248,17 +248,17 @@ fn test_do_swap_hotkey_ok_robust() {
                         SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
                     {
                         assert!(IsNetworkMember::<Test>::contains_key(
-                            &new_hotkeys[i],
+                            new_hotkeys[i],
                             netuid
                         ));
                         assert!(!IsNetworkMember::<Test>::contains_key(
-                            &old_hotkeys[i],
+                            old_hotkeys[i],
                             netuid
                         ));
                     }
 
                     // Owner
-                    assert_eq!(Owner::<Test>::get(&new_hotkeys[i]), coldkeys[i]);
+                    assert_eq!(Owner::<Test>::get(new_hotkeys[i]), coldkeys[i]);
                 } else {
                     // Ensure other hotkeys remain unchanged
                     assert_eq!(
@@ -312,7 +312,7 @@ fn test_swap_owner_success() {
         let mut weight = Weight::zero();
 
         // Initialize Owner for old_hotkey
-        Owner::<Test>::insert(&old_hotkey, &coldkey);
+        Owner::<Test>::insert(old_hotkey, coldkey);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_owner(
@@ -323,8 +323,8 @@ fn test_swap_owner_success() {
         ));
 
         // Verify the swap
-        assert_eq!(Owner::<Test>::get(&new_hotkey), coldkey);
-        assert!(!Owner::<Test>::contains_key(&old_hotkey));
+        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
+        assert!(!Owner::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -337,7 +337,7 @@ fn test_swap_owner_old_hotkey_not_exist() {
         let mut weight = Weight::zero();
 
         // Ensure old_hotkey does not exist
-        assert!(!Owner::<Test>::contains_key(&old_hotkey));
+        assert!(!Owner::<Test>::contains_key(old_hotkey));
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_owner(
@@ -348,8 +348,8 @@ fn test_swap_owner_old_hotkey_not_exist() {
         ));
 
         // Verify the swap
-        assert_eq!(Owner::<Test>::get(&new_hotkey), coldkey);
-        assert!(!Owner::<Test>::contains_key(&old_hotkey));
+        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
+        assert!(!Owner::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -363,8 +363,8 @@ fn test_swap_owner_new_hotkey_already_exists() {
         let mut weight = Weight::zero();
 
         // Initialize Owner for old_hotkey and new_hotkey
-        Owner::<Test>::insert(&old_hotkey, &coldkey);
-        Owner::<Test>::insert(&new_hotkey, &another_coldkey);
+        Owner::<Test>::insert(old_hotkey, coldkey);
+        Owner::<Test>::insert(new_hotkey, another_coldkey);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_owner(
@@ -375,8 +375,8 @@ fn test_swap_owner_new_hotkey_already_exists() {
         ));
 
         // Verify the swap
-        assert_eq!(Owner::<Test>::get(&new_hotkey), coldkey);
-        assert!(!Owner::<Test>::contains_key(&old_hotkey));
+        assert_eq!(Owner::<Test>::get(new_hotkey), coldkey);
+        assert!(!Owner::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -389,7 +389,7 @@ fn test_swap_owner_weight_update() {
         let mut weight = Weight::zero();
 
         // Initialize Owner for old_hotkey
-        Owner::<Test>::insert(&old_hotkey, &coldkey);
+        Owner::<Test>::insert(old_hotkey, coldkey);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_owner(
@@ -414,7 +414,7 @@ fn test_swap_total_hotkey_stake_success() {
         let mut weight = Weight::zero();
 
         // Initialize TotalHotkeyStake for old_hotkey
-        TotalHotkeyStake::<Test>::insert(&old_hotkey, total_stake);
+        TotalHotkeyStake::<Test>::insert(old_hotkey, total_stake);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_total_hotkey_stake(
@@ -424,8 +424,8 @@ fn test_swap_total_hotkey_stake_success() {
         ));
 
         // Verify the swap
-        assert_eq!(TotalHotkeyStake::<Test>::get(&new_hotkey), total_stake);
-        assert!(!TotalHotkeyStake::<Test>::contains_key(&old_hotkey));
+        assert_eq!(TotalHotkeyStake::<Test>::get(new_hotkey), total_stake);
+        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -437,7 +437,7 @@ fn test_swap_total_hotkey_stake_old_hotkey_not_exist() {
         let mut weight = Weight::zero();
 
         // Ensure old_hotkey does not exist
-        assert!(!TotalHotkeyStake::<Test>::contains_key(&old_hotkey));
+        assert!(!TotalHotkeyStake::<Test>::contains_key(old_hotkey));
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_total_hotkey_stake(
@@ -447,7 +447,7 @@ fn test_swap_total_hotkey_stake_old_hotkey_not_exist() {
         ));
 
         // Verify that new_hotkey does not have a stake
-        assert!(!TotalHotkeyStake::<Test>::contains_key(&new_hotkey));
+        assert!(!TotalHotkeyStake::<Test>::contains_key(new_hotkey));
     });
 }
 
@@ -460,7 +460,7 @@ fn test_swap_total_hotkey_stake_weight_update() {
         let mut weight = Weight::zero();
 
         // Initialize TotalHotkeyStake for old_hotkey
-        TotalHotkeyStake::<Test>::insert(&old_hotkey, total_stake);
+        TotalHotkeyStake::<Test>::insert(old_hotkey, total_stake);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_total_hotkey_stake(
@@ -484,7 +484,7 @@ fn test_swap_delegates_success() {
         let mut weight = Weight::zero();
 
         // Initialize Delegates for old_hotkey
-        Delegates::<Test>::insert(&old_hotkey, delegate_take);
+        Delegates::<Test>::insert(old_hotkey, delegate_take);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_delegates(
@@ -494,8 +494,8 @@ fn test_swap_delegates_success() {
         ));
 
         // Verify the swap
-        assert_eq!(Delegates::<Test>::get(&new_hotkey), delegate_take);
-        assert!(!Delegates::<Test>::contains_key(&old_hotkey));
+        assert_eq!(Delegates::<Test>::get(new_hotkey), delegate_take);
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -507,7 +507,7 @@ fn test_swap_delegates_old_hotkey_not_exist() {
         let mut weight = Weight::zero();
 
         // Ensure old_hotkey does not exist
-        assert!(!Delegates::<Test>::contains_key(&old_hotkey));
+        assert!(!Delegates::<Test>::contains_key(old_hotkey));
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_delegates(
@@ -517,7 +517,7 @@ fn test_swap_delegates_old_hotkey_not_exist() {
         ));
 
         // Verify that new_hotkey does not have a delegate
-        assert!(!Delegates::<Test>::contains_key(&new_hotkey));
+        assert!(!Delegates::<Test>::contains_key(new_hotkey));
     });
 }
 
@@ -530,7 +530,7 @@ fn test_swap_delegates_weight_update() {
         let mut weight = Weight::zero();
 
         // Initialize Delegates for old_hotkey
-        Delegates::<Test>::insert(&old_hotkey, delegate_take);
+        Delegates::<Test>::insert(old_hotkey, delegate_take);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_delegates(
@@ -554,7 +554,7 @@ fn test_swap_last_tx_block_success() {
         let mut weight = Weight::zero();
 
         // Initialize LastTxBlock for old_hotkey
-        LastTxBlock::<Test>::insert(&old_hotkey, last_tx_block);
+        LastTxBlock::<Test>::insert(old_hotkey, last_tx_block);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_last_tx_block(
@@ -564,8 +564,8 @@ fn test_swap_last_tx_block_success() {
         ));
 
         // Verify the swap
-        assert_eq!(LastTxBlock::<Test>::get(&new_hotkey), last_tx_block);
-        assert!(!LastTxBlock::<Test>::contains_key(&old_hotkey));
+        assert_eq!(LastTxBlock::<Test>::get(new_hotkey), last_tx_block);
+        assert!(!LastTxBlock::<Test>::contains_key(old_hotkey));
     });
 }
 
@@ -577,7 +577,7 @@ fn test_swap_last_tx_block_old_hotkey_not_exist() {
         let mut weight = Weight::zero();
 
         // Ensure old_hotkey does not exist
-        assert!(!LastTxBlock::<Test>::contains_key(&old_hotkey));
+        assert!(!LastTxBlock::<Test>::contains_key(old_hotkey));
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_last_tx_block(
@@ -587,7 +587,7 @@ fn test_swap_last_tx_block_old_hotkey_not_exist() {
         ));
 
         // Verify that new_hotkey does not have a last transaction block
-        assert!(!LastTxBlock::<Test>::contains_key(&new_hotkey));
+        assert!(!LastTxBlock::<Test>::contains_key(new_hotkey));
     });
 }
 
@@ -600,7 +600,7 @@ fn test_swap_last_tx_block_weight_update() {
         let mut weight = Weight::zero();
 
         // Initialize LastTxBlock for old_hotkey
-        LastTxBlock::<Test>::insert(&old_hotkey, last_tx_block);
+        LastTxBlock::<Test>::insert(old_hotkey, last_tx_block);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_last_tx_block(
@@ -625,7 +625,7 @@ fn test_swap_stake_success() {
         let mut weight = Weight::zero();
 
         // Initialize Stake for old_hotkey
-        Stake::<Test>::insert(&old_hotkey, &coldkey, stake_amount);
+        Stake::<Test>::insert(old_hotkey, coldkey, stake_amount);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_stake(
@@ -635,8 +635,8 @@ fn test_swap_stake_success() {
         ));
 
         // Verify the swap
-        assert_eq!(Stake::<Test>::get(&new_hotkey, &coldkey), stake_amount);
-        assert!(!Stake::<Test>::contains_key(&old_hotkey, &coldkey));
+        assert_eq!(Stake::<Test>::get(new_hotkey, coldkey), stake_amount);
+        assert!(!Stake::<Test>::contains_key(old_hotkey, coldkey));
     });
 }
 
@@ -650,10 +650,10 @@ fn test_swap_stake_old_hotkey_not_exist() {
         let mut weight = Weight::zero();
 
         // Initialize Stake for old_hotkey
-        Stake::<Test>::insert(&old_hotkey, &coldkey, stake_amount);
+        Stake::<Test>::insert(old_hotkey, coldkey, stake_amount);
 
         // Ensure old_hotkey has a stake
-        assert!(Stake::<Test>::contains_key(&old_hotkey, &coldkey));
+        assert!(Stake::<Test>::contains_key(old_hotkey, coldkey));
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_stake(
@@ -663,8 +663,8 @@ fn test_swap_stake_old_hotkey_not_exist() {
         ));
 
         // Verify that new_hotkey has the stake and old_hotkey does not
-        assert!(Stake::<Test>::contains_key(&new_hotkey, &coldkey));
-        assert!(!Stake::<Test>::contains_key(&old_hotkey, &coldkey));
+        assert!(Stake::<Test>::contains_key(new_hotkey, coldkey));
+        assert!(!Stake::<Test>::contains_key(old_hotkey, coldkey));
     });
 }
 
@@ -678,7 +678,7 @@ fn test_swap_stake_weight_update() {
         let mut weight = Weight::zero();
 
         // Initialize Stake for old_hotkey
-        Stake::<Test>::insert(&old_hotkey, &coldkey, stake_amount);
+        Stake::<Test>::insert(old_hotkey, coldkey, stake_amount);
 
         // Perform the swap
         assert_ok!(SubtensorModule::swap_stake(
@@ -703,7 +703,7 @@ fn test_swap_is_network_member_success() {
 
         // Initialize IsNetworkMember for old_hotkey
         for netuid in &netuid_is_member {
-            IsNetworkMember::<Test>::insert(&old_hotkey, netuid, true);
+            IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         }
 
         // Perform the swap
@@ -716,8 +716,8 @@ fn test_swap_is_network_member_success() {
 
         // Verify the swap
         for netuid in &netuid_is_member {
-            assert!(IsNetworkMember::<Test>::contains_key(&new_hotkey, netuid));
-            assert!(!IsNetworkMember::<Test>::contains_key(&old_hotkey, netuid));
+            assert!(IsNetworkMember::<Test>::contains_key(new_hotkey, netuid));
+            assert!(!IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
         }
     });
 }
@@ -732,7 +732,7 @@ fn test_swap_is_network_member_weight_update() {
 
         // Initialize IsNetworkMember for old_hotkey
         for netuid in &netuid_is_member {
-            IsNetworkMember::<Test>::insert(&old_hotkey, netuid, true);
+            IsNetworkMember::<Test>::insert(old_hotkey, netuid, true);
         }
 
         // Perform the swap
@@ -769,7 +769,7 @@ fn test_swap_axons_success() {
 
         // Initialize Axons for old_hotkey
         for netuid in &netuid_is_member {
-            Axons::<Test>::insert(netuid, &old_hotkey, axon_info.clone());
+            Axons::<Test>::insert(netuid, old_hotkey, axon_info.clone());
         }
 
         // Perform the swap
@@ -782,8 +782,8 @@ fn test_swap_axons_success() {
 
         // Verify the swap
         for netuid in &netuid_is_member {
-            assert_eq!(Axons::<Test>::get(netuid, &new_hotkey).unwrap(), axon_info);
-            assert!(!Axons::<Test>::contains_key(netuid, &old_hotkey));
+            assert_eq!(Axons::<Test>::get(netuid, new_hotkey).unwrap(), axon_info);
+            assert!(!Axons::<Test>::contains_key(netuid, old_hotkey));
         }
     });
 }
@@ -808,7 +808,7 @@ fn test_swap_axons_weight_update() {
 
         // Initialize Axons for old_hotkey
         for netuid in &netuid_is_member {
-            Axons::<Test>::insert(netuid, &old_hotkey, axon_info.clone());
+            Axons::<Test>::insert(netuid, old_hotkey, axon_info.clone());
         }
 
         // Perform the swap
@@ -837,7 +837,7 @@ fn test_swap_keys_success() {
         // Initialize Keys for old_hotkey
         for netuid in &netuid_is_member {
             log::info!("Inserting old_hotkey:{:?} netuid:{:?}", old_hotkey, netuid);
-            Keys::<Test>::insert(*netuid, uid, &old_hotkey);
+            Keys::<Test>::insert(*netuid, uid, old_hotkey);
         }
 
         // Perform the swap
@@ -872,7 +872,7 @@ fn test_swap_keys_weight_update() {
 
         // Initialize Keys for old_hotkey
         for netuid in &netuid_is_member {
-            Keys::<Test>::insert(*netuid, uid, old_hotkey.clone());
+            Keys::<Test>::insert(*netuid, uid, old_hotkey);
         }
 
         // Perform the swap
@@ -903,9 +903,9 @@ fn test_swap_loaded_emission_success() {
         for netuid in &netuid_is_member {
             LoadedEmission::<Test>::mutate(netuid, |emission_exists| {
                 if let Some(emissions) = emission_exists {
-                    emissions.push((old_hotkey.clone(), se, ve));
+                    emissions.push((old_hotkey, se, ve));
                 } else {
-                    *emission_exists = Some(vec![(old_hotkey.clone(), se, ve)]);
+                    *emission_exists = Some(vec![(old_hotkey, se, ve)]);
                 }
             });
         }
@@ -942,9 +942,9 @@ fn test_swap_loaded_emission_weight_update() {
         for netuid in &netuid_is_member {
             LoadedEmission::<Test>::mutate(netuid, |emission_exists| {
                 if let Some(emissions) = emission_exists {
-                    emissions.push((old_hotkey.clone(), se, ve));
+                    emissions.push((old_hotkey, se, ve));
                 } else {
-                    *emission_exists = Some(vec![(old_hotkey.clone(), se, ve)]);
+                    *emission_exists = Some(vec![(old_hotkey, se, ve)]);
                 }
             });
         }
@@ -974,7 +974,7 @@ fn test_swap_uids_success() {
 
         // Initialize Uids for old_hotkey
         for netuid in &netuid_is_member {
-            Uids::<Test>::insert(netuid, &old_hotkey, uid);
+            Uids::<Test>::insert(netuid, old_hotkey, uid);
         }
 
         // Perform the swap
@@ -987,8 +987,8 @@ fn test_swap_uids_success() {
 
         // Verify the swap
         for netuid in &netuid_is_member {
-            assert_eq!(Uids::<Test>::get(netuid, &new_hotkey).unwrap(), uid);
-            assert!(!Uids::<Test>::contains_key(netuid, &old_hotkey));
+            assert_eq!(Uids::<Test>::get(netuid, new_hotkey).unwrap(), uid);
+            assert!(!Uids::<Test>::contains_key(netuid, old_hotkey));
         }
     });
 }
@@ -1004,7 +1004,7 @@ fn test_swap_uids_weight_update() {
 
         // Initialize Uids for old_hotkey
         for netuid in &netuid_is_member {
-            Uids::<Test>::insert(netuid, &old_hotkey, uid);
+            Uids::<Test>::insert(netuid, old_hotkey, uid);
         }
 
         // Perform the swap
@@ -1038,7 +1038,7 @@ fn test_swap_prometheus_success() {
 
         // Initialize Prometheus for old_hotkey
         for netuid in &netuid_is_member {
-            Prometheus::<Test>::insert(netuid, &old_hotkey, prometheus_info.clone());
+            Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
         }
 
         // Perform the swap
@@ -1052,10 +1052,10 @@ fn test_swap_prometheus_success() {
         // Verify the swap
         for netuid in &netuid_is_member {
             assert_eq!(
-                Prometheus::<Test>::get(netuid, &new_hotkey).unwrap(),
+                Prometheus::<Test>::get(netuid, new_hotkey).unwrap(),
                 prometheus_info
             );
-            assert!(!Prometheus::<Test>::contains_key(netuid, &old_hotkey));
+            assert!(!Prometheus::<Test>::contains_key(netuid, old_hotkey));
         }
     });
 }
@@ -1077,7 +1077,7 @@ fn test_swap_prometheus_weight_update() {
 
         // Initialize Prometheus for old_hotkey
         for netuid in &netuid_is_member {
-            Prometheus::<Test>::insert(netuid, &old_hotkey, prometheus_info.clone());
+            Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
         }
 
         // Perform the swap
@@ -1104,7 +1104,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_success() {
         let mut weight = Weight::zero();
 
         // Initialize TotalHotkeyColdkeyStakesThisInterval for old_hotkey
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(&old_hotkey, &coldkey, stake);
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, stake);
 
         // Perform the swap
         assert_ok!(
@@ -1117,12 +1117,11 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_success() {
 
         // Verify the swap
         assert_eq!(
-            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(&new_hotkey, &coldkey),
+            TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
             stake
         );
         assert!(!TotalHotkeyColdkeyStakesThisInterval::<Test>::contains_key(
-            &old_hotkey,
-            &coldkey
+            old_hotkey, coldkey
         ));
     });
 }
@@ -1137,7 +1136,7 @@ fn test_swap_total_hotkey_coldkey_stakes_this_interval_weight_update() {
         let mut weight = Weight::zero();
 
         // Initialize TotalHotkeyColdkeyStakesThisInterval for old_hotkey
-        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(&old_hotkey, &coldkey, stake);
+        TotalHotkeyColdkeyStakesThisInterval::<Test>::insert(old_hotkey, coldkey, stake);
 
         // Perform the swap
         assert_ok!(
