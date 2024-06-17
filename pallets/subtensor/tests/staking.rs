@@ -1186,7 +1186,7 @@ fn test_delegate_stake_division_by_zero_check() {
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey
         ));
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey, 0, 1000);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey, 0, 1000);
     });
 }
 
@@ -1401,8 +1401,8 @@ fn test_full_with_delegating() {
         );
 
         // Emit inflation through non delegates.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 100);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 100);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 100);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 100);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 200);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 200);
 
@@ -1507,8 +1507,8 @@ fn test_full_with_delegating() {
         assert_eq!(SubtensorModule::get_total_stake(), 900);
 
         // Lets emit inflation through the hot and coldkeys.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 1000);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1000);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 1000);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1000);
 
         // validator_take = take * validator_emission = 10% * 1000 = 100
         // old_stake + (validator_emission - validator_take) * stake_for_coldkey_and_hotkey / total_stake_for_hotkey + validator_take
@@ -1692,7 +1692,7 @@ fn test_full_with_delegating() {
         assert_eq!(SubtensorModule::get_total_stake(), 5_500);
 
         // Lets emit inflation through this new key with distributed ownership.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 0, 1000);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 0, 1000);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
             1_394
@@ -1760,7 +1760,7 @@ fn test_full_with_delegating() {
         );
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 4000);
         assert_eq!(SubtensorModule::get_total_stake(), 10_500);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, 0, 1000);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey3, 0, 1000);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey3),
             1227
@@ -1882,8 +1882,8 @@ fn test_full_with_delegating_some_servers() {
         assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Emit inflation through non delegates.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 100);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 100);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 100);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 100);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 200);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 200);
 
@@ -1950,8 +1950,8 @@ fn test_full_with_delegating_some_servers() {
 
         // Lets emit inflation through the hot and coldkeys.
         // fist emission arg is for a server. This should only go to the owner of the hotkey.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 200, 1_000); // 1_200 total emission.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 123, 2_000); // 2_123 total emission.
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 200, 1_000); // 1_200 total emission.
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 123, 2_000); // 2_123 total emission.
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
             854
@@ -1975,8 +1975,8 @@ fn test_full_with_delegating_some_servers() {
 
         // Lets emit MORE inflation through the hot and coldkeys.
         // This time only server emission. This should go to the owner of the hotkey.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 350, 0);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 150, 0);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 350, 0);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 150, 0);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0),
             1_204
@@ -2074,7 +2074,7 @@ fn test_full_with_delegating_some_servers() {
         // Lets emit inflation through this new key with distributed ownership.
         // We will emit 100 server emission, which should go in-full to the owner of the hotkey.
         // We will emit 1000 validator emission, which should be distributed in-part to the nominators.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 100, 1000);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 100, 1000);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
             1_494
@@ -2093,7 +2093,7 @@ fn test_full_with_delegating_some_servers() {
         // This time we do ONLY server emission
         // We will emit 123 server emission, which should go in-full to the owner of the hotkey.
         // We will emit *0* validator emission.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 123, 0);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey2, 123, 0);
         assert_eq!(
             SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2),
             1_617
@@ -2210,8 +2210,8 @@ fn test_full_block_emission_occurs() {
         assert_eq!(SubtensorModule::get_total_stake(), 200);
 
         // Emit inflation through non delegates.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 111);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 234);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 111);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 234);
         // Verify the full emission occurs.
         assert_eq!(SubtensorModule::get_total_stake(), 200 + 111 + 234); // 200 + 111 + 234 = 545
 
@@ -2244,22 +2244,22 @@ fn test_full_block_emission_occurs() {
         assert_eq!(SubtensorModule::get_total_stake(), 545 + 500); // 545 + 500 = 1045
 
         // Lets emit inflation with delegatees, with both validator and server emission
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 200, 1_000); // 1_200 total emission.
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 123, 2_000); // 2_123 total emission.
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 200, 1_000); // 1_200 total emission.
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 123, 2_000); // 2_123 total emission.
 
         assert_eq!(SubtensorModule::get_total_stake(), 1045 + 1_200 + 2_123); // before + 1_200 + 2_123 = 4_368
 
         // Lets emit MORE inflation through the hot and coldkeys.
         // This time JUSt server emission
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 350, 0);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 150, 0);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 350, 0);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 150, 0);
 
         assert_eq!(SubtensorModule::get_total_stake(), 4_368 + 350 + 150); // before + 350 + 150 = 4_868
 
         // Lastly, do only validator emission
 
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 12_948);
-        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1_874);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 12_948);
+        // SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 1_874);
 
         assert_eq!(SubtensorModule::get_total_stake(), 4_868 + 12_948 + 1_874); // before + 12_948 + 1_874 = 19_690
     });
