@@ -8,11 +8,11 @@ use sp_core::U256;
 fn test_coinbase_emission_distribution() {
     new_test_ext(1).execute_with(|| {
         // Call the coinbase function
-        Pallet::<Test>::coinbase();
+        Pallet::<Test>::coinbase(1);
 
         // Check if the emissions are distributed correctly
         let current_block = Pallet::<Test>::get_current_block_as_u64();
-        let subnets = Pallet::<Test>::get_all_netuids();
+        let subnets = Pallet::<Test>::get_all_subnet_netuids();
 
         for netuid in subnets {
             // Check if the subnet emissions are accumulated correctly
@@ -38,12 +38,12 @@ fn test_coinbase_emission_distribution() {
 #[cfg(not(tarpaulin))]
 fn test_accumulate_hotkey_emission() {
     new_test_ext(1).execute_with(|| {
-        let hotkey: u64 = 1;
+        let hotkey: U256 = U256::from(1);
         let netuid: u16 = 1;
         let emission: u64 = 1000;
 
         // Call the accumulate_hotkey_emission function
-        Pallet::<Test>::accumulate_hotkey_emission(hotkey, netuid, emission);
+        Pallet::<Test>::accumulate_hotkey_emission(&hotkey, netuid, emission);
 
         // Check if the hotkey emission is accumulated correctly
         let accumulated_emission = PendingdHotkeyEmission::<Test>::get(hotkey);
@@ -58,7 +58,7 @@ fn test_accumulate_hotkey_emission() {
 #[cfg(not(tarpaulin))]
 fn test_drain_hotkey_emission() {
     new_test_ext(1).execute_with(|| {
-        let hotkey: u64 = 1;
+        let hotkey: U256 = U256::from(1);
         let emission: u64 = 1000;
         let block_number: u64 = 1;
 
@@ -66,7 +66,7 @@ fn test_drain_hotkey_emission() {
         PendingdHotkeyEmission::<Test>::insert(hotkey, emission);
 
         // Call the drain_hotkey_emission function
-        Pallet::<Test>::drain_hotkey_emission(hotkey, emission, block_number);
+        Pallet::<Test>::drain_hotkey_emission(&hotkey, emission, block_number);
 
         // Check if the hotkey emission is drained correctly
         let remaining_emission = PendingdHotkeyEmission::<Test>::get(hotkey);
