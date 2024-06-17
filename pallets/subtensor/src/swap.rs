@@ -29,7 +29,15 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         let coldkey = ensure_signed(origin)?;
 
-        let mut weight = T::DbWeight::get().reads_writes(2, 0);
+        let mut weight = T::DbWeight::get().reads(2);
+
+        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
+        ensure!(
+            !Self::is_hotkey_registered_on_any_network(new_hotkey),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
+        );
+
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 0));
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
             Error::<T>::NonAssociatedColdKey
@@ -41,18 +49,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
-
-        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
-        ensure!(
-            !Self::is_hotkey_registered_on_any_network(new_hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
-
         weight
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
-        let swap_cost = 1_000_000_000u64;
+        let swap_cost = Self::get_hotkey_swap_cost();
+        log::info!("Swap cost: {:?}", swap_cost);
+
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
