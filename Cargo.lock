@@ -4625,7 +4625,7 @@ checksum = "b93853da6d84c2e3c7d730d6473e8817692dd89be387eb01b94d7f108ecb5b8c"
 
 [[package]]
 name = "node-subtensor"
-version = "5.0.2"
+version = "5.0.3"
 dependencies = [
  "clap",
  "frame-benchmarking",

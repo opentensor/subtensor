@@ -25,6 +25,10 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait SubnetInfoRuntimeApi {
+        fn get_subnet_info(netuid: u16) -> Vec<u8>;
+        fn get_subnets_info() -> Vec<u8>;
+        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8>;
+    
         fn get_subnet_info_v2(netuid: u16) -> Vec<u8>;
         fn get_subnets_info_v2() -> Vec<u8>;
     }
@@ -45,6 +49,9 @@ sp_api::decl_runtime_apis! {
     }
 
     pub trait DynamicPoolInfoRuntimeApi {
+        fn get_dynamic_pool_info(netuid: u16) -> Vec<u8>;
+        fn get_all_dynamic_pool_infos() -> Vec<u8>;
+
         fn get_dynamic_pool_info_v2(netuid: u16) -> Vec<u8>;
         fn get_all_dynamic_pool_infos_v2() -> Vec<u8>;
     }

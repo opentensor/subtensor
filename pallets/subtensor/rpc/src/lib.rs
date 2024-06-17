@@ -70,6 +70,13 @@ pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "neuronInfo_getNeuron")]
     fn get_neuron(&self, netuid: u16, uid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
+    #[method(name = "subnetInfo_getSubnetInfo")]
+    fn get_subnet_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetsInfo")]
+    fn get_subnets_info(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "subnetInfo_getSubnetHyperparams")]
+    fn get_subnet_hyperparams(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+
     #[method(name = "subnetInfo_getSubnetInfoV2")]
     fn get_subnet_info_v2(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getSubnetsInfoV2")]
@@ -107,6 +114,12 @@ pub trait SubtensorCustomApi<BlockHash> {
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "subnetInfo_getTotalStakeForEachSubnet")]
     fn get_total_stake_for_each_subnet(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+
+    #[method(name = "dynamicPoolInfo_getDynamicPoolInfo")]
+    fn get_dynamic_pool_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "dynamicPoolInfo_getAllDynamicPoolInfos")]
+    fn get_all_dynamic_pool_infos(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    
     #[method(name = "dynamicPoolInfo_getDynamicPoolInfoV2")]
     fn get_dynamic_pool_info_v2(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "dynamicPoolInfo_getAllDynamicPoolInfosV2")]
@@ -309,6 +322,18 @@ where
             .map_err(|e| Error::RuntimeError(format!("Unable to get neuron info: {:?}", e)).into())
     }
 
+    fn get_subnet_info(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnet_info(at, netuid)
+            .map_err(|e| Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+    }
+
     fn get_subnet_info_v2(
         &self,
         netuid: u16,
@@ -319,6 +344,26 @@ where
 
         api.get_subnet_info_v2(at, netuid)
             .map_err(|e| Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+    }
+
+    fn get_subnet_hyperparams(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnet_hyperparams(at, netuid)
+            .map_err(|e| Error::RuntimeError(format!("Unable to get subnet info: {:?}", e)).into())
+    }
+
+    fn get_subnets_info(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_subnets_info(at)
+            .map_err(|e| Error::RuntimeError(format!("Unable to get subnets info: {:?}", e)).into())
     }
 
     fn get_subnets_info_v2(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
@@ -414,6 +459,19 @@ where
             })
     }
 
+    fn get_dynamic_pool_info(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_dynamic_pool_info(at, netuid).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get dynamic pool info: {}", e)).into()
+        })
+    }
+
     fn get_dynamic_pool_info_v2(
         &self,
         netuid: u16,
@@ -424,6 +482,18 @@ where
 
         api.get_dynamic_pool_info_v2(at, netuid).map_err(|e| {
             Error::RuntimeError(format!("Unable to get dynamic pool info: {}", e)).into()
+        })
+    }
+
+    fn get_all_dynamic_pool_infos(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_all_dynamic_pool_infos(at).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get all dynamic pool infos: {}", e)).into()
         })
     }
 
