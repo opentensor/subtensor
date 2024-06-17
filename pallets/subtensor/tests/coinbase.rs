@@ -1,17 +1,19 @@
 use crate::mock::*;
 use frame_support::{assert_ok};
 mod mock;
+use sp_core::U256;
+use frame_system::Config;
+use pallet_subtensor::Error;
+
 /// The line `use pallet_subtensor::{Pallet, PendingEmission, PendingdHotkeyEmission};` is importing
 /// specific items (`Pallet`, `PendingEmission`, `PendingdHotkeyEmission`) from the `pallet_subtensor`
 /// module into the current scope. This allows the code in the current module to directly reference and
 /// use these items without needing to fully qualify their paths each time they are used.
 // use pallet_subtensor::{Pallet, PendingEmission, PendingdHotkeyEmission};
-use sp_core::U256;
-use frame_system::Config;
 
 
 // To run this test specifically, use the following command:
-// cargo test --package pallet-subtensor --test coinbase test_add_singular_child -- --nocapture
+// cargo test --test coinbase test_add_singular_child -- --nocapture
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_add_singular_child() {
@@ -20,13 +22,32 @@ fn test_add_singular_child() {
         let child = U256::from(1);
         let hotkey = U256::from(1);
         let coldkey = U256::from(2);
-        assert_ok!(SubtensorModule::do_set_child_singular(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey, child, netuid, u64::MAX));
+        assert_eq!(
+            SubtensorModule::do_set_child_singular(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey, child, netuid, u64::MAX),
+            Err(Error::<Test>::SubNetworkDoesNotExist.into())
+        );
+        add_network(netuid, 0, 0);
+        assert_eq!(
+            SubtensorModule::do_set_child_singular(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey, child, 0, u64::MAX),
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
+        );
+        assert_eq!(
+            SubtensorModule::do_set_child_singular(<<Test as Config>::RuntimeOrigin>::signed(child), hotkey, child, netuid, u64::MAX),
+            Err(Error::<Test>::NonAssociatedColdKey.into())
+        );
+        SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+        assert_eq!(
+            SubtensorModule::do_set_child_singular(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey, child, netuid, u64::MAX),
+            Err(Error::<Test>::InvalidChild.into())
+        );
+        let child = U256::from(3);
+        assert_ok!( SubtensorModule::do_set_child_singular(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey, child, netuid, u64::MAX) );
     })
 }
 
 
 // To run this test specifically, use the following command:
-// cargo test --package pallet-subtensor --test coinbase test_get_stake_with_children_and_parents -- --nocapture
+// cargo test --test coinbase test_get_stake_with_children_and_parents -- --nocapture
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_get_stake_with_children_and_parents() {
