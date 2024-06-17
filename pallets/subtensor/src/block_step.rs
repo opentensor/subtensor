@@ -192,7 +192,11 @@ impl<T: Config> Pallet<T> {
         if total_tao_staked != 0 {
             subnets.iter_mut().for_each(|subnet_info| {
                 if !subnet_info.transition_in_progress {
-                    let subnet_proportion: I64F64 = I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked);
+                    let subnet_proportion: I64F64 = if subnet_info.netuid == Self::get_root_netuid() {
+                        I64F64::from_num(0)
+                    } else {
+                        I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked)
+                    };
                     let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
                     let subnet_block_emission = emission_i64f64.to_num();
                     EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
@@ -239,7 +243,9 @@ impl<T: Config> Pallet<T> {
                             );
                         },
                         SubnetType::STAO => {
-                            TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                            if subnet_block_emission != 0 {
+                                TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                            }
                         }
                     }
                 }

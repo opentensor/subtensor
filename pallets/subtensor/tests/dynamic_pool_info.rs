@@ -27,23 +27,23 @@ fn test_dynamic_pool_info() {
         let initial_pool_info = SubtensorModule::get_dynamic_pool_info_v2(netuid).unwrap();
 
         assert_eq!(
-            initial_pool_info.alpha_issuance.0, 0,
+            initial_pool_info.alpha_issuance, 0,
             "Alpha issuance should be initialized to 0"
         );
         assert_eq!(
-            initial_pool_info.alpha_outstanding.0, lock_cost,
+            initial_pool_info.alpha_outstanding, lock_cost,
             "Alpha outstanding should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.alpha_reserve.0, lock_cost,
+            initial_pool_info.alpha_reserve, lock_cost,
             "Alpha reserve should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.tao_reserve.0, lock_cost,
+            initial_pool_info.tao_reserve, lock_cost,
             "Tao reserve should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.netuid.0, netuid,
+            initial_pool_info.netuid, netuid,
             "NetUID should match the one used for registration"
         );
 
