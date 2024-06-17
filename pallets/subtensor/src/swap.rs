@@ -7,7 +7,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `origin` - The origin of the transaction.
+    /// * `origin` - The origin of the transaction, and also the coldkey account.
     /// * `old_hotkey` - The old hotkey to be swapped.
     /// * `new_hotkey` - The new hotkey to replace the old one.
     ///
