@@ -1,7 +1,6 @@
-
-
 use crate::mock::*;
 mod mock;
+use pallet_subtensor::{Pallet, PendingEmission, PendingdHotkeyEmission};
 use sp_core::U256;
 
 #[test]
@@ -18,12 +17,18 @@ fn test_coinbase_emission_distribution() {
         for netuid in subnets {
             // Check if the subnet emissions are accumulated correctly
             let subnet_emission = PendingEmission::<Test>::get(netuid);
-            assert!(subnet_emission > 0, "Subnet emission should be greater than 0");
+            assert!(
+                subnet_emission > 0,
+                "Subnet emission should be greater than 0"
+            );
 
             // Check if the epoch should run and emissions are distributed to hotkeys
             if Pallet::<Test>::should_run_epoch(netuid, current_block) {
                 let hotkey_emission = PendingdHotkeyEmission::<Test>::iter().next().unwrap().1;
-                assert!(hotkey_emission > 0, "Hotkey emission should be greater than 0");
+                assert!(
+                    hotkey_emission > 0,
+                    "Hotkey emission should be greater than 0"
+                );
             }
         }
     });
@@ -42,7 +47,10 @@ fn test_accumulate_hotkey_emission() {
 
         // Check if the hotkey emission is accumulated correctly
         let accumulated_emission = PendingdHotkeyEmission::<Test>::get(hotkey);
-        assert_eq!(accumulated_emission, emission, "Accumulated emission should match the input emission");
+        assert_eq!(
+            accumulated_emission, emission,
+            "Accumulated emission should match the input emission"
+        );
     });
 }
 
@@ -62,6 +70,9 @@ fn test_drain_hotkey_emission() {
 
         // Check if the hotkey emission is drained correctly
         let remaining_emission = PendingdHotkeyEmission::<Test>::get(hotkey);
-        assert_eq!(remaining_emission, 0, "Remaining emission should be 0 after draining");
+        assert_eq!(
+            remaining_emission, 0,
+            "Remaining emission should be 0 after draining"
+        );
     });
 }
