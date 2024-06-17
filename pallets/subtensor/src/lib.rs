@@ -43,6 +43,7 @@ mod registration;
 mod root;
 mod serving;
 mod staking;
+mod swap;
 mod uids;
 mod utils;
 mod weights;
@@ -740,7 +741,7 @@ pub mod pallet {
     pub(super) type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
-    pub(super) type LastTxBlock<T: Config> =
+    pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlockDelegateTake<T: Config> =
@@ -756,10 +757,10 @@ pub mod pallet {
     pub type ServingRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
-    pub(super) type Axons<T: Config> =
+    pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
-    pub(super) type Prometheus<T: Config> = StorageDoubleMap<
+    pub type Prometheus<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -1013,13 +1014,13 @@ pub mod pallet {
     }
 
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> uid
-    pub(super) type Uids<T: Config> =
+    pub type Uids<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> hotkey
-    pub(super) type Keys<T: Config> =
+    pub type Keys<T: Config> =
         StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
-    pub(super) type LoadedEmission<T: Config> =
+    pub type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
     #[pallet::storage] // --- DMAP ( netuid ) --> active

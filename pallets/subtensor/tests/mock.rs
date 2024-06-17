@@ -1,5 +1,7 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
-
+use frame_support::derive_impl;
+use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     assert_ok, derive_impl,
     dispatch::DispatchResultWithPostInfo,
@@ -88,7 +90,7 @@ impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
