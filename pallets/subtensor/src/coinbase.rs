@@ -1,3 +1,5 @@
+use std::intrinsics::saturating_add;
+
 use super::*;
 use frame_support::IterableStorageDoubleMap;
 // use sp_runtime::Saturating;
@@ -116,7 +118,9 @@ impl<T: Config> Pallet<T> {
         // --- 1. First, calculate the hotkey's share of the emission.
         let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
             .saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 = (take_proportion * I64F64::from_num(emission)).to_num::<u64>();
+        let hotkey_take: u64 = take_proportion
+            .saturating_mul(I64F64::from_num(emission))
+            .to_num::<u64>();
 
         // --- 2. Compute the remaining emission after the hotkey's share is deducted.
         let emission_minus_take: u64 = emission.saturating_sub(hotkey_take);
