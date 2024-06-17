@@ -1598,8 +1598,8 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::SubnetInfoRuntimeApi<Block> for Runtime {
-        fn get_subnet_info(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_info(netuid);
+        fn get_subnet_info_v2(netuid: u16) -> Vec<u8> {
+            let _result = SubtensorModule::get_subnet_info_v2(netuid);
             if _result.is_some() {
                 let result = _result.expect("Could not get SubnetInfo");
                 result.encode()
@@ -1608,19 +1608,9 @@ impl_runtime_apis! {
             }
         }
 
-        fn get_subnets_info() -> Vec<u8> {
-            let result = SubtensorModule::get_subnets_info();
+        fn get_subnets_info_v2() -> Vec<u8> {
+            let result = SubtensorModule::get_subnets_info_v2();
             result.encode()
-        }
-
-        fn get_subnet_hyperparams(netuid: u16) -> Vec<u8> {
-            let _result = SubtensorModule::get_subnet_hyperparams(netuid);
-            if _result.is_some() {
-                let result = _result.expect("Could not get SubnetHyperparams");
-                result.encode()
-            } else {
-                vec![]
-            }
         }
     }
 
@@ -1673,12 +1663,12 @@ impl_runtime_apis! {
     }
 
     impl subtensor_custom_rpc_runtime_api::DynamicPoolInfoRuntimeApi<Block> for Runtime {
-        fn get_dynamic_pool_info(netuid: u16) -> Vec<u8> {
-            let result = SubtensorModule::get_dynamic_pool_info(netuid);
+        fn get_dynamic_pool_info_v2(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_dynamic_pool_info_v2(netuid);
             result.encode()
         }
-        fn get_all_dynamic_pool_infos() -> Vec<u8> {
-            let result = SubtensorModule::get_all_dynamic_pool_infos();
+        fn get_all_dynamic_pool_infos_v2() -> Vec<u8> {
+            let result = SubtensorModule::get_all_dynamic_pool_infos_v2();
             result.encode()
         }
     }

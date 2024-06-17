@@ -24,7 +24,7 @@ fn test_dynamic_pool_info() {
         ));
 
         // Check initial dynamic pool info after registration
-        let initial_pool_info = SubtensorModule::get_dynamic_pool_info(netuid).unwrap();
+        let initial_pool_info = SubtensorModule::get_dynamic_pool_info_v2(netuid).unwrap();
 
         assert_eq!(
             initial_pool_info.alpha_issuance.0, 0,
@@ -43,21 +43,12 @@ fn test_dynamic_pool_info() {
             "Tao reserve should be initialized to lock_cost"
         );
         assert_eq!(
-            initial_pool_info.k.0,
-            lock_cost as u128 * lock_cost as u128,
-            "K value should be initialized to lock_cost^2"
-        ); // Alpha Reserve x Tao Reserve
-        assert_eq!(
-            initial_pool_info.price.0, 1,
-            "Price should be initialized to 1"
-        ); //  Tao reserve / Alpha reserve
-        assert_eq!(
             initial_pool_info.netuid.0, netuid,
             "NetUID should match the one used for registration"
         );
 
-        let all_pool_infos = SubtensorModule::get_all_dynamic_pool_infos();
+        let all_pool_infos = SubtensorModule::get_all_dynamic_pool_infos_v2();
         assert_eq!(all_pool_infos.len(), 1); // Assuming only one network is added
-        assert_eq!(all_pool_infos[0], Some(initial_pool_info));
+        assert_eq!(all_pool_infos[0], initial_pool_info);
     });
 }

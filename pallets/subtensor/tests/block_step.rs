@@ -935,12 +935,6 @@ fn test_run_coinbase_price_less_than_1() {
             "Subnet emissions: {:?}",
             SubtensorModule::get_emission_value(netuid)
         );
-        log::info!(
-            "Subnet emissions from Subnet Info: {:?}",
-            SubtensorModule::get_subnet_info(netuid)
-                .unwrap()
-                .emission_values
-        );
 
         assert!(tao_reserve_after > tao_reserve_before);
         assert_eq!(alpha_reserve_after, alpha_reserve_before);
