@@ -178,7 +178,7 @@ fn test_do_swap_hotkey_ok_robust() {
         ));
 
         // Verify the swaps
-        for _netuid in 1..=num_subnets {
+        for netuid in 1..=num_subnets {
             for i in 0..10 {
                 if i == 0 || i == 1 {
                     assert_eq!(
@@ -259,6 +259,13 @@ fn test_do_swap_hotkey_ok_robust() {
 
                     // Owner
                     assert_eq!(Owner::<Test>::get(new_hotkeys[i]), coldkeys[i]);
+
+                    // Keys
+                    for (uid, hotkey) in Keys::<Test>::iter_prefix(netuid) {
+                        if hotkey == old_hotkeys[i] {
+                            assert_eq!(Keys::<Test>::get(netuid, uid), new_hotkeys[i]);
+                        }
+                    }
                 } else {
                     // Ensure other hotkeys remain unchanged
                     assert_eq!(
