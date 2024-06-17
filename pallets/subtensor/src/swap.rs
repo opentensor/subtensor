@@ -65,7 +65,6 @@ impl<T: Config> Pallet<T> {
         Self::swap_owner(old_hotkey, new_hotkey, &coldkey, &mut weight)?;
         Self::swap_total_hotkey_stake(old_hotkey, new_hotkey, &mut weight)?;
         Self::swap_delegates(old_hotkey, new_hotkey, &mut weight)?;
-        Self::swap_last_tx_block(old_hotkey, new_hotkey, &mut weight)?;
         Self::swap_stake(old_hotkey, new_hotkey, &mut weight)?;
 
         // Store the value of is_network_member for the old key
@@ -185,29 +184,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Swaps the last transaction block of the hotkey.
-    ///
-    /// # Arguments
-    ///
-    /// * `old_hotkey` - The old hotkey.
-    /// * `new_hotkey` - The new hotkey.
-    /// * `weight` - The weight of the transaction.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
-    pub fn swap_last_tx_block(
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-        weight: &mut Weight,
-    ) -> DispatchResult {
-        if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
-            LastTxBlock::<T>::remove(old_hotkey);
-            LastTxBlock::<T>::insert(new_hotkey, last_tx);
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-        Ok(())
-    }
 
     /// Swaps the stake of the hotkey.
     ///
