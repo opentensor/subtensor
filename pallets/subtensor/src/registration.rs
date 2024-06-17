@@ -394,7 +394,7 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
-        let balance_to_add: u64 = 100_000_000_000;
+        let balance_to_add: u64 = 1_000_000_000_000;
         Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
