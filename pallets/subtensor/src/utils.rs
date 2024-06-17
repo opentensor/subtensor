@@ -1,5 +1,6 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
+use sp_core::Get;
 use sp_core::U256;
 
 impl<T: Config> Pallet<T> {
@@ -657,5 +658,9 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+
+    pub fn get_hotkey_swap_cost() -> u64 {
+        T::HotkeySwapCost::get()
     }
 }
