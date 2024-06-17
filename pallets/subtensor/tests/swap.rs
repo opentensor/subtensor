@@ -145,13 +145,16 @@ fn test_do_swap_hotkey_ok_robust() {
             coldkeys.push(U256::from(i * 2 + 11));
         }
 
-        
         // Setup initial state
         for netuid in 1..=num_subnets {
             add_network(netuid, tempo, 0);
             SubtensorModule::set_max_registrations_per_block(netuid, 20);
             SubtensorModule::set_target_registrations_per_interval(netuid, 1000);
-            log::info!("Registrations this interval for netuid {:?} is {:?}", netuid, SubtensorModule::get_target_registrations_per_interval(netuid));
+            log::info!(
+                "Registrations this interval for netuid {:?} is {:?}",
+                netuid,
+                SubtensorModule::get_target_registrations_per_interval(netuid)
+            );
             for i in 0..10 {
                 register_ok_neuron(netuid, old_hotkeys[i], coldkeys[i], 0);
             }
@@ -211,7 +214,9 @@ fn test_do_swap_hotkey_ok_robust() {
 
                     let mut weight = Weight::zero();
                     // UIDs
-                    for netuid in SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap() {
+                    for netuid in
+                        SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
+                    {
                         assert_eq!(
                             Uids::<Test>::get(netuid, &new_hotkeys[i]),
                             Uids::<Test>::get(netuid, &old_hotkeys[i])
@@ -219,7 +224,9 @@ fn test_do_swap_hotkey_ok_robust() {
                     }
 
                     // Prometheus
-                    for netuid in SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap() {
+                    for netuid in
+                        SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
+                    {
                         assert_eq!(
                             Prometheus::<Test>::get(netuid, &new_hotkeys[i]),
                             Prometheus::<Test>::get(netuid, &old_hotkeys[i])
@@ -227,7 +234,9 @@ fn test_do_swap_hotkey_ok_robust() {
                     }
 
                     // LoadedEmission
-                    for netuid in SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap() {
+                    for netuid in
+                        SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
+                    {
                         assert_eq!(
                             LoadedEmission::<Test>::get(netuid).unwrap(),
                             LoadedEmission::<Test>::get(netuid).unwrap()
@@ -235,9 +244,17 @@ fn test_do_swap_hotkey_ok_robust() {
                     }
 
                     // IsNetworkMember
-                    for netuid in SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap() {
-                        assert!(IsNetworkMember::<Test>::contains_key(&new_hotkeys[i], netuid));
-                        assert!(!IsNetworkMember::<Test>::contains_key(&old_hotkeys[i], netuid));
+                    for netuid in
+                        SubtensorModule::get_netuid_is_member(&old_hotkeys[i], &mut weight).unwrap()
+                    {
+                        assert!(IsNetworkMember::<Test>::contains_key(
+                            &new_hotkeys[i],
+                            netuid
+                        ));
+                        assert!(!IsNetworkMember::<Test>::contains_key(
+                            &old_hotkeys[i],
+                            netuid
+                        ));
                     }
 
                     // Owner
@@ -833,7 +850,12 @@ fn test_swap_keys_success() {
 
         // Verify the swap
         for netuid in &netuid_is_member {
-            log::info!("neutuid, uid, hotkey: {:?}, {:?}, {:?}", netuid, uid, new_hotkey);
+            log::info!(
+                "neutuid, uid, hotkey: {:?}, {:?}, {:?}",
+                netuid,
+                uid,
+                new_hotkey
+            );
             assert_eq!(Keys::<Test>::get(netuid, uid), new_hotkey);
         }
     });
