@@ -184,7 +184,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-
     /// Swaps the stake of the hotkey.
     ///
     /// # Arguments
