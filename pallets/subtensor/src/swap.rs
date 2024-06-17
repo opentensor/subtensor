@@ -248,7 +248,7 @@ impl<T: Config> Pallet<T> {
     pub fn swap_is_network_member(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid_is_member: &Vec<u16>,
+        netuid_is_member: &[u16],
         weight: &mut Weight,
     ) -> DispatchResult {
         let _ = IsNetworkMember::<T>::clear_prefix(old_hotkey, netuid_is_member.len() as u32, None);
@@ -275,7 +275,7 @@ impl<T: Config> Pallet<T> {
     pub fn swap_axons(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid_is_member: &Vec<u16>,
+        netuid_is_member: &[u16],
         weight: &mut Weight,
     ) -> DispatchResult {
         for netuid in netuid_is_member.iter() {
@@ -368,7 +368,7 @@ impl<T: Config> Pallet<T> {
     pub fn swap_uids(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid_is_member: &Vec<u16>,
+        netuid_is_member: &[u16],
         weight: &mut Weight,
     ) -> DispatchResult {
         for netuid in netuid_is_member.iter() {
@@ -396,7 +396,7 @@ impl<T: Config> Pallet<T> {
     pub fn swap_prometheus(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-        netuid_is_member: &Vec<u16>,
+        netuid_is_member: &[u16],
         weight: &mut Weight,
     ) -> DispatchResult {
         for netuid in netuid_is_member.iter() {
@@ -425,10 +425,15 @@ impl<T: Config> Pallet<T> {
         new_hotkey: &T::AccountId,
         weight: &mut Weight,
     ) -> DispatchResult {
-        let stakes: Vec<(T::AccountId, (u64, u64))> = TotalHotkeyColdkeyStakesThisInterval::<T>::iter_prefix(old_hotkey).collect();
+        let stakes: Vec<(T::AccountId, (u64, u64))> =
+            TotalHotkeyColdkeyStakesThisInterval::<T>::iter_prefix(old_hotkey).collect();
         log::info!("Stakes to swap: {:?}", stakes);
         for (coldkey, stake) in stakes {
-            log::info!("Swapping stake for coldkey: {:?}, stake: {:?}", coldkey, stake);
+            log::info!(
+                "Swapping stake for coldkey: {:?}, stake: {:?}",
+                coldkey,
+                stake
+            );
             TotalHotkeyColdkeyStakesThisInterval::<T>::insert(new_hotkey, &coldkey, stake);
             TotalHotkeyColdkeyStakesThisInterval::<T>::remove(old_hotkey, &coldkey);
             weight.saturating_accrue(T::DbWeight::get().writes(2)); // One write for insert and one for remove
