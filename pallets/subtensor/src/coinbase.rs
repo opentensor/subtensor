@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
                     Self::accumulate_hotkey_emission(
                         &hotkey,
                         *netuid,
-                        mining_emission + validator_emission,
+                        mining_emission.saturating_add(validator_emission),
                     );
                 }
             }
@@ -231,7 +231,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 1.8. Finally, add the stake to the hotkey itself, including its take and the remaining emission.
-        Self::increase_stake_on_hotkey_account(hotkey, hotkey_take + remainder);
+        Self::increase_stake_on_hotkey_account(hotkey, hotkey_take.saturating_add(remainder));
     }
 
     ///////////////
