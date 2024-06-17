@@ -419,18 +419,6 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    // // Maps between a parent & network to a proportion.
-    // #[pallet::storage] // --- DMAP ( parent, netuid, child ) --> proportion>
-    // pub type IsChildKey<T: Config> = StorageDoubleMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     T::AccountId,
-    //     Identity,
-    //     u16,
-    //     u64,
-    //     ValueQuery,
-    //     DefaultProportion<T>,
-    // >;
     // Maps between child & network to a list of proportions and parents.
     #[pallet::storage] // --- DMAP ( child, netuid ) --> Vec<(proportion,parent)>
     pub type ParentKeys<T: Config> = StorageDoubleMap<
@@ -443,19 +431,7 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
-    // // Maps between a parent & network to a proportion.
-    // #[pallet::storage] // --- DMAP ( parent, netuid ) --> proportion
-    // pub type IsParentKey<T: Config> = StorageDoubleMap<
-    //     _,
-    //     Blake2_128Concat,
-    //     T::AccountId,
-    //     Identity,
-    //     u16,
-    //     u64,
-    //     ValueQuery,
-    //     DefaultProportion<T>,
-    // >;
-
+    
     /// =====================================
     /// ==== Difficulty / Registrations =====
     /// =====================================

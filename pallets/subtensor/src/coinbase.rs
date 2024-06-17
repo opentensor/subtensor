@@ -67,7 +67,7 @@ impl<T: Config> Pallet<T> {
                 // 4.3 Pass emission through epoch() --> hotkey emission.
                 let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch( *netuid, subnet_emission );
 
-                // 4.3 Drain the subnet emission through the epoch()
+                // 4.3 Accumulate the tuples on hotkeys.
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
 
                     // 4.4 Accumulate the emission on the hotkey and parent hotkeys.
@@ -82,7 +82,12 @@ impl<T: Config> Pallet<T> {
         // hotkeys --> nominators.
         for (index, ( hotkey, hotkey_emission )) in PendingdHotkeyEmission::<T>::iter().enumerate() {
 
+            // Check for zeros.
+            // remove zero values.
+            if hotkey_emission == 0 { continue; }
+
             // --- 5.1 Check if we should drain the hotkey emission on this block.
+            // Should be true only once every 7200 blocks.
             if Self::should_drain_hotkey( index as u64 , current_block ) {
 
                 // --- 5.2 Drain the hotkey emission and distribute it to nominators.

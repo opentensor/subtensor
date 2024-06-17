@@ -142,6 +142,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The total stake for the hotkey on the network after considering the stakes
     ///           from children and parents.
+    /// TODO: check for self loops.
     pub fn get_stake_with_children_and_parents( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
         // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
         let initial_stake: u64 = Self::get_total_stake_for_hotkey( hotkey );
