@@ -227,11 +227,13 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let mut writes = 0;
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
+        let stake_count = stakes.len() as u32;
         for (coldkey, stake_amount) in stakes {
             Stake::<T>::insert(new_hotkey, &coldkey, stake_amount);
-            Stake::<T>::remove(old_hotkey, &coldkey);
+            let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
             writes += 2; // One write for insert and one for remove
         }
+
         *weight += T::DbWeight::get().writes(writes as u64);
         Ok(())
     }
