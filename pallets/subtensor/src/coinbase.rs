@@ -31,16 +31,19 @@ impl<T: Config> Pallet<T> {
     pub fn run_coinbase() {
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
+        log::debug!("Current block: {:?}", current_block);
 
         // --- 1. Get all netuids.
         let subnets: Vec<u16> = Self::get_all_subnet_netuids();
+        log::debug!("All subnet netuids: {:?}", subnets);
 
         // --- 2. Run the root epoch function which computes the block emission for each subnet.
         // coinbase --> root() --> subnet_block_emission
         match Self::root_epoch(current_block) {
-            Ok(_) => (),
+            Ok(_) => log::debug!("Root epoch run successfully for block: {:?}", current_block),
             Err(e) => {
                 log::trace!("Error while running root epoch: {:?}", e);
+                log::debug!("Failed to run root epoch for block: {:?}, error: {:?}", current_block, e);
             }
         }
 
@@ -50,10 +53,12 @@ impl<T: Config> Pallet<T> {
             // --- 3.1 Get the network's block-wise emission amount.
             // This value is newly minted TAO which has not reached staking accounts yet.
             let subnet_blockwise_emission: u64 = EmissionValues::<T>::get(*netuid);
+            log::debug!("Subnet block-wise emission for netuid {:?}: {:?}", *netuid, subnet_blockwise_emission);
 
             // --- 3.2 Accumulate the subnet emission on the subnet.
             PendingEmission::<T>::mutate(*netuid, |subnet_emission| {
                 *subnet_emission = subnet_emission.saturating_add(subnet_blockwise_emission);
+                log::debug!("Updated subnet emission for netuid {:?}: {:?}", *netuid, *subnet_emission);
             });
         }
 
@@ -66,10 +71,12 @@ impl<T: Config> Pallet<T> {
                 // 4.2 Drain the subnet emission.
                 let subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
+                log::debug!("Drained subnet emission for netuid {:?}: {:?}", *netuid, subnet_emission);
 
                 // 4.3 Pass emission through epoch() --> hotkey emission.
                 let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
                     Self::epoch(*netuid, subnet_emission);
+                log::debug!("Hotkey emission results for netuid {:?}: {:?}", *netuid, hotkey_emission);
 
                 // 4.3 Accumulate the tuples on hotkeys.
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
@@ -79,6 +86,7 @@ impl<T: Config> Pallet<T> {
                         *netuid,
                         mining_emission.saturating_add(validator_emission),
                     );
+                    log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
             }
         }
@@ -99,12 +107,13 @@ impl<T: Config> Pallet<T> {
 
                 // --- 5.2 Drain the hotkey emission and distribute it to nominators.
                 Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
+                log::debug!("Drained hotkey emission for hotkey {:?} on block {:?}: {:?}", hotkey, current_block, hotkey_emission);
 
                 // --- 5.3 Increase total issuance
                 TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(hotkey_emission));
+                log::debug!("Increased total issuance by {:?}", hotkey_emission);
             }
         }
-    }
 
     /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.
     ///

@@ -29,23 +29,14 @@ fn test_coinbase_basic() {
 
         assert_eq!( SubtensorModule::get_pending_emission( netuid ), 1 );
 
+        // Check that the hotkey emission is 1
+        assert_eq!( SubtensorModule::get_pending_hotkey_emission( &hotkey ), 0 );
+
         // Step block releases
         next_block();
 
+        // Check that the hotkey emission is 1
         assert_eq!( SubtensorModule::get_pending_hotkey_emission( &hotkey ), 1 );
 
-
-
-        // Create accounts if they do not exist
-        // SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
-        // // Increase stake on coldkey-hotkey accounts
-        // SubtensorModule::increase_stake_on_coldkey_hotkey_account( &coldkey, &hotkey, 1000 );
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey( &hotkey ), 1000);
-        // // Add neuron to subnet.
-        // register_ok_neuron( netuid, hotkey, coldkey, 100000 );
-        // // Run coinbase
-        // SubtensorModule::run_coinbase();
-        // // Check final.
-        // assert_eq!(SubtensorModule::get_total_stake_for_hotkey( &hotkey ), 1000);
     });
 }
