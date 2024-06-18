@@ -77,55 +77,49 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
-        // --- 5. Ensure that the hotkey account exists already (this is only possible through registration).
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
-
-        // --- 6. Ensure that the child is not the hotkey.
+        // --- 5. Ensure that the child is not the hotkey.
         ensure!(child != hotkey, Error::<T>::InvalidChild);
 
-        // --- 7. Erase myself from old children's parents.
+        // --- 6. Erase myself from old children's parents.
         let old_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey.clone(), netuid);
 
-        // --- 7.0. Iterate over all my old children and remove myself from their parent's map.
+        // --- 6.0. Iterate over all my old children and remove myself from their parent's map.
         for (_, old_child) in old_children.clone().iter() {
-            // --- 7.1. Get the old child's parents on this network.
+            // --- 6.1. Get the old child's parents on this network.
             let my_old_child_parents: Vec<(u64, T::AccountId)> =
                 ParentKeys::<T>::get(old_child.clone(), netuid);
 
-            // --- 7.2. Filter my hotkey from my old children's parents list.
+            // --- 6.2. Filter my hotkey from my old children's parents list.
             let filtered_parents: Vec<(u64, T::AccountId)> = my_old_child_parents
                 .into_iter()
                 .filter(|(_, parent)| *parent != hotkey)
                 .collect();
 
-            // --- 7.3. Update the parent list in storage
+            // --- 6.3. Update the parent list in storage
             ParentKeys::<T>::insert(old_child, netuid, filtered_parents);
         }
 
-        // --- 8. Create my new children + proportion list.
+        // --- 7. Create my new children + proportion list.
         let new_children: Vec<(u64, T::AccountId)> = vec![(proportion, child.clone())];
 
-        // --- 8.1. Insert my new children + proportion list into the map.
+        // --- 7.1. Insert my new children + proportion list into the map.
         ChildKeys::<T>::insert(hotkey.clone(), netuid, new_children.clone());
 
-        // --- 8.2. Update the parents list for my new children.
+        // --- 7.2. Update the parents list for my new children.
         for (proportion, new_child) in new_children.clone().iter() {
             // --- 8.2.1. Get the child's parents on this network.
             let mut new_child_previous_parents: Vec<(u64, T::AccountId)> =
                 ParentKeys::<T>::get(new_child.clone(), netuid);
 
-            // --- 8.2.2. Append my hotkey and proportion to my new child's parents list.
+            // --- 7.2.2. Append my hotkey and proportion to my new child's parents list.
             // NOTE: There are no duplicates possible because I previously removed my self from my old children.
             new_child_previous_parents.push((*proportion, hotkey.clone()));
 
-            // --- 8.2.3. Update the parents list in storage.
+            // --- 7.2.3. Update the parents list in storage.
             ParentKeys::<T>::insert(new_child.clone(), netuid, new_child_previous_parents);
         }
 
-        // --- 9. Log and return.
+        // --- 8. Log and return.
         log::info!(
             "SetChildSingular( hotkey:{:?}, child:{:?}, netuid:{:?}, proportion:{:?} )",
             hotkey,
@@ -155,7 +149,7 @@ impl<T: Config> Pallet<T> {
     /// * `u64` - The total stake for the hotkey on the network after considering the stakes
     ///           from children and parents.
     /// TODO: check for self loops.
-    pub fn get_stake_with_children_and_parents( hotkey: &T::AccountId, netuid: u16 ) -> u64 {
+    pub fn get_stake_with_children_and_parents(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
         let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
         let mut stake_to_children: u64 = 0;
