@@ -283,6 +283,63 @@ fn test_do_swap_hotkey_ok_robust() {
 }
 
 #[test]
+fn test_swap_hotkey_tx_rate_limit_exceeded() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = 13;
+        let old_hotkey = U256::from(1);
+        let new_hotkey_1 = U256::from(2);
+        let new_hotkey_2 = U256::from(4);
+        let coldkey = U256::from(3);
+        let swap_cost = 1_000_000_000u64*2;
+
+        let tx_rate_limit = 1;
+
+        // Get the current transaction rate limit
+        let current_tx_rate_limit = SubtensorModule::get_tx_rate_limit();
+        log::info!("current_tx_rate_limit: {:?}", current_tx_rate_limit);
+
+         // Set the transaction rate limit
+         SubtensorModule::set_tx_rate_limit(tx_rate_limit);
+         // assert the rate limit is set to 1000 blocks 
+         assert_eq!(SubtensorModule::get_tx_rate_limit(), tx_rate_limit);
+
+        // Setup initial state
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+
+        // Perform the first swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey_1
+        ));
+
+
+        // Attempt to perform another swap immediately, which should fail due to rate limit
+        assert_err!(
+            SubtensorModule::do_swap_hotkey(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+                &new_hotkey_1,
+                &new_hotkey_2
+            ),
+            Error::<Test>::HotKeySetTxRateLimitExceeded
+        );
+
+
+        // move in time past the rate limit
+        step_block(1001);
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &new_hotkey_1,
+            &new_hotkey_2
+        ));
+
+    });
+}
+
+#[test]
 fn test_do_swap_hotkey_err_not_owner() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
