@@ -183,11 +183,14 @@ impl<T: Config> Pallet<T> {
         let total_prices: I64F64 = subnets.iter().map(|subnet_info| subnet_info.price).sum();
 
         // Compute total TAO staked across all subnets
-        let total_tao_staked: u64 = subnets.iter().map(|subnet_info| subnet_info.tao_staked).sum();
+        let total_tao_staked: u64 = subnets.iter()
+            .filter(|subnet| subnet.netuid != Self::get_root_netuid())
+            .map(|subnet_info| subnet_info.tao_staked).sum();
 
         // Compute emission per subnet as [p.tao_in/sum_tao for p in pools]
         let total_block_emission = Self::get_block_emission().unwrap_or(0);
         let total_block_emission_i64f64: I64F64 = I64F64::from_num(total_block_emission);
+        let mut actual_total_block_emission = 0u64;
 
         if total_tao_staked != 0 {
             subnets.iter_mut().for_each(|subnet_info| {
@@ -202,7 +205,7 @@ impl<T: Config> Pallet<T> {
                     EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
                     // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
                     PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
-        
+
                     match subnet_info.subnet_type {
                         SubnetType::DTAO => {
                             // Condition the inflation of TAO and alpha based on the sum of the prices.
@@ -225,6 +228,8 @@ impl<T: Config> Pallet<T> {
 
                                 // Increment the pools tao reserve based on the block emission.
                                 DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+
+                                actual_total_block_emission = actual_total_block_emission.saturating_add(tao_in);
                             }
 
                             if alpha_in > 0 {
@@ -245,11 +250,15 @@ impl<T: Config> Pallet<T> {
                         SubnetType::STAO => {
                             if subnet_block_emission != 0 {
                                 TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                                actual_total_block_emission = actual_total_block_emission.saturating_add(subnet_block_emission);
                             }
                         }
                     }
                 }
             });
+
+            // Increment the total amount of TAO in existence based on the total tao_in
+            TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_add(actual_total_block_emission));
     
             ////////////////////////////////
             // run epochs.
@@ -259,6 +268,8 @@ impl<T: Config> Pallet<T> {
                 if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
                     // Get the pending emission issuance to distribute for this subnet
                     let emission = PendingEmission::<T>::get(subnet_info.netuid);
+                    // Drain pending emission and update dynamic pools
+                    PendingEmission::<T>::insert(subnet_info.netuid, 0);
     
                     // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
                     let emission_tuples: Vec<(T::AccountId, u64, u64)> =
@@ -274,9 +285,6 @@ impl<T: Config> Pallet<T> {
                             *validator_amount,
                         );
                     }
-    
-                    // Drain pending emission and update dynamic pools
-                    PendingEmission::<T>::insert(subnet_info.netuid, 0);
 
                     // Increase subnet totals
                     match subnet_info.subnet_type {
@@ -299,9 +307,6 @@ impl<T: Config> Pallet<T> {
                     );
                 }
             });
-    
-            // Increment the total amount of TAO in existence based on the total tao_in
-            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(total_block_emission));
         }
     }
 
