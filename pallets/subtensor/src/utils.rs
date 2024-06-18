@@ -223,6 +223,12 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
     }
+    pub fn get_pending_hotkey_emission( hotkey: &T::AccountId ) -> u64 {
+        PendingdHotkeyEmission::<T>::get( hotkey )
+    }
+    pub fn get_pending_emission(netuid: u16) -> u64 {
+        PendingEmission::<T>::get(netuid)
+    }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
     }
