@@ -336,12 +336,20 @@ impl<T: Config> Pallet<T> {
             .collect()
     }
 
-    /// get all delegates' light info from storage
+    /// get all delegates' total stake from storage
     ///
     pub fn get_delegates_light() -> Vec<DelegateInfoLight<T>> {
         Delegates::<T>::iter()
             .map(|(delegate_id, _)| Self::get_delegate_by_existing_account_light(delegate_id))
             .collect()
+    }
+
+    /// get all delegates' light info from storage
+    ///
+    pub fn get_all_delegates_total_stake() -> Vec<(T::AccountId, Compact<u64>)> {
+        Delegates::<T>::iter().map(|(delegate_id, _)| 
+            (delegate_id.clone(), Self::get_hotkey_global_dynamic_tao(&delegate_id).into())
+        ).collect()
     }
 
     /// get all delegate info and staked token amount for a given delegatee account
