@@ -23,7 +23,7 @@ pub struct DelegateInfo<T: Config> {
 pub struct DelegateInfoLight<T: Config> {
     delegate_ss58: T::AccountId,
     owner_ss58: T::AccountId,
-    take: Vec<(Compact<u16>, Compact<u16>)>,
+    take: u16, // take as number if it is default for all subnets or u16::MAX if it is custom
     owner_stake: Compact<u64>,
     total_stake: Compact<u64>,
     validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
@@ -258,11 +258,11 @@ impl<T: Config> Pallet<T> {
 
     fn get_delegate_by_existing_account_light(delegate: AccountIdOf<T>) -> DelegateInfoLight<T> {
         let mut validator_permits = Vec::<Compact<u16>>::new();
-        let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
+        let registrations = Self::get_registered_networks_for_hotkey(&delegate);
 
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);
         for netuid in registrations.iter() {
-            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
+            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate);
             if _uid.is_err() {
                 continue; // this should never happen
             } else {
@@ -279,26 +279,18 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
+        let owner = Self::get_owning_coldkey_for_hotkey(&delegate);
 
         // Create a vector of tuples (netuid, take). If a take is not set in DelegatesTake, use default value
-        let take = NetworksAdded::<T>::iter()
-            .filter(|(_, added)| *added)
-            .map(|(netuid, _)| {
-                (
-                    Compact(netuid),
-                    Compact(
-                        if let Ok(take) = DelegatesTake::<T>::try_get(&delegate, netuid) {
-                            take
-                        } else {
-                            <DefaultDefaultTake<T>>::get()
-                        },
-                    ),
-                )
-            })
-            .collect();
+        let take = if DelegatesTake::<T>::iter_prefix(&delegate).next().is_some() {
+            // None
+            u16::MAX
+        } else {
+            // Some(<DefaultDefaultTake<T>>::get())
+            <DefaultDefaultTake<T>>::get()
+        };
 
-        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate.clone()).into();
+        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate).into();
         let owner_stake = Self::get_nominator_global_dynamic_tao(&owner, &delegate);
 
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
@@ -309,8 +301,8 @@ impl<T: Config> Pallet<T> {
         }
 
         DelegateInfoLight {
-            delegate_ss58: delegate.clone(),
-            owner_ss58: owner.clone(),
+            delegate_ss58: delegate,
+            owner_ss58: owner,
             take,
             owner_stake: owner_stake.into(),
             total_stake: total_stake.to_num::<u64>().into(),

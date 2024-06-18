@@ -61,6 +61,8 @@ pub trait SubtensorCustomApi<BlockHash> {
 
     #[method(name = "delegateInfo_getDelegates")]
     fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "delegateInfo_getDelegatesLight")]
+    fn get_delegates_light(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronsLite")]
     fn get_neurons_lite(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronLite")]
@@ -248,6 +250,15 @@ where
         })
     }
 
+    fn get_delegates_light(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_delegates_light(at).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
+        })
+    }
+    
     fn get_delegate(
         &self,
         delegate_account_vec: Vec<u8>,

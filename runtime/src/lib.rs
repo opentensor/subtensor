@@ -1549,6 +1549,11 @@ impl_runtime_apis! {
             result.encode()
         }
 
+        fn get_delegates_light() -> Vec<u8> {
+            let result = SubtensorModule::get_delegates_light();
+            result.encode()
+        }
+
         fn get_delegate(delegate_account_vec: Vec<u8>) -> Vec<u8> {
             let _result = SubtensorModule::get_delegate(delegate_account_vec);
             if _result.is_some() {
