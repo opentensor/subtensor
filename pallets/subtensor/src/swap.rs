@@ -53,7 +53,7 @@ impl<T: Config> Pallet<T> {
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = Self::get_hotkey_swap_cost();
-        log::info!("Swap cost: {:?}", swap_cost);
+        log::debug!("Swap cost: {:?}", swap_cost);
 
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
