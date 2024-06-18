@@ -1520,6 +1520,19 @@ fn test_bonds_with_extreme_alpha_values() {
             );
         }
 
+        SubtensorModule::epoch(netuid, 1_000_000_000);
+        next_block();
+
+        for uid in 0..(n / 2) as u16 {
+            SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
+            assert_ok!(SubtensorModule::set_weights(
+                RuntimeOrigin::signed(U256::from(uid)),
+                netuid,
+                ((n / 2)..n).collect(),
+                vec![u16::MAX / 4, u16::MAX / 2, (u16::MAX / 4) * 3, u16::MAX],
+                0
+            ));
+        }
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         SubtensorModule::set_alpha_high(netuid, u16::MAX);
         SubtensorModule::set_alpha_low(netuid, u16::MIN);
