@@ -54,6 +54,7 @@ pub struct SubnetHyperparams {
     commit_reveal_weights_enabled: bool,
     alpha_high: Compact<u16>,
     alpha_low: Compact<u16>,
+    liquid_alpha_enabled: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -159,6 +160,7 @@ impl<T: Config> Pallet<T> {
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
         let alpha_high = AlphaHigh::<T>::get(netuid);
         let alpha_low = AlphaLow::<T>::get(netuid);
+        let liquid_alpha_enabled = LiquidAlphaOn::<T>::get(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),
@@ -187,6 +189,7 @@ impl<T: Config> Pallet<T> {
             commit_reveal_weights_enabled,
             alpha_high: alpha_high.into(),
             alpha_low: alpha_low.into(),
+            liquid_alpha_enabled: liquid_alpha_enabled.into(),
         })
     }
 }
