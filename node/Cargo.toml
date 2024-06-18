@@ -1,6 +1,6 @@
 [package]
 name = "node-subtensor"
-version = "5.0.3"
+version = "5.0.4"
 description = "A fresh FRAME-based Substrate node, ready for hacking."
 authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 homepage = "https://substrate.io/"

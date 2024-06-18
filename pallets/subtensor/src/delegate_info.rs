@@ -20,6 +20,18 @@ pub struct DelegateInfo<T: Config> {
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+pub struct DelegateInfoLight<T: Config> {
+    delegate_ss58: T::AccountId,
+    owner_ss58: T::AccountId,
+    take: Vec<(Compact<u16>, Compact<u16>)>,
+    owner_stake: Compact<u64>,
+    total_stake: Compact<u64>,
+    validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
+    return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
+    total_daily_return: Compact<u64>, // Delegators current daily return
+}
+
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubStakeElement<T: Config> {
     hotkey: T::AccountId,
     coldkey: T::AccountId,
@@ -244,6 +256,70 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    fn get_delegate_by_existing_account_light(delegate: AccountIdOf<T>) -> DelegateInfoLight<T> {
+        let mut validator_permits = Vec::<Compact<u16>>::new();
+        let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
+
+        let mut emissions_per_day: U64F64 = U64F64::from_num(0);
+        for netuid in registrations.iter() {
+            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
+            if _uid.is_err() {
+                continue; // this should never happen
+            } else {
+                let uid = _uid.expect("Delegate's UID should be ok");
+                let validator_permit = Self::get_validator_permit_for_uid(*netuid, uid);
+                if validator_permit {
+                    validator_permits.push((*netuid).into());
+                }
+
+                let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
+                let tempo: U64F64 = Self::get_tempo(*netuid).into();
+                let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
+                emissions_per_day += emission * epochs_per_day;
+            }
+        }
+
+        let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
+
+        // Create a vector of tuples (netuid, take). If a take is not set in DelegatesTake, use default value
+        let take = NetworksAdded::<T>::iter()
+            .filter(|(_, added)| *added)
+            .map(|(netuid, _)| {
+                (
+                    Compact(netuid),
+                    Compact(
+                        if let Ok(take) = DelegatesTake::<T>::try_get(&delegate, netuid) {
+                            take
+                        } else {
+                            <DefaultDefaultTake<T>>::get()
+                        },
+                    ),
+                )
+            })
+            .collect();
+
+        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate.clone()).into();
+        let owner_stake = Self::get_nominator_global_dynamic_tao(&owner, &delegate);
+
+        let mut return_per_1000: U64F64 = U64F64::from_num(0);
+
+        if total_stake > U64F64::from_num(0) {
+            return_per_1000 = (emissions_per_day * U64F64::from_num(0.82))
+                / (total_stake / U64F64::from_num(1000));
+        }
+
+        DelegateInfoLight {
+            delegate_ss58: delegate.clone(),
+            owner_ss58: owner.clone(),
+            take,
+            owner_stake: owner_stake.into(),
+            total_stake: total_stake.to_num::<u64>().into(),
+            validator_permits,
+            return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
+            total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
+        }
+    }
+    
     pub fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<DelegateInfo<T>> {
         if delegate_account_vec.len() != 32 {
             return None;
@@ -265,6 +341,14 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegates() -> Vec<DelegateInfo<T>> {
         Delegates::<T>::iter()
             .map(|(delegate_id, _)| Self::get_delegate_by_existing_account(delegate_id))
+            .collect()
+    }
+
+    /// get all delegates' light info from storage
+    ///
+    pub fn get_delegates_light() -> Vec<DelegateInfoLight<T>> {
+        Delegates::<T>::iter()
+            .map(|(delegate_id, _)| Self::get_delegate_by_existing_account_light(delegate_id))
             .collect()
     }
 
