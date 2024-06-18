@@ -38,11 +38,7 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(192_000_000, 0)
-                    .saturating_add(<mock::Test as frame_system::Config>::DbWeight::get().reads(24))
-                    .saturating_add(
-                        <mock::Test as frame_system::Config>::DbWeight::get().writes(22)
-                    ),
+                weight: frame_support::weights::Weight::from_parts(2_992_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
