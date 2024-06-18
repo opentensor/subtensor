@@ -32,7 +32,7 @@ fn test_coinbase_basic() {
         // Step block releases
         next_block();
 
-        assert_eq!( SubtensorModule::get_pending_hotkey_emission( hotkey ), 1 );
+        assert_eq!( SubtensorModule::get_pending_hotkey_emission( &hotkey ), 1 );
 
 
 
