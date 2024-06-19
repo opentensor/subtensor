@@ -1,8 +1,8 @@
-mod mock;
-use frame_support::assert_ok;
-use frame_system::Config;
-use mock::*;
-use sp_core::U256;
+// mod mock;
+// use frame_support::assert_ok;
+// use frame_system::Config;
+// use mock::*;
+// use sp_core::U256;
 
 // #[test]
 // #[allow(clippy::unwrap_used)]

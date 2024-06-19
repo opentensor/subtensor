@@ -65,25 +65,30 @@ impl<T: Config> Pallet<T> {
         // subnet_emission --> epoch() --> hotkey_emission --> (hotkey + parent hotkeys)
         for netuid in subnets.clone().iter() {
 
-            // 4.1 Check to see if the subnet should run its epoch.
+            // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
-                // 4.2 Drain the subnet emission.
+                
+                // --- 4.2 Drain the subnet emission.
                 let subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
                 log::debug!("Drained subnet emission for netuid {:?}: {:?}", *netuid, subnet_emission);
 
+                // --- 4.3 Set last step counter.
+                Self::set_blocks_since_last_step( *netuid, 0 );
+                Self::set_last_mechanism_step_block( *netuid, current_block );    
+
                 // 4.3 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
-                    Self::epoch(*netuid, subnet_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, subnet_emission);
                 log::debug!("Hotkey emission results for netuid {:?}: {:?}", *netuid, hotkey_emission);
 
-                // 4.3 Accumulate the tuples on hotkeys.
+                // 4.4 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
-                    // 4.4 Accumulate the emission on the hotkey and parent hotkeys.
+                    // 4.5 Accumulate the emission on the hotkey and parent hotkeys.
                     Self::accumulate_hotkey_emission(
                         &hotkey,
                         *netuid,
-                        mining_emission.saturating_add(validator_emission),
+                        validator_emission, // Amount received from validating
+                        mining_emission // Amount recieved from mining.
                     );
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
@@ -97,23 +102,22 @@ impl<T: Config> Pallet<T> {
         // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
         let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
-        for (index, ( hotkey, hotkey_emission )) in PendingdHotkeyEmission::<T>::iter().enumerate() {
+        for (hotkey, hotkey_emission) in PendingdHotkeyEmission::<T>::iter() {
 
             // Check for zeros.
             // remove zero values.
             if hotkey_emission == 0 { continue; }
 
             // --- 5.1 Check if we should drain the hotkey emission on this block.
-            // Should be true only once every 7200 blocks.
-            if Self::should_drain_hotkey( index as u64, current_block, emission_tempo ) {
+            if Self::should_drain_hotkey( &hotkey, current_block, emission_tempo ) {
 
                 // --- 5.2 Drain the hotkey emission and distribute it to nominators.
-                Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
+                let total_new_tao: u64 = Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
                 log::debug!("Drained hotkey emission for hotkey {:?} on block {:?}: {:?}", hotkey, current_block, hotkey_emission);
 
                 // --- 5.3 Increase total issuance
-                TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(hotkey_emission));
-                log::debug!("Increased total issuance by {:?}", hotkey_emission);
+                TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( total_new_tao ) );
+                log::debug!("Increased total issuance by {:?}", total_new_tao);
             }
         }
     }
@@ -131,16 +135,14 @@ impl<T: Config> Pallet<T> {
     /// * `mining_emission` - The amount of mining emission allocated to the hotkey.
     /// * `validator_emission` - The amount of validator emission allocated to the hotkey.
     ///
-    pub fn accumulate_hotkey_emission(hotkey: &T::AccountId, netuid: u16, emission: u64) {
+    pub fn accumulate_hotkey_emission(hotkey: &T::AccountId, netuid: u16, validating_emission: u64, mining_emission: u64 ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
-            .saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 = take_proportion
-            .saturating_mul(I64F64::from_num(emission))
-            .to_num::<u64>();
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey)).saturating_div(I64F64::from_num(u16::MAX));
+        let hotkey_take: u64 = take_proportion.saturating_mul(I64F64::from_num( validating_emission )).to_num::<u64>();
+        // NOTE: Only the validation emission should be split amongst parents.
 
         // --- 2. Compute the remaining emission after the hotkey's share is deducted.
-        let emission_minus_take: u64 = emission.saturating_sub(hotkey_take);
+        let emission_minus_take: u64 = validating_emission.saturating_sub(hotkey_take);
 
         // --- 3. Track the remaining emission for accounting purposes.
         let mut remaining_emission: u64 = emission_minus_take;
@@ -153,7 +155,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 5. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
             // and calculate their share of the emission accordingly.
-            for (proportion, parent) in ParentKeys::<T>::get(hotkey, netuid) {
+            for (proportion, parent) in Self::get_parents( hotkey, netuid ) {
 
                 // --- 5.1 Retrieve the parent's stake. This is the raw stake value including nominators.
                 let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
@@ -180,9 +182,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 6. Add the remaining emission plus the hotkey's initial take to the pending emission for this hotkey.
-        PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_accumulated| {
-            *hotkey_accumulated =
-                hotkey_accumulated.saturating_add(remaining_emission.saturating_add(hotkey_take))
+        PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_pending| {
+            *hotkey_pending = hotkey_pending.saturating_add( remaining_emission.saturating_add( hotkey_take ).saturating_add(mining_emission ) )
         });
     }
 
@@ -198,7 +199,11 @@ impl<T: Config> Pallet<T> {
     /// 7. Finally, the hotkey's own take and any undistributed emissions are added to the hotkey's total stake.
     ///
     /// This function ensures that emissions are fairly distributed according to stake proportions and delegation agreements, and it updates the necessary records to reflect these changes.
-    pub fn drain_hotkey_emission(hotkey: &T::AccountId, emission: u64, block_number: u64) {
+    pub fn drain_hotkey_emission(hotkey: &T::AccountId, emission: u64, block_number: u64) -> u64 {
+
+        // --- 0. For accounting purposes record the total new added stake.
+        let mut total_new_tao: u64 = 0;
+
         // --- 1.0 Drain the hotkey emission.
         PendingdHotkeyEmission::<T>::insert(hotkey, 0);
 
@@ -249,12 +254,18 @@ impl<T: Config> Pallet<T> {
                 nominator_emission.to_num::<u64>(),
             );
 
-            // --- 12 Subtract the nominator's emission from the remainder.
+            // --- 11* Record event and Subtract the nominator's emission from the remainder.
+            total_new_tao = total_new_tao.saturating_add( nominator_emission.to_num::<u64>() );
             remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
         }
 
         // --- 13 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
-        Self::increase_stake_on_hotkey_account(hotkey, hotkey_take.saturating_add(remainder));
+        let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
+        Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao );
+
+        // --- 14 Record new tao creation event and return the amount created.
+        total_new_tao = total_new_tao.saturating_add( hotkey_new_tao );
+        return total_new_tao;
     }
 
     ///////////////
@@ -280,8 +291,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
-    pub fn should_drain_hotkey(index: u64, block: u64, emit_tempo: u64 ) -> bool {
-        return block % emit_tempo == index % emit_tempo; // True once per day for each index assuming we run this every block.
+    pub fn should_drain_hotkey( hotkey: &T::AccountId, block: u64, emit_tempo: u64 ) -> bool {
+        let hotkey_idx: u64 = Self::hash_hotkey_to_u64( hotkey );
+        return block % ( emit_tempo + 1 )== hotkey_idx % ( emit_tempo + 1); // Return true every emit_tempo for a unique index.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.

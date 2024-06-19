@@ -156,8 +156,8 @@ impl<T: Config> Pallet<T> {
         let mut stake_from_parents: u64 = 0;
 
         // Retrieve lists of parents and children from storage, based on the hotkey and network ID.
-        let parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(hotkey, netuid);
-        let children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey, netuid);
+        let parents: Vec<(u64, T::AccountId)> = Self::get_parents( hotkey, netuid );
+        let children: Vec<(u64, T::AccountId)> = Self::get_children( hotkey, netuid );
 
         // Iterate over children to calculate the total stake allocated to them.
         for (proportion, _) in children {
@@ -192,5 +192,39 @@ impl<T: Config> Pallet<T> {
 
         // Return the finalized stake value for the hotkey.
         return finalized_stake;
+    }
+
+    /* Retrieves the list of children for a given hotkey and network.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The hotkey whose children are to be retrieved.
+    /// * `netuid` - The network identifier.
+    ///
+    /// # Returns
+    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and child account ID.
+    ///
+    /// # Example
+    /// ```
+    /// let children = SubtensorModule::get_children(&hotkey, netuid);
+    */
+    pub fn get_children(hotkey: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
+        ChildKeys::<T>::get(hotkey, netuid)
+    }
+
+    /* Retrieves the list of parents for a given child and network.
+    ///
+    /// # Arguments
+    /// * `child` - The child whose parents are to be retrieved.
+    /// * `netuid` - The network identifier.
+    ///
+    /// # Returns
+    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and parent account ID.
+    ///
+    /// # Example
+    /// ```
+    /// let parents = SubtensorModule::get_parents(&child, netuid);
+    */
+    pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
+        ParentKeys::<T>::get(child, netuid)
     }
 }

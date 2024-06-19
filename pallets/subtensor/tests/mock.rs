@@ -158,7 +158,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
-    pub const InitialHotkeyEmissionTempo: u16 = 1; // Defaults to draining every block.
+    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
 }
 
 // Configure collective pallet for council
