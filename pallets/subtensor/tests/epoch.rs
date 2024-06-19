@@ -1409,7 +1409,7 @@ fn test_bonds_with_liquid_alpha() {
         }
 
         let bonds = SubtensorModule::get_bonds(netuid);
-        assert_eq!(bonds[0][4], 7760);
+        assert_eq!(bonds[0][4], 14582);
         assert_eq!(bonds[1][4], 32767);
         assert_eq!(bonds[2][4], 49151);
         assert_eq!(bonds[3][4], 65535);
@@ -1472,8 +1472,8 @@ fn test_bonds_with_liquid_alpha() {
             Pruning Scores: [0.0016997808, 0.0151777493, 0.2070524206, 0.2760700488, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
         */
 
-        assert_eq!(bonds[0][4], 3297); //12603
-        assert_eq!(bonds[1][4], 13923); // 28321
+        assert_eq!(bonds[0][4], 12603); 
+        assert_eq!(bonds[1][4], 28321);
         assert_eq!(bonds[2][4], 49151);
         assert_eq!(bonds[3][4], 65535);
     });
@@ -2315,19 +2315,22 @@ fn test_compute_alpha_values() {
     // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
     // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
     let exp_val_0 = I32F32::from_num(0.9048374180359595);
-    let expected_alpha_0 = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_0));
+    let expected_alpha_0 =
+        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_0));
 
     // For consensus[1] = 0.5:
     // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
     // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
     let exp_val_1 = I32F32::from_num(0.6065306597126334);
-    let expected_alpha_1 = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_1));
+    let expected_alpha_1 =
+        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_1));
 
     // For consensus[2] = 0.9:
     // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
     // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
     let exp_val_2 = I32F32::from_num(0.4065696597405991);
-    let expected_alpha_2 = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_2));
+    let expected_alpha_2 =
+        I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_2));
 
     // Define an epsilon for approximate equality checks.
     let epsilon = I32F32::from_num(1e-6);
@@ -2337,7 +2340,6 @@ fn test_compute_alpha_values() {
     assert_approx_eq(alpha[1], expected_alpha_1, epsilon);
     assert_approx_eq(alpha[2], expected_alpha_2, epsilon);
 }
-
 
 #[test]
 fn test_clamp_alpha_values() {
@@ -2377,6 +2379,294 @@ fn test_clamp_alpha_values() {
     assert_eq!(clamped_alpha[1], expected_clamped_alpha_1);
     assert_eq!(clamped_alpha[2], expected_clamped_alpha_2);
 }
+
+#[test]
+fn test_calculate_logistic_params() {
+    // Define test inputs
+    let alpha_high = I32F32::from_num(0.9);
+    let alpha_low = I32F32::from_num(0.1);
+    let consensus_high = I32F32::from_num(0.8);
+    let consensus_low = I32F32::from_num(0.2);
+
+    // Expected values
+    // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
+    //   = (ln((1 / 0.9 - 1)) - ln((1 / 0.1 - 1))) / (0.2 - 0.8)
+    //   = (ln(0.1111) - ln(9)) / -0.6
+    //   = (-2.1972 - 2.1972) / -0.6
+    //   = -4.3944 / -0.6
+    //   = 7.324
+    let expected_a = I32F32::from_num(7.324);
+
+    // b = ln((1 / alpha_low - 1)) + a * consensus_low
+    //   = ln((1 / 0.1 - 1)) + 7.324 * 0.2
+    //   = ln(9) + 1.4648
+    //   = 2.1972 + 1.4648
+    //   = 3.662
+    let expected_b = I32F32::from_num(3.662);
+
+    // Call the function
+    let (a, b) = SubtensorModule::calculate_logistic_params(
+        alpha_high,
+        alpha_low,
+        consensus_high,
+        consensus_low,
+    );
+
+    // Assert the results
+    assert!(
+        (a - expected_a).abs() < I32F32::from_num(0.001),
+        "Expected a: {:?}, got: {:?}",
+        expected_a,
+        a
+    );
+    assert!(
+        (b - expected_b).abs() < I32F32::from_num(0.001),
+        "Expected b: {:?}, got: {:?}",
+        expected_b,
+        b
+    );
+}
+
+#[test]
+fn test_calculate_logistic_params_edge_cases() {
+    // Edge Case 1: Alpha values at their boundaries (0 and 1)
+    let alpha_high = I32F32::from_num(1.0);
+    let alpha_low = I32F32::from_num(0.0);
+    let consensus_high = I32F32::from_num(0.8);
+    let consensus_low = I32F32::from_num(0.2);
+
+    // Call the function
+    let (a, b) = SubtensorModule::calculate_logistic_params(
+        alpha_high,
+        alpha_low,
+        consensus_high,
+        consensus_low,
+    );
+
+    // Assert the results
+    assert_eq!(a, I32F32::from_num(0.0), "Expected a to be 0, got: {:?}", a);
+    assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
+
+    // Edge Case 2: Consensus values at their boundaries (0 and 1)
+    let alpha_high = I32F32::from_num(0.9);
+    let alpha_low = I32F32::from_num(0.1);
+    let consensus_high = I32F32::from_num(1.0);
+    let consensus_low = I32F32::from_num(0.0);
+
+    // Call the function
+    let (a, b) = SubtensorModule::calculate_logistic_params(
+        alpha_high,
+        alpha_low,
+        consensus_high,
+        consensus_low,
+    );
+
+    // Expected values
+    // a = (ln((1 / 0.9 - 1)) - ln((1 / 0.1 - 1))) / (0.0 - 1.0)
+    //   = (ln(0.1111) - ln(9)) / -1.0
+    //   = (-2.1972 - 2.1972) / -1.0
+    //   = -4.3944 / -1.0
+    //   = 4.3944
+    let expected_a = I32F32::from_num(4.3944);
+
+    // b = ln((1 / 0.1 - 1)) + a * 0.0
+    //   = ln(9) + 0
+    //   = 2.1972
+    let expected_b = I32F32::from_num(2.1972);
+
+    // Assert the results
+    assert!(
+        (a - expected_a).abs() < I32F32::from_num(0.001),
+        "Expected a: {:?}, got: {:?}",
+        expected_a,
+        a
+    );
+    assert!(
+        (b - expected_b).abs() < I32F32::from_num(0.001),
+        "Expected b: {:?}, got: {:?}",
+        expected_b,
+        b
+    );
+
+    // Edge Case 3: Alpha values being equal
+    let alpha_high = I32F32::from_num(0.5);
+    let alpha_low = I32F32::from_num(0.5);
+    let consensus_high = I32F32::from_num(0.8);
+    let consensus_low = I32F32::from_num(0.2);
+
+    // Call the function
+    let (a, b) = SubtensorModule::calculate_logistic_params(
+        alpha_high,
+        alpha_low,
+        consensus_high,
+        consensus_low,
+    );
+
+    // Assert the results
+    assert_eq!(a, I32F32::from_num(0.0), "Expected a to be 0, got: {:?}", a);
+    assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
+
+    // Edge Case 4: Consensus values being equal
+    let alpha_high = I32F32::from_num(0.9);
+    let alpha_low = I32F32::from_num(0.1);
+    let consensus_high = I32F32::from_num(0.5);
+    let consensus_low = I32F32::from_num(0.5);
+
+    // Call the function
+    let (a, b) = SubtensorModule::calculate_logistic_params(
+        alpha_high,
+        alpha_low,
+        consensus_high,
+        consensus_low,
+    );
+
+    // Assert the results
+    assert_eq!(a, I32F32::from_num(0.0), "Expected a to be 0, got: {:?}", a);
+    assert_eq!(b, I32F32::from_num(0.0), "Expected b to be 0, got: {:?}", b);
+}
+
+#[test]
+fn test_compute_ema_bonds_with_liquid_alpha_sparse() {
+    // Define test inputs
+    let bonds_delta = vec![
+        vec![(0, I32F32::from_num(0.1)), (1, I32F32::from_num(0.2))],
+        vec![(0, I32F32::from_num(0.3)), (1, I32F32::from_num(0.4))],
+    ];
+    let bonds = vec![
+        vec![(0, I32F32::from_num(0.5)), (1, I32F32::from_num(0.6))],
+        vec![(0, I32F32::from_num(0.7)), (1, I32F32::from_num(0.8))],
+    ];
+    let alpha = vec![I32F32::from_num(0.9), I32F32::from_num(0.8)];
+
+    // Expected values
+    // EMA calculation for each bond:
+    // EMA = alpha * bond_delta + (1 - alpha) * bond
+    // For bond (0, 0):
+    // EMA = 0.9 * 0.1 + (1 - 0.9) * 0.5 = 0.09 + 0.05 = 0.14
+    // For bond (0, 1):
+    // EMA = 0.8 * 0.2 + (1 - 0.8) * 0.6 = 0.16 + 0.12 = 0.28
+    // For bond (1, 0):
+    // EMA = 0.9 * 0.3 + (1 - 0.9) * 0.7 = 0.27 + 0.07 = 0.34
+    // For bond (1, 1):
+    // EMA = 0.8 * 0.4 + (1 - 0.8) * 0.8 = 0.32 + 0.16 = 0.48
+    let expected_ema_bonds = vec![
+        vec![(0, I32F32::from_num(0.14)), (1, I32F32::from_num(0.28))],
+        vec![(0, I32F32::from_num(0.34)), (1, I32F32::from_num(0.48))],
+    ];
+
+    // Call the function
+    let ema_bonds =
+        SubtensorModule::compute_ema_bonds_with_liquid_alpha_sparse(&bonds_delta, &bonds, alpha);
+
+    // Assert the results with an epsilon for approximate equality
+    let epsilon = I32F32::from_num(1e-6);
+    assert_approx_eq_vec_of_vec(&ema_bonds, &expected_ema_bonds, epsilon);
+}
+
+#[test]
+fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
+    // Test with empty inputs
+    let bonds_delta: Vec<Vec<(u16, I32F32)>> = vec![];
+    let bonds: Vec<Vec<(u16, I32F32)>> = vec![];
+    let alpha: Vec<I32F32> = vec![];
+
+    // Expected values: Empty Vec
+    let expected_ema_bonds: Vec<Vec<(u16, I32F32)>> = vec![];
+
+    // Call the function
+    let ema_bonds =
+        SubtensorModule::compute_ema_bonds_with_liquid_alpha_sparse(&bonds_delta, &bonds, alpha);
+
+    // Assert the results
+    assert_eq!(
+        ema_bonds, expected_ema_bonds,
+        "Expected EMA bonds: {:?}, got: {:?}",
+        expected_ema_bonds, ema_bonds
+    );
+}
+
+// #[test]
+// fn test_compute_ema_bonds_sparse_with_liquid_alpha() {
+//     new_test_ext(1).execute_with(|| {
+//         let sparse: bool = true;
+//         let n: u16 = 8;
+//         let netuid: u16 = 1;
+//         let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
+//         let max_stake: u64 = 4;
+//         let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
+//         let block_number = System::block_number();
+//         add_network(netuid, tempo, 0);
+//         SubtensorModule::set_max_allowed_uids(netuid, n);
+//         SubtensorModule::set_max_registrations_per_block(netuid, n);
+//         SubtensorModule::set_target_registrations_per_interval(netuid, n);
+//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
+//         SubtensorModule::set_min_allowed_weights(netuid, 1);
+//         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
+
+//         // Register validators and servers
+//         for key in 0..n as u64 {
+//             SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
+//             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
+//                 netuid,
+//                 block_number,
+//                 key * 1_000_000,
+//                 &U256::from(key),
+//             );
+//             assert_ok!(SubtensorModule::register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(key)),
+//                 netuid,
+//                 block_number,
+//                 nonce,
+//                 work,
+//                 U256::from(key),
+//                 U256::from(key)
+//             ));
+//             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+//                 &U256::from(key),
+//                 &U256::from(key),
+//                 stakes[key as usize],
+//             );
+//         }
+
+//         // Initialize with first epoch
+//         SubtensorModule::epoch(netuid, 1_000_000_000);
+//         step_block(1);
+
+//         // Set weights
+//         for uid in 0..(n / 2) as u16 {
+//             SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
+//             assert_ok!(SubtensorModule::set_weights(
+//                 RuntimeOrigin::signed(U256::from(uid)),
+//                 netuid,
+//                 ((n / 2)..n).collect(),
+//                 vec![u16::MAX / 4, u16::MAX / 2, (u16::MAX / 4) * 3, u16::MAX],
+//                 0
+//             ));
+//         }
+
+//         // Enable LiquidAlpha
+//         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+//         assert_eq!(SubtensorModule::get_liquid_alpha_enabled(netuid), true);
+
+//         // Continue with additional epochs to mimic the end-to-end test
+//         // for _ in 0..5 {
+//         //     next_block();
+//         //     if sparse {
+//         //         SubtensorModule::epoch(netuid, 1_000_000_000);
+//         //     } else {
+//         //         SubtensorModule::epoch_dense(netuid, 1_000_000_000);
+//         //     }
+//         // }
+
+//         // Fetch the final bonds and validate
+//         let final_bonds = SubtensorModule::get_bonds(netuid);
+//         // Example assertions, adjust as needed based on expected LiquidAlpha values
+//         assert_eq!(final_bonds[0][0], 14582); 
+//         assert_eq!(final_bonds[1][1], 32767); 
+//         assert_eq!(final_bonds[2][2], 49151); 
+//         assert_eq!(final_bonds[3][3], 65535); 
+//     });
+// }
 
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //
@@ -2477,6 +2767,8 @@ fn test_clamp_alpha_values() {
 //     println!("]");
 // }
 
+/// Helpers
+
 /// Asserts that two I32F32 values are approximately equal within a given epsilon.
 ///
 /// # Arguments
@@ -2489,5 +2781,32 @@ fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
             "assertion failed: `(left ≈ right)`\n  left: `{:?}`,\n right: `{:?}`,\n epsilon: `{:?}`",
             left, right, epsilon
         );
+    }
+}
+
+/// Helper function to assert approximate equality of two vectors of vectors of tuples.
+fn assert_approx_eq_vec_of_vec(
+    left: &Vec<Vec<(u16, I32F32)>>,
+    right: &Vec<Vec<(u16, I32F32)>>,
+    epsilon: I32F32,
+) {
+    assert_eq!(left.len(), right.len(), "Vectors have different lengths");
+    for (left_row, right_row) in left.iter().zip(right.iter()) {
+        assert_eq!(
+            left_row.len(),
+            right_row.len(),
+            "Rows have different lengths"
+        );
+        for ((left_idx, left_val), (right_idx, right_val)) in left_row.iter().zip(right_row.iter())
+        {
+            assert_eq!(left_idx, right_idx, "Indices are different");
+            assert!(
+                (left_val - right_val).abs() < epsilon,
+                "Values are different: left = {:?}, right = {:?}, epsilon = {:?}",
+                left_val,
+                right_val,
+                epsilon
+            );
+        }
     }
 }

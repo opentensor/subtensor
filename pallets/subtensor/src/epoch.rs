@@ -826,12 +826,27 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns:
     /// A tuple containing the slope 'a' and intercept 'b' for the logistic function.
-    fn calculate_logistic_params(
+    pub fn calculate_logistic_params(
         alpha_high: I32F32,
         alpha_low: I32F32,
         consensus_high: I32F32,
         consensus_low: I32F32,
     ) -> (I32F32, I32F32) {
+        log::info!("alpha_high: {:?}", alpha_high);
+        log::info!("alpha_low: {:?}", alpha_low);
+        log::trace!("consensus_high: {:?}", consensus_high);
+        log::trace!("consensus_low: {:?}", consensus_low);
+        // Check for division by zero
+        // extra caution to ensure we never divide by zero
+        if consensus_high == consensus_low
+            || consensus_high < consensus_low
+            || alpha_low == 0
+            || alpha_high == 0
+        {
+            // Return 0 for both 'a' and 'b' when consensus values are equal
+            return (I32F32::from_num(0.0), I32F32::from_num(0.0));
+        }
+
         // Calculate the slope 'a' of the logistic function.
         // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
         let a = (safe_ln(
@@ -878,16 +893,16 @@ impl<T: Config> Pallet<T> {
                 // Calculate the exponent value for the logistic function.
                 // exp_val = exp(b - a * c)
                 let exp_val = safe_exp(b.saturating_sub(a.saturating_mul(*c)));
-                
+
                 // Compute the alpha value using the logistic function formula.
                 // alpha = 1 / (1 + exp_val)
                 I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
             })
             .collect();
-        
+
         // Log the computed alpha values for debugging purposes.
         log::trace!("alpha: {:?}", alpha);
-        
+
         // Return the computed alpha values.
         alpha
     }
@@ -912,7 +927,8 @@ impl<T: Config> Pallet<T> {
                 // First, clamp the value to ensure it does not exceed the upper bound (alpha_high).
                 // If 'a' is greater than 'alpha_high', it will be set to 'alpha_high'.
                 // If 'a' is less than or equal to 'alpha_high', it remains unchanged.
-                let clamped_a = a.min(&alpha_high)
+                let clamped_a = a
+                    .min(&alpha_high)
                     // Next, clamp the value to ensure it does not go below the lower bound (alpha_low).
                     // If the value (after the first clamping) is less than 'alpha_low', it will be set to 'alpha_low'.
                     // If the value is greater than or equal to 'alpha_low', it remains unchanged.
@@ -924,7 +940,7 @@ impl<T: Config> Pallet<T> {
         log::trace!("alpha_clamped: {:?}", clamped_alpha);
         clamped_alpha
     }
-    
+
     /// Compute the Exponential Moving Average (EMA) of bonds using the clamped alpha values for a sparse matrix.
     ///
     /// # Args:
@@ -941,13 +957,13 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<Vec<(u16, I32F32)>> {
         // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
         let ema_bonds = mat_ema_alpha_vec_sparse(bonds_delta, bonds, &alpha);
-        
+
         // Log the computed EMA bonds for debugging purposes.
         log::trace!(
             "Exponential Moving Average Bonds Liquid Alpha: {:?}",
             ema_bonds
         );
-        
+
         // Return the computed EMA bonds.
         ema_bonds
     }
@@ -968,13 +984,13 @@ impl<T: Config> Pallet<T> {
     ) -> Vec<Vec<I32F32>> {
         // Compute the Exponential Moving Average (EMA) of bonds using the provided clamped alpha values.
         let ema_bonds = mat_ema_alpha_vec(bonds_delta, bonds, &alpha);
-        
+
         // Log the computed EMA bonds for debugging purposes.
         log::trace!(
             "Exponential Moving Average Bonds Liquid Alpha: {:?}",
             ema_bonds
         );
-        
+
         // Return the computed EMA bonds.
         ema_bonds
     }
@@ -996,18 +1012,18 @@ impl<T: Config> Pallet<T> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
-        
+
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
         let alpha: I32F32 =
             I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
-        
+
         // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
         let ema_bonds = mat_ema_sparse(bonds_delta, bonds, alpha);
-        
+
         // Log the computed EMA bonds for debugging purposes.
         log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
-        
+
         // Return the computed EMA bonds.
         ema_bonds
     }
@@ -1029,18 +1045,18 @@ impl<T: Config> Pallet<T> {
         // Retrieve the bonds moving average for the given network ID and scale it down.
         let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
             .saturating_div(I64F64::from_num(1_000_000));
-        
+
         // Calculate the alpha value for the EMA calculation.
         // Alpha is derived by subtracting the scaled bonds moving average from 1.
         let alpha: I32F32 =
             I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
-        
+
         // Compute the Exponential Moving Average (EMA) of bonds using the calculated alpha value.
         let ema_bonds = mat_ema(bonds_delta, bonds, alpha);
-        
+
         // Log the computed EMA bonds for debugging purposes.
         log::trace!("Exponential Moving Average Bonds Normal: {:?}", ema_bonds);
-        
+
         // Return the computed EMA bonds.
         ema_bonds
     }
@@ -1074,7 +1090,7 @@ impl<T: Config> Pallet<T> {
             // Further check if the high and low consensus values meet the required conditions.
             if (consensus_high > consensus_low) && consensus_high != 0 && consensus_low != 0 {
                 // if (consensus_high > consensus_low) || consensus_high != 0) || consensus_low != 0 {
-                    // if (consensus_high > consensus_low) || consensus_low != 0 {
+                // if (consensus_high > consensus_low) || consensus_low != 0 {
                 log::trace!("Using Liquid Alpha");
 
                 // Get the high and low alpha values for the network.
