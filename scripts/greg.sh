@@ -39,7 +39,7 @@ echo "*** Previous chainstate purged"
 
 echo "*** Starting localnet nodes..."
 export RUST_LOG=subtensor=trace
-alice_start=(
+validator1_start=(
   "$BASE_DIR/target/release/node-subtensor"
   --base-path /tmp/validator1
   --chain="$FULL_PATH"
@@ -54,7 +54,7 @@ alice_start=(
   --discover-local
 )
 
-bob_start=(
+validator2_start=(
   "$BASE_DIR"/target/release/node-subtensor
   --base-path /tmp/validator2
   --chain="$FULL_PATH"
@@ -100,8 +100,8 @@ insert_validator_2_gran_key=( "$BASE_DIR"/target/release/node-subtensor key inse
 trap 'pkill -P $$' EXIT SIGINT SIGTERM
 
 (
-  ("${alice_start[@]}" 2>&1) &
-  ("${bob_start[@]}" 2>&1) &
+  ("${validator1_start[@]}" 2>&1) &
+  ("${validator2_start[@]}" 2>&1) &
   ("${insert_validator_1_aura_key[@]}" 2>&1) &
   ("${insert_validator_1_gran_key[@]}" 2>&1) &
   ("${insert_validator_2_aura_key[@]}" 2>&1) &
