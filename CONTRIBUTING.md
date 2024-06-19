@@ -15,9 +15,9 @@
    add appropriate labels to your PR as shown below. Three positive reviews are required.
 4. Once the required passing reviews have been obtained, you are ready to request that your PR
    be included in the next `devnet` deploy. To do this, you should open a companion PR merging
-   your branch into the `devnet-ready` branch. You must include a link to the parent PR in the
-   description and preface your PR title with "(Devnet Ready)" or the PR will be
-   closed/ignored.
+   a copy of your branch into the `devnet-ready` branch. You must include a link to the parent
+   PR in the description and preface your PR title with "(Devnet Ready)" or the PR will be
+   closed/ignored. Your companion PR should have the `devnet-companion` label.
 5. A core team administrator will review your "(Devnet Ready)" PR, verifying that it logically
    matches the changes introduced in the parent PR (there will sometimes be minor differences
    due to merge conflicts) and will either request changes or approve the PR and merge it. Once
