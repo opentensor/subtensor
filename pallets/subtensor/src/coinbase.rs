@@ -81,7 +81,9 @@ impl<T: Config> Pallet<T> {
                 if SubnetOwner::<T>::contains_key(netuid) { // Does the subnet have an owner?
 
                     // --- 4.4.1 Compute the subnet owner cut.
-                    let owner_cut: I96F32 = I96F32::from_num( subnet_emission ) * (I96F32::from_num( Self::get_subnet_owner_cut() ) / I96F32::from_num(u16::MAX));
+                    let owner_cut: I96F32 = I96F32::from_num( subnet_emission ).saturating_mul( 
+                        I96F32::from_num( Self::get_subnet_owner_cut() ).saturating_div(  I96F32::from_num(u16::MAX) )
+                    );
 
                     // --- 4.4.2 Remove the cut from the subnet emission
                     subnet_emission = subnet_emission.saturating_sub( owner_cut.to_num::<u64>() );

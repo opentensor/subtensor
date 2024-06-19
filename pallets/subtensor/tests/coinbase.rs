@@ -1,7 +1,7 @@
 use crate::mock::*;
 mod mock;
 use sp_core::U256;
-
+use substrate_fixed::types::{I64F64, I96F32};
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
