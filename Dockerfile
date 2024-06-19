@@ -39,7 +39,6 @@ COPY Cargo.lock Cargo.toml /subtensor/
 # Specs
 COPY ./snapshot.json /subtensor/snapshot.json
 COPY ./raw_spec.json /subtensor/raw_spec.json
-COPY ./raw_testspec.json /subtensor/raw_testspec.json
 
 # Copy our sources
 COPY ./node /subtensor/node
