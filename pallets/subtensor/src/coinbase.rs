@@ -69,13 +69,29 @@ impl<T: Config> Pallet<T> {
             if Self::should_run_epoch(*netuid, current_block) {
                 
                 // --- 4.2 Drain the subnet emission.
-                let subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
+                let mut subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
                 log::debug!("Drained subnet emission for netuid {:?}: {:?}", *netuid, subnet_emission);
 
                 // --- 4.3 Set last step counter.
                 Self::set_blocks_since_last_step( *netuid, 0 );
                 Self::set_last_mechanism_step_block( *netuid, current_block );    
+
+                // --- 4.4 Distribute owner take.
+                if SubnetOwner::<T>::contains_key(netuid) { // Does the subnet have an owner?
+
+                    // --- 4.4.1 Compute the subnet owner cut.
+                    let owner_cut: I96F32 = I96F32::from_num( subnet_emission ) * (I96F32::from_num( Self::get_subnet_owner_cut() ) / I96F32::from_num(u16::MAX));
+
+                    // --- 4.4.2 Remove the cut from the subnet emission
+                    subnet_emission = subnet_emission.saturating_sub( owner_cut.to_num::<u64>() );
+
+                    // --- 4.4.3 Add the cut to the balance of the owner
+                    Self::add_balance_to_coldkey_account( &Self::get_subnet_owner( *netuid ), owner_cut.to_num::<u64>());
+
+                    // --- 4.4.4 Increase total issuance on the chain.
+                    Self::coinbase( owner_cut.to_num::<u64>() );
+                }
 
                 // 4.3 Pass emission through epoch() --> hotkey emission.
                 let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, subnet_emission);
@@ -115,8 +131,8 @@ impl<T: Config> Pallet<T> {
                 let total_new_tao: u64 = Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
                 log::debug!("Drained hotkey emission for hotkey {:?} on block {:?}: {:?}", hotkey, current_block, hotkey_emission);
 
-                // --- 5.3 Increase total issuance
-                TotalIssuance::<T>::put( TotalIssuance::<T>::get().saturating_add( total_new_tao ) );
+                // --- 5.3 Increase total issuance on the chain.
+                Self::coinbase( total_new_tao );
                 log::debug!("Increased total issuance by {:?}", total_new_tao);
             }
         }
