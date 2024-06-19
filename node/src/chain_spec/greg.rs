@@ -58,7 +58,7 @@ fn greg_genesis(
     _enable_println: bool,
 ) -> serde_json::Value {
     let mut balances = vec![
-        ( <AccountId32 as Ss58Codec>::from_ss58check("5GbECKBx5pMS77NZNYNq2mpNftJfNMX7bLTgKjqydn95qRkZ").unwrap(), 1000000000000u128 )
+        ( <AccountId32 as Ss58Codec>::from_ss58check("5GbECKBx5pMS77NZNYNq2mpNftJfNMX7bLTgKjqydn95qRkZ").unwrap(), 1_000_000_000u128 )
     ];
 
     let trimvirate_members: Vec<AccountId> = bounded_vec![

@@ -159,10 +159,10 @@ parameter_types! {
     pub const InitialSenateRequiredStakePercentage: u64 = 2; // 2 percent of total stake
     pub const InitialNetworkImmunityPeriod: u64 = 7200 * 7;
     pub const InitialNetworkMinAllowedUids: u16 = 128;
-    pub const InitialNetworkMinLockCost: u64 = 100_000_000_000;
+    pub const InitialNetworkMinLockCost: u64 = 500_000_000;
     pub const InitialSubnetOwnerCut: u16 = 0; // 0%. 100% of rewards go to validators + miners.
     pub const InitialNetworkLockReductionInterval: u64 = 2; // 2 blocks.
-    pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
+    pub const InitialSubnetLimit: u16 = 100000; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
     pub const InitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3;
