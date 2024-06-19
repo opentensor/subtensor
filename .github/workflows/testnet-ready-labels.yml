@@ -1,8 +1,8 @@
-name: devnet-companion Label Check
+name: testnet-companion Label Check
 on:
   pull_request:
     types: [opened, labeled, unlabeled, synchronize]
-    branches: [devnet-ready]
+    branches: [testnet-ready]
 jobs:
   check-labels:
     runs-on: ubuntu-latest
@@ -14,4 +14,4 @@ jobs:
         with:
           mode: minimum
           count: 1
-          labels: devnet-companion
+          labels: testnet-companion
