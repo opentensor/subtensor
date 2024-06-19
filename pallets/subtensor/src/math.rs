@@ -1,5 +1,6 @@
-use num_traits::float::Float as _;
+use num_traits::float::Float;
 use sp_runtime::traits::CheckedAdd;
+use sp_std::cmp::Ordering;
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64};
@@ -1151,18 +1152,24 @@ pub fn mat_ema_alpha_vec_sparse(
     old: &[Vec<(u16, I32F32)>],
     alpha: &[I32F32],
 ) -> Vec<Vec<(u16, I32F32)>> {
+    // Ensure the new and old matrices have the same number of rows.
     assert!(new.len() == old.len());
-    let n = new.len(); // assume square matrix, rows=cols
+    let n = new.len(); // Assume square matrix, rows=cols
     let zero: I32F32 = I32F32::from_num(0.0);
     let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
 
+    // Iterate over each row of the matrices.
     for i in 0..new.len() {
+        // Initialize a row of zeros for the result matrix.
         let mut row: Vec<I32F32> = vec![zero; n];
 
+        // Process the new matrix values.
         for (j, value) in new[i].iter() {
+            // Retrieve the alpha value for the current column.
             let alpha_val: I32F32 = alpha[*j as usize];
+            // Compute the EMA component for the new value.
             row[*j as usize] = alpha_val * value;
-            log::debug!(
+            log::trace!(
                 "new[{}][{}] * alpha[{}] = {} * {} = {}",
                 i,
                 j,
@@ -1173,11 +1180,15 @@ pub fn mat_ema_alpha_vec_sparse(
             );
         }
 
+        // Process the old matrix values.
         for (j, value) in old[i].iter() {
+            // Retrieve the alpha value for the current column.
             let alpha_val: I32F32 = alpha[*j as usize];
+            // Calculate the complement of the alpha value.
             let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha_val;
+            // Compute the EMA component for the old value and add it to the row.
             row[*j as usize] += one_minus_alpha * value;
-            log::debug!(
+            log::trace!(
                 "old[{}][{}] * (1 - alpha[{}]) = {} * {} = {}",
                 i,
                 j,
@@ -1188,40 +1199,58 @@ pub fn mat_ema_alpha_vec_sparse(
             );
         }
 
+        // Collect the non-zero values into the result matrix.
         for (j, value) in row.iter().enumerate() {
             if *value > zero {
                 result[i].push((j as u16, *value));
-                log::info!("result[{}][{}] = {}", i, j, value);
+                log::trace!("result[{}][{}] = {}", i, j, value);
             }
         }
     }
 
+    // Return the computed EMA sparse matrix.
     result
 }
+
 /// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
-/// `alpha_` is the EMA coefficient passed as a vector per col.
+/// `alpha_` is the EMA coefficient passed as a vector per column.
 #[allow(dead_code)]
 pub fn mat_ema_alpha_vec(
     new: &Vec<Vec<I32F32>>,
     old: &Vec<Vec<I32F32>>,
     alpha: &Vec<I32F32>,
 ) -> Vec<Vec<I32F32>> {
+    // Check if the new matrix is empty or its first row is empty.
     if new.is_empty() || new[0].is_empty() {
         return vec![vec![]; 1];
     }
+
+    // Ensure the dimensions of the new and old matrices match.
     assert!(new.len() == old.len());
     assert!(new[0].len() == alpha.len());
 
+    // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
     let mut result: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); new[0].len()]; new.len()];
 
+    // Iterate over each row of the matrices.
     for i in 0..new.len() {
+        // Ensure the current row of the new and old matrices have the same length.
         assert!(new[i].len() == old[i].len());
+
+        // Iterate over each column of the current row.
         for j in 0..new[i].len() {
+            // Retrieve the alpha value for the current column.
             let alpha_val = alpha[j];
+
+            // Calculate the complement of the alpha value.
             let one_minus_alpha = I32F32::from_num(1.0) - alpha_val;
+
+            // Compute the EMA for the current element.
             result[i][j] = alpha_val * new[i][j] + one_minus_alpha * old[i][j];
         }
     }
+
+    // Return the computed EMA matrix.
     result
 }
 
@@ -1229,13 +1258,13 @@ pub fn mat_ema_alpha_vec(
 pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
     // Clone the input data to avoid modifying the original vector.
     let mut sorted_data = data.clone();
-    
+
     // Sort the cloned data in ascending order, handling potential NaN values.
-    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
     // Get the length of the sorted data.
     let len = sorted_data.len();
-    
+
     // If the data is empty, return 0 as the quantile value.
     if len == 0 {
         return I32F32::from_num(0);
@@ -1243,10 +1272,10 @@ pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
 
     // Calculate the position in the sorted array corresponding to the quantile.
     let pos = quantile * (len - 1) as f64;
-    
+
     // Determine the lower index by flooring the position.
     let low = pos.floor() as usize;
-    
+
     // Determine the higher index by ceiling the position.
     let high = pos.ceil() as usize;
 
@@ -1257,10 +1286,10 @@ pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
         // Otherwise, perform linear interpolation between the low and high values.
         let low_value = sorted_data[low];
         let high_value = sorted_data[high];
-        
+
         // Calculate the weight for interpolation.
         let weight = I32F32::from_num(pos - low as f64);
-        
+
         // Return the interpolated value.
         low_value + (high_value - low_value) * weight
     }

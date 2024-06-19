@@ -1,7 +1,7 @@
 use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
-use pallet_subtensor::Error;
+use pallet_subtensor::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
@@ -2289,6 +2289,95 @@ fn test_validator_permits() {
     }
 }
 
+#[test]
+fn test_compute_alpha_values() {
+    // Define the consensus values.
+    let consensus = vec![
+        I32F32::from_num(0.1),
+        I32F32::from_num(0.5),
+        I32F32::from_num(0.9),
+    ];
+    // Define the logistic function parameters 'a' and 'b'.
+    let a = I32F32::from_num(1.0);
+    let b = I32F32::from_num(0.0);
+
+    // Compute the alpha values using the function.
+    let alpha = SubtensorModule::compute_alpha_values(&consensus, a, b);
+
+    // Ensure the length of the alpha vector matches the consensus vector.
+    assert_eq!(alpha.len(), consensus.len());
+
+    // Manually compute the expected alpha values for each consensus value.
+    // The logistic function is: 1 / (1 + exp(b - a * c))
+    // where c is the consensus value.
+
+    // For consensus[0] = 0.1:
+    // exp_val = exp(0.0 - 1.0 * 0.1) = exp(-0.1)
+    // alpha[0] = 1 / (1 + exp(-0.1)) ~ 0.9048374180359595
+    let exp_val_0 = I32F32::from_num(0.9048374180359595);
+    let expected_alpha_0 = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_0));
+
+    // For consensus[1] = 0.5:
+    // exp_val = exp(0.0 - 1.0 * 0.5) = exp(-0.5)
+    // alpha[1] = 1 / (1 + exp(-0.5)) ~ 0.6065306597126334
+    let exp_val_1 = I32F32::from_num(0.6065306597126334);
+    let expected_alpha_1 = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_1));
+
+    // For consensus[2] = 0.9:
+    // exp_val = exp(0.0 - 1.0 * 0.9) = exp(-0.9)
+    // alpha[2] = 1 / (1 + exp(-0.9)) ~ 0.4065696597405991
+    let exp_val_2 = I32F32::from_num(0.4065696597405991);
+    let expected_alpha_2 = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val_2));
+
+    // Define an epsilon for approximate equality checks.
+    let epsilon = I32F32::from_num(1e-6);
+
+    // Assert that the computed alpha values match the expected values within the epsilon.
+    assert_approx_eq(alpha[0], expected_alpha_0, epsilon);
+    assert_approx_eq(alpha[1], expected_alpha_1, epsilon);
+    assert_approx_eq(alpha[2], expected_alpha_2, epsilon);
+}
+
+
+#[test]
+fn test_clamp_alpha_values() {
+    // Define the alpha values.
+    let alpha = vec![
+        I32F32::from_num(0.1),
+        I32F32::from_num(0.5),
+        I32F32::from_num(0.9),
+    ];
+    // Define the high and low clamping values.
+    let alpha_high = I32F32::from_num(0.8);
+    let alpha_low = I32F32::from_num(0.2);
+
+    // Compute the clamped alpha values using the function.
+    let clamped_alpha = SubtensorModule::clamp_alpha_values(alpha.clone(), alpha_high, alpha_low);
+
+    // Ensure the length of the clamped alpha vector matches the original alpha vector.
+    assert_eq!(clamped_alpha.len(), alpha.len());
+
+    // Manually compute the expected clamped alpha values for each alpha value.
+    // The clamping logic is: max(alpha_low, min(alpha_high, a))
+
+    // For alpha[0] = 0.1:
+    // clamped_a = max(0.2, min(0.8, 0.1)) = max(0.2, 0.1) = 0.2
+    let expected_clamped_alpha_0 = I32F32::from_num(0.2);
+
+    // For alpha[1] = 0.5:
+    // clamped_a = max(0.2, min(0.8, 0.5)) = max(0.2, 0.5) = 0.5
+    let expected_clamped_alpha_1 = I32F32::from_num(0.5);
+
+    // For alpha[2] = 0.9:
+    // clamped_a = max(0.2, min(0.8, 0.9)) = max(0.2, 0.8) = 0.8
+    let expected_clamped_alpha_2 = I32F32::from_num(0.8);
+
+    // Assert that the computed clamped alpha values match the expected values.
+    assert_eq!(clamped_alpha[0], expected_clamped_alpha_0);
+    assert_eq!(clamped_alpha[1], expected_clamped_alpha_1);
+    assert_eq!(clamped_alpha[2], expected_clamped_alpha_2);
+}
+
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //
 // // ```import torch
@@ -2387,3 +2476,18 @@ fn test_validator_permits() {
 //     }
 //     println!("]");
 // }
+
+/// Asserts that two I32F32 values are approximately equal within a given epsilon.
+///
+/// # Arguments
+/// * `left` - The first value to compare.
+/// * `right` - The second value to compare.
+/// * `epsilon` - The maximum allowed difference between the two values.
+fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
+    if (left - right).abs() > epsilon {
+        panic!(
+            "assertion failed: `(left ≈ right)`\n  left: `{:?}`,\n right: `{:?}`,\n epsilon: `{:?}`",
+            left, right, epsilon
+        );
+    }
+}

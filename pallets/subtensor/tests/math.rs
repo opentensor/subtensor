@@ -2343,4 +2343,3 @@ fn test_quantile() {
     let result = quantile(&data, 1.0);
     assert_eq!(result, I32F32::from_num(5.0));
 }
-
