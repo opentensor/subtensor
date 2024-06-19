@@ -53,8 +53,8 @@ pub fn greg_config() -> Result<ChainSpec, String> {
 
             // Jake 2
             authority_keys_from_ss58(
-                "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA",
-                "5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE",
+                "5GzgUJeVRFeieC3Cf4SJbVBYiNZxd3nBaNRbdu4Q4SYDGo7m",
+                "5EoywUihE5WdNtawqqnkMh3uPm5nM5zC82R2mfXMzA3VayKB",
             ),
 
             // Cole 1
