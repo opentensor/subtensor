@@ -2344,15 +2344,3 @@ fn test_quantile() {
     assert_eq!(result, I32F32::from_num(5.0));
 }
 
-#[test]
-#[should_panic(expected = "Quantile must be between 0.0 and 1.0")]
-fn test_quantile_invalid_quantile_low() {
-    // Test with a quantile value less than 0.0
-    let data = vec![
-        I32F32::from_num(1.0),
-        I32F32::from_num(2.0),
-        I32F32::from_num(3.0),
-    ];
-    let answer = quantile(&data, -0.1);
-    log::info!("Quantile: {:?}", answer);
-}

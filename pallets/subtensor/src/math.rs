@@ -1227,24 +1227,41 @@ pub fn mat_ema_alpha_vec(
 
 /// Return the quantile of a vector of I32F32 values.
 pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
+    // Clone the input data to avoid modifying the original vector.
     let mut sorted_data = data.clone();
-    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    
+    // Sort the cloned data in ascending order, handling potential NaN values.
+    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
+    // Get the length of the sorted data.
     let len = sorted_data.len();
+    
+    // If the data is empty, return 0 as the quantile value.
     if len == 0 {
         return I32F32::from_num(0);
     }
 
+    // Calculate the position in the sorted array corresponding to the quantile.
     let pos = quantile * (len - 1) as f64;
+    
+    // Determine the lower index by flooring the position.
     let low = pos.floor() as usize;
+    
+    // Determine the higher index by ceiling the position.
     let high = pos.ceil() as usize;
 
+    // If the low and high indices are the same, return the value at that index.
     if low == high {
         sorted_data[low]
     } else {
+        // Otherwise, perform linear interpolation between the low and high values.
         let low_value = sorted_data[low];
         let high_value = sorted_data[high];
+        
+        // Calculate the weight for interpolation.
         let weight = I32F32::from_num(pos - low as f64);
+        
+        // Return the interpolated value.
         low_value + (high_value - low_value) * weight
     }
 }
