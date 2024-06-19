@@ -408,7 +408,7 @@ impl<T: Config> Pallet<T> {
         }
         weights.iter_mut().for_each(|x| {
             *x = (*x as u64)
-                .saturating_mul(u16::max_value() as u64)
+                .saturating_mul(u16::MAX as u64)
                 .saturating_div(sum) as u16;
         });
         weights
