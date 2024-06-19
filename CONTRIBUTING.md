@@ -86,11 +86,13 @@
 | `runtime` | PR contains substantive changes to runtime / pallet code | none |
 | `breaking-change` | PR requires synchronized changes with bittensor | Triggers an automatic bot message so the relevant teams are made aware of the change well in advance |
 | `migration` | PR contains one or more migrations | none |
+| `devnet-companion` | Designates a devnet companion PR | Presence of `devnet-companion` label is checked |
 | `devnet-ready` | PR's branch has been merged into the `devnet-ready` branch and will be included in the next `devnet` deploy | none |
 | `on-devnet` | PR has been deployed to `devnet` | Removes `devnet-ready` |
 | `devnet-pass` | PR has passed manual testing on `devnet` | `devnet-pass` or `devnet-skip` required |
 | `devnet-skip` | Allows a critical hotfix PR to skip required testing on `devnet` | `devnet-pass` or `devnet-skip` required |
 | `devnet-fail` | PR has failed manual testing on `devnet` and requires modification | none |
+| `testnet-companion` | Designates a testnet companion PR | Presence of `testnet-companion` label is checked |
 | `on-testnet` | PR has been deployed to `testnet` | none |
 | `testnet-pass` | PR has passed manual testing on `testnet` | `testnet-pass` or `testnet-skip` required |
 | `testnet-skip` | Allows a critical hotfix PR to skip required manual testing and SOP on `testnet` | `testnet-pass` or `testnet-skip` required |
