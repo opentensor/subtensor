@@ -145,25 +145,22 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
-// #[cfg(not(feature = "fast-blocks"))]
 // pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
-#[cfg(not(feature = "fast-blocks"))]
-pub const SUBNET_CREATOR_LOCK: u64 = 7 * 7200 * 3; // 3 months
+// #[cfg(not(feature = "fast-blocks"))]
+// pub const SUBNET_CREATOR_LOCK: u64 = 7 * 7200 * 3; // 3 months
 
 /// Fast blocks for development
-#[cfg(feature = "fast-blocks")]
 pub const MILLISECS_PER_BLOCK: u64 = 1000;
 
-#[cfg(feature = "fast-blocks")]
 pub const SUBNET_CREATOR_LOCK: u64 = 240; // 1 minute
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+pub const SLOT_DURATION: u64 = 1000;
 
 // Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const MINUTES: BlockNumber = 60_000 / (1000 as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 

@@ -33,17 +33,41 @@ pub fn greg_config() -> Result<ChainSpec, String> {
         // aura | grandpa
         vec![
 
-            // Key 1.
+            // Carrot 1
+            authority_keys_from_ss58(
+                "5HBsw86VeEzBQDiMWeJJyLE9dEdF7t1gwLBoVSX1pF7YzfFr",
+                "5HSgFsyEMF72xHKvWCjQ6HMj5J3Cy6GQBzQQMS2YrJBxFZk5",
+            ),
+
+            // Carrot 2
+            authority_keys_from_ss58(
+                "5Ccyfzo6GsW9exYfi2hNCbDsN4in6pcVNZ3wv5TVEJWww9nm",
+                "5EmuLLKtsP9duyFSwkdRgbizof5BZ6Gm5wHNGLBJzwQhntfz",
+            ),
+
+            // Jake 1
             authority_keys_from_ss58(
                 "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA",
                 "5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE",
             ),
 
-            // Key 2.
+            // Jake 2
             authority_keys_from_ss58(
-                "5GzgUJeVRFeieC3Cf4SJbVBYiNZxd3nBaNRbdu4Q4SYDGo7m",
-                "5EoywUihE5WdNtawqqnkMh3uPm5nM5zC82R2mfXMzA3VayKB",
+                "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA",
+                "5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE",
             ),
+
+            // Cole 1
+            authority_keys_from_ss58(
+                "5Gq4RDoMYSvgvU4mcyDRt17JUpjnbMvW6nEbptmbZzNzuTHR",
+                "5DAtZCrpE73sVPdDAcuD3NxB8KikRNkzktRUuCXed964KP3Z",
+            ),
+
+            // Cole 2
+            authority_keys_from_ss58(
+                "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA",
+                "5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE",
+            )
             
         ],
         // Pre-funded accounts
