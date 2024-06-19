@@ -1,5 +1,5 @@
 use super::*;
-use crate::system::{ensure_root, ensure_signed_or_root};
+use crate::{Error, system::{ensure_root, ensure_signed_or_root}};
 use sp_core::U256;
 use substrate_fixed::types::I32F32;
 
@@ -664,16 +664,28 @@ impl<T: Config> Pallet<T> {
         I32F32::from_num(AlphaHigh::<T>::get(netuid) as f64 / 1000.0)
     }
 
-    pub fn set_alpha_high(netuid: u16, alpha_high: u16) {
+    pub fn set_alpha_high(netuid: u16, alpha_high: u16) ->  Result<(), DispatchError>{
+        ensure!(
+            Self::get_liquid_alpha_enabled(netuid),
+            Error::<T>::LiquidAlphaDisabled
+        );
         AlphaHigh::<T>::insert(netuid, alpha_high);
+
+        Ok(())
     }
 
     pub fn get_alpha_low(netuid: u16) -> I32F32 {
         I32F32::from_num(AlphaLow::<T>::get(netuid) as f64 / 1000.0)
     }
 
-    pub fn set_alpha_low(netuid: u16, alpha_low: u16) {
+    pub fn set_alpha_low(netuid: u16, alpha_low: u16) ->  Result<(), DispatchError> {
+        ensure!(
+            Self::get_liquid_alpha_enabled(netuid),
+            Error::<T>::LiquidAlphaDisabled
+        );
         AlphaLow::<T>::insert(netuid, alpha_low);
+        
+        Ok(())
     }
 
     pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {

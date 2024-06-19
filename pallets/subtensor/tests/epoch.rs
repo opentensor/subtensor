@@ -1,10 +1,11 @@
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
+use pallet_subtensor::Error;
 mod mock;
 
 pub fn fixed(val: f32) -> I32F32 {
@@ -1323,8 +1324,8 @@ fn test_bonds_with_liquid_alpha() {
 
         // Enable Liquid Alpha
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        SubtensorModule::set_alpha_high(netuid, 900);
-        SubtensorModule::set_alpha_low(netuid, 100);
+        assert_ok!(SubtensorModule::set_alpha_high(netuid, 900));
+        assert_ok!(SubtensorModule::set_alpha_low(netuid, 100));
         // Run epoch with Liquid Alpha
         if sparse {
             SubtensorModule::epoch(netuid, 1_000_000_000);
@@ -1534,8 +1535,8 @@ fn test_bonds_with_extreme_alpha_values() {
             ));
         }
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        SubtensorModule::set_alpha_high(netuid, u16::MAX);
-        SubtensorModule::set_alpha_low(netuid, u16::MIN);
+        assert_ok!(SubtensorModule::set_alpha_high(netuid, u16::MAX));
+        assert_ok!(SubtensorModule::set_alpha_low(netuid, u16::MIN));
         // Run epoch with Liquid Alpha
         if sparse {
             SubtensorModule::epoch(netuid, 1_000_000_000);
@@ -1551,6 +1552,25 @@ fn test_bonds_with_extreme_alpha_values() {
             .iter()
             .flatten()
             .all(|&bond| bond >= 0 && bond <= 65535));
+    });
+}
+
+#[test]
+fn test_set_alpha_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo: u16 = u16::MAX - 1;
+        add_network(netuid, tempo, 0);
+
+
+        // Explicitly set to false
+        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        assert_err!(SubtensorModule::set_alpha_high(netuid, u16::MAX), Error::<Test>::LiquidAlphaDisabled);
+        assert_err!(SubtensorModule::set_alpha_low(netuid, 12_u16), Error::<Test>::LiquidAlphaDisabled);
+
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        assert_ok!(SubtensorModule::set_alpha_high(netuid, u16::MAX));
+        assert_ok!(SubtensorModule::set_alpha_low(netuid, 12_u16));
     });
 }
 

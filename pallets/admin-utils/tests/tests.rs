@@ -1195,6 +1195,11 @@ fn test_sudo_set_alpha_high() {
             Err(DispatchError::BadOrigin.into())
         );
         assert_eq!(SubtensorModule::get_alpha_high(netuid), init_value);
+        assert_ok!(
+            AdminUtils::sudo_set_liquid_alpha_enabled(<<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
         assert_ok!(AdminUtils::sudo_set_alpha_high(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
@@ -1220,6 +1225,11 @@ fn test_sudo_set_alpha_low() {
             Err(DispatchError::BadOrigin.into())
         );
         assert_eq!(SubtensorModule::get_alpha_low(netuid), init_value);
+        assert_ok!(
+            AdminUtils::sudo_set_liquid_alpha_enabled(<<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
         assert_ok!(AdminUtils::sudo_set_alpha_low(
             <<Test as Config>::RuntimeOrigin>::root(),
             netuid,
