@@ -1,4 +1,4 @@
-use num_traits::float::Float;
+use num_traits::float::Float as _;
 use sp_runtime::traits::CheckedAdd;
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
@@ -1228,15 +1228,25 @@ pub fn mat_ema_alpha_vec(
 /// Return the quantile of a vector of I32F32 values.
 pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
     let mut sorted_data = data.clone();
-    sorted_data.sort_by(|a, b| a.cmp(b));
+    sorted_data.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
     let len = sorted_data.len();
-    let target_idx = Float::floor(quantile * (len - 1) as f64) as usize;
+    if len == 0 {
+        return I32F32::from_num(0);
+    }
 
-    sorted_data.into_iter().nth(target_idx).unwrap_or_else(|| {
-        // This should never happen due to the assertions, but we provide a fallback.
-        I32F32::from_num(0)
-    })
+    let pos = quantile * (len - 1) as f64;
+    let low = pos.floor() as usize;
+    let high = pos.ceil() as usize;
+
+    if low == high {
+        sorted_data[low]
+    } else {
+        let low_value = sorted_data[low];
+        let high_value = sorted_data[high];
+        let weight = I32F32::from_num(pos - low as f64);
+        low_value + (high_value - low_value) * weight
+    }
 }
 
 // TODO: Go over business logic to ensure the fallback is correct.

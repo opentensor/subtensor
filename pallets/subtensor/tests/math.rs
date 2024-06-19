@@ -2333,7 +2333,7 @@ fn test_quantile() {
 
     // Test 66th quantile
     let result = quantile(&data, 0.66);
-    assert_eq!(result, I32F32::from_num(4.0));
+    assert_eq!(result, I32F32::from_num(3.64));
 
     // Test 75th quantile
     let result = quantile(&data, 0.75);
