@@ -8,7 +8,7 @@ volumes:
 
 services:
   common: &common
-    image: opentensor/subtensor:latest
+    image: ghcr.io/opentensor/subtensor:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -40,8 +40,8 @@ services:
           --base-path /tmp/blockchain \
           --chain raw_spec.json \
           --rpc-external --rpc-cors all \
-          --ws-external --no-mdns \
-          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --no-mdns \
+          --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
           --sync warp
 
@@ -58,8 +58,8 @@ services:
           --base-path /tmp/blockchain \
           --chain raw_spec.json \
           --rpc-external --rpc-cors all \
-          --ws-external --no-mdns \
-          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --no-mdns \
+          --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC \
           --pruning=archive
 
@@ -76,8 +76,8 @@ services:
           --base-path /tmp/blockchain \
           --chain raw_testspec.json \
           --rpc-external --rpc-cors all \
-          --ws-external --no-mdns \
-          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --no-mdns \
+          --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
           --sync warp
           --reserved-nodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
@@ -96,8 +96,8 @@ services:
           --base-path /tmp/blockchain \
           --chain raw_testspec.json \
           --rpc-external --rpc-cors all \
-          --ws-external --no-mdns \
-          --ws-max-connections 10000 --in-peers 500 --out-peers 500 \
+          --no-mdns \
+          --in-peers 500 --out-peers 500 \
           --bootnodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
           --pruning=archive
           --reserved-nodes /dns/bootnode.test.finney.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr \
