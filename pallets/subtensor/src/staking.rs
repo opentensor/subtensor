@@ -343,7 +343,7 @@ impl<T: Config> Pallet<T> {
         Self::set_last_tx_block(&coldkey, block);
 
         // Set the last add stake increase.
-        LastAddStakeIncrease::<T>::insert( hotkey.clone(), coldkey.clone(), block );
+        LastAddStakeIncrease::<T>::insert(hotkey.clone(), coldkey.clone(), block);
 
         // Emit the staking event.
         Self::set_stakes_this_interval_for_coldkey_hotkey(

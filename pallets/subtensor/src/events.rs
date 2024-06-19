@@ -134,5 +134,7 @@ mod events {
         TargetStakesPerIntervalSet(u64),
         /// a child has been added to a hotkey on network with proportion.
         SetChildSingular(T::AccountId, T::AccountId, u16, u64),
+        /// a child has been revoked from a hotkey on network.
+        RevokeChildSingular(T::AccountId, T::AccountId, u16),
     }
 }

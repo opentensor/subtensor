@@ -2051,7 +2051,6 @@ fn test_rate_limits_enforced_on_increase_take() {
     });
 }
 
-
 // DEPRECATED
 // SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking test_full_with_delegating -- --nocapture
 // #[test]

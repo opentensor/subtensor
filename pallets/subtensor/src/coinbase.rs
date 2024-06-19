@@ -29,7 +29,6 @@ impl<T: Config> Pallet<T> {
     // Finally, the emissions received by hotkeys are further distributed to their nominators,
     // who are stakeholders that support the hotkeys.
     pub fn run_coinbase() {
-        
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
@@ -42,7 +41,9 @@ impl<T: Config> Pallet<T> {
         // coinbase --> root() --> subnet_block_emission
         match Self::root_epoch(current_block) {
             Ok(_) => log::debug!("Root epoch run successfully for block: {:?}", current_block),
-            Err(e) => { log::trace!("Did not run epoch with: {:?}", e); }
+            Err(e) => {
+                log::trace!("Did not run epoch with: {:?}", e);
+            }
         }
 
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
@@ -51,12 +52,20 @@ impl<T: Config> Pallet<T> {
             // --- 3.1 Get the network's block-wise emission amount.
             // This value is newly minted TAO which has not reached staking accounts yet.
             let subnet_blockwise_emission: u64 = EmissionValues::<T>::get(*netuid);
-            log::debug!("Subnet block-wise emission for netuid {:?}: {:?}", *netuid, subnet_blockwise_emission);
+            log::debug!(
+                "Subnet block-wise emission for netuid {:?}: {:?}",
+                *netuid,
+                subnet_blockwise_emission
+            );
 
             // --- 3.2 Accumulate the subnet emission on the subnet.
             PendingEmission::<T>::mutate(*netuid, |subnet_emission| {
                 *subnet_emission = subnet_emission.saturating_add(subnet_blockwise_emission);
-                log::debug!("Updated subnet emission for netuid {:?}: {:?}", *netuid, *subnet_emission);
+                log::debug!(
+                    "Updated subnet emission for netuid {:?}: {:?}",
+                    *netuid,
+                    *subnet_emission
+                );
             });
         }
 
@@ -64,40 +73,52 @@ impl<T: Config> Pallet<T> {
         // Before accumulating on the hotkeys the function redistributes the emission towards hotkey parents.
         // subnet_emission --> epoch() --> hotkey_emission --> (hotkey + parent hotkeys)
         for netuid in subnets.clone().iter() {
-
             // --- 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
-                
                 // --- 4.2 Drain the subnet emission.
                 let mut subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
-                log::debug!("Drained subnet emission for netuid {:?}: {:?}", *netuid, subnet_emission);
+                log::debug!(
+                    "Drained subnet emission for netuid {:?}: {:?}",
+                    *netuid,
+                    subnet_emission
+                );
 
                 // --- 4.3 Set last step counter.
-                Self::set_blocks_since_last_step( *netuid, 0 );
-                Self::set_last_mechanism_step_block( *netuid, current_block );    
+                Self::set_blocks_since_last_step(*netuid, 0);
+                Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 // --- 4.4 Distribute owner take.
-                if SubnetOwner::<T>::contains_key(netuid) { // Does the subnet have an owner?
+                if SubnetOwner::<T>::contains_key(netuid) {
+                    // Does the subnet have an owner?
 
                     // --- 4.4.1 Compute the subnet owner cut.
-                    let owner_cut: I96F32 = I96F32::from_num( subnet_emission ).saturating_mul( 
-                        I96F32::from_num( Self::get_subnet_owner_cut() ).saturating_div(  I96F32::from_num(u16::MAX) )
+                    let owner_cut: I96F32 = I96F32::from_num(subnet_emission).saturating_mul(
+                        I96F32::from_num(Self::get_subnet_owner_cut())
+                            .saturating_div(I96F32::from_num(u16::MAX)),
                     );
 
                     // --- 4.4.2 Remove the cut from the subnet emission
-                    subnet_emission = subnet_emission.saturating_sub( owner_cut.to_num::<u64>() );
+                    subnet_emission = subnet_emission.saturating_sub(owner_cut.to_num::<u64>());
 
                     // --- 4.4.3 Add the cut to the balance of the owner
-                    Self::add_balance_to_coldkey_account( &Self::get_subnet_owner( *netuid ), owner_cut.to_num::<u64>());
+                    Self::add_balance_to_coldkey_account(
+                        &Self::get_subnet_owner(*netuid),
+                        owner_cut.to_num::<u64>(),
+                    );
 
                     // --- 4.4.4 Increase total issuance on the chain.
-                    Self::coinbase( owner_cut.to_num::<u64>() );
+                    Self::coinbase(owner_cut.to_num::<u64>());
                 }
 
                 // 4.3 Pass emission through epoch() --> hotkey emission.
-                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, subnet_emission);
-                log::debug!("Hotkey emission results for netuid {:?}: {:?}", *netuid, hotkey_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> =
+                    Self::epoch(*netuid, subnet_emission);
+                log::debug!(
+                    "Hotkey emission results for netuid {:?}: {:?}",
+                    *netuid,
+                    hotkey_emission
+                );
 
                 // 4.4 Accumulate the tuples on hotkeys:
                 for (hotkey, mining_emission, validator_emission) in hotkey_emission {
@@ -106,7 +127,7 @@ impl<T: Config> Pallet<T> {
                         &hotkey,
                         *netuid,
                         validator_emission, // Amount received from validating
-                        mining_emission // Amount recieved from mining.
+                        mining_emission,    // Amount recieved from mining.
                     );
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
@@ -121,20 +142,26 @@ impl<T: Config> Pallet<T> {
         // hotkeys --> nominators.
         let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
         for (hotkey, hotkey_emission) in PendingdHotkeyEmission::<T>::iter() {
-
             // Check for zeros.
             // remove zero values.
-            if hotkey_emission == 0 { continue; }
+            if hotkey_emission == 0 {
+                continue;
+            }
 
             // --- 5.1 Check if we should drain the hotkey emission on this block.
-            if Self::should_drain_hotkey( &hotkey, current_block, emission_tempo ) {
-
+            if Self::should_drain_hotkey(&hotkey, current_block, emission_tempo) {
                 // --- 5.2 Drain the hotkey emission and distribute it to nominators.
-                let total_new_tao: u64 = Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
-                log::debug!("Drained hotkey emission for hotkey {:?} on block {:?}: {:?}", hotkey, current_block, hotkey_emission);
+                let total_new_tao: u64 =
+                    Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
+                log::debug!(
+                    "Drained hotkey emission for hotkey {:?} on block {:?}: {:?}",
+                    hotkey,
+                    current_block,
+                    hotkey_emission
+                );
 
                 // --- 5.3 Increase total issuance on the chain.
-                Self::coinbase( total_new_tao );
+                Self::coinbase(total_new_tao);
                 log::debug!("Increased total issuance by {:?}", total_new_tao);
             }
         }
@@ -153,10 +180,18 @@ impl<T: Config> Pallet<T> {
     /// * `mining_emission` - The amount of mining emission allocated to the hotkey.
     /// * `validator_emission` - The amount of validator emission allocated to the hotkey.
     ///
-    pub fn accumulate_hotkey_emission(hotkey: &T::AccountId, netuid: u16, validating_emission: u64, mining_emission: u64 ) {
+    pub fn accumulate_hotkey_emission(
+        hotkey: &T::AccountId,
+        netuid: u16,
+        validating_emission: u64,
+        mining_emission: u64,
+    ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey)).saturating_div(I64F64::from_num(u16::MAX));
-        let hotkey_take: u64 = take_proportion.saturating_mul(I64F64::from_num( validating_emission )).to_num::<u64>();
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
+            .saturating_div(I64F64::from_num(u16::MAX));
+        let hotkey_take: u64 = take_proportion
+            .saturating_mul(I64F64::from_num(validating_emission))
+            .to_num::<u64>();
         // NOTE: Only the validation emission should be split amongst parents.
 
         // --- 2. Compute the remaining emission after the hotkey's share is deducted.
@@ -170,11 +205,9 @@ impl<T: Config> Pallet<T> {
         // If this value is zero, no distribution to anyone is necessary.
         let total_hotkey_stake: u64 = Self::get_stake_with_children_and_parents(hotkey, netuid);
         if total_hotkey_stake != 0 {
-
             // --- 5. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
             // and calculate their share of the emission accordingly.
-            for (proportion, parent) in Self::get_parents( hotkey, netuid ) {
-
+            for (proportion, parent) in Self::get_parents(hotkey, netuid) {
                 // --- 5.1 Retrieve the parent's stake. This is the raw stake value including nominators.
                 let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
 
@@ -201,7 +234,11 @@ impl<T: Config> Pallet<T> {
 
         // --- 6. Add the remaining emission plus the hotkey's initial take to the pending emission for this hotkey.
         PendingdHotkeyEmission::<T>::mutate(hotkey, |hotkey_pending| {
-            *hotkey_pending = hotkey_pending.saturating_add( remaining_emission.saturating_add( hotkey_take ).saturating_add(mining_emission ) )
+            *hotkey_pending = hotkey_pending.saturating_add(
+                remaining_emission
+                    .saturating_add(hotkey_take)
+                    .saturating_add(mining_emission),
+            )
         });
     }
 
@@ -218,7 +255,6 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function ensures that emissions are fairly distributed according to stake proportions and delegation agreements, and it updates the necessary records to reflect these changes.
     pub fn drain_hotkey_emission(hotkey: &T::AccountId, emission: u64, block_number: u64) -> u64 {
-
         // --- 0. For accounting purposes record the total new added stake.
         let mut total_new_tao: u64 = 0;
 
@@ -273,16 +309,16 @@ impl<T: Config> Pallet<T> {
             );
 
             // --- 11* Record event and Subtract the nominator's emission from the remainder.
-            total_new_tao = total_new_tao.saturating_add( nominator_emission.to_num::<u64>() );
+            total_new_tao = total_new_tao.saturating_add(nominator_emission.to_num::<u64>());
             remainder = remainder.saturating_sub(nominator_emission.to_num::<u64>());
         }
 
         // --- 13 Finally, add the stake to the hotkey itself, including its take and the remaining emission.
         let hotkey_new_tao: u64 = hotkey_take.saturating_add(remainder);
-        Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao );
+        Self::increase_stake_on_hotkey_account(hotkey, hotkey_new_tao);
 
         // --- 14 Record new tao creation event and return the amount created.
-        total_new_tao = total_new_tao.saturating_add( hotkey_new_tao );
+        total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
         return total_new_tao;
     }
 
@@ -297,8 +333,8 @@ impl<T: Config> Pallet<T> {
     pub fn get_hotkey_emission_tempo() -> u64 {
         return HotkeyEmissionTempo::<T>::get();
     }
-    pub fn set_hotkey_emission_tempo( emission_tempo: u64 ){
-        return HotkeyEmissionTempo::<T>::set( emission_tempo );
+    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        return HotkeyEmissionTempo::<T>::set(emission_tempo);
     }
     /// Determines whether the hotkey emission should be drained based on the current block and index.
     ///
@@ -309,9 +345,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
-    pub fn should_drain_hotkey( hotkey: &T::AccountId, block: u64, emit_tempo: u64 ) -> bool {
-        let hotkey_idx: u64 = Self::hash_hotkey_to_u64( hotkey );
-        return block % ( emit_tempo + 1 )== hotkey_idx % ( emit_tempo + 1); // Return true every emit_tempo for a unique index.
+    pub fn should_drain_hotkey(hotkey: &T::AccountId, block: u64, emit_tempo: u64) -> bool {
+        let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
+        return block % (emit_tempo + 1) == hotkey_idx % (emit_tempo + 1); // Return true every emit_tempo for a unique index.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
@@ -345,5 +381,4 @@ impl<T: Config> Pallet<T> {
                 % (tempo as u64).saturating_add(1),
         )
     }
-
 }

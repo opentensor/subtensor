@@ -42,8 +42,8 @@ $BIN_PATH build-spec --disable-default-bootnode --raw --chain local > $TMP_SPEC
 # Run benchmark
 $BIN_PATH benchmark pallet \
     --chain=$TMP_SPEC \
-    --execution=native  --wasm-execution=compiled \
-    --pallet pallet-subtensor --extrinsic 'benchmark_dissolve_network' \
+    --wasm-execution=compiled \
+    --pallet pallet-subtensor --extrinsic 'benchmark_revoke_child_singular' \
     --output $OUTPUT_FILE
 
 rm $TMP_SPEC
