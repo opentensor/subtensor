@@ -173,65 +173,8 @@ impl<T: Config> Pallet<T> {
         let mut bonds_delta: Vec<Vec<I32F32>> = row_hadamard(&weights, &active_stake); // ΔB = W◦S
         inplace_col_normalize(&mut bonds_delta); // sum_i b_ij = 1
         log::trace!("ΔB:\n{:?}\n", &bonds_delta);
-        let mut ema_bonds: Vec<Vec<I32F32>>;
-        // Compute bonds moving average.
-        let consensus_high = quantile(&consensus, 0.75);
-        let consensus_low = quantile(&consensus, 0.25);
-        // We want to ensure that it is impossible for this function to panic.
-        // We perform the following checks:
-        // If Liquid Alpha is enabled AND
-        // - consensus_high > consensus_low
-        // - consensus_high != 0
-        // - consensus_low != 0
-        if LiquidAlphaOn::<T>::get(netuid)
-            && ((consensus_high > consensus_low) || consensus_high != 0 || consensus_low != 0)
-        {
-            let alpha_high = Self::get_alpha_high(netuid);
-            let alpha_low = Self::get_alpha_low(netuid);
-
-            let a = (safe_ln(
-                I32F32::from_num(1.0)
-                    .saturating_div(alpha_high)
-                    .saturating_sub(I32F32::from_num(1.0)),
-            )
-            .saturating_sub(safe_ln(
-                I32F32::from_num(1.0)
-                    .saturating_div(alpha_low)
-                    .saturating_sub(I32F32::from_num(1.0)),
-            )))
-            .saturating_div(consensus_low.saturating_sub(consensus_high));
-            let b = safe_ln(
-                I32F32::from_num(1.0)
-                    .saturating_div(alpha_low)
-                    .saturating_sub(I32F32::from_num(1.0)),
-            )
-            .saturating_add(a.saturating_mul(consensus_low));
-
-            let alpha: Vec<I32F32> = consensus
-                .iter()
-                .map(|c| {
-                    let exp_val = safe_exp(b.saturating_sub(a.saturating_mul(*c)));
-                    I32F32::from_num(1.0)
-                        .saturating_div(I32F32::from_num(1.0).saturating_add(exp_val))
-                })
-                .collect();
-
-            let alpha: Vec<I32F32> = alpha
-                .iter()
-                .map(|a| {
-                    let clamped_a = a.max(&alpha_high).min(&alpha_low);
-                    I32F32::from_num(1.0).saturating_sub(*clamped_a)
-                })
-                .collect();
-            ema_bonds = mat_ema_alpha_vec(&bonds_delta, &bonds, &alpha);
-        } else {
-            // Compute bonds moving average.
-            let bonds_moving_average: I64F64 =
-                I64F64::from_num(Self::get_bonds_moving_average(netuid))
-                    / I64F64::from_num(1_000_000);
-            let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num(bonds_moving_average);
-            ema_bonds = mat_ema(&bonds_delta, &bonds, alpha);
-        }
+        // Compute the Exponential Moving Average (EMA) of bonds.
+        let mut ema_bonds = Self::compute_ema_bonds(netuid, consensus.clone(), bonds_delta, bonds);
 
         inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
         log::trace!("emaB:\n{:?}\n", &ema_bonds);
