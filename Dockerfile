@@ -60,5 +60,4 @@ FROM $BASE_IMAGE AS subtensor
 
 COPY --from=builder /subtensor/snapshot.json /
 COPY --from=builder /subtensor/raw_spec.json /
-COPY --from=builder /subtensor/raw_testspec.json /
 COPY --from=builder /subtensor/target/release/node-subtensor /usr/local/bin
