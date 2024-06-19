@@ -47,6 +47,7 @@ impl SubstrateCli for Cli {
     fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
         Ok(match id {
             "local" => Box::new(chain_spec::localnet::localnet_config()?),
+            "greg" => Box::new(chain_spec::greg::greg_config()?),
             "finney" => Box::new(chain_spec::finney::finney_mainnet_config()?),
             "" | "test_finney" => Box::new(chain_spec::testnet::finney_testnet_config()?),
             path => Box::new(chain_spec::ChainSpec::from_json_file(

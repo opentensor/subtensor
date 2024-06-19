@@ -1,0 +1,39 @@
+
+Aura: 1 ( Sr25 )
+Secret phrase:       subject one mention gown inside fluid recycle essence hair robot ozone point
+  Network ID:        substrate
+  Secret seed:       0x5df50c19542a4fddb105c09c141be0cf46d1787e4d4425611221f38fb4f6ee77
+  Public key (hex):  0xfc321fc89c6405affc95ed7dc70324396e091aac6a53371b390f162eb938b607
+  Account ID:        0xfc321fc89c6405affc95ed7dc70324396e091aac6a53371b390f162eb938b607
+  Public key (SS58): 5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA
+  SS58 Address:      5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA
+
+
+Grandam: 1 ( Ed25 )
+Secret phrase:       subject one mention gown inside fluid recycle essence hair robot ozone point
+  Network ID:        substrate
+  Secret seed:       0x5df50c19542a4fddb105c09c141be0cf46d1787e4d4425611221f38fb4f6ee77
+  Public key (hex):  0x344d3c7f4ac19ac5e687bbcde9f36b38253224eac13fc94d9aaf763ca37a9c27
+  Account ID:        0x344d3c7f4ac19ac5e687bbcde9f36b38253224eac13fc94d9aaf763ca37a9c27
+  Public key (SS58): 5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE
+  SS58 Address:      5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE
+
+
+Aura: 2 ( Sr25 )
+Secret phrase:       coach force devote mule oppose awesome type pelican bone concert tiger reduce
+  Network ID:        substrate
+  Secret seed:       0xaf52ed63d30bf8828604d5852abecc8a6f4436a3966c1acfd8928facd6d6cab8
+  Public key (hex):  0xda1b85784904ec90500e31dc28f692fc38a05b5387e7b29d4e0ed8ea32d1f56c
+  Account ID:        0xda1b85784904ec90500e31dc28f692fc38a05b5387e7b29d4e0ed8ea32d1f56c
+  Public key (SS58): 5GzgUJeVRFeieC3Cf4SJbVBYiNZxd3nBaNRbdu4Q4SYDGo7m
+  SS58 Address:      5GzgUJeVRFeieC3Cf4SJbVBYiNZxd3nBaNRbdu4Q4SYDGo7m
+
+
+Grandam: 2 ( Ed25 )
+Secret phrase:       coach force devote mule oppose awesome type pelican bone concert tiger reduce
+  Network ID:        substrate
+  Secret seed:       0xaf52ed63d30bf8828604d5852abecc8a6f4436a3966c1acfd8928facd6d6cab8
+  Public key (hex):  0x797a28c587f251d8b9a9ce12c31cfb77adf531587bc98ae5eaf244f63985587e
+  Account ID:        0x797a28c587f251d8b9a9ce12c31cfb77adf531587bc98ae5eaf244f63985587e
+  Public key (SS58): 5EoywUihE5WdNtawqqnkMh3uPm5nM5zC82R2mfXMzA3VayKB
+  SS58 Address:      5EoywUihE5WdNtawqqnkMh3uPm5nM5zC82R2mfXMzA3VayKB

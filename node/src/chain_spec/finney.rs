@@ -39,10 +39,10 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
                 .map_err(|e| e.to_string())?;
             let hotkey_account = sp_runtime::AccountId32::from(hotkey);
 
-            processed_hotkeys.push((hotkey_account, (*amount, *uid)));
+            // processed_hotkeys.push((hotkey_account, (*amount, *uid)));
         }
 
-        processed_stakes.push((coldkey_account, processed_hotkeys));
+        // processed_stakes.push((coldkey_account, processed_hotkeys));
     }
 
     let mut balances_issuance: u64 = 0;
@@ -52,7 +52,7 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
             <sr25519::Public as Ss58Codec>::from_ss58check(key_str).map_err(|e| e.to_string())?;
         let key_account = sp_runtime::AccountId32::from(key);
 
-        processed_balances.push((key_account, *amount));
+        // processed_balances.push((key_account, *amount));
         balances_issuance += *amount;
     }
 

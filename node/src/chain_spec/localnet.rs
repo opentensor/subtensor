@@ -32,9 +32,19 @@ pub fn localnet_config() -> Result<ChainSpec, String> {
         // Initial PoA authorities (Validators)
         // aura | grandpa
         vec![
-            // Keys for debug
-            authority_keys_from_seed("Alice"),
-            authority_keys_from_seed("Bob"),
+
+            // Key 1.
+            authority_keys_from_ss58(
+                "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
+                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
+            ),
+
+            // Key 2.
+            authority_keys_from_ss58(
+                "5D5ABUyMsdmJdH7xrsz9vREq5eGXr5pXhHxix2dENQR62dEo",
+                "5H3qMjQjoeZxZ98jzDmoCwbz2sugd5fDN1wrr8Phf49zemKL",
+            ),
+            
         ],
         // Pre-funded accounts
         true,

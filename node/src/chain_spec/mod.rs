@@ -4,6 +4,7 @@
 pub mod finney;
 pub mod localnet;
 pub mod testnet;
+pub mod greg;
 
 use node_subtensor_runtime::{AccountId, Block, RuntimeGenesisConfig, Signature, WASM_BINARY};
 use sc_chain_spec_derive::ChainSpecExtension;
