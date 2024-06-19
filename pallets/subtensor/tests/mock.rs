@@ -1,7 +1,9 @@
-use frame_support::derive_impl;
-use frame_support::dispatch::DispatchResultWithPostInfo;
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+
 use frame_support::{
-    assert_ok, parameter_types,
+    assert_ok, derive_impl,
+    dispatch::DispatchResultWithPostInfo,
+    parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
