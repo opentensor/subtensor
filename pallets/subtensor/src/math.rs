@@ -252,7 +252,7 @@ pub fn inplace_normalize(x: &mut [I32F32]) {
     if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    x.into_iter()
+    x.iter_mut()
         .for_each(|value| *value = value.saturating_div(x_sum));
 }
 
@@ -262,7 +262,7 @@ pub fn inplace_normalize_using_sum(x: &mut [I32F32], x_sum: I32F32) {
     if x_sum == I32F32::from_num(0.0_f32) {
         return;
     }
-    x.into_iter()
+    x.iter_mut()
         .for_each(|value| *value = value.saturating_div(x_sum));
 }
 
@@ -273,7 +273,7 @@ pub fn inplace_normalize_64(x: &mut [I64F64]) {
     if x_sum == I64F64::from_num(0) {
         return;
     }
-    x.into_iter()
+    x.iter_mut()
         .for_each(|value| *value = value.saturating_div(x_sum));
 }
 
@@ -311,7 +311,7 @@ pub fn inplace_row_normalize(x: &mut [Vec<I32F32>]) {
     for row in x {
         let row_sum: I32F32 = row.iter().sum();
         if row_sum > I32F32::from_num(0.0_f32) {
-            row.into_iter()
+            row.iter_mut()
                 .for_each(|x_ij: &mut I32F32| *x_ij = x_ij.saturating_div(row_sum));
         }
     }
@@ -622,7 +622,7 @@ pub fn row_hadamard(matrix: &[Vec<I32F32>], vector: &[I32F32]) -> Vec<Vec<I32F32
         .iter()
         .zip(vector)
         .map(|(row, vec_val)| {
-            row.into_iter()
+            row.iter()
                 .map(|m_val| vec_val.saturating_mul(*m_val))
                 .collect()
         })
@@ -640,7 +640,7 @@ pub fn row_hadamard_sparse(
         .zip(vector)
         .map(|(sparse_row, vec_val)| {
             sparse_row
-                .into_iter()
+                .iter()
                 .map(|(j, value)| (*j, value.saturating_mul(*vec_val)))
                 .collect()
         })
