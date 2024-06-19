@@ -13,8 +13,8 @@ raw_spec_finney_temp=$(mktemp)
 raw_spec_testfinney_temp=$(mktemp)
 
 # Save old genesis state before doing anything
-jq -r ".genesis" /tmp/raw_spec_finney.json.old >"$finney_genesis_temp"
-jq -r ".genesis" /tmp/raw_spec_testfinney.json.old >"$testfinney_genesis_temp"
+jq -r ".genesis" raw_spec_finney.json >"$finney_genesis_temp"
+jq -r ".genesis" raw_spec_testfinney.json >"$testfinney_genesis_temp"
 
 # Build new chainspecs
 ./target/debug/node-subtensor build-spec --raw --chain finney >"$raw_spec_finney_temp"
@@ -30,12 +30,8 @@ echo "*** Updating genesis..."
 # the new chain specs to ensure there are no genesis mismatch issues.
 
 # Update genesis in new chainspecs using the extracted genesis data from the temporary files
-jq --slurpfile genesis "$finney_genesis_temp" '.genesis = $genesis[0]' "$raw_spec_finney_temp" >raw_spec_finney_temp_updated
-jq --slurpfile genesis "$testfinney_genesis_temp" '.genesis = $genesis[0]' "$raw_spec_testfinney_temp" >raw_spec_testfinney_temp_updated
-
-# Success! Actually replace the raw spec files.
-mv raw_spec_finney_temp_updated raw_spec_finney.json
-mv raw_spec_testfinney_temp_updated raw_spec_testfinney.json
+jq --slurpfile genesis "$finney_genesis_temp" '.genesis = $genesis[0]' "$raw_spec_finney_temp" >raw_spec_finney.json
+jq --slurpfile genesis "$testfinney_genesis_temp" '.genesis = $genesis[0]' "$raw_spec_testfinney_temp" >raw_spec_testfinney.json
 
 # Cleanup
 rm -f "$finney_genesis_temp" "$testfinney_genesis_temp" "$raw_spec_finney_temp" "$raw_spec_testfinney_temp"

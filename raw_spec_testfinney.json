@@ -2,7 +2,9 @@
   "name": "Bittensor",
   "id": "bittensor",
   "chainType": "Development",
-  "bootNodes": [],
+  "bootNodes": [
+    "/dns/bootnode.test.chain.opentensor.ai/tcp/30333/p2p/12D3KooWPM4mLcKJGtyVtkggqdG84zWrd7Rij6PGQDoijh1X86Vr"
+  ],
   "telemetryEndpoints": null,
   "protocolId": "bittensor",
   "properties": {
@@ -10,6 +12,8 @@
     "tokenDecimals": 9,
     "tokenSymbol": "TAO"
   },
+  "forkBlocks": null,
+  "badBlocks": [],
   "codeSubstitutes": {},
   "genesis": {
     "raw": {
