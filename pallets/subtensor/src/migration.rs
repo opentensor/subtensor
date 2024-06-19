@@ -590,3 +590,39 @@ pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
     log::info!("Final weight: {:?}", weight);
     weight
 }
+
+pub fn migrate_subnet_locked_to_owner_substake<T: Config>() -> Weight {
+    let new_storage_version = 10;
+    let migration_name = "Add SubnetLocked to owner SubStake and TotalSubnetTAO";
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: {}.", migration_name);
+
+        SubnetLocked::<T>::iter().for_each(|(netuid, lock)| {
+            TotalSubnetTAO::<T>::mutate(netuid, |balance| *balance = balance.saturating_add(lock));
+            let coldkey = SubnetOwner::<T>::get(netuid);
+            let hotkey = SubnetCreator::<T>::get(netuid);
+
+            // Same as calling increase_subnet_token_on_coldkey_hotkey_account
+            TotalHotkeySubStake::<T>::mutate(&hotkey, netuid, |stake| {
+                *stake = stake.saturating_add(lock);
+            });
+            SubStake::<T>::mutate((&coldkey, &hotkey, netuid), |stake| {
+                *stake = stake.saturating_add(lock)
+            });
+            Staker::<T>::insert(hotkey, coldkey, true);            
+
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 4));
+        });
+
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+    } else {
+        log::info!("Migration already done: {}", migration_name);
+    }
+
+    log::info!("Final weight: {:?}", weight);
+    weight
+}
