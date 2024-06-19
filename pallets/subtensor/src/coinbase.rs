@@ -29,6 +29,7 @@ impl<T: Config> Pallet<T> {
     // Finally, the emissions received by hotkeys are further distributed to their nominators,
     // who are stakeholders that support the hotkeys.
     pub fn run_coinbase() {
+        
         // --- 0. Get current block.
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Current block: {:?}", current_block);
@@ -41,10 +42,7 @@ impl<T: Config> Pallet<T> {
         // coinbase --> root() --> subnet_block_emission
         match Self::root_epoch(current_block) {
             Ok(_) => log::debug!("Root epoch run successfully for block: {:?}", current_block),
-            Err(e) => {
-                log::trace!("Error while running root epoch: {:?}", e);
-                log::debug!("Failed to run root epoch for block: {:?}, error: {:?}", current_block, e);
-            }
+            Err(e) => { log::trace!("Did not run epoch with: {:?}", e); }
         }
 
         // --- 3. Drain the subnet block emission and accumulate it as subnet emission, which increases until the tempo is reached in #4.
@@ -66,6 +64,7 @@ impl<T: Config> Pallet<T> {
         // Before accumulating on the hotkeys the function redistributes the emission towards hotkey parents.
         // subnet_emission --> epoch() --> hotkey_emission --> (hotkey + parent hotkeys)
         for netuid in subnets.clone().iter() {
+
             // 4.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // 4.2 Drain the subnet emission.
@@ -88,6 +87,8 @@ impl<T: Config> Pallet<T> {
                     );
                     log::debug!("Accumulated emissions on hotkey {:?} for netuid {:?}: mining {:?}, validator {:?}", hotkey, *netuid, mining_emission, validator_emission);
                 }
+            } else {
+                log::debug!("Tempo not reached for subnet: {:?}", *netuid);
             }
         }
 
@@ -95,6 +96,7 @@ impl<T: Config> Pallet<T> {
         // The hotkey takes a proportion of the emission, the remainder is drained through to the nominators.
         // We keep track of the last stake increase event for accounting purposes.
         // hotkeys --> nominators.
+        let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
         for (index, ( hotkey, hotkey_emission )) in PendingdHotkeyEmission::<T>::iter().enumerate() {
 
             // Check for zeros.
@@ -103,7 +105,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 5.1 Check if we should drain the hotkey emission on this block.
             // Should be true only once every 7200 blocks.
-            if Self::should_drain_hotkey( index as u64 , current_block ) {
+            if Self::should_drain_hotkey( index as u64, current_block, emission_tempo ) {
 
                 // --- 5.2 Drain the hotkey emission and distribute it to nominators.
                 Self::drain_hotkey_emission(&hotkey, hotkey_emission, current_block);
@@ -114,6 +116,7 @@ impl<T: Config> Pallet<T> {
                 log::debug!("Increased total issuance by {:?}", hotkey_emission);
             }
         }
+    }
 
     /// Accumulates the mining and validator emissions on a hotkey and distributes the validator emission among its parents.
     ///
@@ -258,6 +261,16 @@ impl<T: Config> Pallet<T> {
     /// Helpers ///
     ///////////////
 
+    /// Returns the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
+    ///
+    /// # Returns
+    /// * `u64` - The number of blocks between each emission drain to nominators.
+    pub fn get_hotkey_emission_tempo() -> u64 {
+        return HotkeyEmissionTempo::<T>::get();
+    }
+    pub fn set_hotkey_emission_tempo( emission_tempo: u64 ){
+        return HotkeyEmissionTempo::<T>::set( emission_tempo );
+    }
     /// Determines whether the hotkey emission should be drained based on the current block and index.
     ///
     /// # Arguments
@@ -267,8 +280,8 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
-    pub fn should_drain_hotkey(index: u64, block: u64) -> bool {
-        return block % 7200 == index % 7200; // True once per day for each index assuming we run this every block.
+    pub fn should_drain_hotkey(index: u64, block: u64, emit_tempo: u64 ) -> bool {
+        return block % emit_tempo == index % emit_tempo; // True once per day for each index assuming we run this every block.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
@@ -302,4 +315,5 @@ impl<T: Config> Pallet<T> {
                 % (tempo as u64).saturating_add(1),
         )
     }
+
 }

@@ -817,6 +817,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -868,6 +869,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
 }
 
 use sp_runtime::BoundedVec;

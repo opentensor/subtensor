@@ -240,6 +240,9 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// Default hotkey emission drain interval.
+        #[pallet::constant]
+        type InitialHotkeyEmissionTempo: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -390,6 +393,13 @@ pub mod pallet {
     #[pallet::storage] // --- Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
     pub type LastHotkeyEmissionDrain<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
 
+
+    /// Default hotkey_emission_tempo
+    #[pallet::type_value]
+    pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 { T::InitialHotkeyEmissionTempo::get() }
+    /// Maps to the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
+    #[pallet::storage] // --- ITEM ( hotkey_emission_tempo )
+    pub type HotkeyEmissionTempo<T> = StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
     // Maps from hotkey to emission accumulated on that key, before distribution.
     #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.
     pub type PendingdHotkeyEmission<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery, DefaultAccumulatedEmission<T>>;
