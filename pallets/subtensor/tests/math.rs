@@ -2307,3 +2307,52 @@ fn test_mat_ema_alpha_vec_mismatched_dimensions() {
     ];
     let _result = mat_ema_alpha_vec(&new, &old, &alpha);
 }
+
+#[test]
+fn test_quantile() {
+    // Test with a non-empty vector and valid quantile values
+    let data = vec![
+        I32F32::from_num(1.0),
+        I32F32::from_num(2.0),
+        I32F32::from_num(3.0),
+        I32F32::from_num(4.0),
+        I32F32::from_num(5.0),
+    ];
+
+    // Test 0th quantile (minimum)
+    let result = quantile(&data, 0.0);
+    assert_eq!(result, I32F32::from_num(1.0));
+
+    // Test 25th quantile
+    let result = quantile(&data, 0.25);
+    assert_eq!(result, I32F32::from_num(2.0));
+
+    // Test 50th quantile (median)
+    let result = quantile(&data, 0.5);
+    assert_eq!(result, I32F32::from_num(3.0));
+
+    // Test 66th quantile
+    let result = quantile(&data, 0.66);
+    assert_eq!(result, I32F32::from_num(4.0));
+
+    // Test 75th quantile
+    let result = quantile(&data, 0.75);
+    assert_eq!(result, I32F32::from_num(4.0));
+
+    // Test 100th quantile (maximum)
+    let result = quantile(&data, 1.0);
+    assert_eq!(result, I32F32::from_num(5.0));
+}
+
+#[test]
+#[should_panic(expected = "Quantile must be between 0.0 and 1.0")]
+fn test_quantile_invalid_quantile_low() {
+    // Test with a quantile value less than 0.0
+    let data = vec![
+        I32F32::from_num(1.0),
+        I32F32::from_num(2.0),
+        I32F32::from_num(3.0),
+    ];
+    let answer = quantile(&data, -0.1);
+    log::info!("Quantile: {:?}", answer);
+}

@@ -1,11 +1,11 @@
 use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
+use pallet_subtensor::Error;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
-use pallet_subtensor::Error;
 mod mock;
 
 pub fn fixed(val: f32) -> I32F32 {
@@ -1562,11 +1562,16 @@ fn test_set_alpha_disabled() {
         let tempo: u16 = u16::MAX - 1;
         add_network(netuid, tempo, 0);
 
-
         // Explicitly set to false
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
-        assert_err!(SubtensorModule::set_alpha_high(netuid, u16::MAX), Error::<Test>::LiquidAlphaDisabled);
-        assert_err!(SubtensorModule::set_alpha_low(netuid, 12_u16), Error::<Test>::LiquidAlphaDisabled);
+        assert_err!(
+            SubtensorModule::set_alpha_high(netuid, u16::MAX),
+            Error::<Test>::LiquidAlphaDisabled
+        );
+        assert_err!(
+            SubtensorModule::set_alpha_low(netuid, 12_u16),
+            Error::<Test>::LiquidAlphaDisabled
+        );
 
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         assert_ok!(SubtensorModule::set_alpha_high(netuid, u16::MAX));

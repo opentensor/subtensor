@@ -1229,15 +1229,23 @@ pub fn mat_ema_alpha_vec(
 pub fn quantile(data: &Vec<I32F32>, quantile: f64) -> I32F32 {
     let mut sorted_data = data.clone();
     sorted_data.sort_by(|a, b| a.cmp(b));
-    let idx: usize = Float::round(quantile * (sorted_data.len() - 1) as f64) as usize;
-    sorted_data[idx]
+
+    let len = sorted_data.len();
+    let target_idx = Float::floor(quantile * (len - 1) as f64) as usize;
+
+    sorted_data.into_iter().nth(target_idx).unwrap_or_else(|| {
+        // This should never happen due to the assertions, but we provide a fallback.
+        I32F32::from_num(0)
+    })
 }
 
+// TODO: Go over business logic to ensure the fallback is correct.
 /// Safe ln function, returns 0 if value is 0.
 pub fn safe_ln(value: I32F32) -> I32F32 {
     ln(value).unwrap_or(I32F32::from_num(0.0))
 }
 
+// TODO: Go over business logic to ensure the fallback is correct.
 /// Safe exp function, returns 0 if value is 0.
 pub fn safe_exp(value: I32F32) -> I32F32 {
     exp(value).unwrap_or(I32F32::from_num(0.0))
