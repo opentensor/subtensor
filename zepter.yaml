@@ -19,6 +19,7 @@ workflows:
         "--left-side-outside-workspace=ignore",
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
         "--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking",
+        "--feature-enables-dep=std:substrate-fixed,num-traits",
         # Auxillary flags:
         "--offline",
         "--locked",

@@ -25,15 +25,16 @@ benchmarks:
 
 clippy:
   @echo "Running cargo clippy..."
-  cargo +{{RUSTV}} clippy -- -D clippy::panic \
+  cargo +{{RUSTV}}  clippy --workspace --all-targets -- \
                             -D clippy::todo \
                             -D clippy::unimplemented
 
 clippy-fix:
   @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
-  cargo +{{RUSTV}} clippy --fix --allow-dirty -- -A clippy::panic \
+  cargo +{{RUSTV}} clippy --workspace --all-targets --fix --allow-dirty --  \
                                                       -A clippy::todo \
-                                                      -A clippy::unimplemented
+                                                      -A clippy::unimplemented \
+                                                      -A clippy::indexing_slicing
 fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace
@@ -41,12 +42,8 @@ fix:
 
 lint:
   @echo "Running cargo fmt..."
-  cargo +{{RUSTV}} fmt --all
+  just fmt
   @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
-  cargo +{{RUSTV}} clippy --fix --allow-dirty -- -A clippy::panic \
-                                                      -A clippy::todo \
-                                                      -A clippy::unimplemented
+  just clippy-fix
   @echo "Running cargo clippy..."
-  cargo +{{RUSTV}} clippy -- -D clippy::panic \
-                            -D clippy::todo \
-                            -D clippy::unimplemented
+  just clippy

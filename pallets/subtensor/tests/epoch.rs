@@ -2786,8 +2786,8 @@ fn assert_approx_eq(left: I32F32, right: I32F32, epsilon: I32F32) {
 
 /// Helper function to assert approximate equality of two vectors of vectors of tuples.
 fn assert_approx_eq_vec_of_vec(
-    left: &Vec<Vec<(u16, I32F32)>>,
-    right: &Vec<Vec<(u16, I32F32)>>,
+    left: &[Vec<(u16, I32F32)>],
+    right: &[Vec<(u16, I32F32)>],
     epsilon: I32F32,
 ) {
     assert_eq!(left.len(), right.len(), "Vectors have different lengths");

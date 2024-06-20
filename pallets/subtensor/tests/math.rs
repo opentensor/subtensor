@@ -1,4 +1,3 @@
-#[allow(clippy::indexing_slicing)]
 use substrate_fixed::types::{I32F32, I64F64};
 
 use pallet_subtensor::math::*;
@@ -70,7 +69,7 @@ fn mat_to_fixed(matrix: &[Vec<f32>]) -> Vec<Vec<I32F32>> {
     matrix.iter().map(|row| vec_to_fixed(row)).collect()
 }
 
-fn assert_mat_approx_eq(left: &Vec<Vec<I32F32>>, right: &Vec<Vec<I32F32>>, epsilon: I32F32) {
+fn assert_mat_approx_eq(left: &[Vec<I32F32>], right: &[Vec<I32F32>], epsilon: I32F32) {
     assert_eq!(left.len(), right.len());
     for (left_row, right_row) in left.iter().zip(right.iter()) {
         assert_eq!(left_row.len(), right_row.len());
