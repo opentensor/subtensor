@@ -138,3 +138,22 @@ fn test_coinbase_basic() {
         );
     });
 }
+
+// Test getting and setting hotkey emission tempo
+#[test]
+#[cfg(not(tarpaulin))]
+fn test_set_and_get_hotkey_emission_tempo() {
+    new_test_ext(1).execute_with(|| {
+        // Get the default hotkey emission tempo
+        let default_tempo = SubtensorModule::get_hotkey_emission_tempo();
+        assert_eq!(default_tempo, 0); // default is 0 in mock.rs
+
+        // Set a new hotkey emission tempo
+        let new_tempo = 5;
+        SubtensorModule::set_hotkey_emission_tempo(new_tempo);
+
+        // Get the updated hotkey emission tempo
+        let updated_tempo = SubtensorModule::get_hotkey_emission_tempo();
+        assert_eq!(updated_tempo, new_tempo);
+    });
+}

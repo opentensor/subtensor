@@ -136,5 +136,7 @@ mod events {
         SetChildSingular(T::AccountId, T::AccountId, u16, u64),
         /// a child has been revoked from a hotkey on network.
         RevokeChildSingular(T::AccountId, T::AccountId, u16),
+        /// the hotkey emission tempo is set.
+        HotkeyEmissionTempoSet(u64),
     }
 }

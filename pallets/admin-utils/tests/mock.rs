@@ -463,6 +463,14 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
     }
+
+    fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
+    }
+
+    fn get_hotkey_emission_tempo() -> u64 {
+        SubtensorModule::get_hotkey_emission_tempo();
+    }
 }
 
 impl pallet_admin_utils::Config for Test {

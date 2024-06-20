@@ -325,17 +325,6 @@ impl<T: Config> Pallet<T> {
     ///////////////
     /// Helpers ///
     ///////////////
-
-    /// Returns the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
-    ///
-    /// # Returns
-    /// * `u64` - The number of blocks between each emission drain to nominators.
-    pub fn get_hotkey_emission_tempo() -> u64 {
-        return HotkeyEmissionTempo::<T>::get();
-    }
-    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        return HotkeyEmissionTempo::<T>::set(emission_tempo);
-    }
     /// Determines whether the hotkey emission should be drained based on the current block and index.
     ///
     /// # Arguments

@@ -182,39 +182,39 @@ impl<T: Config> Pallet<T> {
             hotkey,
             child
         );
-    
+
         // --- 2. Check that the network we are trying to revoke the child from exists.
         ensure!(
             Self::if_subnet_exist(netuid),
             Error::<T>::SubNetworkDoesNotExist
         );
-    
+
         // --- 3. Check that the coldkey owns the hotkey.
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
         );
-    
+
         // --- 4. Get the current children of the hotkey.
         let mut children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey.clone(), netuid);
-    
+
         // --- 5. Ensure that the child is actually a child of the hotkey.
         ensure!(
             children.iter().any(|(_, c)| c == &child),
             Error::<T>::NonAssociatedColdKey
         );
-    
+
         // --- 6. Remove the child from the hotkey's children list.
         children.retain(|(_, c)| c != &child);
-    
+
         // --- 7. Update the children list in storage.
         ChildKeys::<T>::insert(hotkey.clone(), netuid, children.clone());
-    
+
         // --- 8. Remove the hotkey from the child's parent list.
         let mut parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(child.clone(), netuid);
         parents.retain(|(_, p)| p != &hotkey);
         ParentKeys::<T>::insert(child.clone(), netuid, parents);
-    
+
         // --- 9. Log and return.
         log::info!(
             "RevokeChildSingular( hotkey:{:?}, child:{:?}, netuid:{:?} )",
@@ -223,7 +223,7 @@ impl<T: Config> Pallet<T> {
             netuid
         );
         Self::deposit_event(Event::RevokeChildSingular(hotkey.clone(), child, netuid));
-    
+
         // Ok and return.
         Ok(())
     }

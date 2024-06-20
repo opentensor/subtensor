@@ -996,6 +996,35 @@ pub mod pallet {
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
+
+        /// Sets the hotkey emission tempo.
+        ///
+        /// This extrinsic allows the root account to set the hotkey emission tempo, which determines
+        /// the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `emission_tempo` - The new emission tempo value to set.
+        ///
+        /// # Emits
+        /// * `Event::HotkeyEmissionTempoSet` - When the hotkey emission tempo is successfully set.
+        ///
+        /// # Errors
+        /// * `DispatchError::BadOrigin` - If the origin is not the root account.
+        #[pallet::call_index(50)]
+        #[pallet::weight(T::WeightInfo::sudo_set_hotkey_emission_tempo())]
+        pub fn sudo_set_hotkey_emission_tempo(
+            origin: OriginFor<T>,
+            emission_tempo: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_hotkey_emission_tempo(emission_tempo);
+            log::info!(
+                "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
+                emission_tempo
+            );
+            Ok(())
+        }
     }
 }
 
@@ -1091,4 +1120,6 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
+    fn set_hotkey_emission_tempo(emission_tempo: u64);
+    fn get_hotkey_emission_tempo() -> u64;
 }
