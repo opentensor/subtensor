@@ -484,6 +484,11 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
 
+/// Creates a staked STAO subnet 
+///     - SubnetLocked is set to lock_amount, which doesn't go to SubStake map
+///     - SubStake is set to contains stake amount for coldkey 2
+///     - Both amounts are added to TotalSubnetTAO
+/// 
 #[allow(dead_code)]
 pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
     let coldkey1 = U256::from(1);
@@ -505,13 +510,11 @@ pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
     register_ok_neuron(netuid, hotkey1, coldkey1, 124124);
     register_ok_neuron(netuid, hotkey2, coldkey2, 987907);
 
-    SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
-        &coldkey1,
-        &hotkey1,
-        netuid,
-        lock_amount,
-    );
     pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid, lock_amount);
+    pallet_subtensor::SubnetLocked::<Test>::insert(
+        netuid, 
+        lock_amount
+    );
 
     if !pallet_subtensor::Delegates::<Test>::contains_key(coldkey1) {
         assert_ok!(SubtensorModule::do_become_delegate(
