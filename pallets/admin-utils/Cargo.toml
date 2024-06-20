@@ -27,6 +27,7 @@ sp-runtime = { workspace = true }
 log = { workspace = true }
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
 sp-weights = { workspace = true }
+substrate-fixed = { workspace = true }
 
 
 [dev-dependencies]

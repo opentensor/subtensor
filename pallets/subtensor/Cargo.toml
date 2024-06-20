@@ -43,6 +43,7 @@ hex = { workspace = true }
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }
 pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
+num-traits = { version = "0.2.19", default-features = false, features = ["libm"] }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, features = ["std"] }

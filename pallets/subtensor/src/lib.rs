@@ -38,7 +38,7 @@ mod block_step;
 mod epoch;
 mod errors;
 mod events;
-mod math;
+pub mod math;
 mod registration;
 mod root;
 mod serving;
@@ -238,6 +238,15 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// The upper bound for the alpha parameter. Used for Liquid Alpha.
+        #[pallet::constant]
+        type AlphaHigh: Get<u16>;
+        /// The lower bound for the alpha parameter. Used for Liquid Alpha.
+        #[pallet::constant]
+        type AlphaLow: Get<u16>;
+        /// A flag to indicate if Liquid Alpha is enabled.
+        #[pallet::constant]
+        type LiquidAlphaOn: Get<bool>;
     }
 
     /// Alias for the account ID.
@@ -364,6 +373,14 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    /// -- ITEM (switches liquid alpha on)
+    #[pallet::type_value]
+    pub fn DefaultLiquidAlpha<T: Config>() -> bool {
+        false
+    }
+    #[pallet::storage] // --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
+    pub type LiquidAlphaOn<T> =
+        StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
 
     /// =====================================
     /// ==== Difficulty / Registrations =====
@@ -846,6 +863,17 @@ pub mod pallet {
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
         0
     }
+    /// Provides the default value for the upper bound of the alpha parameter.
+
+    #[pallet::type_value]
+    pub fn DefaultAlphaHigh<T: Config>() -> u16 {
+        900 // Represents 0.9
+    }
+    /// Provides the default value for the lower bound of the alpha parameter.
+    #[pallet::type_value]
+    pub fn DefaultAlphaLow<T: Config>() -> u16 {
+        700 // Represents 0.7
+    }
 
     #[pallet::storage] // ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
@@ -916,6 +944,12 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
+    //  MAP ( netuid ) --> alpha_high
+    #[pallet::storage]
+    pub type AlphaHigh<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaHigh<T>>;
+    //  MAP ( netuid ) --> alpha_low
+    #[pallet::storage]
+    pub type AlphaLow<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaLow<T>>;
 
     #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<

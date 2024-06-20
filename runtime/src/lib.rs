@@ -817,6 +817,9 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialAlphaHigh: u16 = 900; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 700; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -868,6 +871,9 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type AlphaHigh = InitialAlphaHigh;
+    type AlphaLow = InitialAlphaLow;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
 }
 
 use sp_runtime::BoundedVec;
@@ -1141,6 +1147,18 @@ impl
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn set_alpha_high(netuid: u16, alpha_high: u16) -> Result<(), DispatchError> {
+        SubtensorModule::set_alpha_high(netuid, alpha_high)
+    }
+
+    fn set_alpha_low(netuid: u16, alpha_low: u16) -> Result<(), DispatchError> {
+        SubtensorModule::set_alpha_low(netuid, alpha_low)
+    }
+
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }
 }
 

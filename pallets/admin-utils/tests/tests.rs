@@ -4,6 +4,7 @@ use frame_system::Config;
 use pallet_admin_utils::Error;
 use pallet_subtensor::Event;
 use sp_core::U256;
+use substrate_fixed::types::I32F32;
 
 mod mock;
 use mock::*;
@@ -1176,5 +1177,82 @@ fn test_sudo_set_target_stakes_per_interval() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_target_stakes_per_interval(), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_alpha_high() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        let init_value = SubtensorModule::get_alpha_high(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_high(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
+        assert_ok!(AdminUtils::sudo_set_alpha_high(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        let expected_value: I32F32 = I32F32::from_num(to_be_set as f64 / 1000.0);
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), expected_value);
+    });
+}
+
+#[test]
+fn test_sudo_set_alpha_low() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 10;
+        let init_value = SubtensorModule::get_alpha_low(netuid);
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_low(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
+        assert_ok!(AdminUtils::sudo_set_alpha_low(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        let expected_value: I32F32 = I32F32::from_num(to_be_set as f64 / 1000.0);
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), expected_value);
+    });
+}
+
+#[test]
+fn test_sudo_set_liquid_alpha_enabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let enabled: bool = true;
+        assert_eq!(!enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
+
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            enabled
+        ));
+
+        assert_eq!(enabled, SubtensorModule::get_liquid_alpha_enabled(netuid));
     });
 }
