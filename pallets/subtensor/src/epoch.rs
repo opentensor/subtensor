@@ -1090,9 +1090,9 @@ impl<T: Config> Pallet<T> {
                 log::trace!("Using Liquid Alpha");
 
                 // Get the high and low alpha values for the network.
-                let alpha_high = Self::get_alpha_high(netuid);
+                let alpha_high = Self::get_alpha_high_32(netuid);
                 log::trace!("alpha_high: {:?}", alpha_high);
-                let alpha_low = Self::get_alpha_low(netuid);
+                let alpha_low = Self::get_alpha_low_32(netuid);
                 log::trace!("alpha_low: {:?}", alpha_low);
 
                 // Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
@@ -1159,9 +1159,9 @@ impl<T: Config> Pallet<T> {
                 log::trace!("Using Liquid Alpha");
 
                 // Get the high and low alpha values for the network.
-                let alpha_high = Self::get_alpha_high(netuid);
+                let alpha_high = Self::get_alpha_high_32(netuid);
                 log::trace!("alpha_high: {:?}", alpha_high);
-                let alpha_low = Self::get_alpha_low(netuid);
+                let alpha_low = Self::get_alpha_low_32(netuid);
                 log::trace!("alpha_low: {:?}", alpha_low);
 
                 // Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.

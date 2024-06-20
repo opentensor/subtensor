@@ -1,5 +1,6 @@
 // we get a compiler warning for this , even though  the trait is used in the
 // quantile function.
+use crate::alloc::borrow::ToOwned;
 #[allow(unused)]
 use num_traits::float::Float;
 use sp_runtime::traits::CheckedAdd;

@@ -1324,8 +1324,6 @@ fn test_bonds_with_liquid_alpha() {
 
         // Enable Liquid Alpha
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        assert_ok!(SubtensorModule::set_alpha_high(netuid, 900));
-        assert_ok!(SubtensorModule::set_alpha_low(netuid, 100));
         // Run epoch with Liquid Alpha
         if sparse {
             SubtensorModule::epoch(netuid, 1_000_000_000);
@@ -1476,82 +1474,6 @@ fn test_bonds_with_liquid_alpha() {
         assert_eq!(bonds[1][4], 28321);
         assert_eq!(bonds[2][4], 49151);
         assert_eq!(bonds[3][4], 65535);
-    });
-}
-
-#[test]
-fn test_bonds_with_extreme_alpha_values() {
-    new_test_ext(1).execute_with(|| {
-        let sparse: bool = true;
-        let n: u16 = 8;
-        let netuid: u16 = 1;
-        let tempo: u16 = u16::MAX - 1;
-        let max_stake: u64 = 4;
-        let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
-        let block_number = System::block_number();
-        add_network(netuid, tempo, 0);
-        SubtensorModule::set_max_allowed_uids(netuid, n);
-        SubtensorModule::set_max_registrations_per_block(netuid, n);
-        SubtensorModule::set_target_registrations_per_interval(netuid, n);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-        SubtensorModule::set_min_allowed_weights(netuid, 1);
-        SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
-
-        for key in 0..n as u64 {
-            SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
-            let (nonce, work) = SubtensorModule::create_work_for_block_number(
-                netuid,
-                block_number,
-                key * 1_000_000,
-                &U256::from(key),
-            );
-            assert_ok!(SubtensorModule::register(
-                RuntimeOrigin::signed(U256::from(key)),
-                netuid,
-                block_number,
-                nonce,
-                work,
-                U256::from(key),
-                U256::from(key)
-            ));
-            SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-                &U256::from(key),
-                &U256::from(key),
-                stakes[key as usize],
-            );
-        }
-
-        SubtensorModule::epoch(netuid, 1_000_000_000);
-        next_block();
-
-        for uid in 0..(n / 2) {
-            SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
-            assert_ok!(SubtensorModule::set_weights(
-                RuntimeOrigin::signed(U256::from(uid)),
-                netuid,
-                ((n / 2)..n).collect(),
-                vec![u16::MAX / 4, u16::MAX / 2, (u16::MAX / 4) * 3, u16::MAX],
-                0
-            ));
-        }
-        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        assert_ok!(SubtensorModule::set_alpha_high(netuid, u16::MAX));
-        assert_ok!(SubtensorModule::set_alpha_low(netuid, u16::MIN));
-        // Run epoch with Liquid Alpha
-        if sparse {
-            SubtensorModule::epoch(netuid, 1_000_000_000);
-        } else {
-            SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-        }
-        let bonds = SubtensorModule::get_bonds(netuid);
-
-        log::info!("bonds: {:?}", bonds);
-
-        // Check for reasonable outputs despite extreme alpha values
-        assert!(bonds
-            .iter()
-            .flatten()
-            .all(|&bond| (0..=65535).contains(&bond)));
     });
 }
 

@@ -158,9 +158,9 @@ impl<T: Config> Pallet<T> {
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
-        let alpha_high = AlphaHigh::<T>::get(netuid);
-        let alpha_low = AlphaLow::<T>::get(netuid);
-        let liquid_alpha_enabled = LiquidAlphaOn::<T>::get(netuid);
+        let alpha_high = Self::get_alpha_high(netuid);
+        let alpha_low = Self::get_alpha_low(netuid);
+        let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),

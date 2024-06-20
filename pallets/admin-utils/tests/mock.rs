@@ -22,7 +22,7 @@ frame_support::construct_runtime!(
         System: frame_system,
         Balances: pallet_balances,
         AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
     }
 );
 
@@ -108,8 +108,8 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
-    pub const InitialAlphaHigh: u16 = 900; // Represents 0.9 as per the production default
-    pub const InitialAlphaLow: u16 = 700; // Represents 0.7 as per the production default
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
 }
 

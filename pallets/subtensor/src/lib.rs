@@ -376,7 +376,7 @@ pub mod pallet {
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
-        false
+        return false;
     }
     #[pallet::storage] // --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> =
@@ -867,12 +867,12 @@ pub mod pallet {
 
     #[pallet::type_value]
     pub fn DefaultAlphaHigh<T: Config>() -> u16 {
-        900 // Represents 0.9
+        58982 // Represents 0.9 as per the production default
     }
     /// Provides the default value for the lower bound of the alpha parameter.
     #[pallet::type_value]
     pub fn DefaultAlphaLow<T: Config>() -> u16 {
-        700 // Represents 0.7
+        45875 // Represents 0.7 as per the production default
     }
 
     #[pallet::storage] // ITEM( weights_min_stake )

@@ -128,5 +128,9 @@ mod errors {
         CommitRevealDisabled,
         /// Attempting to set alpha high/low while disabled
         LiquidAlphaDisabled,
+        /// Alpha high is too low
+        AlphaHighTooLow,
+        /// Alpha low is too low
+        AlphaLowTooLow,
     }
 }

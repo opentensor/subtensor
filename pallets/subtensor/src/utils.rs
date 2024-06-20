@@ -663,22 +663,33 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_alpha_high(netuid: u16) -> I32F32 {
+    pub fn get_alpha_high(netuid: u16) -> u16 {
+        AlphaHigh::<T>::get(netuid)
+    }
+
+    pub fn get_alpha_high_32(netuid: u16) -> I32F32 {
         I32F32::from_num(AlphaHigh::<T>::get(netuid) as f64 / 1000.0)
     }
 
     pub fn set_alpha_high(netuid: u16, alpha_high: u16) -> Result<(), DispatchError> {
+        // Ensure liquid alpha is enabled
         ensure!(
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
         );
+        // Ensure alpha high is greater than the minimum
+        ensure!(alpha_high >= 52428, Error::<T>::AlphaHighTooLow);
         AlphaHigh::<T>::insert(netuid, alpha_high);
 
         Ok(())
     }
 
-    pub fn get_alpha_low(netuid: u16) -> I32F32 {
-        I32F32::from_num(AlphaLow::<T>::get(netuid) as f64 / 1000.0)
+    pub fn get_alpha_low(netuid: u16) -> u16 {
+        AlphaLow::<T>::get(netuid)
+    }
+
+    pub fn get_alpha_low_32(netuid: u16) -> I32F32 {
+        I32F32::from_num(AlphaLow::<T>::get(netuid))
     }
 
     pub fn set_alpha_low(netuid: u16, alpha_low: u16) -> Result<(), DispatchError> {
@@ -686,6 +697,7 @@ impl<T: Config> Pallet<T> {
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
         );
+        ensure!(alpha_low > 0 || alpha_low == 52428, Error::<T>::AlphaLowTooLow);
         AlphaLow::<T>::insert(netuid, alpha_low);
 
         Ok(())
