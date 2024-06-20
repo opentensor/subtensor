@@ -259,55 +259,55 @@ impl<T: Config> Pallet<T> {
 
             // Increment the total amount of TAO in existence based on the total tao_in
             TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_add(actual_total_block_emission));
+        }
     
-            ////////////////////////////////
-            // run epochs.
-            subnets.iter_mut().for_each(|subnet_info| {
-                // Check to see if this network has reached tempo.
-                let tempo: u16 = Self::get_tempo(subnet_info.netuid);
-                if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
-                    // Get the pending emission issuance to distribute for this subnet
-                    let emission = PendingEmission::<T>::get(subnet_info.netuid);
-                    // Drain pending emission and update dynamic pools
-                    PendingEmission::<T>::insert(subnet_info.netuid, 0);
-    
-                    // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
-                    let emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                        Self::epoch(subnet_info.netuid, emission);
-    
-                    // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
-                    // as well as all nominators.
-                    for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
-                        Self::emit_inflation_through_hotkey_account(
-                            hotkey,
-                            subnet_info.netuid,
-                            *server_amount,
-                            *validator_amount,
-                        );
-                    }
+        ////////////////////////////////
+        // run epochs.
+        subnets.iter_mut().for_each(|subnet_info| {
+            // Check to see if this network has reached tempo.
+            let tempo: u16 = Self::get_tempo(subnet_info.netuid);
+            if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
+                // Get the pending emission issuance to distribute for this subnet
+                let emission = PendingEmission::<T>::get(subnet_info.netuid);
+                // Drain pending emission and update dynamic pools
+                PendingEmission::<T>::insert(subnet_info.netuid, 0);
 
-                    // Increase subnet totals
-                    match subnet_info.subnet_type {
-                        SubnetType::DTAO => {
-                            // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
-                            DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
-                            // Also increment the total amount of alpha in total everywhere.
-                            DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
-                        },
-                        SubnetType::STAO => {},
-                    }
-    
-                    // Some other counters for accounting.
-                    Self::set_blocks_since_last_step(subnet_info.netuid, 0);
-                    Self::set_last_mechanism_step_block(subnet_info.netuid, block_number);
-                } else {
-                    Self::set_blocks_since_last_step(
+                // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
+                let emission_tuples: Vec<(T::AccountId, u64, u64)> =
+                    Self::epoch(subnet_info.netuid, emission);
+
+                // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
+                // as well as all nominators.
+                for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
+                    Self::emit_inflation_through_hotkey_account(
+                        hotkey,
                         subnet_info.netuid,
-                        Self::get_blocks_since_last_step(subnet_info.netuid) + 1,
+                        *server_amount,
+                        *validator_amount,
                     );
                 }
-            });
-        }
+
+                // Increase subnet totals
+                match subnet_info.subnet_type {
+                    SubnetType::DTAO => {
+                        // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
+                        DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
+                        // Also increment the total amount of alpha in total everywhere.
+                        DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
+                    },
+                    SubnetType::STAO => {},
+                }
+
+                // Some other counters for accounting.
+                Self::set_blocks_since_last_step(subnet_info.netuid, 0);
+                Self::set_last_mechanism_step_block(subnet_info.netuid, block_number);
+            } else {
+                Self::set_blocks_since_last_step(
+                    subnet_info.netuid,
+                    Self::get_blocks_since_last_step(subnet_info.netuid) + 1,
+                );
+            }
+        });
     }
 
     // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
