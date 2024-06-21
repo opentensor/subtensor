@@ -38,8 +38,6 @@ COPY Cargo.lock Cargo.toml /subtensor/
 
 # Specs
 COPY ./snapshot.json /subtensor/snapshot.json
-COPY ./raw_spec.json /subtensor/raw_spec.json
-COPY ./raw_testspec.json /subtensor/raw_testspec.json
 
 # Copy our sources
 COPY ./node /subtensor/node
@@ -60,6 +58,4 @@ EXPOSE 30333 9933 9944
 FROM $BASE_IMAGE AS subtensor
 
 COPY --from=builder /subtensor/snapshot.json /
-COPY --from=builder /subtensor/raw_spec.json /
-COPY --from=builder /subtensor/raw_testspec.json /
 COPY --from=builder /subtensor/target/release/node-subtensor /usr/local/bin
