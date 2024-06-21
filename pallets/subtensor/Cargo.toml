@@ -79,7 +79,9 @@ std = [
 	"ndarray/std",
 	"serde/std",
 	"serde_bytes/std",
-	"serde_with/std"
+	"serde_with/std",
+	"substrate-fixed/std",
+	"num-traits/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

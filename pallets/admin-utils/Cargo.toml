@@ -54,7 +54,8 @@ std = [
 	"sp-weights/std",
 	"log/std",
 	"sp-core/std",
-	"sp-io/std"
+	"sp-io/std",
+	"substrate-fixed/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
