@@ -1204,10 +1204,17 @@ impl<T: Config> Pallet<T> {
         // -- 5. Ensure alpha low is within range
         ensure!(
             alpha_low > 0 && alpha_low < min_alpha_high,
-            Error::<T>::AlphaLowTooLow
+            Error::<T>::AlphaLowOutOfRange
         );
 
         AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
+
+        log::info!(
+            "AlphaValuesSet( netuid: {:?}, AlphaLow: {:?}, AlphaHigh: {:?} ) ",
+            netuid,
+            alpha_low,
+            alpha_high,
+        );
         Ok(())
     }
 }

@@ -2078,15 +2078,6 @@ pub mod pallet {
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
         }
-
-        /// Sets values for liquid alpha
-        #[pallet::call_index(88)]
-        #[pallet::weight((Weight::from_parts(119_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(0))
-		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational, Pays::No))]
-        pub fn set_alpha_values(origin: OriginFor<T>, netuid: u16, alpha_low: u16, alpha_high: u16) -> DispatchResult {
-            Self::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
-        }
     }
 
     // ---- Subtensor helper functions.

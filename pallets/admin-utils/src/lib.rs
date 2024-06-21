@@ -1022,6 +1022,14 @@ pub mod pallet {
             );
             Ok(())
         }
+
+        /// Sets values for liquid alpha
+        #[pallet::call_index(51)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_values(origin: OriginFor<T>, netuid: u16, alpha_low: u16, alpha_high: u16) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+        }
     }
 }
 
@@ -1118,4 +1126,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool);
+    fn do_set_alpha_values(origin: RuntimeOrigin, netuid: u16, alpha_low: u16, alpha_high: u16) -> Result<(), DispatchError>;
 }
