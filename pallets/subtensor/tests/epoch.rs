@@ -1407,7 +1407,7 @@ fn test_bonds_with_liquid_alpha() {
         }
 
         let bonds = SubtensorModule::get_bonds(netuid);
-        assert_eq!(bonds[0][4], 14582);
+        assert_eq!(bonds[0][4], 2862);
         assert_eq!(bonds[1][4], 32767);
         assert_eq!(bonds[2][4], 49151);
         assert_eq!(bonds[3][4], 65535);
@@ -1470,8 +1470,8 @@ fn test_bonds_with_liquid_alpha() {
             Pruning Scores: [0.0016997808, 0.0151777493, 0.2070524206, 0.2760700488, 0.049998779, 0.1000006103, 0.1499963377, 0.2000042726]
         */
 
-        assert_eq!(bonds[0][4], 12603);
-        assert_eq!(bonds[1][4], 28321);
+        assert_eq!(bonds[0][4], 435);
+        assert_eq!(bonds[1][4], 4985);
         assert_eq!(bonds[2][4], 49151);
         assert_eq!(bonds[3][4], 65535);
     });
@@ -2507,88 +2507,21 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
     );
 }
 
-// #[test]
-// fn test_compute_ema_bonds_sparse_with_liquid_alpha() {
-//     new_test_ext(1).execute_with(|| {
-//         let sparse: bool = true;
-//         let n: u16 = 8;
-//         let netuid: u16 = 1;
-//         let tempo: u16 = u16::MAX - 1;  // high tempo to skip automatic epochs in on_initialize, use manual epochs instead
-//         let max_stake: u64 = 4;
-//         let stakes: Vec<u64> = vec![1, 2, 3, 4, 0, 0, 0, 0];
-//         let block_number = System::block_number();
-//         add_network(netuid, tempo, 0);
-//         SubtensorModule::set_max_allowed_uids(netuid, n);
-//         SubtensorModule::set_max_registrations_per_block(netuid, n);
-//         SubtensorModule::set_target_registrations_per_interval(netuid, n);
-//         SubtensorModule::set_weights_set_rate_limit(netuid, 0);
-//         SubtensorModule::set_min_allowed_weights(netuid, 1);
-//         SubtensorModule::set_max_weight_limit(netuid, u16::MAX);
-
-//         // Register validators and servers
-//         for key in 0..n as u64 {
-//             SubtensorModule::add_balance_to_coldkey_account(&U256::from(key), max_stake);
-//             let (nonce, work): (u64, Vec<u8>) = SubtensorModule::create_work_for_block_number(
-//                 netuid,
-//                 block_number,
-//                 key * 1_000_000,
-//                 &U256::from(key),
-//             );
-//             assert_ok!(SubtensorModule::register(
-//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(key)),
-//                 netuid,
-//                 block_number,
-//                 nonce,
-//                 work,
-//                 U256::from(key),
-//                 U256::from(key)
-//             ));
-//             SubtensorModule::increase_stake_on_coldkey_hotkey_account(
-//                 &U256::from(key),
-//                 &U256::from(key),
-//                 stakes[key as usize],
-//             );
-//         }
-
-//         // Initialize with first epoch
-//         SubtensorModule::epoch(netuid, 1_000_000_000);
-//         step_block(1);
-
-//         // Set weights
-//         for uid in 0..(n / 2) as u16 {
-//             SubtensorModule::set_validator_permit_for_uid(netuid, uid, true);
-//             assert_ok!(SubtensorModule::set_weights(
-//                 RuntimeOrigin::signed(U256::from(uid)),
-//                 netuid,
-//                 ((n / 2)..n).collect(),
-//                 vec![u16::MAX / 4, u16::MAX / 2, (u16::MAX / 4) * 3, u16::MAX],
-//                 0
-//             ));
-//         }
-
-//         // Enable LiquidAlpha
-//         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-//         assert_eq!(SubtensorModule::get_liquid_alpha_enabled(netuid), true);
-
-//         // Continue with additional epochs to mimic the end-to-end test
-//         // for _ in 0..5 {
-//         //     next_block();
-//         //     if sparse {
-//         //         SubtensorModule::epoch(netuid, 1_000_000_000);
-//         //     } else {
-//         //         SubtensorModule::epoch_dense(netuid, 1_000_000_000);
-//         //     }
-//         // }
-
-//         // Fetch the final bonds and validate
-//         let final_bonds = SubtensorModule::get_bonds(netuid);
-//         // Example assertions, adjust as needed based on expected LiquidAlpha values
-//         assert_eq!(final_bonds[0][0], 14582);
-//         assert_eq!(final_bonds[1][1], 32767);
-//         assert_eq!(final_bonds[2][2], 49151);
-//         assert_eq!(final_bonds[3][3], 65535);
-//     });
-// }
+#[test]
+fn test_get_alpha_low() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let alpha_low: u16 = 1000;
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        SubtensorModule::set_alpha_low(netuid, alpha_low).unwrap();
+        log::info!("alpha_low: {:?}", SubtensorModule::get_alpha_low(netuid));
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), alpha_low);
+        assert_eq!(
+            SubtensorModule::get_alpha_low_32(netuid),
+            I32F32::from_num(0.015259022)
+        );
+    });
+}
 
 // // Map the retention graph for consensus guarantees with an single epoch on a graph with 512 nodes, of which the first 64 are validators, the graph is split into a major and minor set, each setting specific weight on itself and the complement on the other.
 // //

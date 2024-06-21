@@ -845,27 +845,18 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the slope 'a' of the logistic function.
         // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
-        let a = (safe_ln(
-            I32F32::from_num(1.0)
-                .saturating_div(alpha_high)
-                .saturating_sub(I32F32::from_num(1.0)),
-        )
-        .saturating_sub(safe_ln(
-            I32F32::from_num(1.0)
-                .saturating_div(alpha_low)
-                .saturating_sub(I32F32::from_num(1.0)),
-        )))
-        .saturating_div(consensus_low.saturating_sub(consensus_high));
+        let a =
+            (safe_ln((I32F32::from_num(1.0) / alpha_high).saturating_sub(I32F32::from_num(1.0)))
+                .saturating_sub(safe_ln(
+                    (I32F32::from_num(1.0) / alpha_low).saturating_sub(I32F32::from_num(1.0)),
+                )))
+            .saturating_div(consensus_low.saturating_sub(consensus_high));
         log::trace!("a: {:?}", a);
 
         // Calculate the intercept 'b' of the logistic function.
         // b = ln((1 / alpha_low - 1)) + a * consensus_low
-        let b = safe_ln(
-            I32F32::from_num(1.0)
-                .saturating_div(alpha_low)
-                .saturating_sub(I32F32::from_num(1.0)),
-        )
-        .saturating_add(a.saturating_mul(consensus_low));
+        let b = safe_ln((I32F32::from_num(1.0) / alpha_low).saturating_sub(I32F32::from_num(1.0)))
+            .saturating_add(a.saturating_mul(consensus_low));
         log::trace!("b: {:?}", b);
 
         // Return the calculated slope 'a' and intercept 'b'.
@@ -1082,9 +1073,12 @@ impl<T: Config> Pallet<T> {
             // Calculate the 75th percentile (high) and 25th percentile (low) of the consensus values.
             let consensus_high = quantile(&consensus, 0.75);
             let consensus_low = quantile(&consensus, 0.25);
-
+            // consensus_low < 0 ||
+            // consensus_high <= consensus_low ||
+            // alpha_low < 0 ||
+            // alpha_high <= alpha_low
             // Further check if the high and low consensus values meet the required conditions.
-            if (consensus_high > consensus_low) && consensus_high != 0 && consensus_low != 0 {
+            if (consensus_high > consensus_low) || consensus_high != 0 || consensus_low < 0 {
                 // if (consensus_high > consensus_low) || consensus_high != 0) || consensus_low != 0 {
                 // if (consensus_high > consensus_low) || consensus_low != 0 {
                 log::trace!("Using Liquid Alpha");

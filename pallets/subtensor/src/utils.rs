@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_alpha_high_32(netuid: u16) -> I32F32 {
-        I32F32::from_num(AlphaHigh::<T>::get(netuid) as f64 / 1000.0)
+        I32F32::from_num(AlphaHigh::<T>::get(netuid)) / I32F32::from_num(u16::MAX)
     }
 
     pub fn set_alpha_high(netuid: u16, alpha_high: u16) -> Result<(), DispatchError> {
@@ -689,7 +689,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_alpha_low_32(netuid: u16) -> I32F32 {
-        I32F32::from_num(AlphaLow::<T>::get(netuid))
+        I32F32::from_num(AlphaLow::<T>::get(netuid)) / I32F32::from_num(u16::MAX)
     }
 
     pub fn set_alpha_low(netuid: u16, alpha_low: u16) -> Result<(), DispatchError> {
@@ -697,7 +697,10 @@ impl<T: Config> Pallet<T> {
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
         );
-        ensure!(alpha_low > 0 || alpha_low == 52428, Error::<T>::AlphaLowTooLow);
+        ensure!(
+            alpha_low > 0 || alpha_low == 52428,
+            Error::<T>::AlphaLowTooLow
+        );
         AlphaLow::<T>::insert(netuid, alpha_low);
 
         Ok(())

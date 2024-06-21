@@ -158,8 +158,8 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
-    pub const InitialAlphaHigh: u16 = 900; // Represents 0.9 as per the production default
-    pub const InitialAlphaLow: u16 = 700; // Represents 0.7 as per the production default
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
 }
 

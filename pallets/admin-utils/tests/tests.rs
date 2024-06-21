@@ -2,10 +2,9 @@ use frame_support::assert_ok;
 use frame_support::sp_runtime::DispatchError;
 use frame_system::Config;
 use pallet_admin_utils::Error;
+use pallet_subtensor::Error as SubtensorError;
 use pallet_subtensor::Event;
 use sp_core::U256;
-use pallet_subtensor::Error as SubtensorError;
-
 
 mod mock;
 use mock::*;
@@ -1181,156 +1180,153 @@ fn test_sudo_set_target_stakes_per_interval() {
     });
 }
 
-
-    #[test]
-    fn alpha_low_can_only_be_called_by_admin() {
-        new_test_ext().execute_with(|| {
-            let netuid: u16 = 1;
-            let to_be_set: u16 = 52428; // 0.8 i.e. 0.8 x u16::MAX
-            assert_eq!(
-                AdminUtils::sudo_set_alpha_low(
-                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                    netuid,
-                    to_be_set
-                ),
-                Err(DispatchError::BadOrigin)
-            );
-        });
-    }
-
-    #[test]
-    fn sets_alpha_low_valid_value() {
-        new_test_ext().execute_with(|| {
-            let netuid: u16 = 1;
-            let to_be_set: u16 = 52428; // 0.8 i.e. 0.8 x u16::MAX
-            let init_value = SubtensorModule::get_alpha_low(netuid);
-            assert_eq!(SubtensorModule::get_alpha_low(netuid), init_value);
-            assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
-                <<Test as Config>::RuntimeOrigin>::root(),
+#[test]
+fn alpha_low_can_only_be_called_by_admin() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 52428; // 0.8 i.e. 0.8 x u16::MAX
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_low(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
                 netuid,
-                true,
-            ));
-            assert_ok!(AdminUtils::sudo_set_alpha_low(
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+    });
+}
+
+#[test]
+fn sets_alpha_low_valid_value() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 52428; // 0.8 i.e. 0.8 x u16::MAX
+        let init_value = SubtensorModule::get_alpha_low(netuid);
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
+        assert_ok!(AdminUtils::sudo_set_alpha_low(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_alpha_low(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn alpha_low_fails_if_liquid_alpha_disabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 52428; // 0.8 i.e. 0.8 x u16::MAX
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_low(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
                 to_be_set
-            ));
-            assert_eq!(SubtensorModule::get_alpha_low(netuid), to_be_set);
-        });
-    }
+            ),
+            Err(SubtensorError::<Test>::LiquidAlphaDisabled.into())
+        );
+    });
+}
 
-    #[test]
-    fn alpha_low_fails_if_liquid_alpha_disabled() {
-        new_test_ext().execute_with(|| {
-            let netuid: u16 = 1;
-            let to_be_set: u16 = 52428; // 0.8 i.e. 0.8 x u16::MAX
-            assert_eq!(
-                AdminUtils::sudo_set_alpha_low(
-                    <<Test as Config>::RuntimeOrigin>::root(),
-                    netuid,
-                    to_be_set
-                ),
-                Err(SubtensorError::<Test>::LiquidAlphaDisabled.into())
-            );
-        });
-    }
-
-    #[test]
-    fn alpha_low_fails_if_alpha_low_too_low() {
-        new_test_ext().execute_with(|| {
-            let netuid: u16 = 1;
-            let to_be_set: u16 = 0; // Invalid value
-            assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+#[test]
+fn alpha_low_fails_if_alpha_low_too_low() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 0; // Invalid value
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_low(
                 <<Test as Config>::RuntimeOrigin>::root(),
                 netuid,
-                true,
-            ));
-            assert_eq!(
-                AdminUtils::sudo_set_alpha_low(
-                    <<Test as Config>::RuntimeOrigin>::root(),
-                    netuid,
-                    to_be_set
-                ),
-                Err(SubtensorError::<Test>::AlphaLowTooLow.into())
-            );
-        });
-    }
+                to_be_set
+            ),
+            Err(SubtensorError::<Test>::AlphaLowTooLow.into())
+        );
+    });
+}
 
-    
-        #[test]
-        fn alpha_high_can_only_be_called_by_admin() {
-            new_test_ext().execute_with(|| {
-                let netuid: u16 = 1;
-                let to_be_set: u16 = 60000; // Valid value
-                assert_eq!(
-                    AdminUtils::sudo_set_alpha_high(
-                        <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
-                        netuid,
-                        to_be_set
-                    ),
-                    Err(DispatchError::BadOrigin)
-                );
-            });
-        }
-    
-        #[test]
-        fn sets_a_valid_value() {
-            new_test_ext().execute_with(|| {
-                let netuid: u16 = 1;
-                let to_be_set: u16 = 60000; // Valid value
-                let init_value = SubtensorModule::get_alpha_high(netuid);
-                assert_eq!(SubtensorModule::get_alpha_high(netuid), init_value);
-                assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
-                    <<Test as Config>::RuntimeOrigin>::root(),
-                    netuid,
-                    true,
-                ));
-                assert_ok!(AdminUtils::sudo_set_alpha_high(
-                    <<Test as Config>::RuntimeOrigin>::root(),
-                    netuid,
-                    to_be_set
-                ));
-                assert_eq!(SubtensorModule::get_alpha_high(netuid), to_be_set);
-            });
-        }
-    
-        #[test]
-        fn alpha_high_fails_if_liquid_alpha_disabled() {
-            new_test_ext().execute_with(|| {
-                let netuid: u16 = 1;
-                let to_be_set: u16 = 60000; // Valid value
-                assert_eq!(
-                    AdminUtils::sudo_set_alpha_high(
-                        <<Test as Config>::RuntimeOrigin>::root(),
-                        netuid,
-                        to_be_set
-                    ),
-                    Err(SubtensorError::<Test>::LiquidAlphaDisabled.into())
-                );
-            });
-        }
-    
-        #[test]
-        fn fails_if_alpha_high_too_low() {
-            new_test_ext().execute_with(|| {
-                let netuid: u16 = 1;
-                let to_be_set: u16 = 50000; // Invalid value, less than 52428
-                assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
-                    <<Test as Config>::RuntimeOrigin>::root(),
-                    netuid,
-                    true,
-                ));
-                assert_eq!(
-                    AdminUtils::sudo_set_alpha_high(
-                        <<Test as Config>::RuntimeOrigin>::root(),
-                        netuid,
-                        to_be_set
-                    ),
-                    Err(SubtensorError::<Test>::AlphaHighTooLow.into())
-                );
-            });
-        }
-    
+#[test]
+fn alpha_high_can_only_be_called_by_admin() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 60000; // Valid value
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_high(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                netuid,
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+    });
+}
+
+#[test]
+fn sets_a_valid_value() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 60000; // Valid value
+        let init_value = SubtensorModule::get_alpha_high(netuid);
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), init_value);
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
+        assert_ok!(AdminUtils::sudo_set_alpha_high(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_alpha_high(netuid), to_be_set);
+    });
+}
+
+#[test]
+fn alpha_high_fails_if_liquid_alpha_disabled() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 60000; // Valid value
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_high(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            ),
+            Err(SubtensorError::<Test>::LiquidAlphaDisabled.into())
+        );
+    });
+}
+
+#[test]
+fn fails_if_alpha_high_too_low() {
+    new_test_ext().execute_with(|| {
+        let netuid: u16 = 1;
+        let to_be_set: u16 = 50000; // Invalid value, less than 52428
+        assert_ok!(AdminUtils::sudo_set_liquid_alpha_enabled(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            netuid,
+            true,
+        ));
+        assert_eq!(
+            AdminUtils::sudo_set_alpha_high(
+                <<Test as Config>::RuntimeOrigin>::root(),
+                netuid,
+                to_be_set
+            ),
+            Err(SubtensorError::<Test>::AlphaHighTooLow.into())
+        );
+    });
+}
 
 #[test]
 fn test_sudo_set_liquid_alpha_enabled() {

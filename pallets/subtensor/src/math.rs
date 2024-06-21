@@ -8,7 +8,6 @@ use sp_std::cmp::Ordering;
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
 use substrate_fixed::types::{I32F32, I64F64};
-use crate::alloc::borrow::ToOwned;
 
 // TODO: figure out what cfg gate this needs to not be a warning in rustc
 #[allow(unused)]
