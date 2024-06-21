@@ -37,7 +37,7 @@ fn freeze_struct_impl(
     let item = parse2::<ItemStruct>(tokens)?;
     let mut item_clone = item.clone();
 
-    let calculated_hash = generate_hash(&item);
+    let calculated_hash = generate_hash(&item_clone);
     let calculated_hash_hex = format!("{:x}", calculated_hash);
 
     if attr.is_empty() {
