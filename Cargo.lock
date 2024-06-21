@@ -9142,7 +9142,7 @@ dependencies = [
  "ahash 0.8.11",
  "proc-macro2",
  "quote",
- "syn 2.0.58",
+ "syn 2.0.67",
 ]
 
 [[package]]
