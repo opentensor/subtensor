@@ -577,8 +577,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 15. Update the registration counters for both the block and interval.
-        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
-        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
+        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| val.saturating_inc());
 
         // --- 16. Log and announce the successful registration.
         log::info!(
