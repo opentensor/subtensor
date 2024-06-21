@@ -747,7 +747,7 @@ fn test_swap_axons_weight_update() {
         // Verify the weight update
         let expected_weight = netuid_is_member.len() as u64
             * <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 2);
-        assert_eq!(weight, expected_weight.into());
+        assert_eq!(weight, expected_weight);
     });
 }
 
