@@ -1,5 +1,6 @@
 //! Benchmarking setup
 #![cfg(feature = "runtime-benchmarks")]
+#![allow(clippy::arithmetic_side_effects)]
 use super::*;
 
 #[allow(unused)]
