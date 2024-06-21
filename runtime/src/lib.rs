@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// Some arithmetic operations can't use the saturating equivalent, such as the PerThing types
+#![allow(clippy::arithmetic_side_effects)]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -96,7 +98,9 @@ pub type Nonce = u32;
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     pub const ITEMS_FEE: Balance = 2_000 * 10_000;
     pub const BYTES_FEE: Balance = 100 * 10_000;
-    items as Balance * ITEMS_FEE + bytes as Balance * BYTES_FEE
+    (items as Balance)
+        .saturating_mul(ITEMS_FEE)
+        .saturating_add((bytes as Balance).saturating_mul(BYTES_FEE))
 }
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -662,7 +666,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
                     r_yes_votes,
                     r_count,
                 )), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
-            ) => Some((l_yes_votes * r_count).cmp(&(r_yes_votes * l_count))),
+            ) => Some(
+                l_yes_votes
+                    .saturating_mul(*r_count)
+                    .cmp(&r_yes_votes.saturating_mul(*l_count)),
+            ),
             // For every other origin we don't care, as they are not used for `ScheduleOrigin`.
             _ => None,
         }
@@ -1461,6 +1469,7 @@ impl_runtime_apis! {
 
     #[cfg(feature = "try-runtime")]
     impl frame_try_runtime::TryRuntime<Block> for Runtime {
+        #[allow(clippy::unwrap_used)]
         fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
             // NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
             // have a backtrace here. If any of the pre/post migration checks fail, we shall stop

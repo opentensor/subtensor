@@ -67,7 +67,7 @@ impl Decode for Data {
         Ok(match b {
             0 => Data::None,
             n @ 1..=129 => {
-                let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
+                let mut r: BoundedVec<_, _> = vec![0u8; (n as usize).saturating_sub(1)]
                     .try_into()
                     .expect("bound checked in match arm condition; qed");
                 input.read(&mut r[..])?;
@@ -87,8 +87,8 @@ impl Encode for Data {
         match self {
             Data::None => vec![0u8; 1],
             Data::Raw(ref x) => {
-                let l = x.len().min(128);
-                let mut r = vec![l as u8 + 1];
+                let l = x.len().min(128) as u8;
+                let mut r = vec![l.saturating_add(1)];
                 r.extend_from_slice(&x[..]);
                 r
             }
@@ -346,6 +346,7 @@ impl<
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing, clippy::unwrap_used)]
 mod tests {
     use super::*;
 
