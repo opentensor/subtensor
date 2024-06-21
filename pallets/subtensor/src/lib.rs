@@ -388,9 +388,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
-    #[pallet::storage] // --- MAP ( hot, u16 ) --> take | Signals that this key is open for delegation.
-    pub type Delegates<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet.
     pub type DelegatesTake<T: Config> = StorageDoubleMap<
         _,

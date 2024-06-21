@@ -693,18 +693,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Returns true if the passed hotkey allow delegative staking.
-    //
-    pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {
-        Delegates::<T>::contains_key(hotkey)
-    }
-
-    // Sets the hotkey as a delegate with take.
-    //
-    pub fn delegate_hotkey(hotkey: &T::AccountId, take: u16) {
-        Delegates::<T>::insert(hotkey, take);
-    }
-
     // Getters for Dynamic terms
     //
     pub fn get_total_stake_on_subnet(netuid: u16) -> u64 {

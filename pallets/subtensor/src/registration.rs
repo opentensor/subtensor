@@ -637,13 +637,6 @@ impl<T: Config> Pallet<T> {
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
-        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
-            Delegates::<T>::remove(old_hotkey);
-            Delegates::<T>::insert(new_hotkey, delegate_take);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
         for (netuid, delegate_take) in DelegatesTake::<T>::iter_prefix(old_hotkey) {
             DelegatesTake::<T>::insert(new_hotkey, netuid, delegate_take);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));

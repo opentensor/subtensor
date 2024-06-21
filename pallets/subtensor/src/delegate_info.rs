@@ -1,4 +1,5 @@
 use super::*;
+use alloc::collections::BTreeMap;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
 use sp_core::{hexdisplay::AsBytesRef, Get};
@@ -181,25 +182,25 @@ impl<T: Config> Pallet<T> {
         }).sum()
     }
 
-    fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
+    fn get_delegate_by_existing_account(delegate: &AccountIdOf<T>) -> DelegateInfo<T> {
         let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
         let nominators = 
-        Staker::<T>::iter_key_prefix(&delegate).map(|nominator| {
+        Staker::<T>::iter_key_prefix(delegate).map(|nominator| {
             let mut total_staked_to_delegate_i: u64 = 0;
             for netuid_i in all_netuids.iter() {
                 total_staked_to_delegate_i +=
-                    Self::get_subnet_stake_for_coldkey_and_hotkey(&nominator, &delegate, *netuid_i);
+                    Self::get_subnet_stake_for_coldkey_and_hotkey(&nominator, delegate, *netuid_i);
             }
             (nominator, total_staked_to_delegate_i)
         }).filter(|(_nominator, total_staked_to_delegate)| *total_staked_to_delegate != 0)
         .map(|(nominator, total_staked_to_delegate_i)| (nominator, Compact(total_staked_to_delegate_i)))
         .collect();
-        let registrations = Self::get_registered_networks_for_hotkey(&delegate.clone());
+        let registrations = Self::get_registered_networks_for_hotkey(delegate);
         let mut validator_permits = Vec::<Compact<u16>>::new();
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);
 
         for netuid in registrations.iter() {
-            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
+            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, delegate);
             if _uid.is_err() {
                 continue; // this should never happen
             } else {
@@ -216,7 +217,7 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let owner = Self::get_owning_coldkey_for_hotkey(&delegate.clone());
+        let owner = Self::get_owning_coldkey_for_hotkey(delegate);
 
         // Create a vector of tuples (netuid, take). If a take is not set in DelegatesTake, use default value
         let take = NetworksAdded::<T>::iter()
@@ -225,7 +226,7 @@ impl<T: Config> Pallet<T> {
                 (
                     Compact(netuid),
                     Compact(
-                        if let Ok(take) = DelegatesTake::<T>::try_get(&delegate, netuid) {
+                        if let Ok(take) = DelegatesTake::<T>::try_get(delegate, netuid) {
                             take
                         } else {
                             <DefaultDefaultTake<T>>::get()
@@ -235,7 +236,7 @@ impl<T: Config> Pallet<T> {
             })
             .collect();
 
-        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate.clone()).into();
+        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(delegate).into();
 
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
 
@@ -256,13 +257,13 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_delegate_by_existing_account_light(delegate: AccountIdOf<T>) -> DelegateInfoLight<T> {
+    fn get_delegate_by_existing_account_light(delegate: &AccountIdOf<T>) -> DelegateInfoLight<T> {
         let mut validator_permits = Vec::<Compact<u16>>::new();
-        let registrations = Self::get_registered_networks_for_hotkey(&delegate);
+        let registrations = Self::get_registered_networks_for_hotkey(delegate);
 
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);
         for netuid in registrations.iter() {
-            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate);
+            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, delegate);
             if _uid.is_err() {
                 continue; // this should never happen
             } else {
@@ -279,10 +280,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        let owner = Self::get_owning_coldkey_for_hotkey(&delegate);
+        let owner = Self::get_owning_coldkey_for_hotkey(delegate);
 
         // Create a vector of tuples (netuid, take). If a take is not set in DelegatesTake, use default value
-        let take = if DelegatesTake::<T>::iter_prefix(&delegate).next().is_some() {
+        let take = if DelegatesTake::<T>::iter_prefix(delegate).next().is_some() {
             // None
             u16::MAX
         } else {
@@ -290,8 +291,8 @@ impl<T: Config> Pallet<T> {
             <DefaultDefaultTake<T>>::get()
         };
 
-        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(&delegate).into();
-        let owner_stake = Self::get_nominator_global_dynamic_tao(&owner, &delegate);
+        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(delegate).into();
+        let owner_stake = Self::get_nominator_global_dynamic_tao(&owner, delegate);
 
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
 
@@ -301,7 +302,7 @@ impl<T: Config> Pallet<T> {
         }
 
         DelegateInfoLight {
-            delegate_ss58: delegate,
+            delegate_ss58: delegate.clone(),
             owner_ss58: owner,
             take,
             owner_stake: owner_stake.into(),
@@ -320,44 +321,62 @@ impl<T: Config> Pallet<T> {
         let delegate: AccountIdOf<T> =
             T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).ok()?;
         // Check delegate exists
-        if !Delegates::<T>::contains_key(&delegate) {
+        if DelegatesTake::<T>::iter_prefix(&delegate).next().is_none() {
             return None;
         }
 
-        let delegate_info = Self::get_delegate_by_existing_account(delegate.clone());
+        let delegate_info = Self::get_delegate_by_existing_account(&delegate);
         Some(delegate_info)
     }
 
     /// get all delegates info from storage
     ///
-    pub fn get_delegates() -> Vec<DelegateInfo<T>> {
-        Delegates::<T>::iter()
-            .map(|(delegate_id, _)| Self::get_delegate_by_existing_account(delegate_id))
+    pub fn get_delegates(netuid: u16) -> Vec<DelegateInfo<T>> {
+        // Get all hotkeys registered on the netuid
+        Uids::<T>::iter_prefix(netuid)
+            .map(|(delegate, _)| Self::get_delegate_by_existing_account(&delegate))
             .collect()
     }
 
     /// get all delegates' total stake from storage
     ///
-    pub fn get_delegates_light() -> Vec<DelegateInfoLight<T>> {
-        Delegates::<T>::iter()
-            .map(|(delegate_id, _)| Self::get_delegate_by_existing_account_light(delegate_id))
+    /// * `netuid` - Subnet ID to find all registered delegates
+    /// 
+    pub fn get_delegates_light(netuid: u16) -> Vec<DelegateInfoLight<T>> {
+        // Get all hotkeys registered on the netuid
+        Uids::<T>::iter_prefix(netuid)
+            .map(|(delegate, _)| Self::get_delegate_by_existing_account_light(&delegate))
             .collect()
     }
 
     /// get all delegates' light info from storage
     ///
-    pub fn get_all_delegates_total_stake() -> Vec<(T::AccountId, Compact<u64>)> {
-        Delegates::<T>::iter().map(|(delegate_id, _)| 
-            (delegate_id.clone(), Self::get_hotkey_global_dynamic_tao(&delegate_id).into())
+    /// * `netuid` - Subnet ID to find all delegates total stakes for
+    /// 
+    pub fn get_all_delegates_total_stake(netuid: u16) -> Vec<(T::AccountId, Compact<u64>)> {
+        // Get all hotkeys registered on the netuid
+        Uids::<T>::iter_prefix(netuid).map(|(delegate, _)| 
+            (delegate.clone(), Self::get_hotkey_global_dynamic_tao(&delegate).into())
         ).collect()
     }
 
     /// get all delegate info and staked token amount for a given delegatee account
     ///
-    pub fn get_delegated(delegatee_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, Compact<u64>)> {
-        let Ok(delegatee) = T::AccountId::decode(&mut delegatee_account_vec.as_bytes_ref()) else {
+    /// * `coldkey_account_vec` - Coldkey account to find all delegations made by it
+    /// 
+    pub fn get_delegated(coldkey_account_vec: Vec<u8>) -> Vec<(DelegateInfo<T>, Compact<u64>)> {
+        let Ok(coldkey) = T::AccountId::decode(&mut coldkey_account_vec.as_bytes_ref()) else {
             return Vec::new(); // No delegates for invalid account
         };
+
+        BTreeMap<<T as frame_system::Config>::AccountId, u64> hotkey_stakes = BTreeMap::new();
+        SubStake::<T>::iter_prefix((&coldkey,)).for_each(|((hotkey, netuid), stake)| {
+            hotkey_stakes.entry(hotkey).and_modify(|s| *s += stake).or_insert(stake);
+        });
+
+
+
+
 
         Delegates::<T>::iter()
             .map(|(delegate_id, _)| {

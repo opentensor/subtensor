@@ -45,6 +45,9 @@ pub mod deprecated_stake_variables {
         u64,
         ValueQuery,
     >;
+    #[storage_alias] // --- MAP ( hot, u16 ) --> take | Signals that this key is open for delegation.
+    pub type Delegates<T: Config> =
+        StorageMap<Pallet<T>, Blake2_128Concat, AccountIdOf<T>, u16, ValueQuery>;
 }
 
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
@@ -585,6 +588,33 @@ pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
     } else {
         log::info!("Migration to populate subnet creator already done!");
+    }
+
+    log::info!("Final weight: {:?}", weight);
+    weight
+}
+
+pub fn migrate_clear_delegates<T: Config>() -> Weight {
+    let new_storage_version = 10;
+    let migration_name = "clear delegates map";
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    use deprecated_stake_variables as old;
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: {}.", migration_name);
+
+        // Remove Delegates values
+        old::Delegates::<T>::translate(|_, _| {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+            None
+        });
+
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+    } else {
+        log::info!("Migration already done: {}", migration_name);
     }
 
     log::info!("Final weight: {:?}", weight);
