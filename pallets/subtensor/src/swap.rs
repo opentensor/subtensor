@@ -192,12 +192,12 @@ impl<T: Config> Pallet<T> {
         let mut writes = 0;
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
         let stake_count = stakes.len() as u32;
-        
+
         for (coldkey, stake_amount) in stakes {
             Stake::<T>::insert(new_hotkey, &coldkey, stake_amount);
             writes += 1; // One write for insert
         }
-        
+
         // Clear the prefix for the old hotkey after transferring all stakes
         let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
         writes += 1; // One write for clear_prefix
