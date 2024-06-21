@@ -99,7 +99,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `Result<Vec<u16>, Error<T>>` - A vector of network IDs where the hotkey is a member.
+    /// * `Vec<u16>` - A vector of network IDs where the hotkey is a member.
     pub fn get_netuid_is_member(old_hotkey: &T::AccountId, weight: &mut Weight) -> Vec<u16> {
         let netuid_is_member: Vec<u16> =
             <IsNetworkMember<T> as IterableStorageDoubleMap<_, _, _>>::iter_prefix(old_hotkey)
@@ -118,9 +118,6 @@ impl<T: Config> Pallet<T> {
     /// * `coldkey` - The coldkey owning the hotkey.
     /// * `weight` - The weight of the transaction.
     ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_owner(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
@@ -191,22 +188,23 @@ impl<T: Config> Pallet<T> {
     /// * `old_hotkey` - The old hotkey.
     /// * `new_hotkey` - The new hotkey.
     /// * `weight` - The weight of the transaction.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_stake(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId, weight: &mut Weight) {
         let mut writes = 0;
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
         let stake_count = stakes.len() as u32;
+        
         for (coldkey, stake_amount) in stakes {
             Stake::<T>::insert(new_hotkey, &coldkey, stake_amount);
-            let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
-            writes += 2; // One write for insert and one for remove
+            writes += 1; // One write for insert
         }
+        
+        // Clear the prefix for the old hotkey after transferring all stakes
+        let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
+        writes += 1; // One write for clear_prefix
 
         *weight += T::DbWeight::get().writes(writes as u64);
     }
+
     /// Swaps the network membership status of the hotkey.
     ///
     /// # Arguments
@@ -215,10 +213,6 @@ impl<T: Config> Pallet<T> {
     /// * `new_hotkey` - The new hotkey.
     /// * `netuid_is_member` - A vector of network IDs where the hotkey is a member.
     /// * `weight` - The weight of the transaction.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_is_network_member(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
@@ -271,10 +265,6 @@ impl<T: Config> Pallet<T> {
     /// * `new_hotkey` - The new hotkey.
     /// * `netuid_is_member` - A vector of network IDs where the hotkey is a member.
     /// * `weight` - The weight of the transaction.
-    ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_keys(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
@@ -305,9 +295,6 @@ impl<T: Config> Pallet<T> {
     /// * `netuid_is_member` - A vector of network IDs where the hotkey is a member.
     /// * `weight` - The weight of the transaction.
     ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_loaded_emission(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
@@ -336,9 +323,6 @@ impl<T: Config> Pallet<T> {
     /// * `netuid_is_member` - A vector of network IDs where the hotkey is a member.
     /// * `weight` - The weight of the transaction.
     ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_uids(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
@@ -392,9 +376,6 @@ impl<T: Config> Pallet<T> {
     /// * `new_hotkey` - The new hotkey.
     /// * `weight` - The weight of the transaction.
     ///
-    /// # Returns
-    ///
-    /// * `Result<(), Error<T>>` - The result of the operation.
     pub fn swap_total_hotkey_coldkey_stakes_this_interval(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
