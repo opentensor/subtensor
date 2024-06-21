@@ -1184,27 +1184,30 @@ impl<T: Config> Pallet<T> {
 
     pub fn do_set_alpha_values(origin: T::RuntimeOrigin, netuid: u16, alpha_low: u16, alpha_high: u16) -> Result<(), DispatchError> {
         // --- 1. Ensure the function caller is a signed user.
-        let _coldkey = ensure_signed(origin)?;
+        ensure_signed(origin.clone())?;
+
+        // --- 2. Ensure the function caller is the subnet owner or root.
+        Self::ensure_subnet_owner_or_root(origin, netuid)?;
         
-        let max_u16: u32 = u16::MAX as u32; // 65535
-        let min_alpha_high: u16 = (max_u16.saturating_mul(4).saturating_div(5)) as u16; // 52428
-        
-        // --- 2. Ensure liquid alpha is enabled
+        // --- 3. Ensure liquid alpha is enabled
         ensure!(
             Self::get_liquid_alpha_enabled(netuid),
             Error::<T>::LiquidAlphaDisabled
         );
-        
-        // --- 3. Ensure alpha high is greater than the minimum
+
+        let max_u16: u32 = u16::MAX as u32; // 65535
+        let min_alpha_high: u16 = (max_u16.saturating_mul(4).saturating_div(5)) as u16; // 52428
+
+        // --- 4. Ensure alpha high is greater than the minimum
         ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);
 
-        // -- 4. Ensure alpha low is within range
+        // -- 5. Ensure alpha low is within range
         ensure!(
             alpha_low > 0 && alpha_low < min_alpha_high,
             Error::<T>::AlphaLowTooLow
         );
-        AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
 
+        AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
         Ok(())
     }
 }

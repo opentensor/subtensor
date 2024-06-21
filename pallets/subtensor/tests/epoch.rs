@@ -4,6 +4,7 @@ use frame_system::Config;
 use pallet_subtensor::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
 use sp_core::U256;
+use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
 mod mock;
@@ -1481,9 +1482,30 @@ fn test_bonds_with_liquid_alpha() {
 fn test_set_alpha_disabled() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let tempo: u16 = u16::MAX - 1;
-        let signer: RuntimeOrigin = RuntimeOrigin::signed(U256::from(1));
-        add_network(netuid, tempo, 0);
+        let hotkey: U256 = U256::from(1);
+        let coldkey: U256 = U256::from(1 + 456);
+        let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey.clone());
+
+        // Enable Liquid Alpha and setup
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        migration::migrate_create_root_network::<Test>();
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            signer.clone(),
+            hotkey,
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            signer.clone(),
+            hotkey,
+            1000
+        ));
+        // Only owner can set alpha values
+        assert_ok!(SubtensorModule::register_network(
+            signer.clone()
+        ));
 
         // Explicitly set to false
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
@@ -2509,10 +2531,38 @@ fn test_get_set_alpha() {
         let netuid: u16 = 1;
         let alpha_low: u16 = 12_u16;
         let alpha_high: u16 = u16::MAX - 10;
-        let signer: RuntimeOrigin = RuntimeOrigin::signed(U256::from(1));
 
-        // Enable liquid alpha and set alpha values
+        let hotkey: U256 = U256::from(1);
+        let coldkey: U256 = U256::from(1 + 456);
+        let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey.clone());
+
+        // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
+        migration::migrate_create_root_network::<Test>();
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            1_000_000_000_000_000,
+        );
+        assert_ok!(SubtensorModule::root_register(
+            signer.clone(),
+            hotkey,
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            signer.clone(),
+            hotkey,
+            1000
+        ));
+
+        // Should fail as signer does not own the subnet
+        assert_err!(
+            SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high),
+            DispatchError::BadOrigin
+        );
+
+        assert_ok!(SubtensorModule::register_network(
+            signer.clone()
+        ));
+
         assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
         let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = SubtensorModule::get_alpha_values(netuid);
 
@@ -2536,8 +2586,6 @@ fn test_get_set_alpha() {
         // Check if the values are equal to the sixth decimal
         assert!((alpha_low_32.to_num::<f32>() - alpha_low_decimal).abs() < tolerance, "alpha_low mismatch: {} != {}", alpha_low_32.to_num::<f32>(), alpha_low_decimal);
         assert!((alpha_high_32.to_num::<f32>() - alpha_high_decimal).abs() < tolerance, "alpha_high mismatch: {} != {}", alpha_high_32.to_num::<f32>(), alpha_high_decimal);
-
-        // Test error cases
 
         // 1. Liquid alpha disabled
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
