@@ -845,12 +845,14 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the slope 'a' of the logistic function.
         // a = (ln((1 / alpha_high - 1)) - ln((1 / alpha_low - 1))) / (consensus_low - consensus_high)
-        let a =
-            (safe_ln((I32F32::from_num(1.0).saturating_div( alpha_high)).saturating_sub(I32F32::from_num(1.0)))
-                .saturating_sub(safe_ln(
-                    (I32F32::from_num(1.0).saturating_div( alpha_low)).saturating_sub(I32F32::from_num(1.0)),
-                )))
-            .saturating_div(consensus_low.saturating_sub(consensus_high));
+        let a = (safe_ln(
+            (I32F32::from_num(1.0).saturating_div(alpha_high))
+                .saturating_sub(I32F32::from_num(1.0)),
+        )
+        .saturating_sub(safe_ln(
+            (I32F32::from_num(1.0).saturating_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+        )))
+        .saturating_div(consensus_low.saturating_sub(consensus_high));
         log::trace!("a: {:?}", a);
 
         // Calculate the intercept 'b' of the logistic function.
