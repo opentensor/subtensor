@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![allow(non_camel_case_types)]
+#![allow(non_camel_case_types, clippy::indexing_slicing, clippy::unwrap_used)]
 
 use super::{Event as CollectiveEvent, *};
 use crate as pallet_collective;
