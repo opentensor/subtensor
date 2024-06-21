@@ -325,7 +325,8 @@ impl<T: Config> Pallet<T> {
             if last_set_weights == 0 {
                 return true;
             } // (Storage default) Never set weights.
-            return (current_block - last_set_weights) >= Self::get_weights_set_rate_limit(netuid);
+            return current_block.saturating_sub(last_set_weights)
+                >= Self::get_weights_set_rate_limit(netuid);
         }
         // --- 3. Non registered peers cant pass.
         false
@@ -398,6 +399,7 @@ impl<T: Config> Pallet<T> {
         false
     }
 
+    #[allow(clippy::arithmetic_side_effects)]
     /// Returns normalized the passed positive integer weights so that they sum to u16 max value.
     pub fn normalize_weights(mut weights: Vec<u16>) -> Vec<u16> {
         let sum: u64 = weights.iter().map(|x| *x as u64).sum();
@@ -405,7 +407,9 @@ impl<T: Config> Pallet<T> {
             return weights;
         }
         weights.iter_mut().for_each(|x| {
-            *x = (*x as u64 * u16::MAX as u64 / sum) as u16;
+            *x = (*x as u64)
+                .saturating_mul(u16::MAX as u64)
+                .saturating_div(sum) as u16;
         });
         weights
     }
@@ -448,6 +452,7 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
+    #[allow(clippy::arithmetic_side_effects)]
     pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
         if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
             let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
@@ -456,11 +461,12 @@ impl<T: Config> Pallet<T> {
             }
 
             let current_block: u64 = Self::get_current_block_as_u64();
-            let interval_start: u64 = current_block - (current_block % interval);
-            let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
+            let interval_start: u64 = current_block.saturating_sub(current_block % interval);
+            let last_commit_interval_start: u64 =
+                commit_block.saturating_sub(commit_block % interval);
 
             // Allow commit if we're within the interval bounds
-            if current_block <= interval_start + interval
+            if current_block <= interval_start.saturating_add(interval)
                 && interval_start > last_commit_interval_start
             {
                 return true;
@@ -472,19 +478,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    #[allow(clippy::arithmetic_side_effects)]
     pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
         let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
         if interval == 0 {
             return true; //prevent division by 0
         }
 
-        let commit_interval_start: u64 = commit_block - (commit_block % interval); // Find the start of the interval in which the commit occurred
-        let reveal_interval_start: u64 = commit_interval_start + interval; // Start of the next interval after the commit interval
+        let commit_interval_start: u64 = commit_block.saturating_sub(commit_block % interval); // Find the start of the interval in which the commit occurred
+        let reveal_interval_start: u64 = commit_interval_start.saturating_add(interval); // Start of the next interval after the commit interval
         let current_block: u64 = Self::get_current_block_as_u64();
 
         // Allow reveal if the current block is within the interval following the commit's interval
         if current_block >= reveal_interval_start
-            && current_block < reveal_interval_start + interval
+            && current_block < reveal_interval_start.saturating_add(interval)
         {
             return true;
         }

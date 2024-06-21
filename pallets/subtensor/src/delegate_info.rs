@@ -7,6 +7,7 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
+#[freeze_struct("5752e4c650a83e0d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DelegateInfo<T: Config> {
     delegate_ss58: T::AccountId,
@@ -52,8 +53,9 @@ impl<T: Config> Pallet<T> {
 
                 let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
                 let tempo: U64F64 = Self::get_tempo(*netuid).into();
-                let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
-                emissions_per_day += emission * epochs_per_day;
+                let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
+                emissions_per_day =
+                    emissions_per_day.saturating_add(emission.saturating_mul(epochs_per_day));
             }
         }
 
@@ -65,8 +67,9 @@ impl<T: Config> Pallet<T> {
         let mut return_per_1000: U64F64 = U64F64::from_num(0);
 
         if total_stake > U64F64::from_num(0) {
-            return_per_1000 = (emissions_per_day * U64F64::from_num(0.82))
-                / (total_stake / U64F64::from_num(1000));
+            return_per_1000 = emissions_per_day
+                .saturating_mul(U64F64::from_num(0.82))
+                .saturating_div(total_stake.saturating_div(U64F64::from_num(1000)));
         }
 
         return DelegateInfo {
