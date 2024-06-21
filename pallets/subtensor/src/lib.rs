@@ -275,11 +275,6 @@ pub mod pallet {
     pub fn TotalSupply<T: Config>() -> u64 {
         21_000_000_000_000_000 // Rao => 21_000_000 Tao
     }
-    /// Hotkey swap cost.
-    #[pallet::type_value]
-    pub fn HotkeySwapCost<T: Config>() -> u64 {
-        1_000_000_000
-    }
     /// Default total stake.
     #[pallet::type_value]
     pub fn DefaultDefaultTake<T: Config>() -> u16 {
