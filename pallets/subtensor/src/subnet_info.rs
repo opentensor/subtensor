@@ -4,7 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
-#[freeze_struct("4d3e8df520bbc960")]
+#[freeze_struct("fe79d58173da662a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
     netuid: Compact<u16>,
