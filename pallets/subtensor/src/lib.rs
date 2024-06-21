@@ -866,14 +866,9 @@ pub mod pallet {
     /// Provides the default value for the upper bound of the alpha parameter.
 
     #[pallet::type_value]
-    pub fn DefaultAlphaHigh<T: Config>() -> u16 {
-        58982 // Represents 0.9 as per the production default
-    }
-    /// Provides the default value for the lower bound of the alpha parameter.
-    #[pallet::type_value]
-    pub fn DefaultAlphaLow<T: Config>() -> u16 {
-        45875 // Represents 0.7 as per the production default
-    }
+    pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
+        (45875, 58982) // (alpha_low: 0.7, alpha_high: 0.9)
+    }    
 
     #[pallet::storage] // ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
@@ -944,12 +939,10 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> adjustment_alpha
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
-    //  MAP ( netuid ) --> alpha_high
+
+    //  MAP ( netuid ) --> (alpha_low, alpha_high)
     #[pallet::storage]
-    pub type AlphaHigh<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaHigh<T>>;
-    //  MAP ( netuid ) --> alpha_low
-    #[pallet::storage]
-    pub type AlphaLow<T> = StorageMap<_, Identity, u16, u16, ValueQuery, DefaultAlphaLow<T>>;
+    pub type AlphaValues<T> = StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
 
     #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
@@ -2084,6 +2077,15 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
+        }
+
+        /// Sets values for liquid alpha
+        #[pallet::call_index(88)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational, Pays::No))]
+        pub fn set_alpha_values(origin: OriginFor<T>, netuid: u16, alpha_low: u16, alpha_high: u16) -> DispatchResult {
+            Self::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
         }
     }
 

@@ -1,5 +1,5 @@
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{dispatch::{DispatchClass, GetDispatchInfo, Pays}, assert_err, assert_ok};
 use frame_system::Config;
 use pallet_subtensor::*;
 use rand::{distributions::Uniform, rngs::StdRng, seq::SliceRandom, thread_rng, Rng, SeedableRng};
@@ -1482,22 +1482,18 @@ fn test_set_alpha_disabled() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let tempo: u16 = u16::MAX - 1;
+        let signer: RuntimeOrigin = RuntimeOrigin::signed(U256::from(1));
         add_network(netuid, tempo, 0);
 
         // Explicitly set to false
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
         assert_err!(
-            SubtensorModule::set_alpha_high(netuid, u16::MAX),
-            Error::<Test>::LiquidAlphaDisabled
-        );
-        assert_err!(
-            SubtensorModule::set_alpha_low(netuid, 12_u16),
+            SubtensorModule::set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX),
             Error::<Test>::LiquidAlphaDisabled
         );
 
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        assert_ok!(SubtensorModule::set_alpha_high(netuid, u16::MAX));
-        assert_ok!(SubtensorModule::set_alpha_low(netuid, 12_u16));
+        assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, 12_u16, u16::MAX));
     });
 }
 
@@ -2508,18 +2504,94 @@ fn test_compute_ema_bonds_with_liquid_alpha_sparse_empty() {
 }
 
 #[test]
-fn test_get_alpha_low() {
+fn test_get_set_alpha() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
-        let alpha_low: u16 = 1000;
+        let alpha_low: u16 = 12_u16;
+        let alpha_high: u16 = u16::MAX - 10;
+        let signer: RuntimeOrigin = RuntimeOrigin::signed(U256::from(1));
+
+        // Enable liquid alpha and set alpha values
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
-        SubtensorModule::set_alpha_low(netuid, alpha_low).unwrap();
-        log::info!("alpha_low: {:?}", SubtensorModule::get_alpha_low(netuid));
-        assert_eq!(SubtensorModule::get_alpha_low(netuid), alpha_low);
-        assert_eq!(
-            SubtensorModule::get_alpha_low_32(netuid),
-            I32F32::from_num(0.015259022)
+        assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = SubtensorModule::get_alpha_values(netuid);
+
+        log::info!("alpha_low: {:?} alpha_high: {:?}", grabbed_alpha_low, grabbed_alpha_high);
+        assert_eq!(grabbed_alpha_low, alpha_low);
+        assert_eq!(grabbed_alpha_high, alpha_high);
+
+        // Convert the u16 values to decimal values
+        fn unnormalize_u16_to_float(normalized_value: u16) -> f32 {
+            const MAX_U16: u16 = 65535;
+            normalized_value as f32 / MAX_U16 as f32
+        }
+
+        let alpha_low_decimal = unnormalize_u16_to_float(alpha_low);
+        let alpha_high_decimal = unnormalize_u16_to_float(alpha_high);
+
+        let (alpha_low_32, alpha_high_32) = SubtensorModule::get_alpha_values_32(netuid);
+
+        let tolerance: f32 = 1e-6; // 0.000001
+
+        // Check if the values are equal to the sixth decimal
+        assert!((alpha_low_32.to_num::<f32>() - alpha_low_decimal).abs() < tolerance, "alpha_low mismatch: {} != {}", alpha_low_32.to_num::<f32>(), alpha_low_decimal);
+        assert!((alpha_high_32.to_num::<f32>() - alpha_high_decimal).abs() < tolerance, "alpha_high mismatch: {} != {}", alpha_high_32.to_num::<f32>(), alpha_high_decimal);
+
+        // Test error cases
+
+        // 1. Liquid alpha disabled
+        SubtensorModule::set_liquid_alpha_enabled(netuid, false);
+        assert_err!(
+            SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high),
+            Error::<Test>::LiquidAlphaDisabled
         );
+        // Correct scenario after error
+        SubtensorModule::set_liquid_alpha_enabled(netuid, true); // Re-enable for further tests
+        assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+
+        // 2. Alpha high too low
+        let alpha_high_too_low = (u16::MAX as u32 * 4 / 5) as u16 - 1; // One less than the minimum acceptable value
+        assert_err!(
+            SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high_too_low),
+            Error::<Test>::AlphaHighTooLow
+        );
+        // Correct scenario after error
+        assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+
+        // 3. Alpha low too low or too high
+        let alpha_low_too_low = 0_u16;
+        assert_err!(
+            SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low_too_low, alpha_high),
+            Error::<Test>::AlphaLowTooLow
+        );
+        // Correct scenario after error
+        assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+
+        let alpha_low_too_high = (u16::MAX as u32 * 4 / 5) as u16 + 1; // One more than the maximum acceptable value
+        assert_err!(
+            SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low_too_high, alpha_high),
+            Error::<Test>::AlphaLowTooLow
+        );
+        // Correct scenario after error
+        assert_ok!(SubtensorModule::set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+    });
+}
+
+#[test]
+fn test_set_alpha_values_dispatch_info_ok() {
+    new_test_ext(0).execute_with(|| {
+        let netuid: u16 = 1;
+        let alpha_low: u16 = 12_u16;
+        let alpha_high: u16 = u16::MAX - 10;
+        let call = RuntimeCall::SubtensorModule(SubtensorCall::set_alpha_values {
+            netuid,
+            alpha_low,
+            alpha_high,
+        });
+        let dispatch_info = call.get_dispatch_info();
+
+        assert_eq!(dispatch_info.class, DispatchClass::Operational);
+        assert_eq!(dispatch_info.pays_fee, Pays::No);
     });
 }
 

@@ -1149,14 +1149,6 @@ impl
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
     }
 
-    fn set_alpha_high(netuid: u16, alpha_high: u16) -> Result<(), DispatchError> {
-        SubtensorModule::set_alpha_high(netuid, alpha_high)
-    }
-
-    fn set_alpha_low(netuid: u16, alpha_low: u16) -> Result<(), DispatchError> {
-        SubtensorModule::set_alpha_low(netuid, alpha_low)
-    }
-
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }

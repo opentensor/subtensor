@@ -3,6 +3,7 @@ use frame_support::pallet_prelude::{Decode, Encode};
 use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
+use substrate_fixed::types::I32F32;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
@@ -24,6 +25,7 @@ pub struct SubnetInfo<T: Config> {
     emission_values: Compact<u64>,
     burn: Compact<u64>,
     owner: T::AccountId,
+    alpha_values: (I32F32, I32F32),
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -52,8 +54,6 @@ pub struct SubnetHyperparams {
     difficulty: Compact<u64>,
     commit_reveal_weights_interval: Compact<u64>,
     commit_reveal_weights_enabled: bool,
-    alpha_high: Compact<u16>,
-    alpha_low: Compact<u16>,
     liquid_alpha_enabled: bool,
 }
 
@@ -104,6 +104,7 @@ impl<T: Config> Pallet<T> {
             emission_values: emission_values.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
+            alpha_values: Self::get_alpha_values_32(netuid),
         })
     }
 
@@ -158,8 +159,6 @@ impl<T: Config> Pallet<T> {
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
-        let alpha_high = Self::get_alpha_high(netuid);
-        let alpha_low = Self::get_alpha_low(netuid);
         let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
 
         Some(SubnetHyperparams {
@@ -187,8 +186,6 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
             commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
             commit_reveal_weights_enabled,
-            alpha_high: alpha_high.into(),
-            alpha_low: alpha_low.into(),
             liquid_alpha_enabled,
         })
     }

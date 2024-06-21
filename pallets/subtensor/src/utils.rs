@@ -663,47 +663,16 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_alpha_high(netuid: u16) -> u16 {
-        AlphaHigh::<T>::get(netuid)
+    pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
+        AlphaValues::<T>::get(netuid)
     }
 
-    pub fn get_alpha_high_32(netuid: u16) -> I32F32 {
-        I32F32::from_num(AlphaHigh::<T>::get(netuid)) / I32F32::from_num(u16::MAX)
-    }
+    pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
+        let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
+        let converted_low = I32F32::from_num(alpha_low) / I32F32::from_num(u16::MAX);
+        let converted_high = I32F32::from_num(alpha_high) / I32F32::from_num(u16::MAX);
 
-    pub fn set_alpha_high(netuid: u16, alpha_high: u16) -> Result<(), DispatchError> {
-        // Ensure liquid alpha is enabled
-        ensure!(
-            Self::get_liquid_alpha_enabled(netuid),
-            Error::<T>::LiquidAlphaDisabled
-        );
-        // Ensure alpha high is greater than the minimum
-        ensure!(alpha_high >= 52428, Error::<T>::AlphaHighTooLow);
-        AlphaHigh::<T>::insert(netuid, alpha_high);
-
-        Ok(())
-    }
-
-    pub fn get_alpha_low(netuid: u16) -> u16 {
-        AlphaLow::<T>::get(netuid)
-    }
-
-    pub fn get_alpha_low_32(netuid: u16) -> I32F32 {
-        I32F32::from_num(AlphaLow::<T>::get(netuid)) / I32F32::from_num(u16::MAX)
-    }
-
-    pub fn set_alpha_low(netuid: u16, alpha_low: u16) -> Result<(), DispatchError> {
-        ensure!(
-            Self::get_liquid_alpha_enabled(netuid),
-            Error::<T>::LiquidAlphaDisabled
-        );
-        ensure!(
-            alpha_low > 0 || alpha_low == 52428,
-            Error::<T>::AlphaLowTooLow
-        );
-        AlphaLow::<T>::insert(netuid, alpha_low);
-
-        Ok(())
+        return (converted_low, converted_high);
     }
 
     pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {

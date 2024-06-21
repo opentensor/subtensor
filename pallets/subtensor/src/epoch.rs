@@ -1082,10 +1082,8 @@ impl<T: Config> Pallet<T> {
                 log::trace!("Using Liquid Alpha");
 
                 // Get the high and low alpha values for the network.
-                let alpha_high = Self::get_alpha_high_32(netuid);
-                log::trace!("alpha_high: {:?}", alpha_high);
-                let alpha_low = Self::get_alpha_low_32(netuid);
-                log::trace!("alpha_low: {:?}", alpha_low);
+                let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
+                log::trace!("alpha_low: {:?} alpha_high: {:?}", alpha_low, alpha_high);
 
                 // Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
                 let (a, b) = Self::calculate_logistic_params(
@@ -1151,10 +1149,8 @@ impl<T: Config> Pallet<T> {
                 log::trace!("Using Liquid Alpha");
 
                 // Get the high and low alpha values for the network.
-                let alpha_high = Self::get_alpha_high_32(netuid);
-                log::trace!("alpha_high: {:?}", alpha_high);
-                let alpha_low = Self::get_alpha_low_32(netuid);
-                log::trace!("alpha_low: {:?}", alpha_low);
+                let (alpha_low, alpha_high): (I32F32, I32F32) = Self::get_alpha_values_32(netuid);
+                log::trace!("alpha_low: {:?} alpha_high: {:?}", alpha_low, alpha_high);
 
                 // Calculate the logistic function parameters 'a' and 'b' based on alpha and consensus values.
                 let (a, b) = Self::calculate_logistic_params(
@@ -1184,5 +1180,31 @@ impl<T: Config> Pallet<T> {
             // Compute the EMA of bonds using a normal alpha value.
             Self::compute_ema_bonds_normal(&bonds_delta, &bonds, netuid)
         }
+    }
+
+    pub fn do_set_alpha_values(origin: T::RuntimeOrigin, netuid: u16, alpha_low: u16, alpha_high: u16) -> Result<(), DispatchError> {
+        // --- 1. Ensure the function caller is a signed user.
+        let _coldkey = ensure_signed(origin)?;
+        
+        let max_u16: u32 = u16::MAX as u32; // 65535
+        let min_alpha_high: u16 = (max_u16.saturating_mul(4).saturating_div(5)) as u16; // 52428
+        
+        // --- 2. Ensure liquid alpha is enabled
+        ensure!(
+            Self::get_liquid_alpha_enabled(netuid),
+            Error::<T>::LiquidAlphaDisabled
+        );
+        
+        // --- 3. Ensure alpha high is greater than the minimum
+        ensure!(alpha_high >= min_alpha_high, Error::<T>::AlphaHighTooLow);
+
+        // -- 4. Ensure alpha low is within range
+        ensure!(
+            alpha_low > 0 && alpha_low < min_alpha_high,
+            Error::<T>::AlphaLowTooLow
+        );
+        AlphaValues::<T>::insert(netuid, (alpha_low, alpha_high));
+
+        Ok(())
     }
 }

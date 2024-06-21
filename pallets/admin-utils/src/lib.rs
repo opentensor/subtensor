@@ -997,56 +997,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Sets the lower bound for the alpha parameter for a given subnet.
-        ///
-        /// # Parameters
-        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
-        /// - `netuid`: The unique identifier for the subnet.
-        /// - `alpha_low`: The new lower bound value for the alpha parameter.
-        ///
-        /// # Weight
-        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
-        #[pallet::call_index(50)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_alpha_low(
-            origin: OriginFor<T>,
-            netuid: u16,
-            alpha_low: u16,
-        ) -> DispatchResult {
-            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
-            T::Subtensor::set_alpha_low(netuid, alpha_low)?;
-            log::info!(
-                "AlphaLowSet( netuid: {:?}, alpha_low: {:?} ) ",
-                netuid,
-                alpha_low
-            );
-            Ok(())
-        }
-        /// Sets the upper bound for the alpha parameter for a given subnet.
-        ///
-        /// # Parameters
-        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
-        /// - `netuid`: The unique identifier for the subnet.
-        /// - `alpha_high`: The new upper bound value for the alpha parameter.
-        ///
-        /// # Weight
-        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
-        #[pallet::call_index(51)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_alpha_high(
-            origin: OriginFor<T>,
-            netuid: u16,
-            alpha_high: u16,
-        ) -> DispatchResult {
-            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
-            T::Subtensor::set_alpha_high(netuid, alpha_high)?;
-            log::info!(
-                "AlphaHighSet( netuid: {:?}, alpha_high: {:?} ) ",
-                netuid,
-                alpha_high
-            );
-            Ok(())
-        }
         /// Enables or disables Liquid Alpha for a given subnet.
         ///
         /// # Parameters
@@ -1056,7 +1006,7 @@ pub mod pallet {
         ///
         /// # Weight
         /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
-        #[pallet::call_index(52)]
+        #[pallet::call_index(50)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_liquid_alpha_enabled(
             origin: OriginFor<T>,
@@ -1167,7 +1117,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
-    fn set_alpha_high(netuid: u16, alpha_high: u16) -> Result<(), DispatchError>;
-    fn set_alpha_low(netuid: u16, alpha_low: u16) -> Result<(), DispatchError>;
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool);
 }
