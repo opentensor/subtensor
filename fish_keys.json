@@ -1,0 +1,52 @@
+{
+  "keys": [
+    {
+      "sr25519": {
+        "name": "Sr25519: 1",
+        "type": "Sr25519",
+        "secret_phrase": "radio fame relief cook jar monitor forum develop fee vault child weather",
+        "network_id": "substrate",
+        "secret_seed": "0x7c506f5b972bb7d960aadbe56c6f586e78b96f94eba0d32aadd189cba8f044a0",
+        "public_key_hex": "0xd2c4f26ba8a28a2126fff473e5fdec71e18b810dd862baa09bc8f417cb4afb0c",
+        "account_id": "0xd2c4f26ba8a28a2126fff473e5fdec71e18b810dd862baa09bc8f417cb4afb0c",
+        "public_key_ss58": "5Gq4RDoMYSvgvU4mcyDRt17JUpjnbMvW6nEbptmbZzNzuTHR",
+        "ss58_address": "5Gq4RDoMYSvgvU4mcyDRt17JUpjnbMvW6nEbptmbZzNzuTHR"
+      },
+      "ed25519": {
+        "name": "Ed25519: 1",
+        "type": "Ed25519",
+        "secret_phrase": "radio fame relief cook jar monitor forum develop fee vault child weather",
+        "network_id": "substrate",
+        "secret_seed": "0x7c506f5b972bb7d960aadbe56c6f586e78b96f94eba0d32aadd189cba8f044a0",
+        "public_key_hex": "0x30f3b8bb2cec81872254216dd9f3217703e668c42a4166cdcc49014d7c16fd7c",
+        "account_id": "0x30f3b8bb2cec81872254216dd9f3217703e668c42a4166cdcc49014d7c16fd7c",
+        "public_key_ss58": "5DAtZCrpE73sVPdDAcuD3NxB8KikRNkzktRUuCXed964KP3Z",
+        "ss58_address": "5DAtZCrpE73sVPdDAcuD3NxB8KikRNkzktRUuCXed964KP3Z"
+      }
+    },
+    {
+      "sr25519": {
+        "name": "Sr25519: 2",
+        "type": "Sr25519",
+        "secret_phrase": "dinosaur logic beyond upper bind ripple slush collect tattoo mother adjust item",
+        "network_id": "substrate",
+        "secret_seed": "0x330f71790c887652ba875b83586918a1bfb0a2c5ff9fd9a135db9f07183f2efd",
+        "public_key_hex": "0xc8940720aec79298fcdd31bf355a3aa1876ec84af2588180886ad63d6676db38",
+        "account_id": "0xc8940720aec79298fcdd31bf355a3aa1876ec84af2588180886ad63d6676db38",
+        "public_key_ss58": "5GbhQbGeBpchUFx59epEgBK52F2nTyGjJxnf4L8Ai6Q6Fmiy",
+        "ss58_address": "5GbhQbGeBpchUFx59epEgBK52F2nTyGjJxnf4L8Ai6Q6Fmiy"
+      },
+      "ed25519": {
+        "name": "Ed25519: 2",
+        "type": "Ed25519",
+        "secret_phrase": "dinosaur logic beyond upper bind ripple slush collect tattoo mother adjust item",
+        "network_id": "substrate",
+        "secret_seed": "0x330f71790c887652ba875b83586918a1bfb0a2c5ff9fd9a135db9f07183f2efd",
+        "public_key_hex": "0x0a4e13296dabe48cf56d70a61df5bc8ea5387763bcd83ee6304c48ac9bcaff71",
+        "account_id": "0x0a4e13296dabe48cf56d70a61df5bc8ea5387763bcd83ee6304c48ac9bcaff71",
+        "public_key_ss58": "5CJDXe62unrkgywGsN4Rwyi2zSJvpmZXULwKPBXjncZx3KJW",
+        "ss58_address": "5CJDXe62unrkgywGsN4Rwyi2zSJvpmZXULwKPBXjncZx3KJW"
+      }
+    }
+  ]
+}
