@@ -33,6 +33,11 @@ parse_args() {
                 # If the argument is --features, set FEATURES to the next argument
                 shift 2
                 ;;
+            --keys)
+                KEYS_FILE="$2"
+                # If the argument is --keys, set KEYS_FILE to the next argument
+                shift 2
+                ;;
             *)
                 echo "Unknown option: $1"
                 # If the argument doesn't match any known option, print an error
@@ -55,6 +60,8 @@ set_defaults() {
     # Set FEATURES to default values if not already set
     : "${BUILD_BINARY:=1}"
     # Set BUILD_BINARY to 1 if not already set
+    : "${KEYS_FILE:="keys.json"}"
+    # Set KEYS_FILE to 'keys.json' if not already set
     FULL_PATH="$SPEC_PATH$CHAIN.json"
     # Set FULL_PATH to the complete path of the chain specification file
 }
@@ -66,6 +73,7 @@ print_setup_info() {
     echo "Chain: $CHAIN"
     echo "Spec Path: $SPEC_PATH"
     echo "Features: $FEATURES"
+    echo "Keys File: $KEYS_FILE"
     # Print out the current setup information
 }
 
@@ -97,9 +105,10 @@ build_chainspec() {
 # Function to purge the chain
 purge_chain() {
     echo "*** Purging previous state..."
-    "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/validator1 --chain="$FULL_PATH" >/dev/null 2>&1
-    "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/validator2 --chain="$FULL_PATH" >/dev/null 2>&1
-    # Purge the chain data for both validators
+    for i in $(seq 1 $(jq '.keys | length' $KEYS_FILE)); do
+        "$BASE_DIR/target/release/node-subtensor" purge-chain -y --base-path /tmp/validator$i --chain="$FULL_PATH" >/dev/null 2>&1
+    done
+    # Purge the chain data for all validators
     echo "*** Previous chainstate purged"
 }
 
@@ -109,86 +118,54 @@ run_nodes() {
     export RUST_LOG=subtensor=trace
     # Set the log level for subtensor to trace
 
-    validator1_start=(
-        "$BASE_DIR/target/release/node-subtensor"
-        --base-path /tmp/validator1
-        --chain="$FULL_PATH"
-        --port 30334
-        --rpc-port 9946
-        --validator
-        --rpc-cors=all
-        --rpc-external
-        --unsafe-rpc-external
-        --rpc-methods=unsafe  
-        --allow-private-ipv4
-        --bootnodes /ip4/104.171.201.172/tcp/30335/p2p/12D3KooWK7N5CznrhErMethD9B8wamfnabnu5vXxmWurE4rKgj4n /ip4/104.171.201.172/tcp/30334/p2p/12D3KooWEnfmHWpKvRXJMBYoy1E7rjDDrxiSbqTcUGWVZY9Kvcq2 \
-        # --discover-local
-    )
-    # Configuration for the first validator node
-
-    validator2_start=(
-        "$BASE_DIR"/target/release/node-subtensor
-        --base-path /tmp/validator2
-        --chain="$FULL_PATH"
-        --port 30335
-        --rpc-port 9945
-        --validator
-        --rpc-cors=all
-        --rpc-external
-        --unsafe-rpc-external
-        --rpc-methods=unsafe  
-        --allow-private-ipv4
-        --bootnodes /ip4/104.171.201.172/tcp/30335/p2p/12D3KooWK7N5CznrhErMethD9B8wamfnabnu5vXxmWurE4rKgj4n /ip4/104.171.201.172/tcp/30334/p2p/12D3KooWEnfmHWpKvRXJMBYoy1E7rjDDrxiSbqTcUGWVZY9Kvcq2 \
-        # --discover-local
-    )
-    # Configuration for the second validator node
-
-    insert_validator_1_aura_key=( "$BASE_DIR"/target/release/node-subtensor key insert 
-        --base-path /tmp/validator1 
-        --chain="$FULL_PATH"
-        --scheme Sr25519 \
-        --suri "subject one mention gown inside fluid recycle essence hair robot ozone point" \
-        --key-type aura
-    )
-    # Command to insert the Aura key for validator 1
-
-    insert_validator_1_gran_key=( "$BASE_DIR"/target/release/node-subtensor key insert 
-        --base-path /tmp/validator1 
-        --chain="$FULL_PATH"
-        --scheme Ed25519 \
-        --suri "subject one mention gown inside fluid recycle essence hair robot ozone point" \
-        --key-type gran
-    )
-    # Command to insert the Grandpa key for validator 1
-
-    insert_validator_2_aura_key=( "$BASE_DIR"/target/release/node-subtensor key insert 
-        --base-path /tmp/validator2 
-        --chain="$FULL_PATH"
-        --scheme Sr25519 
-        --suri "coach force devote mule oppose awesome type pelican bone concert tiger reduce" \
-        --key-type aura
-    )
-    # Command to insert the Aura key for validator 2
-
-    insert_validator_2_gran_key=( "$BASE_DIR"/target/release/node-subtensor key insert 
-        --base-path /tmp/validator2 
-        --chain="$FULL_PATH"
-        --scheme Ed25519 
-        --suri "coach force devote mule oppose awesome type pelican bone concert tiger reduce" \
-        --key-type gran
-    )
-    # Command to insert the Grandpa key for validator 2
-
     trap 'pkill -P $$' EXIT SIGINT SIGTERM
     # Set up a trap to kill all child processes when the script exits
 
     (
-        ("${validator1_start[@]}" 2>&1) &
-        ("${validator2_start[@]}" 2>&1) &
-        ("${insert_validator_1_aura_key[@]}" 2>&1) &
-        ("${insert_validator_1_gran_key[@]}" 2>&1) &
-        ("${insert_validator_2_aura_key[@]}" 2>&1) &
-        ("${insert_validator_2_gran_key[@]}" 2>&1) &
+        for i in $(seq 0 $(($(jq '.keys | length' $KEYS_FILE) - 1))); do
+            validator_start=(
+                "$BASE_DIR/target/release/node-subtensor"
+                --base-path /tmp/validator$((i+1))
+                --chain="$FULL_PATH"
+                --port $((30344 + i))
+                --rpc-port $((9944 + i))
+                --validator
+                --rpc-cors=all
+                --rpc-external
+                --unsafe-rpc-external
+                --rpc-methods=unsafe  
+                --allow-private-ipv4
+                --bootnodes /ip4/104.171.201.172/tcp/30345/p2p/12D3KooWK7N5CznrhErMethD9B8wamfnabnu5vXxmWurE4rKgj4n /ip4/104.171.201.172/tcp/30344/p2p/12D3KooWEnfmHWpKvRXJMBYoy1E7rjDDrxiSbqTcUGWVZY9Kvcq2
+            )
+            # Configuration for each validator node
+
+            aura_key=$(jq -r ".keys[$i].aura.secret_phrase" $KEYS_FILE)
+            gran_key=$(jq -r ".keys[$i].grandpa.secret_phrase" $KEYS_FILE)
+            echo "Aura key: $aura_key"
+            echo "Grandpa key: $gran_key"
+
+            insert_validator_aura_key=( "$BASE_DIR"/target/release/node-subtensor key insert 
+                --base-path /tmp/validator$((i+1))
+                --chain="$FULL_PATH"
+                --scheme Sr25519
+                --suri "$aura_key"
+                --key-type aura
+            )
+            # Command to insert the Aura key for each validator
+
+            insert_validator_gran_key=( "$BASE_DIR"/target/release/node-subtensor key insert 
+                --base-path /tmp/validator$((i+1))
+                --chain="$FULL_PATH"
+                --scheme Ed25519
+                --suri "$gran_key"
+                --key-type gran
+            )
+            # Command to insert the Grandpa key for each validator
+
+            "${insert_validator_aura_key[@]}" 2>&1
+            "${insert_validator_gran_key[@]}" 2>&1
+            "${validator_start[@]}" 2>&1 &
+        done
 
         wait
     )
@@ -220,6 +197,7 @@ else
     echo "  --chain <chain>     Set the chain"
     echo "  --spec_path <path>  Set the spec path"
     echo "  --features <list>   Set the features"
+    echo "  --keys <file>       Set the keys file"
     exit 1
     # Print usage information and exit with an error code
 fi

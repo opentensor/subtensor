@@ -1,0 +1,53 @@
+
+{
+  "keys": [
+    {
+      "aura": {
+        "name": "Aura: 1",
+        "type": "Sr25",
+        "secret_phrase": "subject one mention gown inside fluid recycle essence hair robot ozone point",
+        "network_id": "substrate",
+        "secret_seed": "0x5df50c19542a4fddb105c09c141be0cf46d1787e4d4425611221f38fb4f6ee77",
+        "public_key_hex": "0xfc321fc89c6405affc95ed7dc70324396e091aac6a53371b390f162eb938b607",
+        "account_id": "0xfc321fc89c6405affc95ed7dc70324396e091aac6a53371b390f162eb938b607",
+        "public_key_ss58": "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA",
+        "ss58_address": "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA"
+      },
+      "grandpa": {
+        "name": "Grandam: 1",
+        "type": "Ed25",
+        "secret_phrase": "subject one mention gown inside fluid recycle essence hair robot ozone point",
+        "network_id": "substrate",
+        "secret_seed": "0x5df50c19542a4fddb105c09c141be0cf46d1787e4d4425611221f38fb4f6ee77",
+        "public_key_hex": "0x344d3c7f4ac19ac5e687bbcde9f36b38253224eac13fc94d9aaf763ca37a9c27",
+        "account_id": "0x344d3c7f4ac19ac5e687bbcde9f36b38253224eac13fc94d9aaf763ca37a9c27",
+        "public_key_ss58": "5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE",
+        "ss58_address": "5DFHHqfJBtE3rYu6T5vophsiRGJua4nqHrLZn9MBeAbHbgpE"
+      }
+    },
+    {
+      "aura": {
+        "name": "Aura: 2",
+        "type": "Sr25",
+        "secret_phrase": "coach force devote mule oppose awesome type pelican bone concert tiger reduce",
+        "network_id": "substrate",
+        "secret_seed": "0xaf52ed63d30bf8828604d5852abecc8a6f4436a3966c1acfd8928facd6d6cab8",
+        "public_key_hex": "0xda1b85784904ec90500e31dc28f692fc38a05b5387e7b29d4e0ed8ea32d1f56c",
+        "account_id": "0xda1b85784904ec90500e31dc28f692fc38a05b5387e7b29d4e0ed8ea32d1f56c",
+        "public_key_ss58": "5GzgUJeVRFeieC3Cf4SJbVBYiNZxd3nBaNRbdu4Q4SYDGo7m",
+        "ss58_address": "5GzgUJeVRFeieC3Cf4SJbVBYiNZxd3nBaNRbdu4Q4SYDGo7m"
+      },
+      "grandpa": {
+        "name": "Grandam: 2",
+        "type": "Ed25",
+        "secret_phrase": "coach force devote mule oppose awesome type pelican bone concert tiger reduce",
+        "network_id": "substrate",
+        "secret_seed": "0xaf52ed63d30bf8828604d5852abecc8a6f4436a3966c1acfd8928facd6d6cab8",
+        "public_key_hex": "0x797a28c587f251d8b9a9ce12c31cfb77adf531587bc98ae5eaf244f63985587e",
+        "account_id": "0x797a28c587f251d8b9a9ce12c31cfb77adf531587bc98ae5eaf244f63985587e",
+        "public_key_ss58": "5EoywUihE5WdNtawqqnkMh3uPm5nM5zC82R2mfXMzA3VayKB",
+        "ss58_address": "5EoywUihE5WdNtawqqnkMh3uPm5nM5zC82R2mfXMzA3VayKB"
+      }
+    }
+  ]
+}
