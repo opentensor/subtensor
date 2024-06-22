@@ -465,11 +465,7 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     }
 
     fn set_hotkey_emission_tempo(emission_tempo: u64) {
-        SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
-    }
-
-    fn get_hotkey_emission_tempo() -> u64 {
-        SubtensorModule::get_hotkey_emission_tempo();
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo)
     }
 }
 

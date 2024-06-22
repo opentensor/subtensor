@@ -68,7 +68,7 @@ fn test_coinbase_basic() {
         // Hotkey has same stake
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            1000 + 0
+            1000
         );
 
         // Subnet has no pending emission.
@@ -83,7 +83,7 @@ fn test_coinbase_basic() {
         // Hotkey has same stake
         assert_eq!(
             SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            1000 + 0
+            1000
         );
 
         // Subnet has no pending emission of 1 ( from coinbase )

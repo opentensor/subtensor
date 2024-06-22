@@ -4,7 +4,7 @@ export RUST_BACKTRACE := "full"
 export SKIP_WASM_BUILD := "1"
 export RUST_BIN_DIR := "target/x86_64-unknown-linux-gnu"
 export TARGET := "x86_64-unknown-linux-gnu"
-export RUSTV := "nightly-2024-03-05"
+export RUSTV := "stable"
 export RELEASE_NAME := "development"
 
 fmt:

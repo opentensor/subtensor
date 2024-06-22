@@ -281,7 +281,7 @@ impl<T: Config> Pallet<T> {
             .saturating_add(stake_from_parents);
 
         // Return the finalized stake value for the hotkey.
-        return finalized_stake;
+        finalized_stake
     }
 
     /* Retrieves the list of children for a given hotkey and network.

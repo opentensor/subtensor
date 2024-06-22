@@ -239,5 +239,13 @@ mod benchmarks {
 		_(RawOrigin::Root, 1u16/*netuid*/, true/*enabled*/)/*set_commit_reveal_weights_enabled*/;
     }
 
+    #[benchmark]
+    fn sudo_set_hotkey_emission_tempo() {
+        T::Subtensor::init_new_network(1u16 /*netuid*/, 1u16 /*sudo_tempo*/);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, 1u64/*emission_tempo*/)/*set_hotkey_emission_tempo*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }

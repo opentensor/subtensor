@@ -319,7 +319,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 14 Record new tao creation event and return the amount created.
         total_new_tao = total_new_tao.saturating_add(hotkey_new_tao);
-        return total_new_tao;
+        total_new_tao
     }
 
     ///////////////
@@ -336,7 +336,7 @@ impl<T: Config> Pallet<T> {
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
     pub fn should_drain_hotkey(hotkey: &T::AccountId, block: u64, emit_tempo: u64) -> bool {
         let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
-        return block % (emit_tempo + 1) == hotkey_idx % (emit_tempo + 1); // Return true every emit_tempo for a unique index.
+        block % (emit_tempo + 1) == hotkey_idx % (emit_tempo + 1)// Return true every emit_tempo for a unique index.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
@@ -347,7 +347,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `bool` - True if the epoch should run, false otherwise.
     pub fn should_run_epoch(netuid: u16, current_block: u64) -> bool {
-        return Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0;
+        Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
     }
 
     /// Helper function which returns the number of blocks remaining before we will run the epoch on this

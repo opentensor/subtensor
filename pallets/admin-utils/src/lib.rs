@@ -1013,6 +1013,7 @@ pub mod pallet {
         /// * `DispatchError::BadOrigin` - If the origin is not the root account.
         #[pallet::call_index(50)]
         #[pallet::weight(T::WeightInfo::sudo_set_hotkey_emission_tempo())]
+        // #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_hotkey_emission_tempo(
             origin: OriginFor<T>,
             emission_tempo: u64,
@@ -1121,5 +1122,4 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
     fn set_hotkey_emission_tempo(emission_tempo: u64);
-    fn get_hotkey_emission_tempo() -> u64;
 }
