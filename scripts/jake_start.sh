@@ -133,6 +133,7 @@ validator1_start=(
   --unsafe-rpc-external
   --rpc-methods=unsafe  
   --allow-private-ipv4
+  --bootnodes /ip4/104.171.201.172/tcp/30335/p2p/12D3KooWEnfmHWpKvRXJMBYoy1E7rjDDrxiSbqTcUGWVZY9Kvcq2 /ip4/104.171.201.172/tcp/30334/p2p/12D3KooWK7N5CznrhErMethD9B8wamfnabnu5vXxmWurE4rKgj4n \
   --discover-local
 )
 # This creates an array of command-line arguments for starting validator1.
@@ -152,7 +153,12 @@ validator2_start=(
   --port 30335
   --rpc-port 9945
   --validator
+  --rpc-cors=all
+  --rpc-external
+  --unsafe-rpc-external
+  --rpc-methods=unsafe  
   --allow-private-ipv4
+  --bootnodes /ip4/104.171.201.172/tcp/30335/p2p/12D3KooWEnfmHWpKvRXJMBYoy1E7rjDDrxiSbqTcUGWVZY9Kvcq2 /ip4/104.171.201.172/tcp/30334/p2p/12D3KooWK7N5CznrhErMethD9B8wamfnabnu5vXxmWurE4rKgj4n \
   --discover-local
 )
 # This creates a similar array for validator2, with some different parameters (like different ports).
