@@ -53,6 +53,7 @@ where
 }
 
 /// Generate an Aura authority key.
+#[warn(dead_code)]
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }

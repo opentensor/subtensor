@@ -32,19 +32,6 @@ pub fn greg_config() -> Result<ChainSpec, String> {
         // Initial PoA authorities (Validators)
         // aura | grandpa
         vec![
-
-            // Carrot 1
-            authority_keys_from_ss58(
-                "5HBsw86VeEzBQDiMWeJJyLE9dEdF7t1gwLBoVSX1pF7YzfFr",
-                "5HSgFsyEMF72xHKvWCjQ6HMj5J3Cy6GQBzQQMS2YrJBxFZk5",
-            ),
-
-            // Carrot 2
-            authority_keys_from_ss58(
-                "5Ccyfzo6GsW9exYfi2hNCbDsN4in6pcVNZ3wv5TVEJWww9nm",
-                "5EmuLLKtsP9duyFSwkdRgbizof5BZ6Gm5wHNGLBJzwQhntfz",
-            ),
-
             // Jake 1
             authority_keys_from_ss58(
                 "5HmNpArQYoDpLpEV6DBNjxb4dkAz77E6PDYRYSrgKotGZ2PA",
@@ -81,7 +68,7 @@ fn greg_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     _enable_println: bool,
 ) -> serde_json::Value {
-    let mut balances = vec![
+    let balances = vec![
         ( <AccountId32 as Ss58Codec>::from_ss58check("5GbECKBx5pMS77NZNYNq2mpNftJfNMX7bLTgKjqydn95qRkZ").unwrap(), 1_000_000_000u128 )
     ];
 
