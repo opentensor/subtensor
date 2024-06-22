@@ -54,7 +54,7 @@ set_defaults() {
     # Set BASE_DIR to parent directory of SCRIPT_DIR if not already set
     : "${CHAIN:=greg}"
     # Set CHAIN to 'greg' if not already set
-    : "${SPEC_PATH:="${SCRIPT_DIR}/specs/"}"
+    : "${SPEC_PATH:="./specs/"}"
     # Set SPEC_PATH to 'specs' subdirectory in SCRIPT_DIR if not already set
     : "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
     # Set FEATURES to default values if not already set
