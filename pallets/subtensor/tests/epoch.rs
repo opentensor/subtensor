@@ -7,6 +7,8 @@ use sp_core::U256;
 use sp_runtime::DispatchError;
 use std::time::Instant;
 use substrate_fixed::types::I32F32;
+use substrate_fixed::transcendental::exp;
+
 mod mock;
 
 pub fn fixed(val: f32) -> I32F32 {
@@ -2281,6 +2283,34 @@ fn test_compute_alpha_values() {
     assert_approx_eq(alpha[2], expected_alpha_2, epsilon);
 }
 
+#[test]
+fn test_compute_alpha_values_256_miners() {
+    // Define the consensus values for 256 miners.
+    let consensus: Vec<I32F32> = (0..256).map(|i| I32F32::from_num(i as f32 / 255.0)).collect();
+    // Define the logistic function parameters 'a' and 'b'.
+    let a = I32F32::from_num(1.0);
+    let b = I32F32::from_num(0.0);
+
+    // Compute the alpha values using the function.
+    let alpha = SubtensorModule::compute_alpha_values(&consensus, a, b);
+
+    // Ensure the length of the alpha vector matches the consensus vector.
+    assert_eq!(alpha.len(), consensus.len());
+
+    // Manually compute the expected alpha values for each consensus value.
+    // The logistic function is: 1 / (1 + exp(b - a * c))
+    // where c is the consensus value.
+
+    // Define an epsilon for approximate equality checks.
+    let epsilon = I32F32::from_num(1e-6);
+
+    for (i, &c) in consensus.iter().enumerate() {
+        let exp_val = exp(b - a * c).unwrap_or(I32F32::from_num(0.0));
+        let expected_alpha = I32F32::from_num(1.0).saturating_div(I32F32::from_num(1.0).saturating_add(exp_val));
+        // Assert that the computed alpha values match the expected values within the epsilon.
+        assert_approx_eq(alpha[i], expected_alpha, epsilon);
+    }
+}
 #[test]
 fn test_clamp_alpha_values() {
     // Define the alpha values.
