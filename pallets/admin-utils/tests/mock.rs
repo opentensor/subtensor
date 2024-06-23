@@ -471,7 +471,12 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }
-    fn do_set_alpha_values(origin: RuntimeOrigin, netuid: u16, alpha_low: u16, alpha_high: u16) -> Result<(), DispatchError> {
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError> {
         SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
     }
 }

@@ -672,7 +672,7 @@ impl<T: Config> Pallet<T> {
         let converted_low = I32F32::from_num(alpha_low) / I32F32::from_num(u16::MAX);
         let converted_high = I32F32::from_num(alpha_high) / I32F32::from_num(u16::MAX);
 
-        return (converted_low, converted_high);
+        (converted_low, converted_high)
     }
 
     pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {

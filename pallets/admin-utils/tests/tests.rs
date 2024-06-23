@@ -1,5 +1,8 @@
-use frame_support::{assert_ok, assert_err, dispatch::{DispatchClass, GetDispatchInfo, Pays}};
 use frame_support::sp_runtime::DispatchError;
+use frame_support::{
+    assert_err, assert_ok,
+    dispatch::{DispatchClass, GetDispatchInfo, Pays},
+};
 use frame_system::Config;
 use pallet_admin_utils::Error;
 use pallet_subtensor::Error as SubtensorError;
@@ -1225,24 +1228,14 @@ fn test_sudo_get_set_alpha() {
 
         let hotkey: U256 = U256::from(1);
         let coldkey: U256 = U256::from(1 + 456);
-        let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey.clone());
+        let signer = <<Test as Config>::RuntimeOrigin>::signed(coldkey);
 
         // Enable Liquid Alpha and setup
         SubtensorModule::set_liquid_alpha_enabled(netuid, true);
         migration::migrate_create_root_network::<Test>();
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey,
-            1_000_000_000_000_000,
-        );
-        assert_ok!(SubtensorModule::root_register(
-            signer.clone(),
-            hotkey,
-        ));
-        assert_ok!(SubtensorModule::add_stake(
-            signer.clone(),
-            hotkey,
-            1000
-        ));
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
+        assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
+        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -1250,14 +1243,22 @@ fn test_sudo_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(
-            signer.clone()
+        assert_ok!(SubtensorModule::register_network(signer.clone()));
+
+        assert_ok!(AdminUtils::sudo_set_alpha_values(
+            signer.clone(),
+            netuid,
+            alpha_low,
+            alpha_high
         ));
+        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) =
+            SubtensorModule::get_alpha_values(netuid);
 
-        assert_ok!(AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
-        let (grabbed_alpha_low, grabbed_alpha_high): (u16, u16) = SubtensorModule::get_alpha_values(netuid);
-
-        log::info!("alpha_low: {:?} alpha_high: {:?}", grabbed_alpha_low, grabbed_alpha_high);
+        log::info!(
+            "alpha_low: {:?} alpha_high: {:?}",
+            grabbed_alpha_low,
+            grabbed_alpha_high
+        );
         assert_eq!(grabbed_alpha_low, alpha_low);
         assert_eq!(grabbed_alpha_high, alpha_high);
 
@@ -1275,8 +1276,18 @@ fn test_sudo_get_set_alpha() {
         let tolerance: f32 = 1e-6; // 0.000001
 
         // Check if the values are equal to the sixth decimal
-        assert!((alpha_low_32.to_num::<f32>() - alpha_low_decimal).abs() < tolerance, "alpha_low mismatch: {} != {}", alpha_low_32.to_num::<f32>(), alpha_low_decimal);
-        assert!((alpha_high_32.to_num::<f32>() - alpha_high_decimal).abs() < tolerance, "alpha_high mismatch: {} != {}", alpha_high_32.to_num::<f32>(), alpha_high_decimal);
+        assert!(
+            (alpha_low_32.to_num::<f32>() - alpha_low_decimal).abs() < tolerance,
+            "alpha_low mismatch: {} != {}",
+            alpha_low_32.to_num::<f32>(),
+            alpha_low_decimal
+        );
+        assert!(
+            (alpha_high_32.to_num::<f32>() - alpha_high_decimal).abs() < tolerance,
+            "alpha_high mismatch: {} != {}",
+            alpha_high_32.to_num::<f32>(),
+            alpha_high_decimal
+        );
 
         // 1. Liquid alpha disabled
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
@@ -1286,32 +1297,67 @@ fn test_sudo_get_set_alpha() {
         );
         // Correct scenario after error
         SubtensorModule::set_liquid_alpha_enabled(netuid, true); // Re-enable for further tests
-        assert_ok!(AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+        assert_ok!(AdminUtils::sudo_set_alpha_values(
+            signer.clone(),
+            netuid,
+            alpha_low,
+            alpha_high
+        ));
 
         // 2. Alpha high too low
         let alpha_high_too_low = (u16::MAX as u32 * 4 / 5) as u16 - 1; // One less than the minimum acceptable value
         assert_err!(
-            AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high_too_low),
+            AdminUtils::sudo_set_alpha_values(
+                signer.clone(),
+                netuid,
+                alpha_low,
+                alpha_high_too_low
+            ),
             SubtensorError::<Test>::AlphaHighTooLow
         );
         // Correct scenario after error
-        assert_ok!(AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+        assert_ok!(AdminUtils::sudo_set_alpha_values(
+            signer.clone(),
+            netuid,
+            alpha_low,
+            alpha_high
+        ));
 
         // 3. Alpha low too low or too high
         let alpha_low_too_low = 0_u16;
         assert_err!(
-            AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low_too_low, alpha_high),
+            AdminUtils::sudo_set_alpha_values(
+                signer.clone(),
+                netuid,
+                alpha_low_too_low,
+                alpha_high
+            ),
             SubtensorError::<Test>::AlphaLowOutOfRange
         );
         // Correct scenario after error
-        assert_ok!(AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+        assert_ok!(AdminUtils::sudo_set_alpha_values(
+            signer.clone(),
+            netuid,
+            alpha_low,
+            alpha_high
+        ));
 
         let alpha_low_too_high = (u16::MAX as u32 * 4 / 5) as u16 + 1; // One more than the maximum acceptable value
         assert_err!(
-            AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low_too_high, alpha_high),
+            AdminUtils::sudo_set_alpha_values(
+                signer.clone(),
+                netuid,
+                alpha_low_too_high,
+                alpha_high
+            ),
             SubtensorError::<Test>::AlphaLowOutOfRange
         );
         // Correct scenario after error
-        assert_ok!(AdminUtils::sudo_set_alpha_values(signer.clone(), netuid, alpha_low, alpha_high));
+        assert_ok!(AdminUtils::sudo_set_alpha_values(
+            signer.clone(),
+            netuid,
+            alpha_low,
+            alpha_high
+        ));
     });
 }

@@ -868,7 +868,7 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982) // (alpha_low: 0.7, alpha_high: 0.9)
-    }    
+    }
 
     #[pallet::storage] // ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
@@ -942,7 +942,8 @@ pub mod pallet {
 
     //  MAP ( netuid ) --> (alpha_low, alpha_high)
     #[pallet::storage]
-    pub type AlphaValues<T> = StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+    pub type AlphaValues<T> =
+        StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
 
     #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<

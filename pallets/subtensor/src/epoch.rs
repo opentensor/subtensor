@@ -1182,13 +1182,18 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn do_set_alpha_values(origin: T::RuntimeOrigin, netuid: u16, alpha_low: u16, alpha_high: u16) -> Result<(), DispatchError> {
+    pub fn do_set_alpha_values(
+        origin: T::RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError> {
         // --- 1. Ensure the function caller is a signed user.
         ensure_signed(origin.clone())?;
 
         // --- 2. Ensure the function caller is the subnet owner or root.
         Self::ensure_subnet_owner_or_root(origin, netuid)?;
-        
+
         // --- 3. Ensure liquid alpha is enabled
         ensure!(
             Self::get_liquid_alpha_enabled(netuid),
