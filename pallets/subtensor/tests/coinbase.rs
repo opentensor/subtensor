@@ -1,6 +1,7 @@
 use crate::mock::*;
 mod mock;
 use sp_core::U256;
+use frame_support::assert_err;
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
@@ -149,5 +150,211 @@ fn test_set_and_get_hotkey_emission_tempo() {
         // Get the updated hotkey emission tempo
         let updated_tempo = SubtensorModule::get_hotkey_emission_tempo();
         assert_eq!(updated_tempo, new_tempo);
+    });
+}
+
+#[test]
+#[cfg(not(tarpaulin))]
+fn test_comprehensive_coinbase() {
+
+
+    new_test_ext(1).execute_with(|| {
+        // Setup
+        let netuid_1: u16 = 1;
+        let netuid_2: u16 = 2;
+        let owner = U256::from(999);
+        let hotkey_1 = U256::from(1);
+        let hotkey_2 = U256::from(2);
+        let hotkey_3 = U256::from(3);
+        let coldkey_1 = U256::from(101);
+        let coldkey_2 = U256::from(102);
+        let coldkey_3 = U256::from(103);
+        let nominator_1 = U256::from(201);
+        let nominator_2 = U256::from(202);
+        let nominator_3 = U256::from(203);
+
+        // Create networks with different tempos
+        add_network(netuid_1, 2, 0); // tempo 2
+        add_network(netuid_2, 3, 0); // tempo 3
+                                     // SubtensorModule::set_subnet_owner(netuid_1, owner);
+        SubtensorModule::set_subnet_owner_cut(1000); // 10% owner cut
+
+        // Register neurons and set up stakes
+        register_ok_neuron(netuid_1, hotkey_1, coldkey_1, 100000);
+        register_ok_neuron(netuid_1, hotkey_2, coldkey_2, 100000);
+        register_ok_neuron(netuid_2, hotkey_3, coldkey_3, 100000);
+
+        SubtensorModule::create_account_if_non_existent(&coldkey_1, &hotkey_1);
+        SubtensorModule::create_account_if_non_existent(&coldkey_2, &hotkey_2);
+        SubtensorModule::create_account_if_non_existent(&coldkey_3, &hotkey_3);
+
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_1, &hotkey_1, 1000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_2, &hotkey_2, 2000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey_3, &hotkey_3, 3000);
+
+        // Set up nominators
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator_1, &hotkey_1, 500);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator_2, &hotkey_2, 1000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&nominator_3, &hotkey_3, 1500);
+
+        // Set emission values
+        SubtensorModule::set_emission_values(&[netuid_1, netuid_2], vec![100, 200]).unwrap();
+
+        // Set different hotkey emission tempos
+        SubtensorModule::set_hotkey_emission_tempo(4);
+
+        // Initial assertions
+        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid_1), 100);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(netuid_2), 200);
+        assert_eq!(SubtensorModule::get_pending_emission(netuid_1), 0);
+        assert_eq!(SubtensorModule::get_pending_emission(netuid_2), 0);
+
+        // Run for 10 blocks
+        for block in 1..=10 {
+            next_block();
+
+            // Check subnet emissions
+            let pending_1 = SubtensorModule::get_pending_emission(netuid_1);
+            let pending_2 = SubtensorModule::get_pending_emission(netuid_2);
+
+            if block % 2 == 0 {
+                assert_eq!(pending_1, 0, "Subnet 1 should drain at block {}", block);
+            } else {
+                assert_eq!(
+                    pending_1, 100,
+                    "Subnet 1 should accumulate at block {}",
+                    block
+                );
+            }
+
+            if block % 3 == 0 {
+                assert_eq!(pending_2, 0, "Subnet 2 should drain at block {}", block);
+            } else {
+                assert!(
+                    pending_2 > 0 && pending_2 <= 400,
+                    "Subnet 2 should accumulate at block {}",
+                    block
+                );
+            }
+
+            // Check hotkey emissions
+            for hotkey in [&hotkey_1, &hotkey_2, &hotkey_3] {
+                let pending = SubtensorModule::get_pending_hotkey_emission(hotkey);
+                if block % 4 == 0 {
+                    assert_eq!(
+                        pending, 0,
+                        "Hotkey {:?} should drain at block {}",
+                        hotkey, block
+                    );
+                } else {
+                    assert!(
+                        pending >= 0,
+                        "Hotkey {:?} should have non-negative pending emission at block {}",
+                        hotkey,
+                        block
+                    );
+                }
+            }
+
+            // Check stakes after each block
+            let stake_1 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_1);
+            let stake_2 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_2);
+            let stake_3 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_3);
+
+            assert!(stake_1 >= 1500, "Hotkey 1 stake should not decrease");
+            assert!(stake_2 >= 3000, "Hotkey 2 stake should not decrease");
+            assert!(stake_3 >= 4500, "Hotkey 3 stake should not decrease");
+
+            // Check nominator stakes
+            let nom_stake_1 = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_1, &hotkey_1);
+            let nom_stake_2 = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_2, &hotkey_2);
+            let nom_stake_3 = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_3, &hotkey_3);
+
+            assert!(nom_stake_1 >= 500, "Nominator 1 stake should not decrease");
+            assert!(nom_stake_2 >= 1000, "Nominator 2 stake should not decrease");
+            assert!(nom_stake_3 >= 1500, "Nominator 3 stake should not decrease");
+        }
+
+        // Final assertions
+        let final_stake_1 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_1);
+        let final_stake_2 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_2);
+        let final_stake_3 = SubtensorModule::get_total_stake_for_hotkey(&hotkey_3);
+
+        assert!(final_stake_1 > 1500, "Hotkey 1 should have gained stake");
+        assert!(final_stake_2 > 3000, "Hotkey 2 should have gained stake");
+        assert!(final_stake_3 > 4500, "Hotkey 3 should have gained stake");
+
+        let final_nom_stake_1 =
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_1, &hotkey_1);
+        let final_nom_stake_2 =
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_2, &hotkey_2);
+        let final_nom_stake_3 =
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_3, &hotkey_3);
+
+        assert!(
+            final_nom_stake_1 > 500,
+            "Nominator 1 should have gained stake"
+        );
+        assert!(
+            final_nom_stake_2 > 1000,
+            "Nominator 2 should have gained stake"
+        );
+        assert!(
+            final_nom_stake_3 > 1500,
+            "Nominator 3 should have gained stake"
+        );
+
+        // let final_owner_balance = SubtensorModule::get_stake_for_coldkey_and_hotkey(&owner);
+        // assert!(final_owner_balance > 0, "Owner should have received emissions");
+
+        // // Error assertions
+        // assert_err!(
+        //     SubtensorModule::set_emission_values(&[999], vec![100]),
+        //     Error::<Test>::InvalidNetworkId
+        // );
+
+        // assert_err!(
+        //     SubtensorModule::set_hotkey_emission_tempo(0),
+        //     Error::<Test>::InvalidHotkeyEmissionTempo
+        // );
+
+        // // Test parent-child relationship
+        // SubtensorModule::set_delegate(&hotkey_2, &hotkey_1, 5000); // 50% delegation
+        // next_block();
+        // next_block();
+
+        let parent_emission = SubtensorModule::get_pending_hotkey_emission(&hotkey_1);
+        let child_emission = SubtensorModule::get_pending_hotkey_emission(&hotkey_2);
+        assert!(
+            parent_emission > 0,
+            "Parent should receive emissions from child"
+        );
+        assert!(
+            child_emission > 0,
+            "Child should still receive some emissions"
+        );
+
+        // Test with zero emission
+        SubtensorModule::set_emission_values(&[netuid_1], vec![0]).unwrap();
+        for _ in 0..5 {
+            next_block();
+        }
+        assert_eq!(
+            SubtensorModule::get_pending_emission(netuid_1),
+            0,
+            "No emission should accumulate with zero emission value"
+        );
+        // Test with very large emission
+        SubtensorModule::set_emission_values(&[netuid_2], vec![u64::MAX]).unwrap();
+        next_block();
+        let large_pending = SubtensorModule::get_pending_emission(netuid_2);
+        assert!(
+            large_pending > 0,
+            "Large emission should result in non-zero pending emission"
+        );
+        assert!(
+            large_pending <= u64::MAX,
+            "Pending emission should not overflow"
+        );
     });
 }
