@@ -66,10 +66,7 @@ fn test_coinbase_basic() {
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
 
         // Hotkey has same stake
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            1000
-        );
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
 
         // Subnet has no pending emission.
         assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
@@ -81,10 +78,7 @@ fn test_coinbase_basic() {
         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
 
         // Hotkey has same stake
-        assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey),
-            1000
-        );
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 1000);
 
         // Subnet has no pending emission of 1 ( from coinbase )
         assert_eq!(SubtensorModule::get_pending_emission(netuid), 1);

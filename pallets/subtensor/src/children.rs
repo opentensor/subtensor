@@ -138,6 +138,135 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Sets multiple children for a given hotkey on a specified network.
+    ///
+    /// This function allows a coldkey to set multiple children for a given hotkey on a specified network.
+    /// Each child is assigned a proportion of the hotkey's stake. This is an extension of the
+    /// `do_set_child_singular` function, allowing for more efficient batch operations.
+    ///
+    /// # Arguments
+    /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+    ///     The signature of the calling coldkey. Setting hotkey children can only be done by the associated coldkey.
+    ///
+    /// * `hotkey` (T::AccountId):
+    ///     The hotkey which will be assigned the children.
+    ///
+    /// * `children_with_proportions` (Vec<(T::AccountId, u64)>):
+    ///     A vector of tuples, each containing a child AccountId and its corresponding proportion.
+    ///     The proportion must be a u64 normalized value (0 to u64::MAX).
+    ///
+    /// * `netuid` (u16):
+    ///     The u16 network identifier where the childkeys will exist.
+    ///
+    /// # Events
+    /// * `SetChildrenMultiple`:
+    ///     Emitted when children are successfully registered to a hotkey.
+    ///
+    /// # Errors
+    /// * `SubNetworkDoesNotExist`:
+    ///     Thrown when attempting to register to a non-existent network.
+    /// * `RegistrationNotPermittedOnRootSubnet`:
+    ///     Thrown when attempting to register children on the root network.
+    /// * `NonAssociatedColdKey`:
+    ///     Thrown when the coldkey does not own the hotkey.
+    /// * `InvalidChild`:
+    ///     Thrown when any of the children is the same as the hotkey.
+    ///
+    /// # Detailed Workflow
+    /// 1. Verify the transaction signature and ownership.
+    /// 2. Perform various checks (network existence, root network, ownership, valid children).
+    /// 3. Remove the hotkey from its old children's parent lists.
+    /// 4. Create a new list of children with their proportions.
+    /// 5. Update the ChildKeys storage with the new children.
+    /// 6. Update the ParentKeys storage for each new child.
+    /// 7. Emit an event to log the operation.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let children_with_proportions = vec![(child1, 1000), (child2, 2000), (child3, 3000)];
+    /// SubtensorModule::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid);
+    /// ```
+    pub fn do_set_children_multiple(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        children_with_proportions: Vec<(T::AccountId, u64)>,
+        netuid: u16,
+    ) -> DispatchResult {
+        // --- 1. Verify the transaction signature (the coldkey of the pairing)
+        let coldkey = ensure_signed(origin)?;
+        log::trace!(
+        "do_set_children_multiple( coldkey:{:?} netuid:{:?} hotkey:{:?} children_with_proportions:{:?} )",
+        coldkey, netuid, hotkey, children_with_proportions
+    );
+
+        // --- 2. Ensure this operation is not on the root network (child hotkeys are not valid on root)
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
+        );
+
+        // --- 3. Verify the specified network exists
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        // --- 4. Verify the coldkey owns the hotkey
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // --- 5. Ensure none of the children are the same as the hotkey
+        for (child, _) in &children_with_proportions {
+            ensure!(*child != hotkey, Error::<T>::InvalidChild);
+        }
+
+        // --- 6. Remove the hotkey from its old children's parent lists
+        let old_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey.clone(), netuid);
+
+        // Iterate over all old children and remove the hotkey from their parent's map
+        for (_, old_child) in old_children.iter() {
+            let mut my_old_child_parents: Vec<(u64, T::AccountId)> =
+                ParentKeys::<T>::get(old_child.clone(), netuid);
+            my_old_child_parents.retain(|(_, parent)| *parent != hotkey);
+            ParentKeys::<T>::insert(old_child, netuid, my_old_child_parents);
+        }
+
+        // --- 7. Create the new children + proportion list
+        let new_children: Vec<(u64, T::AccountId)> = children_with_proportions
+            .into_iter()
+            .map(|(child, proportion)| (proportion, child))
+            .collect();
+
+        // --- 8. Update the ChildKeys storage with the new children list
+        ChildKeys::<T>::insert(hotkey.clone(), netuid, new_children.clone());
+
+        // --- 9. Update the ParentKeys storage for each new child
+        for (proportion, new_child) in new_children.iter() {
+            let mut new_child_previous_parents: Vec<(u64, T::AccountId)> =
+                ParentKeys::<T>::get(new_child.clone(), netuid);
+            new_child_previous_parents.push((*proportion, hotkey.clone()));
+            ParentKeys::<T>::insert(new_child.clone(), netuid, new_child_previous_parents);
+        }
+
+        // --- 10. Log the operation and emit an event
+        log::trace!(
+            "SetChildrenMultiple( hotkey:{:?}, children:{:?}, netuid:{:?} )",
+            hotkey,
+            new_children,
+            netuid
+        );
+        Self::deposit_event(Event::SetChildrenMultiple(
+            hotkey.clone(),
+            new_children,
+            netuid,
+        ));
+
+        // --- 11. Return success
+        Ok(())
+    }
+
     /// ---- The implementation for the extrinsic do_revoke_child_singular: Revokes a single child.
     ///
     /// This function allows a coldkey to revoke a single child for a given hotkey on a specified network.

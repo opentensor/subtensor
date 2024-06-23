@@ -138,5 +138,7 @@ mod events {
         RevokeChildSingular(T::AccountId, T::AccountId, u16),
         /// the hotkey emission tempo is set.
         HotkeyEmissionTempoSet(u64),
+        /// Multiple children were set for a hotkey
+        SetChildrenMultiple(T::AccountId, Vec<(u64, T::AccountId)>, u16),
     }
 }

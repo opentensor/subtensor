@@ -562,3 +562,292 @@ fn test_do_revoke_child_singular_child_not_associated() {
         );
     });
 }
+
+#[test]
+fn test_do_set_children_multiple_success() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid: u16 = 1;
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set multiple children
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![(child1, proportion1), (child2, proportion2)],
+            netuid
+        ));
+
+        // Verify children assignment
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert_eq!(children, vec![(proportion1, child1), (proportion2, child2)]);
+
+        // Verify parent assignment for both children
+        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        assert_eq!(parents1, vec![(proportion1, hotkey)]);
+
+        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        assert_eq!(parents2, vec![(proportion2, hotkey)]);
+    });
+}
+
+#[test]
+fn test_do_set_children_multiple_network_does_not_exist() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let netuid: u16 = 999; // Non-existent network
+        let proportion: u64 = 1000;
+
+        // Attempt to set children
+        assert_err!(
+            SubtensorModule::do_set_children_multiple(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                vec![(child1, proportion)],
+                netuid
+            ),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn test_do_set_children_multiple_invalid_child() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to set child as the same hotkey
+        assert_err!(
+            SubtensorModule::do_set_children_multiple(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                vec![(hotkey, proportion)], // Invalid child
+                netuid
+            ),
+            Error::<Test>::InvalidChild
+        );
+    });
+}
+
+#[test]
+fn test_do_set_children_multiple_non_associated_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey with a different coldkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, U256::from(999), 0);
+
+        // Attempt to set children
+        assert_err!(
+            SubtensorModule::do_set_children_multiple(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                vec![(child, proportion)],
+                netuid
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_do_set_children_multiple_root_network() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+
+        // Attempt to set children
+        assert_err!(
+            SubtensorModule::do_set_children_multiple(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                vec![(child, proportion)],
+                netuid
+            ),
+            Error::<Test>::RegistrationNotPermittedOnRootSubnet
+        );
+    });
+}
+
+#[test]
+fn test_do_set_children_multiple_old_children_cleanup() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let old_child = U256::from(3);
+        let new_child1 = U256::from(4);
+        let new_child2 = U256::from(5);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set old child
+        assert_ok!(SubtensorModule::do_set_child_singular(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            old_child,
+            netuid,
+            proportion
+        ));
+
+        // Set new children
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![(new_child1, proportion), (new_child2, proportion)],
+            netuid
+        ));
+
+        // Verify old child is removed
+        let old_child_parents = SubtensorModule::get_parents(&old_child, netuid);
+        assert!(old_child_parents.is_empty());
+
+        // Verify new children assignment
+        let new_child1_parents = SubtensorModule::get_parents(&new_child1, netuid);
+        assert_eq!(new_child1_parents, vec![(proportion, hotkey)]);
+
+        let new_child2_parents = SubtensorModule::get_parents(&new_child2, netuid);
+        assert_eq!(new_child2_parents, vec![(proportion, hotkey)]);
+    });
+}
+
+// TODO (@distributedstatemachine): verify if its ok to set children with 0 proportion
+
+#[test]
+fn test_do_set_children_multiple_proportion_edge_cases() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set children with minimum and maximum proportions
+        let min_proportion: u64 = 0;
+        let max_proportion: u64 = u64::MAX;
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![(child1, min_proportion), (child2, max_proportion)],
+            netuid
+        ));
+
+        // Verify children assignment
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert_eq!(
+            children,
+            vec![(min_proportion, child1), (max_proportion, child2)]
+        );
+    });
+}
+
+#[test]
+fn test_do_set_children_multiple_overwrite_existing() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let child3 = U256::from(5);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set initial children
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![(child1, proportion), (child2, proportion)],
+            netuid
+        ));
+
+        // Overwrite with new children
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![(child2, proportion * 2), (child3, proportion * 3)],
+            netuid
+        ));
+
+        // Verify final children assignment
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert_eq!(
+            children,
+            vec![(proportion * 2, child2), (proportion * 3, child3)]
+        );
+
+        // Verify parent assignment for all children
+        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        assert!(parents1.is_empty());
+
+        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        assert_eq!(parents2, vec![(proportion * 2, hotkey)]);
+
+        let parents3 = SubtensorModule::get_parents(&child3, netuid);
+        assert_eq!(parents3, vec![(proportion * 3, hotkey)]);
+    });
+}
+
+// TODO (@distributedstatemachine): verify if its ok to set empty children list
+#[test]
+fn test_do_set_children_multiple_empty_list() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set empty children list
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            vec![],
+            netuid
+        ));
+
+        // Verify children assignment is empty
+        let children = SubtensorModule::get_children(&hotkey, netuid);
+        assert!(children.is_empty());
+    });
+}

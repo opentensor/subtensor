@@ -2247,6 +2247,62 @@ pub mod pallet {
             Self::do_revoke_child_singular(origin, hotkey, child, netuid)?;
             Ok(().into())
         }
+
+        /// Set multiple children for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to set multiple children for a given hotkey on a specified network.
+        /// The proportion of the hotkey's stake to be allocated to each child is also specified.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting hotkey children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey which will be assigned the children.
+        ///
+        /// * `children_with_proportions` (Vec<(T::AccountId, u64)>):
+        ///     - A vector of tuples, each containing a child AccountId and its corresponding proportion.
+        ///       The proportion must be a u64 normalized value.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkeys will exist.
+        ///
+        /// # Events:
+        /// * `SetChildrenMultiple`:
+        ///     - On successfully registering multiple children to a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to register to a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to register children on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `InvalidChild`:
+        ///     - One of the children is the same as the hotkey.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Child-Hotkey Distinction**: Ensures that none of the children are the same as the hotkey.
+        /// 6. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
+        /// 7. **New Children Assignment**: Assigns the new children to the hotkey and updates the parent list for each new child.
+        // TODO: Benchmark this call
+        #[pallet::call_index(68)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn set_children_multiple(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            children_with_proportions: Vec<(T::AccountId, u64)>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid)?;
+            Ok(().into())
+        }
     }
 
     // ---- Subtensor helper functions.
