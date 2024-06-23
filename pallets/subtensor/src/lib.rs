@@ -2303,6 +2303,60 @@ pub mod pallet {
             Self::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid)?;
             Ok(().into())
         }
+
+        /// Revoke multiple children for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to revoke multiple children from a given hotkey on a specified network.
+        /// It removes the parent-child relationship for all specified children.
+        ///
+        /// # Arguments:
+        /// * `origin` (OriginFor<T>):
+        ///     - The signature of the calling coldkey. Revoking hotkey children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey from which the children will be revoked.
+        ///
+        /// * `children` (Vec<T::AccountId>):
+        ///     - A vector of AccountIds representing the children to be revoked.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkeys exist.
+        ///
+        /// # Events:
+        /// * `RevokeChildrenMultiple`:
+        ///     - On successfully revoking multiple children from a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to revoke from a non-existent network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        ///
+        /// # Workflow:
+        /// 1. Verify the transaction signature and ownership.
+        /// 2. Check that the specified network exists.
+        /// 3. Remove the specified children from the hotkey's children list.
+        /// 4. Remove the hotkey from each child's parent list.
+        /// 5. Update the storage for both ChildKeys and ParentKeys.
+        /// 6. Emit an event to log the operation.
+        ///
+        /// # Note:
+        /// This function is more efficient than revoking children one by one, especially when dealing with multiple children.
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn revoke_children_multiple(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            children: Vec<T::AccountId>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_revoke_children_multiple(origin, hotkey, children, netuid)?;
+            Ok(().into())
+        }
     }
 
     // ---- Subtensor helper functions.
