@@ -1,7 +1,7 @@
 use crate::mock::*;
 mod mock;
-use sp_core::U256;
 use frame_support::assert_err;
+use sp_core::U256;
 
 // Test the ability to hash all sorts of hotkeys.
 #[test]
@@ -156,8 +156,6 @@ fn test_set_and_get_hotkey_emission_tempo() {
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_comprehensive_coinbase() {
-
-
     new_test_ext(1).execute_with(|| {
         // Setup
         let netuid_1: u16 = 1;
@@ -266,9 +264,12 @@ fn test_comprehensive_coinbase() {
             assert!(stake_3 >= 4500, "Hotkey 3 stake should not decrease");
 
             // Check nominator stakes
-            let nom_stake_1 = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_1, &hotkey_1);
-            let nom_stake_2 = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_2, &hotkey_2);
-            let nom_stake_3 = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_3, &hotkey_3);
+            let nom_stake_1 =
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_1, &hotkey_1);
+            let nom_stake_2 =
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_2, &hotkey_2);
+            let nom_stake_3 =
+                SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator_3, &hotkey_3);
 
             assert!(nom_stake_1 >= 500, "Nominator 1 stake should not decrease");
             assert!(nom_stake_2 >= 1000, "Nominator 2 stake should not decrease");

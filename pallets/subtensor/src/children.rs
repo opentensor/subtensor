@@ -1,4 +1,5 @@
 use super::*;
+use sp_std::collections::btree_set::BTreeSet;
 use sp_std::vec;
 use substrate_fixed::types::I96F32;
 
@@ -447,18 +448,44 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Function which returns the amount of stake held by a hotkey on the network after applying
-    /// child/parent relationships.
+    /// Calculates the total stake held by a hotkey on the network, considering child/parent relationships.
+    ///
+    /// This function performs the following steps:
+    /// 1. Checks for self-loops in the delegation graph.
+    /// 2. Retrieves the initial stake of the hotkey.
+    /// 3. Calculates the stake allocated to children.
+    /// 4. Calculates the stake received from parents.
+    /// 5. Computes the final stake by adjusting the initial stake with child and parent contributions.
     ///
     /// # Arguments
     /// * `hotkey` - AccountId of the hotkey whose total network stake is to be calculated.
-    /// * `netuid` - Network unique identifier to specify the network context.
+    /// * `netuid` - Network unique identifier specifying the network context.
     ///
     /// # Returns
     /// * `u64` - The total stake for the hotkey on the network after considering the stakes
     ///           from children and parents.
+    ///
+    /// # Note
+    /// This function now includes a check for self-loops in the delegation graph using the
+    /// `dfs_check_self_loops` method. However, it currently only logs warnings for detected loops
+    /// and does not alter the stake calculation based on these findings.
+    ///
+    /// # Panics
+    /// This function does not explicitly panic, but underlying arithmetic operations
+    /// use saturating arithmetic to prevent overflows.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let total_stake = Self::get_stake_with_children_and_parents(&hotkey, netuid);
+    /// ```
     /// TODO: check for self loops.
+    /// TODO: (@distributedstatemachine): check if we should return error , otherwise self loop 
+    /// detection is impossible to test. 
+
     pub fn get_stake_with_children_and_parents(hotkey: &T::AccountId, netuid: u16) -> u64 {
+        let mut visited = BTreeSet::new();
+        Self::dfs_check_self_loops(hotkey, netuid, &mut visited);
+
         // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
         let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
         let mut stake_to_children: u64 = 0;
@@ -535,5 +562,47 @@ impl<T: Config> Pallet<T> {
      */
     pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
         ParentKeys::<T>::get(child, netuid)
+    }
+
+    /// Performs a depth-first search to detect self-loops in the delegation graph.
+    ///
+    /// This function traverses the delegation graph starting from a given account,
+    /// checking for circular dependencies (self-loops) in the process.
+    ///
+    /// # Arguments
+    ///
+    /// * `current` - A reference to the `AccountId` of the current node being examined.
+    /// * `netuid` - The network ID in which to perform the check.
+    /// * `visited` - A mutable reference to a `BTreeSet` keeping track of visited accounts.
+    ///
+    /// # Behavior
+    ///
+    /// - If a node is encountered that has already been visited, a warning is logged
+    ///   indicating a self-loop has been detected.
+    /// - The function recursively checks all children of the current node.
+    /// - After checking all children, the current node is removed from the visited set
+    ///   to allow for correct backtracking in the DFS algorithm.
+    ///
+    /// # Note
+    ///
+    /// This function does not return a Result or stop execution when a loop is detected.
+    /// It only logs a warning. Depending on your requirements, you might want to modify
+    /// this behavior to return an error or take other actions when a loop is found.
+    fn dfs_check_self_loops(
+        current: &T::AccountId,
+        netuid: u16,
+        visited: &mut BTreeSet<T::AccountId>,
+    ) {
+        if !visited.insert(current.clone()) {
+            // We've encountered this node before, which means there's a loop
+            log::warn!("Self-loop detected for account: {:?}", current);
+        }
+
+        let children = Self::get_children(current, netuid);
+        for (_, child) in children {
+            Self::dfs_check_self_loops(&child, netuid, visited);
+        }
+
+        visited.remove(current);
     }
 }
