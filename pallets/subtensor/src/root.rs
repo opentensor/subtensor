@@ -21,6 +21,7 @@ use frame_support::dispatch::Pays;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
+use sp_runtime::Saturating;
 use sp_std::vec;
 use substrate_fixed::{
     transcendental::log2,
@@ -156,9 +157,19 @@ impl<T: Config> Pallet<T> {
         // Calculate the logarithmic residual of the issuance against half the total supply.
         let residual: I96F32 = log2(
             I96F32::from_num(1.0)
-                / (I96F32::from_num(1.0)
-                    - total_issuance
-                        / (I96F32::from_num(2.0) * I96F32::from_num(10_500_000_000_000_000.0))),
+                .checked_div(
+                    I96F32::from_num(1.0)
+                        .checked_sub(
+                            total_issuance
+                                .checked_div(
+                                    I96F32::from_num(2.0)
+                                        .saturating_mul(I96F32::from_num(10_500_000_000_000_000.0)),
+                                )
+                                .ok_or("Logarithm calculation failed")?,
+                        )
+                        .ok_or("Logarithm calculation failed")?,
+                )
+                .ok_or("Logarithm calculation failed")?,
         )
         .map_err(|_| "Logarithm calculation failed")?;
         // Floor the residual to smooth out the emission rate.
@@ -169,12 +180,12 @@ impl<T: Config> Pallet<T> {
         // Multiply 2.0 by itself floored_residual times to calculate the power of 2.
         let mut multiplier: I96F32 = I96F32::from_num(1.0);
         for _ in 0..floored_residual_int {
-            multiplier *= I96F32::from_num(2.0);
+            multiplier = multiplier.saturating_mul(I96F32::from_num(2.0));
         }
-        let block_emission_percentage: I96F32 = I96F32::from_num(1.0) / multiplier;
+        let block_emission_percentage: I96F32 = I96F32::from_num(1.0).saturating_div(multiplier);
         // Calculate the actual emission based on the emission rate
-        let block_emission: I96F32 =
-            block_emission_percentage * I96F32::from_num(DefaultBlockEmission::<T>::get());
+        let block_emission: I96F32 = block_emission_percentage
+            .saturating_mul(I96F32::from_num(DefaultBlockEmission::<T>::get()));
         // Convert to u64
         let block_emission_u64: u64 = block_emission.to_num::<u64>();
         if BlockEmission::<T>::get() != block_emission_u64 {
@@ -384,10 +395,10 @@ impl<T: Config> Pallet<T> {
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
         for (weights, hotkey_stake) in weights.iter().zip(stake_i64) {
-            total_stake += hotkey_stake;
+            total_stake = total_stake.saturating_add(hotkey_stake);
             for (weight, trust_score) in weights.iter().zip(&mut trust) {
                 if *weight > 0 {
-                    *trust_score += hotkey_stake;
+                    *trust_score = trust_score.saturating_add(hotkey_stake);
                 }
             }
         }
@@ -411,13 +422,15 @@ impl<T: Config> Pallet<T> {
         let one = I64F64::from_num(1);
         let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
         for (trust_score, consensus_i) in trust.iter_mut().zip(&mut consensus) {
-            let shifted_trust = *trust_score - I64F64::from_num(Self::get_float_kappa(0)); // Range( -kappa, 1 - kappa )
-            let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
+            let shifted_trust =
+                trust_score.saturating_sub(I64F64::from_num(Self::get_float_kappa(0))); // Range( -kappa, 1 - kappa )
+            let temperatured_trust =
+                shifted_trust.saturating_mul(I64F64::from_num(Self::get_rho(0))); // Range( -rho * kappa, rho ( 1 - kappa ) )
             let exponentiated_trust: I64F64 =
-                substrate_fixed::transcendental::exp(-temperatured_trust)
+                substrate_fixed::transcendental::exp(temperatured_trust.saturating_neg())
                     .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
 
-            *consensus_i = one / (one + exponentiated_trust);
+            *consensus_i = one.saturating_div(one.saturating_add(exponentiated_trust));
         }
 
         log::debug!("C:\n{:?}\n", &consensus);
@@ -425,7 +438,7 @@ impl<T: Config> Pallet<T> {
         for ((emission, consensus_i), rank) in
             weighted_emission.iter_mut().zip(&consensus).zip(&ranks)
         {
-            *emission = *consensus_i * (*rank);
+            *emission = consensus_i.saturating_mul(*rank);
         }
         inplace_normalize_64(&mut weighted_emission);
         log::debug!("Ei64:\n{:?}\n", &weighted_emission);
@@ -433,7 +446,7 @@ impl<T: Config> Pallet<T> {
         // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
         let emission_as_tao: Vec<I64F64> = weighted_emission
             .iter()
-            .map(|v: &I64F64| *v * block_emission)
+            .map(|v: &I64F64| v.saturating_mul(block_emission))
             .collect();
 
         // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
@@ -486,7 +499,7 @@ impl<T: Config> Pallet<T> {
         // --- 3. Ensure that the number of registrations in this interval doesn't exceed thrice the target limit.
         ensure!(
             Self::get_registrations_this_interval(root_netuid)
-                < Self::get_target_registrations_per_interval(root_netuid) * 3,
+                < Self::get_target_registrations_per_interval(root_netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
@@ -554,9 +567,129 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+        // --- 13. Join the Senate if eligible.
+        // Returns the replaced member, if any.
+        let _ = Self::join_senate_if_eligible(&hotkey)?;
+
+        // --- 14. Force all members on root to become a delegate.
+        if !Self::hotkey_is_delegate(&hotkey) {
+            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
+        }
+
+        // --- 15. Update the registration counters for both the block and interval.
+        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| val.saturating_inc());
+
+        // --- 16. Log and announce the successful registration.
+        log::info!(
+            "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
+            root_netuid,
+            subnetwork_uid,
+            hotkey
+        );
+        Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
+
+        // --- 17. Finish and return success.
+        Ok(())
+    }
+
+    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
+    //
+    // This function is responsible for adding a hotkey to the Senate if they meet the requirements.
+    // The root key with the least stake is pruned in the event of a filled membership.
+    //
+    // # Arguments:
+    // * 'origin': Represents the origin of the call.
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'DispatchResult': A result type indicating success or failure of the registration.
+    //
+    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+        // --- 0. Get the unique identifier (UID) for the root network.
+        let root_netuid: u16 = Self::get_root_netuid();
+        ensure!(
+            Self::if_subnet_exist(root_netuid),
+            Error::<T>::RootNetworkDoesNotExist
+        );
+
+        // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
+            coldkey,
+            hotkey
+        );
+
+        // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
+        ensure!(
+            Uids::<T>::contains_key(root_netuid, &hotkey),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
+        // --- 3. Create a network account for the user if it doesn't exist.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // --- 4. Join the Senate if eligible.
+        // Returns the replaced member, if any.
+        let replaced = Self::join_senate_if_eligible(&hotkey)?;
+
+        if replaced.is_none() {
+            // Not eligible to join the Senate, or no replacement needed.
+            // Check if the hotkey is *now* a member of the Senate.
+            // Otherwise, error out.
+            ensure!(
+                T::SenateMembers::is_member(&hotkey),
+                Error::<T>::StakeTooLowForRoot, // Had less stake than the lowest stake incumbent.
+            );
+        }
+
+        // --- 5. Log and announce the successful Senate adjustment.
+        log::info!(
+            "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
+            replaced,
+            hotkey
+        );
+        Self::deposit_event(Event::SenateAdjusted {
+            old_member: replaced.cloned(),
+            new_member: hotkey,
+        });
+
+        // --- 6. Finish and return success.
+        Ok(())
+    }
+
+    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
+    //
+    // # Arguments:
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'Result<Option<&T::AccountId>, Error<T>>': A result containing the replaced member, if any.
+    //
+    fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
+        // Get the root network UID.
+        let root_netuid: u16 = Self::get_root_netuid();
+
+        // --- 1. Check the hotkey is registered in the root network.
+        ensure!(
+            Uids::<T>::contains_key(root_netuid, hotkey),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
+        // --- 2. Verify the hotkey is NOT already a member of the Senate.
+        ensure!(
+            !T::SenateMembers::is_member(hotkey),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
+        );
+
+        // --- 3. Grab the hotkey's stake.
+        let current_stake = Self::get_total_stake_for_hotkey(hotkey);
+
+        // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
+        let last: Option<&T::AccountId> = None;
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
@@ -570,34 +703,17 @@ impl<T: Config> Pallet<T> {
                 let last_stake = Self::get_total_stake_for_hotkey(last);
 
                 if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey).map_err(|e| e.error)?;
-                    T::TriumvirateInterface::remove_votes(last)?;
+                    // Swap the member with the lowest stake.
+                    T::SenateMembers::swap_member(last, hotkey)
+                        .map_err(|_| Error::<T>::CouldNotJoinSenate)?;
                 }
             }
         } else {
-            T::SenateMembers::add_member(&hotkey).map_err(|e| e.error)?;
+            T::SenateMembers::add_member(hotkey).map_err(|_| Error::<T>::CouldNotJoinSenate)?;
         }
 
-        // --- 13. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate(&hotkey) {
-            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
-        }
-
-        // --- 14. Update the registration counters for both the block and interval.
-        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
-        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
-
-        // --- 15. Log and announce the successful registration.
-        log::info!(
-            "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
-            root_netuid,
-            subnetwork_uid,
-            hotkey
-        );
-        Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
-
-        // --- 16. Finish and return success.
-        Ok(())
+        // Return the swapped out member, if any.
+        Ok(last)
     }
 
     pub fn do_set_root_weights(
@@ -812,7 +928,7 @@ impl<T: Config> Pallet<T> {
                 // We subtract one because we don't want root subnet to count towards total
                 let mut next_available_netuid = 0;
                 loop {
-                    next_available_netuid += 1;
+                    next_available_netuid.saturating_inc();
                     if !Self::if_subnet_exist(next_available_netuid) {
                         log::debug!("got subnet id: {:?}", next_available_netuid);
                         break next_available_netuid;
@@ -911,7 +1027,7 @@ impl<T: Config> Pallet<T> {
         NetworkModality::<T>::insert(netuid, 0);
 
         // --- 5. Increase total network count.
-        TotalNetworks::<T>::mutate(|n| *n += 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_inc());
 
         // --- 6. Set all default values **explicitly**.
         Self::set_network_registration_allowed(netuid, true);
@@ -1003,7 +1119,7 @@ impl<T: Config> Pallet<T> {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
@@ -1067,6 +1183,7 @@ impl<T: Config> Pallet<T> {
         SubnetOwner::<T>::remove(netuid);
     }
 
+    #[allow(clippy::arithmetic_side_effects)]
     /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
     /// The lock cost is calculated using the formula:
     /// lock_cost = (last_lock * mult) - (last_lock / lock_reduction_interval) * (current_block - last_lock_block)
