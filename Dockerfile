@@ -52,7 +52,7 @@ RUN /subtensor/scripts/init.sh
 
 # Cargo build
 WORKDIR /subtensor
-RUN cargo build --release --features runtime-benchmarks --locked
+RUN cargo build --profile production --features runtime-benchmarks --locked
 EXPOSE 30333 9933 9944
 
 
@@ -61,4 +61,4 @@ FROM $BASE_IMAGE AS subtensor
 COPY --from=builder /subtensor/snapshot.json /
 COPY --from=builder /subtensor/raw_spec.json /
 COPY --from=builder /subtensor/raw_testspec.json /
-COPY --from=builder /subtensor/target/release/node-subtensor /usr/local/bin
+COPY --from=builder /subtensor/target/production/node-subtensor /usr/local/bin
