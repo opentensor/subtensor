@@ -1148,36 +1148,6 @@ pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<
         .collect()
 }
 
-// /// Calculates the exponential moving average (EMA) for a sparse matrix using dynamic alpha values.
-// #[allow(dead_code)]
-// pub fn mat_ema_alpha_vec_sparse(
-//     new: &Vec<Vec<(u16, I32F32)>>,
-//     old: &Vec<Vec<(u16, I32F32)>>,
-//     alpha: &Vec<I32F32>,
-// ) -> Vec<Vec<(u16, I32F32)>> {
-//     assert!(new.len() == old.len());
-//     let n = new.len(); // assume square matrix, rows=cols
-//     let zero: I32F32 = I32F32::from_num(0.0);
-//     let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
-//     for i in 0..new.len() {
-//         let mut row: Vec<I32F32> = vec![zero; n];
-//         for (j, value) in new[i].iter() {
-//             let alpha_val: I32F32 = alpha[*j as usize];
-//             row[*j as usize] += alpha_val * value;
-//         }
-//         for (j, value) in old[i].iter() {
-//             let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha[*j as usize];
-//             row[*j as usize] += one_minus_alpha * value;
-//         }
-//         for (j, value) in row.iter().enumerate() {
-//             if *value > zero {
-//                 result[i].push((j as u16, *value))
-//             }
-//         }
-//     }
-//     result
-// }
-
 /// Calculates the exponential moving average (EMA) for a sparse matrix using dynamic alpha values.
 #[allow(dead_code)]
 pub fn mat_ema_alpha_vec_sparse(
@@ -1192,16 +1162,18 @@ pub fn mat_ema_alpha_vec_sparse(
     let mut result: Vec<Vec<(u16, I32F32)>> = vec![vec![]; n];
 
     // Iterate over each row of the matrices.
-    for i in 0..new.len() {
+    for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
         // Initialize a row of zeros for the result matrix.
         let mut row: Vec<I32F32> = vec![zero; n];
 
         // Process the new matrix values.
-        for (j, value) in new[i].iter() {
+        for (j, value) in new_row.iter() {
             // Retrieve the alpha value for the current column.
-            let alpha_val: I32F32 = alpha[*j as usize];
+            let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
             // Compute the EMA component for the new value using saturating multiplication.
-            row[*j as usize] = alpha_val.saturating_mul(*value);
+            if let Some(row_val) = row.get_mut(*j as usize) {
+                *row_val = alpha_val.saturating_mul(*value);
+            }
             log::trace!(
                 "new[{}][{}] * alpha[{}] = {} * {} = {}",
                 i,
@@ -1209,19 +1181,20 @@ pub fn mat_ema_alpha_vec_sparse(
                 j,
                 value,
                 alpha_val,
-                row[*j as usize]
+                row.get(*j as usize).unwrap_or(&zero)
             );
         }
 
         // Process the old matrix values.
-        for (j, value) in old[i].iter() {
+        for (j, value) in old_row.iter() {
             // Retrieve the alpha value for the current column.
-            let alpha_val: I32F32 = alpha[*j as usize];
+            let alpha_val: I32F32 = alpha.get(*j as usize).copied().unwrap_or(zero);
             // Calculate the complement of the alpha value using saturating subtraction.
             let one_minus_alpha: I32F32 = I32F32::from_num(1.0).saturating_sub(alpha_val);
             // Compute the EMA component for the old value and add it to the row using saturating operations.
-            row[*j as usize] =
-                row[*j as usize].saturating_add(one_minus_alpha.saturating_mul(*value));
+            if let Some(row_val) = row.get_mut(*j as usize) {
+                *row_val = row_val.saturating_add(one_minus_alpha.saturating_mul(*value));
+            }
             log::trace!(
                 "old[{}][{}] * (1 - alpha[{}]) = {} * {} = {}",
                 i,
@@ -1236,8 +1209,10 @@ pub fn mat_ema_alpha_vec_sparse(
         // Collect the non-zero values into the result matrix.
         for (j, value) in row.iter().enumerate() {
             if *value > zero {
-                result[i].push((j as u16, *value));
-                log::trace!("result[{}][{}] = {}", i, j, value);
+                if let Some(result_row) = result.get_mut(i) {
+                    result_row.push((j as u16, *value));
+                    log::trace!("result[{}][{}] = {}", i, j, value);
+                }
             }
         }
     }
@@ -1245,6 +1220,7 @@ pub fn mat_ema_alpha_vec_sparse(
     // Return the computed EMA sparse matrix.
     result
 }
+
 /// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
 /// `alpha_` is the EMA coefficient passed as a vector per column.
 #[allow(dead_code)]
@@ -1254,13 +1230,13 @@ pub fn mat_ema_alpha_vec(
     alpha: &[I32F32],
 ) -> Vec<Vec<I32F32>> {
     // Check if the new matrix is empty or its first row is empty.
-    if new.is_empty() || new[0].is_empty() {
+    if new.is_empty() || new.first().map_or(true, |row| row.is_empty()) {
         return vec![vec![]; 1];
     }
 
     // Ensure the dimensions of the new and old matrices match.
     assert!(new.len() == old.len());
-    assert!(new[0].len() == alpha.len());
+    assert!(new.first().map_or(0, |row| row.len()) == alpha.len());
 
     // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
     let mut result: Vec<Vec<I32F32>> =
@@ -1277,9 +1253,15 @@ pub fn mat_ema_alpha_vec(
             let one_minus_alpha = I32F32::from_num(1.0).saturating_sub(alpha_val);
 
             // Compute the EMA for the current element using saturating operations.
-            result[i][j] = alpha_val
-                .saturating_mul(new_row[j])
-                .saturating_add(one_minus_alpha.saturating_mul(old_row[j]));
+            if let (Some(new_val), Some(old_val), Some(result_val)) = (
+                new_row.get(j),
+                old_row.get(j),
+                result.get_mut(i).and_then(|row| row.get_mut(j)),
+            ) {
+                *result_val = alpha_val
+                    .saturating_mul(*new_val)
+                    .saturating_add(one_minus_alpha.saturating_mul(*old_val));
+            }
         }
     }
 
