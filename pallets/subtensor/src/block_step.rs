@@ -219,7 +219,7 @@ impl<T: Config> Pallet<T> {
                             } else {
                                 // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
                                 tao_in = 0;
-                                alpha_in = subnet_block_emission; // 10^9 rao
+                                alpha_in = total_block_emission;
                             }
 
                             if tao_in > 0 {
@@ -270,7 +270,7 @@ impl<T: Config> Pallet<T> {
                 // Get the pending emission issuance to distribute for this subnet
                 let emission = PendingEmission::<T>::get(subnet_info.netuid);
                 // Drain pending emission and update dynamic pools
-                PendingEmission::<T>::insert(subnet_info.netuid, 0);
+                PendingEmission::<T>::insert(subnet_info.netuid, 0); 
 
                 // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
                 let emission_tuples: Vec<(T::AccountId, u64, u64)> =
@@ -352,6 +352,7 @@ impl<T: Config> Pallet<T> {
             Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
             let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
             let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
+            // TODO: remove from TotalSubnetTAO here, but this block goes away anyway
             Self::add_balance_to_coldkey_account(
                 &coldkey,
                 tao_server_emission,
@@ -448,6 +449,12 @@ impl<T: Config> Pallet<T> {
         Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
         let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
         let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
+        // TODO: remove from TotalSubnetTAO here + bring in compute_dynamic_unstake everywhere
+        TotalSubnetTAO::<T>::mutate(
+            netuid,
+            |total_tao| *total_tao = total_tao.saturating_sub(tao_server_emission)
+        );
+
         Self::add_balance_to_coldkey_account(
             &coldkey,
             tao_server_emission,
