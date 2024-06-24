@@ -37,3 +37,18 @@ jobs:
           echo "network spec_version: $spec_version"
           if (( $(echo "$local_spec_version <= $spec_version" | bc -l) )); then echo "$local_spec_version ≯ $spec_version ❌"; exit 1; fi
           echo "$local_spec_version > $spec_version ✅"
+          
+  check-devnet-migrations:
+    name: check devnet migrations
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Run Try Runtime Checks
+        uses: "paritytech/try-runtime-gha@v0.1.0"
+        with:
+          runtime-package: "node-subtensor-runtime"
+          node-uri: "wss://dev.chain.opentensor.ai:443"
+          checks: "pre-and-post"
+          extra-args: "--disable-spec-version-check --no-weight-warnings"
