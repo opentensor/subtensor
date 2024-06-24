@@ -374,7 +374,6 @@ impl<T: Config> Pallet<T> {
 
         // If we reach here, add the balance to the hotkey.
         Self::increase_subnet_token_on_coldkey_hotkey_account(&coldkey, &hotkey, netuid, dynamic_stake);
-        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_add(tao_to_be_added));
 
         // -- 12. Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
@@ -551,7 +550,6 @@ impl<T: Config> Pallet<T> {
 
         // Compute Dynamic unstake.
         let tao_unstaked: u64 = Self::compute_dynamic_unstake(netuid, alpha_to_be_removed);
-        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_sub(tao_unstaked));
 
         // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(coldkey, tao_unstaked);
@@ -588,7 +586,7 @@ impl<T: Config> Pallet<T> {
         let subnet_type = Self::get_subnet_type(netuid);
 
         // STAO networks do not have dynamic stake
-        match subnet_type {
+        let stake_to_be_removed = match subnet_type {
             SubnetType::DTAO => {
                 let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
                 let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
@@ -611,7 +609,14 @@ impl<T: Config> Pallet<T> {
                 tao
             }
             SubnetType::STAO => stake_to_be_removed
-        }
+        };
+
+        TotalSubnetTAO::<T>::mutate(
+            netuid,
+            |total_tao| *total_tao = total_tao.saturating_sub(stake_to_be_removed)
+        );
+
+        stake_to_be_removed
     }
 
     /// Returns the amount of TAO returned if stake_to_be_removed is unstaked
@@ -665,8 +670,10 @@ impl<T: Config> Pallet<T> {
     /// # Panics
     /// The function will panic if the new tao reserve calculation overflows, although this is highly unlikely due to the
     /// use of saturating arithmetic operations.
-    pub fn compute_dynamic_stake(netuid: u16, stake_to_be_added: u64) -> u64 {
+    pub fn compute_dynamic_stake(netuid: u16, tao_to_be_added: u64) -> u64 {
         let subnet_type = Self::get_subnet_type(netuid);
+
+        TotalSubnetTAO::<T>::mutate(netuid, |stake| *stake = stake.saturating_add(tao_to_be_added));
 
         // STAO networks do not have dynamic stake
         match subnet_type {
@@ -676,7 +683,7 @@ impl<T: Config> Pallet<T> {
                 let k = DynamicK::<T>::get(netuid);
         
                 // Calculate the new tao reserve after adding the stake
-                let new_tao_reserve = tao_reserve.saturating_add(stake_to_be_added);
+                let new_tao_reserve = tao_reserve.saturating_add(tao_to_be_added);
                 // Calculate the new dynamic reserve based on the new tao reserve
                 let new_dynamic_reserve: u64 = (k / (new_tao_reserve as u128)) as u64;
                 // Calculate the amount of dynamic token to be pulled out based on the difference in dynamic reserves
@@ -689,7 +696,7 @@ impl<T: Config> Pallet<T> {
         
                 dynamic_token
             }
-            SubnetType::STAO => stake_to_be_added
+            SubnetType::STAO => tao_to_be_added
         }
     }
 

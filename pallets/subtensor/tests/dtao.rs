@@ -900,6 +900,62 @@ fn test_prices_converge_proportionally() {
     });
 }
 
+/// Verify that total subnet TAO is always equal to dynamic TAO reserve, 
+/// no matter if prices add up to <1 or >1, or epochs pass.
+#[test]
+fn test_total_tao_equals_dynamic_tao_reserve() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+
+        let subnet_count = 10;
+        let tempo = 360;
+        pallet_subtensor::SubnetOwnerLockPeriod::<Test>::set(0);
+
+        for netuid in 1u16..=subnet_count {
+            let lock_amount = 100_000_000_000 * netuid as u64;
+            add_dynamic_network(netuid, tempo, 1, 1, lock_amount);     
+        }
+
+        let mut emissions_non_zero = false;
+        let mut emissions_drained = false;
+        let mut prices_greater_than_one = false;
+        let mut prices_lower_than_one = false;
+
+        for block in 1u64..5000 {
+            SubtensorModule::run_coinbase(block);
+
+            for netuid in 1u16..=subnet_count {
+                assert_eq!(
+                    pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid),
+                    pallet_subtensor::DynamicTAOReserve::<Test>::get(netuid)
+                );
+            }
+
+            // Check if this test encountered a moment when emissions were drained (epoch)
+            if !emissions_drained {
+                if !emissions_non_zero {
+                    emissions_non_zero = pallet_subtensor::PendingEmission::<Test>::iter().all(|(_, e)| e != 0);
+                } else {
+                    emissions_drained = pallet_subtensor::PendingEmission::<Test>::iter().any(|(_, e)| e == 0);
+                }
+            }
+
+            // Check if this test encountered both prices > 1 and prices < 1
+            if (1u16..=subnet_count)
+                .map(|netuid| SubtensorModule::get_tao_per_alpha_price(netuid).to_num::<f64>())
+                .sum::<f64>() > 1.0 {
+                prices_greater_than_one = true;
+            } else {
+                prices_lower_than_one = true;
+            }
+        }
+
+        assert!(emissions_drained);
+        assert!(prices_lower_than_one);
+        assert!(prices_greater_than_one);
+    });
+}
+
 ///////////////////////////////////////////////////////////////////
 // Lock cost tests
 //
