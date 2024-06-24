@@ -32,7 +32,7 @@ impl<T: Config> Pallet<T> {
         // Inactive mask.
         let inactive: Vec<bool> = last_update
             .iter()
-            .map(|updated| *updated + activity_cutoff < current_block)
+            .map(|updated| updated.saturating_add(activity_cutoff) < current_block)
             .collect();
         log::trace!("Inactive:\n{:?}\n", inactive.clone());
 
@@ -175,9 +175,10 @@ impl<T: Config> Pallet<T> {
                                                  // log::trace!( "ΔB:\n{:?}\n", &bonds_delta );
 
         // Compute bonds moving average.
-        let bonds_moving_average: I64F64 =
-            I64F64::from_num(Self::get_bonds_moving_average(netuid)) / I64F64::from_num(1_000_000);
-        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num(bonds_moving_average);
+        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+            .saturating_div(I64F64::from_num(1_000_000));
+        let alpha: I32F32 =
+            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
         let mut ema_bonds: Vec<Vec<I32F32>> = mat_ema(&bonds_delta, &bonds, alpha);
         inplace_col_normalize(&mut ema_bonds); // sum_i b_ij = 1
                                                // log::trace!( "emaB:\n{:?}\n", &ema_bonds );
@@ -198,7 +199,7 @@ impl<T: Config> Pallet<T> {
         let combined_emission: Vec<I32F32> = incentive
             .iter()
             .zip(dividends.clone())
-            .map(|(ii, di)| ii + di)
+            .map(|(ii, di)| ii.saturating_add(di))
             .collect();
         let emission_sum: I32F32 = combined_emission.iter().sum();
 
@@ -228,7 +229,7 @@ impl<T: Config> Pallet<T> {
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se) * float_rao_emission)
+            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
@@ -237,7 +238,7 @@ impl<T: Config> Pallet<T> {
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve) * float_rao_emission)
+            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
@@ -247,7 +248,7 @@ impl<T: Config> Pallet<T> {
         // Used only to track combined emission in the storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::from_num(*ce) * float_rao_emission)
+            .map(|ce: &I32F32| I96F32::from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
@@ -376,7 +377,7 @@ impl<T: Config> Pallet<T> {
         // Inactive mask.
         let inactive: Vec<bool> = last_update
             .iter()
-            .map(|updated| *updated + activity_cutoff < current_block)
+            .map(|updated| updated.saturating_add(activity_cutoff) < current_block)
             .collect();
         log::trace!("Inactive: {:?}", inactive.clone());
 
@@ -535,9 +536,10 @@ impl<T: Config> Pallet<T> {
                                                            // log::trace!( "ΔB (norm): {:?}", &bonds_delta );
 
         // Compute bonds moving average.
-        let bonds_moving_average: I64F64 =
-            I64F64::from_num(Self::get_bonds_moving_average(netuid)) / I64F64::from_num(1_000_000);
-        let alpha: I32F32 = I32F32::from_num(1) - I32F32::from_num(bonds_moving_average);
+        let bonds_moving_average: I64F64 = I64F64::from_num(Self::get_bonds_moving_average(netuid))
+            .saturating_div(I64F64::from_num(1_000_000));
+        let alpha: I32F32 =
+            I32F32::from_num(1).saturating_sub(I32F32::from_num(bonds_moving_average));
         let mut ema_bonds: Vec<Vec<(u16, I32F32)>> = mat_ema_sparse(&bonds_delta, &bonds, alpha);
 
         // Normalize EMA bonds.
@@ -558,7 +560,7 @@ impl<T: Config> Pallet<T> {
         let combined_emission: Vec<I32F32> = incentive
             .iter()
             .zip(dividends.clone())
-            .map(|(ii, di)| ii + di)
+            .map(|(ii, di)| ii.saturating_add(di))
             .collect();
         let emission_sum: I32F32 = combined_emission.iter().sum();
 
@@ -588,7 +590,7 @@ impl<T: Config> Pallet<T> {
 
         let server_emission: Vec<I96F32> = normalized_server_emission
             .iter()
-            .map(|se: &I32F32| I96F32::from_num(*se) * float_rao_emission)
+            .map(|se: &I32F32| I96F32::from_num(*se).saturating_mul(float_rao_emission))
             .collect();
         let server_emission: Vec<u64> = server_emission
             .iter()
@@ -597,7 +599,7 @@ impl<T: Config> Pallet<T> {
 
         let validator_emission: Vec<I96F32> = normalized_validator_emission
             .iter()
-            .map(|ve: &I32F32| I96F32::from_num(*ve) * float_rao_emission)
+            .map(|ve: &I32F32| I96F32::from_num(*ve).saturating_mul(float_rao_emission))
             .collect();
         let validator_emission: Vec<u64> = validator_emission
             .iter()
@@ -607,7 +609,7 @@ impl<T: Config> Pallet<T> {
         // Only used to track emission in storage.
         let combined_emission: Vec<I96F32> = normalized_combined_emission
             .iter()
-            .map(|ce: &I32F32| I96F32::from_num(*ce) * float_rao_emission)
+            .map(|ce: &I32F32| I96F32::from_num(*ce).saturating_mul(float_rao_emission))
             .collect();
         let combined_emission: Vec<u64> = combined_emission
             .iter()
@@ -704,7 +706,7 @@ impl<T: Config> Pallet<T> {
         I32F32::from_num(Self::get_rho(netuid))
     }
     pub fn get_float_kappa(netuid: u16) -> I32F32 {
-        I32F32::from_num(Self::get_kappa(netuid)) / I32F32::from_num(u16::MAX)
+        I32F32::from_num(Self::get_kappa(netuid)).saturating_div(I32F32::from_num(u16::MAX))
     }
 
     pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> {

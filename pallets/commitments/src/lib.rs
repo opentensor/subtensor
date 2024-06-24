@@ -8,11 +8,12 @@ pub mod types;
 pub mod weights;
 
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
 use frame_support::traits::Currency;
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, Saturating};
 use sp_std::boxed::Box;
 
 type BalanceOf<T> =
@@ -136,12 +137,12 @@ pub mod pallet {
             let cur_block = <frame_system::Pallet<T>>::block_number();
             if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
                 ensure!(
-                    cur_block >= last_commit + T::RateLimit::get(),
+                    cur_block >= last_commit.saturating_add(T::RateLimit::get()),
                     Error::<T>::CommitmentSetRateLimitExceeded
                 );
             }
 
-            let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
+            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
             let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
                 Some(mut id) => {
                     id.info = *info;
@@ -156,12 +157,13 @@ pub mod pallet {
             };
 
             let old_deposit = id.deposit;
-            id.deposit = T::InitialDeposit::get() + fd;
+            id.deposit = T::InitialDeposit::get().saturating_add(fd);
             if id.deposit > old_deposit {
-                T::Currency::reserve(&who, id.deposit - old_deposit)?;
+                T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
             }
             if old_deposit > id.deposit {
-                let err_amount = T::Currency::unreserve(&who, old_deposit - id.deposit);
+                let err_amount =
+                    T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
                 debug_assert!(err_amount.is_zero());
             }
 
@@ -207,6 +209,7 @@ use {
     },
 };
 
+#[freeze_struct("6a00398e14a8a984")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 

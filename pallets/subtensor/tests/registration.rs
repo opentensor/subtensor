@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use frame_support::traits::Currency;
 
 use crate::mock::*;

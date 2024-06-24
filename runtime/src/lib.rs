@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// Some arithmetic operations can't use the saturating equivalent, such as the PerThing types
+#![allow(clippy::arithmetic_side_effects)]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -14,9 +16,9 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice},
+    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice},
 };
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
+use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -96,7 +98,9 @@ pub type Nonce = u32;
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     pub const ITEMS_FEE: Balance = 2_000 * 10_000;
     pub const BYTES_FEE: Balance = 100 * 10_000;
-    items as Balance * ITEMS_FEE + bytes as Balance * BYTES_FEE
+    (items as Balance)
+        .saturating_mul(ITEMS_FEE)
+        .saturating_add((bytes as Balance).saturating_mul(BYTES_FEE))
 }
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -193,7 +197,7 @@ parameter_types! {
 
 impl frame_system::Config for Runtime {
     // The basic call filter to use in dispatchable.
-    type BaseCallFilter = frame_support::traits::Everything;
+    type BaseCallFilter = SafeMode;
     // Block & extrinsics weights: base values and limits.
     type BlockWeights = BlockWeights;
     // The maximum length of a block (in bytes).
@@ -282,6 +286,49 @@ impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub const DisallowPermissionlessEnterDuration: BlockNumber = 0;
+    pub const DisallowPermissionlessExtendDuration: BlockNumber = 0;
+
+    pub const RootEnterDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+    pub const RootExtendDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+
+    pub const DisallowPermissionlessEntering: Option<Balance> = None;
+    pub const DisallowPermissionlessExtending: Option<Balance> = None;
+    pub const DisallowPermissionlessRelease: Option<BlockNumber> = None;
+}
+
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::Sudo(_)
+                | RuntimeCall::System(_)
+                | RuntimeCall::SafeMode(_)
+                | RuntimeCall::Timestamp(_)
+        )
+    }
+}
+
+impl pallet_safe_mode::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type WhitelistedCalls = SafeModeWhitelistedCalls;
+    type EnterDuration = DisallowPermissionlessEnterDuration;
+    type ExtendDuration = DisallowPermissionlessExtendDuration;
+    type EnterDepositAmount = DisallowPermissionlessEntering;
+    type ExtendDepositAmount = DisallowPermissionlessExtending;
+    type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, RootEnterDuration>;
+    type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, RootExtendDuration>;
+    type ForceExitOrigin = EnsureRoot<AccountId>;
+    type ForceDepositOrigin = EnsureRoot<AccountId>;
+    type Notify = ();
+    type ReleaseDelay = DisallowPermissionlessRelease;
+    type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
 }
 
 // Existential deposit.
@@ -662,7 +709,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
                     r_yes_votes,
                     r_count,
                 )), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
-            ) => Some((l_yes_votes * r_count).cmp(&(r_yes_votes * l_count))),
+            ) => Some(
+                l_yes_votes
+                    .saturating_mul(*r_count)
+                    .cmp(&r_yes_votes.saturating_mul(*l_count)),
+            ),
             // For every other origin we don't care, as they are not used for `ScheduleOrigin`.
             _ => None,
         }
@@ -1179,7 +1230,8 @@ construct_runtime!(
         Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils
+        AdminUtils: pallet_admin_utils,
+        SafeMode: pallet_safe_mode,
     }
 );
 
@@ -1463,6 +1515,7 @@ impl_runtime_apis! {
 
     #[cfg(feature = "try-runtime")]
     impl frame_try_runtime::TryRuntime<Block> for Runtime {
+        #[allow(clippy::unwrap_used)]
         fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
             // NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
             // have a backtrace here. If any of the pre/post migration checks fail, we shall stop

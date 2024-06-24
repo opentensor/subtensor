@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
