@@ -73,6 +73,8 @@ pub mod pallet {
     use sp_std::vec;
     use sp_std::vec::Vec;
 
+    use subtensor_macros::freeze_struct;
+
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
@@ -681,6 +683,7 @@ pub mod pallet {
     pub type AxonInfoOf = AxonInfo;
 
     /// Data structure for Axon information.
+    #[freeze_struct("66109b7ef33baabd")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
         ///  Axon serving block.
@@ -704,6 +707,7 @@ pub mod pallet {
     ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
     /// Data structure for Prometheus information.
+    #[freeze_struct("66b04cc1fbd155ea")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
         /// Prometheus serving block.
@@ -1172,7 +1176,7 @@ pub mod pallet {
             // Set max allowed uids
             MaxAllowedUids::<T>::insert(netuid, max_uids);
 
-            let mut next_uid = 0;
+            let mut next_uid = 0u16;
 
             for (coldkey, hotkeys) in self.stakes.iter() {
                 for (hotkey, stake_uid) in hotkeys.iter() {
@@ -1211,7 +1215,9 @@ pub mod pallet {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
-                    next_uid += 1;
+                    next_uid = next_uid.checked_add(1).expect(
+                        "should not have total number of hotkey accounts larger than u16::MAX",
+                    );
                 }
             }
 
@@ -1219,7 +1225,11 @@ pub mod pallet {
             SubnetworkN::<T>::insert(netuid, next_uid);
 
             // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
@@ -1228,7 +1238,11 @@ pub mod pallet {
             NetworksAdded::<T>::insert(root_netuid, true);
 
             // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 
@@ -1241,7 +1255,7 @@ pub mod pallet {
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(root_netuid, 0);
 
-            // Set the max weight limit to infitiy, no weight restrictions.
+            // Set the max weight limit to infinity, no weight restrictions.
             MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
 
             // Add default root tempo.
@@ -1930,6 +1944,15 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
+        /// Attempt to adjust the senate membership to include a hotkey
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
+        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_adjust_senate(origin, hotkey)
+        }
+
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(177_000_000, 0)
@@ -2089,8 +2112,8 @@ pub mod pallet {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
-                    current_block_number - Self::get_last_update_for_uid(netuid, uid);
-                return default_priority + u32::MAX as u64;
+                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
+                return default_priority.saturating_add(u32::MAX as u64);
             }
             0
         }
@@ -2118,7 +2141,7 @@ pub mod pallet {
                 return false;
             }
             if Self::get_registrations_this_interval(netuid)
-                >= Self::get_target_registrations_per_interval(netuid) * 3
+                >= Self::get_target_registrations_per_interval(netuid).saturating_mul(3)
             {
                 return false;
             }
@@ -2143,6 +2166,7 @@ pub enum CallType {
     Other,
 }
 
+#[freeze_struct("61e2b893d5ce6701")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
@@ -2271,7 +2295,8 @@ where
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
                     Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval * 3) {
+                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
+                {
                     // If the registration limit for the interval is exceeded, reject the transaction
                     return InvalidTransaction::ExhaustsResources.into();
                 }
@@ -2375,6 +2400,7 @@ use sp_std::vec;
 // used not 25 lines below
 #[allow(unused)]
 use sp_std::vec::Vec;
+use subtensor_macros::freeze_struct;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {

@@ -132,5 +132,7 @@ mod errors {
         AlphaHighTooLow,
         /// Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8
         AlphaLowOutOfRange,
+        /// Not able to join the senate.
+        CouldNotJoinSenate,
     }
 }

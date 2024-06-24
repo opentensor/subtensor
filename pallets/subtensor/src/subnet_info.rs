@@ -4,6 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
+#[freeze_struct("fe79d58173da662a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
     netuid: Compact<u16>,
@@ -26,6 +27,7 @@ pub struct SubnetInfo<T: Config> {
     owner: T::AccountId,
 }
 
+#[freeze_struct("76f4053b3cc4c7ec")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -120,7 +122,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfo<T>>>::new();
-        for netuid_ in 0..(max_netuid + 1) {
+        for netuid_ in 0..=max_netuid {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));
             }

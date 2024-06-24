@@ -15,7 +15,7 @@ use frame_support::traits::tokens::{
     fungible::{self, MutateHold as _},
     Precision,
 };
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, Saturating};
 use sp_std::boxed::Box;
 
 type BalanceOf<T> =
@@ -132,7 +132,7 @@ pub mod pallet {
                 Error::<T>::TooManyFieldsInIdentityInfo
             );
 
-            let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
+            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
             let mut id = match <IdentityOf<T>>::get(&identified) {
                 Some(mut id) => {
                     id.info = *info;
@@ -145,23 +145,24 @@ pub mod pallet {
             };
 
             let old_deposit = id.deposit;
-            id.deposit = T::InitialDeposit::get() + fd;
+            id.deposit = T::InitialDeposit::get().saturating_add(fd);
             if id.deposit > old_deposit {
                 T::Currency::hold(
                     &HoldReason::RegistryIdentity.into(),
                     &who,
-                    id.deposit - old_deposit,
+                    id.deposit.saturating_sub(old_deposit),
                 )?;
             }
             if old_deposit > id.deposit {
                 let release_res = T::Currency::release(
                     &HoldReason::RegistryIdentity.into(),
                     &who,
-                    old_deposit - id.deposit,
+                    old_deposit.saturating_sub(id.deposit),
                     Precision::BestEffort,
                 );
-                debug_assert!(release_res
-                    .is_ok_and(|released_amount| released_amount == (old_deposit - id.deposit)));
+                debug_assert!(release_res.is_ok_and(
+                    |released_amount| released_amount == old_deposit.saturating_sub(id.deposit)
+                ));
             }
 
             <IdentityOf<T>>::insert(&identified, id);
