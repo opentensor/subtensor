@@ -24,8 +24,6 @@ pub struct SubnetInfo<T: Config> {
     emission_values: Compact<u64>,
     burn: Compact<u64>,
     owner: T::AccountId,
-    alpha_low: Compact<u16>,
-    alpha_high: Compact<u16>,
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -54,9 +52,9 @@ pub struct SubnetHyperparams {
     difficulty: Compact<u64>,
     commit_reveal_weights_interval: Compact<u64>,
     commit_reveal_weights_enabled: bool,
-    liquid_alpha_enabled: bool,
-    alpha_low: Compact<u16>,
     alpha_high: Compact<u16>,
+    alpha_low: Compact<u16>,
+    liquid_alpha_enabled: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -80,7 +78,6 @@ impl<T: Config> Pallet<T> {
         let network_modality = <NetworkModality<T>>::get(netuid);
         let emission_values = Self::get_emission_value(netuid);
         let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
-        let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
 
         // DEPRECATED
         let network_connect: Vec<[u16; 2]> = Vec::<[u16; 2]>::new();
@@ -107,8 +104,6 @@ impl<T: Config> Pallet<T> {
             emission_values: emission_values.into(),
             burn,
             owner: Self::get_subnet_owner(netuid),
-            alpha_low: alpha_low.into(),
-            alpha_high: alpha_high.into(),
         })
     }
 
@@ -191,9 +186,9 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
             commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
             commit_reveal_weights_enabled,
-            liquid_alpha_enabled,
-            alpha_low: alpha_low.into(),
             alpha_high: alpha_high.into(),
+            alpha_low: alpha_low.into(),
+            liquid_alpha_enabled,
         })
     }
 }
