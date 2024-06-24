@@ -590,5 +590,4 @@ impl<T: Config> Pallet<T> {
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         (nonce, vec_work)
     }
-
 }
