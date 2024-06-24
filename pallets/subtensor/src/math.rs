@@ -3,7 +3,7 @@
 use crate::alloc::borrow::ToOwned;
 #[allow(unused)]
 use num_traits::float::Float;
-use sp_runtime::traits::CheckedAdd;
+use sp_runtime::traits::{CheckedAdd, Saturating};
 use sp_std::cmp::Ordering;
 use sp_std::vec;
 use substrate_fixed::transcendental::{exp, ln};
@@ -1200,8 +1200,8 @@ pub fn mat_ema_alpha_vec_sparse(
         for (j, value) in new[i].iter() {
             // Retrieve the alpha value for the current column.
             let alpha_val: I32F32 = alpha[*j as usize];
-            // Compute the EMA component for the new value.
-            row[*j as usize] = alpha_val * value;
+            // Compute the EMA component for the new value using saturating multiplication.
+            row[*j as usize] = alpha_val.saturating_mul(*value);
             log::trace!(
                 "new[{}][{}] * alpha[{}] = {} * {} = {}",
                 i,
@@ -1217,10 +1217,11 @@ pub fn mat_ema_alpha_vec_sparse(
         for (j, value) in old[i].iter() {
             // Retrieve the alpha value for the current column.
             let alpha_val: I32F32 = alpha[*j as usize];
-            // Calculate the complement of the alpha value.
-            let one_minus_alpha: I32F32 = I32F32::from_num(1.0) - alpha_val;
-            // Compute the EMA component for the old value and add it to the row.
-            row[*j as usize] += one_minus_alpha * value;
+            // Calculate the complement of the alpha value using saturating subtraction.
+            let one_minus_alpha: I32F32 = I32F32::from_num(1.0).saturating_sub(alpha_val);
+            // Compute the EMA component for the old value and add it to the row using saturating operations.
+            row[*j as usize] =
+                row[*j as usize].saturating_add(one_minus_alpha.saturating_mul(*value));
             log::trace!(
                 "old[{}][{}] * (1 - alpha[{}]) = {} * {} = {}",
                 i,
@@ -1228,7 +1229,7 @@ pub fn mat_ema_alpha_vec_sparse(
                 j,
                 value,
                 one_minus_alpha,
-                one_minus_alpha * value
+                one_minus_alpha.saturating_mul(*value)
             );
         }
 
@@ -1244,7 +1245,6 @@ pub fn mat_ema_alpha_vec_sparse(
     // Return the computed EMA sparse matrix.
     result
 }
-
 /// Return matrix exponential moving average: `alpha_j * a_ij + one_minus_alpha_j * b_ij`.
 /// `alpha_` is the EMA coefficient passed as a vector per column.
 #[allow(dead_code)]
@@ -1263,7 +1263,8 @@ pub fn mat_ema_alpha_vec(
     assert!(new[0].len() == alpha.len());
 
     // Initialize the result matrix with zeros, having the same dimensions as the new matrix.
-    let mut result: Vec<Vec<I32F32>> = vec![vec![I32F32::from_num(0.0); new[0].len()]; new.len()];
+    let mut result: Vec<Vec<I32F32>> =
+        vec![vec![I32F32::from_num(0.0); new.first().map_or(0, |row| row.len())]; new.len()];
 
     // Iterate over each row of the matrices.
     for (i, (new_row, old_row)) in new.iter().zip(old).enumerate() {
@@ -1272,11 +1273,13 @@ pub fn mat_ema_alpha_vec(
 
         // Iterate over each column of the current row.
         for (j, &alpha_val) in alpha.iter().enumerate().take(new_row.len()) {
-            // Calculate the complement of the alpha value.
-            let one_minus_alpha = I32F32::from_num(1.0) - alpha_val;
+            // Calculate the complement of the alpha value using saturating subtraction.
+            let one_minus_alpha = I32F32::from_num(1.0).saturating_sub(alpha_val);
 
-            // Compute the EMA for the current element.
-            result[i][j] = alpha_val * new_row[j] + one_minus_alpha * old_row[j];
+            // Compute the EMA for the current element using saturating operations.
+            result[i][j] = alpha_val
+                .saturating_mul(new_row[j])
+                .saturating_add(one_minus_alpha.saturating_mul(old_row[j]));
         }
     }
 
@@ -1301,7 +1304,7 @@ pub fn quantile(data: &[I32F32], quantile: f64) -> I32F32 {
     }
 
     // Calculate the position in the sorted array corresponding to the quantile.
-    let pos = quantile * (len - 1) as f64;
+    let pos = quantile * (len.saturating_sub(1)) as f64;
 
     // Determine the lower index by flooring the position.
     let low = pos.floor() as usize;
@@ -1311,17 +1314,26 @@ pub fn quantile(data: &[I32F32], quantile: f64) -> I32F32 {
 
     // If the low and high indices are the same, return the value at that index.
     if low == high {
-        sorted_data[low]
+        sorted_data
+            .get(low)
+            .copied()
+            .unwrap_or_else(|| I32F32::from_num(0))
     } else {
         // Otherwise, perform linear interpolation between the low and high values.
-        let low_value = sorted_data[low];
-        let high_value = sorted_data[high];
+        let low_value = sorted_data
+            .get(low)
+            .copied()
+            .unwrap_or_else(|| I32F32::from_num(0));
+        let high_value = sorted_data
+            .get(high)
+            .copied()
+            .unwrap_or_else(|| I32F32::from_num(0));
 
         // Calculate the weight for interpolation.
         let weight = I32F32::from_num(pos - low as f64);
 
-        // Return the interpolated value.
-        low_value + (high_value - low_value) * weight
+        // Return the interpolated value using saturating operations.
+        low_value.saturating_add((high_value.saturating_sub(low_value)).saturating_mul(weight))
     }
 }
 
