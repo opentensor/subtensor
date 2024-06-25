@@ -315,13 +315,12 @@ impl<T: Config> Pallet<T> {
     // is called after an epoch to distribute the newly minted stake according to delegation.
     //
     // Algorithm:
-    //   0. Hotkey always receives server_emission completely.
-    //   1. If a hotkey is a not delegate, it gets 100% of both server and validator emission. STOP.
-    //   2. Delegate gets it's take, i.e. a percentage of validator_emission specific to a given subnet (netuid)
+    //   0. Hotkey always receives server_emission completely (which gets unstaked and removed from TotalSubnetTAO).
+    //   1. Delegate gets it's take, i.e. a percentage of validator_emission specific to a given subnet (netuid)
     //
     //   remaining_validator_emission is what's left. Here is how it's distributed:
     //
-    //   3. If either delegate_local_stake (total amount of stake under a hotkey for a subnet) or
+    //   2. If either delegate_local_stake (total amount of stake under a hotkey for a subnet) or
     //      delegate_global_dynamic_tao (total delegate stake * alpha_price) are non-zero, then
     //      for each nominator nominating this delegate do:
     //      3.a Nominator reward comes in two parts: Local and Global
@@ -346,19 +345,7 @@ impl<T: Config> Pallet<T> {
         server_emission: u64,
         validator_emission: u64,
     ) {
-        // 1. Check if the hotkey is not a delegate and thus the emission is entirely owed to them.
-        if !Self::hotkey_is_delegate(delegate) {
-            let total_delegate_emission: u64 = server_emission + validator_emission;
-            Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
-            let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
-            let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
-            Self::add_balance_to_coldkey_account(
-                &coldkey,
-                tao_server_emission,
-            );
-            return;
-        }
-        // 2. Else the key is a delegate, first compute the delegate take from the emission.
+        // 1. Else the key is a delegate, first compute the delegate take from the emission.
         let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get(delegate, netuid))
             / I64F64::from_num(u16::MAX);
         let delegate_take: I64F64 = take_proportion * I64F64::from_num(validator_emission);
@@ -476,14 +463,10 @@ impl<T: Config> Pallet<T> {
         netuid: u16,
         emission: u64,
     ) -> u64 {
-        if Self::hotkey_is_delegate(hotkey) {
-            let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get(hotkey, netuid))
-                / I64F64::from_num(u16::MAX);
-            let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
-            take_emission.to_num::<u64>()
-        } else {
-            0
-        }
+        let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get(hotkey, netuid))
+            / I64F64::from_num(u16::MAX);
+        let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
+        take_emission.to_num::<u64>()
     }
 
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.

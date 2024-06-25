@@ -331,33 +331,49 @@ impl<T: Config> Pallet<T> {
 
     /// get all delegates info from storage
     ///
-    pub fn get_delegates(netuid: u16) -> Vec<DelegateInfo<T>> {
+    pub fn get_delegates() -> Vec<DelegateInfo<T>> {
         // Get all hotkeys registered on the netuid
-        Uids::<T>::iter_prefix(netuid)
-            .map(|(delegate, _)| Self::get_delegate_by_existing_account(&delegate))
-            .collect()
+        Self::get_all_subnet_netuids().iter()
+            .flat_map(|netuid| {
+                Uids::<T>::iter_prefix(netuid)
+                .map(|(delegate, _)| Self::get_delegate_by_existing_account(&delegate))
+            }).collect()
     }
 
     /// get all delegates' total stake from storage
     ///
+    pub fn get_delegates_light() -> Vec<DelegateInfoLight<T>> {
+        // Get all hotkeys registered on all subnets
+        Self::get_all_subnet_netuids().iter()
+            .flat_map(|netuid| {
+                Uids::<T>::iter_prefix(netuid)
+                    .map(|(delegate, _)| Self::get_delegate_by_existing_account_light(&delegate))
+            }).collect()
+    }
+
+    /// get all delegates for a subnet
+    ///
     /// * `netuid` - Subnet ID to find all registered delegates
     /// 
-    pub fn get_delegates_light(netuid: u16) -> Vec<DelegateInfoLight<T>> {
+    pub fn get_delegates_by_netuid_light(netuid: u16) -> Vec<DelegateInfoLight<T>> {
         // Get all hotkeys registered on the netuid
         Uids::<T>::iter_prefix(netuid)
             .map(|(delegate, _)| Self::get_delegate_by_existing_account_light(&delegate))
             .collect()
     }
-
+    
     /// get all delegates' light info from storage
     ///
     /// * `netuid` - Subnet ID to find all delegates total stakes for
     /// 
-    pub fn get_all_delegates_total_stake(netuid: u16) -> Vec<(T::AccountId, Compact<u64>)> {
-        // Get all hotkeys registered on the netuid
-        Uids::<T>::iter_prefix(netuid).map(|(delegate, _)| 
-            (delegate.clone(), Self::get_hotkey_global_dynamic_tao(&delegate).into())
-        ).collect()
+    pub fn get_all_delegates_total_stake() -> Vec<(T::AccountId, Compact<u64>)> {
+        // Get all hotkeys registered on all subnets
+        Self::get_all_subnet_netuids().iter()
+            .flat_map(|netuid| {
+                Uids::<T>::iter_prefix(netuid).map(|(delegate, _)| 
+                    (delegate.clone(), Self::get_hotkey_global_dynamic_tao(&delegate).into())
+                )
+            }).collect()
     }
 
     /// get all delegate info and staked token amount for a given delegatee account
@@ -369,33 +385,17 @@ impl<T: Config> Pallet<T> {
             return Vec::new(); // No delegates for invalid account
         };
 
-        BTreeMap<<T as frame_system::Config>::AccountId, u64> hotkey_stakes = BTreeMap::new();
-        SubStake::<T>::iter_prefix((&coldkey,)).for_each(|((hotkey, netuid), stake)| {
+        let mut hotkey_stakes: BTreeMap<<T as frame_system::Config>::AccountId, u64> = BTreeMap::new();
+        SubStake::<T>::iter_prefix((&coldkey,)).for_each(|((hotkey, _), stake)| {
             hotkey_stakes.entry(hotkey).and_modify(|s| *s += stake).or_insert(stake);
         });
 
-
-
-
-
-        Delegates::<T>::iter()
-            .map(|(delegate_id, _)| {
-                let mut total_staked_to_delegate_i: u64 = 0;
-                let all_netuids: Vec<u16> = Self::get_all_subnet_netuids();
-                for netuid_i in all_netuids.iter() {
-                    total_staked_to_delegate_i += Self::get_subnet_stake_for_coldkey_and_hotkey(
-                        &delegatee,
-                        &delegate_id,
-                        *netuid_i,
-                    );
-                }
-                (delegate_id, Compact(total_staked_to_delegate_i))
-            })
-            .filter(|(_, Compact(total_staked_to_delegate_i))| *total_staked_to_delegate_i != 0)
-            .map(|(delegate_id, total_delegate_stake)| {
+        hotkey_stakes.iter()
+            .filter(|(_, &total_staked_to_delegate)| total_staked_to_delegate != 0)
+            .map(|(delegate_id, &total_delegate_stake)| {
                 (
                     Self::get_delegate_by_existing_account(delegate_id),
-                    total_delegate_stake,
+                    Compact(total_delegate_stake),
                 )
             })
             .collect()

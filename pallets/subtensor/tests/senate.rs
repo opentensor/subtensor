@@ -92,10 +92,6 @@ fn test_senate_join_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
-        ));
         assert_eq!(
             SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
             InitialDefaultTake::get()
@@ -169,10 +165,6 @@ fn test_senate_vote_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
-        ));
         assert_eq!(
             SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
             InitialDefaultTake::get()
@@ -344,12 +336,6 @@ fn test_senate_leave_works() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
-        ));
-
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
@@ -416,16 +402,6 @@ fn test_senate_leave_vote_removal() {
         assert_eq!(
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
             coldkey_account_id
-        );
-
-        // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            coldkey_origin.clone(),
-            hotkey_account_id
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
-            InitialDefaultTake::get()
         );
 
         let staker_coldkey = U256::from(7);
@@ -511,8 +487,6 @@ fn test_senate_leave_vote_removal() {
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are all delegates
-            assert!(SubtensorModule::hotkey_is_delegate(&hot));
         }
         // No longer a root member
         assert!(
@@ -562,12 +536,6 @@ fn test_senate_not_leave_when_stake_removed() {
             SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey_account_id),
             coldkey_account_id
         );
-
-        // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id
-        ));
 
         let staker_coldkey = U256::from(7);
         let stake_amount: u64 = 100_000;

@@ -14,85 +14,6 @@ use substrate_fixed::types::I64F64;
 use types::SubnetType;
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
-    ///
-    /// # Args:
-    /// *  'origin': (<T as frame_system::Config>RuntimeOrigin):
-    ///     - The signature of the caller's coldkey.
-    ///
-    /// *  'hotkey' (T::AccountId):
-    ///     - The hotkey we are delegating (must be owned by the coldkey.)
-    ///
-    /// # Event:
-    /// *  DelegateAdded;
-    ///     - On successfully setting a hotkey as a delegate.
-    ///
-    /// # Raises:
-    /// *  'NotRegistered':
-    ///     - The hotkey we are delegating is not registered on the network.
-    ///
-    /// *  'NonAssociatedColdKey':
-    ///     - The hotkey we are delegating is not owned by the calling coldket.
-    ///
-    /// *  'TxRateLimitExceeded':
-    ///     - Thrown if key has hit transaction rate limit
-    ///
-    pub fn do_become_delegate(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-    ) -> dispatch::DispatchResult {
-        // --- 1. We check the coldkey signature.
-        let coldkey = ensure_signed(origin)?;
-        log::info!(
-            "do_become_delegate( origin:{:?} hotkey:{:?} )",
-            coldkey,
-            hotkey
-        );
-
-        // --- 2. Ensure we are delegating a known key.
-        // --- 3. Ensure that the coldkey is the owner.
-        Self::do_account_checks(&coldkey, &hotkey)?;
-
-        // --- 5. Ensure we are not already a delegate
-        ensure!(
-            !Self::hotkey_is_delegate(&hotkey),
-            Error::<T>::HotKeyAlreadyDelegate
-        );
-
-        // --- 6. Ensure we don't exceed tx rate limit
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::DelegateTxRateLimitExceeded
-        );
-
-        // --- 7. Delegate the key.
-        // With introduction of DelegatesTake Delegates became just a flag.
-        // Probably there is a migration needed to convert it to bool or something down the road
-        Self::delegate_hotkey(&hotkey, Self::get_default_take());
-                
-        // Set last block for rate limiting
-        Self::set_last_tx_block(&coldkey, block);
-
-        // Also, set last block for take increase rate limiting, since default take is max
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
-
-        // --- 8. Emit the staking event.
-        log::info!(
-            "DelegateAdded( coldkey:{:?}, hotkey:{:?} )",
-            coldkey,
-            hotkey
-        );
-        Self::deposit_event(Event::DelegateAdded(
-            coldkey,
-            hotkey,
-            Self::get_default_take(),
-        ));
-
-        // --- 9. Ok and return.
-        Ok(())
-    }
-
     /// ---- The implementation for the extrinsic decrease_take
     ///
     /// # Args:
@@ -325,9 +246,10 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyAccountNotExists
         );
 
-        // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
+        // Ensure that the hotkey allows delegation (registered on the network)
+        // or that the hotkey is owned by the calling coldkey.
         ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            IsNetworkMember::<T>::get(&hotkey, netuid) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 
@@ -457,7 +379,7 @@ impl<T: Config> Pallet<T> {
 
         // Ensure that the hotkey allows delegation or that the hotkey is owned by the calling coldkey.
         ensure!(
-            Self::hotkey_is_delegate(&hotkey) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            IsNetworkMember::<T>::get(&hotkey, netuid) || Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
 

@@ -1143,10 +1143,6 @@ fn test_stake_unstake_total_issuance() {
             hotkey,
             SubnetType::DTAO
         ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
-        ));
         assert_eq!(SubtensorModule::get_tao_reserve(1), lock_amount);
         assert_eq!(SubtensorModule::get_alpha_reserve(1), lock_amount);
         assert_eq!(SubtensorModule::get_tao_per_alpha_price(1), 1.0);

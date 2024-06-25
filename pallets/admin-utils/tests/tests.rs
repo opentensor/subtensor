@@ -993,21 +993,15 @@ mod sudo_set_nominator_min_required_stake {
             add_network(root, tempo);
             add_network(netuid, 0);
 
-            // Register hot1.
+            // Register hot1 on subnet and root.
             register_ok_neuron(netuid, hot1, cold1, 0);
-            assert_ok!(SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(cold1),
-                hot1,
-            ));
             assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+            root_register(hot1);
 
             // Register hot2.
             register_ok_neuron(netuid, hot2, cold2, 0);
-            assert_ok!(SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(cold2),
-                hot2,
-            ));
             assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+            root_register(hot2);
 
             // Add stake cold1 --> hot1 (non delegation.)
             SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);

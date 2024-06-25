@@ -172,7 +172,7 @@ fn test_add_subnet_stake_not_registered_key_pair() {
 }
 
 #[test]
-fn test_add_subnet_stake_err_neuron_does_not_belong_to_coldkey() {
+fn test_add_subnet_stake_neuron_does_not_belong_to_coldkey_ok() {
     new_test_ext(1).execute_with(|| {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
@@ -189,15 +189,45 @@ fn test_add_subnet_stake_err_neuron_does_not_belong_to_coldkey() {
         SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
 
         // Perform the request which is signed by a different cold key
-        let result = SubtensorModule::add_subnet_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
             hotkey_id,
             netuid,
             1000,
-        );
-        assert_eq!(
-            result,
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+        ));
+    });
+}
+
+#[test]
+fn test_add_subnet_stake_neuron_not_registered_fail() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey_id = U256::from(544);
+        let hotkey_id = U256::from(54544);
+        let other_cold_key = U256::from(99498);
+        let netuid: u16 = 1;
+        let netuid2: u16 = 2;
+        let tempo = 10;
+        let start_nonce: u64 = 0;
+
+        // add network
+        add_network(netuid, tempo, 0);
+        add_network(netuid2, tempo, 0);
+
+        // Register on a wrong subnet, so that hotkey exists, but is not registered on the subnet we're staking
+        register_ok_neuron(netuid2, hotkey_id, coldkey_id, start_nonce);
+
+        // Give it some $$$ in his coldkey balance
+        SubtensorModule::add_balance_to_coldkey_account(&other_cold_key, 100000);
+
+        // Perform the request which is signed by a different cold key
+        assert_err!(
+            SubtensorModule::add_subnet_stake(
+                <<Test as Config>::RuntimeOrigin>::signed(other_cold_key),
+                hotkey_id,
+                netuid,
+                1000,
+            ),
+            Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey
         );
     });
 }
@@ -679,7 +709,7 @@ fn test_remove_subnet_stake_err_signature() {
 }
 
 #[test]
-fn test_remove_subnet_stake_err_hotkey_does_not_belong_to_coldkey() {
+fn test_remove_subnet_stake_never_staked_fail() {
     new_test_ext(1).execute_with(|| {
         let coldkey_id = U256::from(544);
         let hotkey_id = U256::from(54544);
@@ -700,9 +730,9 @@ fn test_remove_subnet_stake_err_hotkey_does_not_belong_to_coldkey() {
             netuid,
             1000,
         );
-        assert_eq!(
+        assert_err!(
             result,
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
     });
 }
@@ -1144,10 +1174,6 @@ fn test_delegate_stake_division_by_zero_check() {
         let coldkey = U256::from(3);
         add_network(netuid, tempo, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 2341312);
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            hotkey
-        ));
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey, netuid, 0, 1000);
     });
 }
@@ -1232,22 +1258,6 @@ fn test_full_with_delegating() {
             Err(Error::<Test>::HotKeyAccountNotExists.into())
         );
 
-        // Neither key can become a delegate either because we are not registered.
-        assert_eq!(
-            SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey0
-            ),
-            Err(Error::<Test>::HotKeyAccountNotExists.into())
-        );
-        assert_eq!(
-            SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey0
-            ),
-            Err(Error::<Test>::HotKeyAccountNotExists.into())
-        );
-
         // Register the 2 neurons to a new network.
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         register_ok_neuron(netuid, hotkey1, coldkey1, 987907);
@@ -1261,28 +1271,6 @@ fn test_full_with_delegating() {
         );
         assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey0, &hotkey0));
         assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey1, &hotkey1));
-
-        // We try to delegate stake but niether are allowing delegation.
-        assert!(!SubtensorModule::hotkey_is_delegate(&hotkey0));
-        assert!(!SubtensorModule::hotkey_is_delegate(&hotkey1));
-        assert_eq!(
-            SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey1,
-                netuid,
-                100
-            ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
-        assert_eq!(
-            SubtensorModule::add_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-                hotkey0,
-                netuid,
-                100
-            ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
 
         // We stake and all is ok.
         assert_eq!(
@@ -1340,24 +1328,24 @@ fn test_full_with_delegating() {
         //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey0 ), 100 );
         //assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey1 ), 100 );
 
-        // Cant remove these funds because we are not delegating.
-        assert_eq!(
+        // Cant remove these funds because we didn't stake
+        assert_err!(
             SubtensorModule::remove_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey1,
                 netuid,
                 10
             ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
-        assert_eq!(
+        assert_err!(
             SubtensorModule::remove_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey0,
                 netuid,
                 10
             ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
 
         // Emit inflation through non delegates.
@@ -1370,51 +1358,6 @@ fn test_full_with_delegating() {
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey1),
             200
-        );
-
-        // Try allowing the keys to become delegates, fails because of incorrect coldkeys.
-        // Set take to be 0.
-        assert_eq!(
-            SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey1
-            ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
-        );
-        assert_eq!(
-            SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-                hotkey0
-            ),
-            Err(Error::<Test>::NonAssociatedColdKey.into())
-        );
-
-        // Become delegates all is ok.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-            hotkey1
-        ));
-        assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
-        assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
-
-        // Cant become a delegate twice.
-        assert_eq!(
-            SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey0
-            ),
-            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
-        );
-        assert_eq!(
-            SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-                hotkey1
-            ),
-            Err(Error::<Test>::HotKeyAlreadyDelegate.into())
         );
 
         // This add stake works for delegates.
@@ -1646,30 +1589,24 @@ fn test_full_with_delegating() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid),
             900
         );
-        assert_eq!(
+        assert_err!(
             SubtensorModule::remove_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
                 hotkey2,
                 netuid,
                 10
             ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
-        assert_eq!(
+        assert_err!(
             SubtensorModule::remove_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
                 hotkey2,
                 netuid,
                 10
             ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
+            Error::<Test>::NotEnoughStakeToWithdraw
         );
-
-        // Lets make this new key a delegate with an 18% take (default take value in tests).
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
-            hotkey2
-        ));
 
         // Add nominate some stake.
         assert_ok!(SubtensorModule::add_subnet_stake(
@@ -1738,11 +1675,6 @@ fn test_full_with_delegating() {
 
         step_block(3);
 
-        // 100% take is not a valid business case, changing the rest of this test to 50%
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey3),
-            hotkey3
-        )); // 18% take - default value for tests.
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
             hotkey3,
@@ -1921,17 +1853,6 @@ fn test_full_with_delegating_some_servers() {
             200
         );
 
-        // Become delegates all is ok.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-            hotkey1
-        ));
-        assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
-        assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
         let take0 = SubtensorModule::get_delegate_take(&hotkey0, netuid) as f32 / u16::MAX as f32;
         let take1 = SubtensorModule::get_delegate_take(&hotkey1, netuid) as f32 / u16::MAX as f32;
 
@@ -2090,30 +2011,7 @@ fn test_full_with_delegating_some_servers() {
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey2, &hotkey2, netuid),
             900
         );
-        assert_eq!(
-            SubtensorModule::remove_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-                hotkey2,
-                netuid,
-                10
-            ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
-        assert_eq!(
-            SubtensorModule::remove_subnet_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-                hotkey2,
-                netuid,
-                10
-            ),
-            Err(Error::<Test>::HotKeyNotDelegateAndSignerNotOwnHotKey.into())
-        );
 
-        // Lets make this new key a delegate with a default take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
-            hotkey2
-        ));
         let take2 = SubtensorModule::get_delegate_take(&hotkey2, netuid) as f32 / u16::MAX as f32;
 
         // Add nominate some stake.
@@ -2224,10 +2122,6 @@ fn test_stao_delegation() {
             netuid,
             100000
         ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(delegate),
-            delegate
-        ));
         let take = SubtensorModule::get_delegate_take(&delegate, netuid) as f32 / u16::MAX as f32;
 
         assert_ok!(SubtensorModule::add_subnet_stake(
@@ -2242,7 +2136,6 @@ fn test_stao_delegation() {
             netuid,
             100000
         ));
-        assert!(SubtensorModule::hotkey_is_delegate(&delegate));
         assert_eq!(
             SubtensorModule::get_hotkey_global_dynamic_tao(&delegate),
             100000 * 3
@@ -2434,18 +2327,6 @@ fn test_full_block_emission_occurs() {
         // Emit inflation through non delegates.
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, netuid, 0, 111);
         SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, netuid, 0, 234);
-
-        // Become delegates all is ok.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-            hotkey1
-        ));
-        assert!(SubtensorModule::hotkey_is_delegate(&hotkey0));
-        assert!(SubtensorModule::hotkey_is_delegate(&hotkey1));
 
         // Add some delegate stake
         assert_ok!(SubtensorModule::add_subnet_stake(
@@ -2717,18 +2598,10 @@ fn test_clear_small_nominations() {
 
         // Register hot1.
         register_ok_neuron(netuid, hot1, cold1, 0);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(cold1),
-            hot1,
-        ));
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
 
         // Register hot2.
         register_ok_neuron(netuid, hot2, cold2, 0);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(cold2),
-            hot2,
-        ));
         assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
 
         // Add stake cold1 --> hot1 (non delegation.)
@@ -2862,10 +2735,6 @@ fn test_add_stake_below_minimum_threshold() {
 
         // Register the neuron to a new network.
         register_ok_neuron(netuid, hotkey1, coldkey1, 0);
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-            hotkey1
-        ));
 
         // Coldkey staking on its own hotkey can stake below min threshold.
         assert_ok!(SubtensorModule::add_subnet_stake(
@@ -2918,10 +2787,6 @@ fn test_remove_stake_below_minimum_threshold() {
 
         // Register the neuron to a new network.
         register_ok_neuron(netuid, hotkey1, coldkey1, 0);
-        assert_ok!(SubtensorModule::become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-            hotkey1
-        ));
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
             hotkey1,
@@ -3006,16 +2871,6 @@ fn test_delegate_take_can_be_decreased() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
-
         // Coldkey / hotkey 0 decreases take
         let lower_take = SubtensorModule::get_delegate_take(&hotkey0, netuid) - 1;
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -3047,12 +2902,6 @@ fn test_can_set_min_take_ok() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0,
-        ));
-
         // Coldkey / hotkey 0 decreases take to min
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -3082,16 +2931,6 @@ fn test_delegate_take_can_not_be_increased_with_decrease_take() {
         let netuid = 1;
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with 10% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
 
         // Decrease delegate take to 5%
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -3138,16 +2977,6 @@ fn test_delegate_take_can_be_increased() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
-
         // Decrease delegate take to 5%
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -3191,16 +3020,6 @@ fn test_delegate_take_can_not_be_decreased_with_increase_take() {
         let netuid = 1;
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
 
         // Decrease delegate take to 10%
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -3247,16 +3066,6 @@ fn test_delegate_take_can_be_increased_to_limit() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
 
-        // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
-
         // Decrease delegate take to 10%
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -3301,16 +3110,6 @@ fn test_delegate_take_can_not_be_increased_beyond_limit() {
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
         let before = SubtensorModule::get_delegate_take(&hotkey0, netuid);
-
-        // Coldkey / hotkey 0 become delegates with 9% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
 
         if InitialDefaultTake::get() != u16::MAX {
             assert_eq!(
@@ -3361,16 +3160,6 @@ fn test_delegate_take_affects_distribution() {
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey0, &hotkey0, netuid),
             100
-        );
-
-        // Coldkey / hotkey 0 become delegates with 50% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
         );
 
         // Hotkey 1 adds 100 delegated stake to coldkey/hotkey 0
@@ -3444,16 +3233,6 @@ fn test_changing_delegate_take_changes_distribution() {
             100
         );
 
-        // Coldkey / hotkey 0 become delegates with 50% take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
-
         // Hotkey 1 adds 100 delegated stake to coldkey/hotkey 0
         assert_eq!(
             SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(&coldkey1, &hotkey0, netuid),
@@ -3522,16 +3301,6 @@ fn test_rate_limits_enforced_on_increase_take() {
         let netuid = 1;
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
-
-        // Coldkey / hotkey 0 become delegates with InitialDefaultTake take
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-        assert_eq!(
-            SubtensorModule::get_delegate_take(&hotkey0, netuid),
-            InitialDefaultTake::get()
-        );
 
         // Decrease delegate take to get_min_take
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -3626,12 +3395,6 @@ fn set_delegate_takes_handles_empty_vector() {
         add_network(1, tempo, 0);
         register_ok_neuron(1, hotkey, coldkey, 0);
 
-        // Ensure coldkey is associated as a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            hotkey
-        ));
-
         assert_ok!(SubtensorModule::set_delegate_takes(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -3658,12 +3421,6 @@ fn set_delegate_takes_rejects_invalid_netuid() {
         add_network(1, tempo, 0); // Adding a valid network
         register_ok_neuron(1, hotkey, coldkey, 0); // Registering neuron on the valid network
 
-        // Ensure coldkey is associated as a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            hotkey
-        ));
-
         // Now test with an invalid network ID
         assert_err!(
             SubtensorModule::set_delegate_takes(RuntimeOrigin::signed(coldkey), hotkey, takes),
@@ -3683,12 +3440,6 @@ fn set_delegate_takes_rejects_excessive_take() {
         let tempo: u16 = 13;
         add_network(1, tempo, 0);
         register_ok_neuron(1, hotkey, coldkey, 0);
-
-        // Ensure coldkey is associated as a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            hotkey
-        ));
 
         // Now test with an excessive take value
         assert_err!(
@@ -3770,12 +3521,6 @@ fn test_log_subnet_emission_values_dynamic_registration() {
                 work,
                 hotkey_account_id,
                 coldkey_account_id
-            ));
-
-            // Become Delelegate
-            assert_ok!(SubtensorModule::do_become_delegate(
-                RuntimeOrigin::signed(coldkey_account_id),
-                hotkey_account_id
             ));
         }
         run_to_block(1000);

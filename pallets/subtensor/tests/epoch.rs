@@ -2367,12 +2367,6 @@ fn test_stao_dtao_epoch() {
         // Setup a dynamic network
         add_dynamic_network(netuid, u16::MAX - 1, 0, 0, lock_amount);
 
-        // Coldkey / hotkey 1 become a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey1),
-            hotkey1
-        ));
-
         // Stake from coldkey2 on root network, nominate hotkey1
         assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey2),

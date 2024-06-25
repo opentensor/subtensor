@@ -349,11 +349,6 @@ impl<T: Config> Pallet<T> {
             T::SenateMembers::add_member(&hotkey).map_err(|e| e.error)?;
         }
 
-        // --- 13. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate(&hotkey) {
-            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
-        }
-
         // --- 14. Update the registration counters for both the block and interval.
         RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
         RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);

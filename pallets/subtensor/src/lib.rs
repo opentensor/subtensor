@@ -1644,37 +1644,6 @@ pub mod pallet {
             Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
         }
 
-        /// --- Sets the key as a delegate.
-        ///
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>Origin):
-        /// 	- The signature of the caller's coldkey.
-        ///
-        /// * 'hotkey' (T::AccountId):
-        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
-        ///
-        /// * 'take' (u64):
-        /// 	- The stake proportion that this hotkey takes from delegations.
-        ///
-        /// # Event:
-        /// * DelegateAdded;
-        /// 	- On successfully setting a hotkey as a delegate.
-        ///
-        /// # Raises:
-        /// * 'NotRegistered':
-        /// 	- The hotkey we are delegating is not registered on the network.
-        ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- The hotkey we are delegating is not owned by the calling coldket.
-        ///
-        #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(79_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey)
-        }
-
         /// --- Allows delegates to decrease its take value.
         ///
         /// # Args:
