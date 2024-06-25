@@ -388,6 +388,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+    #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
+    pub type Delegates<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet.
     pub type DelegatesTake<T: Config> = StorageDoubleMap<
         _,
@@ -1403,7 +1406,9 @@ pub mod pallet {
                 // Storage version v7 -> v8
                 .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>())
                 // Storage version v8 -> v9
-                .saturating_add(migration::migrate_populate_subnet_creator::<T>());
+                .saturating_add(migration::migrate_populate_subnet_creator::<T>())
+                // Storage version v9 -> v10
+                .saturating_add(migration::migrate_clear_delegates::<T>());
 
             log::info!(
                 "Runtime upgrade migration in subtensor pallet, total weight = ({})",

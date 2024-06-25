@@ -239,7 +239,7 @@ impl<T: Config> Pallet<T> {
                                 // Increment the total supply of alpha because we just added some to the reserve.
                                 DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
                             }
-            
+
                             // Recalculate the Dynamic K value for the new pool.
                             DynamicK::<T>::insert(
                                 subnet_info.netuid,
