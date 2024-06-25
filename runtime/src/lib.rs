@@ -158,7 +158,7 @@ pub const SUBNET_CREATOR_LOCK: u64 = 7 * 7200 * 3; // 3 months
 
 /// Fast blocks for development
 #[cfg(feature = "fast-blocks")]
-pub const MILLISECS_PER_BLOCK: u64 = 250;
+pub const MILLISECS_PER_BLOCK: u64 = 12000;
 
 #[cfg(feature = "fast-blocks")]
 pub const SUBNET_CREATOR_LOCK: u64 = 240; // 1 minute
