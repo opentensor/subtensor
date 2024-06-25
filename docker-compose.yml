@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 volumes:
   mainnet-lite-volume:
@@ -38,7 +38,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain raw_spec.json \
+          --chain raw_spec_finney.json \
           --rpc-external --rpc-cors all \
           --no-mdns \
           --in-peers 500 --out-peers 500 \
@@ -56,7 +56,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain raw_spec.json \
+          --chain raw_spec_finney.json \
           --rpc-external --rpc-cors all \
           --no-mdns \
           --in-peers 500 --out-peers 500 \
@@ -74,7 +74,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain raw_testspec.json \
+          --chain raw_spec_testfinney.json \
           --rpc-external --rpc-cors all \
           --no-mdns \
           --in-peers 500 --out-peers 500 \
@@ -94,7 +94,7 @@ services:
       - |
         node-subtensor \
           --base-path /tmp/blockchain \
-          --chain raw_testspec.json \
+          --chain raw_spec_testfinney.json \
           --rpc-external --rpc-cors all \
           --no-mdns \
           --in-peers 500 --out-peers 500 \
