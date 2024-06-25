@@ -1,6 +1,6 @@
 use crate::mock::*;
 mod mock;
-use frame_support::assert_err;
+use frame_support::{assert_err, assert_ok};
 use sp_core::U256;
 
 // Test the ability to hash all sorts of hotkeys.
@@ -359,3 +359,144 @@ fn test_comprehensive_coinbase() {
         );
     });
 }
+
+
+// #[test]
+// fn test_comprehensive_coinbase() {
+//     new_test_ext().execute_with(|| {
+//         // Setup
+//         let netuid = 1;
+//         let hotkey = AccountId::from([1u8; 32]);
+//         let coldkey = AccountId::from([2u8; 32]);
+//         let nominator = AccountId::from([3u8; 32]);
+//         let child = AccountId::from([4u8; 32]);
+//         let parent = AccountId::from([5u8; 32]);
+
+//         // Create network
+//         assert_ok!(SubtensorModule::add_network(Origin::root(), netuid, 10, 0));
+
+//         // Register neurons
+//         assert_ok!(SubtensorModule::register(Origin::signed(hotkey.clone()), netuid, 100000));
+//         assert_ok!(SubtensorModule::register(Origin::signed(child.clone()), netuid, 100000));
+//         assert_ok!(SubtensorModule::register(Origin::signed(parent.clone()), netuid, 100000));
+
+//         // Set up stakes
+//         assert_ok!(SubtensorModule::add_stake(Origin::signed(coldkey.clone()), hotkey.clone(), 1000));
+//         assert_ok!(SubtensorModule::add_stake(Origin::signed(nominator.clone()), hotkey.clone(), 500));
+//         assert_ok!(SubtensorModule::add_stake(Origin::signed(child.clone()), child.clone(), 500));
+//         assert_ok!(SubtensorModule::add_stake(Origin::signed(parent.clone()), parent.clone(), 2000));
+
+//         // Set up child and parent relationships
+//         assert_ok!(SubtensorModule::set_child(Origin::signed(hotkey.clone()), child.clone(), netuid, 5000));
+//         assert_ok!(SubtensorModule::set_parent(Origin::signed(hotkey.clone()), parent.clone(), netuid, 5000));
+
+//         // Set emission value
+//         assert_ok!(SubtensorModule::set_emission_values(Origin::root(), vec![(netuid, 1000)]));
+
+//         // Set hotkey emission tempo
+//         SubtensorModule::set_hotkey_emission_tempo(5);
+
+//         // Initial assertions
+//         assert_eq!(SubtensorModule::get_emission_value(netuid), 1000);
+//         assert_eq!(SubtensorModule::get_pending_emission(netuid), 0);
+//         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0);
+
+//         // Run coinbase and advance blocks
+//         for i in 1..=20 {
+//             SubtensorModule::run_coinbase();
+
+//             // Check subnet emission accumulation
+//             let pending_emission = SubtensorModule::get_pending_emission(netuid);
+//             if i % 10 == 0 {
+//                 assert_eq!(pending_emission, 0, "Subnet emission should be drained at block {}", i);
+//             } else {
+//                 assert_eq!(pending_emission, 1000 * (i % 10), "Incorrect pending emission at block {}", i);
+//             }
+
+//             // Check if epoch should run
+//             assert_eq!(SubtensorModule::should_run_epoch(netuid, i as u64), i % 10 == 0);
+
+//             // Check hotkey emission accumulation and draining
+//             let hotkey_emission = SubtensorModule::get_pending_hotkey_emission(&hotkey);
+//             if i % 5 == 0 {
+//                 assert_eq!(hotkey_emission, 0, "Hotkey emission should be drained at block {}", i);
+//             } else {
+//                 assert!(hotkey_emission > 0, "Hotkey should have pending emission at block {}", i);
+//             }
+
+//             // Check if hotkey should be drained
+//             assert_eq!(SubtensorModule::should_drain_hotkey(&hotkey, i as u64, 5), i % 5 == 0);
+
+//             run_to_block(i + 1);
+//         }
+
+//         // Final stake checks
+//         let hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+//         let child_stake = SubtensorModule::get_total_stake_for_hotkey(&child);
+//         let parent_stake = SubtensorModule::get_total_stake_for_hotkey(&parent);
+//         let nominator_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator, &hotkey);
+
+//         assert!(hotkey_stake > 1000, "Hotkey stake should have increased");
+//         assert!(child_stake > 500, "Child stake should have increased");
+//         assert!(parent_stake > 2000, "Parent stake should have increased");
+//         assert!(nominator_stake > 500, "Nominator stake should have increased");
+
+//         // Check stake distribution
+//         assert!(hotkey_stake > child_stake, "Hotkey should have more stake than child");
+//         assert!(hotkey_stake > parent_stake - 2000, "Hotkey should have gained more stake than parent");
+
+//         // Check get_stake_with_children_and_parents
+//         let total_stake = SubtensorModule::get_stake_with_children_and_parents(&hotkey, netuid);
+//         assert!(total_stake > hotkey_stake, "Total stake should be higher than hotkey's own stake");
+
+//         // Check root_epoch
+//         assert_ok!(SubtensorModule::root_epoch(21));
+//         assert_eq!(SubtensorModule::get_emission_value(netuid), 1000);
+
+//         // Run epoch manually and check results
+//         let hotkey_emissions = SubtensorModule::epoch(netuid, 1000);
+//         assert!(hotkey_emissions.iter().any(|(h, _, _)| h == &hotkey), "Hotkey should receive emission");
+
+//         // Final coinbase run
+//         SubtensorModule::run_coinbase();
+//         assert!(SubtensorModule::get_pending_hotkey_emission(&hotkey) > 0, "Hotkey should have pending emission after final coinbase");
+//         // Drain hotkey emission manually
+//         let initial_total_issuance = SubtensorModule::get_total_issuance();
+//         let drained_emission = SubtensorModule::get_pending_hotkey_emission(&hotkey);
+//         let total_new_tao = SubtensorModule::drain_hotkey_emission(&hotkey, drained_emission, 21);
+        
+//         assert_eq!(SubtensorModule::get_pending_hotkey_emission(&hotkey), 0, "Pending emission should be zero after draining");
+//         assert_eq!(total_new_tao, drained_emission, "Total new TAO should match drained emission");
+//         assert_eq!(SubtensorModule::get_total_issuance(), initial_total_issuance + total_new_tao, "Total issuance should increase by the drained amount");
+
+//         // Check final stakes after manual drain
+//         let final_hotkey_stake = SubtensorModule::get_total_stake_for_hotkey(&hotkey);
+//         let final_nominator_stake = SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator, &hotkey);
+        
+//         assert!(final_hotkey_stake > hotkey_stake, "Hotkey stake should increase after manual drain");
+//         assert!(final_nominator_stake > nominator_stake, "Nominator stake should increase after manual drain");
+
+//         // Test with zero emission
+//         assert_ok!(SubtensorModule::set_emission_values(Origin::root(), vec![(netuid, 0)]));
+//         SubtensorModule::run_coinbase();
+//         assert_eq!(SubtensorModule::get_pending_emission(netuid), 0, "No emission should accumulate with zero emission value");
+
+//         // Test with maximum emission
+//         assert_ok!(SubtensorModule::set_emission_values(Origin::root(), vec![(netuid, u64::MAX)]));
+//         SubtensorModule::run_coinbase();
+//         let max_pending = SubtensorModule::get_pending_emission(netuid);
+//         assert!(max_pending > 0, "Large emission should result in non-zero pending emission");
+//         assert!(max_pending <= u64::MAX, "Pending emission should not overflow");
+
+//         // Error cases
+//         assert_err!(
+//             SubtensorModule::set_emission_values(Origin::root(), vec![(999, 100)]),
+//             Error::<Test>::NetworkDoesNotExist
+//         );
+
+//         assert_err!(
+//             SubtensorModule::set_hotkey_emission_tempo(0),
+//             Error::<Test>::InvalidHotkeyEmissionTempo
+//         );
+//     });
+// }
