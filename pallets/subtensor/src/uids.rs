@@ -9,6 +9,15 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(netuid)
     }
 
+    /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
+    pub fn clear_neuron(netuid: u16, neuron_uid: u16) {
+        Emission::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
+        Trust::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
+        Consensus::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
+        Incentive::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
+        Dividends::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
+    }
+
     /// Replace the neuron under this uid.
     pub fn replace_neuron(
         netuid: u16,
@@ -46,12 +55,8 @@ impl<T: Config> Pallet<T> {
         BlockAtRegistration::<T>::insert(netuid, uid_to_replace, block_number); // Fill block at registration.
         IsNetworkMember::<T>::insert(new_hotkey.clone(), netuid, true); // Fill network is member.
 
-        // 4. Reset trust, emission, consensus, incentive, dividends and axon_info for the new uid.
-        Emission::<T>::mutate(netuid, |v| v[uid_to_replace as usize] = 0);
-        Trust::<T>::mutate(netuid, |v| v[uid_to_replace as usize] = 0);
-        Consensus::<T>::mutate(netuid, |v| v[uid_to_replace as usize] = 0);
-        Incentive::<T>::mutate(netuid, |v| v[uid_to_replace as usize] = 0);
-        Dividends::<T>::mutate(netuid, |v| v[uid_to_replace as usize] = 0);
+        // 4. Reset new neuron's values.
+        Self::clear_neuron(netuid, uid_to_replace);
 
         // 4a. reset axon info for the new uid.
         Axons::<T>::remove(netuid, old_hotkey);
