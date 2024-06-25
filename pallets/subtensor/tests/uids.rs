@@ -1,6 +1,7 @@
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
+use pallet_subtensor::*;
 use sp_core::U256;
 
 mod mock;
@@ -51,11 +52,11 @@ fn test_replace_neuron() {
         let neuron_uid = neuron_uid.unwrap();
 
         // set non-default values
-        SubtensorModule::set_trust_for_uid(netuid, neuron_uid, 5u16);
-        SubtensorModule::set_emission_for_uid(netuid, neuron_uid, 5u64);
-        SubtensorModule::set_consensus_for_uid(netuid, neuron_uid, 5u16);
-        SubtensorModule::set_incentive_for_uid(netuid, neuron_uid, 5u16);
-        SubtensorModule::set_dividends_for_uid(netuid, neuron_uid, 5u16);
+        Trust::<Test>::mutate(netuid, |v| v[neuron_uid as usize] = 5u16);
+        Emission::<Test>::mutate(netuid, |v| v[neuron_uid as usize] = 5u64);
+        Consensus::<Test>::mutate(netuid, |v| v[neuron_uid as usize] = 5u16);
+        Incentive::<Test>::mutate(netuid, |v| v[neuron_uid as usize] = 5u16);
+        Dividends::<Test>::mutate(netuid, |v| v[neuron_uid as usize] = 5u16);
 
         // serve axon mock address
         let ip: u128 = 1676056785;
