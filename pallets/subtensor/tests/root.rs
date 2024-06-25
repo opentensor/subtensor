@@ -142,8 +142,6 @@ fn test_root_register_stake_based_pruning_works() {
             ));
             // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
-            // Check that they are NOT all delegates
-            assert!(!SubtensorModule::hotkey_is_delegate(&hot));
         }
 
         // Register the first 64 accounts with stake to the root network.
@@ -156,8 +154,6 @@ fn test_root_register_stake_based_pruning_works() {
             ));
             // Check successful registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are all delegates
-            assert!(SubtensorModule::hotkey_is_delegate(&hot));
         }
 
         // Register the second 64 accounts with stake to the root network.

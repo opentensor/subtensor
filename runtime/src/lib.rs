@@ -1554,6 +1554,11 @@ impl_runtime_apis! {
             result.encode()
         }
 
+        fn get_delegates_by_netuid_light(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_delegates_by_netuid_light(netuid);
+            result.encode()
+        }
+
         fn get_all_delegates_total_stake() -> Vec<u8> {
             let result = SubtensorModule::get_all_delegates_total_stake();
             result.encode()

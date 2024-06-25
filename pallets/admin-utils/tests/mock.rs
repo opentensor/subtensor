@@ -571,3 +571,18 @@ pub fn add_network(netuid: u16, tempo: u16) {
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
 }
+
+#[allow(dead_code)]
+pub fn root_register(
+    hotkey_account_id: U256
+) {
+    let result = SubtensorModule::root_register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
+        hotkey_account_id,
+    );
+    assert_ok!(result);
+    log::info!(
+        "Register on root, hotkey: {:?}",
+        hotkey_account_id
+    );
+}

@@ -856,12 +856,6 @@ fn test_10_subnet_take_basic_ok() {
             100_000_000_000
         );
 
-        // Coldkey / hotkey 0 become a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-
         // Coldkey / hotkey 0 sets the take on subnet 1 to 10%
         assert_ok!(SubtensorModule::do_decrease_take(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
@@ -956,12 +950,6 @@ fn test_20_subnet_take_basic_ok() {
             SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey0, netuid1),
             100_000_000_000
         );
-
-        // Coldkey / hotkey 0 become a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
 
         // Coldkey / hotkey 0 sets the take on subnet 1 to 10%
         assert_ok!(SubtensorModule::do_decrease_take(
@@ -1069,18 +1057,6 @@ fn test_two_subnets_take_ok() {
             SubtensorModule::get_alpha_outstanding(netuid2),
             200_000_000_000
         );
-
-        // Hotkey 0 becomes a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey0
-        ));
-
-        // Hotkey 1 becomes a delegate
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
-            hotkey1
-        ));
 
         // Hotkey 0 sets the take on subnet 1
         assert_ok!(SubtensorModule::do_decrease_take(

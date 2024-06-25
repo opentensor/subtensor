@@ -117,8 +117,6 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 11. Append neuron or prune it.
-        let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -126,23 +124,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
-            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
-            // We increment the subnetwork count here but not below.
-            subnetwork_uid = current_subnetwork_n;
-
-            // --- 12.1.2 Expand subnetwork with new account.
-            Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
-        } else {
-            // --- 13.1.1 Replacement required.
-            // We take the neuron with the lowest pruning score here.
-            subnetwork_uid = Self::get_neuron_to_prune(netuid);
-
-            // --- 13.1.1 Replace the neuron account with the new info.
-            Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
-        }
+        let subnetwork_uid = Self::do_registration_no_checks(
+            netuid,
+            &hotkey,
+            &coldkey,
+            current_block_number
+        );
 
         // --- 14. Record the registration and increment block and interval counters.
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
@@ -312,8 +299,6 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 11. Append neuron or prune it.
-        let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -321,23 +306,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
-            // --- 11.1.1 No replacement required, the uid appends the subnetwork.
-            // We increment the subnetwork count here but not below.
-            subnetwork_uid = current_subnetwork_n;
-
-            // --- 11.1.2 Expand subnetwork with new account.
-            Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
-        } else {
-            // --- 11.1.1 Replacement required.
-            // We take the neuron with the lowest pruning score here.
-            subnetwork_uid = Self::get_neuron_to_prune(netuid);
-
-            // --- 11.1.1 Replace the neuron account with the new info.
-            Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
-        }
+        let subnetwork_uid = Self::do_registration_no_checks(
+            netuid,
+            &hotkey,
+            &coldkey,
+            current_block_number
+        );
 
         // --- 12. Record the registration and increment block and interval counters.
         POWRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
@@ -355,6 +329,40 @@ impl<T: Config> Pallet<T> {
 
         // --- 14. Ok and done.
         Ok(())
+    }
+
+    pub fn do_registration_no_checks(
+        netuid: u16,
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        current_block_number: u64
+    ) -> u16 {
+        let subnetwork_uid: u16;
+        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+
+        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
+            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
+            // We increment the subnetwork count here but not below.
+            subnetwork_uid = current_subnetwork_n;
+
+            // --- 12.1.2 Expand subnetwork with new account.
+            Self::append_neuron(netuid, hotkey, current_block_number);
+            log::info!("add new neuron account");
+        } else {
+            // --- 13.1.1 Replacement required.
+            // We take the neuron with the lowest pruning score here.
+            subnetwork_uid = Self::get_neuron_to_prune(netuid);
+
+            // --- 13.1.1 Replace the neuron account with the new info.
+            Self::replace_neuron(netuid, subnetwork_uid, hotkey, current_block_number);
+            log::info!("prune neuron");
+        }
+
+        // Since all registered hotkeys are delegates, this extrinsic effectively sets 
+        // delegate take the first time, so we need to watch the rate limits
+        Self::set_last_tx_block_delegate_take(coldkey, current_block_number);
+
+        subnetwork_uid
     }
 
     pub fn do_faucet(
@@ -636,13 +644,6 @@ impl<T: Config> Pallet<T> {
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
-            Delegates::<T>::remove(old_hotkey);
-            Delegates::<T>::insert(new_hotkey, delegate_take);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
 
         for (netuid, delegate_take) in DelegatesTake::<T>::iter_prefix(old_hotkey) {
             DelegatesTake::<T>::insert(new_hotkey, netuid, delegate_take);

@@ -75,33 +75,6 @@ benchmarks! {
 
   }: set_weights(RawOrigin::Signed( signer.clone() ), netuid, dests, weights, version_key)
 
-
-  benchmark_become_delegate {
-    // This is a whitelisted caller who can make transaction without weights.
-    let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
-    let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-    let netuid: u16 = 1;
-    let version_key: u64 = 1;
-    let tempo: u16 = 1;
-    let modality: u16 = 0;
-    let seed : u32 = 1;
-
-    Subtensor::<T>::init_new_network(netuid, tempo);
-      Subtensor::<T>::set_burn(netuid, 1);
-    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
-
-    Subtensor::<T>::set_network_registration_allowed( netuid, true);
-    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
-
-    let coldkey: T::AccountId = account("Test", 0, seed);
-    let hotkey: T::AccountId = account("Alice", 0, seed);
-
-    let amount_to_be_staked = 1000000000u32.into();
-    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-
-    assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-  }: become_delegate(RawOrigin::Signed( coldkey.clone() ), hotkey.clone())
-
   benchmark_add_stake {
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
@@ -156,7 +129,6 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), wallet_bal);
 
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-    assert_ok!(Subtensor::<T>::do_become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone()));
 
     // Stake 10% of our current total staked TAO
     let u64_staked_amt = 100_000_000_000;
@@ -328,7 +300,6 @@ benchmarks! {
 
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), 10_000_000_000u64);
     assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, old_hotkey.clone()));
-    assert_ok!(Subtensor::<T>::become_delegate(RawOrigin::Signed(coldkey.clone()).into(), old_hotkey.clone()));
 
     let max_uids = Subtensor::<T>::get_max_allowed_uids(netuid) as u32;
     for i in 0..max_uids - 1 {

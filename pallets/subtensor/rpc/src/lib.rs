@@ -63,6 +63,8 @@ pub trait SubtensorCustomApi<BlockHash> {
     fn get_delegates(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getDelegatesLight")]
     fn get_delegates_light(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    #[method(name = "delegateInfo_getDelegatesByNetuidLight")]
+    fn get_delegates_by_netuid_light(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getAllDelegatesTotalStake")]
     fn get_all_delegates_total_stake(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "neuronInfo_getNeuronsLite")]
@@ -261,6 +263,15 @@ where
         })
     }
     
+    fn get_delegates_by_netuid_light(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+        let api = self.client.runtime_api();
+        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+
+        api.get_delegates_by_netuid_light(at, netuid).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
+        })
+    }
+
     fn get_all_delegates_total_stake(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
