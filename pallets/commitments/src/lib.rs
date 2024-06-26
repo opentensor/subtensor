@@ -1,25 +1,24 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod benchmarking;
 #[cfg(test)]
 mod tests;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
 pub mod types;
 pub mod weights;
 
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
 use frame_support::traits::Currency;
-use sp_runtime::traits::Zero;
+use sp_runtime::{traits::Zero, Saturating};
 use sp_std::boxed::Box;
 
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
+#[deny(missing_docs)]
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -33,18 +32,19 @@ pub mod pallet {
     // Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        // Because this pallet emits events, it depends on the runtime's definition of an event.
+        /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        // Currency type that will be used to place deposits on neurons
+        /// Currency type that will be used to place deposits on neurons
         type Currency: ReservableCurrency<Self::AccountId> + Send + Sync;
 
-        // Weight information for extrinsics in this pallet.
+        /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
         /// Interface to access-limit metadata commitments
         type CanCommit: CanCommit<Self::AccountId>;
 
+        /// The maximum number of additional fields that can be added to a commitment
         #[pallet::constant]
         type MaxFields: Get<u32>;
 
@@ -56,6 +56,7 @@ pub mod pallet {
         #[pallet::constant]
         type FieldDeposit: Get<BalanceOf<Self>>;
 
+        /// The rate limit for commitments
         #[pallet::constant]
         type RateLimit: Get<BlockNumberFor<Self>>;
     }
@@ -63,17 +64,23 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        Commitment { netuid: u16, who: T::AccountId },
+        /// A commitment was set
+        Commitment {
+            /// The netuid of the commitment
+            netuid: u16,
+            /// The account
+            who: T::AccountId,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
         /// Account passed too many additional fields to their commitment
-        TooManyFields,
-        /// Account isn't allow to make commitments to the chain
-        CannotCommit,
-        /// Account is trying to commit data too fast
-        RateLimitExceeded,
+        TooManyFieldsInCommitmentInfo,
+        /// Account is not allow to make commitments to the chain
+        AccountNotAllowedCommit,
+        /// Account is trying to commit data too fast, rate limit exceeded
+        CommitmentSetRateLimitExceeded,
     }
 
     /// Identity data by account
@@ -103,6 +110,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Set the commitment for a given netuid
         #[pallet::call_index(0)]
         #[pallet::weight((
 			T::WeightInfo::set_commitment(),
@@ -117,24 +125,24 @@ pub mod pallet {
             let who = ensure_signed(origin)?;
             ensure!(
                 T::CanCommit::can_commit(netuid, &who),
-                Error::<T>::CannotCommit
+                Error::<T>::AccountNotAllowedCommit
             );
 
             let extra_fields = info.fields.len() as u32;
             ensure!(
                 extra_fields <= T::MaxFields::get(),
-                Error::<T>::TooManyFields
+                Error::<T>::TooManyFieldsInCommitmentInfo
             );
 
             let cur_block = <frame_system::Pallet<T>>::block_number();
             if let Some(last_commit) = <LastCommitment<T>>::get(netuid, &who) {
                 ensure!(
-                    cur_block >= last_commit + T::RateLimit::get(),
-                    Error::<T>::RateLimitExceeded
+                    cur_block >= last_commit.saturating_add(T::RateLimit::get()),
+                    Error::<T>::CommitmentSetRateLimitExceeded
                 );
             }
 
-            let fd = <BalanceOf<T>>::from(extra_fields) * T::FieldDeposit::get();
+            let fd = <BalanceOf<T>>::from(extra_fields).saturating_mul(T::FieldDeposit::get());
             let mut id = match <CommitmentOf<T>>::get(netuid, &who) {
                 Some(mut id) => {
                     id.info = *info;
@@ -149,12 +157,13 @@ pub mod pallet {
             };
 
             let old_deposit = id.deposit;
-            id.deposit = T::InitialDeposit::get() + fd;
+            id.deposit = T::InitialDeposit::get().saturating_add(fd);
             if id.deposit > old_deposit {
-                T::Currency::reserve(&who, id.deposit - old_deposit)?;
+                T::Currency::reserve(&who, id.deposit.saturating_sub(old_deposit))?;
             }
             if old_deposit > id.deposit {
-                let err_amount = T::Currency::unreserve(&who, old_deposit - id.deposit);
+                let err_amount =
+                    T::Currency::unreserve(&who, old_deposit.saturating_sub(id.deposit));
                 debug_assert!(err_amount.is_zero());
             }
 
@@ -200,6 +209,7 @@ use {
     },
 };
 
+#[freeze_struct("6a00398e14a8a984")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
@@ -225,7 +235,7 @@ where
     pub fn get_priority_vanilla() -> u64 {
         // Return high priority so that every extrinsic except set_weights function will
         // have a higher priority than the set_weights call
-        u64::max_value()
+        u64::MAX
     }
 }
 

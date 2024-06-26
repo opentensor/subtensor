@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing, clippy::unwrap_used)]
+
 use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
@@ -77,7 +79,7 @@ fn test_root_register_normal_on_root_fails() {
                 root_netuid,
                 hotkey_account_id
             ),
-            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
         );
         // Pow registration fails.
         let block_number: u64 = SubtensorModule::get_current_block_as_u64();
@@ -97,7 +99,7 @@ fn test_root_register_normal_on_root_fails() {
                 hotkey_account_id,
                 coldkey_account_id,
             ),
-            Err(Error::<Test>::OperationNotPermittedOnRootSubnet.into())
+            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
         );
     });
 }
@@ -594,21 +596,33 @@ fn test_network_pruning() {
                 (i as u16) + 1
             );
         }
+        // Stakes
+        // 0 : 10_000
+        // 1 : 9_000
+        // 2 : 8_000
+        // 3 : 7_000
+        // 4 : 6_000
+        // 5 : 5_000
+        // 6 : 4_000
+        // 7 : 3_000
+        // 8 : 2_000
+        // 9 : 1_000
+
         step_block(1);
         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 277_820_113);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 246_922_263);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 215_549_466);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 176_432_500);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 77_181_559);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 5_857_251);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
+        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
         step_block(1);
         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 246_922_263);
+        assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 176_432_500);
+        assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 5_857_251);
+        assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
         step_block(1);
     });
 }
@@ -766,7 +780,7 @@ fn test_weights_after_network_pruning() {
 /// Run this test using the following command:
 /// `cargo test --package pallet-subtensor --test root test_issance_bounds`
 #[test]
-fn test_issance_bounds() {
+fn test_issuance_bounds() {
     new_test_ext(1).execute_with(|| {
         // Simulate 100 halvings convergence to 21M. Note that the total issuance never reaches 21M because of rounding errors.
         // We converge to 20_999_999_989_500_000 (< 1 TAO away).
@@ -880,5 +894,83 @@ fn test_get_emission_across_entire_issuance_range() {
 
             issuance += expected_emission;
         }
+    });
+}
+
+#[test]
+fn test_dissolve_network_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+
+        add_network(netuid, 0, 0);
+        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid))
+    });
+}
+
+#[test]
+fn test_dissolve_network_refund_coldkey_ok() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+        let subnet_locked_balance = 1000;
+
+        add_network(netuid, 0, 0);
+        let owner_coldkey = SubtensorModule::get_subnet_owner(netuid);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        SubtensorModule::set_subnet_locked_balance(netuid, subnet_locked_balance);
+        let coldkey_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(owner_coldkey),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
+
+        let coldkey_new_balance = SubtensorModule::get_coldkey_balance(&owner_coldkey);
+
+        assert!(coldkey_new_balance > coldkey_balance);
+        assert_eq!(coldkey_new_balance, coldkey_balance + subnet_locked_balance);
+    });
+}
+
+#[test]
+fn test_dissolve_network_not_owner_err() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let hotkey = U256::from(1);
+        let owner_coldkey = U256::from(2);
+        let random_coldkey = U256::from(3);
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, owner_coldkey, 3);
+
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(random_coldkey), netuid),
+            Error::<Test>::NotSubnetOwner
+        );
+    });
+}
+
+#[test]
+fn test_dissolve_network_does_not_exist_err() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 30;
+        let coldkey = U256::from(2);
+
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey), netuid),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
     });
 }

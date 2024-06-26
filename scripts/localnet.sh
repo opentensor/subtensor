@@ -6,12 +6,31 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # The base directory of the subtensor project
 BASE_DIR="$SCRIPT_DIR/.."
 
-: "${CHAIN:=local}"
-: "${BUILD_BINARY:=1}"
-: "${FEATURES:=pow-faucet}"
+# get parameters
+# Get the value of fast_blocks from the first argument
+fast_blocks=${1:-"True"}
+
+# Check the value of fast_blocks
+if [ "$fast_blocks" == "False" ]; then
+  # Block of code to execute if fast_blocks is False
+  echo "fast_blocks is Off"
+  : "${CHAIN:=local}"
+  : "${BUILD_BINARY:=1}"
+  : "${FEATURES:="pow-faucet runtime-benchmarks"}"
+else
+  # Block of code to execute if fast_blocks is not False
+  echo "fast_blocks is On"
+  : "${CHAIN:=local}"
+  : "${BUILD_BINARY:=1}"
+  : "${FEATURES:="pow-faucet runtime-benchmarks fast-blocks"}"
+fi
 
 SPEC_PATH="${SCRIPT_DIR}/specs/"
 FULL_PATH="$SPEC_PATH$CHAIN.json"
+
+# Kill any existing nodes which may have not exited correctly after a previous
+# run.
+pkill -9 'node-subtensor'
 
 if [ ! -d "$SPEC_PATH" ]; then
   echo "*** Creating directory ${SPEC_PATH}..."
@@ -20,7 +39,7 @@ fi
 
 if [[ $BUILD_BINARY == "1" ]]; then
   echo "*** Building substrate binary..."
-  cargo build --release --features "$FEATURES" --manifest-path "$BASE_DIR/node/Cargo.toml"
+  cargo build --release --features "$FEATURES" --manifest-path "$BASE_DIR/Cargo.toml"
   echo "*** Binary compiled"
 fi
 
@@ -59,8 +78,10 @@ bob_start=(
   --discover-local
 )
 
+trap 'pkill -P $$' EXIT SIGINT SIGTERM
+
 (
-  trap 'kill 0' SIGINT
   ("${alice_start[@]}" 2>&1) &
   ("${bob_start[@]}" 2>&1)
+  wait
 )

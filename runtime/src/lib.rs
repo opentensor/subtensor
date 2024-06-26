@@ -1,6 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// Some arithmetic operations can't use the saturating equivalent, such as the PerThing types
+#![allow(clippy::arithmetic_side_effects)]
 
 // Make the WASM binary available.
 #[cfg(feature = "std")]
@@ -14,10 +16,9 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice, OnRuntimeUpgrade},
+    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice},
 };
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
-use migrations::{account_data_migration, init_storage_versions};
+use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -97,7 +98,9 @@ pub type Nonce = u32;
 pub const fn deposit(items: u32, bytes: u32) -> Balance {
     pub const ITEMS_FEE: Balance = 2_000 * 10_000;
     pub const BYTES_FEE: Balance = 100 * 10_000;
-    items as Balance * ITEMS_FEE + bytes as Balance * BYTES_FEE
+    (items as Balance)
+        .saturating_mul(ITEMS_FEE)
+        .saturating_add((bytes as Balance).saturating_mul(BYTES_FEE))
 }
 
 // Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -136,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 185,
+    spec_version: 186,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -149,7 +152,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// up by `pallet_aura` to implement `fn slot_duration()`.
 ///
 /// Change this to adjust the block time.
+#[cfg(not(feature = "fast-blocks"))]
 pub const MILLISECS_PER_BLOCK: u64 = 12000;
+
+/// Fast blocks for development
+#[cfg(feature = "fast-blocks")]
+pub const MILLISECS_PER_BLOCK: u64 = 250;
 
 // NOTE: Currently it is not possible to change the slot duration after the chain has started.
 //       Attempting to do so will brick block production.
@@ -189,7 +197,7 @@ parameter_types! {
 
 impl frame_system::Config for Runtime {
     // The basic call filter to use in dispatchable.
-    type BaseCallFilter = frame_support::traits::Everything;
+    type BaseCallFilter = SafeMode;
     // Block & extrinsics weights: base values and limits.
     type BlockWeights = BlockWeights;
     // The maximum length of a block (in bytes).
@@ -278,6 +286,49 @@ impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub const DisallowPermissionlessEnterDuration: BlockNumber = 0;
+    pub const DisallowPermissionlessExtendDuration: BlockNumber = 0;
+
+    pub const RootEnterDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+    pub const RootExtendDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+
+    pub const DisallowPermissionlessEntering: Option<Balance> = None;
+    pub const DisallowPermissionlessExtending: Option<Balance> = None;
+    pub const DisallowPermissionlessRelease: Option<BlockNumber> = None;
+}
+
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::Sudo(_)
+                | RuntimeCall::System(_)
+                | RuntimeCall::SafeMode(_)
+                | RuntimeCall::Timestamp(_)
+        )
+    }
+}
+
+impl pallet_safe_mode::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type WhitelistedCalls = SafeModeWhitelistedCalls;
+    type EnterDuration = DisallowPermissionlessEnterDuration;
+    type ExtendDuration = DisallowPermissionlessExtendDuration;
+    type EnterDepositAmount = DisallowPermissionlessEntering;
+    type ExtendDepositAmount = DisallowPermissionlessExtending;
+    type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, RootEnterDuration>;
+    type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, RootExtendDuration>;
+    type ForceExitOrigin = EnsureRoot<AccountId>;
+    type ForceDepositOrigin = EnsureRoot<AccountId>;
+    type Notify = ();
+    type ReleaseDelay = DisallowPermissionlessRelease;
+    type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
 }
 
 // Existential deposit.
@@ -658,7 +709,11 @@ impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
                     r_yes_votes,
                     r_count,
                 )), // Equivalent to (l_yes_votes / l_count).cmp(&(r_yes_votes / r_count))
-            ) => Some((l_yes_votes * r_count).cmp(&(r_yes_votes * l_count))),
+            ) => Some(
+                l_yes_votes
+                    .saturating_mul(*r_count)
+                    .cmp(&r_yes_votes.saturating_mul(*l_count)),
+            ),
             // For every other origin we don't care, as they are not used for `ScheduleOrigin`.
             _ => None,
         }
@@ -793,7 +848,7 @@ parameter_types! {
     pub const SubtensorInitialPruningScore : u16 = u16::MAX;
     pub const SubtensorInitialBondsMovingAverage: u64 = 900_000;
     pub const SubtensorInitialDefaultTake: u16 = 11_796; // 18% honest number.
-    pub const SubtensorInitialMinTake: u16 = 0;
+    pub const SubtensorInitialMinTake: u16 = 5_898; // 9%
     pub const SubtensorInitialWeightsVersionKey: u64 = 0;
     pub const SubtensorInitialMinDifficulty: u64 = 10_000_000;
     pub const SubtensorInitialMaxDifficulty: u64 = u64::MAX / 4;
@@ -813,6 +868,10 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialHotkeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -864,6 +923,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type HotkeySwapCost = SubtensorInitialHotkeySwapCost;
+    type AlphaHigh = InitialAlphaHigh;
+    type AlphaLow = InitialAlphaLow;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
 }
 
 use sp_runtime::BoundedVec;
@@ -1126,6 +1189,31 @@ impl
     fn get_nominator_min_required_stake() -> u64 {
         SubtensorModule::get_nominator_min_required_stake()
     }
+
+    fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
+        SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval)
+    }
+
+    fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
+    }
+
+    fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
+    }
+
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError> {
+        SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {
@@ -1161,7 +1249,8 @@ construct_runtime!(
         Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils
+        AdminUtils: pallet_admin_utils,
+        SafeMode: pallet_safe_mode,
     }
 );
 
@@ -1185,12 +1274,7 @@ pub type SignedExtra = (
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
 );
 
-type Migrations = (
-    init_storage_versions::Migration,
-    account_data_migration::Migration,
-    pallet_multisig::migrations::v1::MigrateToV1<Runtime>,
-    pallet_grandpa::migrations::MigrateV4ToV5<Runtime>,
-);
+type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
 
 // Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
@@ -1450,6 +1534,7 @@ impl_runtime_apis! {
 
     #[cfg(feature = "try-runtime")]
     impl frame_try_runtime::TryRuntime<Block> for Runtime {
+        #[allow(clippy::unwrap_used)]
         fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
             // NOTE: intentional unwrap: we don't want to propagate the error backwards, and want to
             // have a backtrace here. If any of the pre/post migration checks fail, we shall stop

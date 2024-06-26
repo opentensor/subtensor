@@ -1,20 +1,14 @@
-name: CI
+name: Check Rust
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: check-rust-${{ github.ref }}
   cancel-in-progress: true
 
 on:
-  ## Run automatically for all PRs against main, regardless of what the changes are
-  ## to be safe and so we can more easily force re-run the CI when github is being
-  ## weird by using a blank commit
   push:
-    branches: [main, development, staging]
+    branches: [main, devnet-ready, devnet, testnet, finney]
 
-  ##
-  # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches: [main, development, staging]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:
@@ -56,7 +50,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential
@@ -77,7 +71,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -97,7 +91,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -125,7 +119,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -166,7 +160,6 @@ jobs:
 
       - name: cargo clippy --workspace --all-targets --all-features -- -D warnings
         run: cargo clippy --workspace --all-targets --all-features -- -D warnings
-
   # runs cargo test --workspace
   cargo-test:
     name: cargo test
@@ -174,7 +167,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -194,7 +187,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -223,7 +216,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -243,7 +236,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -272,7 +265,7 @@ jobs:
     strategy:
       matrix:
         rust-branch:
-          - nightly-2024-03-05
+          - stable
         rust-target:
           - x86_64-unknown-linux-gnu
           # - x86_64-apple-darwin
@@ -292,7 +285,7 @@ jobs:
       TARGET: ${{ matrix.rust-target }}
     steps:
       - name: Check-out repository under $GITHUB_WORKSPACE
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -339,60 +332,13 @@ jobs:
         run: cargo install --locked -q zepter && zepter --version
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Dont clone historic commits.
 
       - name: Check features
         run: zepter run check
 
-  check-finney-migrations:
-    name: check finney migrations
-    runs-on: SubtensorCI
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
 
-      - name: Run Try Runtime Checks
-        uses: "paritytech/try-runtime-gha@v0.1.0"
-        with:
-          runtime-package: "node-subtensor-runtime"
-          node-uri: "wss://entrypoint-finney.opentensor.ai:443"
-          checks: "pre-and-post"
-          extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
 
-  # ----
-  # We can enable devnet and finney migrations once Polkadot v1.0 is deployed to finney, after
-  # which time all future migrations should be idempotent and won't start failing after the
-  # upgrade is deployed.
-  # ----
-  # check-devnet-migrations:
-  #   name: check devnet migrations
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Checkout sources
-  #       uses: actions/checkout@v3
-  #
-  #     - name: Run Try Runtime Checks
-  #       uses: "paritytech/try-runtime-gha@v0.1.0"
-  #       with:
-  #         runtime-package: "node-subtensor-runtime"
-  #         node-uri: "wss://dev.chain.opentensor.ai:443"
-  #         checks: "pre-and-post"
-  #         extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
-  #
-  # check-testnet-migrations:
-  #   name: check testnet migrations
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - name: Checkout sources
-  #       uses: actions/checkout@v3
-  #
-  #     - name: Run Try Runtime Checks
-  #       uses: "paritytech/try-runtime-gha@v0.1.0"
-  #       with:
-  #         runtime-package: "node-subtensor-runtime"
-  #         node-uri: "wss://test.chain.opentensor.ai:443"
-  #         checks: "pre-and-post"
-  #         extra-args: "--disable-spec-version-check --no-weight-warnings --disable-idempotency-checks"
-  #
+

@@ -29,6 +29,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, prelude::*};
+use subtensor_macros::freeze_struct;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -66,7 +67,7 @@ impl Decode for Data {
         Ok(match b {
             0 => Data::None,
             n @ 1..=129 => {
-                let mut r: BoundedVec<_, _> = vec![0u8; n as usize - 1]
+                let mut r: BoundedVec<_, _> = vec![0u8; (n as usize).saturating_sub(1)]
                     .try_into()
                     .expect("bound checked in match arm condition; qed");
                 input.read(&mut r[..])?;
@@ -86,8 +87,8 @@ impl Encode for Data {
         match self {
             Data::None => vec![0u8; 1],
             Data::Raw(ref x) => {
-                let l = x.len().min(128);
-                let mut r = vec![l as u8 + 1];
+                let l = x.len().min(128) as u8;
+                let mut r = vec![l.saturating_add(1)];
                 r.extend_from_slice(&x[..]);
                 r
             }
@@ -283,11 +284,12 @@ impl Default for Data {
     }
 }
 
+#[freeze_struct("25c84048dcc90813")]
 #[derive(
     CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
+#[derive(frame_support::DefaultNoBound)]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct CommitmentInfo<FieldLimit: Get<u32>> {
     pub fields: BoundedVec<Data, FieldLimit>,
@@ -344,6 +346,7 @@ impl<
 }
 
 #[cfg(test)]
+#[allow(clippy::indexing_slicing, clippy::unwrap_used)]
 mod tests {
     use super::*;
 

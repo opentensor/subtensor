@@ -16,6 +16,7 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+subtensor-macros.workspace = true
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = [
 	"derive",
 ] }
@@ -27,6 +28,7 @@ sp-runtime = { workspace = true }
 log = { workspace = true }
 pallet-subtensor = { version = "4.0.0-dev", default-features = false, path = "../subtensor" }
 sp-weights = { workspace = true }
+substrate-fixed = { workspace = true }
 
 
 [dev-dependencies]
@@ -53,7 +55,8 @@ std = [
 	"sp-weights/std",
 	"log/std",
 	"sp-core/std",
-	"sp-io/std"
+	"sp-io/std",
+	"substrate-fixed/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

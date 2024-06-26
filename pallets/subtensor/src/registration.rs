@@ -1,40 +1,39 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
-use sp_runtime::MultiAddress;
+use sp_runtime::Saturating;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
-    // ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the calling coldkey.
-    //             Burned registers can only be created by the coldkey.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'hotkey' ( T::AccountId ):
-    // 		- Hotkey to be registered to the network.
-    //
-    // # Event:
-    // 	* NeuronRegistered;
-    // 		- On successfully registereing a uid to a neuron slot on a subnetwork.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to registed to a non existent network.
-    //
-    // 	* 'TooManyRegistrationsThisBlock':
-    // 		- This registration exceeds the total allowed on this network this block.
-    //
-    // 	* 'AlreadyRegistered':
-    // 		- The hotkey is already registered on this network.
-    //
+    /// ---- The implementation for the extrinsic do_burned_registration: registering by burning TAO.
+    ///
+    /// # Args:
+    /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     - The signature of the calling coldkey.
+    ///       Burned registers can only be created by the coldkey.
+    ///
+    /// * 'netuid' (u16):
+    ///     - The u16 network identifier.
+    ///
+    /// * 'hotkey' ( T::AccountId ):
+    ///     - Hotkey to be registered to the network.
+    ///
+    /// # Event:
+    /// * NeuronRegistered;
+    ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
+    ///
+    /// # Raises:
+    /// * 'SubNetworkDoesNotExist':
+    ///     - Attempting to registed to a non existent network.
+    ///
+    /// * 'TooManyRegistrationsThisBlock':
+    ///     - This registration exceeds the total allowed on this network this block.
+    ///
+    /// * 'HotKeyAlreadyRegisteredInSubNet':
+    ///     - The hotkey is already registered on this network.
+    ///
     pub fn do_burned_registration(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -52,17 +51,17 @@ impl<T: Config> Pallet<T> {
         // --- 2. Ensure the passed network is valid.
         ensure!(
             netuid != Self::get_root_netuid(),
-            Error::<T>::OperationNotPermittedOnRootSubnet
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
             Self::get_network_registration_allowed(netuid),
-            Error::<T>::RegistrationDisabled
+            Error::<T>::SubNetRegistrationDisabled
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
@@ -75,14 +74,14 @@ impl<T: Config> Pallet<T> {
         // --- 4. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
             Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid) * 3,
+                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
         // --- 4. Ensure that the key is not already registered.
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::AlreadyRegistered
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // DEPRECATED --- 6. Ensure that the key passes the registration requirement
@@ -144,9 +143,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 14. Record the registration and increment block and interval counters.
-        BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| *val += 1);
+        BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
 
         // --- 15. Deposit successful event.
@@ -162,53 +161,53 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    // ---- The implementation for the extrinsic do_registration.
-    //
-    // # Args:
-    // 	* 'origin': (<T as frame_system::Config>RuntimeOrigin):
-    // 		- The signature of the calling hotkey.
-    //
-    // 	* 'netuid' (u16):
-    // 		- The u16 network identifier.
-    //
-    // 	* 'block_number' ( u64 ):
-    // 		- Block hash used to prove work done.
-    //
-    // 	* 'nonce' ( u64 ):
-    // 		- Positive integer nonce used in POW.
-    //
-    // 	* 'work' ( Vec<u8> ):
-    // 		- Vector encoded bytes representing work done.
-    //
-    // 	* 'hotkey' ( T::AccountId ):
-    // 		- Hotkey to be registered to the network.
-    //
-    // 	* 'coldkey' ( T::AccountId ):
-    // 		- Associated coldkey account.
-    //
-    // # Event:
-    // 	* NeuronRegistered;
-    // 		- On successfully registereing a uid to a neuron slot on a subnetwork.
-    //
-    // # Raises:
-    // 	* 'NetworkDoesNotExist':
-    // 		- Attempting to registed to a non existent network.
-    //
-    // 	* 'TooManyRegistrationsThisBlock':
-    // 		- This registration exceeds the total allowed on this network this block.
-    //
-    // 	* 'AlreadyRegistered':
-    // 		- The hotkey is already registered on this network.
-    //
-    // 	* 'InvalidWorkBlock':
-    // 		- The work has been performed on a stale, future, or non existent block.
-    //
-    // 	* 'InvalidDifficulty':
-    // 		- The work does not match the difficutly.
-    //
-    // 	* 'InvalidSeal':
-    // 		- The seal is incorrect.
-    //
+    /// ---- The implementation for the extrinsic do_registration.
+    ///
+    /// # Args:
+    /// *'origin': (<T as frame_system::Config>RuntimeOrigin):
+    ///     - The signature of the calling hotkey.
+    ///
+    /// *'netuid' (u16):
+    ///     - The u16 network identifier.
+    ///
+    /// *'block_number' ( u64 ):
+    ///     - Block hash used to prove work done.
+    ///
+    /// *'nonce' ( u64 ):
+    ///     - Positive integer nonce used in POW.
+    ///
+    /// *'work' ( Vec<u8> ):
+    ///     - Vector encoded bytes representing work done.
+    ///
+    /// *'hotkey' ( T::AccountId ):
+    ///     - Hotkey to be registered to the network.
+    ///
+    /// *'coldkey' ( T::AccountId ):
+    ///     - Associated coldkey account.
+    ///
+    /// # Event:
+    /// *NeuronRegistered;
+    ///     - On successfully registereing a uid to a neuron slot on a subnetwork.
+    ///
+    /// # Raises:
+    /// *'SubNetworkDoesNotExist':
+    ///     - Attempting to registed to a non existent network.
+    ///
+    /// *'TooManyRegistrationsThisBlock':
+    ///     - This registration exceeds the total allowed on this network this block.
+    ///
+    /// *'HotKeyAlreadyRegisteredInSubNet':
+    ///     - The hotkey is already registered on this network.
+    ///
+    /// *'InvalidWorkBlock':
+    ///     - The work has been performed on a stale, future, or non existent block.
+    ///
+    /// *'InvalidDifficulty':
+    ///     - The work does not match the difficutly.
+    ///
+    /// *'InvalidSeal':
+    ///     - The seal is incorrect.
+    ///
     pub fn do_registration(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -229,22 +228,25 @@ impl<T: Config> Pallet<T> {
             coldkey
         );
 
-        ensure!(signing_origin == hotkey, Error::<T>::HotkeyOriginMismatch);
+        ensure!(
+            signing_origin == hotkey,
+            Error::<T>::TransactorAccountShouldBeHotKey
+        );
 
         // --- 2. Ensure the passed network is valid.
         ensure!(
             netuid != Self::get_root_netuid(),
-            Error::<T>::OperationNotPermittedOnRootSubnet
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
         );
         ensure!(
             Self::if_subnet_exist(netuid),
-            Error::<T>::NetworkDoesNotExist
+            Error::<T>::SubNetworkDoesNotExist
         );
 
         // --- 3. Ensure the passed network allows registrations.
         ensure!(
             Self::get_network_pow_registration_allowed(netuid),
-            Error::<T>::RegistrationDisabled
+            Error::<T>::SubNetRegistrationDisabled
         );
 
         // --- 4. Ensure we are not exceeding the max allowed registrations per block.
@@ -257,14 +259,14 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
             Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid) * 3,
+                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
         // --- 6. Ensure that the key is not already registered.
         ensure!(
             !Uids::<T>::contains_key(netuid, &hotkey),
-            Error::<T>::AlreadyRegistered
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
         );
 
         // --- 7. Ensure the passed block number is valid, not in the future or too old.
@@ -275,7 +277,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidWorkBlock
         );
         ensure!(
-            current_block_number - block_number < 3,
+            current_block_number.saturating_sub(block_number) < 3,
             Error::<T>::InvalidWorkBlock
         );
 
@@ -336,9 +338,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 12. Record the registration and increment block and interval counters.
-        POWRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| *val += 1);
+        POWRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
 
         // --- 13. Deposit successful event.
         log::info!(
@@ -374,7 +376,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidWorkBlock
         );
         ensure!(
-            current_block_number - block_number < 3,
+            current_block_number.saturating_sub(block_number) < 3,
             Error::<T>::InvalidWorkBlock
         );
 
@@ -392,7 +394,7 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
-        let balance_to_add: u64 = 100_000_000_000;
+        let balance_to_add: u64 = 1_000_000_000_000;
         Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
@@ -416,9 +418,9 @@ impl<T: Config> Pallet<T> {
         real_hash
     }
 
-    // Determine which peer to prune from the network by finding the element with the lowest pruning score out of
-    // immunity period. If all neurons are in immunity period, return node with lowest prunning score.
-    // This function will always return an element to prune.
+    /// Determine which peer to prune from the network by finding the element with the lowest pruning score out of
+    /// immunity period. If all neurons are in immunity period, return node with lowest prunning score.
+    /// This function will always return an element to prune.
     pub fn get_neuron_to_prune(netuid: u16) -> u16 {
         let mut min_score: u16 = u16::MAX;
         let mut min_score_in_immunity_period = u16::MAX;
@@ -438,7 +440,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
             #[allow(clippy::comparison_chain)]
             if min_score == pruning_score {
-                if current_block - block_at_registration < immunity_period {
+                if current_block.saturating_sub(block_at_registration) < immunity_period {
                     //neuron is in immunity period
                     if min_score_in_immunity_period > pruning_score {
                         min_score_in_immunity_period = pruning_score;
@@ -450,7 +452,7 @@ impl<T: Config> Pallet<T> {
             }
             // Find min pruning score.
             else if min_score > pruning_score {
-                if current_block - block_at_registration < immunity_period {
+                if current_block.saturating_sub(block_at_registration) < immunity_period {
                     //neuron is in immunity period
                     if min_score_in_immunity_period > pruning_score {
                         min_score_in_immunity_period = pruning_score;
@@ -479,10 +481,10 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Determine whether the given hash satisfies the given difficulty.
-    // The test is done by multiplying the two together. If the product
-    // overflows the bounds of U256, then the product (and thus the hash)
-    // was too high.
+    /// Determine whether the given hash satisfies the given difficulty.
+    /// The test is done by multiplying the two together. If the product
+    /// overflows the bounds of U256, then the product (and thus the hash)
+    /// was too high.
     pub fn hash_meets_difficulty(hash: &H256, difficulty: U256) -> bool {
         let bytes: &[u8] = hash.as_bytes();
         let num_hash: U256 = U256::from(bytes);
@@ -528,18 +530,14 @@ impl<T: Config> Pallet<T> {
         hash_as_vec
     }
 
-    #[allow(clippy::indexing_slicing)]
     pub fn hash_block_and_hotkey(block_hash_bytes: &[u8; 32], hotkey: &T::AccountId) -> H256 {
-        // Get the public key from the account id.
-        let hotkey_pubkey: MultiAddress<T::AccountId, ()> = MultiAddress::Id(hotkey.clone());
-        let binding = hotkey_pubkey.encode();
-        // Skip extra 0th byte.
-        let hotkey_bytes: &[u8] = binding[1..].as_ref();
+        let binding = hotkey.encode();
+        // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
+        let (hotkey_bytes, _) = binding.split_at(32);
         let mut full_bytes = [0u8; 64];
         let (first_half, second_half) = full_bytes.split_at_mut(32);
         first_half.copy_from_slice(block_hash_bytes);
-        // Safe because Substrate guarantees that all AccountId types are at least 32 bytes
-        second_half.copy_from_slice(&hotkey_bytes[..32]);
+        second_half.copy_from_slice(hotkey_bytes);
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(&full_bytes[..]);
 
         H256::from_slice(&keccak_256_seal_hash_vec)
@@ -575,7 +573,7 @@ impl<T: Config> Pallet<T> {
         seal_hash
     }
 
-    // Helper function for creating nonce and work.
+    /// Helper function for creating nonce and work.
     pub fn create_work_for_block_number(
         netuid: u16,
         block_number: u64,
@@ -586,145 +584,10 @@ impl<T: Config> Pallet<T> {
         let mut nonce: u64 = start_nonce;
         let mut work: H256 = Self::create_seal_hash(block_number, nonce, hotkey);
         while !Self::hash_meets_difficulty(&work, difficulty) {
-            nonce += 1;
+            nonce.saturating_inc();
             work = Self::create_seal_hash(block_number, nonce, hotkey);
         }
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         (nonce, vec_work)
-    }
-
-    pub fn do_swap_hotkey(
-        origin: T::RuntimeOrigin,
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-    ) -> DispatchResultWithPostInfo {
-        let coldkey = ensure_signed(origin)?;
-
-        let mut weight = T::DbWeight::get().reads_writes(2, 0);
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::TxRateLimitExceeded
-        );
-
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
-
-        ensure!(old_hotkey != new_hotkey, Error::<T>::AlreadyRegistered);
-        ensure!(
-            !Self::is_hotkey_registered_on_any_network(new_hotkey),
-            Error::<T>::AlreadyRegistered
-        );
-
-        weight
-            .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
-
-        let swap_cost = 1_000_000_000u64;
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
-            Error::<T>::NotEnoughBalance
-        );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
-        Self::burn_tokens(actual_burn_amount);
-
-        Owner::<T>::remove(old_hotkey);
-        Owner::<T>::insert(new_hotkey, coldkey.clone());
-        weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
-        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
-            Delegates::<T>::remove(old_hotkey);
-            Delegates::<T>::insert(new_hotkey, delegate_take);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
-        if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
-            LastTxBlock::<T>::remove(old_hotkey);
-            LastTxBlock::<T>::insert(new_hotkey, last_tx);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
-        let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
-        for (coldkey, stake_amount) in Stake::<T>::iter_prefix(old_hotkey) {
-            coldkey_stake.push((coldkey.clone(), stake_amount));
-        }
-
-        let _ = Stake::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
-        weight.saturating_accrue(T::DbWeight::get().writes(coldkey_stake.len() as u64));
-
-        for (coldkey, stake_amount) in coldkey_stake {
-            Stake::<T>::insert(new_hotkey, coldkey, stake_amount);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
-        let mut netuid_is_member: Vec<u16> = vec![];
-        for netuid in <IsNetworkMember<T> as IterableStorageDoubleMap<T::AccountId, u16, bool>>::iter_key_prefix(old_hotkey) {
-            netuid_is_member.push(netuid);
-        }
-
-        let _ = IsNetworkMember::<T>::clear_prefix(old_hotkey, netuid_is_member.len() as u32, None);
-        weight.saturating_accrue(T::DbWeight::get().writes(netuid_is_member.len() as u64));
-
-        for netuid in netuid_is_member.iter() {
-            IsNetworkMember::<T>::insert(new_hotkey, netuid, true);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
-        for netuid in netuid_is_member.iter() {
-            if let Ok(axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
-                Axons::<T>::remove(netuid, old_hotkey);
-                Axons::<T>::insert(netuid, new_hotkey, axon_info);
-
-                weight.saturating_accrue(T::DbWeight::get().writes(2));
-            }
-        }
-
-        for netuid in netuid_is_member.iter() {
-            if let Ok(uid) = Uids::<T>::try_get(netuid, old_hotkey) {
-                Uids::<T>::remove(netuid, old_hotkey);
-                Uids::<T>::insert(netuid, new_hotkey, uid);
-
-                weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-                Keys::<T>::insert(netuid, uid, new_hotkey);
-
-                weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-                LoadedEmission::<T>::mutate(netuid, |emission_exists| match emission_exists {
-                    Some(emissions) => {
-                        if let Some(emission) = emissions.get_mut(uid as usize) {
-                            let (_, se, ve) = emission;
-                            *emission = (new_hotkey.clone(), *se, *ve);
-                        }
-                    }
-                    None => {}
-                });
-
-                weight.saturating_accrue(T::DbWeight::get().writes(1));
-            }
-        }
-
-        Self::set_last_tx_block(&coldkey, block);
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        Self::deposit_event(Event::HotkeySwapped {
-            coldkey,
-            old_hotkey: old_hotkey.clone(),
-            new_hotkey: new_hotkey.clone(),
-        });
-
-        Ok(Some(weight).into())
     }
 }

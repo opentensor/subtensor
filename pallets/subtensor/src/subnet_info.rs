@@ -4,6 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
+#[freeze_struct("fe79d58173da662a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
     netuid: Compact<u16>,
@@ -26,6 +27,7 @@ pub struct SubnetInfo<T: Config> {
     owner: T::AccountId,
 }
 
+#[freeze_struct("55b472510f10e76a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
@@ -40,7 +42,7 @@ pub struct SubnetHyperparams {
     weights_rate_limit: Compact<u64>,
     adjustment_interval: Compact<u16>,
     activity_cutoff: Compact<u16>,
-    registration_allowed: bool,
+    pub registration_allowed: bool,
     target_regs_per_interval: Compact<u16>,
     min_burn: Compact<u64>,
     max_burn: Compact<u64>,
@@ -50,6 +52,11 @@ pub struct SubnetHyperparams {
     max_validators: Compact<u16>,
     adjustment_alpha: Compact<u64>,
     difficulty: Compact<u64>,
+    commit_reveal_weights_interval: Compact<u64>,
+    commit_reveal_weights_enabled: bool,
+    alpha_high: Compact<u16>,
+    alpha_low: Compact<u16>,
+    liquid_alpha_enabled: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -115,7 +122,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfo<T>>>::new();
-        for netuid_ in 0..(max_netuid + 1) {
+        for netuid_ in 0..=max_netuid {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));
             }
@@ -151,6 +158,10 @@ impl<T: Config> Pallet<T> {
         let max_validators = Self::get_max_allowed_validators(netuid);
         let adjustment_alpha = Self::get_adjustment_alpha(netuid);
         let difficulty = Self::get_difficulty_as_u64(netuid);
+        let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
+        let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
+        let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
+        let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),
@@ -175,6 +186,11 @@ impl<T: Config> Pallet<T> {
             max_validators: max_validators.into(),
             adjustment_alpha: adjustment_alpha.into(),
             difficulty: difficulty.into(),
+            commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
+            commit_reveal_weights_enabled,
+            alpha_high: alpha_high.into(),
+            alpha_low: alpha_low.into(),
+            liquid_alpha_enabled,
         })
     }
 }

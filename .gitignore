@@ -38,3 +38,6 @@ specs/*.json
 
 # IntelliJ IDEA configuration
 .idea
+
+# Runtime upgrade snapshot
+bt.snap

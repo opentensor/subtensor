@@ -119,13 +119,25 @@ mod events {
         TakeIncreased(T::AccountId, T::AccountId, u16),
         /// the hotkey is swapped
         HotkeySwapped {
+            /// the account ID of coldkey
             coldkey: T::AccountId,
+            /// the account ID of old hotkey
             old_hotkey: T::AccountId,
+            /// the account ID of new hotkey
             new_hotkey: T::AccountId,
         },
         /// maximum delegate take is set by sudo/admin transaction
         MaxDelegateTakeSet(u16),
         /// minimum delegate take is set by sudo/admin transaction
         MinDelegateTakeSet(u16),
+        /// the target stakes per interval is set by sudo/admin transaction
+        TargetStakesPerIntervalSet(u64),
+        /// a member of the senate is adjusted
+        SenateAdjusted {
+            /// the account ID of the old senate member, if any
+            old_member: Option<T::AccountId>,
+            /// the account ID of the new senate member
+            new_member: T::AccountId,
+        },
     }
 }

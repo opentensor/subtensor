@@ -1,6 +1,11 @@
 use super::*;
-use crate::system::{ensure_root, ensure_signed_or_root};
+use crate::{
+    system::{ensure_root, ensure_signed_or_root},
+    Error,
+};
+use sp_core::Get;
 use sp_core::U256;
+use substrate_fixed::types::I32F32;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -143,7 +148,10 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::WeightsMinStake(min_stake));
     }
     pub fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
-        TargetStakesPerInterval::<T>::set(target_stakes_per_interval)
+        TargetStakesPerInterval::<T>::set(target_stakes_per_interval);
+        Self::deposit_event(Event::TargetStakesPerIntervalSet(
+            target_stakes_per_interval,
+        ));
     }
     pub fn set_stakes_this_interval_for_coldkey_hotkey(
         coldkey: &T::AccountId,
@@ -255,7 +263,7 @@ impl<T: Config> Pallet<T> {
         // Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(hotkey),
-            Error::<T>::NotRegistered
+            Error::<T>::HotKeyAccountNotExists
         );
 
         // Ensure that the coldkey is the owner.
@@ -288,7 +296,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        current_block - prev_tx_block <= rate_limit
+        current_block.saturating_sub(prev_tx_block) <= rate_limit
     }
     pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
@@ -296,7 +304,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        current_block - prev_tx_block <= rate_limit
+        current_block.saturating_sub(prev_tx_block) <= rate_limit
     }
 
     // ========================
@@ -477,6 +485,19 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::KappaSet(netuid, kappa));
     }
 
+    pub fn get_commit_reveal_weights_interval(netuid: u16) -> u64 {
+        WeightCommitRevealInterval::<T>::get(netuid)
+    }
+    pub fn set_commit_reveal_weights_interval(netuid: u16, interval: u64) {
+        WeightCommitRevealInterval::<T>::set(netuid, interval);
+    }
+    pub fn get_commit_reveal_weights_enabled(netuid: u16) -> bool {
+        CommitRevealWeightsEnabled::<T>::get(netuid)
+    }
+    pub fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
+        CommitRevealWeightsEnabled::<T>::set(netuid, enabled);
+    }
+
     pub fn get_rho(netuid: u16) -> u16 {
         Rho::<T>::get(netuid)
     }
@@ -641,5 +662,29 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+
+    pub fn get_hotkey_swap_cost() -> u64 {
+        T::HotkeySwapCost::get()
+    }
+
+    pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
+        AlphaValues::<T>::get(netuid)
+    }
+
+    pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
+        let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
+        let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
+        let converted_high =
+            I32F32::from_num(alpha_high).saturating_div(I32F32::from_num(u16::MAX));
+        (converted_low, converted_high)
+    }
+
+    pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        LiquidAlphaOn::<T>::set(netuid, enabled);
+    }
+
+    pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
+        LiquidAlphaOn::<T>::get(netuid)
     }
 }
