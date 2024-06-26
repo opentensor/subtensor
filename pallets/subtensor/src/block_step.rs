@@ -177,6 +177,17 @@ impl<T: Config> Pallet<T> {
         }).collect()
     }
 
+    /// Calculates price threshold for alpha vs. TAO emissions for DTAO
+    ///
+    fn get_emission_price_threshold(subnets: &Vec<SubnetBlockStepInfo>, total_tao_staked: u64) -> I64F64 {
+        // Total TAO staked in DTAO subnets
+        let dtao_tao: u64 = subnets.iter()
+            .filter(|subnet| subnet.subnet_type == SubnetType::DTAO)
+            .map(|subnet_info| subnet_info.tao_staked).sum();
+
+        I64F64::from_num(dtao_tao) / I64F64::from_num(total_tao_staked)
+    }
+
     pub fn run_coinbase(block_number: u64) {
         // Compute and fill the prices from all subnets.
         let mut subnets = Self::get_subnets();
@@ -193,6 +204,9 @@ impl<T: Config> Pallet<T> {
         let mut actual_total_block_emission = 0u64;
 
         if total_tao_staked != 0 {
+            // Calculate price threshold for alpha vs. TAO emissions for DTAO
+            let dtao_tao_fraction: I64F64 = Self::get_emission_price_threshold(&subnets, total_tao_staked);
+
             subnets.iter_mut().for_each(|subnet_info| {
                 if !subnet_info.transition_in_progress {
                     let subnet_proportion: I64F64 = if subnet_info.netuid == Self::get_root_netuid() {
@@ -212,7 +226,8 @@ impl<T: Config> Pallet<T> {
                             // This keeps the market caps of ALPHA subsumed by TAO.
                             let tao_in: u64; // The total amount of TAO emitted this block into all pools.
                             let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
-                            if total_prices <= I64F64::from_num(1.0) {
+
+                            if total_prices <= dtao_tao_fraction {
                                 // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
                                 tao_in = subnet_block_emission;
                                 alpha_in = 0;

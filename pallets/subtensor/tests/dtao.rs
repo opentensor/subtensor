@@ -718,7 +718,7 @@ fn test_tao_subnet_emissions_are_proportional() {
             // Get amount of alpha in the network
             let alpha = pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid);
 
-            // Remove stake to make prices lower so that they add up to lower than 1.0
+            // Remove stake to make prices lower so that they add up to lower than threshold
             assert_ok!(SubtensorModule::remove_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
                 hotkey,
@@ -726,6 +726,12 @@ fn test_tao_subnet_emissions_are_proportional() {
                 alpha * 19 / 20
             ));
         }
+
+        // Check that we archieved price threshold requirement
+        let price_sum = (1u16..=subnet_count)
+            .map(|netuid| SubtensorModule::get_tao_per_alpha_price(netuid).to_num::<f64>())
+            .sum::<f64>();
+        assert!(price_sum < get_price_threshold());
 
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
 
@@ -805,6 +811,12 @@ fn test_alpha_emission() {
             let lock_amount = 100_000_000_000 * netuid as u64;
             add_dynamic_network(netuid, 1, 1, 1, lock_amount);
         }
+
+        // Check that we archieved price threshold requirement
+        let price_sum = (1u16..=subnet_count)
+            .map(|netuid| SubtensorModule::get_tao_per_alpha_price(netuid).to_num::<f64>())
+            .sum::<f64>();
+        assert!(price_sum > get_price_threshold());
 
         let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
 
@@ -918,6 +930,8 @@ fn test_total_tao_equals_dynamic_tao_reserve() {
 
         let mut emissions_non_zero = false;
         let mut emissions_drained = false;
+
+        // Prices greater or lower than threshold
         let mut prices_greater_than_one = false;
         let mut prices_lower_than_one = false;
 
@@ -943,7 +957,7 @@ fn test_total_tao_equals_dynamic_tao_reserve() {
             // Check if this test encountered both prices > 1 and prices < 1
             if (1u16..=subnet_count)
                 .map(|netuid| SubtensorModule::get_tao_per_alpha_price(netuid).to_num::<f64>())
-                .sum::<f64>() > 1.0 {
+                .sum::<f64>() > get_price_threshold() {
                 prices_greater_than_one = true;
             } else {
                 prices_lower_than_one = true;
@@ -953,6 +967,96 @@ fn test_total_tao_equals_dynamic_tao_reserve() {
         assert!(emissions_drained);
         assert!(prices_lower_than_one);
         assert!(prices_greater_than_one);
+    });
+}
+
+/// Test that if sum of prices is a small step greater than threshold, we get alpha emission
+///
+#[test]
+fn test_alpha_emission_edgecase_ok() {
+    new_test_ext(1).execute_with(|| {
+        SubtensorModule::set_target_stakes_per_interval(20);
+
+        let netuid_stao = 1;
+        let netuid_dtao = 2;
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(1);
+        pallet_subtensor::SubnetOwnerLockPeriod::<Test>::set(0);
+
+        // Create one stao and one dtao subnet
+        let lock_amount = 100_000_000_000;
+        let total_stao = lock_amount;
+        create_staked_stao_network(netuid_stao, lock_amount, 0);
+
+        let total_dtao = lock_amount;
+        add_dynamic_network(netuid_dtao, 1, 1, 1, lock_amount);
+
+        // We need prices to be just a bit greater than threshold, which is total_dtao / (total_dtao + total_dtao)
+        // So the alpha stakes should be reduced proportionally.
+        let ideal_proportion = total_dtao as f64 / (total_dtao + total_stao) as f64;
+
+        // Get amount of alpha in the network
+        let alpha = pallet_subtensor::DynamicAlphaReserve::<Test>::get(netuid_dtao);
+        let tao = pallet_subtensor::DynamicTAOReserve::<Test>::get(netuid_dtao);
+
+        let alpha_to_remove = (alpha as f64 - ideal_proportion * tao as f64) as u64;
+
+        // assert_ok!(SubtensorModule::remove_subnet_stake(
+        //     <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+        //     hotkey,
+        //     netuid_dtao,
+        //     alpha_to_remove
+        // ));
+
+        // Check that we archieved price threshold requirement
+        let price_sum = SubtensorModule::get_tao_per_alpha_price(netuid_dtao).to_num::<f64>();
+        // assert!(price_sum > get_price_threshold());
+
+        println!("threshold = {}", get_price_threshold());
+        println!("price_sum = {}", price_sum);
+
+        // let block_emission = SubtensorModule::get_block_emission().unwrap_or(0);
+
+        // let total_subnet_tao_before: Vec<u64> = dtao_subnet_range.clone()
+        //     .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
+        //     .collect();
+        // let dynamic_alpha_reserve_before: Vec<u64> = dtao_subnet_range.clone()
+        //     .map(pallet_subtensor::DynamicAlphaReserve::<Test>::get)
+        //     .collect();
+        // let total_total_subnet_tao_before: u64 = dtao_subnet_range.clone()
+        //     .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
+        //     .sum();
+
+        // SubtensorModule::run_coinbase(1);
+
+        // let total_subnet_tao_after: Vec<u64> = dtao_subnet_range.clone()
+        //     .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
+        //     .collect();
+        // let dynamic_alpha_reserve_after: Vec<u64> = dtao_subnet_range.clone()
+        //     .map(pallet_subtensor::DynamicAlphaReserve::<Test>::get)
+        //     .collect();
+
+        // // Ensure subnet alpha emissions are all equal to block emission
+        // izip!(
+        //     &dynamic_alpha_reserve_before,
+        //     &total_subnet_tao_before,
+        //     &dynamic_alpha_reserve_after,
+        //     &total_subnet_tao_after,
+        // )
+        // .map(|(alpha_bef, tao_bef, alpha_af, tao_af)| {
+        //     (tao_af - tao_bef, alpha_af - alpha_bef)
+        // })
+        // .for_each(|(emission, alpha_emission)| {
+        //     let expected_alpha_emission = block_emission as f64;
+        //     assert!(((alpha_emission as f64 - expected_alpha_emission).abs() / expected_alpha_emission) < 0.00001);
+        //     assert!(emission == 0);
+        // });
+
+        // // Ensure total subnet tao didn't change
+        // let total_total_subnet_tao_after: u64 = dtao_subnet_range.clone()
+        //     .map(pallet_subtensor::TotalSubnetTAO::<Test>::get)
+        //     .sum();
+        // assert!(total_total_subnet_tao_after == total_total_subnet_tao_before);
     });
 }
 

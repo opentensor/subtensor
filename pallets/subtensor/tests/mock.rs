@@ -197,6 +197,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 }
 
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use substrate_fixed::types::I64F64;
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -516,12 +517,14 @@ pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
         lock_amount
     );
 
-    assert_ok!(SubtensorModule::add_subnet_stake(
-        <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
-        hotkey1,
-        netuid,
-        stake
-    ));
+    if stake > 0 {
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            netuid,
+            stake
+        ));
+    }
 }
 
 #[allow(dead_code)]
@@ -588,4 +591,25 @@ pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
         .filter(|((cold, _, _), _)| *cold == *coldkey)
         .map(|((_, _, _), stake)| stake)
         .sum()
+}
+
+/// Helper function to calculate alpha-tao emission price threshold for DTAO subnets
+/// This is supposed to be the same threshold that is used by block_step function
+/// when it decides whether to issue alpha or tao in the block.
+///
+#[allow(dead_code)]
+pub fn get_price_threshold() -> f64 {
+    // Iterate all subnets and 
+    let (dtao, all) = SubtensorModule::get_all_subnet_netuids().iter().map(|&netuid| {
+        (
+            if SubtensorModule::is_subnet_dynamic(netuid) {
+                pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+            } else {
+                0
+            },
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        )
+    }).fold((0, 0), |(total_dtao, total_all), (dtao, all)| (total_dtao + dtao, total_all + all));
+
+    (I64F64::from_num(dtao) / I64F64::from_num(all)).to_num::<f64>()
 }

@@ -109,25 +109,25 @@ pub mod pallet {
         OptionQuery,
     >;
 
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> frame_support::weights::Weight {
-            // --- Migrate storage
-            use crate::migration;
-            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+    // #[pallet::hooks]
+    // impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+    //     fn on_runtime_upgrade() -> frame_support::weights::Weight {
+    //         // --- Migrate storage
+    //         use crate::migration;
+    //         let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            weight = weight
-                // Initializes storage version (to 1)
-                .saturating_add(migration::migrate_set_hotkey_identities::<T>());
+    //         weight = weight
+    //             // Initializes storage version (to 1)
+    //             .saturating_add(migration::migrate_set_hotkey_identities::<T>());
 
-            log::info!(
-                "Runtime upgrade migration in registry pallet, total weight = ({})",
-                weight
-            );
+    //         log::info!(
+    //             "Runtime upgrade migration in registry pallet, total weight = ({})",
+    //             weight
+    //         );
 
-            weight
-        }
-    }
+    //         weight
+    //     }
+    // }
     
     #[pallet::call]
     impl<T: Config> Pallet<T> {
