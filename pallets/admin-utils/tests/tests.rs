@@ -281,7 +281,7 @@ fn test_sudo_subnet_owner_cut() {
             <<Test as Config>::RuntimeOrigin>::root(),
             to_be_set
         ));
-        assert_eq!(SubtensorModule::    (), to_be_set);
+        assert_eq!(SubtensorModule::get_subnet_owner_cut(), to_be_set);
     });
 }
 
