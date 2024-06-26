@@ -257,6 +257,26 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    fn get_delegate_by_existing_account_light_by_netuid(delegate: &AccountIdOf<T>, netuid: u16) -> DelegateInfoLight<T> {
+        let owner = Self::get_owning_coldkey_for_hotkey(delegate);
+        let take = if DelegatesTake::<T>::iter_prefix(delegate).next().is_some() { u16::MAX } else { <DefaultDefaultTake<T>>::get()};
+        let owner_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey(&owner, delegate, netuid);
+        let total_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet(delegate, netuid);
+        let validator_permits = Vec::<Compact<u16>>::new();
+        let return_per_1000: U64F64 = U64F64::from_num(0);
+        let total_daily_return: U64F64 = U64F64::from_num(0);
+        DelegateInfoLight {
+            delegate_ss58: delegate.clone(),
+            owner_ss58: owner,
+            take,
+            owner_stake: owner_stake.into(),
+            total_stake: total_stake.into(),
+            validator_permits,
+            return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
+            total_daily_return: U64F64::to_num::<u64>(total_daily_return).into()
+        }
+    }
+
     fn get_delegate_by_existing_account_light(delegate: &AccountIdOf<T>) -> DelegateInfoLight<T> {
         let mut validator_permits = Vec::<Compact<u16>>::new();
         let registrations = Self::get_registered_networks_for_hotkey(delegate);
@@ -358,7 +378,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegates_by_netuid_light(netuid: u16) -> Vec<DelegateInfoLight<T>> {
         // Get all hotkeys registered on the netuid
         Uids::<T>::iter_prefix(netuid)
-            .map(|(delegate, _)| Self::get_delegate_by_existing_account_light(&delegate))
+            .map(|(delegate, _)| Self::get_delegate_by_existing_account_light_by_netuid(&delegate, netuid))
             .collect()
     }
     
