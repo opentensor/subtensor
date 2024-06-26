@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 mod mock;
 use frame_support::assert_ok;
 use frame_system::Config;
@@ -5,7 +7,6 @@ use mock::*;
 use sp_core::U256;
 
 #[test]
-#[allow(clippy::unwrap_used)]
 fn test_loaded_emission() {
     new_test_ext(1).execute_with(|| {
         let n: u16 = 100;
@@ -864,6 +865,31 @@ fn test_emission_based_on_registration_status() {
         );
         assert_eq!(
             SubtensorModule::get_loaded_emission_tuples(netuid_on)
+                .unwrap()
+                .len(),
+            n as usize
+        );
+
+        let block: u64 = 0;
+        // drain the emission tuples for the subnet with registration on
+        SubtensorModule::drain_emission(block);
+        // Turn on registration for the subnet with registration off
+        SubtensorModule::set_network_registration_allowed(netuid_off, true);
+        SubtensorModule::set_network_registration_allowed(netuid_on, false);
+
+        // Generate emission at the next block
+        let next_block: u64 = block + 1;
+        SubtensorModule::generate_emission(next_block);
+
+        // Verify that emission tuples are now loaded for the subnet with registration turned on
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_some());
+        log::info!(
+            "Emissions for netuid with registration on: {:?}",
+            SubtensorModule::get_loaded_emission_tuples(netuid_on)
+        );
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_on).is_none());
+        assert_eq!(
+            SubtensorModule::get_loaded_emission_tuples(netuid_off)
                 .unwrap()
                 .len(),
             n as usize

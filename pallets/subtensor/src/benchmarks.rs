@@ -1,5 +1,5 @@
 //! Subtensor pallet benchmarking.
-
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::Pallet as Subtensor;
@@ -80,7 +80,7 @@ benchmarks! {
     // This is a whitelisted caller who can make transaction without weights.
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
     let caller_origin = <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(caller.clone()));
-    let netuid: u16 = 1;
+    let netuid: u16 = 0;
     let version_key: u64 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
@@ -428,4 +428,29 @@ reveal_weights {
     let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
+
+
+  adjust_senate {
+    migration::migrate_create_root_network::<T>();
+    let netuid: u16 = 1;
+    let tempo: u16 = 13;
+    let burn_cost = 1000;
+    let hotkey: T::AccountId = account("hot", 0, 1);
+    let coldkey: T::AccountId = account("cold", 0, 2);
+
+    Subtensor::<T>::init_new_network(netuid, 100);
+    Subtensor::<T>::set_burn(netuid, 1);
+    Subtensor::<T>::set_max_allowed_uids( netuid, 4096 );
+    assert_eq!(Subtensor::<T>::get_max_allowed_uids(netuid), 4096);
+    Subtensor::<T>::set_burn(netuid, burn_cost);
+
+    let amount_to_be_staked = 100_000_000_000;
+    Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
+
+    assert_ok!(Subtensor::<T>::burned_register(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
+    assert_ok!(Subtensor::<T>::become_delegate(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone()));
+    assert_ok!(Subtensor::<T>::root_register(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone()));
+    T::SenateMembers::remove_member(&hotkey).map_err(|_| "Failed to remove member")?;
+
+  }: adjust_senate(RawOrigin::Signed(coldkey.clone()), hotkey.clone())
 }

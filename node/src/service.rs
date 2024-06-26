@@ -266,7 +266,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
                         subscription_executor: subscription_executor.clone(),
                         finality_provider: finality_proof_provider.clone(),
                     },
-                    backend: rpc_backend.clone(),
+                    _backend: rpc_backend.clone(),
                 };
                 crate::rpc::create_full(deps).map_err(Into::into)
             },

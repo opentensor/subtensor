@@ -43,7 +43,7 @@ $BIN_PATH build-spec --disable-default-bootnode --raw --chain local > $TMP_SPEC
 $BIN_PATH benchmark pallet \
     --chain=$TMP_SPEC \
     --execution=native  --wasm-execution=compiled \
-    --pallet pallet-subtensor --extrinsic 'benchmark_dissolve_network' \
+    --pallet pallet-subtensor --extrinsic 'adjust_senate' \
     --output $OUTPUT_FILE
 
 rm $TMP_SPEC

@@ -75,10 +75,11 @@ jobs:
           git checkout staging
           python3 -m pip install -e .
           python3 -m pip install torch
+          python3 -m pip install pytest
 
       - name: Run tests
         working-directory: ${{ github.workspace }}/bittensor
         run: |
           pwd
           ls
-          LOCALNET_SH_PATH="../scripts/localnet.sh" pytest tests/e2e_tests/ -s
+          LOCALNET_SH_PATH="${{ github.workspace }}/scripts/localnet.sh" pytest tests/e2e_tests/ -s
