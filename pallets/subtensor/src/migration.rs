@@ -463,7 +463,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
     if onchain_version < new_storage_version {
         log::info!("Starting migration from Stake to SubStake."); // Debug print
         let mut counter = 0;
-        old::Stake::<T>::iter().for_each(|(coldkey, hotkey, stake)| {
+        old::Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
             if stake > 0 {
                 // Ensure we're only migrating non-zero stakes
                 // Insert into SubStake with netuid set to 0 for all entries
@@ -482,7 +482,7 @@ pub fn migrate_stake_to_substake<T: Config>() -> Weight {
             *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
             *total_subnet_stakes.entry(netuid).or_insert(0) += stake;
             if stake > 0 {
-                Staker::<T>::insert(&coldkey, &hotkey, true);
+                Staker::<T>::insert(&hotkey, &coldkey, true);
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
             }
         });
