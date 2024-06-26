@@ -109,6 +109,7 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
     pub const InitialHotkeyEmissionTempo: u64 = 1;
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Test {
@@ -161,6 +162,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -466,6 +468,10 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_hotkey_emission_tempo(emission_tempo: u64) {
         SubtensorModule::set_hotkey_emission_tempo(emission_tempo)
+    }
+
+    fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        SubtensorModule::set_network_max_stake(netuid, max_stake)
     }
 }
 

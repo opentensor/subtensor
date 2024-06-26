@@ -678,4 +678,36 @@ impl<T: Config> Pallet<T> {
     pub fn get_hotkey_emission_tempo() -> u64 {
         HotkeyEmissionTempo::<T>::get()
     }
+
+    /// Retrieves the maximum stake allowed for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the network.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The maximum stake allowed for the specified network.
+    pub fn get_network_max_stake(netuid: u16) -> u64 {
+        NetworkMaxStake::<T>::get(netuid)
+    }
+
+    /// Sets the maximum stake allowed for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the network.
+    /// * `max_stake` - The new maximum stake value to set.
+    ///
+    /// # Effects
+    ///
+    /// * Updates the NetworkMaxStake storage.
+    /// * Emits a NetworkMaxStakeSet event.
+    pub fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        // Update the NetworkMaxStake storage with the new max_stake value
+        NetworkMaxStake::<T>::insert(netuid, max_stake);
+
+        // Emit an event to notify listeners about the change
+        Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
+    }
 }

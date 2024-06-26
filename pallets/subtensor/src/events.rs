@@ -142,5 +142,7 @@ mod events {
         SetChildrenMultiple(T::AccountId, Vec<(u64, T::AccountId)>, u16),
         /// Multiple children were revoked for a hotkey
         RevokeChildrenMultiple(T::AccountId, Vec<T::AccountId>, u16),
+        /// Network max stake is set
+        NetworkMaxStakeSet(u16, u64),
     }
 }

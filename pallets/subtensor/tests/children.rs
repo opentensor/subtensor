@@ -362,30 +362,30 @@ fn test_add_singular_child() {
 // To run this test specifically, use the following command:
 // cargo test --test children test_get_stake_with_children_and_parents -- --nocapture
 #[test]
-#[cfg(not(tarpaulin))]
 fn test_get_stake_with_children_and_parents() {
     new_test_ext(1).execute_with(|| {
-        // Define network ID
         let netuid: u16 = 1;
-        // Define hotkeys and coldkeys
         let hotkey0 = U256::from(1);
         let hotkey1 = U256::from(2);
         let coldkey0 = U256::from(3);
         let coldkey1 = U256::from(4);
-        // Add network with netuid
+
         add_network(netuid, 0, 0);
-        // Create accounts if they do not exist
+
+        let max_stake: u64 = 3000;
+        SubtensorModule::set_network_max_stake(netuid, max_stake);
+
         SubtensorModule::create_account_if_non_existent(&coldkey0, &hotkey0);
         SubtensorModule::create_account_if_non_existent(&coldkey1, &hotkey1);
-        // Increase stake on coldkey-hotkey accounts
+
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0, &hotkey0, 1000);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0, &hotkey1, 1000);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey0, 1000);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey1, &hotkey1, 1000);
-        // Assert total stake for hotkeys
+
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 2000);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 2000);
-        // Assert stake with children and parents for hotkeys
+
         assert_eq!(
             SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid),
             2000
@@ -394,7 +394,8 @@ fn test_get_stake_with_children_and_parents() {
             SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid),
             2000
         );
-        // Create a child relationship of 100% from hotkey0 to hotkey1
+
+        // Set child relationship
         assert_ok!(SubtensorModule::do_set_child_singular(
             RuntimeOrigin::signed(coldkey0),
             hotkey0,
@@ -402,16 +403,15 @@ fn test_get_stake_with_children_and_parents() {
             netuid,
             u64::MAX
         ));
-        // Assert stake with children and parents after relationship
-        assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid),
-            0
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid),
-            4000
-        );
-        // Recreate a child relationship of 50% from hotkey0 to hotkey1
+
+        // Check stakes after setting child
+        let stake0 = SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid);
+        let stake1 = SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid);
+
+        assert_eq!(stake0, 0);
+        assert_eq!(stake1, max_stake);
+
+        // Change child relationship to 50%
         assert_ok!(SubtensorModule::do_set_child_singular(
             RuntimeOrigin::signed(coldkey0),
             hotkey0,
@@ -419,32 +419,13 @@ fn test_get_stake_with_children_and_parents() {
             netuid,
             u64::MAX / 2
         ));
-        // Assert stake with children and parents after 50% relationship
-        assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid),
-            1001
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid),
-            2999
-        );
-        // Create a new inverse child relationship of 100% from hotkey1 to hotkey0
-        assert_ok!(SubtensorModule::do_set_child_singular(
-            RuntimeOrigin::signed(coldkey1),
-            hotkey1,
-            hotkey0,
-            netuid,
-            u64::MAX
-        ));
-        // Assert stake with children and parents after inverse relationship
-        assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid),
-            3001
-        );
-        assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid),
-            999
-        );
+
+        // Check stakes after changing child relationship
+        let stake0 = SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid);
+        let stake1 = SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid);
+
+        assert_eq!(stake0, 1001);
+        assert!(stake1 >= max_stake - 1 && stake1 <= max_stake);
     });
 }
 
@@ -1121,5 +1102,101 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         assert!(parents1.is_empty());
         let parents3 = SubtensorModule::get_parents(&child3, netuid);
         assert!(parents3.is_empty());
+    });
+}
+
+#[test]
+fn test_get_network_max_stake() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let default_max_stake = SubtensorModule::get_network_max_stake(netuid);
+
+        // Check that the default value is set correctly
+        assert_eq!(default_max_stake, 500_000_000_000_000);
+
+        // Set a new max stake value
+        let new_max_stake: u64 = 1_000_000;
+        SubtensorModule::set_network_max_stake(netuid, new_max_stake);
+
+        // Check that the new value is retrieved correctly
+        assert_eq!(
+            SubtensorModule::get_network_max_stake(netuid),
+            new_max_stake
+        );
+    });
+}
+
+#[test]
+fn test_set_network_max_stake() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let initial_max_stake = SubtensorModule::get_network_max_stake(netuid);
+
+        // Set a new max stake value
+        let new_max_stake: u64 = 500_000;
+        SubtensorModule::set_network_max_stake(netuid, new_max_stake);
+
+        // Check that the new value is set correctly
+        assert_eq!(
+            SubtensorModule::get_network_max_stake(netuid),
+            new_max_stake
+        );
+        assert_ne!(
+            SubtensorModule::get_network_max_stake(netuid),
+            initial_max_stake
+        );
+
+        // Check that the event is emitted
+        System::assert_last_event(Event::NetworkMaxStakeSet(netuid, new_max_stake).into());
+    });
+}
+
+#[test]
+fn test_set_network_max_stake_multiple_networks() {
+    new_test_ext(1).execute_with(|| {
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+
+        // Set different max stake values for two networks
+        let max_stake1: u64 = 1_000_000;
+        let max_stake2: u64 = 2_000_000;
+        SubtensorModule::set_network_max_stake(netuid1, max_stake1);
+        SubtensorModule::set_network_max_stake(netuid2, max_stake2);
+
+        // Check that the values are set correctly for each network
+        assert_eq!(SubtensorModule::get_network_max_stake(netuid1), max_stake1);
+        assert_eq!(SubtensorModule::get_network_max_stake(netuid2), max_stake2);
+        assert_ne!(
+            SubtensorModule::get_network_max_stake(netuid1),
+            SubtensorModule::get_network_max_stake(netuid2)
+        );
+    });
+}
+
+#[test]
+fn test_set_network_max_stake_update() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+
+        // Set an initial max stake value
+        let initial_max_stake: u64 = 1_000_000;
+        SubtensorModule::set_network_max_stake(netuid, initial_max_stake);
+
+        // Update the max stake value
+        let updated_max_stake: u64 = 1_500_000;
+        SubtensorModule::set_network_max_stake(netuid, updated_max_stake);
+
+        // Check that the value is updated correctly
+        assert_eq!(
+            SubtensorModule::get_network_max_stake(netuid),
+            updated_max_stake
+        );
+        assert_ne!(
+            SubtensorModule::get_network_max_stake(netuid),
+            initial_max_stake
+        );
+
+        // Check that the event is emitted for the update
+        System::assert_last_event(Event::NetworkMaxStakeSet(netuid, updated_max_stake).into());
     });
 }

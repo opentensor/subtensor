@@ -181,12 +181,6 @@ impl<T: Config> Pallet<T> {
     /// 5. Update the ChildKeys storage with the new children.
     /// 6. Update the ParentKeys storage for each new child.
     /// 7. Emit an event to log the operation.
-    ///
-    /// # Example
-    /// ```ignore
-    /// let children_with_proportions = vec![(child1, 1000), (child2, 2000), (child3, 3000)];
-    /// SubtensorModule::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid);
-    /// ```
     pub fn do_set_children_multiple(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -474,14 +468,9 @@ impl<T: Config> Pallet<T> {
     /// This function does not explicitly panic, but underlying arithmetic operations
     /// use saturating arithmetic to prevent overflows.
     ///
-    /// # Example
-    /// ```ignore
-    /// let total_stake = Self::get_stake_with_children_and_parents(&hotkey, netuid);
-    /// ```
     /// TODO: check for self loops.
-    /// TODO: (@distributedstatemachine): check if we should return error , otherwise self loop 
-    /// detection is impossible to test. 
-
+    /// TODO: (@distributedstatemachine): check if we should return error , otherwise self loop
+    /// detection is impossible to test.
     pub fn get_stake_with_children_and_parents(hotkey: &T::AccountId, netuid: u16) -> u64 {
         let mut visited = BTreeSet::new();
         Self::dfs_check_self_loops(hotkey, netuid, &mut visited);
@@ -522,9 +511,15 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the final stake for the hotkey by adjusting the initial stake with the stakes
         // to/from children and parents.
-        let finalized_stake: u64 = initial_stake
+        let mut finalized_stake: u64 = initial_stake
             .saturating_sub(stake_to_children)
             .saturating_add(stake_from_parents);
+
+        // get the max stake for the network
+        let max_stake = Self::get_network_max_stake(netuid);
+
+        // Return the finalized stake value for the hotkey, but capped at the max stake.
+        finalized_stake = finalized_stake.min(max_stake);
 
         // Return the finalized stake value for the hotkey.
         finalized_stake

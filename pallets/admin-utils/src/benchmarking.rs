@@ -247,5 +247,13 @@ mod benchmarks {
         _(RawOrigin::Root, 1u64/*emission_tempo*/)/*set_hotkey_emission_tempo*/;
     }
 
+    #[benchmark]
+    fn sudo_set_network_max_stake() {
+        T::Subtensor::init_new_network(1u16 /*netuid*/, 1u16 /*tempo*/);
+
+        #[extrinsic_call]
+        _(RawOrigin::Root, 1u16/*netuid*/, 1_000_000_000_000_000u64/*max_stake*/)/*sudo_set_network_max_stake*/;
+    }
+
     //impl_benchmark_test_suite!(AdminUtils, crate::mock::new_test_ext(), crate::mock::Test);
 }

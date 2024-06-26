@@ -1013,7 +1013,6 @@ pub mod pallet {
         /// * `DispatchError::BadOrigin` - If the origin is not the root account.
         #[pallet::call_index(50)]
         #[pallet::weight(T::WeightInfo::sudo_set_hotkey_emission_tempo())]
-        // #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Operational, Pays::No))]
         pub fn sudo_set_hotkey_emission_tempo(
             origin: OriginFor<T>,
             emission_tempo: u64,
@@ -1024,6 +1023,56 @@ pub mod pallet {
                 "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
                 emission_tempo
             );
+            Ok(())
+        }
+
+        /// Sets the maximum stake allowed for a specific network.
+        ///
+        /// This function allows the root account to set the maximum stake for a given network.
+        /// It updates the network's maximum stake value and logs the change.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `netuid` - The unique identifier of the network.
+        /// * `max_stake` - The new maximum stake value to set.
+        ///
+        /// # Returns
+        ///
+        /// Returns `Ok(())` if the operation is successful, or an error if it fails.
+        ///
+        /// # Example
+        ///
+        ///
+        /// # Notes
+        ///
+        /// - This function can only be called by the root account.
+        /// - The `netuid` should correspond to an existing network.
+        ///
+        /// # TODO
+        ///
+        // - Consider adding a check to ensure the `netuid` corresponds to an existing network.
+        // - Implement a mechanism to gradually adjust the max stake to prevent sudden changes.
+        #[pallet::call_index(52)]
+        #[pallet::weight(T::WeightInfo::sudo_set_network_max_stake())]
+        pub fn sudo_set_network_max_stake(
+            origin: OriginFor<T>,
+            netuid: u16,
+            max_stake: u64,
+        ) -> DispatchResult {
+            // Ensure the call is made by the root account
+            ensure_root(origin)?;
+
+            // Set the new maximum stake for the specified network
+            T::Subtensor::set_network_max_stake(netuid, max_stake);
+
+            // Log the change
+            log::trace!(
+                "NetworkMaxStakeSet( netuid: {:?}, max_stake: {:?} )",
+                netuid,
+                max_stake
+            );
+
             Ok(())
         }
     }
@@ -1122,4 +1171,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
     fn set_hotkey_emission_tempo(emission_tempo: u64);
+    fn set_network_max_stake(netuid: u16, max_stake: u64);
 }

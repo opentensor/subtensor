@@ -243,6 +243,9 @@ pub mod pallet {
         /// Default hotkey emission drain interval.
         #[pallet::constant]
         type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Default network max stake.
+        #[pallet::constant]
+        type InitialNetworkMaxStake: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -631,6 +634,12 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
 
+    /// Default value for network max stake.
+    #[pallet::type_value]
+    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
+        T::InitialNetworkMaxStake::get()
+    }
+
     #[pallet::storage] // --- ITEM( maximum_number_of_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
@@ -686,6 +695,9 @@ pub mod pallet {
     #[pallet::storage] // ITEM( nominator_min_required_stake )
     pub type NominatorMinRequiredStake<T> =
         StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
+    #[pallet::storage] // MAP ( netuid ) --> max_stake_per_uid
+    pub type NetworkMaxStake<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// ==============================
     /// ==== Subnetwork Features =====

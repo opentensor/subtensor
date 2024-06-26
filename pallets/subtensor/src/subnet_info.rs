@@ -52,6 +52,7 @@ pub struct SubnetHyperparams {
     difficulty: Compact<u64>,
     commit_reveal_weights_interval: Compact<u64>,
     commit_reveal_weights_enabled: bool,
+    max_stake: Compact<u64>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -155,6 +156,7 @@ impl<T: Config> Pallet<T> {
         let difficulty = Self::get_difficulty_as_u64(netuid);
         let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
+        let max_stake = Self::get_network_max_stake(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),
@@ -181,6 +183,7 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
             commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
             commit_reveal_weights_enabled,
+            max_stake: max_stake.into(),
         })
     }
 }

@@ -818,6 +818,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -870,6 +871,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
 }
 
 use sp_runtime::BoundedVec;
@@ -1147,6 +1149,10 @@ impl
 
     fn set_hotkey_emission_tempo(emission_tempo: u64) {
         SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
+    }
+
+    fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        SubtensorModule::set_network_max_stake(netuid, max_stake);
     }
 }
 
