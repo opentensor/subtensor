@@ -57,6 +57,73 @@ impl<T: Config> Pallet<T> {
 
     // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
     // (Dense version used only for testing purposes.)
+    pub fn fake_epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+
+         // Get subnetwork size.
+        let n: u16 = Self::get_subnetwork_n(netuid);
+        log::trace!("n:\n{:?}\n", n);
+
+        // ======================
+        // == Active & updated ==
+        // ======================
+
+        // Get current block.
+        let current_block: u64 = Self::get_current_block_as_u64();
+        log::trace!("current_block:\n{:?}\n", current_block);
+
+        // Get activity cutoff.
+        let activity_cutoff: u64 = Self::get_activity_cutoff(netuid) as u64;
+        log::trace!("activity_cutoff:\n{:?}\n", activity_cutoff);
+
+        // Last update vector.
+        let last_update: Vec<u64> = Self::get_last_update(netuid);
+        log::trace!("Last update:\n{:?}\n", &last_update);
+
+        // Inactive mask.
+        let inactive: Vec<bool> = last_update
+            .iter()
+            .map(|updated| *updated + activity_cutoff < current_block)
+            .collect();
+        log::trace!("Inactive:\n{:?}\n", inactive.clone());
+
+        // Block at registration vector (block when each neuron was most recently registered).
+        let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
+        log::trace!("Block at registration:\n{:?}\n", &block_at_registration);
+
+        // Outdated matrix, updated_ij=True if i has last updated (weights) after j has last registered.
+        let outdated: Vec<Vec<bool>> = last_update
+            .iter()
+            .map(|updated| {
+                block_at_registration
+                    .iter()
+                    .map(|registered| updated <= registered)
+                    .collect()
+            })
+            .collect();
+        log::trace!("Outdated:\n{:?}\n", &outdated);
+
+
+        let hotkeys: Vec<(u16, T::AccountId)> =
+            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
+                .collect();
+        log::trace!("hotkeys: {:?}", &hotkeys);
+
+        // ===================
+        // == Stake values. ==
+        // ===================
+        let stake = Self::get_stakes(netuid, &hotkeys);
+        let emission: Vec<I96F32> = stake.iter().map(|e: &I32F32| I96F32::from_num(e.to_num::<u64>()) * I96F32::from_num(rao_emission) ).collect();
+        let validator_emission: Vec<u64> = emission.iter().map(|e: &I96F32| e.to_num::<u64>() ).collect();
+        let server_emission: Vec<u64> = vec![0; stake.len() as usize];
+
+        // Return fake epoch output.
+        hotkeys.into_iter().map(|(uid_i, hotkey)| {(hotkey,server_emission[uid_i as usize], validator_emission[uid_i as usize] )}).collect()
+        
+    }
+
+
+    // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
+    // (Dense version used only for testing purposes.)
     pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
