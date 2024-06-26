@@ -288,8 +288,7 @@ impl<T: Config> Pallet<T> {
                 PendingEmission::<T>::insert(subnet_info.netuid, 0); 
 
                 // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
-                let emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                    Self::epoch(subnet_info.netuid, emission);
+                let emission_tuples: Vec<(T::AccountId, u64, u64)> = Self::fake_epoch(subnet_info.netuid, emission);
 
                 // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
                 // as well as all nominators.

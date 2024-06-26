@@ -137,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 218,
+    spec_version: 219,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -824,7 +824,7 @@ parameter_types! {
     pub const SubtensorInitialSubnetLimit: u16 = 12;
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
-    pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialTargetStakesPerInterval: u16 = u16::MAX;
     pub const SubtensorInitialSubnetOwnerLockPeriod: u64 = SUBNET_CREATOR_LOCK;
 }
 
