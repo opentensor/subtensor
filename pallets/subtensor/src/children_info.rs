@@ -18,6 +18,8 @@ pub struct ChildInfo<T: Config> {
     pub return_per_1000: Compact<u64>,
     /// The take (commission) of the child
     pub take: Compact<u16>,
+    /// The parents of this child, each with their proportion
+    pub parents: Vec<(Compact<u64>, T::AccountId)>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -54,6 +56,7 @@ impl<T: Config> Pallet<T> {
 
         children_info
     }
+
     /// Helper function to get information about a single child neuron
     ///
     /// This function calculates and returns detailed information about a child neuron,
@@ -98,6 +101,12 @@ impl<T: Config> Pallet<T> {
         // Get the take (commission) for the child
         let take: u16 = <Delegates<T>>::get(child.clone());
 
+        // Get the parents information
+        let parents: Vec<(Compact<u64>, T::AccountId)> = Self::get_parents(&child, netuid)
+            .into_iter()
+            .map(|(prop, acc)| (Compact(prop), acc))
+            .collect();
+
         // Construct and return the ChildInfo struct
         ChildInfo {
             child_ss58: child,
@@ -106,6 +115,7 @@ impl<T: Config> Pallet<T> {
             emissions_per_day: emissions_per_day.into(),
             return_per_1000: return_per_1000.into(),
             take: take.into(),
+            parents,
         }
     }
 }
