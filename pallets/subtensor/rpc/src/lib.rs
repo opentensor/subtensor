@@ -12,8 +12,8 @@ use std::sync::Arc;
 use sp_api::ProvideRuntimeApi;
 
 pub use subtensor_custom_rpc_runtime_api::{
-    DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
-    SubnetRegistrationRuntimeApi,  ChildrenInfoRuntimeApi,
+    ChildrenInfoRuntimeApi, DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
+    SubnetRegistrationRuntimeApi,
 };
 
 #[rpc(client, server)]
@@ -54,7 +54,13 @@ pub trait SubtensorCustomApi<BlockHash> {
     #[method(name = "childrenInfo_getChildrenInfo")]
     fn get_children_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "childrenInfo_getChildInfo")]
-    fn get_child_info(&self, netuid: u16, parent: Vec<u8>, child: Vec<u8>, proportion: u64, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_child_info(
+        &self,
+        netuid: u16,
+        child: Vec<u8>,
+        proportion: u64,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
@@ -229,19 +235,30 @@ where
         })
     }
 
-    fn get_children_info(&self, netuid: u16, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+    fn get_children_info(
+        &self,
+        netuid: u16,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_children_info(at, netuid)
-            .map_err(|e| Error::RuntimeError(format!("Unable to get children info: {:?}", e)).into())
+        api.get_children_info(at, netuid).map_err(|e| {
+            Error::RuntimeError(format!("Unable to get children info: {:?}", e)).into()
+        })
     }
 
-    fn get_child_info(&self, netuid: u16, parent: Vec<u8>, child: Vec<u8>, proportion: u64, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
+    fn get_child_info(
+        &self,
+        netuid: u16,
+        child: Vec<u8>,
+        proportion: u64,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_child_info(at, netuid, parent, child, proportion)
+        api.get_child_info(at, netuid, child, proportion)
             .map_err(|e| Error::RuntimeError(format!("Unable to get child info: {:?}", e)).into())
     }
 }

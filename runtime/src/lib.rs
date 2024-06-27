@@ -1598,15 +1598,12 @@ impl_runtime_apis! {
             result.encode()
         }
 
-        fn get_child_info(netuid: u16, parent: Vec<u8>, child: Vec<u8>, proportion: u64) -> Vec<u8> {
-            let result = SubtensorModule::get_child_info(netuid, parent, child, proportion);
+        fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u64) -> Vec<u8> {
+            let result = SubtensorModule::get_child_info(netuid, child, proportion);
             result.encode()
         }
     }
 }
-
-// #[cfg(test)]
-// mod tests {
 
 #[test]
 fn check_whitelist() {

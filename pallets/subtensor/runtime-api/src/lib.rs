@@ -3,7 +3,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 
 // Here we declare the runtime API. It is implemented it the `impl` block in
-// src/neuron_info.rs, src/subnet_info.rs, and src/delegate_info.rs
+// src/neuron_info.rs, src/subnet_info.rs, src/delegate_info.rs, and src/children_info.rs
 sp_api::decl_runtime_apis! {
     pub trait DelegateInfoRuntimeApi {
         fn get_delegates() -> Vec<u8>;
@@ -35,6 +35,6 @@ sp_api::decl_runtime_apis! {
 
     pub trait ChildrenInfoRuntimeApi {
         fn get_children_info(netuid: u16) -> Vec<u8>;
-        fn get_child_info(netuid: u16, parent: Vec<u8>, child: Vec<u8>, proportion: u64) -> Vec<u8>;
+        fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u64) -> Vec<u8>;
     }
 }
