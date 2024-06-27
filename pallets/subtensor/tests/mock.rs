@@ -326,6 +326,7 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type EpochConfig = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;

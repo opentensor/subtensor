@@ -65,7 +65,7 @@ use pallet_transaction_payment::{CurrencyAdapter, Multiplier};
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-use pallet_subtensor::types::TensorBytes;
+use pallet_subtensor::{types::TensorBytes, EpochConfiguration};
 
 // Subtensor module
 pub use pallet_subtensor;
@@ -780,6 +780,13 @@ impl pallet_commitments::Config for Runtime {
     type RateLimit = CommitmentRateLimit;
 }
 
+pub struct SimpleEpoch;
+impl EpochConfiguration for SimpleEpoch {
+    fn simple_epoch() -> bool {
+        true
+    }
+}
+
 // Configure the pallet subtensor.
 parameter_types! {
     pub const SubtensorInitialRho: u16 = 10;
@@ -835,6 +842,7 @@ impl pallet_subtensor::Config for Runtime {
     type CouncilOrigin = EnsureMajoritySenate;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type EpochConfig = SimpleEpoch;
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;

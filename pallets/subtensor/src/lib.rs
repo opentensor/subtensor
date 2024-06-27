@@ -117,6 +117,9 @@ pub mod pallet {
         /// Interface to allow other pallets to control who can register identities
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
+        /// Flag for using simple epoch function with no miner emissions
+        type EpochConfig: crate::EpochConfiguration;
+
         /// =================================
         /// ==== Initial Value Constants ====
         /// =================================
@@ -2634,5 +2637,17 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
+    }
+}
+
+/// Trait for switching between simple and normal epoch in runtime
+pub trait EpochConfiguration {
+    /// Return true if simple epoch function is to be used
+    fn simple_epoch() -> bool;
+}
+
+impl EpochConfiguration for () {
+    fn simple_epoch() -> bool {
+        false
     }
 }

@@ -123,6 +123,7 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
+    type EpochConfig = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
