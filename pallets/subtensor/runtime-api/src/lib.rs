@@ -13,7 +13,6 @@ sp_api::decl_runtime_apis! {
         fn get_total_stake_for_hotkey( hotkey_bytes: Vec<u8>  ) -> u64;
         fn get_total_stake_for_coldkey( coldkey_bytes: Vec<u8>  ) -> u64;
         fn get_delegates() -> Vec<u8>;
-        fn get_delegates_light() -> Vec<u8>;
         fn get_delegates_by_netuid_light(netuid: u16) -> Vec<u8>;
         fn get_all_delegates_total_stake() -> Vec<u8>;
         fn get_delegate( delegate_account_vec: Vec<u8> ) -> Vec<u8>;

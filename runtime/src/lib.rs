@@ -1558,11 +1558,6 @@ impl_runtime_apis! {
             result.encode()
         }
 
-        fn get_delegates_light() -> Vec<u8> {
-            let result = SubtensorModule::get_delegates_light();
-            result.encode()
-        }
-
         fn get_delegates_by_netuid_light(netuid: u16) -> Vec<u8> {
             let result = SubtensorModule::get_delegates_by_netuid_light(netuid);
             result.encode()

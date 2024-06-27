@@ -27,9 +27,6 @@ pub struct DelegateInfoLight<T: Config> {
     take: u16, // take as number if it is default for all subnets or u16::MAX if it is custom
     owner_stake: Compact<u64>,
     total_stake: Compact<u64>,
-    validator_permits: Vec<Compact<u16>>, // Vec of netuid this delegate has validator permit on
-    return_per_1000: Compact<u64>, // Delegators current daily return per 1000 TAO staked minus take fee
-    total_daily_return: Compact<u64>, // Delegators current daily return
 }
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -259,77 +256,15 @@ impl<T: Config> Pallet<T> {
 
     fn get_delegate_by_existing_account_light_by_netuid(delegate: &AccountIdOf<T>, netuid: u16) -> DelegateInfoLight<T> {
         let owner = Self::get_owning_coldkey_for_hotkey(delegate);
-        let take = if DelegatesTake::<T>::iter_prefix(delegate).next().is_some() { u16::MAX } else { <DefaultDefaultTake<T>>::get()};
+        let take = DelegatesTake::<T>::get(delegate, netuid);
         let owner_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey(&owner, delegate, netuid);
         let total_stake: u64 = Self::get_total_stake_for_hotkey_and_subnet(delegate, netuid);
-        let validator_permits = Vec::<Compact<u16>>::new();
-        let return_per_1000: U64F64 = U64F64::from_num(0);
-        let total_daily_return: U64F64 = U64F64::from_num(0);
         DelegateInfoLight {
             delegate_ss58: delegate.clone(),
             owner_ss58: owner,
             take,
             owner_stake: owner_stake.into(),
             total_stake: total_stake.into(),
-            validator_permits,
-            return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
-            total_daily_return: U64F64::to_num::<u64>(total_daily_return).into()
-        }
-    }
-
-    fn get_delegate_by_existing_account_light(delegate: &AccountIdOf<T>) -> DelegateInfoLight<T> {
-        let mut validator_permits = Vec::<Compact<u16>>::new();
-        let registrations = Self::get_registered_networks_for_hotkey(delegate);
-
-        let mut emissions_per_day: U64F64 = U64F64::from_num(0);
-        for netuid in registrations.iter() {
-            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, delegate);
-            if _uid.is_err() {
-                continue; // this should never happen
-            } else {
-                let uid = _uid.expect("Delegate's UID should be ok");
-                let validator_permit = Self::get_validator_permit_for_uid(*netuid, uid);
-                if validator_permit {
-                    validator_permits.push((*netuid).into());
-                }
-
-                let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
-                let tempo: U64F64 = Self::get_tempo(*netuid).into();
-                let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
-                emissions_per_day += emission * epochs_per_day;
-            }
-        }
-
-        let owner = Self::get_owning_coldkey_for_hotkey(delegate);
-
-        // Create a vector of tuples (netuid, take). If a take is not set in DelegatesTake, use default value
-        let take = if DelegatesTake::<T>::iter_prefix(delegate).next().is_some() {
-            // None
-            u16::MAX
-        } else {
-            // Some(<DefaultDefaultTake<T>>::get())
-            <DefaultDefaultTake<T>>::get()
-        };
-
-        let total_stake: U64F64 = Self::get_hotkey_global_dynamic_tao(delegate).into();
-        let owner_stake = Self::get_nominator_global_dynamic_tao(&owner, delegate);
-
-        let mut return_per_1000: U64F64 = U64F64::from_num(0);
-
-        if total_stake > U64F64::from_num(0) {
-            return_per_1000 = (emissions_per_day * U64F64::from_num(0.82))
-                / (total_stake / U64F64::from_num(1000));
-        }
-
-        DelegateInfoLight {
-            delegate_ss58: delegate.clone(),
-            owner_ss58: owner,
-            take,
-            owner_stake: owner_stake.into(),
-            total_stake: total_stake.to_num::<u64>().into(),
-            validator_permits,
-            return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
-            total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
         }
     }
     
@@ -357,17 +292,6 @@ impl<T: Config> Pallet<T> {
             .flat_map(|netuid| {
                 Uids::<T>::iter_prefix(netuid)
                 .map(|(delegate, _)| Self::get_delegate_by_existing_account(&delegate))
-            }).collect()
-    }
-
-    /// get all delegates' total stake from storage
-    ///
-    pub fn get_delegates_light() -> Vec<DelegateInfoLight<T>> {
-        // Get all hotkeys registered on all subnets
-        Self::get_all_subnet_netuids().iter()
-            .flat_map(|netuid| {
-                Uids::<T>::iter_prefix(netuid)
-                    .map(|(delegate, _)| Self::get_delegate_by_existing_account_light(&delegate))
             }).collect()
     }
 
