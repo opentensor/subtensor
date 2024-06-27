@@ -12,7 +12,7 @@ fn test_get_child_info() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let proportion: u64 = 500_000_000; 
+        let proportion: u64 = 500_000_000;
 
         // Add network and register hotkey and child
         add_network(netuid, 1, 0);
@@ -54,7 +54,7 @@ fn test_get_children_info() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let proportion1: u64 = 300_000_000;
-        let proportion2: u64 = 200_000_000; 
+        let proportion2: u64 = 200_000_000;
 
         // Add network and register hotkey and children
         add_network(netuid, 13, 0);
