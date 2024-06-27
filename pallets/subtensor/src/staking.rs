@@ -903,7 +903,7 @@ impl<T: Config> Pallet<T> {
                 };
                 global_dynamic_tao += my_proportion * other_tao_reserve;
             } else {
-                // Computes the amount of TAO owned in the non dynamic subnet.
+                // Computes the amount of TAO owned in the stable subnet.
                 let other_subnet_token_tao: u64 =
                     Self::get_subnet_stake_for_coldkey_and_hotkey(coldkey, hotkey, *netuid);
                 global_dynamic_tao += I64F64::from_num(other_subnet_token_tao);

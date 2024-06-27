@@ -137,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 222,
+    spec_version: 224,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -800,7 +800,7 @@ parameter_types! {
     pub const SubtensorInitialValidatorPruneLen: u64 = 1;
     pub const SubtensorInitialScalingLawPower: u16 = 50; // 0.5
     pub const SubtensorInitialMaxAllowedValidators: u16 = 128;
-    pub const SubtensorInitialTempo: u16 = 99;
+    pub const SubtensorInitialTempo: u16 = 360;
     pub const SubtensorMinTempo: u16 = 360;
     pub const SubtensorMaxTempo: u16 = 360;
     pub const SubtensorInitialDifficulty: u64 = 10_000_000;
@@ -844,6 +844,7 @@ impl pallet_subtensor::Config for Runtime {
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
     type EpochConfig = SimpleEpoch;
+    // type EpochConfig = ();
 
     type InitialRho = SubtensorInitialRho;
     type InitialKappa = SubtensorInitialKappa;
