@@ -32,4 +32,9 @@ sp_api::decl_runtime_apis! {
     pub trait SubnetRegistrationRuntimeApi {
         fn get_network_registration_cost() -> u64;
     }
+
+    pub trait ChildrenInfoRuntimeApi {
+        fn get_children_info(netuid: u16) -> Vec<u8>;
+        fn get_child_info(netuid: u16, parent: Vec<u8>, child: Vec<u8>, proportion: u64) -> Vec<u8>;
+    }
 }
