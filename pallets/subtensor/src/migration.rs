@@ -613,3 +613,33 @@ pub fn migrate_clear_delegates<T: Config>() -> Weight {
     log::info!("Final weight: {:?}", weight);
     weight
 }
+
+pub fn migrate_fix_subnet_lock_1<T: Config>() -> Weight {
+    let new_storage_version = 11;
+    let migration_name = "fix subnet 1 locked amount";
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: {}.", migration_name);
+
+        // This migration will only succeed if subnet 1 has pending emission of >= 1 TAO,
+        // otherwise it will be postponed until the next runtime upgrade
+        let netuid = 1;
+        let required_lock = Pallet::<T>::get_initial_lock_on_transition();
+        if PendingEmission::<T>::get(netuid) >= required_lock {
+            PendingEmission::<T>::mutate(netuid, |emission| *emission = emission.saturating_sub(required_lock));
+            SubnetLocked::<T>::mutate(netuid, |lock| *lock = lock.saturating_add(required_lock));
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+        } else {
+            log::info!("Migration cannot be completed at this time (no pending emission): {}", migration_name);
+        }
+    } else {
+        log::info!("Migration already done: {}", migration_name);
+    }
+
+    log::info!("Final weight: {:?}", weight);
+    weight
+}

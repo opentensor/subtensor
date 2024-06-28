@@ -1411,7 +1411,9 @@ pub mod pallet {
                 // Storage version v8 -> v9
                 .saturating_add(migration::migrate_populate_subnet_creator::<T>())
                 // Storage version v9 -> v10
-                .saturating_add(migration::migrate_clear_delegates::<T>());
+                .saturating_add(migration::migrate_clear_delegates::<T>())
+                // Storage version v9 -> v11
+                .saturating_add(migration::migrate_fix_subnet_lock_1::<T>());
 
             log::info!(
                 "Runtime upgrade migration in subtensor pallet, total weight = ({})",
