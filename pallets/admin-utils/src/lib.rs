@@ -26,7 +26,7 @@ pub mod pallet {
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_subtensor::Config {
         /// Because this pallet emits events, it depends on the runtime's definition of an event.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -994,6 +994,18 @@ pub mod pallet {
 
             T::Subtensor::set_commit_reveal_weights_enabled(netuid, enabled);
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
+            Ok(())
+        }
+
+        /// Sets the [`pallet_subtensor::TotalSubnetLocked`] value.
+        #[pallet::call_index(50)]
+        #[pallet::weight(T::WeightInfo::sudo_set_commit_reveal_weights_enabled())]
+        pub fn sudo_set_total_subnet_locked(origin: OriginFor<T>, amount: u64) -> DispatchResult {
+            ensure_root(origin)?;
+
+            pallet_subtensor::TotalSubnetLocked::<T>::put(amount);
+
+            log::info!("Set pallet_subtensor::TotalSubnetLocked to {}", amount);
             Ok(())
         }
     }
