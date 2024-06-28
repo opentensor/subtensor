@@ -9,13 +9,24 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(netuid)
     }
 
+    fn clear_element_at<N>(position: u16) -> impl Fn(&mut Vec<N>)
+    where
+        N: From<u8>,
+    {
+        move |vec: &mut Vec<N>| {
+            if vec.len() > position as usize {
+                vec[position as usize] = N::from(0);
+            };
+        }
+    }
+
     /// Resets the trust, emission, consensus, incentive, dividends of the neuron to default
     pub fn clear_neuron(netuid: u16, neuron_uid: u16) {
-        Emission::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
-        Trust::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
-        Consensus::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
-        Incentive::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
-        Dividends::<T>::mutate(netuid, |v| v[neuron_uid as usize] = 0);
+        Emission::<T>::mutate(netuid, Self::clear_element_at(neuron_uid));
+        Trust::<T>::mutate(netuid, Self::clear_element_at(neuron_uid));
+        Consensus::<T>::mutate(netuid, Self::clear_element_at(neuron_uid));
+        Incentive::<T>::mutate(netuid, Self::clear_element_at(neuron_uid));
+        Dividends::<T>::mutate(netuid, Self::clear_element_at(neuron_uid));
     }
 
     /// Replace the neuron under this uid.
