@@ -58,6 +58,15 @@ impl<T: Config> Pallet<T> {
     /// Fake epoch output with zero mining rewards.
     pub fn fake_epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         let hotkeys: Vec<(u16, T::AccountId)> = Keys::<T>::iter_prefix(netuid).collect();
+
+        // Set stake weights
+        let stake = Self::get_stakes(netuid, &hotkeys);
+        let cloned_stake: Vec<u16> = stake
+            .iter()
+            .map(|si| fixed_proportion_to_u16(*si))
+            .collect::<Vec<u16>>();
+        StakeWeight::<T>::insert(netuid, cloned_stake);
+
         let stake: Vec<I32F32> = Self::get_stakes(netuid, &hotkeys);
         let emission: Vec<I96F32> = stake.iter().map(|e: &I32F32| I96F32::from_num(*e) * I96F32::from_num(rao_emission) ).collect();
         let validator_emission: Vec<u64> = emission.iter().map(|e: &I96F32| e.to_num::<u64>() ).collect();
