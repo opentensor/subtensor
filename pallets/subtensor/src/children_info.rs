@@ -85,14 +85,14 @@ impl<T: Config> Pallet<T> {
         // Calculate emissions per day
         let emission: U64F64 = Self::get_emission_for_uid(netuid, uid).into();
         let tempo: U64F64 = Self::get_tempo(netuid).into();
-        let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
+        let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
         let emissions_per_day: u64 = U64F64::to_num::<u64>(emission * epochs_per_day);
 
         // Calculate return per 1000 TAO staked
         let return_per_1000: u64 = if total_stake > 0 {
             let total_stake_f64: U64F64 = total_stake.into();
             U64F64::to_num::<u64>(
-                (U64F64::from_num(emissions_per_day) * U64F64::from_num(1000)) / total_stake_f64,
+                (U64F64::from_num(emissions_per_day).saturating_mul(U64F64::from_num(1000))).saturating_div(total_stake_f64),
             )
         } else {
             0
