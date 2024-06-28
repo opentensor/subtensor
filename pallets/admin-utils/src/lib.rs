@@ -996,6 +996,45 @@ pub mod pallet {
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
+
+        /// Enables or disables Liquid Alpha for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Liquid Alpha.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(50)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_liquid_alpha_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            enabled: bool,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+            T::Subtensor::set_liquid_alpha_enabled(netuid, enabled);
+            log::info!(
+                "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                netuid,
+                enabled
+            );
+            Ok(())
+        }
+
+        /// Sets values for liquid alpha
+        #[pallet::call_index(51)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_values(
+            origin: OriginFor<T>,
+            netuid: u16,
+            alpha_low: u16,
+            alpha_high: u16,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+        }
     }
 }
 
@@ -1091,4 +1130,11 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool);
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError>;
 }

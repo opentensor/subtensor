@@ -18,8 +18,7 @@ workflows:
         # Ignore the case that `A` it outside of the workspace. Otherwise it will report errors in external dependencies that we have no influence on.
         "--left-side-outside-workspace=ignore",
         # Some features imply that they activate a specific dependency as non-optional. Otherwise the default behaviour with a `?` is used.
-        "--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking",
-        # Auxillary flags:
+        "--feature-enables-dep=try-runtime:frame-try-runtime,runtime-benchmarks:frame-benchmarking",        # Auxillary flags:
         "--offline",
         "--locked",
         "--show-path",
