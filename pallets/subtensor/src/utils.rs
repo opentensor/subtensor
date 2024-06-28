@@ -329,6 +329,13 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn set_subnet_locked_balance(netuid: u16, amount: u64) {
+        let prev_total = TotalSubnetLocked::<T>::get();
+        let prev = SubnetLocked::<T>::get(netuid);
+
+        // Deduct the prev amount and add the new amount to the total
+        TotalSubnetLocked::<T>::put(prev_total.saturating_sub(prev).saturating_add(amount));
+
+        // Finally, set the new amount
         SubnetLocked::<T>::insert(netuid, amount);
     }
 

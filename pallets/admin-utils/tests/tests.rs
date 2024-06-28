@@ -1220,6 +1220,22 @@ fn test_set_alpha_values_dispatch_info_ok() {
 }
 
 #[test]
+fn test_set_total_subnet_locked_ok() {
+    new_test_ext().execute_with(|| {
+        // Setup
+        let before = pallet_subtensor::TotalSubnetLocked::<Test>::get();
+        let new = 1000u64;
+        assert_ne!(before, new);
+        assert_ok!(AdminUtils::sudo_set_total_subnet_locked(
+            RuntimeOrigin::root(),
+            new
+        ));
+        let after = pallet_subtensor::TotalSubnetLocked::<Test>::get();
+        assert_eq!(after, new);
+    });
+}
+
+#[test]
 fn test_sudo_get_set_alpha() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -1359,5 +1375,20 @@ fn test_sudo_get_set_alpha() {
             alpha_low,
             alpha_high
         ));
+    });
+}
+
+#[test]
+fn test_set_total_subnet_locked_not_sudo() {
+    new_test_ext().execute_with(|| {
+        // Setup
+        let before = pallet_subtensor::TotalSubnetLocked::<Test>::get();
+        let new = 1000u64;
+        let who = U256::from(1);
+        assert_ne!(before, new);
+        assert_err!(
+            AdminUtils::sudo_set_total_subnet_locked(RuntimeOrigin::signed(who), new),
+            DispatchError::BadOrigin
+        );
     });
 }

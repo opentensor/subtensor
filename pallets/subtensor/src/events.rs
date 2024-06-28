@@ -139,5 +139,20 @@ mod events {
             /// the account ID of the new senate member
             new_member: T::AccountId,
         },
+        /// Total issuance was rejigged
+        TotalIssuanceRejigged {
+            /// If Some a signed account, or root
+            who: Option<T::AccountId>,
+            /// The previous pallet total issuance
+            prev_total_issuance: u64,
+            /// The new pallet total issuance
+            new_total_issuance: u64,
+            /// The total amount of tokens staked
+            total_stake: u64,
+            /// The total amount of tokens in accounts
+            total_account_balances: u64,
+            /// The total amount of tokens locked in subnets
+            total_subnet_locked: u64,
+        },
     }
 }
