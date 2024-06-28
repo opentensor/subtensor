@@ -151,7 +151,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 ///
 /// Change this to adjust the block time.
 #[cfg(not(feature = "fast-blocks"))]
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+pub const MILLISECS_PER_BLOCK: u64 = 1000;
 
 #[cfg(not(feature = "fast-blocks"))]
 // pub const SUBNET_CREATOR_LOCK: u64 = 7 * 7200 * 3; // 3 months
