@@ -7,6 +7,7 @@ mod benchmarking;
 pub mod migration;
 pub mod types;
 pub mod weights;
+pub mod utils;
 
 pub use pallet::*;
 pub use types::*;
