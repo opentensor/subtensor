@@ -1116,7 +1116,7 @@ pub fn sparse_threshold(w: &[Vec<(u16, I32F32)>], threshold: I32F32) -> Vec<Vec<
 #[cfg(test)]
 #[allow(clippy::indexing_slicing)]
 mod tests {
-    use crate::math::*;
+    use crate::epoch::math::*;
     use rand::{seq::SliceRandom, thread_rng, Rng};
     use substrate_fixed::types::{I110F18, I96F32};
 

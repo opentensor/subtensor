@@ -1,5 +1,5 @@
 use super::*;
-use crate::math::*;
+use crate::epoch::math::*;
 use frame_support::IterableStorageDoubleMap;
 use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};

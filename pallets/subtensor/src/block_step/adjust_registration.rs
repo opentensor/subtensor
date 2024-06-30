@@ -3,17 +3,6 @@ use frame_support::storage::IterableStorageMap;
 use substrate_fixed::types::I110F18;
 
 impl<T: Config> Pallet<T> {
-    /// Executes the necessary operations for each block.
-    pub fn block_step() -> Result<(), &'static str> {
-        let block_number: u64 = Self::get_current_block_as_u64();
-        log::debug!("block_step for block: {:?} ", block_number);
-        // --- 1. Adjust difficulties.
-        Self::adjust_registration_terms_for_networks();
-        // --- 2. Run emission through network.
-        Self::run_coinbase();
-        // Return ok.
-        Ok(())
-    }
 
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
     ///

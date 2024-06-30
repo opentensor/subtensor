@@ -1,0 +1,166 @@
+use frame_support::pallet_macros::pallet_section;
+
+/// A [`pallet_section`] that defines the errors for a pallet.
+/// This can later be imported into the pallet using [`import_section`].
+#[pallet_section]
+mod config {
+
+     /// Configure the pallet by specifying the parameters and types on which it depends.
+     #[pallet::config]
+     pub trait Config: frame_system::Config {
+         /// Because this pallet emits events, it depends on the runtime's definition of an event.
+         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+ 
+         /// A sudo-able call.
+         type SudoRuntimeCall: Parameter
+             + UnfilteredDispatchable<RuntimeOrigin = Self::RuntimeOrigin>
+             + GetDispatchInfo;
+ 
+         /// Origin checking for council majority
+         type CouncilOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+ 
+         ///  Currency type that will be used to place deposits on neurons
+         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
+             + fungible::Mutate<Self::AccountId>;
+ 
+         /// Senate members with members management functions.
+         type SenateMembers: crate::MemberManagement<Self::AccountId>;
+ 
+         /// Interface to allow other pallets to control who can register identities
+         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+ 
+         /// =================================
+         /// ==== Initial Value Constants ====
+         /// =================================
+ 
+         /// Initial currency issuance.
+         #[pallet::constant]
+         type InitialIssuance: Get<u64>;
+         /// Initial min allowed weights setting.
+         #[pallet::constant]
+         type InitialMinAllowedWeights: Get<u16>;
+         /// Initial Emission Ratio.
+         #[pallet::constant]
+         type InitialEmissionValue: Get<u16>;
+         /// Initial max weight limit.
+         #[pallet::constant]
+         type InitialMaxWeightsLimit: Get<u16>;
+         /// Tempo for each network.
+         #[pallet::constant]
+         type InitialTempo: Get<u16>;
+         /// Initial Difficulty.
+         #[pallet::constant]
+         type InitialDifficulty: Get<u64>;
+         /// Initial Max Difficulty.
+         #[pallet::constant]
+         type InitialMaxDifficulty: Get<u64>;
+         /// Initial Min Difficulty.
+         #[pallet::constant]
+         type InitialMinDifficulty: Get<u64>;
+         /// Initial RAO Recycled.
+         #[pallet::constant]
+         type InitialRAORecycledForRegistration: Get<u64>;
+         /// Initial Burn.
+         #[pallet::constant]
+         type InitialBurn: Get<u64>;
+         /// Initial Max Burn.
+         #[pallet::constant]
+         type InitialMaxBurn: Get<u64>;
+         /// Initial Min Burn.
+         #[pallet::constant]
+         type InitialMinBurn: Get<u64>;
+         /// Initial adjustment interval.
+         #[pallet::constant]
+         type InitialAdjustmentInterval: Get<u16>;
+         /// Initial bonds moving average.
+         #[pallet::constant]
+         type InitialBondsMovingAverage: Get<u64>;
+         /// Initial target registrations per interval.
+         #[pallet::constant]
+         type InitialTargetRegistrationsPerInterval: Get<u16>;
+         /// Rho constant.
+         #[pallet::constant]
+         type InitialRho: Get<u16>;
+         /// Kappa constant.
+         #[pallet::constant]
+         type InitialKappa: Get<u16>;
+         /// Max UID constant.
+         #[pallet::constant]
+         type InitialMaxAllowedUids: Get<u16>;
+         /// Initial validator context pruning length.
+         #[pallet::constant]
+         type InitialValidatorPruneLen: Get<u64>;
+         /// Initial scaling law power.
+         #[pallet::constant]
+         type InitialScalingLawPower: Get<u16>;
+         /// Immunity Period Constant.
+         #[pallet::constant]
+         type InitialImmunityPeriod: Get<u16>;
+         /// Activity constant.
+         #[pallet::constant]
+         type InitialActivityCutoff: Get<u16>;
+         /// Initial max registrations per block.
+         #[pallet::constant]
+         type InitialMaxRegistrationsPerBlock: Get<u16>;
+         /// Initial pruning score for each neuron.
+         #[pallet::constant]
+         type InitialPruningScore: Get<u16>;
+         /// Initial maximum allowed validators per network.
+         #[pallet::constant]
+         type InitialMaxAllowedValidators: Get<u16>;
+         /// Initial default delegation take.
+         #[pallet::constant]
+         type InitialDefaultTake: Get<u16>;
+         /// Initial minimum delegation take.
+         #[pallet::constant]
+         type InitialMinTake: Get<u16>;
+         /// Initial weights version key.
+         #[pallet::constant]
+         type InitialWeightsVersionKey: Get<u64>;
+         /// Initial serving rate limit.
+         #[pallet::constant]
+         type InitialServingRateLimit: Get<u64>;
+         /// Initial transaction rate limit.
+         #[pallet::constant]
+         type InitialTxRateLimit: Get<u64>;
+         /// Initial delegate take transaction rate limit.
+         #[pallet::constant]
+         type InitialTxDelegateTakeRateLimit: Get<u64>;
+         /// Initial percentage of total stake required to join senate.
+         #[pallet::constant]
+         type InitialSenateRequiredStakePercentage: Get<u64>;
+         /// Initial adjustment alpha on burn and pow.
+         #[pallet::constant]
+         type InitialAdjustmentAlpha: Get<u64>;
+         /// Initial network immunity period
+         #[pallet::constant]
+         type InitialNetworkImmunityPeriod: Get<u64>;
+         /// Initial minimum allowed network UIDs
+         #[pallet::constant]
+         type InitialNetworkMinAllowedUids: Get<u16>;
+         /// Initial network minimum burn cost
+         #[pallet::constant]
+         type InitialNetworkMinLockCost: Get<u64>;
+         /// Initial network subnet cut.
+         #[pallet::constant]
+         type InitialSubnetOwnerCut: Get<u16>;
+         /// Initial lock reduction interval.
+         #[pallet::constant]
+         type InitialNetworkLockReductionInterval: Get<u64>;
+         /// Initial max allowed subnets
+         #[pallet::constant]
+         type InitialSubnetLimit: Get<u16>;
+         /// Initial network creation rate limit
+         #[pallet::constant]
+         type InitialNetworkRateLimit: Get<u64>;
+         /// Initial target stakes per interval issuance.
+         #[pallet::constant]
+         type InitialTargetStakesPerInterval: Get<u64>;
+         /// Default hotkey emission drain interval.
+         #[pallet::constant]
+         type InitialHotkeyEmissionTempo: Get<u64>;
+         /// Default network max stake.
+         #[pallet::constant]
+         type InitialNetworkMaxStake: Get<u64>;
+     }
+} 

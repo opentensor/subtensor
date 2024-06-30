@@ -13,7 +13,7 @@ use sp_runtime::{
 use frame_system::pallet_prelude::*;
 use frame_system::Config;
 use pallet_collective::Event as CollectiveEvent;
-use pallet_subtensor::migration;
+use pallet_subtensor::migrations;
 use pallet_subtensor::Error;
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -55,7 +55,7 @@ fn record(event: RuntimeEvent) -> EventRecord<RuntimeEvent, H256> {
 #[test]
 fn test_senate_join_works() {
     new_test_ext().execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -123,7 +123,7 @@ fn test_senate_join_works() {
 #[test]
 fn test_senate_vote_works() {
     new_test_ext().execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -231,7 +231,7 @@ fn test_senate_vote_works() {
 #[test]
 fn test_senate_vote_not_member() {
     new_test_ext().execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -292,7 +292,7 @@ fn test_senate_vote_not_member() {
 #[test]
 fn test_senate_leave_works() {
     new_test_ext().execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -360,7 +360,7 @@ fn test_senate_leave_works() {
 #[test]
 fn test_senate_leave_vote_removal() {
     new_test_ext().execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let netuid: u16 = 1;
         let tempo: u16 = 13;
@@ -496,7 +496,7 @@ fn test_senate_leave_vote_removal() {
 #[test]
 fn test_senate_not_leave_when_stake_removed() {
     new_test_ext().execute_with(|| {
-        migration::migrate_create_root_network::<Test>();
+        pallet_subtensor::migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
         let netuid: u16 = 1;
         let tempo: u16 = 13;

@@ -1,0 +1,983 @@
+use frame_support::pallet_macros::pallet_section;
+
+/// A [`pallet_section`] that defines the errors for a pallet.
+/// This can later be imported into the pallet using [`import_section`].
+#[pallet_section]
+mod dispatches {
+    /// Dispatchable functions allow users to interact with the pallet and invoke state changes.
+    /// These functions materialize as "extrinsics", which are often compared to transactions.
+    /// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        /// --- Sets the caller weights for the incentive mechanism. The call can be
+        /// made from the hotkey account so is potentially insecure, however, the damage
+        /// of changing weights is minimal if caught early. This function includes all the
+        /// checks that the passed weights meet the requirements. Stored as u16s they represent
+        /// rational values in the range [0,1] which sum to 1 and can be interpreted as
+        /// probabilities. The specific weights determine how inflation propagates outward
+        /// from this peer.
+        ///
+        /// Note: The 16 bit integers weights should represent 1.0 as the max u16.
+        /// However, the function normalizes all integers to u16_max anyway. This means that if the sum of all
+        /// elements is larger or smaller than the amount of elements * u16_max, all elements
+        /// will be corrected for this deviation.
+        ///
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        ///     - The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'DuplicateUids':
+        /// 	- Attempting to set weights with duplicate uids.
+        ///
+        ///     * 'UidsLengthExceedUidsInSubNet':
+        /// 	- Attempting to set weights above the max allowed uids.
+        ///
+        /// * 'UidVecContainInvalidOne':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'WeightVecLengthIsLow':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
+        #[pallet::call_index(0)]
+        #[pallet::weight((Weight::from_parts(22_060_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(4106))
+        .saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_weights(
+            origin: OriginFor<T>,
+            netuid: u16,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            if !Self::get_commit_reveal_weights_enabled(netuid) {
+                return Self::do_set_weights(origin, netuid, dests, weights, version_key);
+            }
+
+            Err(Error::<T>::CommitRevealEnabled.into())
+        }
+
+        /// ---- Used to commit a hash of your weight values to later be revealed.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the committing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `commit_hash` (`H256`):
+        ///   - The hash representing the committed weights.
+        ///
+        /// # Raises:
+        /// * `WeightsCommitNotAllowed`:
+        ///   - Attempting to commit when it is not allowed.
+        ///
+        #[pallet::call_index(96)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(1))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn commit_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            commit_hash: H256,
+        ) -> DispatchResult {
+            Self::do_commit_weights(origin, netuid, commit_hash)
+        }
+
+        /// ---- Used to reveal the weights for a previously committed hash.
+        ///
+        /// # Args:
+        /// * `origin`: (`<T as frame_system::Config>::RuntimeOrigin`):
+        ///   - The signature of the revealing hotkey.
+        ///
+        /// * `netuid` (`u16`):
+        ///   - The u16 network identifier.
+        ///
+        /// * `uids` (`Vec<u16>`):
+        ///   - The uids for the weights being revealed.
+        ///
+        /// * `values` (`Vec<u16>`):
+        ///   - The values of the weights being revealed.
+        ///
+        /// * `salt` (`Vec<u8>`):
+        ///   - The random salt to protect from brute-force guessing attack in case of small weight changes bit-wise.
+        ///
+        /// * `version_key` (`u64`):
+        ///   - The network version key.
+        ///
+        /// # Raises:
+        /// * `NoWeightsCommitFound`:
+        ///   - Attempting to reveal weights without an existing commit.
+        ///
+        /// * `InvalidRevealCommitHashNotMatchTempo`:
+        ///   - Attempting to reveal weights outside the valid tempo.
+        ///
+        /// * `InvalidRevealCommitHashNotMatch`:
+        ///   - The revealed hash does not match the committed hash.
+        ///
+        #[pallet::call_index(97)]
+        #[pallet::weight((Weight::from_parts(103_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(11))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn reveal_weights(
+            origin: T::RuntimeOrigin,
+            netuid: u16,
+            uids: Vec<u16>,
+            values: Vec<u16>,
+            salt: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
+        }
+
+        /// # Args:
+        /// * `origin`: (<T as frame_system::Config>Origin):
+        /// 	- The caller, a hotkey who wishes to set their weights.
+        ///
+        /// * `netuid` (u16):
+        /// 	- The network uid we are setting these weights on.
+        ///
+        /// * `hotkey` (T::AccountId):
+        /// 	- The hotkey associated with the operation and the calling coldkey.
+        ///
+        /// * `dests` (Vec<u16>):
+        /// 	- The edge endpoint for the weight, i.e. j for w_ij.
+        ///
+        /// * 'weights' (Vec<u16>):
+        /// 	- The u16 integer encoded weights. Interpreted as rational
+        /// 		values in the range [0,1]. They must sum to in32::MAX.
+        ///
+        /// * 'version_key' ( u64 ):
+        /// 	- The network version key to check if the validator is up to date.
+        ///
+        /// # Event:
+        ///
+        /// * WeightsSet;
+        /// 	- On successfully setting the weights on chain.
+        ///
+        /// # Raises:
+        ///
+        /// * NonAssociatedColdKey;
+        /// 	- Attempting to set weights on a non-associated cold key.
+        ///
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRootSubnet':
+        /// 	- Attempting to set weights on a subnet that is not the root network.
+        ///
+        /// * 'WeightVecNotEqualSize':
+        /// 	- Attempting to set weights with uids not of same length.
+        ///
+        /// * 'UidVecContainInvalidOne':
+        /// 	- Attempting to set weights with invalid uids.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'WeightVecLengthIsLow':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        ///  * 'IncorrectWeightVersionKey':
+        ///      - Attempting to set weights with the incorrect network version key.
+        ///
+        ///  * 'SettingWeightsTooFast':
+        ///      - Attempting to set weights too fast.
+        ///
+        /// * 'WeightVecLengthIsLow':
+        /// 	- Attempting to set weights with fewer weights than min.
+        ///
+        /// * 'MaxWeightExceeded':
+        /// 	- Attempting to set weights with max value exceeding limit.
+        ///
+        #[pallet::call_index(8)]
+        #[pallet::weight((Weight::from_parts(10_151_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4104))
+		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
+        pub fn set_root_weights(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+            dests: Vec<u16>,
+            weights: Vec<u16>,
+            version_key: u64,
+        ) -> DispatchResult {
+            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+        }
+
+        /// --- Sets the key as a delegate.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'take' (u64):
+        /// 	- The stake proportion that this hotkey takes from delegations.
+        ///
+        /// # Event:
+        /// * DelegateAdded;
+        /// 	- On successfully setting a hotkey as a delegate.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- The hotkey we are delegating is not owned by the calling coldket.
+        ///
+        #[pallet::call_index(1)]
+        #[pallet::weight((Weight::from_parts(79_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
+        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
+        }
+
+        /// --- Allows delegates to decrease its take value.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>::Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'netuid' (u16):
+        /// 	- Subnet ID to decrease take for
+        ///
+        /// * 'take' (u16):
+        /// 	- The new stake proportion that this hotkey takes from delegations.
+        ///        The new value can be between 0 and 11_796 and should be strictly
+        ///        lower than the previous value. It T is the new value (rational number),
+        ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///        [0.01 * 65535] = [655.35] = 655
+        ///
+        /// # Event:
+        /// * TakeDecreased;
+        /// 	- On successfully setting a decreased take for this hotkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        ///
+        /// * 'DelegateTakeTooLow':
+        /// 	- The delegate is setting a take which is not lower than the previous.
+        ///
+        #[pallet::call_index(65)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn decrease_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
+            Self::do_decrease_take(origin, hotkey, take)
+        }
+
+        /// --- Allows delegates to increase its take value. This call is rate-limited.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>::Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'take' (u16):
+        /// 	- The new stake proportion that this hotkey takes from delegations.
+        ///        The new value can be between 0 and 11_796 and should be strictly
+        ///        greater than the previous value. T is the new value (rational number),
+        ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///        [0.01 * 65535] = [655.35] = 655
+        ///
+        /// # Event:
+        /// * TakeIncreased;
+        /// 	- On successfully setting a increased take for this hotkey.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- The hotkey we are delegating is not registered on the network.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        ///
+        /// * 'DelegateTakeTooHigh':
+        /// 	- The delegate is setting a take which is not greater than the previous.
+        ///
+        #[pallet::call_index(66)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn increase_take(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            take: u16,
+        ) -> DispatchResult {
+            Self::do_increase_take(origin, hotkey, take)
+        }
+
+        /// --- Adds stake to a hotkey. The call is made from the
+        /// coldkey account linked in the hotkey.
+        /// Only the associated coldkey is allowed to make staking and
+        /// unstaking requests. This protects the neuron against
+        /// attacks on its hotkey running in production code.
+        ///
+        /// # Args:
+        ///  * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        ///  * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        ///  * 'amount_staked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        ///  * StakeAdded;
+        /// 	- On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        ///  * 'NotEnoughBalanceToStake':
+        /// 	- Not enough balance on the coldkey to add onto the global account.
+        ///
+        ///  * 'NonAssociatedColdKey':
+        /// 	- The calling coldkey is not associated with this hotkey.
+        ///
+        ///  * 'BalanceWithdrawalError':
+        ///  	- Errors stemming from transaction pallet.
+        ///
+        #[pallet::call_index(2)]
+        #[pallet::weight((Weight::from_parts(124_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(10))
+		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
+        pub fn add_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            Self::do_add_stake(origin, hotkey, amount_staked)
+        }
+
+        /// Remove stake from the staking account. The call must be made
+        /// from the coldkey account attached to the neuron metadata. Only this key
+        /// has permission to make staking and unstaking requests.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        /// 	- The associated hotkey account.
+        ///
+        /// * 'amount_unstaked' (u64):
+        /// 	- The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        /// 	- On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        /// 	- Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * 'NonAssociatedColdKey':
+        /// 	- Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * 'NotEnoughStakeToWithdraw':
+        /// 	- Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        ///
+        #[pallet::call_index(3)]
+        #[pallet::weight((Weight::from_parts(111_000_000, 0)
+		.saturating_add(Weight::from_parts(0, 43991))
+		.saturating_add(T::DbWeight::get().reads(10))
+		.saturating_add(T::DbWeight::get().writes(7)), DispatchClass::Normal, Pays::No))]
+        pub fn remove_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            amount_unstaked: u64,
+        ) -> DispatchResult {
+            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+        }
+
+        /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
+        /// already registered the metadata is updated. If the caller is not registered this call throws NotRegistered.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the caller.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u64):
+        /// 	- The bittensor version identifier.
+        ///
+        /// * 'ip' (u64):
+        /// 	- The endpoint ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The endpoint port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The endpoint ip version as a u8, 4 or 6.
+        ///
+        /// * 'protocol' (u8):
+        /// 	- UDP:1 or TCP:0
+        ///
+        /// * 'placeholder1' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// * 'placeholder2' (u8):
+        /// 	- Placeholder for further extra params.
+        ///
+        /// # Event:
+        /// * AxonServed;
+        /// 	- On successfully serving the axon info.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to set weights on a non-existent network.
+        ///
+        /// * 'NotRegistered':
+        /// 	- Attempting to set weights from a non registered account.
+        ///
+        /// * 'InvalidIpType':
+        /// 	- The ip type is not 4 or 6.
+        ///
+        /// * 'InvalidIpAddress':
+        /// 	- The numerically encoded ip address does not resolve to a proper ip.
+        ///
+        /// * 'ServingRateLimitExceeded':
+        /// 	- Attempting to set prometheus information withing the rate limit min.
+        ///
+        #[pallet::call_index(4)]
+        #[pallet::weight((Weight::from_parts(46_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn serve_axon(
+            origin: OriginFor<T>,
+            netuid: u16,
+            version: u32,
+            ip: u128,
+            port: u16,
+            ip_type: u8,
+            protocol: u8,
+            placeholder1: u8,
+            placeholder2: u8,
+        ) -> DispatchResult {
+            Self::do_serve_axon(
+                origin,
+                netuid,
+                version,
+                ip,
+                port,
+                ip_type,
+                protocol,
+                placeholder1,
+                placeholder2,
+            )
+        }
+
+        /// ---- Set prometheus information for the neuron.
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the calling hotkey.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'version' (u16):
+        /// 	-  The bittensor version identifier.
+        ///
+        /// * 'ip' (u128):
+        /// 	- The prometheus ip information as a u128 encoded integer.
+        ///
+        /// * 'port' (u16):
+        /// 	- The prometheus port information as a u16 encoded integer.
+        ///
+        /// * 'ip_type' (u8):
+        /// 	- The ip type v4 or v6.
+        ///
+        #[pallet::call_index(5)]
+        #[pallet::weight((Weight::from_parts(45_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(4))
+		.saturating_add(T::DbWeight::get().writes(1)), DispatchClass::Normal, Pays::No))]
+        pub fn serve_prometheus(
+            origin: OriginFor<T>,
+            netuid: u16,
+            version: u32,
+            ip: u128,
+            port: u16,
+            ip_type: u8,
+        ) -> DispatchResult {
+            Self::do_serve_prometheus(origin, netuid, version, ip, port, ip_type)
+        }
+
+        /// ---- Registers a new neuron to the subnetwork.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        /// 	- The signature of the calling hotkey.
+        ///
+        /// * 'netuid' (u16):
+        /// 	- The u16 network identifier.
+        ///
+        /// * 'block_number' ( u64 ):
+        /// 	- Block hash used to prove work done.
+        ///
+        /// * 'nonce' ( u64 ):
+        /// 	- Positive integer nonce used in POW.
+        ///
+        /// * 'work' ( Vec<u8> ):
+        /// 	- Vector encoded bytes representing work done.
+        ///
+        /// * 'hotkey' ( T::AccountId ):
+        /// 	- Hotkey to be registered to the network.
+        ///
+        /// * 'coldkey' ( T::AccountId ):
+        /// 	- Associated coldkey account.
+        ///
+        /// # Event:
+        /// * NeuronRegistered;
+        /// 	- On successfully registering a uid to a neuron slot on a subnetwork.
+        ///
+        /// # Raises:
+        /// * 'SubNetworkDoesNotExist':
+        /// 	- Attempting to register to a non existent network.
+        ///
+        /// * 'TooManyRegistrationsThisBlock':
+        /// 	- This registration exceeds the total allowed on this network this block.
+        ///
+        /// * 'HotKeyAlreadyRegisteredInSubNet':
+        /// 	- The hotkey is already registered on this network.
+        ///
+        /// * 'InvalidWorkBlock':
+        /// 	- The work has been performed on a stale, future, or non existent block.
+        ///
+        /// * 'InvalidDifficulty':
+        /// 	- The work does not match the difficulty.
+        ///
+        /// * 'InvalidSeal':
+        /// 	- The seal is incorrect.
+        ///
+        #[pallet::call_index(6)]
+        #[pallet::weight((Weight::from_parts(192_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(24))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        pub fn register(
+            origin: OriginFor<T>,
+            netuid: u16,
+            block_number: u64,
+            nonce: u64,
+            work: Vec<u8>,
+            hotkey: T::AccountId,
+            coldkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_registration(origin, netuid, block_number, nonce, work, hotkey, coldkey)
+        }
+
+        /// Register the hotkey to root network
+        #[pallet::call_index(62)]
+        #[pallet::weight((Weight::from_parts(164_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(23))
+		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
+        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_root_register(origin, hotkey)
+        }
+
+        /// User register a new subnetwork via burning token
+        #[pallet::call_index(7)]
+        #[pallet::weight((Weight::from_parts(177_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(26))
+		.saturating_add(T::DbWeight::get().writes(24)), DispatchClass::Normal, Pays::No))]
+        pub fn burned_register(
+            origin: OriginFor<T>,
+            netuid: u16,
+            hotkey: T::AccountId,
+        ) -> DispatchResult {
+            Self::do_burned_registration(origin, netuid, hotkey)
+        }
+
+        /// The extrinsic for user to change its hotkey
+        #[pallet::call_index(70)]
+        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(272))
+		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        pub fn swap_hotkey(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_hotkey: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        }
+
+        // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
+
+        // ==================================
+        // ==== Parameter Sudo calls ========
+        // ==================================
+        // Each function sets the corresponding hyper paramter on the specified network
+        // Args:
+        // 	* 'origin': (<T as frame_system::Config>Origin):
+        // 		- The caller, must be sudo.
+        //
+        // 	* `netuid` (u16):
+        // 		- The network identifier.
+        //
+        // 	* `hyperparameter value` (u16):
+        // 		- The value of the hyper parameter.
+        //
+
+        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+        ///
+        /// The dispatch origin for this call must be a council majority.
+        ///
+        /// ## Complexity
+        /// - O(1).
+        #[pallet::call_index(51)]
+        #[pallet::weight((Weight::from_parts(0, 0), DispatchClass::Operational, Pays::No))]
+        pub fn sudo(
+            origin: OriginFor<T>,
+            call: Box<T::SudoRuntimeCall>,
+        ) -> DispatchResultWithPostInfo {
+            // This is a public call, so we ensure that the origin is a council majority.
+            T::CouncilOrigin::ensure_origin(origin)?;
+
+            let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+            let error = result.map(|_| ()).map_err(|e| e.error);
+            Self::deposit_event(Event::Sudid(error));
+
+            return result;
+        }
+
+        /// Authenticates a council proposal and dispatches a function call with `Root` origin.
+        /// This function does not check the weight of the call, and instead allows the
+        /// user to specify the weight of the call.
+        ///
+        /// The dispatch origin for this call must be a council majority.
+        ///
+        /// ## Complexity
+        /// - O(1).
+        #[allow(deprecated)]
+        #[pallet::call_index(52)]
+        #[pallet::weight((*weight, call.get_dispatch_info().class, Pays::No))]
+        pub fn sudo_unchecked_weight(
+            origin: OriginFor<T>,
+            call: Box<T::SudoRuntimeCall>,
+            weight: Weight,
+        ) -> DispatchResultWithPostInfo {
+            // We dont need to check the weight witness, suppress warning.
+            // See https://github.com/paritytech/polkadot-sdk/pull/1818.
+            let _ = weight;
+
+            // This is a public call, so we ensure that the origin is a council majority.
+            T::CouncilOrigin::ensure_origin(origin)?;
+
+            let result = call.dispatch_bypass_filter(frame_system::RawOrigin::Root.into());
+            let error = result.map(|_| ()).map_err(|e| e.error);
+            Self::deposit_event(Event::Sudid(error));
+
+            return result;
+        }
+
+        /// User vote on a proposal
+        #[pallet::call_index(55)]
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(Weight::from_parts(0, 0))
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Operational))]
+        pub fn vote(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            proposal: T::Hash,
+            #[pallet::compact] index: u32,
+            approve: bool,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_vote_root(origin, &hotkey, proposal, index, approve)
+        }
+
+        /// User register a new subnetwork
+        #[pallet::call_index(59)]
+        #[pallet::weight((Weight::from_parts(157_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(16))
+		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
+        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
+            Self::user_add_network(origin)
+        }
+
+        /// Facility extrinsic for user to get taken from faucet
+        /// It is only available when pow-faucet feature enabled
+        /// Just deployed in testnet and devnet for testing purpose
+        #[pallet::call_index(60)]
+        #[pallet::weight((Weight::from_parts(91_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(27))
+		.saturating_add(T::DbWeight::get().writes(22)), DispatchClass::Normal, Pays::No))]
+        pub fn faucet(
+            origin: OriginFor<T>,
+            block_number: u64,
+            nonce: u64,
+            work: Vec<u8>,
+        ) -> DispatchResult {
+            if cfg!(feature = "pow-faucet") {
+                return Self::do_faucet(origin, block_number, nonce, work);
+            }
+
+            Err(Error::<T>::FaucetDisabled.into())
+        }
+
+        /// Remove a user's subnetwork
+        /// The caller must be the owner of the network
+        #[pallet::call_index(61)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
+        pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            Self::user_remove_network(origin, netuid)
+        }
+
+        /// Set a single child for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to set a single child for a given hotkey on a specified network.
+        /// The proportion of the hotkey's stake to be allocated to the child is also specified.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting a hotkey child can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey which will be assigned the child.
+        ///
+        /// * `child` (T::AccountId):
+        ///     - The child which will be assigned to the hotkey.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkey will exist.
+        ///
+        /// * `proportion` (u64):
+        ///     - Proportion of the hotkey's stake to be given to the child, the value must be u64 normalized.
+        ///
+        /// # Events:
+        /// * `ChildAddedSingular`:
+        ///     - On successfully registering a child to a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to register to a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to register a child on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey or the child is the same as the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Hotkey Account Existence Check**: Ensures that the hotkey account already exists.
+        /// 6. **Child-Hotkey Distinction**: Ensures that the child is not the same as the hotkey.
+        /// 7. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
+        /// 8. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
+        // TODO: Benchmark this call
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn set_child_singular(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            child: T::AccountId,
+            netuid: u16,
+            proportion: u64,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_set_child_singular(origin, hotkey, child, netuid, proportion)?;
+            Ok(().into())
+        }
+
+        /// Revoke a single child for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to revoke a single child for a given hotkey on a specified network.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Revoking a hotkey child can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey from which the child will be revoked.
+        ///
+        /// * `child` (T::AccountId):
+        ///     - The child which will be revoked from the hotkey.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkey exists.
+        ///
+        /// # Events:
+        /// * `ChildRevokedSingular`:
+        ///     - On successfully revoking a child from a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to revoke from a non-existent network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey or the child is not associated with the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        // TODO: Benchmark this call
+        #[pallet::call_index(64)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+    .saturating_add(T::DbWeight::get().reads(6))
+    .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn revoke_child_singular(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            child: T::AccountId,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_revoke_child_singular(origin, hotkey, child, netuid)?;
+            Ok(().into())
+        }
+
+        /// Set multiple children for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to set multiple children for a given hotkey on a specified network.
+        /// The proportion of the hotkey's stake to be allocated to each child is also specified.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting hotkey children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey which will be assigned the children.
+        ///
+        /// * `children_with_proportions` (Vec<(T::AccountId, u64)>):
+        ///     - A vector of tuples, each containing a child AccountId and its corresponding proportion.
+        ///       The proportion must be a u64 normalized value.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkeys will exist.
+        ///
+        /// # Events:
+        /// * `SetChildrenMultiple`:
+        ///     - On successfully registering multiple children to a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to register to a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to register children on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `InvalidChild`:
+        ///     - One of the children is the same as the hotkey.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Child-Hotkey Distinction**: Ensures that none of the children are the same as the hotkey.
+        /// 6. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
+        /// 7. **New Children Assignment**: Assigns the new children to the hotkey and updates the parent list for each new child.
+        // TODO: Benchmark this call
+        #[pallet::call_index(68)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn set_children_multiple(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            children_with_proportions: Vec<(T::AccountId, u64)>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid)?;
+            Ok(().into())
+        }
+
+        /// Revoke multiple children for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to revoke multiple children from a given hotkey on a specified network.
+        /// It removes the parent-child relationship for all specified children.
+        ///
+        /// # Arguments:
+        /// * `origin` (OriginFor<T>):
+        ///     - The signature of the calling coldkey. Revoking hotkey children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey from which the children will be revoked.
+        ///
+        /// * `children` (Vec<T::AccountId>):
+        ///     - A vector of AccountIds representing the children to be revoked.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkeys exist.
+        ///
+        /// # Events:
+        /// * `RevokeChildrenMultiple`:
+        ///     - On successfully revoking multiple children from a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to revoke from a non-existent network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        ///
+        /// # Workflow:
+        /// 1. Verify the transaction signature and ownership.
+        /// 2. Check that the specified network exists.
+        /// 3. Remove the specified children from the hotkey's children list.
+        /// 4. Remove the hotkey from each child's parent list.
+        /// 5. Update the storage for both ChildKeys and ParentKeys.
+        /// 6. Emit an event to log the operation.
+        ///
+        /// # Note:
+        /// This function is more efficient than revoking children one by one, especially when dealing with multiple children.
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn revoke_children_multiple(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            children: Vec<T::AccountId>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_revoke_children_multiple(origin, hotkey, children, netuid)?;
+            Ok(().into())
+        }
+    }
+}
