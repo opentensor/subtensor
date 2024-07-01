@@ -12,13 +12,15 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::Imbalance;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice},
+    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice, OnUnbalanced},
 };
 use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
+use pallet_balances::NegativeImbalance;
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -380,10 +382,21 @@ parameter_types! {
     pub FeeMultiplier: Multiplier = Multiplier::one();
 }
 
+/// Deduct the transaction fee from the Subtensor Pallet TotalIssuance when dropping the transaction
+/// fee.
+pub struct TransactionFeeHandler;
+impl OnUnbalanced<NegativeImbalance<Runtime>> for TransactionFeeHandler {
+    fn on_nonzero_unbalanced(credit: NegativeImbalance<Runtime>) {
+        let ti_before = pallet_subtensor::TotalIssuance::<Runtime>::get();
+        pallet_subtensor::TotalIssuance::<Runtime>::put(ti_before.saturating_sub(credit.peek()));
+        drop(credit);
+    }
+}
+
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
 
-    type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
+    type OnChargeTransaction = CurrencyAdapter<Balances, TransactionFeeHandler>;
     //type TransactionByteFee = TransactionByteFee;
 
     // Convert dispatch weight to a chargeable fee.

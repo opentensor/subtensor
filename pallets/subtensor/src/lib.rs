@@ -106,7 +106,8 @@ pub mod pallet {
 
         ///  Currency type that will be used to place deposits on neurons
         type Currency: fungible::Balanced<Self::AccountId, Balance = u64>
-            + fungible::Mutate<Self::AccountId>;
+            + fungible::Mutate<Self::AccountId>
+            + fungible::Inspect<Self::AccountId>;
 
         /// Senate members with members management functions.
         type SenateMembers: crate::MemberManagement<Self::AccountId>;
@@ -337,6 +338,16 @@ pub mod pallet {
     pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
     #[pallet::storage] // --- ITEM ( global_block_emission )
     pub type BlockEmission<T> = StorageValue<_, u64, ValueQuery, DefaultBlockEmission<T>>;
+
+    /// The Subtensor [`TotalIssuance`] represents the total issuance of tokens on the Bittensor network.
+    ///
+    /// It comprised of three parts:
+    /// - The total amount of issued tokens, tracked in the TotalIssuance of the Balances pallet
+    /// - The total amount of tokens staked in the system, tracked in [`TotalStake`]
+    /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`]
+    ///
+    /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
+    /// seperate accounting.
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
@@ -678,6 +689,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
+    /// The total amount of locked tokens in subnets for subnet registration.
+    #[pallet::storage]
+    pub type TotalSubnetLocked<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
@@ -1332,6 +1346,40 @@ pub mod pallet {
                 .saturating_add(migration::migration5_total_issuance::<T>(false));
 
             weight
+        }
+
+        #[cfg(feature = "try-runtime")]
+        fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+            use frame_support::traits::fungible::Inspect;
+
+            // Assert [`TotalStake`] accounting is correct
+            let mut total_staked = 0;
+            for stake in Stake::<T>::iter() {
+                total_staked += stake.2;
+            }
+            ensure!(
+                total_staked == TotalStake::<T>::get(),
+                "TotalStake does not match total staked"
+            );
+
+            // Assert [`TotalSubnetLocked`] accounting is correct
+            let mut total_subnet_locked = 0;
+            for (_, locked) in SubnetLocked::<T>::iter() {
+                total_subnet_locked += locked;
+            }
+            ensure!(
+                total_subnet_locked == TotalSubnetLocked::<T>::get(),
+                "TotalSubnetLocked does not match total subnet locked"
+            );
+
+            // Assert [`TotalIssuance`] accounting is correct
+            let currency_issuance = T::Currency::total_issuance();
+            ensure!(
+                TotalIssuance::<T>::get() == currency_issuance + total_staked + total_subnet_locked,
+                "TotalIssuance accounting discrepancy"
+            );
+
+            Ok(())
         }
     }
 
@@ -2106,6 +2154,42 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
+        }
+
+        /// Set the [`TotalIssuance`] storage value to the total account balances issued + the
+        /// total amount staked + the total amount locked in subnets.
+        #[pallet::call_index(64)]
+        #[pallet::weight((
+            Weight::default()
+                .saturating_add(T::DbWeight::get().reads(3))
+                .saturating_add(T::DbWeight::get().writes(1)),
+            DispatchClass::Normal,
+            Pays::Yes
+        ))]
+        pub fn rejig_total_issuance(origin: OriginFor<T>) -> DispatchResult {
+            let who = ensure_signed_or_root(origin)?;
+
+            let total_account_balances =
+                <T::Currency as fungible::Inspect<T::AccountId>>::total_issuance();
+            let total_stake = TotalStake::<T>::get();
+            let total_subnet_locked = TotalSubnetLocked::<T>::get();
+
+            let prev_total_issuance = TotalIssuance::<T>::get();
+            let new_total_issuance = total_account_balances
+                .saturating_add(total_stake)
+                .saturating_add(total_subnet_locked);
+            TotalIssuance::<T>::put(new_total_issuance);
+
+            Self::deposit_event(Event::TotalIssuanceRejigged {
+                who,
+                prev_total_issuance,
+                new_total_issuance,
+                total_stake,
+                total_account_balances,
+                total_subnet_locked,
+            });
+
+            Ok(())
         }
     }
 
