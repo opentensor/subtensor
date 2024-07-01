@@ -221,13 +221,23 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 6. Ensure the sum of proportions equals u64::MAX (representing 100%)
-        let total_proportion: u64 = children_with_proportions
-            .iter()
-            .map(|(_, proportion)| *proportion)
-            .sum();
+        let (overflowed, total_proportion): (bool, u64) = {
+            let mut sum: u64 = 0;
+            let mut overflowed = false;
+            for (_, proportion) in children_with_proportions.iter() {
+                let result = sum.checked_add(*proportion);
+                if let Some(data) = result {
+                    sum = data;
+                } else {
+                    overflowed = true;
+                    break;
+                }
+            }
+            (overflowed, sum)
+        };
 
         ensure!(
-            total_proportion == u64::MAX,
+            !overflowed && total_proportion == u64::MAX,
             Error::<T>::ProportionSumIncorrect
         );
 
