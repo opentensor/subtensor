@@ -48,7 +48,6 @@ fn test_loaded_emission() {
 
         // Try draining the emission tuples
         // None remaining because we are at epoch.
-        let block: u64 = 8;
         SubtensorModule::drain_emission();
         assert!(SubtensorModule::get_loaded_emission_tuples(netuid).is_none());
 
