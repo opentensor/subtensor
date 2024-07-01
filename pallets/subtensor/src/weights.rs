@@ -465,10 +465,10 @@ impl<T: Config> Pallet<T> {
         if interval == 0 {
             return true; // prevent division by 0
         }
-    
+
         let current_block: u64 = Self::get_current_block_as_u64();
         let current_interval_start: u64 = current_block - (current_block % interval);
-    
+
         // Allow commit if we're within the current interval
         current_block <= current_interval_start + interval
     }

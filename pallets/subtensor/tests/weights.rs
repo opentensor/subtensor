@@ -5,6 +5,7 @@ use frame_support::{
     pallet_prelude::{InvalidTransaction, TransactionValidityError},
 };
 use mock::*;
+use pallet_subtensor::math::vec_u16_max_upscale_to_u16;
 use pallet_subtensor::{Error, Owner, Weights};
 use sp_core::{H256, U256};
 use sp_runtime::{
@@ -12,7 +13,6 @@ use sp_runtime::{
     DispatchError,
 };
 use substrate_fixed::types::I32F32;
-use pallet_subtensor::math::vec_u16_max_upscale_to_u16;
 
 /***************************
   pub fn set_weights() tests
@@ -1807,22 +1807,20 @@ fn test_commit_reveal_bad_salt_fail() {
     });
 }
 
-
-
 #[test]
 fn test_multiple_commit_reveal() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let hotkey: U256 = U256::from(1);
-        
+
         // Setup the network and register the neuron
         add_network(netuid, 0, 0);
-        
+
         // Register multiple neurons
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 100000);
         register_ok_neuron(netuid, U256::from(5), U256::from(6), 100000);
-        
+
         // Set validator permits for all registered neurons
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
@@ -1830,7 +1828,7 @@ fn test_multiple_commit_reveal() {
 
         // Set the maximum allowed UIDs to match the number of registered neurons
         SubtensorModule::set_max_allowed_uids(netuid, 3);
-        
+
         let commit_reveal_interval = 10;
         SubtensorModule::set_commit_reveal_weights_interval(netuid, commit_reveal_interval);
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
@@ -1839,7 +1837,7 @@ fn test_multiple_commit_reveal() {
 
         // Prepare multiple sets of weights
         let weight_sets = vec![
-            (vec![0, 1], vec![10, 20], 0, 1),  // (uids, weights, version_key, nonce)
+            (vec![0, 1], vec![10, 20], 0, 1), // (uids, weights, version_key, nonce)
             (vec![0, 1], vec![15, 25], 1, 2),
             (vec![0, 1, 2], vec![5, 10, 15], 2, 3),
         ];
@@ -1869,7 +1867,8 @@ fn test_multiple_commit_reveal() {
 
         // Step to the end of the commit interval
         let current_block = System::block_number();
-        let blocks_to_step = commit_reveal_interval as u64 - (current_block % commit_reveal_interval as u64);
+        let blocks_to_step =
+            commit_reveal_interval as u64 - (current_block % commit_reveal_interval as u64);
         step_block(blocks_to_step as u16);
 
         // Reveal weights
@@ -1889,14 +1888,14 @@ fn test_multiple_commit_reveal() {
             // Verify that the weights were set correctly
             let stored_weights = Weights::<Test>::get(netuid, 0);
             let max_upscaled_weights = vec_u16_max_upscale_to_u16(weights);
-            let expected_weights: Vec<(u16, u16)> = uids.iter().cloned().zip(max_upscaled_weights).collect();
+            let expected_weights: Vec<(u16, u16)> =
+                uids.iter().cloned().zip(max_upscaled_weights).collect();
 
             log::info!("stored_weights: {:?}", stored_weights);
             log::info!("expected_weights: {:?}", expected_weights);
 
             assert_eq!(
-                stored_weights,
-                expected_weights,
+                stored_weights, expected_weights,
                 "Weights not set correctly for reveal {}",
                 idx
             );
@@ -1945,4 +1944,3 @@ fn commit_reveal_set_weights(
 
     Ok(())
 }
-
