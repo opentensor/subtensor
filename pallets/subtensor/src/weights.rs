@@ -110,6 +110,8 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match the committed hash.
     ///
+    /// TODO: Should we allow random reveals or should we enforce montotonicity of nonces / indexes?
+    /// Generate nonces on chain
     pub fn do_reveal_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -129,7 +131,7 @@ impl<T: Config> Pallet<T> {
             let commits = maybe_commits
                 .as_mut()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
-
+            // TODO: only remove at the end of the function 
             let (commit_hash, commit_block) = commits
                 .remove(&nonce)
                 .ok_or(Error::<T>::InvalidCommitNonce)?;
@@ -489,6 +491,7 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
+    // TODO: check logic for this function
     pub fn can_commit(netuid: u16, _who: &T::AccountId) -> bool {
         let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
         if interval == 0 {
