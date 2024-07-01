@@ -815,7 +815,7 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Self::coldkey_owns_hotkey(&coldkey, hotkey),
             Error::<T>::NonAssociatedColdKey
         );
 
