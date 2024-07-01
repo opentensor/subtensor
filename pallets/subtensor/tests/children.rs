@@ -1218,7 +1218,7 @@ fn test_do_set_children_multiple_proportions_sum_to_one() {
         let child2 = U256::from(4);
         let child3 = U256::from(5);
         let netuid: u16 = 1;
-        
+
         // Proportions that sum to u64::MAX (representing 1)
         let proportion1: u64 = u64::MAX / 3;
         let proportion2: u64 = u64::MAX / 3;
@@ -1242,11 +1242,14 @@ fn test_do_set_children_multiple_proportions_sum_to_one() {
 
         // Verify children are set correctly
         let children = SubtensorModule::get_children(&hotkey, netuid);
-        assert_eq!(children, vec![
-            (proportion1, child1),
-            (proportion2, child2),
-            (proportion3, child3)
-        ]);
+        assert_eq!(
+            children,
+            vec![
+                (proportion1, child1),
+                (proportion2, child2),
+                (proportion3, child3)
+            ]
+        );
 
         // Verify the sum of proportions is exactly u64::MAX
         let sum: u64 = children.iter().map(|(prop, _)| prop).sum();
@@ -1262,7 +1265,7 @@ fn test_do_set_children_multiple_proportions_sum_less_than_one() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 1;
-        
+
         // Proportions that sum to less than u64::MAX
         let proportion1: u64 = u64::MAX / 3;
         let proportion2: u64 = u64::MAX / 3;
@@ -1276,10 +1279,7 @@ fn test_do_set_children_multiple_proportions_sum_less_than_one() {
             SubtensorModule::do_set_children_multiple(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                vec![
-                    (child1, proportion1),
-                    (child2, proportion2)
-                ],
+                vec![(child1, proportion1), (child2, proportion2)],
                 netuid
             ),
             Error::<Test>::ProportionSumIncorrect
@@ -1295,7 +1295,7 @@ fn test_do_set_children_multiple_proportions_sum_greater_than_one() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 1;
-        
+
         // Proportions that sum to more than u64::MAX
         let proportion1: u64 = u64::MAX / 2 + 1;
         let proportion2: u64 = u64::MAX / 2 + 1;
@@ -1309,10 +1309,7 @@ fn test_do_set_children_multiple_proportions_sum_greater_than_one() {
             SubtensorModule::do_set_children_multiple(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
-                vec![
-                    (child1, proportion1),
-                    (child2, proportion2)
-                ],
+                vec![(child1, proportion1), (child2, proportion2)],
                 netuid
             ),
             Error::<Test>::ProportionSumIncorrect
