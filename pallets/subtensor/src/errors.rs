@@ -130,7 +130,7 @@ mod errors {
         InvalidCommitNonce,
         /// Duplicate nonce.
         DuplicateNonce,
-        // /// Non continuous nonce.
-        // NonContinuousNonce,
+        /// Non monotonic nonce.
+        NonMonotonicNonce,
     }
 }

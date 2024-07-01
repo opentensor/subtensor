@@ -110,8 +110,9 @@ impl<T: Config> Pallet<T> {
     /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match the committed hash.
     ///
-    /// TODO: Should we allow random reveals or should we enforce montotonicity of nonces / indexes?
-    /// Generate nonces on chain
+    /// * `NonMonotonicNonce`:
+    ///   - The provided nonce is not greater than the last processed nonce.
+    ///
     pub fn do_reveal_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
@@ -131,7 +132,11 @@ impl<T: Config> Pallet<T> {
             let commits = maybe_commits
                 .as_mut()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
-            // TODO: only remove at the end of the function 
+
+            // Check if the nonce is greater than the last processed nonce
+            let last_processed_nonce = Self::get_last_processed_nonce(netuid, &who);
+            ensure!(nonce > last_processed_nonce, Error::<T>::NonMonotonicNonce);
+
             let (commit_hash, commit_block) = commits
                 .remove(&nonce)
                 .ok_or(Error::<T>::InvalidCommitNonce)?;
@@ -141,9 +146,6 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidRevealCommitTempo
             );
 
-            // TODO: Consider the implications of adding nonce to the hash computation
-            // Adding nonce to the hash computation increases security by preventing replay attacks,
-            // but it also increases the complexity of the system and may affect backward compatibility
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
                 who.clone(),
                 netuid,
@@ -161,6 +163,9 @@ impl<T: Config> Pallet<T> {
             if commits.is_empty() {
                 *maybe_commits = None;
             }
+
+            // Update the last processed nonce
+            Self::set_last_processed_nonce(netuid, &who, nonce);
 
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })
@@ -524,4 +529,47 @@ impl<T: Config> Pallet<T> {
 
         false
     }
+
+        /// Get the last processed nonce for a given netuid and account
+        ///
+        /// # Arguments
+        ///
+        /// * `netuid` - The network ID
+        /// * `account` - The account ID
+        ///
+        /// # Returns
+        ///
+        /// Returns the last processed nonce for the given netuid and account, or 0 if not found
+        ///
+        /// # Note
+        ///
+        /// This function is used to retrieve the last nonce that was processed for a specific account
+        /// in a specific subnet. It's crucial for maintaining the order of transactions and
+        /// preventing replay attacks.
+        pub fn get_last_processed_nonce(netuid: u16, account: &T::AccountId) -> u64 {
+            LastProcessedNonce::<T>::get(netuid, account)
+            // ^ If no nonce is found, we return 0 as the default value
+        }
+    
+        /// Set the last processed nonce for a given netuid and account
+        ///
+        /// # Arguments
+        ///
+        /// * `netuid` - The network ID
+        /// * `account` - The account ID
+        /// * `nonce` - The nonce to set
+        ///
+        /// # Note
+        ///
+        /// This function updates the last processed nonce for a specific account in a specific subnet.
+        /// It's important for maintaining the state of processed transactions and ensuring
+        /// that each nonce is only processed once.
+        ///
+        /// # TODO
+        ///
+        /// Consider adding error handling or logging for cases where the nonce update fails.
+        pub fn set_last_processed_nonce(netuid: u16, account: &T::AccountId, nonce: u64) {
+            LastProcessedNonce::<T>::insert(netuid, account, nonce);
+            // ^ This operation overwrites any existing nonce for the given netuid and account
+        }
 }

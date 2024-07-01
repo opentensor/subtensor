@@ -13,6 +13,10 @@ use sp_runtime::{
     DispatchError,
 };
 use substrate_fixed::types::I32F32;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+static NONCE_COUNTER: AtomicU64 = AtomicU64::new(0);
+
 
 /***************************
   pub fn set_weights() tests
@@ -1405,7 +1409,6 @@ fn test_commit_reveal_interval() {
         let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
-        let nonce: u64 = 0;
 
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
@@ -1417,6 +1420,8 @@ fn test_commit_reveal_interval() {
         SubtensorModule::set_commit_reveal_weights_interval(netuid, 100);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
         System::set_block_number(0);
+
+        let nonce: u64 = get_next_nonce();
 
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
@@ -1461,6 +1466,46 @@ fn test_commit_reveal_interval() {
             salt.clone(),
             version_key,
             nonce
+        ));
+
+        // Try to commit again with the same nonce (should fail)
+        let new_commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+            nonce,
+        ));
+
+        assert_err!(
+            SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                new_commit_hash,
+                nonce
+            ),
+            Error::<Test>::NonMonotonicNonce
+        );
+
+        // Commit with a new nonce (should succeed)
+        let new_nonce: u64 = get_next_nonce();
+        let new_commit_hash: H256 = BlakeTwo256::hash_of(&(
+            hotkey,
+            netuid,
+            uids.clone(),
+            weight_values.clone(),
+            salt.clone(),
+            version_key,
+            new_nonce,
+        ));
+
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            new_commit_hash,
+            new_nonce
         ));
     });
 }
@@ -1949,4 +1994,9 @@ fn commit_reveal_set_weights(
     )?;
 
     Ok(())
+}
+
+
+fn get_next_nonce() -> u64 {
+    NONCE_COUNTER.fetch_add(1, Ordering::SeqCst)
 }

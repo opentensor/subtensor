@@ -930,6 +930,11 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> last processed nonce
+    #[pallet::getter(fn last_processed_nonce)]
+    pub type LastProcessedNonce<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, u16, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+
     /// Default value for weight commit reveal interval.
     #[pallet::type_value]
     pub fn DefaultWeightCommitRevealInterval<T: Config>() -> u64 {

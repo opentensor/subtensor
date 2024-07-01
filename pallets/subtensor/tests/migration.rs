@@ -2,12 +2,12 @@ mod mock;
 use pallet_subtensor::*;
 
 use frame_support::assert_ok;
-use frame_support::{storage_alias, traits::GetStorageVersion};
 use frame_support::pallet_prelude::{OptionQuery, StorageVersion};
+use frame_support::Twox64Concat;
+use frame_support::{storage_alias, traits::GetStorageVersion};
 use frame_system::Config;
 use mock::*;
 use sp_core::{H256, U256};
-use frame_support::Twox64Concat;
 
 #[test]
 fn test_migration_fix_total_stake_maps() {
@@ -295,7 +295,6 @@ type OldWeightCommits<T: Config> = StorageDoubleMap<
 // #[storage_alias]
 type StorageVersion = StorageValue<SubtensorModule, u16>;
 
-
 #[test]
 fn test_migration_to_v7_weight_commits() {
     new_test_ext(1).execute_with(|| {
@@ -311,8 +310,8 @@ fn test_migration_to_v7_weight_commits() {
         OldWeightCommits::insert(netuid, account1, (hash1, block_number1));
         OldWeightCommits::insert(netuid, account2, (hash2, block_number2));
 
-                // Set the storage version to 6
-                StorageVersion::put(6);
+        // Set the storage version to 6
+        StorageVersion::put(6);
         // Run the migration
         pallet_subtensor::migration::migrate_to_v7_weight_commits::<Test>();
 
