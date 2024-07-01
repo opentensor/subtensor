@@ -555,14 +555,10 @@ impl<T: Config> Pallet<T> {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
-        let subnet_type: SubnetType;
-        if mechanism == 0 {
-            subnet_type = SubnetType::STAO;
-        } else if mechanism == 1 {
-            subnet_type = SubnetType::DTAO;
-        } else {
-            return Err(Error::<T>::TemporarilyNotAllowed.into());
-        }
+        let subnet_type = match SubnetType::try_from(mechanism) {
+            Ok(st) => st,
+            Err(_) => return Err(Error::<T>::TemporarilyNotAllowed.into())
+        };
 
         // --- 1. Ensure that the hotkey is not owned by another key.
         if Owner::<T>::contains_key(&hotkey) {

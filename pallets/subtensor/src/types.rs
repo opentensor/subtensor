@@ -60,6 +60,19 @@ impl From<SubnetType> for u16 {
     }
 }
 
+// Implement the TryFrom trait for u16 to SubnetType conversion
+impl TryFrom<u16> for SubnetType {
+    type Error = &'static str;
+
+    fn try_from(value: u16) -> Result<Self, Self::Error> {
+        match value {
+            1 => Ok(SubnetType::STAO),
+            2 => Ok(SubnetType::DTAO),
+            _ => Err("Invalid value for SubnetType"),
+        }
+    }
+}
+
 /// Subnet type transtion state
 /// 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]
