@@ -808,7 +808,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
         let current_block = Self::get_current_block_as_u64();
         log::trace!(
-            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            "do_set_delegate_takes( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
             hotkey,
             takes
@@ -817,6 +817,15 @@ impl<T: Config> Pallet<T> {
         ensure!(
             Self::coldkey_owns_hotkey(&coldkey, &hotkey),
             Error::<T>::NonAssociatedColdKey
+        );
+
+        // Enforce the rate limit (independently on do_add_stake rate limits)
+        ensure!(
+            !Self::exceeds_tx_delegate_take_rate_limit(
+                Self::get_last_tx_block_delegate_take(hotkey),
+                current_block
+            ),
+            Error::<T>::DelegateTxRateLimitExceeded
         );
 
         for (netuid, take) in takes {
@@ -829,15 +838,6 @@ impl<T: Config> Pallet<T> {
             // Ensure the take does not exceed the initial default take.
             let max_take = T::InitialDefaultTake::get();
             ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
-
-            // Enforce the rate limit (independently on do_add_stake rate limits)
-            ensure!(
-                !Self::exceeds_tx_delegate_take_rate_limit(
-                    Self::get_last_tx_block_delegate_take(hotkey),
-                    current_block
-                ),
-                Error::<T>::DelegateTxRateLimitExceeded
-            );
 
             // Insert the take into the storage.
             DelegatesTake::<T>::insert(hotkey, netuid, take);
