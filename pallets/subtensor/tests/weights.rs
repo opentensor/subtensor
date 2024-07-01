@@ -388,7 +388,7 @@ fn test_weights_err_no_validator_permit() {
             weight_values,
             salt.clone(),
             0,
-            0,
+            1, // unique nonce or it will fail.
         );
         assert_eq!(result, Err(Error::<Test>::NeuronNoValidatorPermit.into()));
 
@@ -405,7 +405,7 @@ fn test_weights_err_no_validator_permit() {
             weight_values,
             salt,
             0,
-            0,
+            2, // unique nonce or it will fail.
         );
         assert_ok!(result);
     });
@@ -458,7 +458,7 @@ fn test_set_weights_min_stake_failed() {
             weights.clone(),
             salt.clone(),
             version_key,
-            0,
+            1, // unique nonce or it will fail.
         ));
     });
 }
@@ -770,7 +770,7 @@ fn test_weights_err_max_weight_limit() {
             values,
             salt.clone(),
             0,
-            0
+            1, // unique nonce or it will fail.
         ));
     });
 }
@@ -877,7 +877,7 @@ fn test_set_weight_not_enough_values() {
             weight_values,
             salt.clone(),
             0,
-            0
+            1 , // unique nonce or it will fail.
         ));
 
         // Should pass because we are setting enough values.
@@ -891,7 +891,7 @@ fn test_set_weight_not_enough_values() {
             weight_values,
             salt,
             0,
-            0
+            2 // unique nonce or it will fail
         ));
     });
 }
@@ -941,7 +941,7 @@ fn test_set_weight_too_many_uids() {
             weight_values,
             salt,
             0,
-            0
+            1 // unique nonce or it will fail.
         ));
     });
 }
@@ -1363,6 +1363,7 @@ fn test_commit_reveal_weights_ok() {
             weight_values.clone(),
             salt.clone(),
             version_key,
+            nonce
         ));
 
         add_network(netuid, 0, 0);
@@ -1424,6 +1425,7 @@ fn test_commit_reveal_interval() {
             weight_values.clone(),
             salt.clone(),
             version_key,
+            nonce
         ));
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -1491,6 +1493,7 @@ fn test_commit_reveal_hash() {
             weight_values.clone(),
             salt.clone(),
             version_key,
+            nonce
         ));
 
         assert_ok!(SubtensorModule::commit_weights(
@@ -1581,6 +1584,7 @@ fn test_commit_reveal_disabled_or_enabled() {
             weight_values.clone(),
             salt.clone(),
             version_key,
+            nonce
         ));
 
         add_network(netuid, 0, 0);
@@ -1688,6 +1692,7 @@ fn test_toggle_commit_reveal_weights_and_set_weights() {
             weight_values.clone(),
             salt.clone(),
             version_key,
+            nonce
         ));
 
         add_network(netuid, 0, 0);
@@ -1836,11 +1841,9 @@ fn test_multiple_commit_reveal() {
         SubtensorModule::set_weights_set_rate_limit(netuid, 1);
 
         // Prepare multiple sets of weights
-        let weight_sets = vec![
-            (vec![0, 1], vec![10, 20], 0, 1), // (uids, weights, version_key, nonce)
+        let weight_sets = [(vec![0, 1], vec![10, 20], 0, 1), // (uids, weights, version_key, nonce)
             (vec![0, 1], vec![15, 25], 1, 2),
-            (vec![0, 1, 2], vec![5, 10, 15], 2, 3),
-        ];
+            (vec![0, 1, 2], vec![5, 10, 15], 2, 3)];
 
         // Commit multiple sets of weights
         for (uids, weights, version_key, nonce) in weight_sets.iter() {
@@ -1852,6 +1855,7 @@ fn test_multiple_commit_reveal() {
                 weights.clone(),
                 salt.clone(),
                 *version_key,
+                *nonce
             ));
 
             assert_ok!(SubtensorModule::commit_weights(
@@ -1868,7 +1872,7 @@ fn test_multiple_commit_reveal() {
         // Step to the end of the commit interval
         let current_block = System::block_number();
         let blocks_to_step =
-            commit_reveal_interval as u64 - (current_block % commit_reveal_interval as u64);
+            commit_reveal_interval - (current_block % commit_reveal_interval);
         step_block(blocks_to_step as u16);
 
         // Reveal weights
@@ -1926,6 +1930,7 @@ fn commit_reveal_set_weights(
         weights.clone(),
         salt.clone(),
         version_key,
+        nonce
     ));
 
     SubtensorModule::commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash, nonce)?;

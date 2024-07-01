@@ -18,9 +18,16 @@ impl<T: Config> Pallet<T> {
     /// * `commit_hash` (`H256`):
     ///   - The hash representing the committed weights.
     ///
+    /// * `nonce` (`u64`):
+    ///   - A unique number to track multiple commits within an interval.
+    ///
     /// # Raises:
     /// * `WeightsCommitNotAllowed`:
     ///   - Attempting to commit when it is not allowed.
+    /// * `CommitRevealDisabled`:
+    ///   - Attempting to commit when commit/reveal is disabled for the network.
+    /// * `DuplicateNonce`:
+    ///   - Attempting to use a nonce that has already been used within the current interval.
     ///
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
@@ -42,7 +49,15 @@ impl<T: Config> Pallet<T> {
             Error::<T>::WeightsCommitNotAllowed
         );
 
-        WeightCommits::<T>::mutate(netuid, &who, |commits| {
+        WeightCommits::<T>::try_mutate(netuid, &who, |commits| -> DispatchResult {
+            // Check if the nonce already exists
+            ensure!(!commits.contains_key(&nonce), Error::<T>::DuplicateNonce);
+
+            // NOTE: Will depend on cli's implementation
+            // Check if the nonce is continuous (optional, uncomment if needed)
+            // let max_nonce = commits.keys().max().unwrap_or(&0);
+            // ensure!(nonce == max_nonce + 1, Error::<T>::NonContinuousNonce);
+
             commits.insert(
                 nonce,
                 (
@@ -50,7 +65,8 @@ impl<T: Config> Pallet<T> {
                     frame_system::Pallet::<T>::block_number().saturated_into::<u64>(),
                 ),
             );
-        });
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -69,17 +85,26 @@ impl<T: Config> Pallet<T> {
     /// * `values` (`Vec<u16>`):
     ///   - The values of the weights being revealed.
     ///
-    /// * `salt` (`Vec<u8>`):
-    ///   - The values of the weights being revealed.
+    /// * `salt` (`Vec<u16>`):
+    ///   - The salt used in the commitment.
     ///
     /// * `version_key` (`u64`):
     ///   - The network version key.
     ///
+    /// * `nonce` (`u64`):
+    ///   - The nonce used in the commitment.
+    ///
     /// # Raises:
+    /// * `CommitRevealDisabled`:
+    ///   - Attempting to reveal weights when commit/reveal is disabled for the network.
+    ///
     /// * `NoWeightsCommitFound`:
     ///   - Attempting to reveal weights without an existing commit.
     ///
-    /// * `InvalidRevealCommitHashNotMatchTempo`:
+    /// * `InvalidCommitNonce`:
+    ///   - The provided nonce does not match any existing commitment.
+    ///
+    /// * `InvalidRevealCommitTempo`:
     ///   - Attempting to reveal weights outside the valid tempo.
     ///
     /// * `InvalidRevealCommitHashNotMatch`:
@@ -114,6 +139,9 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::InvalidRevealCommitTempo
             );
 
+            // TODO: Consider the implications of adding nonce to the hash computation
+            // Adding nonce to the hash computation increases security by preventing replay attacks,
+            // but it also increases the complexity of the system and may affect backward compatibility
             let provided_hash: H256 = BlakeTwo256::hash_of(&(
                 who.clone(),
                 netuid,
@@ -121,6 +149,7 @@ impl<T: Config> Pallet<T> {
                 values.clone(),
                 salt.clone(),
                 version_key,
+                nonce, 
             ));
             ensure!(
                 provided_hash == commit_hash,

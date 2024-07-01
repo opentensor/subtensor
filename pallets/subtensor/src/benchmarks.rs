@@ -351,6 +351,7 @@ benchmarks! {
     let hotkey: T::AccountId = account("hot", 0, 1);
     let coldkey: T::AccountId = account("cold", 0, 2);
     let start_nonce = 300000;
+    let nonce: u64 = 1;
 
     let commit_hash: H256 = BlakeTwo256::hash_of(&(
         hotkey.clone(),
@@ -363,7 +364,7 @@ benchmarks! {
     Subtensor::<T>::init_new_network(netuid, tempo);
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+    let (pow_nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
         netuid,
         block_number,
         start_nonce,
@@ -373,14 +374,14 @@ benchmarks! {
       <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
         netuid,
         block_number,
-        nonce,
+        pow_nonce,
         work,
         hotkey.clone(),
         coldkey,
     );
     Subtensor::<T>::set_validator_permit_for_uid(netuid, 0, true);
 
-}: commit_weights(RawOrigin::Signed(hotkey.clone()), netuid, commit_hash)
+}: commit_weights(RawOrigin::Signed(hotkey.clone()), netuid, commit_hash, nonce)
 
 reveal_weights {
     let tempo: u16 = 0;
@@ -391,13 +392,14 @@ reveal_weights {
     let salt: Vec<u16> = vec![8];
     let hotkey: T::AccountId = account("hot", 0, 1);
     let coldkey: T::AccountId = account("cold", 1, 2);
+    let nonce: u64 = 1;
 
     Subtensor::<T>::init_new_network(netuid, tempo);
     Subtensor::<T>::set_network_registration_allowed(netuid, true);
     Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
 
     let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
-    let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+    let (pow_nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
         netuid,
         block_number,
         3,
@@ -408,7 +410,7 @@ reveal_weights {
       <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
         netuid,
         block_number,
-        nonce,
+        pow_nonce,
         work.clone(),
         hotkey.clone(),
         coldkey.clone(),
@@ -424,8 +426,13 @@ reveal_weights {
       weight_values.clone(),
       salt.clone(),
       version_key,
-  ));
-    let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
+    ));
+    let _ = Subtensor::<T>::commit_weights(
+        <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
+        netuid,
+        commit_hash,
+        nonce
+    );
 
-  }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
+}: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key, nonce)
 }

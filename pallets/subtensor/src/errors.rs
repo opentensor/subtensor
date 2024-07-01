@@ -128,5 +128,9 @@ mod errors {
         CommitRevealDisabled,
         /// Invalid commit nonce.
         InvalidCommitNonce,
+        /// Duplicate nonce.
+        DuplicateNonce,
+        // /// Non continuous nonce.
+        // NonContinuousNonce,
     }
 }
