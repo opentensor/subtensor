@@ -9,6 +9,7 @@ use frame_support::{
         Imbalance,
     },
 };
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -797,5 +798,54 @@ impl<T: Config> Pallet<T> {
             // Add the balance to the coldkey account.
             Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
         }
+    }
+
+    pub fn do_set_delegate_takes(
+        origin: T::RuntimeOrigin,
+        hotkey: &T::AccountId,
+        takes: Vec<(u16, u16)>,
+    ) -> dispatch::DispatchResult {
+        let coldkey = ensure_signed(origin)?;
+        let current_block = Self::get_current_block_as_u64();
+        log::trace!(
+            "do_increase_take( origin:{:?} hotkey:{:?}, take:{:?} )",
+            coldkey,
+            hotkey,
+            takes
+        );
+
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        for (netuid, take) in takes {
+            // Check if the subnet exists before setting the take.
+            ensure!(
+                Self::if_subnet_exist(netuid),
+                Error::<T>::SubNetworkDoesNotExist
+            );
+
+            // Ensure the take does not exceed the initial default take.
+            let max_take = T::InitialDefaultTake::get();
+            ensure!(take <= max_take, Error::<T>::DelegateTakeTooHigh);
+
+            // Enforce the rate limit (independently on do_add_stake rate limits)
+            ensure!(
+                !Self::exceeds_tx_delegate_take_rate_limit(
+                    Self::get_last_tx_block_delegate_take(hotkey),
+                    current_block
+                ),
+                Error::<T>::DelegateTxRateLimitExceeded
+            );
+
+            // Insert the take into the storage.
+            DelegatesTake::<T>::insert(hotkey, netuid, take);
+        }
+
+        // Set last block for rate limiting after all takes are set
+        Self::set_last_tx_block_delegate_take(hotkey, current_block);
+
+        Ok(())
     }
 }

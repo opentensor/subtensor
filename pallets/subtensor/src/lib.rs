@@ -462,6 +462,19 @@ pub mod pallet {
         DefaultAccountLinkage<T>,
     >;
 
+    // Maps between hotkey and subnet to delegation take.
+    #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet.
+    pub type DelegatesTake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u16,
+        ValueQuery,
+        DefaultDefaultTake<T>,
+    >;
+
     /// =====================================
     /// ==== Difficulty / Registrations =====
     /// =====================================
@@ -2369,6 +2382,26 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::do_revoke_children_multiple(origin, hotkey, children, netuid)?;
             Ok(().into())
+        }
+
+        /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take and respect the rate limit.
+        ///
+        /// # Arguments
+        /// * `hotkey` - The account ID of the hotkey.
+        /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
+        ///
+        /// # Errors
+        /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+        /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
+        /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
+        #[pallet::call_index(71)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn set_delegate_takes(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            takes: Vec<(u16, u16)>,
+        ) -> DispatchResult {
+            Self::do_set_delegate_takes(origin, &hotkey, takes)
         }
     }
 
