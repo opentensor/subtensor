@@ -149,7 +149,7 @@ impl<T: Config> Pallet<T> {
                 values.clone(),
                 salt.clone(),
                 version_key,
-                nonce, 
+                nonce,
             ));
             ensure!(
                 provided_hash == commit_hash,
