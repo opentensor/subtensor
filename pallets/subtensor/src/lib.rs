@@ -38,7 +38,7 @@ mod block_step;
 mod epoch;
 mod errors;
 mod events;
-mod math;
+pub mod math;
 mod registration;
 mod root;
 mod serving;
@@ -72,6 +72,8 @@ pub mod pallet {
     use sp_runtime::traits::TrailingZeroInput;
     use sp_std::vec;
     use sp_std::vec::Vec;
+
+    use sp_std::collections::btree_map::BTreeMap;
 
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -917,15 +919,15 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
-    #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+    #[pallet::storage] // --- DMAP ( netuid, who ) --> BTreeMap<nonce, (hash, block_number)> | Stores weight commitments for each account in a subnet.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
-        u16,
+        u16, // netuid
         Twox64Concat,
         T::AccountId,
-        (H256, u64),
-        OptionQuery,
+        BTreeMap<u64, (H256, u64)>, // nonce -> (hash, block_number)
+        ValueQuery,
     >;
 
     /// Default value for weight commit reveal interval.
@@ -1029,7 +1031,7 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
 
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> weights
-    pub(super) type Weights<T: Config> = StorageDoubleMap<
+    pub type Weights<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -1394,8 +1396,9 @@ pub mod pallet {
             origin: T::RuntimeOrigin,
             netuid: u16,
             commit_hash: H256,
+            nonce: u64,
         ) -> DispatchResult {
-            Self::do_commit_weights(origin, netuid, commit_hash)
+            Self::do_commit_weights(origin, netuid, commit_hash, nonce)
         }
 
         /// ---- Used to reveal the weights for a previously committed hash.
@@ -1440,8 +1443,9 @@ pub mod pallet {
             values: Vec<u16>,
             salt: Vec<u16>,
             version_key: u64,
+            nonce: u64,
         ) -> DispatchResult {
-            Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key)
+            Self::do_reveal_weights(origin, netuid, uids, values, salt, version_key, nonce)
         }
 
         /// # Args:

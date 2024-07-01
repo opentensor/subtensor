@@ -2,6 +2,7 @@ use super::*;
 use crate::math::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_runtime::SaturatedConversion;
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
@@ -25,6 +26,7 @@ impl<T: Config> Pallet<T> {
         origin: T::RuntimeOrigin,
         netuid: u16,
         commit_hash: H256,
+        nonce: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
 
@@ -40,11 +42,15 @@ impl<T: Config> Pallet<T> {
             Error::<T>::WeightsCommitNotAllowed
         );
 
-        WeightCommits::<T>::insert(
-            netuid,
-            &who,
-            (commit_hash, Self::get_current_block_as_u64()),
-        );
+        WeightCommits::<T>::mutate(netuid, &who, |commits| {
+            commits.insert(
+                nonce,
+                (
+                    commit_hash,
+                    frame_system::Pallet::<T>::block_number().saturated_into::<u64>(),
+                ),
+            );
+        });
         Ok(())
     }
 
@@ -86,23 +92,25 @@ impl<T: Config> Pallet<T> {
         values: Vec<u16>,
         salt: Vec<u16>,
         version_key: u64,
+        nonce: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
-
-        log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
-
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
-        WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
-            let (commit_hash, commit_block) = maybe_commit
-                .as_ref()
+        WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commits| -> DispatchResult {
+            let commits = maybe_commits
+                .as_mut()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
 
+            let (commit_hash, commit_block) = commits
+                .remove(&nonce)
+                .ok_or(Error::<T>::InvalidCommitNonce)?;
+
             ensure!(
-                Self::is_reveal_block_range(netuid, *commit_block),
+                Self::is_reveal_block_range(netuid, commit_block),
                 Error::<T>::InvalidRevealCommitTempo
             );
 
@@ -115,9 +123,13 @@ impl<T: Config> Pallet<T> {
                 version_key,
             ));
             ensure!(
-                provided_hash == *commit_hash,
+                provided_hash == commit_hash,
                 Error::<T>::InvalidRevealCommitHashNotMatch
             );
+
+            if commits.is_empty() {
+                *maybe_commits = None;
+            }
 
             Self::do_set_weights(origin, netuid, uids, values, version_key)
         })
@@ -226,7 +238,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // --- 6. Check to see if the hotkey has enought stake to set weights.
+        // --- 6. Check to see if the hotkey has enough stake to set weights.
         ensure!(
             Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
             Error::<T>::NotEnoughStakeToSetWeights
@@ -448,28 +460,17 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-            if interval == 0 {
-                return true; //prevent division by 0
-            }
-
-            let current_block: u64 = Self::get_current_block_as_u64();
-            let interval_start: u64 = current_block - (current_block % interval);
-            let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
-
-            // Allow commit if we're within the interval bounds
-            if current_block <= interval_start + interval
-                && interval_start > last_commit_interval_start
-            {
-                return true;
-            }
-
-            false
-        } else {
-            true
+    pub fn can_commit(netuid: u16, _who: &T::AccountId) -> bool {
+        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
+        if interval == 0 {
+            return true; // prevent division by 0
         }
+    
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let current_interval_start: u64 = current_block - (current_block % interval);
+    
+        // Allow commit if we're within the current interval
+        current_block <= current_interval_start + interval
     }
 
     pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
