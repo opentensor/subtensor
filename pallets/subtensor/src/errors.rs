@@ -114,6 +114,8 @@ mod errors {
         DelegateTakeTooLow,
         /// Delegate take is too high.
         DelegateTakeTooHigh,
+        /// subnet creator attempts to remove their funds within the lock period
+        SubnetCreatorLock,
         /// Not allowed to commit weights.
         WeightsCommitNotAllowed,
         /// No commit found for the provided hotkey+netuid combination when attempting to reveal the weights.
@@ -122,9 +124,19 @@ mod errors {
         InvalidRevealCommitTempo,
         /// Committed hash does not equal the hashed reveal data.
         InvalidRevealCommitHashNotMatch,
+        /// Only STAO subnets are allowed to be dissolved
+        NotAllowedToDissolve,
         /// Attempting to call set_weights when commit/reveal is enabled
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// This subnet cannot be converted to DTAO
+        CannotBeConverted,
+        /// Subnet type transition is already in progress
+        TranstinioAlreadyInProgress,
+        /// Operation is temporarily not allowed
+        TemporarilyNotAllowed,
+        /// Subnet has zero stake
+        NoStakeInSubnet,
     }
 }

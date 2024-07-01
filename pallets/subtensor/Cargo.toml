@@ -45,6 +45,7 @@ pallet-membership = { workspace = true }
 hex-literal = { workspace = true }
 
 [dev-dependencies]
+itertools = { workspace = true }
 pallet-balances = { workspace = true, features = ["std"] }
 sp-version = { workspace = true }
 # Substrate
@@ -101,3 +102,4 @@ try-runtime = [
 	"pallet-collective/try-runtime"
 ]
 pow-faucet = []
+subnet-staking = []

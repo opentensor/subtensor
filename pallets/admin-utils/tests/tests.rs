@@ -8,6 +8,13 @@ use sp_core::U256;
 mod mock;
 use mock::*;
 
+#[allow(dead_code)]
+pub fn add_network(netuid: u16, tempo: u16) {
+    SubtensorModule::init_new_network(netuid, tempo);
+    SubtensorModule::set_network_registration_allowed(netuid, true);
+    SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
 #[test]
 fn test_sudo_set_default_take() {
     new_test_ext().execute_with(|| {
@@ -698,6 +705,48 @@ fn test_sudo_set_weights_min_stake() {
 }
 
 #[test]
+fn test_sudo_global_stake_weight() {
+    new_test_ext().execute_with(|| {
+        let to_be_set: u16 = 10;
+        let init_value: u16 = SubtensorModule::get_global_stake_weight();
+        assert_eq!(
+            AdminUtils::sudo_set_global_stake_weight(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_global_stake_weight(), init_value);
+        assert_ok!(AdminUtils::sudo_set_global_stake_weight(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_global_stake_weight(), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_subnet_staking() {
+    new_test_ext().execute_with(|| {
+        let to_be_set: bool = true;
+        let init_value: bool = SubtensorModule::subnet_staking_on();
+        assert_eq!(
+            AdminUtils::sudo_set_subnet_staking(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::subnet_staking_on(), init_value);
+        assert_ok!(AdminUtils::sudo_set_subnet_staking(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::subnet_staking_on(), to_be_set);
+    });
+}
+
+#[test]
 fn test_sudo_set_bonds_moving_average() {
     new_test_ext().execute_with(|| {
         let netuid: u16 = 1;
@@ -931,32 +980,28 @@ mod sudo_set_nominator_min_required_stake {
 
             // Create accounts.
             let netuid = 1;
+            let root: u16 = 0;
+            let tempo: u16 = 13;
             let hot1 = U256::from(1);
             let hot2 = U256::from(2);
             let cold1 = U256::from(3);
             let cold2 = U256::from(4);
 
             SubtensorModule::set_target_stakes_per_interval(10);
-            // Register network.
+
+            // Register networks.
+            add_network(root, tempo);
             add_network(netuid, 0);
 
-            // Register hot1.
+            // Register hot1 on subnet and root.
             register_ok_neuron(netuid, hot1, cold1, 0);
-            assert_ok!(SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(cold1),
-                hot1,
-                u16::MAX / 10
-            ));
             assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot1), cold1);
+            root_register(hot1);
 
             // Register hot2.
             register_ok_neuron(netuid, hot2, cold2, 0);
-            assert_ok!(SubtensorModule::do_become_delegate(
-                <<Test as Config>::RuntimeOrigin>::signed(cold2),
-                hot2,
-                u16::MAX / 10
-            ));
             assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hot2), cold2);
+            root_register(hot2);
 
             // Add stake cold1 --> hot1 (non delegation.)
             SubtensorModule::add_balance_to_coldkey_account(&cold1, 5);
@@ -966,7 +1011,7 @@ mod sudo_set_nominator_min_required_stake {
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot1, &cold1),
                 1
             );
             assert_eq!(Balances::free_balance(cold1), 4);
@@ -979,7 +1024,7 @@ mod sudo_set_nominator_min_required_stake {
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot1, &cold2),
                 1
             );
             assert_eq!(Balances::free_balance(cold2), 4);
@@ -992,7 +1037,7 @@ mod sudo_set_nominator_min_required_stake {
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot2, &cold1),
                 1
             );
             assert_eq!(Balances::free_balance(cold1), 8);
@@ -1005,7 +1050,7 @@ mod sudo_set_nominator_min_required_stake {
                 1
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot2, &cold2),
                 1
             );
             assert_eq!(Balances::free_balance(cold2), 8);
@@ -1016,19 +1061,19 @@ mod sudo_set_nominator_min_required_stake {
                 0u64
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot1, &cold1),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot2, &cold1),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot1, &cold2),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot2, &cold2),
                 1
             );
 
@@ -1038,19 +1083,19 @@ mod sudo_set_nominator_min_required_stake {
                 10u64
             ));
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot1),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot1, &cold1),
                 1
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold1, &hot2),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot2, &cold1),
                 0
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot1),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot1, &cold2),
                 0
             );
             assert_eq!(
-                SubtensorModule::get_stake_for_coldkey_and_hotkey(&cold2, &hot2),
+                SubtensorModule::get_total_stake_for_hotkey_and_coldkey(&hot2, &cold2),
                 1
             );
 
@@ -1106,6 +1151,27 @@ fn test_sudo_set_min_delegate_take() {
             to_be_set
         ));
         assert_eq!(SubtensorModule::get_min_delegate_take(), to_be_set);
+    });
+}
+
+#[test]
+fn test_sudo_set_tx_rate_limit() {
+    new_test_ext().execute_with(|| {
+        let to_be_set: u64 = 10;
+        let init_value: u64 = SubtensorModule::get_tx_rate_limit();
+        assert_eq!(
+            AdminUtils::sudo_set_tx_rate_limit(
+                <<Test as Config>::RuntimeOrigin>::signed(U256::from(1)),
+                to_be_set
+            ),
+            Err(DispatchError::BadOrigin)
+        );
+        assert_eq!(SubtensorModule::get_tx_rate_limit(), init_value);
+        assert_ok!(AdminUtils::sudo_set_tx_rate_limit(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            to_be_set
+        ));
+        assert_eq!(SubtensorModule::get_tx_rate_limit(), to_be_set);
     });
 }
 

@@ -1,9 +1,10 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
+use frame_support::{storage::IterableStorageDoubleMap};
 use sp_core::{Get, H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
+use sp_std::vec;
+use sp_std::vec::Vec;
 use system::pallet_prelude::BlockNumberFor;
-
 const LOG_TARGET: &str = "runtime::subtensor::registration";
 
 impl<T: Config> Pallet<T> {
@@ -92,15 +93,16 @@ impl<T: Config> Pallet<T> {
 
         // --- 7. Ensure the callers coldkey has enough stake to perform the transaction.
         let current_block_number: u64 = Self::get_current_block_as_u64();
-        let registration_cost = Self::get_burn_as_u64(netuid);
+        let registration_cost_as_u64 = Self::get_burn_as_u64(netuid);
+        let registration_cost_as_balance = registration_cost_as_u64;
         ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost),
+            Self::can_remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance),
             Error::<T>::NotEnoughBalanceToStake
         );
 
         // --- 8. Ensure the remove operation from the coldkey is a success.
         let actual_burn_amount =
-            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost)?;
+            Self::remove_balance_from_coldkey_account(&coldkey, registration_cost_as_balance)?;
 
         // The burn occurs here.
         Self::burn_tokens(actual_burn_amount);
@@ -115,8 +117,6 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 11. Append neuron or prune it.
-        let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -124,23 +124,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
-            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
-            // We increment the subnetwork count here but not below.
-            subnetwork_uid = current_subnetwork_n;
-
-            // --- 12.1.2 Expand subnetwork with new account.
-            Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
-        } else {
-            // --- 13.1.1 Replacement required.
-            // We take the neuron with the lowest pruning score here.
-            subnetwork_uid = Self::get_neuron_to_prune(netuid);
-
-            // --- 13.1.1 Replace the neuron account with the new info.
-            Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
-        }
+        let subnetwork_uid = Self::do_registration_no_checks(
+            netuid,
+            &hotkey,
+            &coldkey,
+            current_block_number
+        );
 
         // --- 14. Record the registration and increment block and interval counters.
         BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
@@ -310,8 +299,6 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 11. Append neuron or prune it.
-        let subnetwork_uid: u16;
-        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
 
         // Possibly there is no neuron slots at all.
         ensure!(
@@ -319,23 +306,12 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NoNeuronIdAvailable
         );
 
-        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
-            // --- 11.1.1 No replacement required, the uid appends the subnetwork.
-            // We increment the subnetwork count here but not below.
-            subnetwork_uid = current_subnetwork_n;
-
-            // --- 11.1.2 Expand subnetwork with new account.
-            Self::append_neuron(netuid, &hotkey, current_block_number);
-            log::info!("add new neuron account");
-        } else {
-            // --- 11.1.1 Replacement required.
-            // We take the neuron with the lowest pruning score here.
-            subnetwork_uid = Self::get_neuron_to_prune(netuid);
-
-            // --- 11.1.1 Replace the neuron account with the new info.
-            Self::replace_neuron(netuid, subnetwork_uid, &hotkey, current_block_number);
-            log::info!("prune neuron");
-        }
+        let subnetwork_uid = Self::do_registration_no_checks(
+            netuid,
+            &hotkey,
+            &coldkey,
+            current_block_number
+        );
 
         // --- 12. Record the registration and increment block and interval counters.
         POWRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
@@ -353,6 +329,40 @@ impl<T: Config> Pallet<T> {
 
         // --- 14. Ok and done.
         Ok(())
+    }
+
+    pub fn do_registration_no_checks(
+        netuid: u16,
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+        current_block_number: u64
+    ) -> u16 {
+        let subnetwork_uid: u16;
+        let current_subnetwork_n: u16 = Self::get_subnetwork_n(netuid);
+
+        if current_subnetwork_n < Self::get_max_allowed_uids(netuid) {
+            // --- 12.1.1 No replacement required, the uid appends the subnetwork.
+            // We increment the subnetwork count here but not below.
+            subnetwork_uid = current_subnetwork_n;
+
+            // --- 12.1.2 Expand subnetwork with new account.
+            Self::append_neuron(netuid, hotkey, current_block_number);
+            log::info!("add new neuron account");
+        } else {
+            // --- 13.1.1 Replacement required.
+            // We take the neuron with the lowest pruning score here.
+            subnetwork_uid = Self::get_neuron_to_prune(netuid);
+
+            // --- 13.1.1 Replace the neuron account with the new info.
+            Self::replace_neuron(netuid, subnetwork_uid, hotkey, current_block_number);
+            log::info!("prune neuron");
+        }
+
+        // Since all registered hotkeys are delegates, this extrinsic effectively sets 
+        // delegate take the first time, so we need to watch the rate limits
+        Self::set_last_tx_block_delegate_take(coldkey, current_block_number);
+
+        subnetwork_uid
     }
 
     pub fn do_faucet(
@@ -394,8 +404,8 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
-        let balance_to_add: u64 = 100_000_000_000;
-        Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
+        let balance_to_add: u64 = 3_000_000_000_000;
+        Self::coinbase(balance_to_add); // We are creating tokens here from the coinbase.
 
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
 
@@ -622,30 +632,26 @@ impl<T: Config> Pallet<T> {
             .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
 
         let swap_cost = 1_000_000_000u64;
+        let swap_cost_as_balance = swap_cost;
         ensure!(
             Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
             Error::<T>::NotEnoughBalanceToPaySwapHotKey
         );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&coldkey, swap_cost_as_balance)?;
         Self::burn_tokens(actual_burn_amount);
 
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());
         weight.saturating_accrue(T::DbWeight::get().writes(2));
 
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
+        for (netuid, delegate_take) in DelegatesTake::<T>::iter_prefix(old_hotkey) {
+            DelegatesTake::<T>::insert(new_hotkey, netuid, delegate_take);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
         }
-
-        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
-            Delegates::<T>::remove(old_hotkey);
-            Delegates::<T>::insert(new_hotkey, delegate_take);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
+        let subnet_limit = SubnetLimit::<T>::get().into();
+        let _ = DelegatesTake::<T>::clear_prefix(old_hotkey, subnet_limit, None);
+        weight.saturating_accrue(T::DbWeight::get().writes(subnet_limit.into()));
 
         if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
             LastTxBlock::<T>::remove(old_hotkey);
@@ -654,16 +660,16 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(2));
         }
 
-        let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
-        for (coldkey, stake_amount) in Stake::<T>::iter_prefix(old_hotkey) {
-            coldkey_stake.push((coldkey.clone(), stake_amount));
+        let mut coldkey_stake: Vec<(T::AccountId, bool)> = vec![];
+        for (coldkey, is_staker) in Staker::<T>::iter_prefix(old_hotkey) {
+            coldkey_stake.push((coldkey.clone(), is_staker));
         }
 
-        let _ = Stake::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
+        let _ = Staker::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
         weight.saturating_accrue(T::DbWeight::get().writes(coldkey_stake.len() as u64));
 
         for (coldkey, stake_amount) in coldkey_stake {
-            Stake::<T>::insert(new_hotkey, coldkey, stake_amount);
+            Staker::<T>::insert(new_hotkey, coldkey, stake_amount);
             weight.saturating_accrue(T::DbWeight::get().writes(1));
         }
 

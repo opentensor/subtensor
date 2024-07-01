@@ -204,7 +204,7 @@ pub fn sigmoid_safe(input: I32F32, rho: I32F32, kappa: I32F32) -> I32F32 {
     sigmoid_output
 }
 
-// Returns a bool vector where an item is true if the vector item is in topk values.
+// Returns a bool vector where an item is true if the vector item is in top k values.
 #[allow(dead_code, clippy::indexing_slicing)]
 pub fn is_topk(vector: &[I32F32], k: usize) -> Vec<bool> {
     let n: usize = vector.len();

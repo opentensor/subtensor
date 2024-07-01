@@ -1,8 +1,9 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
-use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
+use sp_std::vec::Vec;
+use crate::dynamic_pool_info::DynamicPoolInfoV2;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
@@ -21,7 +22,7 @@ pub struct SubnetInfo<T: Config> {
     tempo: Compact<u16>,
     network_modality: Compact<u16>,
     network_connect: Vec<[u16; 2]>,
-    emission_values: Compact<u64>,
+    pub emission_values: Compact<u64>,
     burn: Compact<u64>,
     owner: T::AccountId,
 }
@@ -52,6 +53,23 @@ pub struct SubnetHyperparams {
     difficulty: Compact<u64>,
     commit_reveal_weights_interval: Compact<u64>,
     commit_reveal_weights_enabled: bool,
+}
+
+#[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
+pub struct SubnetInfoV2<T: Config> {
+    netuid: u16,
+    owner: T::AccountId,
+    max_allowed_validators: u16,
+    scaling_law_power: u16,
+    subnetwork_n: u16,
+    max_allowed_uids: u16,
+    blocks_since_last_step: Compact<u32>,
+    network_modality: u16,
+    emission_values: Compact<u64>,
+    burn: Compact<u64>,
+    tao_locked: Compact<u64>,
+    hyperparameters: SubnetHyperparams,
+    dynamic_pool: Option<DynamicPoolInfoV2>,
 }
 
 impl<T: Config> Pallet<T> {
@@ -107,7 +125,7 @@ impl<T: Config> Pallet<T> {
     pub fn get_subnets_info() -> Vec<Option<SubnetInfo<T>>> {
         let mut subnet_netuids = Vec::<u16>::new();
         let mut max_netuid: u16 = 0;
-        for (netuid, added) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
+        for (netuid, added) in NetworksAdded::<T>::iter() {
             if added {
                 subnet_netuids.push(netuid);
                 if netuid > max_netuid {
@@ -126,11 +144,47 @@ impl<T: Config> Pallet<T> {
         subnets_info
     }
 
-    pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+    pub fn get_subnet_info_v2(netuid: u16) -> Option<SubnetInfoV2<T>> {
         if !Self::if_subnet_exist(netuid) {
             return None;
         }
 
+        let max_allowed_validators = Self::get_max_allowed_validators(netuid);
+        let scaling_law_power = Self::get_scaling_law_power(netuid);
+        let subnetwork_n = Self::get_subnetwork_n(netuid);
+        let max_allowed_uids = Self::get_max_allowed_uids(netuid);
+        let blocks_since_last_step = Self::get_blocks_since_last_step(netuid);
+        let network_modality = <NetworkModality<T>>::get(netuid);
+        let emission_values = Self::get_emission_value(netuid);
+        let burn: Compact<u64> = Self::get_burn_as_u64(netuid).into();
+
+        Some(SubnetInfoV2 {
+            netuid: netuid.into(),
+            owner: Self::get_subnet_owner(netuid),
+            max_allowed_validators: max_allowed_validators.into(),
+            scaling_law_power: scaling_law_power.into(),
+            subnetwork_n: subnetwork_n.into(),
+            max_allowed_uids: max_allowed_uids.into(),
+            blocks_since_last_step: Compact(blocks_since_last_step as u32),
+            network_modality: network_modality.into(),
+            emission_values: emission_values.into(),
+            burn,
+            tao_locked: Self::get_total_stake_on_subnet(netuid).into(),
+            hyperparameters: Self::get_subnet_hyperparams_no_checks(netuid),
+            dynamic_pool: Self::get_dynamic_pool_info_v2(netuid),
+        })
+    }
+
+    pub fn get_subnets_info_v2() -> Vec<SubnetInfoV2<T>> {
+        Self::get_all_subnet_netuids()
+            .iter()
+            .map(|&netuid| Self::get_subnet_info_v2(netuid))
+            .filter(|info| info.is_some())
+            .map(|info| info.unwrap())
+            .collect()
+    }
+
+    pub fn get_subnet_hyperparams_no_checks(netuid: u16) -> SubnetHyperparams {
         let rho = Self::get_rho(netuid);
         let kappa = Self::get_kappa(netuid);
         let immunity_period = Self::get_immunity_period(netuid);
@@ -156,7 +210,7 @@ impl<T: Config> Pallet<T> {
         let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
 
-        Some(SubnetHyperparams {
+        SubnetHyperparams {
             rho: rho.into(),
             kappa: kappa.into(),
             immunity_period: immunity_period.into(),
@@ -181,6 +235,18 @@ impl<T: Config> Pallet<T> {
             difficulty: difficulty.into(),
             commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
             commit_reveal_weights_enabled,
-        })
+        }
+    }
+
+    pub fn get_subnet_hyperparams(netuid: u16) -> Option<SubnetHyperparams> {
+        if Self::if_subnet_exist(netuid) {
+            Some(Self::get_subnet_hyperparams_no_checks(netuid))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_subnet_limit() -> u16 {
+        SubnetLimit::<T>::get()
     }
 }

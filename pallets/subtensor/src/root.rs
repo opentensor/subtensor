@@ -17,17 +17,30 @@
 
 use super::*;
 use crate::math::*;
+use crate::types::{SubnetType, SubnetTransition};
 use frame_support::dispatch::Pays;
-use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
 use frame_support::weights::Weight;
 use sp_std::vec;
 use substrate_fixed::{
     transcendental::log2,
-    types::{I64F64, I96F32},
+    types::I96F32,
 };
 
 impl<T: Config> Pallet<T> {
+    /// Retrieves a boolean true is subnet emissions are determined by
+    /// subnet specific staking.
+    ///
+    /// # Returns:
+    /// * 'bool': Whether subnet emissions are determined by subnet specific staking.
+    ///
+    pub fn subnet_staking_on() -> bool {
+        SubnetStakingOn::<T>::get()
+    }
+    pub fn set_subnet_staking(subnet_staking: bool) {
+        SubnetStakingOn::<T>::put(subnet_staking);
+    }
+
     /// Retrieves the unique identifier (UID) for the root network.
     ///
     /// The root network is a special case and has a fixed UID of 0.
@@ -92,17 +105,6 @@ impl<T: Config> Pallet<T> {
         Self::get_max_allowed_uids(Self::get_root_netuid())
     }
 
-    /// Returns the emission value for the given subnet.
-    ///
-    /// This function retrieves the emission value for the given subnet.
-    ///
-    /// # Returns:
-    /// * 'u64': The emission value for the given subnet.
-    ///
-    pub fn get_subnet_emission_value(netuid: u16) -> u64 {
-        EmissionValues::<T>::get(netuid)
-    }
-
     /// Returns true if the subnetwork exists.
     ///
     /// This function checks if a subnetwork with the given UID exists.
@@ -123,7 +125,7 @@ impl<T: Config> Pallet<T> {
     /// * 'Vec<u16>': Netuids of all subnets.
     ///
     pub fn get_all_subnet_netuids() -> Vec<u16> {
-        <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter()
+        NetworksAdded::<T>::iter()
             .map(|(netuid, _)| netuid)
             .collect()
     }
@@ -206,79 +208,10 @@ impl<T: Config> Pallet<T> {
         false
     }
 
-    /// Sets the emission values for each netuid
+    /// Returns the network rate limit
     ///
-    pub fn set_emission_values(netuids: &[u16], emission: Vec<u64>) -> Result<(), &'static str> {
-        log::debug!(
-            "set_emission_values: netuids: {:?} emission:{:?}",
-            netuids,
-            emission
-        );
-
-        // Be careful this function can fail.
-        if Self::contains_invalid_root_uids(netuids) {
-            log::error!("set_emission_values: contains_invalid_root_uids");
-            return Err("Invalid netuids");
-        }
-        if netuids.len() != emission.len() {
-            log::error!("set_emission_values: netuids.len() != emission.len()");
-            return Err("netuids and emission must have the same length");
-        }
-        for (netuid_i, emission_i) in netuids.iter().zip(emission) {
-            log::debug!("set netuid:{:?} emission:{:?}", netuid_i, emission_i);
-            EmissionValues::<T>::insert(*netuid_i, emission_i);
-        }
-        Ok(())
-    }
-
-    /// Retrieves weight matrix associated with the root network.
-    ///  Weights represent the preferences for each subnetwork.
-    ///
-    /// # Returns:
-    /// A 2D vector ('Vec<Vec<I32F32>>') where each entry [i][j] represents the weight of subnetwork
-    /// 'j' with according to the preferences of key. Validator 'i' within the root network.
-    ///
-    pub fn get_root_weights() -> Vec<Vec<I64F64>> {
-        // --- 0. The number of validators on the root network.
-        let n: usize = Self::get_num_root_validators() as usize;
-
-        // --- 1 The number of subnets to validate.
-        log::debug!("subnet size before cast: {:?}", Self::get_num_subnets());
-        let k: usize = Self::get_num_subnets() as usize;
-        log::debug!("n: {:?} k: {:?}", n, k);
-
-        // --- 2. Initialize a 2D vector with zeros to store the weights. The dimensions are determined
-        // by `n` (number of validators) and `k` (total number of subnets).
-        let mut weights: Vec<Vec<I64F64>> = vec![vec![I64F64::from_num(0.0); k]; n];
-        log::debug!("weights:\n{:?}\n", weights);
-
-        let subnet_list = Self::get_all_subnet_netuids();
-
-        // --- 3. Iterate over stored weights and fill the matrix.
-        for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
-                Self::get_root_netuid(),
-            )
-        {
-            // --- 4. Iterate over each weight entry in `weights_i` to update the corresponding value in the
-            // initialized `weights` 2D vector. Here, `uid_j` represents a subnet, and `weight_ij` is the
-            // weight of `uid_i` with respect to `uid_j`.
-            for (netuid, weight_ij) in &weights_i {
-                let idx = uid_i as usize;
-                if let Some(weight) = weights.get_mut(idx) {
-                    if let Some((w, _)) = weight
-                        .iter_mut()
-                        .zip(&subnet_list)
-                        .find(|(_, subnet)| *subnet == netuid)
-                    {
-                        *w = I64F64::from_num(*weight_ij);
-                    }
-                }
-            }
-        }
-
-        // --- 5. Return the filled weights matrix.
-        weights
+    pub fn get_network_rate_limit() -> u64 {
+        NetworkRateLimit::<T>::get()
     }
 
     /// Sets the network rate limit and emit the `NetworkRateLimitSet` event
@@ -286,165 +219,6 @@ impl<T: Config> Pallet<T> {
     pub fn set_network_rate_limit(limit: u64) {
         NetworkRateLimit::<T>::set(limit);
         Self::deposit_event(Event::NetworkRateLimitSet(limit));
-    }
-
-    /// Checks if registrations are allowed for a given subnet.
-    ///
-    /// This function retrieves the subnet hyperparameters for the specified subnet and checks the `registration_allowed` flag.
-    /// If the subnet doesn't exist or doesn't have hyperparameters defined, it returns `false`.
-    ///
-    /// # Arguments
-    ///
-    /// * `netuid` - The unique identifier of the subnet.
-    ///
-    /// # Returns
-    ///
-    /// * `bool` - `true` if registrations are allowed for the subnet, `false` otherwise.
-    pub fn is_registration_allowed(netuid: u16) -> bool {
-        Self::get_subnet_hyperparams(netuid)
-            .map(|params| params.registration_allowed)
-            .unwrap_or(false)
-    }
-
-    /// Computes and sets emission values for the root network which determine the emission for all subnets.
-    ///
-    /// This function is responsible for calculating emission based on network weights, stake values,
-    /// and registered hotkeys.
-    ///
-    pub fn root_epoch(block_number: u64) -> Result<(), &'static str> {
-        // --- 0. The unique ID associated with the root network.
-        let root_netuid: u16 = Self::get_root_netuid();
-
-        // --- 1. Check if we should update the emission values based on blocks since emission was last set.
-        let blocks_until_next_epoch: u64 =
-            Self::blocks_until_next_epoch(root_netuid, Self::get_tempo(root_netuid), block_number);
-        if blocks_until_next_epoch != 0 {
-            // Not the block to update emission values.
-            log::debug!("blocks_until_next_epoch: {:?}", blocks_until_next_epoch);
-            return Err("");
-        }
-
-        // --- 2. Retrieves the number of root validators on subnets.
-        let n: u16 = Self::get_num_root_validators();
-        log::debug!("n:\n{:?}\n", n);
-        if n == 0 {
-            // No validators.
-            return Err("No validators to validate emission values.");
-        }
-
-        // --- 3. Obtains the number of registered subnets.
-        let k: u16 = Self::get_all_subnet_netuids().len() as u16;
-        log::debug!("k:\n{:?}\n", k);
-        if k == 0 {
-            // No networks to validate.
-            return Err("No networks to validate emission values.");
-        }
-
-        // --- 4. Determines the total block emission across all the subnetworks. This is the
-        // value which will be distributed based on the computation below.
-        let block_emission: I64F64 = I64F64::from_num(Self::get_block_emission()?);
-        log::debug!("block_emission:\n{:?}\n", block_emission);
-
-        // --- 5. A collection of all registered hotkeys on the root network. Hotkeys
-        // pairs with network UIDs and stake values.
-        let mut hotkeys: Vec<(u16, T::AccountId)> = vec![];
-        for (uid_i, hotkey) in
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(root_netuid)
-        {
-            hotkeys.push((uid_i, hotkey));
-        }
-        log::debug!("hotkeys:\n{:?}\n", hotkeys);
-
-        // --- 6. Retrieves and stores the stake value associated with each hotkey on the root network.
-        // Stakes are stored in a 64-bit fixed point representation for precise calculations.
-        let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for ((_, hotkey), stake) in hotkeys.iter().zip(&mut stake_i64) {
-            *stake = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
-        }
-        inplace_normalize_64(&mut stake_i64);
-        log::debug!("S:\n{:?}\n", &stake_i64);
-
-        // --- 7. Retrieves the network weights in a 2D Vector format. Weights have shape
-        // n x k where is n is the number of registered peers and k is the number of subnets.
-        let mut weights: Vec<Vec<I64F64>> = Self::get_root_weights();
-        log::debug!("W:\n{:?}\n", &weights);
-
-        // Normalize weights.
-        inplace_row_normalize_64(&mut weights);
-        log::debug!("W(norm):\n{:?}\n", &weights);
-
-        // --- 8. Calculates the rank of networks. Rank is a product of weights and stakes.
-        // Ranks will have shape k, a score for each subnet.
-        let ranks: Vec<I64F64> = matmul_64(&weights, &stake_i64);
-        log::debug!("R:\n{:?}\n", &ranks);
-
-        // --- 9. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
-        // Trust will have shape k, a score for each subnet.
-        let total_networks = Self::get_num_subnets();
-        let mut trust = vec![I64F64::from_num(0); total_networks as usize];
-        let mut total_stake: I64F64 = I64F64::from_num(0);
-        for (weights, hotkey_stake) in weights.iter().zip(stake_i64) {
-            total_stake += hotkey_stake;
-            for (weight, trust_score) in weights.iter().zip(&mut trust) {
-                if *weight > 0 {
-                    *trust_score += hotkey_stake;
-                }
-            }
-        }
-
-        log::debug!("T_before normalization:\n{:?}\n", &trust);
-        log::debug!("Total_stake:\n{:?}\n", &total_stake);
-
-        if total_stake == 0 {
-            return Err("No stake on network");
-        }
-
-        for trust_score in trust.iter_mut() {
-            if let Some(quotient) = trust_score.checked_div(total_stake) {
-                *trust_score = quotient;
-            }
-        }
-
-        // --- 10. Calculates the consensus of networks. Consensus is a sigmoid normalization of the trust scores.
-        // Consensus will have shape k, a score for each subnet.
-        log::debug!("T:\n{:?}\n", &trust);
-        let one = I64F64::from_num(1);
-        let mut consensus = vec![I64F64::from_num(0); total_networks as usize];
-        for (trust_score, consensus_i) in trust.iter_mut().zip(&mut consensus) {
-            let shifted_trust = *trust_score - I64F64::from_num(Self::get_float_kappa(0)); // Range( -kappa, 1 - kappa )
-            let temperatured_trust = shifted_trust * I64F64::from_num(Self::get_rho(0)); // Range( -rho * kappa, rho ( 1 - kappa ) )
-            let exponentiated_trust: I64F64 =
-                substrate_fixed::transcendental::exp(-temperatured_trust)
-                    .expect("temperatured_trust is on range( -rho * kappa, rho ( 1 - kappa ) )");
-
-            *consensus_i = one / (one + exponentiated_trust);
-        }
-
-        log::debug!("C:\n{:?}\n", &consensus);
-        let mut weighted_emission = vec![I64F64::from_num(0); total_networks as usize];
-        for ((emission, consensus_i), rank) in
-            weighted_emission.iter_mut().zip(&consensus).zip(&ranks)
-        {
-            *emission = *consensus_i * (*rank);
-        }
-        inplace_normalize_64(&mut weighted_emission);
-        log::debug!("Ei64:\n{:?}\n", &weighted_emission);
-
-        // -- 11. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_as_tao: Vec<I64F64> = weighted_emission
-            .iter()
-            .map(|v: &I64F64| *v * block_emission)
-            .collect();
-
-        // --- 12. Converts the normalized 64-bit fixed point rank values to u64 for the final emission calculation.
-        let emission_u64: Vec<u64> = vec_fixed64_to_u64(emission_as_tao);
-        log::debug!("Eu64:\n{:?}\n", &emission_u64);
-
-        // --- 13. Set the emission values for each subnet directly.
-        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
-        log::debug!("netuids: {:?} values: {:?}", netuids, emission_u64);
-
-        Self::set_emission_values(&netuids, emission_u64)
     }
 
     /// Registers a user's hotkey to the root network.
@@ -505,6 +279,9 @@ impl<T: Config> Pallet<T> {
         // Declare a variable to hold the root UID.
         let subnetwork_uid: u16;
 
+        // GDT of hotkey
+        let hotkey_gdt = Self::get_hotkey_global_dynamic_tao(&hotkey);
+
         // --- 8. Check if the root net is below its allowed size.
         // max allowed is senate size.
         if current_num_root_validators < Self::get_max_root_validators() {
@@ -517,30 +294,24 @@ impl<T: Config> Pallet<T> {
         } else {
             // --- 13.1.1 The network is full. Perform replacement.
             // Find the neuron with the lowest stake value to replace.
-            let mut lowest_stake: u64 = u64::MAX;
-            let mut lowest_uid: u16 = 0;
-
             // Iterate over all keys in the root network to find the neuron with the lowest stake.
-            for (uid_i, hotkey_i) in
-                <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(
-                    root_netuid,
-                )
-            {
-                let stake_i: u64 = Self::get_total_stake_for_hotkey(&hotkey_i);
-                if stake_i < lowest_stake {
-                    lowest_stake = stake_i;
-                    lowest_uid = uid_i;
-                }
-            }
+            let (lowest_stake, lowest_uid) = Keys::<T>::iter_prefix(root_netuid).fold(
+                (u64::MAX, 0),
+                |(lowest_stake, lowest_uid), (uid_i, hotkey_i)| {
+                    let stake_i: u64 = Self::get_hotkey_global_dynamic_tao(&hotkey_i);
+                    if stake_i < lowest_stake {
+                        (stake_i, uid_i)
+                    } else {
+                        (lowest_stake, lowest_uid)
+                    }
+                },
+            );
             subnetwork_uid = lowest_uid;
             let replaced_hotkey: T::AccountId =
                 Self::get_hotkey_for_net_and_uid(root_netuid, subnetwork_uid)?;
 
             // --- 13.1.2 The new account has a higher stake than the one being replaced.
-            ensure!(
-                lowest_stake < Self::get_total_stake_for_hotkey(&hotkey),
-                Error::<T>::StakeTooLowForRoot
-            );
+            ensure!(lowest_stake < hotkey_gdt, Error::<T>::StakeTooLowForRoot);
 
             // --- 13.1.3 The new account has a higher stake than the one being replaced.
             // Replace the neuron account with new information.
@@ -554,20 +325,20 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+        let current_stake = hotkey_gdt;
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
-                let a_stake = Self::get_total_stake_for_hotkey(a);
-                let b_stake = Self::get_total_stake_for_hotkey(b);
+                let a_stake = Self::get_hotkey_global_dynamic_tao(a);
+                let b_stake = Self::get_hotkey_global_dynamic_tao(b);
 
                 b_stake.cmp(&a_stake)
             });
 
             if let Some(last) = sorted_members.last() {
-                let last_stake = Self::get_total_stake_for_hotkey(last);
+                let last_stake = Self::get_hotkey_global_dynamic_tao(last);
 
                 if last_stake < current_stake {
                     T::SenateMembers::swap_member(last, &hotkey).map_err(|e| e.error)?;
@@ -576,11 +347,6 @@ impl<T: Config> Pallet<T> {
             }
         } else {
             T::SenateMembers::add_member(&hotkey).map_err(|e| e.error)?;
-        }
-
-        // --- 13. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate(&hotkey) {
-            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
         }
 
         // --- 14. Update the registration counters for both the block and interval.
@@ -660,7 +426,7 @@ impl<T: Config> Pallet<T> {
 
         // Check to see if the hotkey has enough stake to set weights.
         ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
+            Self::get_hotkey_global_dynamic_tao(&hotkey) >= Self::get_weights_min_stake(),
             Error::<T>::NotEnoughStakeToSetWeights
         );
 
@@ -781,11 +547,23 @@ impl<T: Config> Pallet<T> {
     /// * 'NotEnoughBalanceToStake': If there isn't enough balance to stake for network registration.
     /// * 'BalanceWithdrawalError': If an error occurs during balance withdrawal for network registration.
     ///
-    pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
+    pub fn user_add_network(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        subnet_type: SubnetType,
+    ) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
-        // --- 1. Rate limit for network registrations.
+        // --- 1. Ensure that the hotkey is not owned by another key.
+        if Owner::<T>::contains_key(&hotkey) {
+            ensure!(
+                Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+        }
+
+        // --- 2. Check rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
         ensure!(
@@ -793,7 +571,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NetworkTxRateLimitExceeded
         );
 
-        // --- 2. Calculate and lock the required tokens.
+        // --- 3. Calculate and lock the required tokens to register a network.
         let lock_amount: u64 = Self::get_network_lock_cost();
         log::debug!("network lock_amount: {:?}", lock_amount);
         ensure!(
@@ -801,48 +579,36 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotEnoughBalanceToStake
         );
 
-        // --- 4. Determine the netuid to register.
+        // --- 5. Determine the netuid to register by iterating through netuids to find next lowest netuid.
         let netuid_to_register: u16 = {
-            log::debug!(
-                "subnet count: {:?}\nmax subnets: {:?}",
-                Self::get_num_subnets(),
-                Self::get_max_subnets()
-            );
-            if Self::get_num_subnets().saturating_sub(1) < Self::get_max_subnets() {
-                // We subtract one because we don't want root subnet to count towards total
-                let mut next_available_netuid = 0;
-                loop {
-                    next_available_netuid += 1;
-                    if !Self::if_subnet_exist(next_available_netuid) {
-                        log::debug!("got subnet id: {:?}", next_available_netuid);
-                        break next_available_netuid;
-                    }
+            let mut next_available_netuid = 0;
+            loop {
+                next_available_netuid += 1;
+                if !Self::if_subnet_exist(next_available_netuid) {
+                    break next_available_netuid;
                 }
-            } else {
-                let netuid_to_prune = Self::get_subnet_to_prune();
-                ensure!(netuid_to_prune > 0, Error::<T>::AllNetworksInImmunity);
-
-                Self::remove_network(netuid_to_prune);
-                log::debug!("remove_network: {:?}", netuid_to_prune,);
-                Self::deposit_event(Event::NetworkRemoved(netuid_to_prune));
-                netuid_to_prune
             }
         };
 
+        // Ensure no type transition is in progress for subnet
+        // TODOSDT: Remove this check
+        ensure!(
+            SubnetInTransition::<T>::iter().next().is_none(),
+            Error::<T>::TemporarilyNotAllowed
+        );
+
         // --- 5. Perform the lock operation.
         let actual_lock_amount = Self::remove_balance_from_coldkey_account(&coldkey, lock_amount)?;
-        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
-        Self::set_network_last_lock(actual_lock_amount);
 
-        // --- 6. Set initial and custom parameters for the network.
-        Self::init_new_network(netuid_to_register, 360);
-        log::debug!("init_new_network: {:?}", netuid_to_register,);
-
-        // --- 7. Set netuid storage.
-        let current_block_number: u64 = Self::get_current_block_as_u64();
-        NetworkLastRegistered::<T>::set(current_block_number);
-        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
-        SubnetOwner::<T>::insert(netuid_to_register, coldkey);
+        Self::user_add_network_no_checks(
+            subnet_type,
+            coldkey,
+            hotkey,
+            netuid_to_register,
+            lock_amount,
+            actual_lock_amount,
+            360,
+        );
 
         // --- 8. Emit the NetworkAdded event.
         log::info!(
@@ -854,6 +620,69 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Return success.
         Ok(())
+    }
+
+    pub fn user_add_network_no_checks(
+        subnet_type: SubnetType,
+        coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        netuid_to_register: u16,
+        lock_amount: u64,
+        actual_lock_amount: u64,
+        tempo: u16,
+    ) {
+        Self::set_subnet_locked_balance(netuid_to_register, actual_lock_amount);
+        Self::set_network_last_lock(actual_lock_amount);
+
+        // --- 6. Create a new network and set initial and custom parameters for the network.
+        Self::init_new_network(netuid_to_register, tempo);
+        let current_block_number: u64 = Self::get_current_block_as_u64();
+        NetworkLastRegistered::<T>::set(current_block_number);
+        NetworkRegisteredAt::<T>::insert(netuid_to_register, current_block_number);
+        log::debug!("init_new_network: {:?}", netuid_to_register,);
+
+        // --- 7. Set Subnet owner to the coldkey.
+        SubnetOwner::<T>::insert(netuid_to_register, coldkey.clone()); // Set the owner (which can change.)
+        SubnetCreator::<T>::insert(netuid_to_register, hotkey.clone()); // Set the creator hotkey (which is forever.)
+
+        let initial_alpha = match subnet_type {
+            SubnetType::STAO => {
+                lock_amount
+            },
+            SubnetType::DTAO => {
+                // --- 8. Instantiate initial token supply based on lock cost.
+                let initial_tao_reserve: u64 = lock_amount;
+                let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
+                let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
+                let initial_dynamic_k: u128 =
+                    (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
+
+                DynamicTAOReserve::<T>::insert(netuid_to_register, initial_tao_reserve);
+                DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve);
+                DynamicAlphaOutstanding::<T>::insert(netuid_to_register, initial_dynamic_outstanding);
+                DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k);
+                IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
+
+                initial_dynamic_outstanding
+            },
+        };
+
+        TotalSubnetTAO::<T>::insert(netuid_to_register, actual_lock_amount);
+
+        // Add the staker for nominator iterations
+        Staker::<T>::insert(&hotkey, &coldkey, true);
+
+        // --- 9. Register the owner to the network and expand size.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+        Self::append_neuron(netuid_to_register, &hotkey, current_block_number);
+
+        // --- 10. Distribute initial supply of tokens to the owners.
+        Self::increase_subnet_token_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            netuid_to_register,
+            initial_alpha,
+        );
     }
 
     /// Facilitates the removal of a user's subnetwork.
@@ -883,6 +712,12 @@ impl<T: Config> Pallet<T> {
         ensure!(
             SubnetOwner::<T>::get(netuid) == coldkey,
             Error::<T>::NotSubnetOwner
+        );
+
+        // Ensure the network is of STAO type. We don't allow to dissolve DTAO subnets
+        ensure!(
+            Self::get_subnet_type(netuid) == SubnetType::STAO,
+            Error::<T>::NotAllowedToDissolve
         );
 
         // --- 4. Explicitly erase the network and all its parameters.
@@ -947,7 +782,7 @@ impl<T: Config> Pallet<T> {
             ActivityCutoff::<T>::insert(netuid, ActivityCutoff::<T>::get(netuid));
         }
         if !EmissionValues::<T>::contains_key(netuid) {
-            EmissionValues::<T>::insert(netuid, EmissionValues::<T>::get(netuid));
+            EmissionValues::<T>::insert(netuid, DefaultEmissionValues::<T>::get());
         }
         if !MaxWeightsLimit::<T>::contains_key(netuid) {
             MaxWeightsLimit::<T>::insert(netuid, MaxWeightsLimit::<T>::get(netuid));
@@ -1008,6 +843,9 @@ impl<T: Config> Pallet<T> {
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
 
+        // Remove TotalSubnetTAO
+        TotalSubnetTAO::<T>::remove(netuid);
+
         // --- 8. Remove incentive mechanism memory.
         let _ = Uids::<T>::clear_prefix(netuid, u32::max_value(), None);
         let _ = Keys::<T>::clear_prefix(netuid, u32::max_value(), None);
@@ -1018,7 +856,7 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Iterate over stored weights and fill the matrix.
         for (uid_i, weights_i) in
-            <Weights<T> as IterableStorageDoubleMap<u16, u16, Vec<(u16, u16)>>>::iter_prefix(
+            Weights::<T>::iter_prefix(
                 Self::get_root_netuid(),
             )
         {
@@ -1065,6 +903,8 @@ impl<T: Config> Pallet<T> {
         Self::add_balance_to_coldkey_account(&owner_coldkey, reserved_amount);
         Self::set_subnet_locked_balance(netuid, 0);
         SubnetOwner::<T>::remove(netuid);
+
+        // TODO: Unstake all nominators and return their stakes
     }
 
     /// This function calculates the lock cost for a network based on the last lock amount, minimum lock cost, last lock block, and current block.
@@ -1109,55 +949,6 @@ impl<T: Config> Pallet<T> {
         lock_cost
     }
 
-    /// This function is used to determine which subnet to prune when the total number of networks has reached the limit.
-    /// It iterates over all the networks and finds the oldest subnet with the minimum emission value that is not in the immunity period.
-    ///
-    /// # Returns:
-    /// * 'u16':
-    ///     - The uid of the network to be pruned.
-    ///
-    pub fn get_subnet_to_prune() -> u16 {
-        let mut netuids: Vec<u16> = vec![];
-        let current_block = Self::get_current_block_as_u64();
-
-        // Even if we don't have a root subnet, this still works
-        for netuid in NetworksAdded::<T>::iter_keys_from(NetworksAdded::<T>::hashed_key_for(0)) {
-            if current_block.saturating_sub(Self::get_network_registered_block(netuid))
-                < Self::get_network_immunity_period()
-            {
-                continue;
-            }
-
-            // This iterator seems to return them in order anyways, so no need to sort by key
-            netuids.push(netuid);
-        }
-
-        // Now we sort by emission, and then by subnet creation time.
-        netuids.sort_by(|a, b| {
-            use sp_std::cmp::Ordering;
-
-            match Self::get_emission_value(*b).cmp(&Self::get_emission_value(*a)) {
-                Ordering::Equal => {
-                    if Self::get_network_registered_block(*b)
-                        < Self::get_network_registered_block(*a)
-                    {
-                        Ordering::Less
-                    } else {
-                        Ordering::Equal
-                    }
-                }
-                v => v,
-            }
-        });
-
-        log::info!("Netuids Order: {:?}", netuids);
-
-        match netuids.last() {
-            Some(netuid) => *netuid,
-            None => 0,
-        }
-    }
-
     pub fn get_network_registered_block(netuid: u16) -> u64 {
         NetworkRegisteredAt::<T>::get(netuid)
     }
@@ -1190,5 +981,284 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_lock_reduction_interval() -> u64 {
         NetworkLockReductionInterval::<T>::get()
+    }
+
+    pub fn get_initial_lock_on_transition() -> u64 {
+        1_000_000_000
+    }
+
+    // TODOSDT: When we make it available for subnet owners (not just sudo), 
+    // make sure only subnet ower can call this.
+    pub fn do_start_stao_dtao_transition(
+        netuid: u16,
+    ) -> DispatchResult {
+        // Ensure this subnet exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        // Find the owner
+        let coldkey = SubnetOwner::<T>::get(netuid);
+
+        // Ensure the network is of STAO type.
+        ensure!(
+            Self::get_subnet_type(netuid) == SubnetType::STAO,
+            Error::<T>::CannotBeConverted
+        );
+
+        // Ensure subnet_lock is above initial DTAO lock
+        let subnet_lock = SubnetLocked::<T>::get(netuid);
+        ensure!(
+            subnet_lock >= Self::get_initial_lock_on_transition(),
+            Error::<T>::NoStakeInSubnet
+        );
+
+        // Ensure another transition for this subnet is not already in progress
+        // TODOSDT: Only block for networks in transition (see commented below)
+        ensure!(
+            SubnetInTransition::<T>::iter().next().is_none(),
+            Error::<T>::TemporarilyNotAllowed
+        );
+        // ensure!(
+        //     SubnetInTransition::<T>::get(netuid).is_none(),
+        //     Error::<T>::TranstinioAlreadyInProgress
+        // );
+
+        // All looks good: Add the starting transition record for this subnet
+        let subnet_creator = SubnetCreator::<T>::get(netuid);
+        Self::do_start_stao_dtao_transition_no_checks(
+            netuid,
+            coldkey,
+            subnet_creator,
+            subnet_lock,
+        );
+
+        Ok(())
+    }
+
+    /// Starts stao->dtao transition for all STAO subnets
+    pub fn do_start_stao_dtao_transition_for_all() -> DispatchResult {
+        // Ensure no transition is already in progress
+        ensure!(
+            SubnetInTransition::<T>::iter().next().is_none(),
+            Error::<T>::TemporarilyNotAllowed
+        );
+
+        Self::get_all_subnet_netuids().iter()
+        .filter(|&netuid| *netuid != Self::get_root_netuid())
+        .filter(|&netuid| Self::get_subnet_type(*netuid) == SubnetType::STAO)
+        .map(|netuid| {
+            // Find the owner
+            let coldkey = SubnetOwner::<T>::get(netuid);
+
+            // Ensure subnet_lock is above initial DTAO lock
+            let subnet_lock = SubnetLocked::<T>::get(netuid);
+            ensure!(
+                subnet_lock >= Self::get_initial_lock_on_transition(),
+                Error::<T>::NoStakeInSubnet
+            );
+
+            // All looks good: Add the starting transition record for this subnet
+            let subnet_creator = SubnetCreator::<T>::get(netuid);
+            Self::do_start_stao_dtao_transition_no_checks(
+                *netuid,
+                coldkey,
+                subnet_creator,
+                subnet_lock,
+            );
+
+            Ok(())
+        })
+        .fold(Ok(()), |cumulative, local| {
+            match local {
+                Err(_) => local,
+                Ok(()) => cumulative
+            }
+        })
+    }    
+
+    /// Function that starts transition:
+    ///     - Create SubnetInTransition record
+    ///     - Clear SubnetLocked and credit the balance to owner coldkey less 1 TAO
+    ///     - Initialize dynamic pool as (tao reserve = 1, alpha reserve = 1, alpha out = 1)
+    ///     - Do NOT clear TotalSubnetTAO because it is used later as a criteria for everyone 
+    ///       being unstaked
+    /// 
+    fn do_start_stao_dtao_transition_no_checks(
+        netuid: u16,
+        coldkey: T::AccountId,
+        subnet_creator: T::AccountId,
+        subnet_lock: u64,
+    ) {
+        let num_subnets = Self::get_num_subnets() as u64;
+        let initial_total_tao = Self::get_initial_lock_on_transition();
+        let initial_alpha_per_tao = num_subnets;
+        SubnetInTransition::<T>::insert(
+            netuid,
+            SubnetTransition {
+                substake_current_key: SubStake::<T>::iter_keys().next(),
+                coldkey: coldkey.clone(),
+                hotkey: subnet_creator,
+                initial_total_tao,
+                initial_alpha_per_tao,
+            }
+        );
+
+        // Release SubnetLock when transition is done, only reserve 1 TAO and 
+        // produce exactly 1 Alpha res and 1 Alpha out
+        SubnetLocked::<T>::insert(netuid, 0u64);
+        Self::add_balance_to_coldkey_account(
+            &coldkey,
+            subnet_lock.saturating_sub(initial_total_tao),
+        );
+    }
+
+    pub fn do_continue_stao_dtao_transition() -> Weight {
+        let max_block_weight = T::BlockWeights::get().max_block;
+        let mut weight = T::DbWeight::get().reads_writes(1, 0);
+        let mut counter: u32 = 0;
+        let mut tao_counter: u64 = 0;
+
+        // Find if there's a network to convert with zero pending emission
+        let netuid = match SubnetInTransition::<T>::iter_keys().filter(|&netuid| {
+            // If pending emission is non-zero, don't proceed. We need to wait until it is drained.
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+            PendingEmission::<T>::get(netuid) == 0
+        }).next() {
+            Some(netuid) => netuid,
+            None => {
+                return weight;
+            }
+        };
+
+        // Get current SubnetTransition
+        if let Some(mut transition) = SubnetInTransition::<T>::get(netuid) {
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+
+            // TODOSDT: SubStake can change for other subnets => no guarantees for iteration from a key
+            let mut finished = false;
+            while !finished {
+                if let Some(substake_key) = transition.substake_current_key {
+                    // Find the key next after the current before making changes
+                    let encoded_start_key = SubStake::<T>::hashed_key_for(&substake_key);
+                    transition.substake_current_key = SubStake::<T>::iter_keys_from(encoded_start_key).next();
+    
+                    // Apply transition changes only for current netuid
+                    if substake_key.2 == netuid {
+                        // Unstake everyone - remove stake from state maps (including TotalSubnetTAO)
+                        // Because the network was STAO, alpha to tao conversion is 1:1
+                        let stake = SubStake::<T>::get(&substake_key);
+                        Self::do_remove_stake_no_checks(
+                            &substake_key.0,
+                            &substake_key.1,
+                            netuid,
+                            stake,
+                        );
+                        tao_counter = tao_counter.saturating_add(stake);
+                        weight.saturating_accrue(T::DbWeight::get().reads_writes(5, 5));
+                    }
+
+                    // Continue iteration
+                    if transition.substake_current_key.is_none() {
+                        // Since we're blocking every operation with SubStake in the current 
+                        // implementation, we don't need to start over here
+                        finished = true;
+                        log::info!("STAO -> DTAO transition: Finished one iteration over SubStake map");
+
+                        // TODOSDT: Start over (or think of something better) for mainnet 
+                        // version if all operations aren't blocked
+                        // Start over because we are not guaranteed to go over all keys: 
+                        // SubStake is changing as we do this iteration
+                        // transition.substake_current_key = SubStake::<T>::iter_keys().next();
+                        // weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+                    }
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+
+                    // See if we can stop early because we unstaked everyone
+                    // TODOSDT: Didn't work when experimented with subnet 0. After full iteration, 1 rao remained. 
+                    // We need a better way to detect this.
+                    if TotalSubnetTAO::<T>::get(netuid) == 0 {
+                        finished = true;
+                    }
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+
+                    counter = counter.saturating_add(1);
+                } else {
+                    finished = true;
+                }
+
+                // See if we have to stop because of weight. 
+                // Do not allow this to take more than ~10% of block by compute time
+                // TODOSDT: Make it 10%, since we're blocking all operations on testnet now, setting it to 50%
+                if weight.ref_time() >= max_block_weight.ref_time() / 2 {
+                    break;
+                }
+            }
+
+            if finished {
+                let complete_weight = Self::do_complete_stao_dtao_transition(
+                    netuid,
+                    &transition
+                );
+                weight.saturating_accrue(complete_weight);
+            } else {
+                SubnetInTransition::<T>::insert(
+                    netuid,
+                    transition,
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+            }
+            log::info!(
+                "STAO -> DTAO transition processed {} entries with the total of {} TAO for subnet {}",
+                counter, tao_counter as f64 / 1000000000., netuid
+            );
+        }
+
+        weight
+    }
+
+    fn do_complete_stao_dtao_transition(
+        netuid: u16,
+        transition: &SubnetTransition<T::AccountId>,
+    ) -> Weight {
+        // Remove transition record
+        SubnetInTransition::<T>::remove(netuid);
+
+        // Restake subnet owner with initial_total_tao
+        Self::increase_subnet_token_on_coldkey_hotkey_account(
+            &transition.coldkey,
+            &transition.hotkey,
+            netuid,
+            transition.initial_total_tao,
+        );
+
+        // Add initial stake to TotalSubnetTAO
+        TotalSubnetTAO::<T>::insert(netuid, transition.initial_total_tao);
+
+        // Mark the network as dynamic
+        IsDynamic::<T>::insert(netuid, true);
+
+        // Initialize dynamic pool
+        let lock_amount = transition.initial_total_tao;
+        let initial_tao_reserve: u64 = lock_amount;
+        let initial_dynamic_reserve: u64 = lock_amount;
+        let initial_dynamic_outstanding: u64 = lock_amount;
+        let initial_dynamic_k: u128 =
+            (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
+        DynamicTAOReserve::<T>::insert(netuid, initial_tao_reserve);
+        DynamicAlphaReserve::<T>::insert(netuid, initial_dynamic_reserve);
+        DynamicAlphaOutstanding::<T>::insert(netuid, initial_dynamic_outstanding);
+        DynamicK::<T>::insert(netuid, initial_dynamic_k);
+
+        // Reset subnet tempo
+        Tempo::<T>::insert(netuid, T::InitialTempo::get());
+
+        log::info!(
+            "STAO -> DTAO transition completed for netuid {}",
+            netuid,
+        );
+
+        T::DbWeight::get().reads_writes(2, 12)
     }
 }

@@ -28,3 +28,4 @@ std = [
 	"serde/std"
 ]
 pow-faucet = []
+subnet-staking = []

@@ -49,9 +49,6 @@
 //         let modality = 0;
 //         let tempo: u16 = 13;
 //         add_network(10, tempo, modality);
-//         assert_eq!(SubtensorModule::get_number_of_subnets(), 1);
-//         add_network(20, tempo, modality);
-//         assert_eq!(SubtensorModule::get_number_of_subnets(), 2);
 //     });
 // }
 

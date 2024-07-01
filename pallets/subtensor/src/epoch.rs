@@ -5,9 +5,78 @@ use sp_std::vec;
 use substrate_fixed::types::{I32F32, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
-    /// Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
-    /// (Dense version used only for testing purposes.)
-    #[allow(clippy::indexing_slicing)]
+    pub fn get_global_stake_weights(hotkeys: &[(u16, T::AccountId)]) -> Vec<I64F64> {
+        // Initialize a vector to hold the global stake values in 64-bit fixed-point format, setting initial values to 0.0.
+        let mut global_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len()];
+
+        // Iterate over each hotkey to calculate and assign the global stake values.
+        for (uid_i, hotkey) in hotkeys.iter() {
+            global_stake_64[*uid_i as usize] =
+                I64F64::from_num(Self::get_hotkey_global_dynamic_tao(hotkey));
+        }
+        // Normalize the global stake values in-place.
+        inplace_normalize_64(&mut global_stake_64);
+
+        global_stake_64
+    }
+
+    pub fn get_local_stake_weights(netuid: u16, hotkeys: &[(u16, T::AccountId)]) -> Vec<I64F64> {
+        // Initialize a vector to hold the local stake values in 64-bit fixed-point format, setting initial values to 0.0.
+        let mut local_stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); hotkeys.len()];
+
+        // Iterate over each hotkey to calculate and assign the local stake values.
+        for (uid_i, hotkey) in hotkeys.iter() {
+            local_stake_64[*uid_i as usize] =
+                I64F64::from_num(Self::get_total_stake_for_hotkey_and_subnet(hotkey, netuid));
+        }
+        // Normalize the local stake values in-place.
+        inplace_normalize_64(&mut local_stake_64);
+
+        // Return
+        local_stake_64
+    }
+
+    pub fn get_stakes(netuid: u16, hotkeys: &[(u16, T::AccountId)]) -> Vec<I32F32> {
+        // Get the stake weight alpha
+        let alpha: I64F64 = Self::get_global_stake_weight_float();
+
+        // Get local and global terms.
+        let local_stake_weights: Vec<I64F64> = Self::get_local_stake_weights(netuid, hotkeys);
+        let global_stake_weights: Vec<I64F64> = Self::get_global_stake_weights(hotkeys);
+
+        // Average local and global weights.
+        let averaged_stake_64: Vec<I64F64> = local_stake_weights
+            .iter()
+            .zip(global_stake_weights.iter())
+            .map(|(local, global)| (I64F64::from_num(1.0) - alpha) * (*local) + alpha * (*global))
+            .collect();
+
+        // Convert the averaged stake values from 64-bit fixed-point to 32-bit fixed-point representation.
+        vec_fixed64_to_fixed32(averaged_stake_64)
+    }
+
+    /// Fake epoch output with zero mining rewards.
+    pub fn fake_epoch(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
+        let hotkeys: Vec<(u16, T::AccountId)> = Keys::<T>::iter_prefix(netuid).collect();
+
+        // Set stake weights
+        let stake = Self::get_stakes(netuid, &hotkeys);
+        let cloned_stake: Vec<u16> = stake
+            .iter()
+            .map(|si| fixed_proportion_to_u16(*si))
+            .collect::<Vec<u16>>();
+        StakeWeight::<T>::insert(netuid, cloned_stake);
+
+        let stake: Vec<I32F32> = Self::get_stakes(netuid, &hotkeys);
+        let emission: Vec<I96F32> = stake.iter().map(|e: &I32F32| I96F32::from_num(*e) * I96F32::from_num(rao_emission) ).collect();
+        let validator_emission: Vec<u64> = emission.iter().map(|e: &I96F32| e.to_num::<u64>() ).collect();
+        let server_emission = 0u64;
+
+        hotkeys.into_iter().map(|(uid_i, hotkey)| (hotkey, server_emission, validator_emission[uid_i as usize])).collect()
+    }
+
+    // Calculates reward consensus and returns the emissions for uids/hotkeys in a given `netuid`.
+    // (Dense version used only for testing purposes.)
     pub fn epoch_dense(netuid: u16, rao_emission: u64) -> Vec<(T::AccountId, u64, u64)> {
         // Get subnetwork size.
         let n: u16 = Self::get_subnetwork_n(netuid);
@@ -55,22 +124,19 @@ impl<T: Config> Pallet<T> {
             .collect();
         log::trace!("Outdated:\n{:?}\n", &outdated);
 
-        // ===========
-        // == Stake ==
-        // ===========
+        // =============
+        // == Hotkeys ==
+        // =============
 
         let hotkeys: Vec<(u16, T::AccountId)> =
             <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
                 .collect();
         log::trace!("hotkeys: {:?}", &hotkeys);
 
-        // Access network stake as normalized vector.
-        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in &hotkeys {
-            stake_64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
-        }
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
+        // ===================
+        // == Stake values. ==
+        // ===================
+        let stake = Self::get_stakes(netuid, &hotkeys);
         log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
@@ -91,7 +157,6 @@ impl<T: Config> Pallet<T> {
         // Get new validator permits.
         let new_validator_permits: Vec<bool> = is_topk(&stake, max_allowed_validators as usize);
         log::trace!("new_validator_permits: {:?}", new_validator_permits);
-
         // ==================
         // == Active Stake ==
         // ==================
@@ -269,6 +334,10 @@ impl<T: Config> Pallet<T> {
         // == Value storage ==
         // ===================
         let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_stake: Vec<u16> = stake
+            .iter()
+            .map(|si| fixed_proportion_to_u16(*si))
+            .collect::<Vec<u16>>();
         let cloned_ranks: Vec<u16> = ranks
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -296,6 +365,7 @@ impl<T: Config> Pallet<T> {
             .collect::<Vec<u16>>();
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
+        StakeWeight::<T>::insert(netuid, cloned_stake);
         Rank::<T>::insert(netuid, cloned_ranks);
         Trust::<T>::insert(netuid, cloned_trust);
         Consensus::<T>::insert(netuid, cloned_consensus);
@@ -387,24 +457,19 @@ impl<T: Config> Pallet<T> {
         let block_at_registration: Vec<u64> = Self::get_block_at_registration(netuid);
         log::trace!("Block at registration: {:?}", &block_at_registration);
 
+        // =============
+        // == Hotkeys ==
+        // =============
+
+        // Keys stores (netuid, uid) --> hotkey association, which is initially added in append_neuron
+        let hotkeys: Vec<(u16,  T::AccountId)> = Keys::<T>::iter_prefix(netuid).collect();
+        log::trace!("hotkeys: {:?}", &hotkeys);
+
         // ===========
         // == Stake ==
         // ===========
-
-        let hotkeys: Vec<(u16, T::AccountId)> =
-            <Keys<T> as IterableStorageDoubleMap<u16, u16, T::AccountId>>::iter_prefix(netuid)
-                .collect();
-        log::trace!("hotkeys: {:?}", &hotkeys);
-
-        // Access network stake as normalized vector.
-        let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
-        for (uid_i, hotkey) in &hotkeys {
-            stake_64[*uid_i as usize] = I64F64::from_num(Self::get_total_stake_for_hotkey(hotkey));
-        }
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
-        // range: I32F32(0, 1)
-        log::trace!("S: {:?}", &stake);
+        let stake = Self::get_stakes(netuid, hotkeys.as_slice());
+        log::trace!("S:\n{:?}\n", &stake);
 
         // =======================
         // == Validator permits ==
@@ -629,6 +694,10 @@ impl<T: Config> Pallet<T> {
         // == Value storage ==
         // ===================
         let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_stakes: Vec<u16> = stake
+            .iter()
+            .map(|si| fixed_proportion_to_u16(*si))
+            .collect::<Vec<u16>>();
         let cloned_ranks: Vec<u16> = ranks
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -657,6 +726,7 @@ impl<T: Config> Pallet<T> {
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
         Rank::<T>::insert(netuid, cloned_ranks);
+        StakeWeight::<T>::insert(netuid, cloned_stakes);
         Trust::<T>::insert(netuid, cloned_trust);
         Consensus::<T>::insert(netuid, cloned_consensus);
         Incentive::<T>::insert(netuid, cloned_incentive);
@@ -705,18 +775,6 @@ impl<T: Config> Pallet<T> {
     }
     pub fn get_float_kappa(netuid: u16) -> I32F32 {
         I32F32::from_num(Self::get_kappa(netuid)) / I32F32::from_num(u16::MAX)
-    }
-
-    pub fn get_normalized_stake(netuid: u16) -> Vec<I32F32> {
-        let n = Self::get_subnetwork_n(netuid);
-        let mut stake_64: Vec<I64F64> = (0..n)
-            .map(|neuron_uid| {
-                I64F64::from_num(Self::get_stake_for_uid_and_subnetwork(netuid, neuron_uid))
-            })
-            .collect();
-        inplace_normalize_64(&mut stake_64);
-        let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
-        stake
     }
 
     pub fn get_block_at_registration(netuid: u16) -> Vec<u64> {

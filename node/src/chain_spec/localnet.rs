@@ -2,6 +2,7 @@
 #![allow(clippy::unwrap_used)]
 
 use super::*;
+use sp_runtime::AccountId32;
 
 pub fn localnet_config() -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
@@ -71,6 +72,14 @@ fn localnet_genesis(
         (
             get_account_id_from_seed::<sr25519::Public>("Ferdie"),
             2000000000000u128,
+        ),
+        (
+            AccountId32::from_ss58check("5H3qhPGzKMNV9fTPuizxzp8azyFRMd4BnheSuwN9Qxb5Cz3u").unwrap(),
+            1_000_000_000_000_000
+        ),
+        (
+            AccountId32::from_ss58check("5EeBuJRFUMS3CgisL1FT2w4AdqSQVGWRGNsTdR5YrFd189PT").unwrap(),
+            1_000_000_000_000_000
         ),
     ];
 

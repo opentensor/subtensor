@@ -1,12 +1,14 @@
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
-use frame_system as system;
+use frame_system::{self as system, Config};
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use pallet_subtensor::types::SubnetType;
 use sp_core::{Get, H256, U256};
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
@@ -43,6 +45,9 @@ pub type BalanceCall = pallet_balances::Call<Test>;
 
 #[allow(dead_code)]
 pub type TestRuntimeCall = frame_system::Call<Test>;
+
+#[allow(dead_code)]
+pub type PalletBalances = pallet_balances::Pallet<Test>;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -86,7 +91,7 @@ impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
@@ -113,12 +118,14 @@ parameter_types! {
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
     pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
-    pub const ExistentialDeposit: Balance = 1;
+    pub const ExistentialDeposit: Balance = 500; // use value that's currently on Finney
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
     pub const InitialRho: u16 = 30;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 0;
+    pub const MinTempo: u16 = 2;
+    pub const MaxTempo: u16 = u16::MAX;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
@@ -158,6 +165,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
+    pub const InitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3;
 }
 
 // Configure collective pallet for council
@@ -189,6 +197,7 @@ impl CanVote<AccountId> for CanVoteToTriumvirate {
 }
 
 use pallet_subtensor::{CollectiveInterface, MemberManagement};
+use substrate_fixed::types::I64F64;
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
@@ -317,11 +326,14 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = frame_system::EnsureSigned<AccountId>;
     type SenateMembers = ManageSenateMembers;
     type TriumvirateInterface = TriumvirateVotes;
+    type EpochConfig = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
+    type MinTempo = MinTempo;
+    type MaxTempo = MaxTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
     type InitialAdjustmentAlpha = InitialAdjustmentAlpha;
@@ -358,6 +370,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type InitialSubnetOwnerLockPeriod = InitialSubnetOwnerLockPeriod;
 }
 
 impl pallet_utility::Config for Test {
@@ -471,4 +484,133 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+/// Creates a staked STAO subnet 
+///     - SubnetLocked is set to lock_amount, which doesn't go to SubStake map
+///     - SubStake is set to contains stake amount for coldkey 2
+///     - Both amounts are added to TotalSubnetTAO
+/// 
+#[allow(dead_code)]
+pub fn create_staked_stao_network(netuid: u16, lock_amount: u64, stake: u64) {
+    let coldkey1 = U256::from(1);
+    let hotkey1 = U256::from(1);
+    let coldkey2 = U256::from(2);
+    let hotkey2 = U256::from(2);
+    SubtensorModule::add_balance_to_coldkey_account(
+        &coldkey1,
+        lock_amount + ExistentialDeposit::get(),
+    );
+    SubtensorModule::add_balance_to_coldkey_account(&coldkey2, stake + ExistentialDeposit::get());
+    SubtensorModule::set_max_registrations_per_block(netuid, 4);
+    SubtensorModule::set_max_allowed_uids(netuid, 10);
+
+    add_network(netuid, 0, 0);
+    pallet_subtensor::SubnetCreator::<Test>::insert(netuid, hotkey1);
+    pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey1);
+
+    register_ok_neuron(netuid, hotkey1, coldkey1, 124124);
+    register_ok_neuron(netuid, hotkey2, coldkey2, 987907);
+
+    pallet_subtensor::TotalSubnetTAO::<Test>::insert(netuid, lock_amount);
+    pallet_subtensor::SubnetLocked::<Test>::insert(
+        netuid, 
+        lock_amount
+    );
+
+    if stake > 0 {
+        assert_ok!(SubtensorModule::add_subnet_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey2),
+            hotkey1,
+            netuid,
+            stake
+        ));
+    }
+}
+
+#[allow(dead_code)]
+pub fn add_dynamic_network(netuid: u16, tempo: u16, cold_id: u16, hot_id: u16, lock_amount: u64) {
+    let coldkey = U256::from(cold_id);
+    let hotkey = U256::from(hot_id);
+
+    SubtensorModule::user_add_network_no_checks(
+        SubnetType::DTAO,
+        coldkey,
+        hotkey,
+        netuid,
+        lock_amount,
+        lock_amount,
+        tempo,
+    )
+}
+
+#[allow(dead_code)]
+pub fn setup_dynamic_network(netuid: u16, cold_id: u16, hot_id: u16, lock_amount: u64) {
+    SubtensorModule::set_global_stake_weight(0);
+    add_dynamic_network(netuid, 10, cold_id, hot_id, lock_amount);
+    SubtensorModule::set_max_allowed_uids(netuid, 1);
+}
+
+#[allow(dead_code)]
+pub fn add_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64) {
+    let coldkey = U256::from(cold_id);
+    let hotkey = U256::from(hot_id);
+
+    SubtensorModule::add_balance_to_coldkey_account(&coldkey, amount);
+
+    let dynamic_stake = SubtensorModule::compute_dynamic_stake(netuid, amount);
+    SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
+        &coldkey,
+        &hotkey,
+        netuid,
+        dynamic_stake,
+    );
+}
+
+#[allow(dead_code)]
+pub fn remove_dynamic_stake(netuid: u16, cold_id: u16, hot_id: u16, amount: u64) {
+    let coldkey = U256::from(cold_id);
+    let hotkey = U256::from(hot_id);
+
+    let dynamic_unstake_amount_tao = SubtensorModule::compute_dynamic_unstake(netuid, amount);
+    SubtensorModule::decrease_subnet_token_on_coldkey_hotkey_account(
+        &coldkey,
+        &hotkey,
+        netuid,
+        dynamic_unstake_amount_tao,
+    );
+}
+
+#[allow(dead_code)]
+pub fn set_emission_values(netuid: u16, amount: u64) {
+    pallet_subtensor::EmissionValues::<Test>::insert(netuid, amount);
+}
+
+#[allow(dead_code)]
+pub fn get_total_stake_for_coldkey(coldkey: &U256) -> u64 {
+    pallet_subtensor::SubStake::<Test>::iter()
+        .filter(|((cold, _, _), _)| *cold == *coldkey)
+        .map(|((_, _, _), stake)| stake)
+        .sum()
+}
+
+/// Helper function to calculate alpha-tao emission price threshold for DTAO subnets
+/// This is supposed to be the same threshold that is used by block_step function
+/// when it decides whether to issue alpha or tao in the block.
+///
+#[allow(dead_code)]
+pub fn get_price_threshold() -> f64 {
+    // Iterate all subnets and 
+    let (dtao, all) = SubtensorModule::get_all_subnet_netuids().iter().map(|&netuid| {
+        (
+            if SubtensorModule::is_subnet_dynamic(netuid) {
+                pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+            } else {
+                0
+            },
+            pallet_subtensor::TotalSubnetTAO::<Test>::get(netuid)
+        )
+    }).fold((0, 0), |(total_dtao, total_all), (dtao, all)| (total_dtao + dtao, total_all + all));
+
+    (I64F64::from_num(dtao) / I64F64::from_num(all)).to_num::<f64>()
 }

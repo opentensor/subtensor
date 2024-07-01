@@ -1,5 +1,7 @@
 .devcontainer
 .github
+.git
+.baedeker
 .vscode
 !scripts/init.sh
 target

@@ -38,6 +38,7 @@ echo "*** Purging previous state..."
 echo "*** Previous chainstate purged"
 
 echo "*** Starting localnet nodes..."
+export RUST_LOG=subtensor=trace
 alice_start=(
   "$BASE_DIR/target/release/node-subtensor"
   --base-path /tmp/alice
@@ -47,6 +48,9 @@ alice_start=(
   --rpc-port 9946
   --validator
   --rpc-cors=all
+  --rpc-external
+  --unsafe-rpc-external
+  --rpc-methods=unsafe  
   --allow-private-ipv4
   --discover-local
 )

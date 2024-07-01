@@ -1,9 +1,17 @@
+use crate::types::SubnetType;
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageMap;
+use sp_core::Get;
+use sp_std::vec::Vec;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
-use substrate_fixed::types::I96F32;
+
+struct SubnetBlockStepInfo {
+    netuid: u16,
+    subnet_type: SubnetType,
+    price: I64F64,
+    tao_staked: u64,
+    transition_in_progress: bool,
+}
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -12,24 +20,118 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Calculate per-subnet emissions
-        match Self::root_epoch(block_number) {
-            Ok(_) => (),
-            Err(e) => {
-                log::trace!("Error while running root epoch: {:?}", e);
-            }
+        // --- 2. Mint and distribute TAO.
+        Self::run_coinbase(block_number);
+        // Adjust Tempos every 1000 blocks
+        if Self::blocks_until_next_epoch(0, 1000, block_number) == 0 {
+            Self::adjust_tempos();
         }
-        // --- 3. Drains emission tuples ( hotkey, amount ).
-        Self::drain_emission(block_number);
-        // --- 4. Generates emission tuples from epoch functions.
-        Self::generate_emission(block_number);
+
         // Return ok.
         Ok(())
     }
 
-    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
+    /// Adjusts the tempo for each network based on their relative prices to ensure operations
+    /// are performed more frequently on networks with higher prices.
     ///
+    /// This function calculates a value `bi` for each network, which represents the number of blocks
+    /// that progress before an operation is performed on the network. Networks with higher prices
+    /// will have operations performed more frequently. The average operation frequency across all
+    /// networks is aimed to be every `K` blocks.
+    pub fn adjust_tempos() {
+        // Retrieve all network UIDs.
+        let netuids: Vec<u16> = Self::get_all_subnet_netuids();
+
+        // Compute and collect prices for each dynamic subnet, excluding the root subnet.
+        let mut prices: Vec<I64F64> = Vec::new();
+        for netuid in netuids.iter() {
+            if *netuid == Self::get_root_netuid() || !Self::is_subnet_dynamic(*netuid) {
+                continue;
+            }
+            let price = Self::get_tao_per_alpha_price(*netuid);
+            prices.push(price);
+        }
+
+        // Assuming `K` is a predefined constant representing the average desired operation interval in blocks.
+        let k: I64F64 = I64F64::from_num(10); // Replace 1.0 with the actual value of `K` if available.
+
+        // Calculate tempos using the extracted prices and netuids.
+        match Self::calculate_tempos(&netuids, k, &prices) {
+            Ok(tempos) => {
+                // Set the calculated tempos for each network.
+                for (netuid, tempo) in tempos.iter() {
+                    Self::set_tempo(*netuid, *tempo);
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to calculate tempos: {}", e);
+            }
+        }
+    }
+
+    /// Calculates the tempos for each network based on the given prices and a constant `K`.
+    ///
+    /// # Arguments
+    /// * `netuids` - A reference to a vector of network UIDs.
+    /// * `k` - The constant representing the average desired operation interval in blocks.
+    /// * `prices` - A reference to a vector of prices for each network.
+    ///
+    /// # Returns
+    /// * A result containing either a vector of tuples where each tuple contains a network UID and its corresponding tempo, or an error string if there's a mismatch in vector sizes or other issues.
+    pub fn calculate_tempos(
+        netuids: &[u16],
+        k: I64F64,
+        prices: &[I64F64],
+    ) -> Result<Vec<(u16, u16)>, &'static str> {
+        // Check for mismatched vector sizes
+        if netuids.len() != prices.len() {
+            return Err("Mismatched vector sizes: netuids and prices must have the same length.");
+        }
+
+        // Check for empty vectors
+        if netuids.is_empty() || prices.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Calculate total price to find relative frequencies
+        let total_price: I64F64 = prices.iter().sum();
+        if total_price == I64F64::from_num(0.0) {
+            return Ok(netuids.iter().map(|&uid| (uid, 0)).collect()); // If sum of prices is zero, return zero tempos
+        }
+
+        // Calculate relative frequencies based on prices
+        let relative_frequencies: Vec<I64F64> = prices
+            .iter()
+            .map(|&price| price / total_price) // relative frequency = price_i / total_price
+            .collect();
+
+        // Calculate total relative frequency to normalize it to K
+        let total_relative_frequency: I64F64 = relative_frequencies.iter().sum();
+        let normalization_factor: I64F64 = k / total_relative_frequency;
+
+        // Calculate tempos based on normalized relative frequencies
+        let min_tempo = T::MinTempo::get();
+        let max_tempo = T::MaxTempo::get();
+        let tempos: Vec<(u16, u16)> = netuids
+            .iter()
+            .zip(relative_frequencies.iter())
+            .map(|(&uid, &rel_freq)| {
+                let mut tempo = (normalization_factor / rel_freq).to_num::<u16>();
+                if tempo < min_tempo {
+                    tempo = min_tempo;
+                }
+                if tempo > max_tempo {
+                    tempo = max_tempo;
+                }
+                (uid, tempo)
+            })
+            .collect();
+
+        Ok(tempos)
+    }
+    // Helper function which returns the number of blocks remaining before we will run the epoch on this
+    // network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
+    //
     pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
         // tempo | netuid | # first epoch block
         //   1        0               0
@@ -45,260 +147,316 @@ impl<T: Config> Pallet<T> {
         tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
-    /// Helper function returns the number of tuples to drain on a particular step based on
-    /// the remaining tuples to sink and the block number
-    ///
-    pub fn tuples_to_drain_this_block(
-        netuid: u16,
-        tempo: u16,
-        block_number: u64,
-        n_remaining: usize,
-    ) -> usize {
-        let blocks_until_epoch: u64 = Self::blocks_until_next_epoch(netuid, tempo, block_number);
-        if blocks_until_epoch / 2 == 0 {
-            return n_remaining;
-        } // drain all.
-        if tempo / 2 == 0 {
-            return n_remaining;
-        } // drain all
-        if n_remaining == 0 {
-            return 0;
-        } // nothing to drain at all.
-          // Else return enough tuples to drain all within half the epoch length.
-        let to_sink_via_tempo: usize = n_remaining / (tempo as usize / 2);
-        let to_sink_via_blocks_until_epoch: usize = n_remaining / (blocks_until_epoch as usize / 2);
-        if to_sink_via_tempo > to_sink_via_blocks_until_epoch {
-            to_sink_via_tempo
-        } else {
-            to_sink_via_blocks_until_epoch
+    pub fn get_subnet_type(netuid: u16) -> SubnetType {
+        if Self::is_subnet_dynamic(netuid) { 
+            SubnetType::DTAO 
+        } else { 
+            SubnetType::STAO 
         }
     }
 
-    pub fn get_loaded_emission_tuples(netuid: u16) -> Option<Vec<(T::AccountId, u64, u64)>> {
-        LoadedEmission::<T>::get(netuid)
+    fn get_subnets() -> Vec<SubnetBlockStepInfo> {
+        // Get all the network uids.
+        Self::get_all_subnet_netuids().iter().map(|&netuid| {
+            let dynamic = Self::is_subnet_dynamic(netuid);
+            SubnetBlockStepInfo {
+                netuid,
+                subnet_type: Self::get_subnet_type(netuid),
+                price: {
+                    if netuid == Self::get_root_netuid() || !dynamic {
+                        I64F64::from_num(0.0)
+                    } else {
+                        Self::get_tao_per_alpha_price(netuid)
+                    }
+                },
+                tao_staked: TotalSubnetTAO::<T>::get(netuid),
+                // TODOSDT: Only consider current subnet, not all (see commented below)
+                transition_in_progress: SubnetInTransition::<T>::iter().next().is_some(),
+                // transition_in_progress: SubnetInTransition::<T>::get(netuid).is_some(),
+            }
+        }).collect()
     }
 
-    /// Reads from the loaded emission storage which contains lists of pending emission tuples ( hotkey, amount )
-    /// and distributes small chunks of them at a time.
+    /// Calculates price threshold for alpha vs. TAO emissions for DTAO
     ///
-    pub fn drain_emission(_: u64) {
-        // --- 1. We iterate across each network.
-        for (netuid, _) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            let Some(tuples_to_drain) = Self::get_loaded_emission_tuples(netuid) else {
-                // There are no tuples to emit.
-                continue;
-            };
-            let mut total_emitted: u64 = 0;
-            for (hotkey, server_amount, validator_amount) in tuples_to_drain.iter() {
-                Self::emit_inflation_through_hotkey_account(
-                    hotkey,
-                    *server_amount,
-                    *validator_amount,
-                );
-                total_emitted += *server_amount + *validator_amount;
-            }
-            LoadedEmission::<T>::remove(netuid);
-            TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(total_emitted));
+    fn get_emission_price_threshold(subnets: &Vec<SubnetBlockStepInfo>, total_tao_staked: u64) -> I64F64 {
+        // Total TAO staked in DTAO subnets
+        let dtao_tao: u64 = subnets.iter()
+            .filter(|subnet| subnet.subnet_type == SubnetType::DTAO)
+            .map(|subnet_info| subnet_info.tao_staked).sum();
+
+        I64F64::from_num(dtao_tao) / I64F64::from_num(total_tao_staked)
+    }
+
+    pub fn run_coinbase(block_number: u64) {
+        // Compute and fill the prices from all subnets.
+        let mut subnets = Self::get_subnets();
+        let total_prices: I64F64 = subnets.iter().map(|subnet_info| subnet_info.price).sum();
+
+        // Compute total TAO staked across all subnets
+        let total_tao_staked: u64 = subnets.iter()
+            .filter(|subnet| subnet.netuid != Self::get_root_netuid())
+            .map(|subnet_info| subnet_info.tao_staked).sum();
+
+        // Compute emission per subnet as [p.tao_in/sum_tao for p in pools]
+        let total_block_emission = Self::get_block_emission().unwrap_or(0);
+        let total_block_emission_i64f64: I64F64 = I64F64::from_num(total_block_emission);
+        let mut actual_total_block_emission = 0u64;
+
+        if total_tao_staked != 0 {
+            // Calculate price threshold for alpha vs. TAO emissions for DTAO
+            let dtao_tao_fraction: I64F64 = Self::get_emission_price_threshold(&subnets, total_tao_staked);
+
+            subnets.iter_mut().for_each(|subnet_info| {
+                if !subnet_info.transition_in_progress {
+                    let subnet_proportion: I64F64 = if subnet_info.netuid == Self::get_root_netuid() {
+                        I64F64::from_num(0)
+                    } else {
+                        I64F64::from_num(subnet_info.tao_staked) / I64F64::from_num(total_tao_staked)
+                    };
+                    let emission_i64f64 = total_block_emission_i64f64 * subnet_proportion;
+                    let subnet_block_emission = emission_i64f64.to_num();
+                    EmissionValues::<T>::insert(subnet_info.netuid, subnet_block_emission);
+                    // Increment the amount of TAO that is waiting to be distributed through Yuma Consensus.
+                    PendingEmission::<T>::mutate(subnet_info.netuid, |emission| *emission += subnet_block_emission);
+
+                    match subnet_info.subnet_type {
+                        SubnetType::DTAO => {
+                            // Condition the inflation of TAO and alpha based on the sum of the prices.
+                            // This keeps the market caps of ALPHA subsumed by TAO.
+                            let tao_in: u64; // The total amount of TAO emitted this block into all pools.
+                            let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
+
+                            if total_prices <= dtao_tao_fraction {
+                                // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
+                                tao_in = subnet_block_emission;
+                                alpha_in = 0;
+                            } else {
+                                // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
+                                tao_in = 0;
+                                alpha_in = total_block_emission;
+                            }
+
+                            if tao_in > 0 {
+                                // Increment total TAO on subnet
+                                TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(tao_in));
+
+                                // Increment the pools tao reserve based on the block emission.
+                                DynamicTAOReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += tao_in);
+
+                                actual_total_block_emission = actual_total_block_emission.saturating_add(tao_in);
+                            }
+
+                            if alpha_in > 0 {
+                                // Increment the pools alpha reserve based on the alpha in emission.
+                                DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
+
+                                // Increment the total supply of alpha because we just added some to the reserve.
+                                DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += alpha_in);
+                            }
+
+                            // Recalculate the Dynamic K value for the new pool.
+                            DynamicK::<T>::insert(
+                                subnet_info.netuid,
+                                (DynamicTAOReserve::<T>::get(subnet_info.netuid) as u128)
+                                    * (DynamicAlphaReserve::<T>::get(subnet_info.netuid) as u128),
+                            );
+                        },
+                        SubnetType::STAO => {
+                            if subnet_block_emission != 0 {
+                                TotalSubnetTAO::<T>::mutate(subnet_info.netuid, |stake| *stake = stake.saturating_add(subnet_block_emission));
+                                actual_total_block_emission = actual_total_block_emission.saturating_add(subnet_block_emission);
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Increment the total amount of TAO in existence based on the total tao_in
+            TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_add(actual_total_block_emission));
         }
-    }
+    
+        ////////////////////////////////
+        // run epochs.
+        subnets.iter_mut().for_each(|subnet_info| {
+            // Check to see if this network has reached tempo.
+            let tempo: u16 = Self::get_tempo(subnet_info.netuid);
+            if Self::blocks_until_next_epoch(subnet_info.netuid, tempo, block_number) == 0 {
+                // Get the pending emission issuance to distribute for this subnet
+                let emission = PendingEmission::<T>::get(subnet_info.netuid);
+                // Drain pending emission and update dynamic pools
+                PendingEmission::<T>::insert(subnet_info.netuid, 0); 
 
-    /// Iterates through networks queues more emission onto their pending storage.
-    /// If a network has no blocks left until tempo, we run the epoch function and generate
-    /// more token emission tuples for later draining onto accounts.
-    ///
-    pub fn generate_emission(block_number: u64) {
-        // --- 1. Iterate across each network and add pending emission into stash.
-        for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
-            // Skip the root network or subnets with registrations turned off
-            if netuid == Self::get_root_netuid() || !Self::is_registration_allowed(netuid) {
-                // Root emission or subnet emission is burned
-                continue;
-            }
+                // Run the epoch mechanism and return emission tuples for hotkeys in the network in alpha.
+                let emission_tuples: Vec<(T::AccountId, u64, u64)> = if T::EpochConfig::simple_epoch() {
+                    Self::fake_epoch(subnet_info.netuid, emission)
+                } else {
+                    Self::epoch(subnet_info.netuid, emission)
+                };
 
-            // --- 2. Queue the emission due to this network.
-            let new_queued_emission: u64 = Self::get_subnet_emission_value(netuid);
-            log::debug!(
-                "generate_emission for netuid: {:?} with tempo: {:?} and emission: {:?}",
-                netuid,
-                tempo,
-                new_queued_emission,
-            );
+                // Emit the tuples through the hotkeys incrementing their alpha staking balance for this subnet
+                // as well as all nominators.
+                for (hotkey, server_amount, validator_amount) in emission_tuples.iter() {
+                    Self::emit_inflation_through_hotkey_account(
+                        hotkey,
+                        subnet_info.netuid,
+                        *server_amount,
+                        *validator_amount,
+                    );
+                }
 
-            let subnet_has_owner = SubnetOwner::<T>::contains_key(netuid);
-            let mut remaining = I96F32::from_num(new_queued_emission);
-            if subnet_has_owner {
-                let cut = remaining
-                    .saturating_mul(I96F32::from_num(Self::get_subnet_owner_cut()))
-                    .saturating_div(I96F32::from_num(u16::MAX));
+                // Increase subnet totals
+                match subnet_info.subnet_type {
+                    SubnetType::DTAO => {
+                        // Increment the total amount of alpha outstanding (the amount on all of the staking accounts)
+                        DynamicAlphaOutstanding::<T>::mutate(subnet_info.netuid, |reserve| *reserve += emission);
+                        // Also increment the total amount of alpha in total everywhere.
+                        DynamicAlphaIssuance::<T>::mutate(subnet_info.netuid, |issuance| *issuance += emission);
+                    },
+                    SubnetType::STAO => {},
+                }
 
-                remaining = remaining.saturating_sub(cut);
-
-                Self::add_balance_to_coldkey_account(
-                    &Self::get_subnet_owner(netuid),
-                    cut.to_num::<u64>(),
-                );
-
-                // We are creating tokens here from the coinbase.
-                Self::coinbase(cut.to_num::<u64>());
-            }
-            // --- 5. Add remaining amount to the network's pending emission.
-            PendingEmission::<T>::mutate(netuid, |queued| *queued += remaining.to_num::<u64>());
-            log::debug!(
-                "netuid_i: {:?} queued_emission: +{:?} ",
-                netuid,
-                new_queued_emission
-            );
-
-            // --- 6. Check to see if this network has reached tempo.
-            if Self::blocks_until_next_epoch(netuid, tempo, block_number) != 0 {
-                // --- 3.1 No epoch, increase blocks since last step and continue,
+                // Some other counters for accounting.
+                Self::set_blocks_since_last_step(subnet_info.netuid, 0);
+                Self::set_last_mechanism_step_block(subnet_info.netuid, block_number);
+            } else {
                 Self::set_blocks_since_last_step(
-                    netuid,
-                    Self::get_blocks_since_last_step(netuid) + 1,
+                    subnet_info.netuid,
+                    Self::get_blocks_since_last_step(subnet_info.netuid) + 1,
                 );
-                continue;
             }
-
-            // --- 7 This network is at tempo and we are running its epoch.
-            // First drain the queued emission.
-            let emission_to_drain: u64 = PendingEmission::<T>::get(netuid);
-            PendingEmission::<T>::insert(netuid, 0);
-
-            // --- 8. Run the epoch mechanism and return emission tuples for hotkeys in the network.
-            let emission_tuples_this_block: Vec<(T::AccountId, u64, u64)> =
-                Self::epoch(netuid, emission_to_drain);
-            log::debug!(
-                "netuid_i: {:?} emission_to_drain: {:?} ",
-                netuid,
-                emission_to_drain
-            );
-
-            // --- 9. Check that the emission does not exceed the allowed total.
-            let emission_sum: u128 = emission_tuples_this_block
-                .iter()
-                .map(|(_account_id, ve, se)| *ve as u128 + *se as u128)
-                .sum();
-            if emission_sum > emission_to_drain as u128 {
-                continue;
-            } // Saftey check.
-
-            // --- 10. Sink the emission tuples onto the already loaded.
-            let mut concat_emission_tuples: Vec<(T::AccountId, u64, u64)> =
-                emission_tuples_this_block.clone();
-            if let Some(mut current_emission_tuples) = Self::get_loaded_emission_tuples(netuid) {
-                // 10.a We already have loaded emission tuples, so we concat the new ones.
-                concat_emission_tuples.append(&mut current_emission_tuples);
-            }
-            LoadedEmission::<T>::insert(netuid, concat_emission_tuples);
-
-            // --- 11 Set counters.
-            Self::set_blocks_since_last_step(netuid, 0);
-            Self::set_last_mechanism_step_block(netuid, block_number);
-        }
+        });
     }
-    /// Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
-    /// is distributed onto the accounts in proportion of the stake delegated minus the take. This function
-    /// is called after an epoch to distribute the newly minted stake according to delegation.
-    ///
+
+    // Distributes token inflation through the hotkey based on emission. The call ensures that the inflation
+    // is distributed onto the accounts in proportion of the stake delegated minus the take. This function
+    // is called after an epoch to distribute the newly minted stake according to delegation.
+    //
+    // Algorithm:
+    //   0. Hotkey always receives server_emission completely (which gets unstaked and removed from TotalSubnetTAO).
+    //   1. Delegate gets it's take, i.e. a percentage of validator_emission specific to a given subnet (netuid)
+    //
+    //   remaining_validator_emission is what's left. Here is how it's distributed:
+    //
+    //   2. If either delegate_local_stake (total amount of stake under a hotkey for a subnet) or
+    //      delegate_global_dynamic_tao (total delegate stake * alpha_price) are non-zero, then
+    //      for each nominator nominating this delegate do:
+    //      3.a Nominator reward comes in two parts: Local and Global
+    //          Local = (1 - global_stake_weight) * remaining_validator_emission
+    //                  (nominator Alpha in this subnet for hotkey) / (sum of all Alpha in this subnet for hotkey)
+    //          Global = global_stake_weight * remaining_validator_emission * (sum of nominator stake across all subnets) /
+    //                   (sum of everybody's stake across all subnets)
+    //          Global Stake Weight effectively is always 1 currently, so there is no local emission, but no matter what's
+    //          the ratio is set in the future, the sum of all rewards is always going to be remaining_validator_emission.
+    //
+    // Questions/Comments:
+    //   1. Can tao_per_alpha_price be zero if get_total_stake_for_hotkey_and_subnet is non-zero?
+    //   2. TODO: Add tests for how DynamicTAOReserve and DynamicAlphaReserve are affected by staking operations
+    //   3. Is it theoretically possible that lock cost gets up to about 18M TAO for a single network? Will
+    //      it not overflow initial_dynamic_reserve?
+    //   4. Should residual after step 3 be non-zero in any case?
+    //   5. This algorithm re-purposes TotalHotkeySubStake and SubStake state variables to store Alpha (vs. TAO).
+    //
     pub fn emit_inflation_through_hotkey_account(
-        hotkey: &T::AccountId,
+        delegate: &T::AccountId,
+        netuid: u16,
         server_emission: u64,
         validator_emission: u64,
     ) {
-        // --- 1. Check if the hotkey is a delegate. If not, we simply pass the stake through to the
-        // coldkey - hotkey account as normal.
-        if !Self::hotkey_is_delegate(hotkey) {
-            Self::increase_stake_on_hotkey_account(hotkey, server_emission + validator_emission);
-            return;
+        // 1. Else the key is a delegate, first compute the delegate take from the emission.
+        let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get(delegate, netuid))
+            / I64F64::from_num(u16::MAX);
+        let delegate_take: I64F64 = take_proportion * I64F64::from_num(validator_emission);
+        let delegate_take_u64: u64 = delegate_take.to_num::<u64>();
+        let remaining_validator_emission: u64 = validator_emission - delegate_take_u64;
+        let mut residual: u64 = remaining_validator_emission;
+
+        // 3. For each nominator compute its proportion of stake weight and distribute the remaining emission to them.
+        let global_stake_weight: I64F64 = Self::get_global_stake_weight_float();
+        let delegate_local_stake: u64 =
+            Self::get_total_stake_for_hotkey_and_subnet(delegate, netuid);
+        let delegate_global_dynamic_tao = Self::get_hotkey_global_dynamic_tao(delegate);
+        log::debug!(
+            "global_stake_weight: {:?}, delegate_local_stake: {:?}, delegate_global_stake: {:?}",
+            global_stake_weight,
+            delegate_local_stake,
+            delegate_global_dynamic_tao
+        );
+
+        if delegate_local_stake + delegate_global_dynamic_tao != 0 {
+            Staker::<T>::iter_prefix(delegate)
+                .for_each(|(nominator_i, _)| {
+                    // 3.a Compute the stake weight percentage for the nominatore weight.
+                    let nominator_local_stake: u64 = Self::get_subnet_stake_for_coldkey_and_hotkey(
+                        &nominator_i,
+                        delegate,
+                        netuid,
+                    );
+                    let nominator_local_emission_i: I64F64 = if delegate_local_stake == 0 {
+                        I64F64::from_num(0)
+                    } else {
+                        let nominator_local_percentage: I64F64 =
+                            I64F64::from_num(nominator_local_stake)
+                                / I64F64::from_num(delegate_local_stake);
+                        nominator_local_percentage
+                            * I64F64::from_num(remaining_validator_emission)
+                            * (I64F64::from_num(1.0) - global_stake_weight)
+                    };
+                    log::debug!(
+                        "nominator_local_emission_i: {:?}",
+                        nominator_local_emission_i
+                    );
+
+                    let nominator_global_stake: u64 =
+                        Self::get_nominator_global_dynamic_tao(&nominator_i, delegate); // Get global stake.
+                    let nominator_global_emission_i: I64F64 = if delegate_global_dynamic_tao == 0 {
+                        I64F64::from_num(0)
+                    } else {
+                        let nominator_global_percentage: I64F64 =
+                            I64F64::from_num(nominator_global_stake)
+                                / I64F64::from_num(delegate_global_dynamic_tao);
+                        nominator_global_percentage
+                            * I64F64::from_num(remaining_validator_emission)
+                            * global_stake_weight
+                    };
+                    log::debug!(
+                        "nominator_global_emission_i: {:?}",
+                        nominator_global_emission_i
+                    );
+                    let nominator_emission_u64: u64 =
+                        (nominator_global_emission_i + nominator_local_emission_i).to_num::<u64>();
+
+                    // 3.b Increase the stake of the nominator.
+                    log::debug!(
+                        "nominator: {:?}, global_emission: {:?}, local_emission: {:?}",
+                        nominator_i,
+                        nominator_global_emission_i,
+                        nominator_local_emission_i
+                    );
+                    residual -= nominator_emission_u64;
+                    Self::increase_subnet_token_on_coldkey_hotkey_account(
+                        &nominator_i,
+                        delegate,
+                        netuid,
+                        nominator_emission_u64,
+                    );
+                });
         }
-        // Then this is a delegate, we distribute validator_emission, then server_emission.
 
-        // --- 2. The hotkey is a delegate. We first distribute a proportion of the validator_emission to the hotkey
-        // directly as a function of its 'take'
-        let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
-        let delegate_take: u64 =
-            Self::calculate_delegate_proportional_take(hotkey, validator_emission);
-        let validator_emission_minus_take: u64 = validator_emission - delegate_take;
-        let mut remaining_validator_emission: u64 = validator_emission_minus_take;
-
-        // 3. -- The remaining emission goes to the owners in proportion to the stake delegated.
-        for (owning_coldkey_i, stake_i) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey,
-            )
-        {
-            // --- 4. The emission proportion is remaining_emission * ( stake / total_stake ).
-            let stake_proportion: u64 = Self::calculate_stake_proportional_emission(
-                stake_i,
-                total_hotkey_stake,
-                validator_emission_minus_take,
-            );
-            Self::increase_stake_on_coldkey_hotkey_account(
-                &owning_coldkey_i,
-                hotkey,
-                stake_proportion,
-            );
-            log::debug!(
-                "owning_coldkey_i: {:?} hotkey: {:?} emission: +{:?} ",
-                owning_coldkey_i,
-                hotkey,
-                stake_proportion
-            );
-            remaining_validator_emission -= stake_proportion;
-        }
-
-        // --- 5. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
+        // --- 4. Last increase final account balance of delegate after 4, since 5 will change the stake proportion of
         // the delegate and effect calculation in 4.
-        Self::increase_stake_on_hotkey_account(
-            hotkey,
-            delegate_take + remaining_validator_emission,
+        let total_delegate_emission: u64 = delegate_take_u64 + residual;
+        log::debug!(
+            "total_delegate_emission: {:?}",
+            delegate_take_u64 + server_emission
         );
-        log::debug!("delkey: {:?} delegate_take: +{:?} ", hotkey, delegate_take);
-        // Also emit the server_emission to the hotkey
-        // The server emission is distributed in-full to the delegate owner.
-        // We do this after 4. for the same reason as above.
-        Self::increase_stake_on_hotkey_account(hotkey, server_emission);
-    }
-
-    /// Increases the stake on the cold - hot pairing by increment while also incrementing other counters.
-    /// This function should be called rather than set_stake under account.
-    ///
-    pub fn block_step_increase_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        increment: u64,
-    ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| old.saturating_add(increment));
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_add(increment),
+        Self::increase_subnet_token_on_hotkey_account(delegate, netuid, total_delegate_emission);
+        let coldkey: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
+        let tao_server_emission: u64 = Self::compute_dynamic_unstake(netuid, server_emission);
+        Self::add_balance_to_coldkey_account(
+            &coldkey,
+            tao_server_emission,
         );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
-    }
-
-    /// Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
-    ///
-    pub fn block_step_decrease_stake_on_coldkey_hotkey_account(
-        coldkey: &T::AccountId,
-        hotkey: &T::AccountId,
-        decrement: u64,
-    ) {
-        TotalColdkeyStake::<T>::mutate(coldkey, |old| old.saturating_sub(decrement));
-        TotalHotkeyStake::<T>::insert(
-            hotkey,
-            TotalHotkeyStake::<T>::get(hotkey).saturating_sub(decrement),
-        );
-        Stake::<T>::insert(
-            hotkey,
-            coldkey,
-            Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
-        );
-        TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
     }
 
     /// Returns emission awarded to a hotkey as a function of its proportion of the total stake.
@@ -316,17 +474,17 @@ impl<T: Config> Pallet<T> {
         proportional_emission.to_num::<u64>()
     }
 
-    /// Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
-    ///
-    pub fn calculate_delegate_proportional_take(hotkey: &T::AccountId, emission: u64) -> u64 {
-        if Self::hotkey_is_delegate(hotkey) {
-            let take_proportion: I64F64 =
-                I64F64::from_num(Delegates::<T>::get(hotkey)) / I64F64::from_num(u16::MAX);
-            let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
-            take_emission.to_num::<u64>()
-        } else {
-            0
-        }
+    // Returns the delegated stake 'take' assigned to this key. (If exists, otherwise 0)
+    //
+    pub fn calculate_delegate_proportional_take(
+        hotkey: &T::AccountId,
+        netuid: u16,
+        emission: u64,
+    ) -> u64 {
+        let take_proportion: I64F64 = I64F64::from_num(DelegatesTake::<T>::get(hotkey, netuid))
+            / I64F64::from_num(u16::MAX);
+        let take_emission: I64F64 = take_proportion * I64F64::from_num(emission);
+        take_emission.to_num::<u64>()
     }
 
     /// Adjusts the network difficulties/burns of every active network. Resetting state parameters.
@@ -335,7 +493,7 @@ impl<T: Config> Pallet<T> {
         log::debug!("adjust_registration_terms_for_networks");
 
         // --- 1. Iterate through each network.
-        for (netuid, _) in <NetworksAdded<T> as IterableStorageMap<u16, bool>>::iter() {
+        for (netuid, _) in NetworksAdded::<T>::iter() {
             // --- 2. Pull counters for network difficulty.
             let last_adjustment_block: u64 = Self::get_last_adjustment_block(netuid);
             let adjustment_interval: u16 = Self::get_adjustment_interval(netuid);

@@ -1,8 +1,9 @@
 use super::*;
 use frame_support::pallet_prelude::{Decode, Encode};
-use frame_support::storage::IterableStorageDoubleMap;
 extern crate alloc;
 use codec::Compact;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfo<T: Config> {
@@ -13,7 +14,7 @@ pub struct NeuronInfo<T: Config> {
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    pub stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,
@@ -30,14 +31,14 @@ pub struct NeuronInfo<T: Config> {
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfoLite<T: Config> {
-    hotkey: T::AccountId,
+    pub hotkey: T::AccountId,
     coldkey: T::AccountId,
-    uid: Compact<u16>,
+    pub uid: Compact<u16>,
     netuid: Compact<u16>,
     active: bool,
     axon_info: AxonInfo,
     prometheus_info: PrometheusInfo,
-    stake: Vec<(T::AccountId, Compact<u64>)>, // map of coldkey to stake on this neuron/hotkey (includes delegations)
+    pub stake: Vec<(T::AccountId, Compact<u64>)>, // TODO: this needs to be mapped on to stake weight not just raw stake.
     rank: Compact<u16>,
     emission: Compact<u64>,
     incentive: Compact<u16>,
@@ -77,9 +78,7 @@ impl<T: Config> Pallet<T> {
         };
 
         let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
-
         let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
-
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
 
         let active = Self::get_active_for_uid(netuid, uid);
@@ -93,6 +92,10 @@ impl<T: Config> Pallet<T> {
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
+
+        let stake_weight = Self::get_stake_weight_for_uid(netuid, uid) as u64;
+        let stake: Vec<(T::AccountId, Compact<u64>)> =
+            vec![(coldkey.clone(), Compact(stake_weight))];
 
         let weights = <Weights<T>>::get(netuid, uid)
             .iter()
@@ -115,13 +118,6 @@ impl<T: Config> Pallet<T> {
                 }
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
-
-        let stake: Vec<(T::AccountId, Compact<u64>)> =
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey.clone(),
-            )
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
 
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),
@@ -159,16 +155,12 @@ impl<T: Config> Pallet<T> {
 
     fn get_neuron_lite_subnet_exists(netuid: u16, uid: u16) -> Option<NeuronInfoLite<T>> {
         let hotkey = match Self::get_hotkey_for_net_and_uid(netuid, uid) {
-            Ok(h) => h,
+            Ok(key) => key,
             Err(_) => return None,
         };
-
-        let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
-
-        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
-
-        let coldkey = Owner::<T>::get(hotkey.clone()).clone();
-
+        let axon_info = Self::get_axon_info(netuid, &hotkey);
+        let prometheus_info = Self::get_prometheus_info(netuid, &hotkey);
+        let coldkey = Owner::<T>::get(&hotkey);
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
         let emission = Self::get_emission_for_uid(netuid, uid);
@@ -181,16 +173,13 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
 
+        let stake_weight = Self::get_stake_weight_for_uid(netuid, uid) as u64;
         let stake: Vec<(T::AccountId, Compact<u64>)> =
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey.clone(),
-            )
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
+            vec![(coldkey.clone(), Compact(stake_weight))];
 
         let neuron = NeuronInfoLite {
-            hotkey: hotkey.clone(),
-            coldkey: coldkey.clone(),
+            hotkey,
+            coldkey,
             uid: uid.into(),
             netuid: netuid.into(),
             active,

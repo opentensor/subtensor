@@ -2,6 +2,9 @@ use crate::mock::*;
 mod mock;
 use sp_core::U256;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test difficulty
+
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_registration_difficulty_adjustment() {

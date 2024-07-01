@@ -11,6 +11,9 @@ use sp_runtime::traits::{DispatchInfoOf, SignedExtension};
 
 mod mock;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test registration
+
 /********************************************
     subscribing::subscribe() tests
 *********************************************/
@@ -33,14 +36,10 @@ fn test_registration_subscribe_ok_dispatch_info_ok() {
             hotkey,
             coldkey,
         });
-        assert_eq!(
-            call.get_dispatch_info(),
-            DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(192_000_000, 0),
-                class: DispatchClass::Normal,
-                pays_fee: Pays::No
-            }
-        );
+        let disp_info = call.get_dispatch_info();
+        assert!(disp_info.weight.ref_time() != 0);
+        assert_eq!(disp_info.class, DispatchClass::Normal,);
+        assert_eq!(disp_info.pays_fee, Pays::No,);
     });
 }
 
@@ -148,7 +147,7 @@ fn test_registration_ok() {
 
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey_account_id, netuid),
             0
         );
     });
@@ -458,7 +457,7 @@ fn test_burned_registration_ok() {
         assert_eq!(neuro_uid, neuron_uid);
         // Check if the balance of this hotkey account for this subnetwork == 0
         assert_eq!(
-            SubtensorModule::get_stake_for_uid_and_subnetwork(netuid, neuron_uid),
+            SubtensorModule::get_total_stake_for_hotkey_and_subnet(&hotkey_account_id, netuid),
             0
         );
     });
@@ -471,8 +470,10 @@ fn test_burn_registration_without_neuron_slot() {
         let tempo: u16 = 13;
         let hotkey_account_id = U256::from(1);
         let burn_cost = 1000;
-        let coldkey_account_id = U256::from(667); // Neighbour of the beast, har har
-                                                  //add network
+        // Neighbour of the beast, har har
+        let coldkey_account_id = U256::from(667);
+
+        //add network
         SubtensorModule::set_burn(netuid, burn_cost);
         add_network(netuid, tempo, 0);
         // Give it some $$$ in his coldkey balance

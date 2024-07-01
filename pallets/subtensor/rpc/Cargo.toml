@@ -39,4 +39,5 @@ std = [
 	"codec/std",
 	"serde/std"
 ]
+subnet-staking = []
 pow-faucet = []

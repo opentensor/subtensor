@@ -2,8 +2,7 @@
 
 use super::*;
 use crate as pallet_commitments;
-use frame_support::derive_impl;
-use frame_support::traits::ConstU64;
+use frame_support::{ derive_impl, traits::ConstU64 };
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -50,6 +49,7 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
     type FreezeIdentifier = ();
     type MaxFreezes = ();
+    type RuntimeHoldReason = ();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

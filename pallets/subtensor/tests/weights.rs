@@ -12,6 +12,9 @@ use sp_runtime::{
 };
 use substrate_fixed::types::I32F32;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test weights
+
 /***************************
   pub fn set_weights() tests
 *****************************/
@@ -169,9 +172,17 @@ fn test_set_weights_min_stake_failed() {
         // Check the signed extension function.
         assert_eq!(SubtensorModule::get_weights_min_stake(), 20_000_000_000_000);
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 19_000_000_000_000);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey,
+            netuid,
+            19_000_000_000_000,
+        );
         assert!(!SubtensorModule::check_weights_min_stake(&hotkey));
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 20_000_000_000_000);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey,
+            netuid,
+            20_000_000_000_000,
+        );
         assert!(SubtensorModule::check_weights_min_stake(&hotkey));
 
         // Check that it fails at the pallet level.
@@ -188,7 +199,11 @@ fn test_set_weights_min_stake_failed() {
             Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
         );
         // Now passes
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey, 100_000_000_000_000);
+        SubtensorModule::increase_subnet_token_on_hotkey_account(
+            &hotkey,
+            netuid,
+            100_000_000_000_000,
+        );
         assert_ok!(commit_reveal_set_weights(
             hotkey,
             netuid,

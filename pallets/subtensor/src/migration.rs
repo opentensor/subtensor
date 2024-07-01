@@ -1,7 +1,8 @@
 use super::*;
+use alloc::collections::BTreeMap;
 use frame_support::traits::DefensiveResult;
 use frame_support::{
-    pallet_prelude::{Identity, OptionQuery},
+    pallet_prelude::{Blake2_128Concat, Identity, OptionQuery, ValueQuery},
     storage_alias,
     traits::{fungible::Inspect as _, Get, GetStorageVersion, StorageVersion},
     weights::Weight,
@@ -23,6 +24,29 @@ pub mod deprecated_loaded_emission_format {
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
 
+pub mod deprecated_stake_variables {
+    use super::*;
+
+    type AccountIdOf<T> = <T as frame_system::Config>::AccountId;
+
+    #[storage_alias] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
+    pub type TotalHotkeyStake<T: Config> =
+        StorageMap<Pallet<T>, Identity, AccountIdOf<T>, u64, ValueQuery>;
+    #[storage_alias] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
+    pub type TotalColdkeyStake<T: Config> =
+        StorageMap<Pallet<T>, Identity, AccountIdOf<T>, u64, ValueQuery>;
+    #[storage_alias] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
+    pub type Stake<T: Config> = StorageDoubleMap<
+        Pallet<T>,
+        Blake2_128Concat,
+        AccountIdOf<T>,
+        Identity,
+        AccountIdOf<T>,
+        u64,
+        ValueQuery,
+    >;
+}
+
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
 /// This migration is applicable only if the current storage version is 5, after which it updates the storage version to 6.
 ///
@@ -31,44 +55,47 @@ pub mod deprecated_loaded_emission_format {
 pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
     let mut weight = T::DbWeight::get().reads(1); // Initialize migration weight
 
-    // Execute migration if the current storage version is 5
-    if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
-        // Calculate the sum of all stake values
-        let stake_sum: u64 = Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
-            accumulator.saturating_add(stake_value)
-        });
-        weight = weight
-            .saturating_add(T::DbWeight::get().reads_writes(Stake::<T>::iter().count() as u64, 0));
+    use deprecated_stake_variables as old;
 
-        // Calculate the sum of all stake values
-        let locked_sum: u64 = SubnetLocked::<T>::iter()
-            .fold(0, |accumulator, (_, locked_value)| {
-                accumulator.saturating_add(locked_value)
+    // Grab current version
+    let new_storage_version = 6;
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+    // Only runs if we haven't already updated version past above new_storage_version.
+    if onchain_version < new_storage_version {
+        // Execute migration if the current storage version is 5
+        if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
+            // Calculate the sum of all stake values
+            let stake_sum: u64 = old::Stake::<T>::iter().fold(0, |accumulator, (_, _, stake_value)| {
+                accumulator.saturating_add(stake_value)
             });
-        weight = weight.saturating_add(
-            T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0),
-        );
+            weight = weight
+                .saturating_add(T::DbWeight::get().reads_writes(old::Stake::<T>::iter().count() as u64, 0));
 
-        // Retrieve the total balance sum
-        let total_balance = T::Currency::total_issuance();
-        match TryInto::<u64>::try_into(total_balance) {
-            Ok(total_balance_sum) => {
-                weight = weight.saturating_add(T::DbWeight::get().reads(1));
+            // Calculate the sum of all stake values
+            let locked_sum: u64 = SubnetLocked::<T>::iter()
+                .fold(0, |accumulator, (_, locked_value)| {
+                    accumulator.saturating_add(locked_value)
+                });
+            weight = weight.saturating_add(
+                T::DbWeight::get().reads_writes(SubnetLocked::<T>::iter().count() as u64, 0),
+            );
 
-                // Compute the total issuance value
-                let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
+            // Retrieve the total balance sum
+            let total_balance = T::Currency::total_issuance();
+            weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
-                // Update the total issuance in storage
-                TotalIssuance::<T>::put(total_issuance_value);
+            // Compute the total issuance value
+            let total_issuance_value: u64 = stake_sum + total_balance + locked_sum;
 
-                // Update the storage version to 6
-                StorageVersion::new(6).put::<Pallet<T>>();
-                weight = weight.saturating_add(T::DbWeight::get().writes(1));
-            }
-            Err(_) => {
-                log::error!("Failed to convert total balance to u64, bailing");
-            }
+            // Update the total issuance in storage
+            TotalIssuance::<T>::put(total_issuance_value);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1));
         }
+
+        // Update the storage version to 6
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+        weight = weight.saturating_add(T::DbWeight::get().writes(1));
     }
 
     weight // Return the computed weight of the migration process
@@ -85,7 +112,10 @@ pub fn migrate_transfer_ownership_to_foundation<T: Config>(coldkey: [u8; 32]) ->
 
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version {
-        info!(target: LOG_TARGET_1, ">>> Migrating subnet 1 and 11 to foundation control {:?}", onchain_version);
+        info!(
+            target: LOG_TARGET_1,
+            ">>> Migrating subnet 1 and 11 to foundation control {:?}", onchain_version
+        );
 
         // We have to decode this using a byte slice as we don't have crypto-std
         let coldkey_account: <T as frame_system::Config>::AccountId =
@@ -186,7 +216,10 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
 
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(3) {
-        info!(target: LOG_TARGET_1, ">>> Removing subnet 3 {:?}", onchain_version);
+        info!(
+            target: LOG_TARGET_1,
+            ">>> Removing subnet 3 {:?}", onchain_version
+        );
 
         let netuid = 3;
 
@@ -270,7 +303,10 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
 
     // Only runs if we haven't already updated version past above new_storage_version.
     if onchain_version < new_storage_version && Pallet::<T>::if_subnet_exist(21) {
-        info!(target: LOG_TARGET_1, ">>> Removing subnet 21 {:?}", onchain_version);
+        info!(
+            target: LOG_TARGET_1,
+            ">>> Removing subnet 21 {:?}", onchain_version
+        );
 
         let netuid = 21;
 
@@ -353,7 +389,10 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
     // Only runs if we haven't already updated version to 1.
     if onchain_version < 1 {
-        info!(target: LOG_TARGET, ">>> Updating the LoadedEmission to a new format {:?}", onchain_version);
+        info!(
+            target: LOG_TARGET,
+            ">>> Updating the LoadedEmission to a new format {:?}", onchain_version
+        );
 
         // We transform the storage values from the old into the new format.
 
@@ -377,7 +416,10 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
             |netuid: u16,
              netuid_emissions: Vec<(AccountIdOf<T>, u64)>|
              -> Option<Vec<(AccountIdOf<T>, u64, u64)>> {
-                info!(target: LOG_TARGET, "     Do migration of netuid: {:?}...", netuid);
+                info!(
+                    target: LOG_TARGET,
+                    "     Do migration of netuid: {:?}...", netuid
+                );
 
                 // We will assume all loaded emission is validator emissions,
                 // so this will get distributed over delegatees (nominators), if there are any
@@ -410,67 +452,194 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
 const LOG_TARGET_1: &str = "fixtotalstakestorage";
 
-pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
-    let new_storage_version = 2;
+pub fn migrate_stake_to_substake<T: Config>() -> Weight {
+    let new_storage_version = 7;
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
 
-    // Check storage version
-    let mut weight = T::DbWeight::get().reads(1);
+    use deprecated_stake_variables as old;
 
-    // Grab current version
     let onchain_version = Pallet::<T>::on_chain_storage_version();
-
-    // Only runs if we haven't already updated version past above new_storage_version.
+    log::info!("Current on-chain storage version: {:?}", onchain_version); // Debug print
     if onchain_version < new_storage_version {
-        info!(target: LOG_TARGET_1, ">>> Fixing the TotalStake and TotalColdkeyStake storage {:?}", onchain_version);
+        log::info!("Starting migration from Stake to SubStake."); // Debug print
+        let mut counter = 0;
+        old::Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
+            if stake > 0 {
+                // Ensure we're only migrating non-zero stakes
+                // Insert into SubStake with netuid set to 0 for all entries
+                SubStake::<T>::insert((&coldkey, &hotkey, &0u16), stake);
+                // Accrue read and write weights
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+                counter += 1;
+            }
+        });
+        log::info!("Inserted {} entries into SubStake", counter);
 
-        // Stake and TotalHotkeyStake are known to be accurate
-        // TotalColdkeyStake is known to be inaccurate
-        // TotalStake is known to be inaccurate
+        // Assuming TotalHotkeySubStake needs to be updated similarly
+        let mut total_stakes: BTreeMap<T::AccountId, u64> = BTreeMap::new();
+        let mut total_subnet_stakes: BTreeMap<u16, u64> = BTreeMap::new();
+        SubStake::<T>::iter().for_each(|((coldkey, hotkey, netuid), stake)| {
+            *total_stakes.entry(hotkey.clone()).or_insert(0) += stake;
+            *total_subnet_stakes.entry(netuid).or_insert(0) += stake;
+            if stake > 0 {
+                Staker::<T>::insert(&hotkey, &coldkey, true);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+            }
+        });
 
-        TotalStake::<T>::put(0); // Set to 0
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        // We iterate over TotalColdkeyStake keys and set them to 0
-        let total_coldkey_stake_keys = TotalColdkeyStake::<T>::iter_keys().collect::<Vec<_>>();
-        for coldkey in total_coldkey_stake_keys {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            TotalColdkeyStake::<T>::insert(coldkey, 0); // Set to 0
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        for (hotkey, total_stake) in total_stakes.iter() {
+            TotalHotkeySubStake::<T>::insert(hotkey, &0u16, *total_stake);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
+        log::info!(
+            "Inserted {} entries into TotalHotkeySubStake",
+            total_stakes.len()
+        );
 
-        // Now we iterate over the entire stake map, and sum each coldkey stake
-        //   We also track TotalStake
-        for (_, coldkey, stake) in Stake::<T>::iter() {
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Get the current coldkey stake
-            let mut total_coldkey_stake = TotalColdkeyStake::<T>::get(coldkey.clone());
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Add the stake to the coldkey stake
-            total_coldkey_stake = total_coldkey_stake.saturating_add(stake);
-            // Update the coldkey stake
-            TotalColdkeyStake::<T>::insert(coldkey, total_coldkey_stake);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-            // Get the current total stake
-            let mut total_stake = TotalStake::<T>::get();
-            weight.saturating_accrue(T::DbWeight::get().reads(1));
-            // Add the stake to the total stake
-            total_stake = total_stake.saturating_add(stake);
-            // Update the total stake
-            TotalStake::<T>::put(total_stake);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
+        // For STAO the total stake is the same thing as TotalSubnetTAO for DTAO, so
+        // we are using this map for both STAO and DTAO.
+        for (netuid, total_stake) in total_subnet_stakes.iter() {
+            TotalSubnetTAO::<T>::insert(netuid, total_stake);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
+        log::info!(
+            "Inserted {} entries into TotalSubnetTAO",
+            total_subnet_stakes.len()
+        );
 
-        // Now both TotalStake and TotalColdkeyStake are accurate
+        // Remove the old `TotalStake` type.
+        frame_support::storage::unhashed::kill(&frame_support::storage::storage_prefix(
+            "SubtensorModule".as_bytes(),
+            "TotalStake".as_bytes(),
+        ));
 
-        // Update storage version.
-        StorageVersion::new(new_storage_version).put::<Pallet<T>>(); // Update to version so we don't run this again.
-                                                                     // One write to storage version
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        weight
+        // Update the storage version to indicate this migration has been completed
+        log::info!(
+            "Migration completed, updating storage version to: {:?}",
+            new_storage_version
+        ); // Debug print
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+        weight += T::DbWeight::get().writes(1);
     } else {
-        info!(target: LOG_TARGET_1, "Migration to v2 already done!");
-        Weight::zero()
+        log::info!("Migration to fill SubStake from Stake already done!"); // Debug print
     }
+
+    log::info!("Final weight: {:?}", weight); // Debug print
+    weight
+}
+
+pub fn migrate_remove_deprecated_stake_variables<T: Config>() -> Weight {
+    let new_storage_version = 8;
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    use deprecated_stake_variables as old;
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version); // Debug print
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: Remove TotalColdkeyStake and TotalHotkeyStake."); // Debug print
+        old::TotalHotkeyStake::<T>::iter().for_each(|(hotkey, _)| {
+            old::TotalHotkeyStake::<T>::remove(hotkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        });
+
+        old::TotalColdkeyStake::<T>::iter().for_each(|(hotkey, _)| {
+            old::TotalColdkeyStake::<T>::remove(hotkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        });
+
+        // Update the storage version to indicate this migration has been completed
+        log::info!(
+            "Migration completed, updating storage version to: {:?}",
+            new_storage_version
+        ); // Debug print
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        // Remove Stake values
+        // old::Stake::<T>::translate(|_, _, _| {
+        //     weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
+        //     None
+        // });
+    } else {
+        log::info!("Migration to remove deprecated storage variables already done!");
+        // Debug print
+    }
+
+    log::info!("Final weight: {:?}", weight); // Debug print
+    weight
+}
+
+pub fn migrate_populate_subnet_creator<T: Config>() -> Weight {
+    let new_storage_version = 9;
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: Populate subnet creator.");
+        SubnetOwner::<T>::iter().for_each(|(netuid, owner)| {
+            SubnetCreator::<T>::insert(netuid, owner);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+        });
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+    } else {
+        log::info!("Migration to populate subnet creator already done!");
+    }
+
+    log::info!("Final weight: {:?}", weight);
+    weight
+}
+
+pub fn migrate_clear_delegates<T: Config>() -> Weight {
+    let new_storage_version = 10;
+    let migration_name = "clear delegates map";
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: {}.", migration_name);
+
+        // Remove Delegates values
+        let count = Delegates::<T>::clear(u32::MAX, None);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(count.backend as u64, count.backend as u64));
+
+        StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+    } else {
+        log::info!("Migration already done: {}", migration_name);
+    }
+
+    log::info!("Final weight: {:?}", weight);
+    weight
+}
+
+pub fn migrate_fix_subnet_lock_1<T: Config>() -> Weight {
+    let new_storage_version = 11;
+    let migration_name = "fix subnet 1 locked amount";
+    let mut weight = T::DbWeight::get().reads_writes(1, 1);
+
+    let onchain_version = Pallet::<T>::on_chain_storage_version();
+    log::info!("Current on-chain storage version: {:?}", onchain_version);
+    if onchain_version < new_storage_version {
+        log::info!("Starting migration: {}.", migration_name);
+
+        // This migration will only succeed if subnet 1 has pending emission of >= 1 TAO,
+        // otherwise it will be postponed until the next runtime upgrade
+        let netuid = 1;
+        let required_lock = Pallet::<T>::get_initial_lock_on_transition();
+        if PendingEmission::<T>::get(netuid) >= required_lock {
+            PendingEmission::<T>::mutate(netuid, |emission| *emission = emission.saturating_sub(required_lock));
+            SubnetLocked::<T>::mutate(netuid, |lock| *lock = lock.saturating_add(required_lock));
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+            StorageVersion::new(new_storage_version).put::<Pallet<T>>();
+        } else {
+            log::info!("Migration cannot be completed at this time (no pending emission): {}", migration_name);
+        }
+    } else {
+        log::info!("Migration already done: {}", migration_name);
+    }
+
+    log::info!("Final weight: {:?}", weight);
+    weight
 }

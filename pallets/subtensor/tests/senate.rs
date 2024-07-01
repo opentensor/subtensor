@@ -16,6 +16,9 @@ use pallet_collective::Event as CollectiveEvent;
 use pallet_subtensor::migration;
 use pallet_subtensor::Error;
 
+// To run just the tests in this file, use the following command:
+// cargo test -p pallet-subtensor --test senate
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
     sp_tracing::try_init_simple();
 
@@ -89,27 +92,31 @@ fn test_senate_join_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
+            InitialDefaultTake::get()
+        );
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &staker_coldkey,
+                &hotkey_account_id,
+                netuid
+            ),
+            100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -158,27 +165,31 @@ fn test_senate_vote_works() {
         );
 
         // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
+        assert_eq!(
+            SubtensorModule::get_delegate_take(&hotkey_account_id, netuid),
+            InitialDefaultTake::get()
+        );
 
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &staker_coldkey,
+                &hotkey_account_id,
+                netuid
+            ),
+            100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -325,28 +336,26 @@ fn test_senate_leave_works() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
-
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &staker_coldkey,
+                &hotkey_account_id,
+                netuid
+            ),
+            100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -395,28 +404,26 @@ fn test_senate_leave_vote_removal() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            coldkey_origin.clone(),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
-
         let staker_coldkey = U256::from(7);
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, 100_000);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             100_000
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            99_999
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &staker_coldkey,
+                &hotkey_account_id,
+                netuid
+            ),
+            100_000
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            99_999
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            100_000
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -466,9 +473,10 @@ fn test_senate_leave_vote_removal() {
                 hot
             ));
             // Add stake on other network
-            assert_ok!(SubtensorModule::add_stake(
+            assert_ok!(SubtensorModule::add_subnet_stake(
                 <<Test as Config>::RuntimeOrigin>::signed(cold),
                 hot,
+                netuid,
                 100_000_000 + (i as u64)
             ));
             // Register them on the root network.
@@ -479,8 +487,6 @@ fn test_senate_leave_vote_removal() {
             // Check succesfull registration.
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are all delegates
-            assert!(SubtensorModule::hotkey_is_delegate(&hot));
         }
         // No longer a root member
         assert!(
@@ -531,29 +537,27 @@ fn test_senate_not_leave_when_stake_removed() {
             coldkey_account_id
         );
 
-        // Lets make this new key a delegate with a 10% take.
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            u16::MAX / 10
-        ));
-
         let staker_coldkey = U256::from(7);
         let stake_amount: u64 = 100_000;
         SubtensorModule::add_balance_to_coldkey_account(&staker_coldkey, stake_amount);
 
-        assert_ok!(SubtensorModule::add_stake(
+        assert_ok!(SubtensorModule::add_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
+            netuid,
             stake_amount
         ));
         assert_eq!(
-            SubtensorModule::get_stake_for_coldkey_and_hotkey(&staker_coldkey, &hotkey_account_id),
-            stake_amount - 1 // Need to account for ED
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &staker_coldkey,
+                &hotkey_account_id,
+                netuid
+            ),
+            stake_amount
         );
         assert_eq!(
-            SubtensorModule::get_total_stake_for_hotkey(&hotkey_account_id),
-            stake_amount - 1 // Need to account for ED
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            stake_amount
         );
 
         assert_ok!(SubtensorModule::root_register(
@@ -561,13 +565,26 @@ fn test_senate_not_leave_when_stake_removed() {
             hotkey_account_id
         ));
         assert!(Senate::is_member(&hotkey_account_id));
+        assert_eq!(
+            SubtensorModule::get_subnet_stake_for_coldkey_and_hotkey(
+                &staker_coldkey,
+                &hotkey_account_id,
+                netuid
+            ),
+            stake_amount
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_global_dynamic_tao(&hotkey_account_id),
+            stake_amount
+        );
 
-        step_block(100);
+        // step_block(100);
 
-        assert_ok!(SubtensorModule::remove_stake(
+        assert_ok!(SubtensorModule::remove_subnet_stake(
             <<Test as Config>::RuntimeOrigin>::signed(staker_coldkey),
             hotkey_account_id,
-            stake_amount - 1
+            netuid,
+            stake_amount
         ));
         assert!(Senate::is_member(&hotkey_account_id));
     });

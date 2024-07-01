@@ -1,6 +1,8 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
+use sp_std::vec::Vec;
 use sp_core::U256;
+use substrate_fixed::types::I64F64;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -163,9 +165,21 @@ impl<T: Config> Pallet<T> {
     pub fn set_stake_interval(block: u64) {
         StakeInterval::<T>::set(block);
     }
+    pub fn get_stake_weight_for_uid(netuid: u16, uid: u16) -> u16 {
+        let vec = StakeWeight::<T>::get(netuid);
+        if (uid as usize) < vec.len() {
+            vec[uid as usize]
+        } else {
+            0
+        }
+    }
     pub fn get_rank_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Rank::<T>::get(netuid);
-        vec.get(uid as usize).copied().unwrap_or(0)
+        if (uid as usize) < vec.len() {
+            vec[uid as usize]
+        } else {
+            0
+        }
     }
     pub fn get_trust_for_uid(netuid: u16, uid: u16) -> u16 {
         let vec = Trust::<T>::get(netuid);
@@ -251,10 +265,26 @@ impl<T: Config> Pallet<T> {
         BlockAtRegistration::<T>::get(netuid, neuron_uid)
     }
 
-    // ========================
-    // ===== Take checks ======
-    // ========================
-    pub fn do_take_checks(coldkey: &T::AccountId, hotkey: &T::AccountId) -> Result<(), Error<T>> {
+    // ==============================
+    // ==== Global Stake Weight =====
+    // ==============================
+    pub fn get_global_stake_weight() -> u16 {
+        GlobalStakeWeight::<T>::get()
+    }
+    pub fn get_global_stake_weight_float() -> I64F64 {
+        I64F64::from_num(GlobalStakeWeight::<T>::get()) / I64F64::from_num(u16::MAX)
+    }
+    pub fn set_global_stake_weight(global_stake_weight: u16) {
+        GlobalStakeWeight::<T>::put(global_stake_weight);
+    }
+
+    // ===========================
+    // ===== Account checks ======
+    // ===========================
+    pub fn do_account_checks(
+        coldkey: &T::AccountId,
+        hotkey: &T::AccountId,
+    ) -> Result<(), Error<T>> {
         // Ensure we are delegating a known key.
         ensure!(
             Self::hotkey_account_exists(hotkey),
@@ -306,18 +336,14 @@ impl<T: Config> Pallet<T> {
     // === Token Management ===
     // ========================
     pub fn burn_tokens(amount: u64) {
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_sub(amount));
+        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(amount));
     }
     pub fn coinbase(amount: u64) {
-        TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(amount));
+        TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_add(amount));
     }
     pub fn get_default_take() -> u16 {
         // Default to maximum
         MaxTake::<T>::get()
-    }
-    pub fn set_max_take(default_take: u16) {
-        MaxTake::<T>::put(default_take);
-        Self::deposit_event(Event::DefaultTakeSet(default_take));
     }
     pub fn get_min_take() -> u16 {
         MinTake::<T>::get()
@@ -329,6 +355,20 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_subnet_locked_balance(netuid: u16) -> u64 {
         SubnetLocked::<T>::get(netuid)
+    }
+
+    // ===========================
+    // ========= Staking =========
+    // ===========================
+
+    // Returns the stake under the cold - hot pairing in the staking table.
+    //
+    pub fn get_total_stake_for_hotkey_and_coldkey(
+        hotkey: &T::AccountId,
+        coldkey: &T::AccountId,
+    ) -> u64 {
+        SubStake::<T>::iter_prefix((coldkey, hotkey))
+            .fold(0, |sum, (_, stake)| sum + stake)
     }
 
     // ========================
@@ -600,6 +640,9 @@ impl<T: Config> Pallet<T> {
         ));
     }
 
+    pub fn get_subnet_creator_hotkey(netuid: u16) -> T::AccountId {
+        SubnetCreator::<T>::get(netuid)
+    }
     pub fn get_subnet_owner(netuid: u16) -> T::AccountId {
         SubnetOwner::<T>::get(netuid)
     }
@@ -649,6 +692,46 @@ impl<T: Config> Pallet<T> {
 
     pub fn is_subnet_owner(address: &T::AccountId) -> bool {
         SubnetOwner::<T>::iter_values().any(|owner| *address == owner)
+    }
+
+    pub fn get_subnet_owner_lock_period() -> u64 {
+        SubnetOwnerLockPeriod::<T>::get()
+    }
+
+    pub fn set_subnet_owner_lock_period(subnet_owner_lock_period: u64) {
+        SubnetOwnerLockPeriod::<T>::set(subnet_owner_lock_period);
+    }
+
+    /// Calculates the slippage for both staking and unstaking operations.
+    ///
+    /// # Arguments
+    /// * `netuid` - The unique identifier for the network (subnet).
+    /// * `stake_change` - The amount of stake being added (positive) or removed (negative).
+    ///
+    /// # Returns
+    /// * `I64F64` - The slippage amount, which is the difference in price.
+    pub fn calculate_slippage(
+        netuid: u16,
+        stake_change: i64, // Positive for staking, negative for unstaking
+    ) -> I64F64 {
+        let tao_reserve = DynamicTAOReserve::<T>::get(netuid);
+        let dynamic_reserve = DynamicAlphaReserve::<T>::get(netuid);
+        let k = DynamicK::<T>::get(netuid);
+
+        // Calculate new reserves based on whether stake is being added or removed
+        let new_dynamic_reserve = if stake_change > 0 {
+            dynamic_reserve.saturating_add(stake_change as u64)
+        } else {
+            dynamic_reserve.saturating_sub(stake_change.unsigned_abs())
+        };
+
+        let new_tao_reserve = (k / new_dynamic_reserve as u128) as u64;
+
+        let initial_price = I64F64::from_num(tao_reserve) / I64F64::from_num(dynamic_reserve);
+        let new_price = I64F64::from_num(new_tao_reserve) / I64F64::from_num(new_dynamic_reserve);
+
+        // Slippage is the difference in price
+        initial_price - new_price
     }
 
     pub fn get_nominator_min_required_stake() -> u64 {

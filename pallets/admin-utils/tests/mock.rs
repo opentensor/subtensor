@@ -10,8 +10,9 @@ use sp_core::U256;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
-    BuildStorage, DispatchError,
+    BuildStorage, DispatchError, DispatchResult,
 };
+use sp_weights::Weight;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -69,6 +70,8 @@ parameter_types! {
     pub const InitialRho: u16 = 30;
     pub const InitialKappa: u16 = 32_767;
     pub const InitialTempo: u16 = 0;
+    pub const MinTempo: u16 = 2;
+    pub const MaxTempo: u16 = u16::MAX;
     pub const SelfOwnership: u64 = 2;
     pub const InitialImmunityPeriod: u16 = 2;
     pub const InitialMaxAllowedUids: u16 = 2;
@@ -108,6 +111,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
+    pub const InitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3;
 
 }
 
@@ -119,11 +123,14 @@ impl pallet_subtensor::Config for Test {
     type CouncilOrigin = EnsureNever<AccountId>;
     type SenateMembers = ();
     type TriumvirateInterface = ();
+    type EpochConfig = ();
 
     type InitialMinAllowedWeights = InitialMinAllowedWeights;
     type InitialEmissionValue = InitialEmissionValue;
     type InitialMaxWeightsLimit = InitialMaxWeightsLimit;
     type InitialTempo = InitialTempo;
+    type MinTempo = MinTempo;
+    type MaxTempo = MaxTempo;
     type InitialDifficulty = InitialDifficulty;
     type InitialAdjustmentInterval = InitialAdjustmentInterval;
     type InitialAdjustmentAlpha = InitialAdjustmentAlpha;
@@ -160,6 +167,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type InitialSubnetOwnerLockPeriod = InitialSubnetOwnerLockPeriod;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -284,12 +292,18 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::coldkey_owns_hotkey(coldkey, hotkey)
     }
 
-    fn increase_stake_on_coldkey_hotkey_account(
+    fn increase_subnet_token_on_coldkey_hotkey_account(
         coldkey: &AccountId,
         hotkey: &AccountId,
-        increment: u64,
+        netuid: u16,
+        increment_alpha: u64,
     ) {
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(coldkey, hotkey, increment);
+        SubtensorModule::increase_subnet_token_on_coldkey_hotkey_account(
+            coldkey,
+            hotkey,
+            netuid,
+            increment_alpha,
+        );
     }
 
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance) {
@@ -451,6 +465,14 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
         SubtensorModule::clear_small_nominations();
     }
 
+    fn set_global_stake_weight(global_stake_weight: u16) {
+        SubtensorModule::set_global_stake_weight(global_stake_weight);
+    }
+
+    fn set_subnet_staking(subnet_staking: bool) {
+        SubtensorModule::set_subnet_staking(subnet_staking);
+    }
+
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64) {
         SubtensorModule::set_target_stakes_per_interval(target_stakes_per_interval);
     }
@@ -461,6 +483,22 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn do_start_stao_dtao_transition(netuid: u16) -> DispatchResult {
+        SubtensorModule::do_start_stao_dtao_transition(netuid)
+    }
+
+    fn do_start_stao_dtao_transition_for_all() -> DispatchResult {
+        SubtensorModule::do_start_stao_dtao_transition_for_all()
+    }
+
+    fn do_continue_stao_dtao_transition() -> Weight {
+        SubtensorModule::do_continue_stao_dtao_transition()
+    }
+
+    fn get_pending_emission(netuid: u16) -> u64 {
+        SubtensorModule::get_pending_emission(netuid)
     }
 }
 
@@ -533,4 +571,19 @@ pub fn add_network(netuid: u16, tempo: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn root_register(
+    hotkey_account_id: U256
+) {
+    let result = SubtensorModule::root_register(
+        <<Test as frame_system::Config>::RuntimeOrigin>::signed(hotkey_account_id),
+        hotkey_account_id,
+    );
+    assert_ok!(result);
+    log::info!(
+        "Register on root, hotkey: {:?}",
+        hotkey_account_id
+    );
 }

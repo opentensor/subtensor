@@ -2,10 +2,10 @@
 
 pub use pallet::*;
 pub mod weights;
+use sp_weights::Weight;
 pub use weights::WeightInfo;
 
-use sp_runtime::DispatchError;
-use sp_runtime::{traits::Member, RuntimeAppPublic};
+use sp_runtime::{traits::Member, DispatchError, DispatchResult, RuntimeAppPublic};
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -72,6 +72,14 @@ pub mod pallet {
         MaxAllowedUIdsLessThanCurrentUIds,
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            // Continue to change subnet type (from stao to dtao)
+            T::Subtensor::do_continue_stao_dtao_transition()
+        }
+    }
+
     /// Dispatchable functions allows users to interact with the pallet and invoke state changes.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -118,9 +126,25 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the serving rate limit for a subnet.
-        /// It is only callable by the root account or subnet owner.
-        /// The extrinsic will call the Subtensor pallet to set the serving rate limit.
+        /// Set the rate limit at wich delegate take can be set (increased)
+        ///
+        #[pallet::call_index(45)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_tx_delegate_take_rate_limit(
+            origin: OriginFor<T>,
+            tx_rate_limit: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_tx_delegate_take_rate_limit(tx_rate_limit);
+            log::info!(
+                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
+                tx_rate_limit
+            );
+            Ok(())
+        }
+
+        /// Set the serving rate limit
+        ///
         #[pallet::call_index(3)]
         #[pallet::weight(T::WeightInfo::sudo_set_serving_rate_limit())]
         pub fn sudo_set_serving_rate_limit(
@@ -274,6 +298,9 @@ pub mod pallet {
             DispatchClass::Operational,
             Pays::No
         ))]
+
+        /// Set adjustment alpha
+        ///
         pub fn sudo_set_adjustment_alpha(
             origin: OriginFor<T>,
             netuid: u16,
@@ -902,24 +929,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// The extrinsic sets the rate limit for delegate take transactions.
-        /// It is only callable by the root account.
-        /// The extrinsic will call the Subtensor pallet to set the rate limit for delegate take transactions.
-        #[pallet::call_index(45)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_set_tx_delegate_take_rate_limit(
-            origin: OriginFor<T>,
-            tx_rate_limit: u64,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            T::Subtensor::set_tx_delegate_take_rate_limit(tx_rate_limit);
-            log::info!(
-                "TxRateLimitDelegateTakeSet( tx_delegate_take_rate_limit: {:?} ) ",
-                tx_rate_limit
-            );
-            Ok(())
-        }
-
         /// The extrinsic sets the minimum delegate take.
         /// It is only callable by the root account.
         /// The extrinsic will call the Subtensor pallet to set the minimum delegate take.
@@ -929,6 +938,32 @@ pub mod pallet {
             ensure_root(origin)?;
             T::Subtensor::set_min_delegate_take(take);
             log::info!("TxMinDelegateTakeSet( tx_min_delegate_take: {:?} ) ", take);
+            Ok(())
+        }
+
+        /// Set global (vs. local) stake weight
+        ///
+        #[pallet::call_index(50)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_global_stake_weight(
+            origin: OriginFor<T>,
+            global_stake_weight: u16,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_global_stake_weight(global_stake_weight);
+            Ok(())
+        }
+
+        /// Enable / Disable subnet staking
+        ///
+        #[pallet::call_index(44)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_subnet_staking(
+            origin: OriginFor<T>,
+            subnet_staking: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_subnet_staking(subnet_staking);
             Ok(())
         }
 
@@ -997,6 +1032,29 @@ pub mod pallet {
             log::info!("ToggleSetWeightsCommitReveal( netuid: {:?} ) ", netuid);
             Ok(())
         }
+
+        /// Start changing subnet type (from stao to dtao)
+        /// Call this extrinsic to initiate the transition,
+        /// wait until PendingEmission is 0, and then call
+        /// continue_changing_network_type
+        #[pallet::call_index(51)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn change_network_type(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::do_start_stao_dtao_transition(netuid)
+        }
+
+        /// Start changing subnet type (from stao to dtao) for 
+        /// all subnets. 
+        /// Call this extrinsic to initiate the transition,
+        /// wait until PendingEmission is 0, and then call
+        /// continue_changing_network_type
+        #[pallet::call_index(52)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn change_network_type_all(origin: OriginFor<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::do_start_stao_dtao_transition_for_all()
+        }
     }
 }
 
@@ -1045,10 +1103,11 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn if_subnet_exist(netuid: u16) -> bool;
     fn create_account_if_non_existent(coldkey: &AccountId, hotkey: &AccountId);
     fn coldkey_owns_hotkey(coldkey: &AccountId, hotkey: &AccountId) -> bool;
-    fn increase_stake_on_coldkey_hotkey_account(
+    fn increase_subnet_token_on_coldkey_hotkey_account(
         coldkey: &AccountId,
         hotkey: &AccountId,
-        increment: u64,
+        netuid: u16,
+        increment_alpha: u64,
     );
     fn add_balance_to_coldkey_account(coldkey: &AccountId, amount: Balance);
     fn get_current_block_as_u64() -> u64;
@@ -1086,10 +1145,16 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_weights_set_rate_limit(netuid: u16, weights_set_rate_limit: u64);
     fn init_new_network(netuid: u16, tempo: u16);
     fn set_weights_min_stake(min_stake: u64);
+    fn set_global_stake_weight(global_stake_weight: u16);
+    fn set_subnet_staking(subnet_staking: bool);
     fn get_nominator_min_required_stake() -> u64;
     fn set_nominator_min_required_stake(min_stake: u64);
     fn clear_small_nominations();
     fn set_target_stakes_per_interval(target_stakes_per_interval: u64);
     fn set_commit_reveal_weights_interval(netuid: u16, interval: u64);
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
+    fn do_start_stao_dtao_transition(netuid: u16) -> DispatchResult;
+    fn do_start_stao_dtao_transition_for_all() -> DispatchResult;
+    fn do_continue_stao_dtao_transition() -> Weight;
+    fn get_pending_emission(netuid: u16) -> u64;
 }

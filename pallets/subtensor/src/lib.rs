@@ -25,6 +25,8 @@ use sp_runtime::{
     DispatchError,
 };
 use sp_std::marker::PhantomData;
+use sp_std::vec;
+use sp_std::vec::Vec;
 
 // ============================
 //	==== Benchmark Imports =====
@@ -49,9 +51,11 @@ mod utils;
 mod weights;
 
 pub mod delegate_info;
+pub mod dynamic_pool_info;
 pub mod neuron_info;
 pub mod stake_info;
 pub mod subnet_info;
+pub mod types;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
@@ -63,6 +67,7 @@ pub mod migration;
 #[frame_support::pallet]
 pub mod pallet {
 
+    use crate::types::{SubnetTransition, SubnetType};
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -112,6 +117,9 @@ pub mod pallet {
         /// Interface to allow other pallets to control who can register identities
         type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
+        /// Flag for using simple epoch function with no miner emissions
+        type EpochConfig: crate::EpochConfiguration;
+
         /// =================================
         /// ==== Initial Value Constants ====
         /// =================================
@@ -131,6 +139,12 @@ pub mod pallet {
         /// Tempo for each network.
         #[pallet::constant]
         type InitialTempo: Get<u16>;
+        /// Minimum Tempo for each network.
+        #[pallet::constant]
+        type MinTempo: Get<u16>;
+        /// Maximum Tempo for each network.
+        #[pallet::constant]
+        type MaxTempo: Get<u16>;
         /// Initial Difficulty.
         #[pallet::constant]
         type InitialDifficulty: Get<u64>;
@@ -194,7 +208,7 @@ pub mod pallet {
         /// Initial default delegation take.
         #[pallet::constant]
         type InitialDefaultTake: Get<u16>;
-        /// Initial minimum delegation take.
+        /// Initial minimum delegate take.
         #[pallet::constant]
         type InitialMinTake: Get<u16>;
         /// Initial weights version key.
@@ -239,6 +253,9 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// Initial subnet lock period
+        #[pallet::constant]
+        type InitialSubnetOwnerLockPeriod: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -273,10 +290,25 @@ pub mod pallet {
     pub fn DefaultMinTake<T: Config>() -> u16 {
         T::InitialMinTake::get()
     }
-    /// Default account take.
+    /// Default u64 zero value
     #[pallet::type_value]
-    pub fn DefaultAccountTake<T: Config>() -> u64 {
+    pub fn DefaultZeroU64<T: Config>() -> u64 {
         0
+    }
+    /// Default bool value
+    #[pallet::type_value]
+    pub fn DefaultBool<T: Config>() -> bool {
+        false
+    }
+    /// Default u16 MAX value
+    #[pallet::type_value]
+    pub fn DefaultMaxU16<T: Config>() -> u16 {
+        u16::MAX
+    }
+    /// Default value of global stake weight (0.5)
+    #[pallet::type_value]
+    pub fn DefaultGlobalStakeWeight<T: Config>() -> u16 {
+        u16::MAX / 2
     }
     /// Default stakes per interval.
     #[pallet::type_value]
@@ -304,20 +336,31 @@ pub mod pallet {
         T::AccountId::decode(&mut TrailingZeroInput::zeroes())
             .expect("trailing zeroes always produce a valid account ID; qed")
     }
+    /// Default take
+    #[pallet::type_value]
+    pub fn DefaultAccountTake<T: Config>() -> u64 {
+        0
+    }
     /// Default target stakes per interval.
     #[pallet::type_value]
     pub fn DefaultTargetStakesPerInterval<T: Config>() -> u64 {
         T::InitialTargetStakesPerInterval::get()
     }
+    /// Default lock period of subnet owner
+    #[pallet::type_value]
+    pub fn DefaultSubnetOwnerLockPeriod<T: Config>() -> u64 {
+        T::InitialSubnetOwnerLockPeriod::get()
+    }
+
     /// Default stake interval.
     #[pallet::type_value]
     pub fn DefaultStakeInterval<T: Config>() -> u64 {
         360
     }
 
+    #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
+    pub type GlobalStakeWeight<T> = StorageValue<_, u16, ValueQuery, DefaultGlobalStakeWeight<T>>;
     #[pallet::storage] // --- ITEM ( total_stake )
-    pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
-    #[pallet::storage] // --- ITEM ( default_take )
     pub type MaxTake<T> = StorageValue<_, u16, ValueQuery, DefaultDefaultTake<T>>;
     #[pallet::storage] // --- ITEM ( min_take )
     pub type MinTake<T> = StorageValue<_, u16, ValueQuery, DefaultMinTake<T>>;
@@ -330,12 +373,9 @@ pub mod pallet {
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
     #[pallet::storage] // --- ITEM (default_stake_interval)
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
-    #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
-    pub type TotalHotkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
-    #[pallet::storage] // --- MAP ( cold ) --> stake | Returns the total amount of stake under a coldkey.
-    pub type TotalColdkeyStake<T: Config> =
-        StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultAccountTake<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> stake | Returns the total amount of stake attached to a subnet.
+    pub type TotalSubnetStake<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultZeroU64<T>>;
     #[pallet::storage]
     ///  MAP (hot, cold) --> stake | Returns a tuple (u64: stakes, u64: block_number)
     pub type TotalHotkeyColdkeyStakesThisInterval<T: Config> = StorageDoubleMap<
@@ -354,17 +394,75 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
-    #[pallet::storage] // --- DMAP ( hot, cold ) --> stake | Returns the stake under a coldkey prefixed by hotkey.
-    pub type Stake<T: Config> = StorageDoubleMap<
+    #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet.
+    pub type DelegatesTake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u16,
+        ValueQuery,
+        DefaultDefaultTake<T>,
+    >;
+    #[pallet::storage] // --- DMAP ( hot, cold ) --> is_staker | Allows to iterate over all nominators of a hotkey
+    pub type Staker<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::AccountId,
         Identity,
         T::AccountId,
+        bool,
+        ValueQuery,
+        DefaultBool<T>,
+    >;
+    // This value is alpha for DTAO networks and TAO for STAO networks
+    #[pallet::storage] // --- DMAP ( hot, netuid ) --> stake | Returns the total stake attached to a hotkey on a subnet.
+    pub type TotalHotkeySubStake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
         u64,
         ValueQuery,
-        DefaultAccountTake<T>,
+        DefaultZeroU64<T>,
     >;
+    // This value is alpha for DTAO networks and TAO for STAO networks
+    #[pallet::storage] // --- NMAP ( cold, hot, netuid ) --> stake | Returns the stake under a subnet prefixed by coldkey, hotkey, netuid triplet.
+    pub type SubStake<T: Config> = StorageNMap<
+        _,
+        (
+            NMapKey<Blake2_128Concat, T::AccountId>, // cold
+            NMapKey<Blake2_128Concat, T::AccountId>, // hot
+            NMapKey<Identity, u16>,                  // subnet
+        ),
+        u64,
+        ValueQuery,
+    >;
+
+    /// Flag that determines if subnet staking is on by default
+    #[pallet::type_value]
+    pub fn DefaultSubnetStaking<T: Config>() -> bool {
+        cfg!(feature = "subnet-staking")
+    }
+    #[pallet::storage] // --- ITEM( SubnetStakingOn ) --> Subnet staking enabled
+    pub type SubnetStakingOn<T> = StorageValue<_, bool, ValueQuery, DefaultSubnetStaking<T>>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicTAOReserve | Returns the TAO reserve for a given netuid.
+    pub type DynamicTAOReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicAlphaReserve | Returns the dynamic sub-reserve for a given netuid.
+    pub type DynamicAlphaReserve<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> issuance | Returns the total dynamic token issuance.
+    pub type DynamicAlphaIssuance<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> issuance | Returns the total dynamic token issuance outstanding.
+    pub type DynamicAlphaOutstanding<T> = StorageMap<_, Identity, u16, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> DynamicK | Returns the dynamic K value for a given netuid.
+    pub type DynamicK<T> = StorageMap<_, Identity, u16, u128, ValueQuery>;
+    #[pallet::storage] // --- MAP ( netuid ) --> is_subnet_dynamic | Returns true if the network is using dynamic staking.
+    pub type IsDynamic<T> = StorageMap<_, Identity, u16, bool, ValueQuery>;
+    #[pallet::storage] // --- ITEM ( GlobalStakeWeight )
+    pub type SubnetOwnerLockPeriod<T> =
+        StorageValue<_, u64, ValueQuery, DefaultSubnetOwnerLockPeriod<T>>;
 
     /// =====================================
     /// ==== Difficulty / Registrations =====
@@ -630,9 +728,17 @@ pub mod pallet {
     pub fn DefaultSubnetLocked<T: Config>() -> u64 {
         0
     }
+    /// Default value for subnet total stake.
+    #[pallet::type_value]
+    pub fn DefaultTotalSubnetTAO<T: Config>() -> u64 {
+        0
+    }
     /// Default value for network tempo
     #[pallet::type_value]
     pub fn DefaultTempo<T: Config>() -> u16 {
+        if cfg!(feature = "pow-faucet") {
+            return 4;
+        }
         T::InitialTempo::get()
     }
 
@@ -644,7 +750,7 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> pending_emission
     pub type PendingEmission<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultPendingEmission<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step
+    #[pallet::storage] // --- MAP ( netuid ) --> blocks_since_last_step.
     pub type BlocksSinceLastStep<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultBlocksSinceLastStep<T>>;
     #[pallet::storage] // --- MAP ( netuid ) --> last_mechanism_step_block
@@ -653,9 +759,15 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( netuid ) --> subnet_owner
     pub type SubnetOwner<T: Config> =
         StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
-    #[pallet::storage] // --- MAP ( netuid ) --> subnet_locked
+    #[pallet::storage]
+    pub type SubnetCreator<T: Config> =
+        StorageMap<_, Identity, u16, T::AccountId, ValueQuery, DefaultSubnetOwner<T>>;
+    #[pallet::storage]
     pub type SubnetLocked<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultSubnetLocked<T>>;
+    #[pallet::storage]
+    pub type TotalSubnetTAO<T: Config> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultTotalSubnetTAO<T>>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
@@ -705,6 +817,10 @@ pub mod pallet {
     /// Default value for rate limiting
     #[pallet::type_value]
     pub fn DefaultTxRateLimit<T: Config>() -> u64 {
+        // TODO we should figure out a better way of saying this is a dev net.
+        if cfg!(feature = "pow-faucet") {
+            return 0;
+        }
         T::InitialTxRateLimit::get()
     }
     /// Default value for delegate take rate limiting
@@ -994,7 +1110,9 @@ pub mod pallet {
     #[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
     pub(super) type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
-
+    #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight
+    pub(super) type StakeWeight<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> active
     pub(super) type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
@@ -1050,6 +1168,15 @@ pub mod pallet {
         Vec<(u16, u16)>,
         ValueQuery,
         DefaultBonds<T>,
+    >;
+
+    // --- MAP ( netuid ) --> SubnetTransition. If present, then subnet is in the state of type transition (e.g. stao -> dtao)
+    #[pallet::storage]
+    pub type SubnetInTransition<T: Config> = StorageMap<
+        Hasher = Identity,
+        Key = u16,
+        Value = SubnetTransition<T::AccountId>,
+        QueryKind = OptionQuery,
     >;
 
     /// ==================
@@ -1173,16 +1300,8 @@ pub mod pallet {
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
-                    TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
-                    TotalColdkeyStake::<T>::insert(
-                        coldkey.clone(),
-                        TotalColdkeyStake::<T>::get(coldkey).saturating_add(*stake),
-                    );
-
                     // Update total issuance value
                     TotalIssuance::<T>::put(TotalIssuance::<T>::get().saturating_add(*stake));
-
-                    Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
                     next_uid += 1;
                 }
@@ -1272,7 +1391,7 @@ pub mod pallet {
                 // Initializes storage version (to 1)
                 .saturating_add(migration::migrate_to_v1_separate_emission::<T>())
                 // Storage version v1 -> v2
-                .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
+                // .saturating_add(migration::migrate_to_v2_fixed_total_stake::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migrate_create_root_network::<T>())
                 // Storage version v2 -> v3
@@ -1280,13 +1399,28 @@ pub mod pallet {
                     hex,
                 ))
                 // Storage version v3 -> v4
-                .saturating_add(migration::migrate_delete_subnet_21::<T>())
-                // Storage version v4 -> v5
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
+                // Storage version v4 -> v5
+                .saturating_add(migration::migrate_delete_subnet_21::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
-                .saturating_add(migration::migration5_total_issuance::<T>(false));
+                .saturating_add(migration::migration5_total_issuance::<T>(false))
+                // Storage version v6 -> v7
+                .saturating_add(migration::migrate_stake_to_substake::<T>())
+                // Storage version v7 -> v8
+                .saturating_add(migration::migrate_remove_deprecated_stake_variables::<T>())
+                // Storage version v8 -> v9
+                .saturating_add(migration::migrate_populate_subnet_creator::<T>())
+                // Storage version v9 -> v10
+                .saturating_add(migration::migrate_clear_delegates::<T>())
+                // Storage version v9 -> v11
+                .saturating_add(migration::migrate_fix_subnet_lock_1::<T>());
 
-            weight
+            log::info!(
+                "Runtime upgrade migration in subtensor pallet, total weight = ({})",
+                weight
+            );
+
+            frame_support::weights::Weight::from_parts(0, 0)
         }
     }
 
@@ -1520,66 +1654,35 @@ pub mod pallet {
             Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
         }
 
-        /// --- Sets the key as a delegate.
-        ///
-        /// # Args:
-        /// * 'origin': (<T as frame_system::Config>Origin):
-        /// 	- The signature of the caller's coldkey.
-        ///
-        /// * 'hotkey' (T::AccountId):
-        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
-        ///
-        /// * 'take' (u64):
-        /// 	- The stake proportion that this hotkey takes from delegations.
-        ///
-        /// # Event:
-        /// * DelegateAdded;
-        /// 	- On successfully setting a hotkey as a delegate.
-        ///
-        /// # Raises:
-        /// * 'NotRegistered':
-        /// 	- The hotkey we are delegating is not registered on the network.
-        ///
-        /// * 'NonAssociatedColdKey':
-        /// 	- The hotkey we are delegating is not owned by the calling coldket.
-        ///
-        #[pallet::call_index(1)]
-        #[pallet::weight((Weight::from_parts(79_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(6))
-		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Normal, Pays::No))]
-        pub fn become_delegate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_become_delegate(origin, hotkey, Self::get_default_take())
-        }
-
         /// --- Allows delegates to decrease its take value.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>::Origin):
-        /// 	- The signature of the caller's coldkey.
+        ///     - The signature of the caller's coldkey.
         ///
         /// * 'hotkey' (T::AccountId):
-        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///     - The hotkey we are delegating (must be owned by the coldkey.)
         ///
         /// * 'netuid' (u16):
-        /// 	- Subnet ID to decrease take for
+        ///     - Subnet ID to decrease take for
         ///
         /// * 'take' (u16):
-        /// 	- The new stake proportion that this hotkey takes from delegations.
-        ///        The new value can be between 0 and 11_796 and should be strictly
-        ///        lower than the previous value. It T is the new value (rational number),
-        ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
-        ///        [0.01 * 65535] = [655.35] = 655
+        ///     - The new stake proportion that this hotkey takes from delegations.
+        ///       The new value can be between 0 and 11_796 and should be strictly
+        ///       lower than the previous value. It T is the new value (rational number),
+        ///       the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///       [0.01 * 65535] = [655.35] = 655
         ///
         /// # Event:
         /// * TakeDecreased;
-        /// 	- On successfully setting a decreased take for this hotkey.
+        ///     - On successfully setting a decreased take for this hotkey.
         ///
         /// # Raises:
         /// * 'NotRegistered':
-        /// 	- The hotkey we are delegating is not registered on the network.
+        ///     - The hotkey we are delegating is not registered on the network.
         ///
         /// * 'NonAssociatedColdKey':
-        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        ///     - The hotkey we are delegating is not owned by the calling coldkey.
         ///
         /// * 'DelegateTakeTooLow':
         /// 	- The delegate is setting a take which is not lower than the previous.
@@ -1589,37 +1692,41 @@ pub mod pallet {
         pub fn decrease_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             take: u16,
         ) -> DispatchResult {
-            Self::do_decrease_take(origin, hotkey, take)
+            Self::do_decrease_take(origin, hotkey, netuid, take)
         }
 
         /// --- Allows delegates to increase its take value. This call is rate-limited.
         ///
         /// # Args:
         /// * 'origin': (<T as frame_system::Config>::Origin):
-        /// 	- The signature of the caller's coldkey.
+        ///     - The signature of the caller's coldkey.
         ///
         /// * 'hotkey' (T::AccountId):
-        /// 	- The hotkey we are delegating (must be owned by the coldkey.)
+        ///     - The hotkey we are delegating (must be owned by the coldkey.)
+        ///
+        /// * 'netuid' (u16):
+        ///     - Subnet ID to decrease take for
         ///
         /// * 'take' (u16):
-        /// 	- The new stake proportion that this hotkey takes from delegations.
-        ///        The new value can be between 0 and 11_796 and should be strictly
-        ///        greater than the previous value. T is the new value (rational number),
-        ///        the the parameter is calculated as [65535 * T]. For example, 1% would be
-        ///        [0.01 * 65535] = [655.35] = 655
+        ///     - The new stake proportion that this hotkey takes from delegations.
+        ///       The new value can be between 0 and 11_796 and should be strictly
+        ///       greater than the previous value. It T is the new value (rational number),
+        ///       the the parameter is calculated as [65535 * T]. For example, 1% would be
+        ///       [0.01 * 65535] = [655.35] = 655
         ///
         /// # Event:
-        /// * TakeIncreased;
-        /// 	- On successfully setting a increased take for this hotkey.
+        /// * TakeDecreased;
+        ///     - On successfully setting a decreased take for this hotkey.
         ///
         /// # Raises:
         /// * 'NotRegistered':
-        /// 	- The hotkey we are delegating is not registered on the network.
+        ///     - The hotkey we are delegating is not registered on the network.
         ///
         /// * 'NonAssociatedColdKey':
-        /// 	- The hotkey we are delegating is not owned by the calling coldkey.
+        ///     - The hotkey we are delegating is not owned by the calling coldkey.
         ///
         /// * 'DelegateTakeTooHigh':
         /// 	- The delegate is setting a take which is not greater than the previous.
@@ -1629,9 +1736,30 @@ pub mod pallet {
         pub fn increase_take(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             take: u16,
         ) -> DispatchResult {
-            Self::do_increase_take(origin, hotkey, take)
+            Self::do_increase_take(origin, hotkey, netuid, take)
+        }
+
+        /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take and respect the rate limit.
+        ///
+        /// # Arguments
+        /// * `hotkey` - The account ID of the hotkey.
+        /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
+        ///
+        /// # Errors
+        /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+        /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
+        /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
+        #[pallet::call_index(68)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn set_delegate_takes(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            takes: Vec<(u16, u16)>,
+        ) -> DispatchResult {
+            Self::do_set_delegate_takes(origin, &hotkey, takes)
         }
 
         /// --- Adds stake to a hotkey. The call is made from the
@@ -1641,28 +1769,32 @@ pub mod pallet {
         /// attacks on its hotkey running in production code.
         ///
         /// # Args:
-        ///  * 'origin': (<T as frame_system::Config>Origin):
-        /// 	- The signature of the caller's coldkey.
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        ///     - The signature of the caller's coldkey.
         ///
-        ///  * 'hotkey' (T::AccountId):
-        /// 	- The associated hotkey account.
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
         ///
-        ///  * 'amount_staked' (u64):
-        /// 	- The amount of stake to be added to the hotkey staking account.
+        /// * 'amount_staked' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
         ///
         /// # Event:
-        ///  * StakeAdded;
-        /// 	- On the successfully adding stake to a global account.
+        /// * StakeAdded;
+        ///     - On the successfully adding stake to a global account.
         ///
         /// # Raises:
-        ///  * 'NotEnoughBalanceToStake':
-        /// 	- Not enough balance on the coldkey to add onto the global account.
+        /// * 'CouldNotConvertToBalance':
+        ///     - Unable to convert the passed stake value to a balance.
         ///
-        ///  * 'NonAssociatedColdKey':
-        /// 	- The calling coldkey is not associated with this hotkey.
+        /// * 'NotEnoughBalanceToStake':
+        ///     - Not enough balance on the coldkey to add onto the global account.
         ///
-        ///  * 'BalanceWithdrawalError':
-        ///  	- Errors stemming from transaction pallet.
+        /// * 'NonAssociatedColdKey':
+        ///     - The calling coldkey is not associated with this hotkey.
+        ///
+        /// * 'BalanceWithdrawalError':
+        ///     - Errors stemming from transaction pallet.
+        ///
         ///
         #[pallet::call_index(2)]
         #[pallet::weight((Weight::from_parts(124_000_000, 0)
@@ -1673,7 +1805,54 @@ pub mod pallet {
             hotkey: T::AccountId,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, amount_staked)
+            Self::do_add_stake(origin, hotkey, Self::get_root_netuid(), amount_staked)
+        }
+
+        /// Adds stake to a hotkey on a subnet. The call is made from the
+        /// coldkey account linked in the hotkey.
+        /// Only the associated coldkey is allowed to make staking and
+        /// unstaking requests. This protects the neuron against
+        /// attacks on its hotkey running in production code.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>Origin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// * 'netuid' (u16):
+        ///     - ID of the subnet.
+        ///
+        /// * 'amount_staked' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeAdded;
+        ///     - On the successfully adding stake to a global account.
+        ///
+        /// # Raises:
+        /// * 'NotEnoughBalanceToStake':
+        ///     - Not enough balance on the coldkey to add onto the global account.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - The calling coldkey is not associated with this hotkey.
+        ///
+        /// * 'BalanceWithdrawalError':
+        ///     - Errors stemming from transaction pallet.
+        ///
+        ///        
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(65_000_000,0)
+		.saturating_add(T::DbWeight::get().reads(8))
+		.saturating_add(T::DbWeight::get().writes(6)), DispatchClass::Normal, Pays::No))]
+        pub fn add_subnet_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_staked: u64,
+        ) -> DispatchResult {
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -1714,7 +1893,53 @@ pub mod pallet {
             hotkey: T::AccountId,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+            Self::do_remove_stake(origin, hotkey, Self::get_root_netuid(), amount_unstaked)
+        }
+
+        /// Removes stake from a hotkey account and adds it onto a coldkey.
+        ///
+        /// # Args:
+        /// * 'origin': (<T as frame_system::Config>RuntimeOrigin):
+        ///     - The signature of the caller's coldkey.
+        ///
+        /// * 'hotkey' (T::AccountId):
+        ///     - The associated hotkey account.
+        ///
+        /// * 'stake_to_be_added' (u64):
+        ///     - The amount of stake to be added to the hotkey staking account.
+        ///
+        /// # Event:
+        /// * StakeRemoved;
+        ///     - On the successfully removing stake from the hotkey account.
+        ///
+        /// # Raises:
+        /// * 'NotRegistered':
+        ///     - Thrown if the account we are attempting to unstake from is non existent.
+        ///
+        /// * 'NonAssociatedColdKey':
+        ///     - Thrown if the coldkey does not own the hotkey we are unstaking from.
+        ///
+        /// * 'NotEnoughStaketoWithdraw':
+        ///     - Thrown if there is not enough stake on the hotkey to withdwraw this amount.
+        ///
+        /// * 'CouldNotConvertToBalance':
+        ///     - Thrown if we could not convert this amount to a balance.
+        ///
+        /// * 'TxRateLimitExceeded':
+        ///     - Thrown if key has hit transaction rate limit
+        ///
+        #[pallet::call_index(64)]
+        #[pallet::weight((Weight::from_parts(63_000_000,0)
+		.saturating_add(Weight::from_parts(0, 43991))
+		.saturating_add(T::DbWeight::get().reads(14))
+		.saturating_add(T::DbWeight::get().writes(9)), DispatchClass::Normal, Pays::No))]
+        pub fn remove_subnet_stake(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            netuid: u16,
+            amount_unstaked: u64,
+        ) -> DispatchResult {
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
         /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
@@ -2016,11 +2241,11 @@ pub mod pallet {
 
         /// User register a new subnetwork
         #[pallet::call_index(59)]
-        #[pallet::weight((Weight::from_parts(157_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(16))
-		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        #[pallet::weight((Weight::from_parts(85_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(16))
+        .saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::user_add_network(origin, hotkey, SubnetType::STAO)
         }
 
         /// Facility extrinsic for user to get taken from faucet
@@ -2058,8 +2283,8 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Returns the transaction priority for setting weights.
         pub fn get_priority_set_weights(hotkey: &T::AccountId, netuid: u16) -> u64 {
-            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(netuid, hotkey) {
-                let _stake = Self::get_total_stake_for_hotkey(hotkey);
+            if Uids::<T>::contains_key(netuid, hotkey) {
+                let uid = Self::get_uid_for_net_and_hotkey(netuid, &hotkey.clone()).unwrap();
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
                     current_block_number - Self::get_last_update_for_uid(netuid, uid);
@@ -2071,7 +2296,7 @@ pub mod pallet {
         /// Is the caller allowed to set weights
         pub fn check_weights_min_stake(hotkey: &T::AccountId) -> bool {
             // Blacklist weights transactions for low stake peers.
-            Self::get_total_stake_for_hotkey(hotkey) >= Self::get_weights_min_stake()
+            Self::get_hotkey_global_dynamic_tao(hotkey) >= Self::get_weights_min_stake()
         }
 
         /// Helper function to check if register is allowed
@@ -2219,9 +2444,9 @@ where
                     Err(InvalidTransaction::Call.into())
                 }
             }
-            Some(Call::set_root_weights { netuid, .. }) => {
-                if Self::check_weights_min_stake(who) {
-                    let priority: u64 = Self::get_priority_set_weights(who, *netuid);
+            Some(Call::set_root_weights { netuid, hotkey,  .. }) => {
+                if Self::check_weights_min_stake(hotkey) {
+                    let priority: u64 = Self::get_priority_set_weights(hotkey, *netuid);
                     Ok(ValidTransaction {
                         priority,
                         longevity: 1,
@@ -2342,13 +2567,6 @@ where
     }
 }
 
-use sp_std::vec;
-
-// TODO: unravel this rats nest, for some reason rustc thinks this is unused even though it's
-// used not 25 lines below
-#[allow(unused)]
-use sp_std::vec::Vec;
-
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {
     /// Add member
@@ -2421,5 +2639,17 @@ impl<T, H, P> CollectiveInterface<T, H, P> for () {
 
     fn add_vote(_: &T, _: H, _: P, _: bool) -> Result<bool, DispatchError> {
         Ok(true)
+    }
+}
+
+/// Trait for switching between simple and normal epoch in runtime
+pub trait EpochConfiguration {
+    /// Return true if simple epoch function is to be used
+    fn simple_epoch() -> bool;
+}
+
+impl EpochConfiguration for () {
+    fn simple_epoch() -> bool {
+        false
     }
 }
