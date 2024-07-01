@@ -869,6 +869,7 @@ fn test_emission_based_on_registration_status() {
             n as usize
         );
 
+        let block: u64 = 0;
         // drain the emission tuples for the subnet with registration on
         SubtensorModule::drain_emission();
         // Turn on registration for the subnet with registration off

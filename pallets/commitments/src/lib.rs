@@ -1,10 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod benchmarking;
 #[cfg(test)]
 mod tests;
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarking;
 
 pub mod types;
 pub mod weights;
@@ -234,7 +232,7 @@ where
     pub fn get_priority_vanilla() -> u64 {
         // Return high priority so that every extrinsic except set_weights function will
         // have a higher priority than the set_weights call
-        u64::max_value()
+        u64::MAX
     }
 }
 

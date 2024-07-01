@@ -42,7 +42,7 @@ pub struct FullDeps<C, P, B> {
     /// Grandpa block import setup.
     pub grandpa: GrandpaDeps<B>,
     /// Backend used by the node.
-    pub backend: Arc<B>,
+    pub _backend: Arc<B>,
 }
 
 /// Instantiate all full RPC extensions.
@@ -74,7 +74,7 @@ where
         pool,
         deny_unsafe,
         grandpa,
-        backend: _,
+        _backend: _,
     } = deps;
 
     // Custom RPC methods for Paratensor
