@@ -112,6 +112,7 @@ parameter_types! {
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
     pub const InitialSubnetOwnerLockPeriod: u64 = 7 * 7200 * 3;
+    pub const InitialDynamicReserve: u64 = 50_000_000_000_000;
 
 }
 
@@ -168,6 +169,7 @@ impl pallet_subtensor::Config for Test {
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type InitialSubnetOwnerLockPeriod = InitialSubnetOwnerLockPeriod;
+    type InitialDynamicReserve = InitialDynamicReserve;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

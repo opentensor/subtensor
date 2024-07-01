@@ -661,7 +661,7 @@ impl<T: Config> Pallet<T> {
             SubnetType::DTAO => {
                 // --- 8. Instantiate initial token supply based on lock cost.
                 let initial_tao_reserve: u64 = lock_amount;
-                let initial_dynamic_reserve: u64 = 50_000_000_000_000;
+                let initial_dynamic_reserve: u64 = T::InitialDynamicReserve::get();
                 let initial_dynamic_outstanding: u64 = initial_dynamic_reserve;
                 let initial_dynamic_k: u128 = (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
                 DynamicTAOReserve::<T>::insert(netuid_to_register, initial_tao_reserve);

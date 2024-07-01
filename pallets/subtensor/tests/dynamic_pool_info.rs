@@ -20,7 +20,7 @@ fn test_dynamic_pool_info() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            SubnetType::DTAO.into()
         ));
 
         // Check initial dynamic pool info after registration

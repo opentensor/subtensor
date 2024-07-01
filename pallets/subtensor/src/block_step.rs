@@ -4,7 +4,6 @@ use sp_core::Get;
 use sp_std::vec::Vec;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
-use frame_support::traits::fungible::Inspect;
 struct SubnetBlockStepInfo {
     netuid: u16,
     subnet_type: SubnetType,

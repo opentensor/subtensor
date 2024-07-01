@@ -2,6 +2,7 @@ use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use frame_system::Config;
 use frame_system::{EventRecord, Phase};
+use pallet_subtensor::types::SubnetType;
 use pallet_subtensor::{migration, Error, PendingEmission, SubnetInTransition, TotalSubnetTAO};
 use sp_core::{Get, H256, U256};
 
@@ -203,7 +204,8 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000);
@@ -211,7 +213,8 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 1, mult: 1 lock_cost: 100000000000
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 1, lock_reduction_interval: 2, current_block: 1, mult: 2 lock_cost: 200000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // Doubles from previous subnet creation
@@ -226,7 +229,8 @@ fn test_root_subnet_creation_deletion() {
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000); // Reaches min value
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 4, lock_reduction_interval: 2, current_block: 4, mult: 2 lock_cost: 200000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // Doubles from previous subnet creation
@@ -234,7 +238,8 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 4, lock_reduction_interval: 2, current_block: 5, mult: 2 lock_cost: 150000000000
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 150000000000, min_lock: 100000000000, last_lock_block: 5, lock_reduction_interval: 2, current_block: 5, mult: 2 lock_cost: 300000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 300_000_000_000); // Doubles from previous subnet creation
@@ -242,7 +247,8 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 150000000000, min_lock: 100000000000, last_lock_block: 5, lock_reduction_interval: 2, current_block: 6, mult: 2 lock_cost: 225000000000
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 225000000000, min_lock: 100000000000, last_lock_block: 6, lock_reduction_interval: 2, current_block: 6, mult: 2 lock_cost: 450000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 450_000_000_000); // Increasing
@@ -250,19 +256,22 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 225000000000, min_lock: 100000000000, last_lock_block: 6, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 337500000000
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 337500000000, min_lock: 100000000000, last_lock_block: 7, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 675000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 675_000_000_000); // Increasing.
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         // last_lock: 337500000000, min_lock: 100000000000, last_lock_block: 7, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 675000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 1_350_000_000_000); // Double increasing.
         assert_ok!(SubtensorModule::register_network(
             <<Test as Config>::RuntimeOrigin>::signed(owner),
-            hotkey
+            hotkey,
+            SubnetType::STAO.into()
         ));
         assert_eq!(SubtensorModule::get_network_lock_cost(), 2_700_000_000_000); // Double increasing again.
 

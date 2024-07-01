@@ -834,6 +834,7 @@ parameter_types! {
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = u16::MAX;
     pub const SubtensorInitialSubnetOwnerLockPeriod: u64 = SUBNET_CREATOR_LOCK;
+    pub const SubtensorInitialDynamicReserve: u64 = 50_000_000_000_000;
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -890,6 +891,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
     type InitialSubnetOwnerLockPeriod = SubtensorInitialSubnetOwnerLockPeriod;
+    type InitialDynamicReserve = SubtensorInitialDynamicReserve;
 }
 
 use sp_runtime::BoundedVec;

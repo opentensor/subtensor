@@ -50,6 +50,16 @@ pub enum SubnetType {
     DTAO
 }
 
+// Implement the From trait for u16 to enable .into() conversion
+impl From<SubnetType> for u16 {
+    fn from(subnet_type: SubnetType) -> Self {
+        match subnet_type {
+            SubnetType::STAO => 1,
+            SubnetType::DTAO => 2,
+        }
+    }
+}
+
 /// Subnet type transtion state
 /// 
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, Debug)]

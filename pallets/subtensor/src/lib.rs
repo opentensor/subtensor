@@ -67,7 +67,7 @@ pub mod migration;
 #[frame_support::pallet]
 pub mod pallet {
 
-    use crate::types::{SubnetTransition, SubnetType};
+    use crate::types::SubnetTransition;
     use frame_support::{
         dispatch::GetDispatchInfo,
         pallet_prelude::{DispatchResult, StorageMap, ValueQuery, *},
@@ -256,6 +256,9 @@ pub mod pallet {
         /// Initial subnet lock period
         #[pallet::constant]
         type InitialSubnetOwnerLockPeriod: Get<u64>;
+        /// Initial dynamic reserve for creating DTAO subnet
+        #[pallet::constant]
+        type InitialDynamicReserve: Get<u64>;
     }
 
     /// Alias for the account ID.
