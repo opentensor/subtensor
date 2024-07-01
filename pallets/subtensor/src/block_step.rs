@@ -223,18 +223,7 @@ impl<T: Config> Pallet<T> {
                         SubnetType::DTAO => {
                             // Condition the inflation of TAO and alpha based on the sum of the prices.
                             // This keeps the market caps of ALPHA subsumed by TAO.
-                            let tao_in: u64; // The total amount of TAO emitted this block into all pools.
-                            let alpha_in: u64; // The amount of ALPHA emitted this block into each pool.
-
-                            if total_prices <= dtao_tao_fraction {
-                                // Alpha prices are lower than 1.0, emit TAO and not ALPHA into the pools.
-                                tao_in = subnet_block_emission;
-                                alpha_in = 0;
-                            } else {
-                                // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
-                                tao_in = subnet_block_emission;
-                                alpha_in = total_block_emission * 2;
-                            }
+                            let tao_in = subnet_block_emission; // The total amount of TAO emitted this block into all pools.
 
                             if tao_in > 0 {
                                 // Increment total TAO on subnet
@@ -246,7 +235,10 @@ impl<T: Config> Pallet<T> {
                                 actual_total_block_emission = actual_total_block_emission.saturating_add(tao_in);
                             }
 
-                            if alpha_in > 0 {
+                            // If Alpha prices are greater than 1.0, emit ALPHA into the pools.
+                            if total_prices > dtao_tao_fraction {
+                                let alpha_in = total_block_emission * 2;
+
                                 // Increment the pools alpha reserve based on the alpha in emission.
                                 DynamicAlphaReserve::<T>::mutate(subnet_info.netuid, |reserve| *reserve += alpha_in);
 
