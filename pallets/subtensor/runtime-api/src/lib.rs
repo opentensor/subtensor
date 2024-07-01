@@ -9,6 +9,8 @@ sp_api::decl_runtime_apis! {
         fn get_delegates() -> Vec<u8>;
         fn get_delegate( delegate_account_vec: Vec<u8> ) -> Vec<u8>;
         fn get_delegated( delegatee_account_vec: Vec<u8> ) -> Vec<u8>;
+        fn get_delegate_identitites() -> Vec<u8>;
+        fn get_identity_of_delegate( delegatee_account_vec: Vec<u8> ) -> Vec<u8>;
     }
 
     pub trait NeuronInfoRuntimeApi {

@@ -5163,6 +5163,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collective",
  "pallet-membership",
+ "pallet-registry",
  "pallet-transaction-payment",
  "pallet-utility",
  "parity-scale-codec",

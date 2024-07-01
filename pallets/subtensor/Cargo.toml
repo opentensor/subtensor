@@ -38,6 +38,7 @@ pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 ndarray = { workspace = true }
 hex = { workspace = true }
+pallet-registry= { default-features = false,  path = "../registry" }
 
 # Used for sudo decentralization
 pallet-collective = { version = "4.0.0-dev", default-features = false, path = "../collective" }

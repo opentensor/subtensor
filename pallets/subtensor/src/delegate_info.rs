@@ -5,6 +5,7 @@ use frame_support::IterableStorageDoubleMap;
 use substrate_fixed::types::U64F64;
 extern crate alloc;
 use codec::Compact;
+use pallet_registry::{IdentityInfo, Pallet as RegistryPallet};
 use sp_core::hexdisplay::AsBytesRef;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -19,7 +20,7 @@ pub struct DelegateInfo<T: Config> {
     total_daily_return: Compact<u64>, // Delegators current daily return
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config + pallet_registry::Config> Pallet<T> {
     fn get_delegate_by_existing_account(delegate: AccountIdOf<T>) -> DelegateInfo<T> {
         let mut nominators = Vec::<(T::AccountId, Compact<u64>)>::new();
 
@@ -129,5 +130,18 @@ impl<T: Config> Pallet<T> {
         }
 
         delegates
+    }
+
+    pub fn get_delegate_identities() -> Vec<IdentityInfo<T::MaxAdditionalFields>> {
+        RegistryPallet::<T>::get_delegate_identitites()
+    }
+
+    pub fn get_identity_of_delegate(delegate_account_vec: Vec<u8>) -> Option<IdentityInfo<T::MaxAdditionalFields>> {
+        if delegate_account_vec.len() != 32 {
+            return None;
+        }
+        let account: AccountIdOf<T> = T::AccountId::decode(&mut delegate_account_vec.as_bytes_ref()).ok()?;
+
+        RegistryPallet::<T>::get_identity_of_delegate(&account)
     }
 }
