@@ -427,12 +427,12 @@ reveal_weights {
       salt.clone(),
       version_key,
     ));
-    let _ = Subtensor::<T>::commit_weights(
+    Subtensor::<T>::commit_weights(
         <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())),
         netuid,
         commit_hash,
         nonce
-    );
+    ).unwrap();
 
 }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key, nonce)
 }
