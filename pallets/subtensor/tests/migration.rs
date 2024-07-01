@@ -1,8 +1,13 @@
 mod mock;
+use pallet_subtensor::*;
+
 use frame_support::assert_ok;
+use frame_support::{storage_alias, traits::GetStorageVersion};
+use frame_support::pallet_prelude::{OptionQuery, StorageVersion};
 use frame_system::Config;
 use mock::*;
-use sp_core::U256;
+use sp_core::{H256, U256};
+use frame_support::Twox64Concat;
 
 #[test]
 fn test_migration_fix_total_stake_maps() {
@@ -273,4 +278,73 @@ fn test_migration_delete_subnet_21() {
 
         assert!(!SubtensorModule::if_subnet_exist(21));
     })
+}
+
+#[storage_alias]
+type OldWeightCommits<T: Config> = StorageDoubleMap<
+    SubtensorModule,
+    Twox64Concat,
+    u16,
+    Twox64Concat,
+    U256,
+    (H256, u64),
+    OptionQuery,
+>;
+
+// Add this storage alias for the StorageVersion
+// #[storage_alias]
+type StorageVersion = StorageValue<SubtensorModule, u16>;
+
+
+#[test]
+fn test_migration_to_v7_weight_commits() {
+    new_test_ext(1).execute_with(|| {
+        // Set up the old storage format
+        let netuid: u16 = 1;
+        let account1 = U256::from(1);
+        let account2 = U256::from(2);
+        let hash1 = H256::from_low_u64_be(1);
+        let hash2 = H256::from_low_u64_be(2);
+        let block_number1: u64 = 100;
+        let block_number2: u64 = 200;
+
+        OldWeightCommits::insert(netuid, account1, (hash1, block_number1));
+        OldWeightCommits::insert(netuid, account2, (hash2, block_number2));
+
+                // Set the storage version to 6
+                StorageVersion::put(6);
+        // Run the migration
+        pallet_subtensor::migration::migrate_to_v7_weight_commits::<Test>();
+
+        // Check that the storage version has been updated
+        assert_eq!(SubtensorModule::on_chain_storage_version(), 7);
+
+        // Check that the old storage is empty
+        assert!(OldWeightCommits::iter().count() == 0);
+
+        // Check that the new storage format is correct
+        let new_value1 = WeightCommits::<Test>::get(netuid, account1);
+        let new_value2 = WeightCommits::<Test>::get(netuid, account2);
+
+        assert_eq!(new_value1.len(), 1);
+        assert_eq!(new_value2.len(), 1);
+
+        assert_eq!(new_value1.get(&0), Some(&(hash1, block_number1)));
+        assert_eq!(new_value2.get(&0), Some(&(hash2, block_number2)));
+
+        // Try to insert a new weight commit after migration
+        let hash3 = H256::from_low_u64_be(3);
+        let block_number3: u64 = 300;
+        let nonce: u64 = 1;
+
+        WeightCommits::<Test>::mutate(netuid, account1, |commits| {
+            commits.insert(nonce, (hash3, block_number3));
+        });
+
+        // Check that the new insert worked correctly
+        let updated_value1 = WeightCommits::<Test>::get(netuid, account1);
+        assert_eq!(updated_value1.len(), 2);
+        assert_eq!(updated_value1.get(&0), Some(&(hash1, block_number1)));
+        assert_eq!(updated_value1.get(&nonce), Some(&(hash3, block_number3)));
+    });
 }
