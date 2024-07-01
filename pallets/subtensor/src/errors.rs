@@ -126,5 +126,7 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Not able to join the senate.
+        CouldNotJoinSenate,
     }
 }
