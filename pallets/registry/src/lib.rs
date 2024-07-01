@@ -127,7 +127,7 @@ pub mod pallet {
             weight
         }
     }
-    
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Register an identity for an account. This will overwrite any existing identity.

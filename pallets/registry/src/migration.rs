@@ -1,10 +1,12 @@
-
-use scale_info::prelude::{ string::{ String, ToString }, vec::Vec };
+use codec::Decode;
+use scale_info::prelude::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use serde::Deserialize;
 use sp_core::{crypto::Ss58Codec, ConstU32};
 use sp_runtime::{AccountId32, BoundedVec};
 use sp_std::vec;
-use codec::Decode;
 
 use super::*;
 use frame_support::{
@@ -12,7 +14,6 @@ use frame_support::{
     weights::Weight,
 };
 use log;
-
 
 #[derive(Deserialize, Debug)]
 struct RegistrationRecordJSON {
@@ -24,7 +25,7 @@ struct RegistrationRecordJSON {
 
 fn string_to_bounded_vec(input: &String) -> Result<BoundedVec<u8, ConstU32<64>>, &'static str> {
     let vec_u8: Vec<u8> = input.clone().into_bytes();
-    
+
     // Check if the length is within bounds
     if vec_u8.len() > 64 {
         return Err("Input string is too long");
@@ -51,7 +52,6 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
 
         // Deserialize the JSON data into a HashMap
         if let Ok(delegates) = serde_json::from_str::<Vec<RegistrationRecordJSON>>(data) {
-
             log::info!("{} delegate records loaded", delegates.len());
 
             // Iterate through the delegates
@@ -74,7 +74,9 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
                     None
                 };
 
-                if name_result.is_ok() && desc_result.is_ok() && url_result.is_ok() 
+                if name_result.is_ok()
+                    && desc_result.is_ok()
+                    && url_result.is_ok()
                     && account_id.is_some()
                 {
                     let desc_title = Data::Raw(string_to_bounded_vec(&title).unwrap());
@@ -98,34 +100,37 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
                         deposit: Zero::zero(),
                         info,
                     };
-                    
+
                     IdentityOf::<T>::insert(account_id.unwrap(), reg);
                     weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
-
                 } else {
-                    log::info!("Migration {} couldn't be completed, bad JSON item for: {}", migration_name, delegate.address);
+                    log::info!(
+                        "Migration {} couldn't be completed, bad JSON item for: {}",
+                        migration_name,
+                        delegate.address
+                    );
                     if !name_result.is_ok() {
                         log::info!("Name is bad");
                     }
                     if !desc_result.is_ok() {
                         log::info!("Description is bad");
                     }
-                    if !url_result.is_ok()  {
+                    if !url_result.is_ok() {
                         log::info!("URL is bad");
                     }
                     if !account_id.is_some() {
                         log::info!("Account ID is bad");
                     }
                 }
-
             }
-
-
         } else {
-            log::info!("Migration {} couldn't be completed, bad JSON file: {}", migration_name, data);
+            log::info!(
+                "Migration {} couldn't be completed, bad JSON file: {}",
+                migration_name,
+                data
+            );
             return weight;
         }
-
 
         StorageVersion::new(new_storage_version).put::<Pallet<T>>();
     } else {
