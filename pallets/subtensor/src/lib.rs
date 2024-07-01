@@ -326,7 +326,7 @@ pub mod pallet {
 
     /// The Subtensor [`TotalIssuance`] represents the total issuance of tokens on the Bittensor network.
     ///
-    /// It comprised of three parts:
+    /// It is comprised of three parts:
     /// - The total amount of issued tokens, tracked in the TotalIssuance of the Balances pallet
     /// - The total amount of tokens staked in the system, tracked in [`TotalStake`]
     /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`]
