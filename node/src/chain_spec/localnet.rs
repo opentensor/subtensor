@@ -74,7 +74,7 @@ fn localnet_genesis(
             2000000000000u128,
         ),
         (
-            AccountId32::from_ss58check("5H3qhPGzKMNV9fTPuizxzp8azyFRMd4BnheSuwN9Qxb5Cz3u").unwrap(),
+            AccountId32::from_ss58check("5DPB62QK6XsSbuFd9g4QAzqq9P5Pzi32P2wBSRS4jdJGLcew").unwrap(),
             1_000_000_000_000_000
         ),
         (

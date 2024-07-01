@@ -550,10 +550,19 @@ impl<T: Config> Pallet<T> {
     pub fn user_add_network(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        subnet_type: SubnetType,
+        mechanism: u16,
     ) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
+
+        let subnet_type: SubnetType;
+        if mechanism == 0 {
+            subnet_type = SubnetType::STAO;
+        } else if mechanism == 1 {
+            subnet_type = SubnetType::DTAO;
+        } else {
+            return Err(Error::<T>::TemporarilyNotAllowed.into());
+        }
 
         // --- 1. Ensure that the hotkey is not owned by another key.
         if Owner::<T>::contains_key(&hotkey) {
@@ -652,17 +661,14 @@ impl<T: Config> Pallet<T> {
             SubnetType::DTAO => {
                 // --- 8. Instantiate initial token supply based on lock cost.
                 let initial_tao_reserve: u64 = lock_amount;
-                let initial_dynamic_reserve: u64 = lock_amount * Self::get_num_subnets() as u64;
-                let initial_dynamic_outstanding: u64 = lock_amount * Self::get_num_subnets() as u64;
-                let initial_dynamic_k: u128 =
-                    (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
-
+                let initial_dynamic_reserve: u64 = 50_000_000_000_000;
+                let initial_dynamic_outstanding: u64 = initial_dynamic_reserve;
+                let initial_dynamic_k: u128 = (initial_tao_reserve as u128) * (initial_dynamic_reserve as u128);
                 DynamicTAOReserve::<T>::insert(netuid_to_register, initial_tao_reserve);
                 DynamicAlphaReserve::<T>::insert(netuid_to_register, initial_dynamic_reserve);
                 DynamicAlphaOutstanding::<T>::insert(netuid_to_register, initial_dynamic_outstanding);
                 DynamicK::<T>::insert(netuid_to_register, initial_dynamic_k);
                 IsDynamic::<T>::insert(netuid_to_register, true); // Turn on dynamic staking.
-
                 initial_dynamic_outstanding
             },
         };

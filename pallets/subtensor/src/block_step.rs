@@ -4,7 +4,7 @@ use sp_core::Get;
 use sp_std::vec::Vec;
 use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
-
+use frame_support::traits::fungible::Inspect;
 struct SubnetBlockStepInfo {
     netuid: u16,
     subnet_type: SubnetType,
@@ -233,8 +233,8 @@ impl<T: Config> Pallet<T> {
                                 alpha_in = 0;
                             } else {
                                 // Alpha prices are greater than 1.0, emit ALPHA and not TAO into the pools.
-                                tao_in = 0;
-                                alpha_in = total_block_emission;
+                                tao_in = subnet_block_emission;
+                                alpha_in = total_block_emission * 2;
                             }
 
                             if tao_in > 0 {

@@ -52,7 +52,7 @@ fn test_add_subnet_stake_ok_no_emission() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            1
         ));
 
         // Check:
@@ -277,7 +277,7 @@ fn test_stake_unstake() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            1
         ));
         assert_eq!(SubtensorModule::get_tao_reserve(1), 100_000_000_000);
         assert_eq!(SubtensorModule::get_alpha_reserve(1), 100_000_000_000);
@@ -1186,7 +1186,7 @@ fn test_registration_balance_minimal_plus_ed_ok() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            1
         ));
 
         let account = System::account(coldkey);
@@ -1209,7 +1209,7 @@ fn test_registration_balance_minimal_plus_ed_plus_1_ok() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            1
         ));
 
         let account = System::account(coldkey);
@@ -1232,7 +1232,7 @@ fn test_registration_balance_minimal_plus_ed_minus_1_ok() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            1
         ));
 
         let account = System::account(coldkey);
@@ -1257,7 +1257,7 @@ fn test_stake_unstake_total_issuance() {
         assert_ok!(SubtensorModule::user_add_network(
             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
             hotkey,
-            SubnetType::DTAO
+            1
         ));
         assert_eq!(SubtensorModule::get_tao_reserve(1), lock_amount);
         assert_eq!(SubtensorModule::get_alpha_reserve(1), lock_amount);

@@ -2244,8 +2244,8 @@ pub mod pallet {
         #[pallet::weight((Weight::from_parts(85_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(16))
         .saturating_add(T::DbWeight::get().writes(28)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::user_add_network(origin, hotkey, SubnetType::STAO)
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId, mechanism: u16 ) -> DispatchResult {
+            Self::user_add_network(origin, hotkey, mechanism )
         }
 
         /// Facility extrinsic for user to get taken from faucet
