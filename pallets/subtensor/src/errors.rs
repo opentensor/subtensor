@@ -128,5 +128,7 @@ mod errors {
         CommitRevealDisabled,
         /// Attempting to set an invalid child for a hotkey on a network.
         InvalidChild,
+        /// The sum of proportions is not equal to u64::MAX
+        ProportionSumIncorrect,
     }
 }

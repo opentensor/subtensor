@@ -25,13 +25,13 @@ benchmarks:
 
 clippy:
   @echo "Running cargo clippy..."
-  cargo +{{RUSTV}} clippy -- -D clippy::panic \
+  cargo +{{RUSTV}} clippy  --workspace --all-targets -- -D clippy::panic \
                             -D clippy::todo \
                             -D clippy::unimplemented
 
 clippy-fix:
   @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
-  cargo +{{RUSTV}} clippy --fix --allow-dirty -- -A clippy::panic \
+  cargo +{{RUSTV}} clippy --fix --allow-dirty --allow-staged  --workspace --all-targets -- -A clippy::panic \
                                                       -A clippy::todo \
                                                       -A clippy::unimplemented
 fix:

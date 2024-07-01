@@ -172,15 +172,18 @@ impl<T: Config> Pallet<T> {
     ///     Thrown when the coldkey does not own the hotkey.
     /// * `InvalidChild`:
     ///     Thrown when any of the children is the same as the hotkey.
+    /// * `ProportionSumIncorrect`:
+    ///     Thrown when the sum of proportions does not equal u64::MAX.
     ///
     /// # Detailed Workflow
     /// 1. Verify the transaction signature and ownership.
     /// 2. Perform various checks (network existence, root network, ownership, valid children).
-    /// 3. Remove the hotkey from its old children's parent lists.
-    /// 4. Create a new list of children with their proportions.
-    /// 5. Update the ChildKeys storage with the new children.
-    /// 6. Update the ParentKeys storage for each new child.
-    /// 7. Emit an event to log the operation.
+    /// 3. Ensure the sum of proportions equals u64::MAX.
+    /// 4. Remove the hotkey from its old children's parent lists.
+    /// 5. Create a new list of children with their proportions.
+    /// 6. Update the ChildKeys storage with the new children.
+    /// 7. Update the ParentKeys storage for each new child.
+    /// 8. Emit an event to log the operation.
     pub fn do_set_children_multiple(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
@@ -217,7 +220,18 @@ impl<T: Config> Pallet<T> {
             ensure!(*child != hotkey, Error::<T>::InvalidChild);
         }
 
-        // --- 6. Remove the hotkey from its old children's parent lists
+        // --- 6. Ensure the sum of proportions equals u64::MAX (representing 100%)
+        let total_proportion: u64 = children_with_proportions
+            .iter()
+            .map(|(_, proportion)| *proportion)
+            .sum();
+
+        ensure!(
+            total_proportion == u64::MAX,
+            Error::<T>::ProportionSumIncorrect
+        );
+
+        // --- 7. Remove the hotkey from its old children's parent lists
         let old_children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey.clone(), netuid);
 
         // Iterate over all old children and remove the hotkey from their parent's map
@@ -228,16 +242,16 @@ impl<T: Config> Pallet<T> {
             ParentKeys::<T>::insert(old_child, netuid, my_old_child_parents);
         }
 
-        // --- 7. Create the new children + proportion list
+        // --- 8. Create the new children + proportion list
         let new_children: Vec<(u64, T::AccountId)> = children_with_proportions
             .into_iter()
             .map(|(child, proportion)| (proportion, child))
             .collect();
 
-        // --- 8. Update the ChildKeys storage with the new children list
+        // --- 9. Update the ChildKeys storage with the new children list
         ChildKeys::<T>::insert(hotkey.clone(), netuid, new_children.clone());
 
-        // --- 9. Update the ParentKeys storage for each new child
+        // --- 10. Update the ParentKeys storage for each new child
         for (proportion, new_child) in new_children.iter() {
             let mut new_child_previous_parents: Vec<(u64, T::AccountId)> =
                 ParentKeys::<T>::get(new_child.clone(), netuid);
@@ -245,7 +259,7 @@ impl<T: Config> Pallet<T> {
             ParentKeys::<T>::insert(new_child.clone(), netuid, new_child_previous_parents);
         }
 
-        // --- 10. Log the operation and emit an event
+        // --- 11. Log the operation and emit an event
         log::trace!(
             "SetChildrenMultiple( hotkey:{:?}, children:{:?}, netuid:{:?} )",
             hotkey,
@@ -258,10 +272,9 @@ impl<T: Config> Pallet<T> {
             netuid,
         ));
 
-        // --- 11. Return success
+        // --- 12. Return success
         Ok(())
     }
-
     /// ---- The implementation for the extrinsic do_revoke_child_singular: Revokes a single child.
     ///
     /// This function allows a coldkey to revoke a single child for a given hotkey on a specified network.

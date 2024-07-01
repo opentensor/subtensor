@@ -92,7 +92,8 @@ impl<T: Config> Pallet<T> {
         let return_per_1000: u64 = if total_stake > 0 {
             let total_stake_f64: U64F64 = total_stake.into();
             U64F64::to_num::<u64>(
-                (U64F64::from_num(emissions_per_day).saturating_mul(U64F64::from_num(1000))).saturating_div(total_stake_f64),
+                (U64F64::from_num(emissions_per_day).saturating_mul(U64F64::from_num(1000)))
+                    .saturating_div(total_stake_f64),
             )
         } else {
             0
