@@ -920,17 +920,20 @@ fn test_epoch_runs_when_registration_disabled() {
         let block: u64 = 1;
         SubtensorModule::generate_emission(block);
 
-		step_block(1); // Now block 2
+        step_block(1); // Now block 2
 
-		// Verify blocks since last step was set
-		assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid_off), 1);
+        // Verify blocks since last step was set
+        assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid_off), 1);
 
         // Step to the next epoch block
         let epoch_block: u16 = tempo;
         step_block(epoch_block);
 
-		// Verify blocks since last step was set, this indicates we ran the epoch
-		assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid_off), 0 as u64);
-		assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_some());
+        // Verify blocks since last step was set, this indicates we ran the epoch
+        assert_eq!(
+            SubtensorModule::get_blocks_since_last_step(netuid_off),
+            0_u64
+        );
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_some());
     });
 }
