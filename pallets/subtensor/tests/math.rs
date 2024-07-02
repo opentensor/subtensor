@@ -1,3 +1,8 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::unwrap_used,
+    clippy::indexing_slicing
+)]
 use substrate_fixed::types::{I32F32, I64F64};
 
 use pallet_subtensor::math::*;

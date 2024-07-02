@@ -531,7 +531,6 @@ impl<T: Config> Pallet<T> {
         inplace_col_normalize_sparse(&mut bonds_delta, n); // sum_i b_ij = 1
         log::trace!("ΔB (norm): {:?}", &bonds_delta);
 
-
         // Compute the Exponential Moving Average (EMA) of bonds.
         let mut ema_bonds =
             Self::compute_ema_bonds_sparse(netuid, consensus.clone(), bonds_delta, bonds);
@@ -857,8 +856,10 @@ impl<T: Config> Pallet<T> {
 
         // Calculate the intercept 'b' of the logistic function.
         // b = ln((1 / alpha_low - 1)) + a * consensus_low
-        let b = safe_ln((I32F32::from_num(1.0) / alpha_low).saturating_sub(I32F32::from_num(1.0)))
-            .saturating_add(a.saturating_mul(consensus_low));
+        let b = safe_ln(
+            (I32F32::from_num(1.0).saturating_div(alpha_low)).saturating_sub(I32F32::from_num(1.0)),
+        )
+        .saturating_add(a.saturating_mul(consensus_low));
         log::trace!("b: {:?}", b);
 
         // Return the calculated slope 'a' and intercept 'b'.
