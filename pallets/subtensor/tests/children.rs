@@ -675,6 +675,31 @@ fn test_do_set_children_multiple_proportion_edge_cases() {
 }
 
 #[test]
+fn test_do_set_children_multiple_duplicate_child() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let netuid: u16 = 1;
+        let proportion: u64 = 1000;
+
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to set children
+        assert_err!(
+            SubtensorModule::do_set_children_multiple(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                vec![(child1, proportion), (child1, proportion)],
+                netuid
+            ),
+            Error::<Test>::DuplicateChild
+        );
+    });
+}
+
+#[test]
 fn test_do_revoke_children_multiple_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);

@@ -130,5 +130,7 @@ mod errors {
         InvalidChild,
         /// The sum of proportions is not equal to u64::MAX
         ProportionSumIncorrect,
+        /// Duplicate child when set children keys
+        DuplicateChild,
     }
 }

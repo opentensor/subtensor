@@ -215,9 +215,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NonAssociatedColdKey
         );
 
+        let mut child_set: BTreeSet<T::AccountId> = BTreeSet::new();
         // --- 5. Ensure none of the children are the same as the hotkey
         for (child, _) in &children_with_proportions {
             ensure!(*child != hotkey, Error::<T>::InvalidChild);
+            ensure!(child_set.insert(child.clone()), Error::<T>::DuplicateChild);
         }
 
         // --- 6. Ensure the sum of proportions equals u64::MAX (representing 100%)
