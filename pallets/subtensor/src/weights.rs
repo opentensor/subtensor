@@ -2,6 +2,7 @@ use super::*;
 use crate::math::*;
 use sp_core::H256;
 use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_runtime::SaturatedConversion;
 use sp_std::vec;
 
 impl<T: Config> Pallet<T> {
@@ -17,14 +18,27 @@ impl<T: Config> Pallet<T> {
     /// * `commit_hash` (`H256`):
     ///   - The hash representing the committed weights.
     ///
+    /// * `nonce` (`u64`):
+    ///   - A unique number to track multiple commits within an interval.
+    ///
     /// # Raises:
+    /// * `CommitRevealDisabled`:
+    ///   - Attempting to commit when commit/reveal is disabled for the network.
+    ///
     /// * `WeightsCommitNotAllowed`:
     ///   - Attempting to commit when it is not allowed.
+    ///
+    /// * `NonMonotonicNonce`:
+    ///   - The provided nonce is not greater than the last processed nonce.
+    ///
+    /// * `DuplicateNonce`:
+    ///   - Attempting to use a nonce that has already been used within the current interval.
     ///
     pub fn do_commit_weights(
         origin: T::RuntimeOrigin,
         netuid: u16,
         commit_hash: H256,
+        nonce: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
 
@@ -40,11 +54,36 @@ impl<T: Config> Pallet<T> {
             Error::<T>::WeightsCommitNotAllowed
         );
 
-        WeightCommits::<T>::insert(
-            netuid,
-            &who,
-            (commit_hash, Self::get_current_block_as_u64()),
-        );
+        // Check if the nonce is greater than the last processed nonce
+        let last_processed_nonce = Self::get_last_processed_nonce(netuid, &who);
+        ensure!(nonce > last_processed_nonce, Error::<T>::NonMonotonicNonce);
+
+        WeightCommits::<T>::try_mutate(netuid, &who, |commits| -> DispatchResult {
+            // Check if the nonce already exists
+            ensure!(!commits.contains_key(&nonce), Error::<T>::DuplicateNonce);
+
+            // Check if there are already 10 commits
+            if commits.len() >= 10 {
+                // Remove the oldest commit (lowest nonce)
+                if let Some(oldest_nonce) = commits.keys().next().cloned() {
+                    commits.remove(&oldest_nonce);
+                }
+            }
+
+            // Insert the new commit
+            commits.insert(
+                nonce,
+                (
+                    commit_hash,
+                    frame_system::Pallet::<T>::block_number().saturated_into::<u64>(),
+                ),
+            );
+
+            // Update the last processed nonce
+            Self::set_last_processed_nonce(netuid, &who, nonce);
+
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -63,21 +102,33 @@ impl<T: Config> Pallet<T> {
     /// * `values` (`Vec<u16>`):
     ///   - The values of the weights being revealed.
     ///
-    /// * `salt` (`Vec<u8>`):
-    ///   - The values of the weights being revealed.
+    /// * `salt` (`Vec<u16>`):
+    ///   - The salt used in the commitment.
     ///
     /// * `version_key` (`u64`):
     ///   - The network version key.
     ///
+    /// * `nonce` (`u64`):
+    ///   - The nonce used in the commitment.
+    ///
     /// # Raises:
+    /// * `CommitRevealDisabled`:
+    ///   - Attempting to reveal weights when commit/reveal is disabled for the network.
+    ///
     /// * `NoWeightsCommitFound`:
     ///   - Attempting to reveal weights without an existing commit.
     ///
-    /// * `InvalidRevealCommitHashNotMatchTempo`:
+    /// * `InvalidCommitNonce`:
+    ///   - The provided nonce does not match any existing commitment.
+    ///
+    /// * `InvalidRevealCommitTempo`:
     ///   - Attempting to reveal weights outside the valid tempo.
     ///
     /// * `InvalidRevealCommitHashNotMatch`:
     ///   - The revealed hash does not match the committed hash.
+    ///
+    /// # Note:
+    /// This function also calls `do_set_weights` which may raise additional errors.
     ///
     pub fn do_reveal_weights(
         origin: T::RuntimeOrigin,
@@ -86,20 +137,21 @@ impl<T: Config> Pallet<T> {
         values: Vec<u16>,
         salt: Vec<u16>,
         version_key: u64,
+        nonce: u64,
     ) -> DispatchResult {
         let who = ensure_signed(origin.clone())?;
-
-        log::info!("do_reveal_weights( hotkey:{:?} netuid:{:?})", who, netuid);
-
         ensure!(
             Self::get_commit_reveal_weights_enabled(netuid),
             Error::<T>::CommitRevealDisabled
         );
 
-        WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commit| -> DispatchResult {
-            let (commit_hash, commit_block) = maybe_commit
-                .as_ref()
+        WeightCommits::<T>::try_mutate_exists(netuid, &who, |maybe_commits| -> DispatchResult {
+            let commits = maybe_commits
+                .as_mut()
                 .ok_or(Error::<T>::NoWeightsCommitFound)?;
+
+            let (commit_hash, commit_block) =
+                commits.get(&nonce).ok_or(Error::<T>::InvalidCommitNonce)?;
 
             ensure!(
                 Self::is_reveal_block_range(netuid, *commit_block),
@@ -113,13 +165,27 @@ impl<T: Config> Pallet<T> {
                 values.clone(),
                 salt.clone(),
                 version_key,
+                nonce,
             ));
             ensure!(
                 provided_hash == *commit_hash,
                 Error::<T>::InvalidRevealCommitHashNotMatch
             );
 
-            Self::do_set_weights(origin, netuid, uids, values, version_key)
+            // Update the last processed nonce
+            Self::set_last_processed_nonce(netuid, &who, nonce);
+
+            // Set the weights
+            Self::do_set_weights(origin, netuid, uids, values, version_key)?;
+
+            // Remove the commit after successful weight setting
+            commits.remove(&nonce);
+
+            if commits.is_empty() {
+                *maybe_commits = None;
+            }
+
+            Ok(())
         })
     }
 
@@ -226,7 +292,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeyNotRegisteredInSubNet
         );
 
-        // --- 6. Check to see if the hotkey has enought stake to set weights.
+        // --- 6. Check to see if the hotkey has enough stake to set weights.
         ensure!(
             Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
             Error::<T>::NotEnoughStakeToSetWeights
@@ -448,28 +514,18 @@ impl<T: Config> Pallet<T> {
         uids.len() <= subnetwork_n as usize
     }
 
-    pub fn can_commit(netuid: u16, who: &T::AccountId) -> bool {
-        if let Some((_hash, commit_block)) = WeightCommits::<T>::get(netuid, who) {
-            let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
-            if interval == 0 {
-                return true; //prevent division by 0
-            }
-
-            let current_block: u64 = Self::get_current_block_as_u64();
-            let interval_start: u64 = current_block - (current_block % interval);
-            let last_commit_interval_start: u64 = commit_block - (commit_block % interval);
-
-            // Allow commit if we're within the interval bounds
-            if current_block <= interval_start + interval
-                && interval_start > last_commit_interval_start
-            {
-                return true;
-            }
-
-            false
-        } else {
-            true
+    // TODO: check logic for this function
+    pub fn can_commit(netuid: u16, _who: &T::AccountId) -> bool {
+        let interval: u64 = Self::get_commit_reveal_weights_interval(netuid);
+        if interval == 0 {
+            return true; // prevent division by 0
         }
+
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let current_interval_start: u64 = current_block - (current_block % interval);
+
+        // Allow commit if we're within the current interval
+        current_block <= current_interval_start + interval
     }
 
     pub fn is_reveal_block_range(netuid: u16, commit_block: u64) -> bool {
@@ -490,5 +546,48 @@ impl<T: Config> Pallet<T> {
         }
 
         false
+    }
+
+    /// Get the last processed nonce for a given netuid and account
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The network ID
+    /// * `account` - The account ID
+    ///
+    /// # Returns
+    ///
+    /// Returns the last processed nonce for the given netuid and account, or 0 if not found
+    ///
+    /// # Note
+    ///
+    /// This function is used to retrieve the last nonce that was processed for a specific account
+    /// in a specific subnet. It's crucial for maintaining the order of transactions and
+    /// preventing replay attacks.
+    pub fn get_last_processed_nonce(netuid: u16, account: &T::AccountId) -> u64 {
+        LastProcessedNonce::<T>::get(netuid, account)
+        // ^ If no nonce is found, we return 0 as the default value
+    }
+
+    /// Set the last processed nonce for a given netuid and account
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The network ID
+    /// * `account` - The account ID
+    /// * `nonce` - The nonce to set
+    ///
+    /// # Note
+    ///
+    /// This function updates the last processed nonce for a specific account in a specific subnet.
+    /// It's important for maintaining the state of processed transactions and ensuring
+    /// that each nonce is only processed once.
+    ///
+    /// # TODO
+    ///
+    /// Consider adding error handling or logging for cases where the nonce update fails.
+    pub fn set_last_processed_nonce(netuid: u16, account: &T::AccountId, nonce: u64) {
+        LastProcessedNonce::<T>::insert(netuid, account, nonce);
+        // ^ This operation overwrites any existing nonce for the given netuid and account
     }
 }

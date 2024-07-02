@@ -31,9 +31,9 @@ clippy:
 
 clippy-fix:
   @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
-  cargo +{{RUSTV}} clippy --fix --allow-dirty  --workspace --all-targets -- -A \
-                                                      -A clippy::todo \
-                                                      -A clippy::unimplemented
+  cargo +{{RUSTV}} clippy --fix --allow-dirty --allow-staged --workspace --all-targets -- \
+    -A clippy::todo \
+    -A clippy::unimplemented
 fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace

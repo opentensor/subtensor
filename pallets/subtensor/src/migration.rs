@@ -1,5 +1,6 @@
 use super::*;
 use frame_support::traits::DefensiveResult;
+use frame_support::Twox64Concat;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     storage_alias,
@@ -7,7 +8,20 @@ use frame_support::{
     weights::Weight,
 };
 use log::info;
+use sp_core::H256;
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::vec::Vec;
+
+#[storage_alias]
+type OldWeightCommits<T: Config> = StorageDoubleMap<
+    Pallet<T>,
+    Twox64Concat,
+    u16,
+    Twox64Concat,
+    <T as frame_system::Config>::AccountId,
+    (H256, u64),
+    OptionQuery,
+>;
 
 // TODO (camfairchild): TEST MIGRATION
 
@@ -473,4 +487,49 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
         info!(target: LOG_TARGET_1, "Migration to v2 already done!");
         Weight::zero()
     }
+}
+
+pub fn migrate_to_v7_weight_commits<T: Config>() -> Weight {
+    let mut weight = T::DbWeight::get().reads(1);
+    let current_version = Pallet::<T>::on_chain_storage_version();
+
+    if current_version < 7 {
+        log::info!(
+            target: "runtime::subtensor",
+            "Migrating WeightCommits to new format (v7)"
+        );
+
+        // Iterate through all entries in the old storage
+        for (netuid, account, old_value) in OldWeightCommits::<T>::iter() {
+            weight = weight.saturating_add(T::DbWeight::get().reads(1));
+
+            let (hash, block_number) = old_value;
+            // Create a new BTreeMap with a single entry
+            let new_value = BTreeMap::from_iter(vec![(0u64, (hash, block_number))]);
+
+            // Insert the new value into the new storage format
+            WeightCommits::<T>::insert(netuid, account.clone(), new_value);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+            // Remove the old entry
+            OldWeightCommits::<T>::remove(netuid, account);
+            weight = weight.saturating_add(T::DbWeight::get().writes(1));
+        }
+
+        // Update the storage version
+        StorageVersion::new(7).put::<Pallet<T>>();
+        weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+        log::info!(
+            target: "runtime::subtensor",
+            "Completed migration of WeightCommits to new format (v7)"
+        );
+    } else {
+        log::info!(
+            target: "runtime::subtensor",
+            "Migration to v7 (WeightCommits) is not needed"
+        );
+    }
+
+    weight
 }

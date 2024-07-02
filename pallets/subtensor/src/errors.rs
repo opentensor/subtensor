@@ -126,5 +126,11 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Invalid commit nonce.
+        InvalidCommitNonce,
+        /// Duplicate nonce.
+        DuplicateNonce,
+        /// Non monotonic nonce.
+        NonMonotonicNonce,
     }
 }
