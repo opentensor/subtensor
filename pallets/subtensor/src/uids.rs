@@ -9,6 +9,8 @@ impl<T: Config> Pallet<T> {
         SubnetworkN::<T>::get(netuid)
     }
 
+    /// Returns a callback that sets the element at the given position to zero, doing nothing if the
+    /// position is out of bounds
     fn clear_element_at<N>(position: u16) -> impl Fn(&mut Vec<N>)
     where
         N: From<u8>,
