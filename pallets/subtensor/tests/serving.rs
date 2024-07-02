@@ -50,7 +50,7 @@ fn test_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(46_000_000, 0),
+                weight: frame_support::weights::Weight::from_parts(246_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -295,7 +295,7 @@ fn test_prometheus_serving_subscribe_ok_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(45_000_000, 0),
+                weight: frame_support::weights::Weight::from_parts(245_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
