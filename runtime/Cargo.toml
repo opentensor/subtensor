@@ -20,6 +20,7 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
+subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
 log = { workspace = true }

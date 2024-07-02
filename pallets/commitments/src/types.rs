@@ -29,6 +29,7 @@ use sp_runtime::{
     RuntimeDebug,
 };
 use sp_std::{fmt::Debug, iter::once, prelude::*};
+use subtensor_macros::freeze_struct;
 
 /// Either underlying data blob if it is at most 32 bytes, or a hash of it. If the data is greater
 /// than 32-bytes then it will be truncated when encoding.
@@ -283,11 +284,12 @@ impl Default for Data {
     }
 }
 
+#[freeze_struct("25c84048dcc90813")]
 #[derive(
     CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
 #[codec(mel_bound())]
-#[cfg_attr(test, derive(frame_support::DefaultNoBound))]
+#[derive(frame_support::DefaultNoBound)]
 #[scale_info(skip_type_params(FieldLimit))]
 pub struct CommitmentInfo<FieldLimit: Get<u32>> {
     pub fields: BoundedVec<Data, FieldLimit>,

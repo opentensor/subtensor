@@ -8,6 +8,7 @@ pub mod types;
 pub mod weights;
 
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 pub use types::*;
 pub use weights::WeightInfo;
 
@@ -208,6 +209,7 @@ use {
     },
 };
 
+#[freeze_struct("6a00398e14a8a984")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct CommitmentsSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 

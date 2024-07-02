@@ -4,6 +4,7 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
+#[freeze_struct("86d64c14d71d44b9")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct StakeInfo<T: Config> {
     hotkey: T::AccountId,
