@@ -305,7 +305,14 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::System(_)
                 | RuntimeCall::SafeMode(_)
                 | RuntimeCall::Timestamp(_)
-                | RuntimeCall::SubtensorModule(_)
+                | RuntimeCall::SubtensorModule(pallet_subtensor::Call::commit_weights {
+                    netuid,
+                    commit_hash
+                })
+                | RuntimeCall::SubtensorModule(pallet_subtensor::Call::add_stake {
+                    hotkey,
+                    amount_staked
+                })
         )
     }
 }
