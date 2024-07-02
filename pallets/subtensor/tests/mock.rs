@@ -3,9 +3,7 @@ use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
-    assert_ok,
-    dispatch::DispatchResultWithPostInfo,
-    parameter_types,
+    assert_ok, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
