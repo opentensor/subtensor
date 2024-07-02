@@ -54,7 +54,7 @@ fn test_get_children_info() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let proportion1: u64 = 300_000_000;
-        let proportion2: u64 = 200_000_000;
+        let proportion2: u64 = u64::MAX - proportion1;
 
         // Add network and register hotkey and children
         add_network(netuid, 13, 0);
