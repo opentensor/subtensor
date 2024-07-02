@@ -1,3 +1,5 @@
+#![allow(unused, clippy::indexing_slicing, clippy::panic, clippy::unwrap_used)]
+
 use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_ok};

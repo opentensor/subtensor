@@ -49,8 +49,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::HotKeySetTxRateLimitExceeded
         );
 
-        weight
-            .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
+        weight.saturating_accrue(
+            T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
+        );
 
         let swap_cost = Self::get_hotkey_swap_cost();
         log::debug!("Swap cost: {:?}", swap_cost);
@@ -189,20 +190,20 @@ impl<T: Config> Pallet<T> {
     /// * `new_hotkey` - The new hotkey.
     /// * `weight` - The weight of the transaction.
     pub fn swap_stake(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId, weight: &mut Weight) {
-        let mut writes = 0;
+        let mut writes: u64 = 0;
         let stakes: Vec<(T::AccountId, u64)> = Stake::<T>::iter_prefix(old_hotkey).collect();
         let stake_count = stakes.len() as u32;
 
         for (coldkey, stake_amount) in stakes {
             Stake::<T>::insert(new_hotkey, &coldkey, stake_amount);
-            writes += 1; // One write for insert
+            writes = writes.saturating_add(1u64); // One write for insert
         }
 
         // Clear the prefix for the old hotkey after transferring all stakes
         let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
-        writes += 1; // One write for clear_prefix
+        writes = writes.saturating_add(1); // One write for insert; // One write for clear_prefix
 
-        *weight += T::DbWeight::get().writes(writes as u64);
+        weight.saturating_accrue(T::DbWeight::get().writes(writes));
     }
 
     /// Swaps the network membership status of the hotkey.
@@ -271,7 +272,7 @@ impl<T: Config> Pallet<T> {
         netuid_is_member: &[u16],
         weight: &mut Weight,
     ) {
-        let mut writes = 0;
+        let mut writes: u64 = 0;
         for netuid in netuid_is_member {
             let keys: Vec<(u16, T::AccountId)> = Keys::<T>::iter_prefix(netuid).collect();
             for (uid, key) in keys {
@@ -279,11 +280,11 @@ impl<T: Config> Pallet<T> {
                     log::info!("old hotkey found: {:?}", old_hotkey);
                     Keys::<T>::insert(netuid, uid, new_hotkey.clone());
                 }
-                writes += 2;
+                writes = writes.saturating_add(2u64);
             }
         }
         log::info!("writes: {:?}", writes);
-        *weight += T::DbWeight::get().writes(writes as u64);
+        weight.saturating_accrue(T::DbWeight::get().writes(writes));
     }
 
     /// Swaps the loaded emission of the hotkey.
@@ -311,7 +312,7 @@ impl<T: Config> Pallet<T> {
                 LoadedEmission::<T>::insert(netuid, emissions);
             }
         }
-        *weight += T::DbWeight::get().writes(netuid_is_member.len() as u64);
+        weight.saturating_accrue(T::DbWeight::get().writes(netuid_is_member.len() as u64));
     }
 
     /// Swaps the UIDs of the hotkey.
