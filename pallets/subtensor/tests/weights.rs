@@ -13,10 +13,6 @@ use sp_runtime::{
     DispatchError,
 };
 use substrate_fixed::types::I32F32;
-use std::sync::atomic::{AtomicU64, Ordering};
-
-static NONCE_COUNTER: AtomicU64 = AtomicU64::new(0);
-
 
 /***************************
   pub fn set_weights() tests
@@ -360,7 +356,7 @@ fn test_set_weights_is_root_error() {
         let hotkey = U256::from(1);
 
         assert_err!(
-            commit_reveal_set_weights(hotkey, root_netuid, uids, weights, salt, version_key, 0),
+            commit_reveal_set_weights(hotkey, root_netuid, uids, weights, salt, version_key, 1),
             Error::<Test>::CanNotSetRootNetworkWeights
         );
     });
@@ -449,7 +445,7 @@ fn test_set_weights_min_stake_failed() {
                 weights.clone(),
                 salt.clone(),
                 version_key,
-                0,
+                1,
             ),
             Err(Error::<Test>::NotEnoughStakeToSetWeights.into())
         );
@@ -462,7 +458,7 @@ fn test_set_weights_min_stake_failed() {
             weights.clone(),
             salt.clone(),
             version_key,
-            1, // unique nonce or it will fail.
+            2, // unique nonce or it will fail.
         ));
     });
 }
@@ -490,7 +486,7 @@ fn test_weights_version_key() {
             weight_values.clone(),
             salt.clone(),
             0,
-            0
+            1
         ));
         assert_ok!(commit_reveal_set_weights(
             hotkey,
@@ -499,7 +495,7 @@ fn test_weights_version_key() {
             weight_values.clone(),
             salt.clone(),
             0,
-            0
+            2
         ));
 
         // Set version keys.
@@ -516,7 +512,7 @@ fn test_weights_version_key() {
             weight_values.clone(),
             salt.clone(),
             key0,
-            0
+            3
         ));
         assert_ok!(commit_reveal_set_weights(
             hotkey,
@@ -525,7 +521,7 @@ fn test_weights_version_key() {
             weight_values.clone(),
             salt.clone(),
             key1,
-            0
+            4
         ));
 
         // validator:20313 >= network:12312 (accepted: validator newer)
@@ -536,7 +532,7 @@ fn test_weights_version_key() {
             weight_values.clone(),
             salt.clone(),
             key1,
-            0
+            5
         ));
 
         // Setting fails with incorrect keys.
@@ -549,7 +545,7 @@ fn test_weights_version_key() {
                 weight_values.clone(),
                 salt.clone(),
                 key0,
-                0
+                6
             ),
             Err(Error::<Test>::IncorrectWeightVersionKey.into())
         );
@@ -634,7 +630,7 @@ fn test_weights_err_weights_vec_not_equal_size() {
             weight_values.clone(),
             salt.clone(),
             0,
-            0,
+            1,
         );
         assert_eq!(result, Err(Error::<Test>::WeightVecNotEqualSize.into()));
     });
@@ -686,7 +682,7 @@ fn test_weights_err_has_duplicate_ids() {
             weight_values.clone(),
             salt.clone(),
             0,
-            0,
+            1,
         );
         assert_eq!(result, Err(Error::<Test>::DuplicateUids.into()));
     });
@@ -761,7 +757,7 @@ fn test_weights_err_max_weight_limit() {
         // Non self-weight fails.
         let uids: Vec<u16> = vec![1, 2, 3, 4];
         let values: Vec<u16> = vec![u16::MAX / 4, u16::MAX / 4, u16::MAX / 54, u16::MAX / 4];
-        let result = commit_reveal_set_weights(U256::from(0), 1, uids, values, salt.clone(), 0, 0);
+        let result = commit_reveal_set_weights(U256::from(0), 1, uids, values, salt.clone(), 0, 1);
         assert_eq!(result, Err(Error::<Test>::MaxWeightExceeded.into()));
 
         // Self-weight is a success.
@@ -774,7 +770,7 @@ fn test_weights_err_max_weight_limit() {
             values,
             salt.clone(),
             0,
-            1, // unique nonce or it will fail.
+            2, // unique nonce or it will fail.
         ));
     });
 }
@@ -808,7 +804,7 @@ fn test_set_weights_err_not_active() {
         let weight_values: Vec<u16> = vec![1];
         // This hotkey is NOT registered.
         let result =
-            commit_reveal_set_weights(U256::from(1), 1, weights_keys, weight_values, salt, 0, 0);
+            commit_reveal_set_weights(U256::from(1), 1, weights_keys, weight_values, salt, 0, 1);
         assert_eq!(
             result,
             Err(Error::<Test>::HotKeyNotRegisteredInSubNet.into())
@@ -833,7 +829,7 @@ fn test_set_weights_err_invalid_uid() {
         let weight_keys: Vec<u16> = vec![9999]; // Does not exist
         let weight_values: Vec<u16> = vec![88]; // random value
         let result =
-            commit_reveal_set_weights(hotkey_account_id, 1, weight_keys, weight_values, salt, 0, 0);
+            commit_reveal_set_weights(hotkey_account_id, 1, weight_keys, weight_values, salt, 0, 1);
         assert_eq!(result, Err(Error::<Test>::UidVecContainInvalidOne.into()));
     });
 }
@@ -867,7 +863,7 @@ fn test_set_weight_not_enough_values() {
             weight_values,
             salt.clone(),
             0,
-            0,
+            1,
         );
         assert_eq!(result, Err(Error::<Test>::WeightVecLengthIsLow.into()));
 
@@ -881,7 +877,7 @@ fn test_set_weight_not_enough_values() {
             weight_values,
             salt.clone(),
             0,
-            1, // unique nonce or it will fail.
+            2, // unique nonce or it will fail.
         ));
 
         // Should pass because we are setting enough values.
@@ -895,7 +891,7 @@ fn test_set_weight_not_enough_values() {
             weight_values,
             salt,
             0,
-            2 // unique nonce or it will fail
+            3 // unique nonce or it will fail
         ));
     });
 }
@@ -928,7 +924,7 @@ fn test_set_weight_too_many_uids() {
             weight_values,
             salt.clone(),
             0,
-            0,
+            1,
         );
         assert_eq!(
             result,
@@ -945,7 +941,7 @@ fn test_set_weight_too_many_uids() {
             weight_values,
             salt,
             0,
-            1 // unique nonce or it will fail.
+            2 // unique nonce or it will fail.
         ));
     });
 }
@@ -975,7 +971,7 @@ fn test_set_weights_sum_larger_than_u16_max() {
         assert!(weight_values.iter().map(|x| *x as u64).sum::<u64>() > (u16::MAX as u64));
 
         let result =
-            commit_reveal_set_weights(U256::from(1), 1, weight_keys, weight_values, salt, 0, 0);
+            commit_reveal_set_weights(U256::from(1), 1, weight_keys, weight_values, salt, 0, 1);
         assert_ok!(result);
 
         // Get max-upscaled unnormalized weights.
@@ -1350,57 +1346,6 @@ fn test_set_weights_commit_reveal_enabled_error() {
 }
 
 #[test]
-fn test_commit_reveal_weights_ok() {
-    new_test_ext(1).execute_with(|| {
-        let netuid: u16 = 1;
-        let uids: Vec<u16> = vec![0, 1];
-        let weight_values: Vec<u16> = vec![10, 10];
-        let salt: Vec<u16> = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let version_key: u64 = 0;
-        let hotkey: U256 = U256::from(1);
-        let nonce: u64 = 54;
-
-        let commit_hash: H256 = BlakeTwo256::hash_of(&(
-            hotkey,
-            netuid,
-            uids.clone(),
-            weight_values.clone(),
-            salt.clone(),
-            version_key,
-            nonce,
-        ));
-
-        add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
-        register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
-        SubtensorModule::set_weights_set_rate_limit(netuid, 5);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
-        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
-
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 5);
-        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
-
-        assert_ok!(SubtensorModule::commit_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            commit_hash,
-            nonce
-        ));
-
-        step_block(5);
-
-        assert_ok!(SubtensorModule::reveal_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            uids,
-            weight_values,
-            salt,
-            version_key,
-            nonce
-        ));
-    });
-}
-#[test]
 fn test_commit_reveal_interval() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
@@ -1410,19 +1355,23 @@ fn test_commit_reveal_interval() {
         let version_key: u64 = 0;
         let hotkey: U256 = U256::from(1);
 
-        add_network(netuid, 0, 0);
+        add_network(netuid, 1, 0);
         register_ok_neuron(netuid, U256::from(3), U256::from(4), 300000);
         register_ok_neuron(netuid, U256::from(1), U256::from(2), 100000);
         SubtensorModule::set_weights_set_rate_limit(netuid, 5);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
 
-        SubtensorModule::set_commit_reveal_weights_interval(netuid, 100);
+        let interval = 100;
+        SubtensorModule::set_commit_reveal_weights_interval(netuid, interval);
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // Start at block 0
         System::set_block_number(0);
 
-        let nonce: u64 = get_next_nonce();
+        let mut nonce: u64 = 2;
 
+        // First commit
         let commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
             netuid,
@@ -1440,7 +1389,26 @@ fn test_commit_reveal_interval() {
             nonce
         ));
 
-        // Try to reveal immediately (should fail)
+        log::info!(
+            "Last processed nonce after first commit: {:?}",
+            SubtensorModule::get_last_processed_nonce(netuid, &hotkey)
+        );
+
+        nonce -= 1;
+        // Try to commit again with the same nonce (should fail with NonMonotonicNonce)
+        assert_err!(
+            SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash,
+                nonce
+            ),
+            Error::<Test>::NonMonotonicNonce
+        );
+
+        nonce += 1;
+
+        // Try to reveal immediately (should fail with InvalidRevealCommitTempo)
         assert_err!(
             SubtensorModule::reveal_weights(
                 RuntimeOrigin::signed(hotkey),
@@ -1454,8 +1422,8 @@ fn test_commit_reveal_interval() {
             Error::<Test>::InvalidRevealCommitTempo
         );
 
-        // Step to the correct reveal block
-        step_block(100);
+        // Move to the start of the next interval
+        System::set_block_number(interval);
 
         // Now the reveal should succeed
         assert_ok!(SubtensorModule::reveal_weights(
@@ -1468,7 +1436,25 @@ fn test_commit_reveal_interval() {
             nonce
         ));
 
-        // Try to commit again with the same nonce (should fail)
+        log::info!(
+            "Last processed nonce after successful reveal: {:?}",
+            SubtensorModule::get_last_processed_nonce(netuid, &hotkey)
+        );
+
+        nonce -= 1;
+        // Try to commit again with the same nonce (should fail with NonMonotonicNonce)
+        assert_err!(
+            SubtensorModule::commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash,
+                nonce
+            ),
+            Error::<Test>::NonMonotonicNonce
+        );
+
+        // Commit with a new nonce (should succeed)
+        nonce += 2;
         let new_commit_hash: H256 = BlakeTwo256::hash_of(&(
             hotkey,
             netuid,
@@ -1479,34 +1465,50 @@ fn test_commit_reveal_interval() {
             nonce,
         ));
 
-        assert_err!(
-            SubtensorModule::commit_weights(
-                RuntimeOrigin::signed(hotkey),
-                netuid,
-                new_commit_hash,
-                nonce
-            ),
-            Error::<Test>::NonMonotonicNonce
+        assert_ok!(SubtensorModule::commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            new_commit_hash,
+            nonce
+        ));
+
+        log::info!(
+            "Last processed nonce after final commit: {:?}",
+            SubtensorModule::get_last_processed_nonce(netuid, &hotkey)
         );
 
-        // Commit with a new nonce (should succeed)
-        let new_nonce: u64 = get_next_nonce();
-        let new_commit_hash: H256 = BlakeTwo256::hash_of(&(
-            hotkey,
+        // Try to reveal with the old nonce (should fail with InvalidCommitNonce)
+        assert_err!(
+            SubtensorModule::reveal_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                uids.clone(),
+                weight_values.clone(),
+                salt.clone(),
+                version_key,
+                nonce - 1
+            ),
+            Error::<Test>::InvalidCommitNonce
+        );
+
+        // Move to the next interval again
+        System::set_block_number(interval * 2);
+
+        // Reveal with the new nonce (should succeed)
+        assert_ok!(SubtensorModule::reveal_weights(
+            RuntimeOrigin::signed(hotkey),
             netuid,
             uids.clone(),
             weight_values.clone(),
             salt.clone(),
             version_key,
-            new_nonce,
+            nonce
         ));
 
-        assert_ok!(SubtensorModule::commit_weights(
-            RuntimeOrigin::signed(hotkey),
-            netuid,
-            new_commit_hash,
-            new_nonce
-        ));
+        log::info!(
+            "Last processed nonce after final reveal: {:?}",
+            SubtensorModule::get_last_processed_nonce(netuid, &hotkey)
+        );
     });
 }
 
@@ -1994,9 +1996,4 @@ fn commit_reveal_set_weights(
     )?;
 
     Ok(())
-}
-
-
-fn get_next_nonce() -> u64 {
-    NONCE_COUNTER.fetch_add(1, Ordering::SeqCst)
 }
