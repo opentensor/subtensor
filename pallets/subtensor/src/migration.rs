@@ -7,6 +7,7 @@ use frame_support::{
     weights::Weight,
 };
 use log::info;
+use sp_runtime::Saturating;
 use sp_std::vec::Vec;
 
 // TODO (camfairchild): TEST MIGRATION
@@ -56,7 +57,9 @@ pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
                 weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
                 // Compute the total issuance value
-                let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
+                let total_issuance_value: u64 = stake_sum
+                    .saturating_add(total_balance_sum)
+                    .saturating_add(locked_sum);
 
                 // Update the total issuance in storage
                 TotalIssuance::<T>::put(total_issuance_value);
@@ -134,7 +137,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     NetworksAdded::<T>::insert(root_netuid, true);
 
     // Increment the number of total networks.
-    TotalNetworks::<T>::mutate(|n| *n += 1);
+    TotalNetworks::<T>::mutate(|n| n.saturating_inc());
 
     // Set the maximum number to the number of senate members.
     MaxAllowedUids::<T>::insert(root_netuid, 64);
@@ -201,7 +204,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
@@ -285,7 +288,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);

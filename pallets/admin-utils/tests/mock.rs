@@ -1,3 +1,5 @@
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks},
