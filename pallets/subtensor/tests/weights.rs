@@ -6,6 +6,7 @@ use frame_support::{
 };
 use mock::*;
 use pallet_subtensor::math::vec_u16_max_upscale_to_u16;
+use pallet_subtensor::WeightCommits;
 use pallet_subtensor::{Error, Owner, Weights};
 use sp_core::{H256, U256};
 use sp_runtime::{
@@ -13,7 +14,6 @@ use sp_runtime::{
     DispatchError,
 };
 use substrate_fixed::types::I32F32;
-use pallet_subtensor::WeightCommits;
 
 /***************************
   pub fn set_weights() tests
@@ -2016,7 +2016,12 @@ fn test_do_commit_weights_maintains_monotonicity() {
         // Try to submit a commit with a lower nonce
         let commit_hash = H256::from_low_u64_be(5);
         assert_err!(
-            SubtensorModule::do_commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash, 5),
+            SubtensorModule::do_commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash,
+                5
+            ),
             Error::<Test>::NonMonotonicNonce
         );
 
@@ -2036,7 +2041,6 @@ fn test_do_commit_weights_maintains_monotonicity() {
     });
 }
 
-
 #[test]
 fn test_do_commit_weights_commit_reveal_disabled() {
     new_test_ext(1).execute_with(|| {
@@ -2050,7 +2054,12 @@ fn test_do_commit_weights_commit_reveal_disabled() {
         // Try to submit a commit when commit/reveal is disabled
         let commit_hash = H256::from_low_u64_be(1);
         assert_err!(
-            SubtensorModule::do_commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash, 1),
+            SubtensorModule::do_commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash,
+                1
+            ),
             Error::<Test>::CommitRevealDisabled
         );
     });
