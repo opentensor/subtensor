@@ -1,3 +1,9 @@
+#![allow(
+    clippy::arithmetic_side_effects,
+    clippy::indexing_slicing,
+    clippy::unwrap_used
+)]
+
 use crate::mock::*;
 use frame_support::assert_ok;
 use frame_system::Config;
