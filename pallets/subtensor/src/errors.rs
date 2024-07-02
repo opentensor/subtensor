@@ -126,5 +126,11 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Attempting to set alpha high/low while disabled
+        LiquidAlphaDisabled,
+        /// Alpha high is too low: alpha_high > 0.8
+        AlphaHighTooLow,
+        /// Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8
+        AlphaLowOutOfRange,
     }
 }
