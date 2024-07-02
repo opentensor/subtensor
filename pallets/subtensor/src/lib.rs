@@ -666,7 +666,7 @@ pub mod pallet {
     pub type AxonInfoOf = AxonInfo;
 
     /// Data structure for Axon information.
-    #[freeze_struct("66109b7ef33baabd")]
+    #[freeze_struct("3545cfb0cac4c1f5")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
         ///  Axon serving block.
@@ -690,7 +690,7 @@ pub mod pallet {
     ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
     /// Data structure for Prometheus information.
-    #[freeze_struct("66b04cc1fbd155ea")]
+    #[freeze_struct("5dde687e63baf0cd")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
         /// Prometheus serving block.
