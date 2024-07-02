@@ -62,6 +62,15 @@ impl<T: Config> Pallet<T> {
             // Check if the nonce already exists
             ensure!(!commits.contains_key(&nonce), Error::<T>::DuplicateNonce);
 
+            // Check if there are already 10 commits
+            if commits.len() >= 10 {
+                // Remove the oldest commit (lowest nonce)
+                if let Some(oldest_nonce) = commits.keys().next().cloned() {
+                    commits.remove(&oldest_nonce);
+                }
+            }
+
+            // Insert the new commit
             commits.insert(
                 nonce,
                 (

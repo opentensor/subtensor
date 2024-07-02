@@ -13,6 +13,7 @@ use sp_runtime::{
     DispatchError,
 };
 use substrate_fixed::types::I32F32;
+use pallet_subtensor::WeightCommits;
 
 /***************************
   pub fn set_weights() tests
@@ -1955,6 +1956,103 @@ fn test_multiple_commit_reveal() {
             // Step a few blocks between reveals
             step_block(2);
         }
+    });
+}
+
+#[test]
+fn test_do_commit_weights_limit_to_ten_commits() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // Submit 11 commits
+        for i in 1..=11 {
+            let commit_hash = H256::from_low_u64_be(i);
+            assert_ok!(SubtensorModule::do_commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash,
+                i
+            ));
+        }
+
+        // Check that only 10 commits are stored
+        let commits = WeightCommits::<Test>::get(netuid, hotkey);
+        assert_eq!(commits.len(), 10, "Should only store 10 commits");
+
+        // Check that the oldest commit (nonce 1) was removed
+        assert!(!commits.contains_key(&1), "Oldest commit should be removed");
+
+        // Check that the newest commit (nonce 11) is present
+        assert!(commits.contains_key(&11), "Newest commit should be present");
+    });
+}
+
+#[test]
+fn test_do_commit_weights_maintains_monotonicity() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, true);
+
+        // Submit 10 commits
+        for i in 1..=10 {
+            let commit_hash = H256::from_low_u64_be(i);
+            assert_ok!(SubtensorModule::do_commit_weights(
+                RuntimeOrigin::signed(hotkey),
+                netuid,
+                commit_hash,
+                i
+            ));
+        }
+
+        // Try to submit a commit with a lower nonce
+        let commit_hash = H256::from_low_u64_be(5);
+        assert_err!(
+            SubtensorModule::do_commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash, 5),
+            Error::<Test>::NonMonotonicNonce
+        );
+
+        // Submit a commit with a higher nonce
+        let commit_hash = H256::from_low_u64_be(11);
+        assert_ok!(SubtensorModule::do_commit_weights(
+            RuntimeOrigin::signed(hotkey),
+            netuid,
+            commit_hash,
+            11
+        ));
+
+        // Check that the new commit is present and the oldest one is removed
+        let commits = WeightCommits::<Test>::get(netuid, hotkey);
+        assert!(!commits.contains_key(&1), "Oldest commit should be removed");
+        assert!(commits.contains_key(&11), "Newest commit should be present");
+    });
+}
+
+
+#[test]
+fn test_do_commit_weights_commit_reveal_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(2);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::set_commit_reveal_weights_enabled(netuid, false);
+
+        // Try to submit a commit when commit/reveal is disabled
+        let commit_hash = H256::from_low_u64_be(1);
+        assert_err!(
+            SubtensorModule::do_commit_weights(RuntimeOrigin::signed(hotkey), netuid, commit_hash, 1),
+            Error::<Test>::CommitRevealDisabled
+        );
     });
 }
 
