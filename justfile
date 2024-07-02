@@ -25,13 +25,14 @@ benchmarks:
 
 clippy:
   @echo "Running cargo clippy..."
-  cargo +{{RUSTV}}  clippy --workspace --all-targets -- \
+  cargo +{{RUSTV}} clippy  --workspace --all-targets -- -D  \
                             -D clippy::todo \
                             -D clippy::unimplemented
 
 clippy-fix:
   @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
-  cargo +{{RUSTV}} clippy --workspace --all-targets --fix --allow-dirty --  \
+  cargo +{{RUSTV}} clippy --fix --allow-dirty  --workspace --all-targets -- -A \
+
                                                       -A clippy::todo \
                                                       -A clippy::unimplemented \
                                                       -A clippy::indexing_slicing

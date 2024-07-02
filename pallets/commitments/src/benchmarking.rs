@@ -1,5 +1,6 @@
 //! Benchmarking setup
 #![cfg(feature = "runtime-benchmarks")]
+#![allow(clippy::arithmetic_side_effects)]
 use super::*;
 
 #[allow(unused)]
@@ -17,7 +18,11 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 // This creates an `IdentityInfo` object with `num_fields` extra fields.
 // All data is pre-populated with some arbitrary bytes.
 fn create_identity_info<T: Config>(_num_fields: u32) -> CommitmentInfo<T::MaxFields> {
-    let _data = Data::Raw(vec![0; 32].try_into().unwrap());
+    let _data = Data::Raw(
+        vec![0; 32]
+            .try_into()
+            .expect("vec length is less than 64; qed"),
+    );
 
     CommitmentInfo {
         fields: Default::default(),

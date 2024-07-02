@@ -1172,7 +1172,7 @@ pub mod pallet {
             // Set max allowed uids
             MaxAllowedUids::<T>::insert(netuid, max_uids);
 
-            let mut next_uid = 0;
+            let mut next_uid = 0u16;
 
             for (coldkey, hotkeys) in self.stakes.iter() {
                 for (hotkey, stake_uid) in hotkeys.iter() {
@@ -1211,7 +1211,9 @@ pub mod pallet {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
-                    next_uid += 1;
+                    next_uid = next_uid.checked_add(1).expect(
+                        "should not have total number of hotkey accounts larger than u16::MAX",
+                    );
                 }
             }
 
@@ -1219,7 +1221,11 @@ pub mod pallet {
             SubnetworkN::<T>::insert(netuid, next_uid);
 
             // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
@@ -1228,7 +1234,11 @@ pub mod pallet {
             NetworksAdded::<T>::insert(root_netuid, true);
 
             // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 
@@ -1241,7 +1251,7 @@ pub mod pallet {
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(root_netuid, 0);
 
-            // Set the max weight limit to infitiy, no weight restrictions.
+            // Set the max weight limit to infinity, no weight restrictions.
             MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
 
             // Add default root tempo.
@@ -2089,8 +2099,8 @@ pub mod pallet {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
-                    current_block_number - Self::get_last_update_for_uid(netuid, uid);
-                return default_priority + u32::MAX as u64;
+                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
+                return default_priority.saturating_add(u32::MAX as u64);
             }
             0
         }
@@ -2118,7 +2128,7 @@ pub mod pallet {
                 return false;
             }
             if Self::get_registrations_this_interval(netuid)
-                >= Self::get_target_registrations_per_interval(netuid) * 3
+                >= Self::get_target_registrations_per_interval(netuid).saturating_mul(3)
             {
                 return false;
             }
@@ -2271,7 +2281,8 @@ where
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
                     Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval * 3) {
+                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
+                {
                     // If the registration limit for the interval is exceeded, reject the transaction
                     return InvalidTransaction::ExhaustsResources.into();
                 }

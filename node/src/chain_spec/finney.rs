@@ -5,7 +5,7 @@ use super::*;
 
 pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
-    let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+    let wasm_binary = WASM_BINARY.ok_or("Development wasm not available".to_string())?;
 
     // We mmap the file into memory first, as this is *a lot* faster than using
     // `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
@@ -53,7 +53,9 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
-        balances_issuance += *amount;
+        balances_issuance = balances_issuance
+            .checked_add(*amount)
+            .ok_or("Balances issuance overflowed".to_string())?;
     }
 
     // Give front-ends necessary data to present to users
