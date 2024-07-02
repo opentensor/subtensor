@@ -2,7 +2,7 @@ mod mock;
 use pallet_subtensor::*;
 
 use frame_support::assert_ok;
-use frame_support::pallet_prelude::{OptionQuery, StorageVersion};
+use frame_support::pallet_prelude::OptionQuery;
 use frame_support::Twox64Concat;
 use frame_support::{storage_alias, traits::GetStorageVersion};
 use frame_system::Config;
@@ -281,7 +281,7 @@ fn test_migration_delete_subnet_21() {
 }
 
 #[storage_alias]
-type OldWeightCommits<T: Config> = StorageDoubleMap<
+type OldWeightCommits = StorageDoubleMap<
     SubtensorModule,
     Twox64Concat,
     u16,
@@ -293,7 +293,7 @@ type OldWeightCommits<T: Config> = StorageDoubleMap<
 
 // Add this storage alias for the StorageVersion
 // #[storage_alias]
-type StorageVersion = StorageValue<SubtensorModule, u16>;
+// type StorageVersion = StorageValue<SubtensorModule, u16>;
 
 #[test]
 fn test_migration_to_v7_weight_commits() {
@@ -311,7 +311,8 @@ fn test_migration_to_v7_weight_commits() {
         OldWeightCommits::insert(netuid, account2, (hash2, block_number2));
 
         // Set the storage version to 6
-        StorageVersion::put(6);
+        SubtensorModule::in_code_storage_version().put::<SubtensorModule>();
+
         // Run the migration
         pallet_subtensor::migration::migrate_to_v7_weight_commits::<Test>();
 
