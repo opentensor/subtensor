@@ -158,6 +158,8 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
+    pub const InitialHotkeyEmissionTempo: u64 = 0; // Defaults to draining every block.
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500,000 TAO
 }
 
 // Configure collective pallet for council
@@ -358,6 +360,8 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
 }
 
 impl pallet_utility::Config for Test {

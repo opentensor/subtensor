@@ -108,7 +108,8 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 1;
-
+    pub const InitialHotkeyEmissionTempo: u64 = 1;
+    pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Test {
@@ -160,6 +161,8 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = InitialNetworkMaxStake;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -461,6 +464,14 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo)
+    }
+
+    fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        SubtensorModule::set_network_max_stake(netuid, max_stake)
     }
 }
 

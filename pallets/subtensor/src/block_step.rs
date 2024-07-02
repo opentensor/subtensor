@@ -1,9 +1,7 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
 use frame_support::storage::IterableStorageMap;
-use substrate_fixed::types::I110F18;
-use substrate_fixed::types::I64F64;
-use substrate_fixed::types::I96F32;
+use frame_support::IterableStorageDoubleMap;
+use substrate_fixed::types::{I110F18, I64F64, I96F32};
 
 impl<T: Config> Pallet<T> {
     /// Executes the necessary operations for each block.
@@ -12,37 +10,10 @@ impl<T: Config> Pallet<T> {
         log::debug!("block_step for block: {:?} ", block_number);
         // --- 1. Adjust difficulties.
         Self::adjust_registration_terms_for_networks();
-        // --- 2. Calculate per-subnet emissions
-        match Self::root_epoch(block_number) {
-            Ok(_) => (),
-            Err(e) => {
-                log::trace!("Error while running root epoch: {:?}", e);
-            }
-        }
-        // --- 3. Drains emission tuples ( hotkey, amount ).
-        Self::drain_emission(block_number);
-        // --- 4. Generates emission tuples from epoch functions.
-        Self::generate_emission(block_number);
+        // --- 2. Run emission through network.
+        Self::run_coinbase();
         // Return ok.
         Ok(())
-    }
-
-    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    ///
-    pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
-        // tempo | netuid | # first epoch block
-        //   1        0               0
-        //   1        1               1
-        //   2        0               1
-        //   2        1               0
-        //   100      0              99
-        //   100      1              98
-        // Special case: tempo = 0, the network never runs.
-        if tempo == 0 {
-            return 1000;
-        }
-        tempo as u64 - (block_number + netuid as u64 + 1) % (tempo as u64 + 1)
     }
 
     /// Helper function returns the number of tuples to drain on a particular step based on

@@ -223,6 +223,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_pending_emission(netuid: u16) -> u64 {
         PendingEmission::<T>::get(netuid)
     }
+    pub fn get_pending_hotkey_emission(hotkey: &T::AccountId) -> u64 {
+        PendingdHotkeyEmission::<T>::get(hotkey)
+    }
     pub fn get_last_adjustment_block(netuid: u16) -> u64 {
         LastAdjustmentBlock::<T>::get(netuid)
     }
@@ -657,5 +660,54 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+
+    /// Sets the hotkey emission tempo.
+    ///
+    /// # Arguments
+    /// * `emission_tempo` - The new emission tempo value to set.
+    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        HotkeyEmissionTempo::<T>::set(emission_tempo);
+        Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
+    }
+
+    /// Gets the current hotkey emission tempo.
+    ///
+    /// # Returns
+    /// * `u64` - The current emission tempo value.
+    pub fn get_hotkey_emission_tempo() -> u64 {
+        HotkeyEmissionTempo::<T>::get()
+    }
+
+    /// Retrieves the maximum stake allowed for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the network.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The maximum stake allowed for the specified network.
+    pub fn get_network_max_stake(netuid: u16) -> u64 {
+        NetworkMaxStake::<T>::get(netuid)
+    }
+
+    /// Sets the maximum stake allowed for a given network.
+    ///
+    /// # Arguments
+    ///
+    /// * `netuid` - The unique identifier of the network.
+    /// * `max_stake` - The new maximum stake value to set.
+    ///
+    /// # Effects
+    ///
+    /// * Updates the NetworkMaxStake storage.
+    /// * Emits a NetworkMaxStakeSet event.
+    pub fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        // Update the NetworkMaxStake storage with the new max_stake value
+        NetworkMaxStake::<T>::insert(netuid, max_stake);
+
+        // Emit an event to notify listeners about the change
+        Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
     }
 }

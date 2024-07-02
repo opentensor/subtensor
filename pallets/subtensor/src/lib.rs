@@ -35,6 +35,8 @@ mod benchmarks;
 //	==== Pallet Imports =====
 // =========================
 mod block_step;
+mod children;
+mod coinbase;
 mod epoch;
 mod errors;
 mod events;
@@ -47,6 +49,7 @@ mod uids;
 mod utils;
 mod weights;
 
+pub mod children_info;
 pub mod delegate_info;
 pub mod neuron_info;
 pub mod stake_info;
@@ -238,6 +241,12 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// Default hotkey emission drain interval.
+        #[pallet::constant]
+        type InitialHotkeyEmissionTempo: Get<u64>;
+        /// Default network max stake.
+        #[pallet::constant]
+        type InitialNetworkMaxStake: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -313,6 +322,21 @@ pub mod pallet {
     pub fn DefaultStakeInterval<T: Config>() -> u64 {
         360
     }
+    /// Default account linkage
+    #[pallet::type_value]
+    pub fn DefaultAccountLinkage<T: Config>() -> Vec<(u64, T::AccountId)> {
+        vec![]
+    }
+    /// Default account linkage
+    #[pallet::type_value]
+    pub fn DefaultProportion<T: Config>() -> u64 {
+        0
+    }
+    /// Default accumulated emission for a hotkey
+    #[pallet::type_value]
+    pub fn DefaultAccumulatedEmission<T: Config>() -> u64 {
+        0
+    }
 
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
@@ -363,6 +387,92 @@ pub mod pallet {
         u64,
         ValueQuery,
         DefaultAccountTake<T>,
+    >;
+
+    /// ========================
+    /// ==== Coinbase =====
+    /// ========================
+
+    // Record the last time we performed a hotkey emission drain.
+    #[pallet::storage] // --- Map ( hot ) --> last_hotkey_emission_drain | Last block we drained this hotkey's emission.
+    pub type LastHotkeyEmissionDrain<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+
+    /// Default hotkey_emission_tempo
+    #[pallet::type_value]
+    pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
+        T::InitialHotkeyEmissionTempo::get()
+    }
+    /// Maps to the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
+    #[pallet::storage] // --- ITEM ( hotkey_emission_tempo )
+    pub type HotkeyEmissionTempo<T> =
+        StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
+    // Maps from hotkey to emission accumulated on that key, before distribution.
+    #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.
+    pub type PendingdHotkeyEmission<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccumulatedEmission<T>,
+    >;
+
+    // Maps from hot, cold to the last time the pair manually increased the staking amount.
+    #[pallet::storage] // --- Map ( hot, cold ) --> block_number | Last add stake increase.
+    pub type LastAddStakeIncrease<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        T::AccountId,
+        u64,
+        ValueQuery,
+        DefaultAccountTake<T>,
+    >;
+
+    // Maps between a parent & network to a child key on a network.
+    #[pallet::storage] // --- DMAP ( parent, netuid ) --> Vec<(proportion,child)>
+    pub type ChildKeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        Vec<(u64, T::AccountId)>,
+        ValueQuery,
+        DefaultAccountLinkage<T>,
+    >;
+    // Maps between child & network to a list of proportions and parents.
+    #[pallet::storage] // --- DMAP ( child, netuid ) --> Vec<(proportion,parent)>
+    pub type ParentKeys<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        Vec<(u64, T::AccountId)>,
+        ValueQuery,
+        DefaultAccountLinkage<T>,
+    >;
+
+    // Maps between hotkey and subnet to delegation take.
+    #[pallet::storage] // --- DMAP ( hot, subnetid ) --> take | Returns the hotkey delegation take by subnet.
+    pub type DelegatesTake<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Identity,
+        u16,
+        u16,
+        ValueQuery,
+        DefaultDefaultTake<T>,
     >;
 
     /// =====================================
@@ -538,6 +648,12 @@ pub mod pallet {
         T::InitialNetworkRateLimit::get()
     }
 
+    /// Default value for network max stake.
+    #[pallet::type_value]
+    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
+        T::InitialNetworkMaxStake::get()
+    }
+
     #[pallet::storage] // --- ITEM( maximum_number_of_networks )
     pub type SubnetLimit<T> = StorageValue<_, u16, ValueQuery, DefaultSubnetLimit<T>>;
     #[pallet::storage] // --- ITEM( total_number_of_existing_networks )
@@ -593,6 +709,9 @@ pub mod pallet {
     #[pallet::storage] // ITEM( nominator_min_required_stake )
     pub type NominatorMinRequiredStake<T> =
         StorageValue<_, u64, ValueQuery, DefaultNominatorMinRequiredStake<T>>;
+    #[pallet::storage] // MAP ( netuid ) --> max_stake_per_uid
+    pub type NetworkMaxStake<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// ==============================
     /// ==== Subnetwork Features =====
@@ -2050,6 +2169,239 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
+        }
+
+        /// Set a single child for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to set a single child for a given hotkey on a specified network.
+        /// The proportion of the hotkey's stake to be allocated to the child is also specified.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting a hotkey child can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey which will be assigned the child.
+        ///
+        /// * `child` (T::AccountId):
+        ///     - The child which will be assigned to the hotkey.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkey will exist.
+        ///
+        /// * `proportion` (u64):
+        ///     - Proportion of the hotkey's stake to be given to the child, the value must be u64 normalized.
+        ///
+        /// # Events:
+        /// * `ChildAddedSingular`:
+        ///     - On successfully registering a child to a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to register to a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to register a child on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey or the child is the same as the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Hotkey Account Existence Check**: Ensures that the hotkey account already exists.
+        /// 6. **Child-Hotkey Distinction**: Ensures that the child is not the same as the hotkey.
+        /// 7. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
+        /// 8. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
+        // TODO: Benchmark this call
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn set_child_singular(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            child: T::AccountId,
+            netuid: u16,
+            proportion: u64,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_set_child_singular(origin, hotkey, child, netuid, proportion)?;
+            Ok(().into())
+        }
+
+        /// Revoke a single child for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to revoke a single child for a given hotkey on a specified network.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Revoking a hotkey child can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey from which the child will be revoked.
+        ///
+        /// * `child` (T::AccountId):
+        ///     - The child which will be revoked from the hotkey.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkey exists.
+        ///
+        /// # Events:
+        /// * `ChildRevokedSingular`:
+        ///     - On successfully revoking a child from a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to revoke from a non-existent network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey or the child is not associated with the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        // TODO: Benchmark this call
+        #[pallet::call_index(64)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+    .saturating_add(T::DbWeight::get().reads(6))
+    .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn revoke_child_singular(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            child: T::AccountId,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_revoke_child_singular(origin, hotkey, child, netuid)?;
+            Ok(().into())
+        }
+
+        /// Set multiple children for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to set multiple children for a given hotkey on a specified network.
+        /// The proportion of the hotkey's stake to be allocated to each child is also specified.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting hotkey children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey which will be assigned the children.
+        ///
+        /// * `children_with_proportions` (Vec<(T::AccountId, u64)>):
+        ///     - A vector of tuples, each containing a child AccountId and its corresponding proportion.
+        ///       The proportion must be a u64 normalized value.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkeys will exist.
+        ///
+        /// # Events:
+        /// * `SetChildrenMultiple`:
+        ///     - On successfully registering multiple children to a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to register to a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to register children on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `InvalidChild`:
+        ///     - One of the children is the same as the hotkey.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Child-Hotkey Distinction**: Ensures that none of the children are the same as the hotkey.
+        /// 6. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
+        /// 7. **New Children Assignment**: Assigns the new children to the hotkey and updates the parent list for each new child.
+        // TODO: Benchmark this call
+        #[pallet::call_index(68)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn set_children_multiple(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            children_with_proportions: Vec<(T::AccountId, u64)>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid)?;
+            Ok(().into())
+        }
+
+        /// Revoke multiple children for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to revoke multiple children from a given hotkey on a specified network.
+        /// It removes the parent-child relationship for all specified children.
+        ///
+        /// # Arguments:
+        /// * `origin` (OriginFor<T>):
+        ///     - The signature of the calling coldkey. Revoking hotkey children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey from which the children will be revoked.
+        ///
+        /// * `children` (Vec<T::AccountId>):
+        ///     - A vector of AccountIds representing the children to be revoked.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkeys exist.
+        ///
+        /// # Events:
+        /// * `RevokeChildrenMultiple`:
+        ///     - On successfully revoking multiple children from a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to revoke from a non-existent network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        ///
+        /// # Workflow:
+        /// 1. Verify the transaction signature and ownership.
+        /// 2. Check that the specified network exists.
+        /// 3. Remove the specified children from the hotkey's children list.
+        /// 4. Remove the hotkey from each child's parent list.
+        /// 5. Update the storage for both ChildKeys and ParentKeys.
+        /// 6. Emit an event to log the operation.
+        ///
+        /// # Note:
+        /// This function is more efficient than revoking children one by one, especially when dealing with multiple children.
+        #[pallet::call_index(69)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn revoke_children_multiple(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            children: Vec<T::AccountId>,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_revoke_children_multiple(origin, hotkey, children, netuid)?;
+            Ok(().into())
+        }
+
+        /// Sets the delegator takes for multiple subnets if the subnets exist and the takes do not exceed the initial default take and respect the rate limit.
+        ///
+        /// # Arguments
+        /// * `hotkey` - The account ID of the hotkey.
+        /// * `takes` - A vector of tuples where each tuple contains a subnet ID and the corresponding take rate.
+        ///
+        /// # Errors
+        /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
+        /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
+        /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
+        #[pallet::call_index(71)]
+        #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
+        pub fn set_delegate_takes(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            takes: Vec<(u16, u16)>,
+        ) -> DispatchResult {
+            Self::do_set_delegate_takes(origin, &hotkey, takes)
         }
     }
 

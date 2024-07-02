@@ -817,6 +817,8 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
+    pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -868,6 +870,8 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
+    type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
 }
 
 use sp_runtime::BoundedVec;
@@ -1141,6 +1145,14 @@ impl
 
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
+    }
+
+    fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
+    }
+
+    fn set_network_max_stake(netuid: u16, max_stake: u64) {
+        SubtensorModule::set_network_max_stake(netuid, max_stake);
     }
 }
 
@@ -1579,10 +1591,19 @@ impl_runtime_apis! {
             SubtensorModule::get_network_lock_cost()
         }
     }
-}
 
-// #[cfg(test)]
-// mod tests {
+    impl subtensor_custom_rpc_runtime_api::ChildrenInfoRuntimeApi<Block> for Runtime {
+        fn get_children_info(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_children_info(netuid);
+            result.encode()
+        }
+
+        fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u64) -> Vec<u8> {
+            let result = SubtensorModule::get_child_info(netuid, child, proportion);
+            result.encode()
+        }
+    }
+}
 
 #[test]
 fn check_whitelist() {

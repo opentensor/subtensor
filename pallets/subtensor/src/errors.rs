@@ -126,5 +126,11 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Attempting to set an invalid child for a hotkey on a network.
+        InvalidChild,
+        /// The sum of proportions is not equal to u64::MAX
+        ProportionSumIncorrect,
+        /// Duplicate child when set children keys
+        DuplicateChild,
     }
 }
