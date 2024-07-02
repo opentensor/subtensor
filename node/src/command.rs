@@ -17,7 +17,7 @@ use sp_runtime::traits::HashingFor;
 
 use node_subtensor_runtime::Block;
 use sc_cli::SubstrateCli;
-use sc_service::PartialComponents;
+use sc_service::{Configuration, PartialComponents};
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -209,8 +209,56 @@ pub fn run() -> sc_cli::Result<()> {
         None => {
             let runner = cli.create_runner(&cli.run)?;
             runner.run_node_until_exit(|config| async move {
+                let config = override_default_heap_pages(config, 60_000);
                 service::new_full(config).map_err(sc_cli::Error::Service)
             })
         }
+    }
+}
+
+/// Override default heap pages
+fn override_default_heap_pages(config: Configuration, pages: u64) -> Configuration {
+    Configuration {
+        default_heap_pages: Some(pages),
+        impl_name: config.impl_name,
+        impl_version: config.impl_version,
+        role: config.role,
+        tokio_handle: config.tokio_handle,
+        transaction_pool: config.transaction_pool,
+        network: config.network,
+        keystore: config.keystore,
+        database: config.database,
+        trie_cache_maximum_size: config.trie_cache_maximum_size,
+        state_pruning: config.state_pruning,
+        blocks_pruning: config.blocks_pruning,
+        chain_spec: config.chain_spec,
+        wasm_method: config.wasm_method,
+        wasm_runtime_overrides: config.wasm_runtime_overrides,
+        rpc_addr: config.rpc_addr,
+        rpc_max_connections: config.rpc_max_connections,
+        rpc_cors: config.rpc_cors,
+        rpc_methods: config.rpc_methods,
+        rpc_max_request_size: config.rpc_max_request_size,
+        rpc_max_response_size: config.rpc_max_response_size,
+        rpc_id_provider: config.rpc_id_provider,
+        rpc_max_subs_per_conn: config.rpc_max_subs_per_conn,
+        rpc_port: config.rpc_port,
+        rpc_message_buffer_capacity: config.rpc_message_buffer_capacity,
+        rpc_batch_config: config.rpc_batch_config,
+        rpc_rate_limit: config.rpc_rate_limit,
+        prometheus_config: config.prometheus_config,
+        telemetry_endpoints: config.telemetry_endpoints,
+        offchain_worker: config.offchain_worker,
+        force_authoring: config.force_authoring,
+        disable_grandpa: config.disable_grandpa,
+        dev_key_seed: config.dev_key_seed,
+        tracing_targets: config.tracing_targets,
+        tracing_receiver: config.tracing_receiver,
+        max_runtime_instances: config.max_runtime_instances,
+        announce_block: config.announce_block,
+        data_path: config.data_path,
+        base_path: config.base_path,
+        informant_output_format: config.informant_output_format,
+        runtime_cache_size: config.runtime_cache_size,
     }
 }

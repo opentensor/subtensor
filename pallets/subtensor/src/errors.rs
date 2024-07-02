@@ -64,7 +64,7 @@ mod errors {
         MaxWeightExceeded,
         /// The hotkey is attempting to become a delegate when the hotkey is already a delegate.
         HotKeyAlreadyDelegate,
-        /// The hotkey is attempting to set weights twice within the duration of net_tempo/2 blocks.
+        /// A transactor exceeded the rate limit for setting weights.
         SettingWeightsTooFast,
         /// A validator is attempting to set weights from a validator with incorrect weight version.
         IncorrectWeightVersionKey,
@@ -128,5 +128,11 @@ mod errors {
         CommitRevealDisabled,
         /// Not able to join the senate.
         CouldNotJoinSenate,
+        /// Attempting to set alpha high/low while disabled
+        LiquidAlphaDisabled,
+        /// Alpha high is too low: alpha_high > 0.8
+        AlphaHighTooLow,
+        /// Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8
+        AlphaLowOutOfRange,
     }
 }

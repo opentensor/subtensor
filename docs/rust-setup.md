@@ -1,8 +1,7 @@
 ---
 title: Installation
 ---
-
-This guide is for reference only, please check the latest information on getting starting with Substrate 
+This guide is for reference only, please check the latest information on getting starting with Substrate
 [here](https://docs.substrate.io/main-docs/install/).
 
 This page will guide you through the **2 steps** needed to prepare a computer for **Substrate** development.
@@ -207,7 +206,7 @@ Use the `WASM_BUILD_TOOLCHAIN` environment variable to specify the Rust nightly 
 project should use for Wasm compilation:
 
 ```bash
-WASM_BUILD_TOOLCHAIN=nightly-<yyyy-MM-dd> cargo build --release
+WASM_BUILD_TOOLCHAIN=nightly-<yyyy-MM-dd> cargo build --profile production
 ```
 
 > Note that this only builds _the runtime_ with the specified nightly. The rest of project will be
@@ -223,3 +222,4 @@ rustup uninstall nightly
 rustup install nightly-<yyyy-MM-dd>
 rustup target add wasm32-unknown-unknown --toolchain nightly-<yyyy-MM-dd>
 ```
+
