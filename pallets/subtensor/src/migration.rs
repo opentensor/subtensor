@@ -509,7 +509,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
         });
         info!(target: LOG_TARGET_1, "Migration {} finished. Longest hotkey vector: {}", migration_name, longest_hotkey_vector);
         if let Some(c) = longest_coldkey {
-            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {}", c);
+            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {:?}", c);
         }
 
         weight
