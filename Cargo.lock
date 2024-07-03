@@ -4717,6 +4717,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-registry",
+ "pallet-safe-mode",
  "pallet-scheduler",
  "pallet-subtensor",
  "pallet-sudo",
@@ -4953,6 +4954,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
  "sp-weights",
+ "substrate-fixed",
  "subtensor-macros",
 ]
 
@@ -5158,6 +5160,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-safe-mode"
+version = "9.0.0"
+source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0#7049c3c98836b3e9253f6aaa69b6bf3d622e3962"
+dependencies = [
+ "docify",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-proxy",
+ "pallet-utility",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-arithmetic",
+ "sp-runtime",
+ "sp-std 14.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
+]
+
+[[package]]
 name = "pallet-scheduler"
 version = "29.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0#7049c3c98836b3e9253f6aaa69b6bf3d622e3962"
@@ -5208,6 +5229,7 @@ dependencies = [
  "hex-literal",
  "log",
  "ndarray",
+ "num-traits",
  "pallet-balances",
  "pallet-collective",
  "pallet-membership",

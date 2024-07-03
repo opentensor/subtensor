@@ -16,9 +16,9 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
     pallet_prelude::{DispatchError, Get},
-    traits::{fungible::HoldConsideration, LinearStoragePrice},
+    traits::{fungible::HoldConsideration, Contains, LinearStoragePrice},
 };
-use frame_system::{EnsureNever, EnsureRoot, RawOrigin};
+use frame_system::{EnsureNever, EnsureRoot, EnsureRootWithSuccess, RawOrigin};
 use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
@@ -139,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 153,
+    spec_version: 154,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -197,7 +197,7 @@ parameter_types! {
 
 impl frame_system::Config for Runtime {
     // The basic call filter to use in dispatchable.
-    type BaseCallFilter = frame_support::traits::Everything;
+    type BaseCallFilter = SafeMode;
     // Block & extrinsics weights: base values and limits.
     type BlockWeights = BlockWeights;
     // The maximum length of a block (in bytes).
@@ -286,6 +286,49 @@ impl pallet_utility::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type PalletsOrigin = OriginCaller;
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub const DisallowPermissionlessEnterDuration: BlockNumber = 0;
+    pub const DisallowPermissionlessExtendDuration: BlockNumber = 0;
+
+    pub const RootEnterDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+    pub const RootExtendDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+
+    pub const DisallowPermissionlessEntering: Option<Balance> = None;
+    pub const DisallowPermissionlessExtending: Option<Balance> = None;
+    pub const DisallowPermissionlessRelease: Option<BlockNumber> = None;
+}
+
+pub struct SafeModeWhitelistedCalls;
+impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
+    fn contains(call: &RuntimeCall) -> bool {
+        matches!(
+            call,
+            RuntimeCall::Sudo(_)
+                | RuntimeCall::System(_)
+                | RuntimeCall::SafeMode(_)
+                | RuntimeCall::Timestamp(_)
+        )
+    }
+}
+
+impl pallet_safe_mode::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type WhitelistedCalls = SafeModeWhitelistedCalls;
+    type EnterDuration = DisallowPermissionlessEnterDuration;
+    type ExtendDuration = DisallowPermissionlessExtendDuration;
+    type EnterDepositAmount = DisallowPermissionlessEntering;
+    type ExtendDepositAmount = DisallowPermissionlessExtending;
+    type ForceEnterOrigin = EnsureRootWithSuccess<AccountId, RootEnterDuration>;
+    type ForceExtendOrigin = EnsureRootWithSuccess<AccountId, RootExtendDuration>;
+    type ForceExitOrigin = EnsureRoot<AccountId>;
+    type ForceDepositOrigin = EnsureRoot<AccountId>;
+    type Notify = ();
+    type ReleaseDelay = DisallowPermissionlessRelease;
+    type WeightInfo = pallet_safe_mode::weights::SubstrateWeight<Runtime>;
 }
 
 // Existential deposit.
@@ -825,6 +868,10 @@ parameter_types! {
     pub const SubtensorInitialNetworkLockReductionInterval: u64 = 14 * 7200;
     pub const SubtensorInitialNetworkRateLimit: u64 = 7200;
     pub const SubtensorInitialTargetStakesPerInterval: u16 = 1;
+    pub const SubtensorInitialHotkeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -876,6 +923,10 @@ impl pallet_subtensor::Config for Runtime {
     type InitialSubnetLimit = SubtensorInitialSubnetLimit;
     type InitialNetworkRateLimit = SubtensorInitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
+    type HotkeySwapCost = SubtensorInitialHotkeySwapCost;
+    type AlphaHigh = InitialAlphaHigh;
+    type AlphaLow = InitialAlphaLow;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
 }
 
 use sp_runtime::BoundedVec;
@@ -1150,6 +1201,19 @@ impl
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_commit_reveal_weights_enabled(netuid, enabled);
     }
+
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
+    }
+
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError> {
+        SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+    }
 }
 
 impl pallet_admin_utils::Config for Runtime {
@@ -1185,7 +1249,8 @@ construct_runtime!(
         Proxy: pallet_proxy,
         Registry: pallet_registry,
         Commitments: pallet_commitments,
-        AdminUtils: pallet_admin_utils
+        AdminUtils: pallet_admin_utils,
+        SafeMode: pallet_safe_mode,
     }
 );
 
