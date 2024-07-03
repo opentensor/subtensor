@@ -167,13 +167,13 @@ impl<T: Config> Pallet<T> {
             new_coldkey,
             &mut weight,
         );
-        Self::swap_keys_for_coldkey(old_coldkey, new_coldkey, &mut weight);
         Self::swap_subnet_owner_for_coldkey(old_coldkey, new_coldkey, &mut weight);
+        Self::swap_owned_for_coldkey(old_coldkey, new_coldkey, &mut weight);
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
         if remaining_balance > 0 {
-            Self::remove_balance_from_coldkey_account(old_coldkey, remaining_balance)?;
+            Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
             Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
 
@@ -226,7 +226,10 @@ impl<T: Config> Pallet<T> {
 
         // Update Owned map
         let mut hotkeys = Owned::<T>::get(&coldkey);
-        hotkeys.push(new_hotkey.clone());
+        if !hotkeys.contains(&new_hotkey) {
+            hotkeys.push(new_hotkey.clone());
+        }
+        hotkeys.retain(|hk| *hk != *old_hotkey);
         Owned::<T>::insert(
             &coldkey,
             hotkeys,
@@ -578,11 +581,6 @@ impl<T: Config> Pallet<T> {
             Owner::<T>::insert(&hotkey, new_coldkey);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
-
-        // Update Owned map with new coldkey
-        Owned::<T>::remove(old_coldkey);
-        Owned::<T>::insert(new_coldkey, hotkeys);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
     }
 
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.
@@ -603,48 +601,17 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
-        for (hotkey, (stakes, block)) in
-            TotalHotkeyColdkeyStakesThisInterval::<T>::iter_prefix(old_coldkey)
-        {
-            TotalHotkeyColdkeyStakesThisInterval::<T>::remove(old_coldkey, &hotkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+        for hotkey in Owned::<T>::get(old_coldkey).iter() {
+            let (stake, block) = TotalHotkeyColdkeyStakesThisInterval::<T>::get(&hotkey, old_coldkey);
+            TotalHotkeyColdkeyStakesThisInterval::<T>::remove(&hotkey, old_coldkey);
             TotalHotkeyColdkeyStakesThisInterval::<T>::insert(
-                new_coldkey,
                 &hotkey,
-                (stakes, block),
+                new_coldkey,
+                (stake, block),
             );
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-    }
-
-    /// Swaps all keys associated with a coldkey from the old coldkey to the new coldkey across all networks.
-    ///
-    /// # Arguments
-    ///
-    /// * `old_coldkey` - The AccountId of the old coldkey.
-    /// * `new_coldkey` - The AccountId of the new coldkey.
-    /// * `weight` - Mutable reference to the weight of the transaction.
-    ///
-    /// # Effects
-    ///
-    /// * Updates all keys associated with the old coldkey to be associated with the new coldkey.
-    /// * Updates the transaction weight.
-    pub fn swap_keys_for_coldkey(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-        weight: &mut Weight,
-    ) {
-        for netuid in 0..TotalNetworks::<T>::get() {
-            for (uid, hotkey) in Keys::<T>::iter_prefix(netuid) {
-                if Owner::<T>::get(&hotkey) == *old_coldkey {
-                    Keys::<T>::remove(netuid, uid);
-                    Keys::<T>::insert(netuid, uid, new_coldkey);
-                }
-            }
-        }
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(
-            TotalNetworks::<T>::get() as u64,
-            TotalNetworks::<T>::get() as u64,
-        ));
     }
 
     /// Checks if a coldkey has any associated hotkeys.
@@ -677,7 +644,7 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
-        for netuid in 0..TotalNetworks::<T>::get() {
+        for netuid in 0..=TotalNetworks::<T>::get() {
             let subnet_owner = SubnetOwner::<T>::get(netuid);
             if subnet_owner == *old_coldkey {
                 SubnetOwner::<T>::insert(netuid, new_coldkey.clone());
@@ -687,6 +654,30 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads(TotalNetworks::<T>::get() as u64));
     }
 
+    /// Swaps the owned hotkeys for the coldkey
+    ///
+    /// # Arguments
+    ///
+    /// * `old_coldkey` - The AccountId of the old coldkey.
+    /// * `new_coldkey` - The AccountId of the new coldkey.
+    /// * `weight` - Mutable reference to the weight of the transaction.
+    ///
+    /// # Effects
+    ///
+    /// * Updates the subnet owner to the new coldkey for all networks where the old coldkey was the owner.
+    /// * Updates the transaction weight.
+    pub fn swap_owned_for_coldkey(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+        weight: &mut Weight,
+    ) {
+        // Update Owned map with new coldkey
+        let hotkeys = Owned::<T>::get(&old_coldkey);
+        Owned::<T>::remove(old_coldkey);
+        Owned::<T>::insert(new_coldkey, hotkeys);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
+    }
+    
     /// Returns the cost of swapping a coldkey.
     ///
     /// # Returns

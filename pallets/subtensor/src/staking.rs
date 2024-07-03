@@ -563,11 +563,13 @@ impl<T: Config> Pallet<T> {
 
             // Update Owned map
             let mut hotkeys = Owned::<T>::get(&coldkey);
-            hotkeys.push(hotkey.clone());
-            Owned::<T>::insert(
-                &coldkey,
-                hotkeys,
-            );
+            if !hotkeys.contains(&hotkey) {
+                hotkeys.push(hotkey.clone());
+                Owned::<T>::insert(
+                    &coldkey,
+                    hotkeys,
+                );
+            }
         }
     }
 
@@ -778,6 +780,31 @@ impl<T: Config> Pallet<T> {
             Precision::BestEffort,
             Preservation::Preserve,
             Fortitude::Polite,
+        )
+        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
+        .peek();
+
+        if credit == 0 {
+            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
+        }
+
+        Ok(credit)
+    }
+
+    pub fn kill_coldkey_account(
+        coldkey: &T::AccountId,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
+    ) -> Result<u64, DispatchError> {
+        if amount == 0 {
+            return Ok(0);
+        }
+
+        let credit = T::Currency::withdraw(
+            coldkey,
+            amount,
+            Precision::Exact,
+            Preservation::Expendable,
+            Fortitude::Force,
         )
         .map_err(|_| Error::<T>::BalanceWithdrawalError)?
         .peek();

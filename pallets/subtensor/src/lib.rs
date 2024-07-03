@@ -1209,11 +1209,13 @@ pub mod pallet {
 
                     // Update Owned map
                     let mut hotkeys = Owned::<T>::get(&coldkey);
-                    hotkeys.push(hotkey.clone());
-                    Owned::<T>::insert(
-                        &coldkey,
-                        hotkeys,
-                    );
+                    if !hotkeys.contains(&hotkey) {
+                        hotkeys.push(hotkey.clone());
+                        Owned::<T>::insert(
+                            &coldkey,
+                            hotkeys,
+                        );
+                    }
         
                     TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
                     TotalColdkeyStake::<T>::insert(

@@ -494,10 +494,12 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
         let mut longest_coldkey: Option<T::AccountId> = None;
         Owner::<T>::iter().for_each(|(hotkey, coldkey)| {
             let mut hotkeys = Owned::<T>::get(&coldkey);
-            hotkeys.push(hotkey);
-            if longest_hotkey_vector < hotkeys.len() {
-                longest_hotkey_vector = hotkeys.len();
-                longest_coldkey = Some(coldkey.clone());
+            if !hotkeys.contains(&hotkey) {
+                hotkeys.push(hotkey);
+                if longest_hotkey_vector < hotkeys.len() {
+                    longest_hotkey_vector = hotkeys.len();
+                    longest_coldkey = Some(coldkey.clone());
+                }
             }
 
             Owned::<T>::insert(
