@@ -27,7 +27,7 @@ pub struct SubnetInfo<T: Config> {
     owner: T::AccountId,
 }
 
-#[freeze_struct("76f4053b3cc4c7ec")]
+#[freeze_struct("55b472510f10e76a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
