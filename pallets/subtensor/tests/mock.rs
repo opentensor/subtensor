@@ -1,9 +1,9 @@
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
-
+use frame_support::derive_impl;
+use frame_support::dispatch::DispatchResultWithPostInfo;
+use frame_support::weights::constants::RocksDbWeight;
 use frame_support::{
-    assert_ok, derive_impl,
-    dispatch::DispatchResultWithPostInfo,
-    parameter_types,
+    assert_ok, parameter_types,
     traits::{Everything, Hooks},
     weights,
 };
@@ -88,7 +88,7 @@ impl system::Config for Test {
     type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
@@ -160,6 +160,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
+    pub const InitialHotkeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -363,6 +364,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
+    type HotkeySwapCost = InitialHotkeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;

@@ -35,6 +35,11 @@ clippy-fix:
         -A clippy::todo \
         -A clippy::unimplemented \
         -A clippy::indexing_slicing
+    @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
+    cargo +{{RUSTV}} clippy --fix --allow-dirty --workspace --all-targets -- \
+        -A clippy::todo \
+        -A clippy::unimplemented \
+        -A clippy::indexing_slicing
 fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace
@@ -47,4 +52,3 @@ lint:
   just clippy-fix
   @echo "Running cargo clippy..."
   just clippy
-
