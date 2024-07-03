@@ -477,3 +477,44 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
         Weight::zero()
     }
 }
+
+pub fn migrate_populate_owned<T: Config>() -> Weight {
+    // Setup migration weight
+    let mut weight = T::DbWeight::get().reads(1);
+    let migration_name = "Populate Owned map";
+
+    // Check if this migration is needed (if Owned map is empty)
+    let migrate = Owned::<T>::iter().next().is_none();
+
+    // Only runs if we haven't already updated version past above new_storage_version.
+    if migrate {
+        info!(target: LOG_TARGET_1, ">>> Migration: {}", migration_name);
+
+        let mut longest_hotkey_vector = 0;
+        let mut longest_coldkey: Option<T::AccountId> = None;
+        Owner::<T>::iter().for_each(|(hotkey, coldkey)| {
+            let mut hotkeys = Owned::<T>::get(&coldkey);
+            hotkeys.push(hotkey);
+            if longest_hotkey_vector < hotkeys.len() {
+                longest_hotkey_vector = hotkeys.len();
+                longest_coldkey = Some(coldkey.clone());
+            }
+
+            Owned::<T>::insert(
+                &coldkey,
+                hotkeys,
+            );
+
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+        });
+        info!(target: LOG_TARGET_1, "Migration {} finished. Longest hotkey vector: {}", migration_name, longest_hotkey_vector);
+        if let Some(c) = longest_coldkey {
+            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {}", c);
+        }
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_1, "Migration {} already done!", migration_name);
+        Weight::zero()
+    }
+}

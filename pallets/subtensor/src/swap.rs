@@ -223,6 +223,15 @@ impl<T: Config> Pallet<T> {
     ) {
         Owner::<T>::remove(old_hotkey);
         Owner::<T>::insert(new_hotkey, coldkey.clone());
+
+        // Update Owned map
+        let mut hotkeys = Owned::<T>::get(&coldkey);
+        hotkeys.push(new_hotkey.clone());
+        Owned::<T>::insert(
+            &coldkey,
+            hotkeys,
+        );
+
         weight.saturating_accrue(T::DbWeight::get().writes(2));
     }
 
@@ -535,11 +544,15 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
-        for (hotkey, stake) in Stake::<T>::iter_prefix(old_coldkey) {
-            Stake::<T>::remove(old_coldkey, &hotkey);
-            Stake::<T>::insert(new_coldkey, &hotkey, stake);
+        // Find all hotkeys for this coldkey 
+        let hotkeys = Owned::<T>::get(old_coldkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+        for hotkey in hotkeys.iter() {
+            let stake = Stake::<T>::get(&hotkey, old_coldkey);
+            Stake::<T>::remove(&hotkey, old_coldkey);
+            Stake::<T>::insert(&hotkey, new_coldkey, stake);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
     }
 
     /// Swaps the owner of all hotkeys from the old coldkey to the new coldkey.
@@ -559,12 +572,17 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
-        for (hotkey, _) in Owner::<T>::iter() {
-            if Owner::<T>::get(&hotkey) == *old_coldkey {
-                Owner::<T>::insert(&hotkey, new_coldkey);
-            }
+        let hotkeys = Owned::<T>::get(old_coldkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+        for hotkey in hotkeys.iter() {
+            Owner::<T>::insert(&hotkey, new_coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 1));
         }
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
+
+        // Update Owned map with new coldkey
+        Owned::<T>::remove(old_coldkey);
+        Owned::<T>::insert(new_coldkey, hotkeys);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
     }
 
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.

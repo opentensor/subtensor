@@ -363,6 +363,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
+    pub type Owned<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
@@ -1204,6 +1207,14 @@ pub mod pallet {
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
+                    // Update Owned map
+                    let mut hotkeys = Owned::<T>::get(&coldkey);
+                    hotkeys.push(hotkey.clone());
+                    Owned::<T>::insert(
+                        &coldkey,
+                        hotkeys,
+                    );
+        
                     TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
                     TotalColdkeyStake::<T>::insert(
                         coldkey.clone(),
@@ -1325,7 +1336,9 @@ pub mod pallet {
                 // Storage version v4 -> v5
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
-                .saturating_add(migration::migration5_total_issuance::<T>(false));
+                .saturating_add(migration::migration5_total_issuance::<T>(false))
+                // Populate Owned map for coldkey swap. Doesn't update storage vesion.
+                .saturating_add(migration::migrate_populate_owned::<T>());
 
             weight
         }
@@ -1968,6 +1981,19 @@ pub mod pallet {
             new_hotkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        }
+
+        /// The extrinsic for user to change the coldkey
+        #[pallet::call_index(71)]
+        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(272))
+		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        pub fn swap_coldkey(
+            origin: OriginFor<T>,
+            old_coldkey: T::AccountId,
+            new_coldkey: T::AccountId,
+            ) -> DispatchResultWithPostInfo {
+            Self::do_swap_coldkey(origin, &old_coldkey, &new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

@@ -560,6 +560,14 @@ impl<T: Config> Pallet<T> {
         if !Self::hotkey_account_exists(hotkey) {
             Stake::<T>::insert(hotkey, coldkey, 0);
             Owner::<T>::insert(hotkey, coldkey);
+
+            // Update Owned map
+            let mut hotkeys = Owned::<T>::get(&coldkey);
+            hotkeys.push(hotkey.clone());
+            Owned::<T>::insert(
+                &coldkey,
+                hotkeys,
+            );
         }
     }
 

@@ -1210,20 +1210,23 @@ fn test_swap_stake_for_coldkey() {
         let mut weight = Weight::zero();
 
         // Initialize Stake for old_coldkey
-        Stake::<Test>::insert(old_coldkey, hotkey1, stake_amount1);
-        Stake::<Test>::insert(old_coldkey, hotkey2, stake_amount2);
+        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
+        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
+
+        // Populate Owned map
+        Owned::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
 
         // Perform the swap
         SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
         // Verify the swap
-        assert_eq!(Stake::<Test>::get(new_coldkey, hotkey1), stake_amount1);
-        assert_eq!(Stake::<Test>::get(new_coldkey, hotkey2), stake_amount2);
-        assert!(!Stake::<Test>::contains_key(old_coldkey, hotkey1));
-        assert!(!Stake::<Test>::contains_key(old_coldkey, hotkey2));
+        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
+        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
+        assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
+        assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
 
         // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 4);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(3, 4);
         assert_eq!(weight, expected_weight);
     });
 }
