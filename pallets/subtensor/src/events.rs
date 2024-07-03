@@ -132,5 +132,12 @@ mod events {
         MinDelegateTakeSet(u16),
         /// the target stakes per interval is set by sudo/admin transaction
         TargetStakesPerIntervalSet(u64),
+        /// A coldkey has been swapped
+        ColdkeySwapped {
+            /// the account ID of old coldkey
+            old_coldkey: T::AccountId,
+            /// the account ID of new coldkey
+            new_coldkey: T::AccountId,
+        },
     }
 }
