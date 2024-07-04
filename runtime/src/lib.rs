@@ -292,7 +292,8 @@ parameter_types! {
     pub const DisallowPermissionlessEnterDuration: BlockNumber = 0;
     pub const DisallowPermissionlessExtendDuration: BlockNumber = 0;
 
-    pub const RootEnterDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+    pub const RootEnterDuration: BlockNumber = 5 * 60 * 24; // 24 hours
+
     pub const RootExtendDuration: BlockNumber = 5 * 60 * 3; // 3 hours
 
     pub const DisallowPermissionlessEntering: Option<Balance> = None;
@@ -306,9 +307,32 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
         matches!(
             call,
             RuntimeCall::Sudo(_)
+                | RuntimeCall::Multisig(_)
                 | RuntimeCall::System(_)
                 | RuntimeCall::SafeMode(_)
                 | RuntimeCall::Timestamp(_)
+                | RuntimeCall::SubtensorModule(
+                    pallet_subtensor::Call::add_stake { .. }
+                        | pallet_subtensor::Call::become_delegate { .. }
+                        | pallet_subtensor::Call::burned_register { .. }
+                        | pallet_subtensor::Call::commit_weights { .. }
+                        | pallet_subtensor::Call::decrease_take { .. }
+                        | pallet_subtensor::Call::faucet { .. }
+                        | pallet_subtensor::Call::increase_take { .. }
+                        | pallet_subtensor::Call::register { .. }
+                        | pallet_subtensor::Call::register_network { .. }
+                        | pallet_subtensor::Call::remove_stake { .. }
+                        | pallet_subtensor::Call::reveal_weights { .. }
+                        | pallet_subtensor::Call::root_register { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
+                        | pallet_subtensor::Call::serve_prometheus { .. }
+                        | pallet_subtensor::Call::set_root_weights { .. }
+                        | pallet_subtensor::Call::set_weights { .. }
+                        | pallet_subtensor::Call::sudo { .. }
+                        | pallet_subtensor::Call::sudo_unchecked_weight { .. }
+                        | pallet_subtensor::Call::swap_hotkey { .. }
+                        | pallet_subtensor::Call::vote { .. }
+                )
         )
     }
 }
