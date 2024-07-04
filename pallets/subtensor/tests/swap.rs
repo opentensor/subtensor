@@ -1054,44 +1054,51 @@ fn test_do_swap_coldkey_success() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
         let new_coldkey = U256::from(2);
-        let hotkey = U256::from(3);
+        let hotkey1 = U256::from(3);
+        let hotkey2 = U256::from(4);
         let netuid = 1u16;
-        let stake_amount = 1000u64;
-        let free_balance = 12345;
+        let stake_amount1 = 1000u64;
+        let stake_amount2 = 2000u64;
+        let free_balance_old = 12345u64;
 
         // Setup initial state
         add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, hotkey, old_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount + free_balance);
+        register_ok_neuron(netuid, hotkey1, old_coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, old_coldkey, 0);
 
-        // Add stake to the neuron
+        // Add balance to old coldkey
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake_amount1 + stake_amount2 + free_balance_old,
+        );
+
+        // Add stake to the neurons
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            hotkey,
-            stake_amount
+            hotkey1,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
+            hotkey2,
+            stake_amount2
         ));
 
-        log::info!(
-            "TotalColdkeyStake::<Test>::get(old_coldkey): {:?}",
-            TotalColdkeyStake::<Test>::get(old_coldkey)
+        // Verify initial stakes and balances
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(old_coldkey),
+            stake_amount1 + stake_amount2
         );
-        log::info!(
-            "Stake::<Test>::get(old_coldkey, hotkey): {:?}",
-            Stake::<Test>::get(hotkey, old_coldkey)
+        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1);
+        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), stake_amount2);
+        assert_eq!(
+            OwnedHotkeys::<Test>::get(old_coldkey),
+            vec![hotkey1, hotkey2]
         );
-
-        // Verify initial stake
-        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), stake_amount);
-        assert_eq!(Stake::<Test>::get(hotkey, old_coldkey), stake_amount);
-
-        assert_eq!(OwnedHotkeys::<Test>::get(old_coldkey), vec![hotkey]);
-        assert!(!OwnedHotkeys::<Test>::get(new_coldkey).contains(hotkey));
-
-        // Get coldkey free balance before swap
-        let balance = SubtensorModule::get_coldkey_balance(&old_coldkey);
-        assert_eq!(balance, free_balance);
-
-let balance_new_coldkey = SubtensorModule::get_coldkey_balance(&new_coldkey);
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&old_coldkey),
+            free_balance_old
+        );
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
@@ -1101,16 +1108,30 @@ let balance_new_coldkey = SubtensorModule::get_coldkey_balance(&new_coldkey);
         ));
 
         // Verify the swap
-        assert_eq!(Owner::<Test>::get(hotkey), new_coldkey);
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake_amount);
+        assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
+        assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
+        assert_eq!(
+            TotalColdkeyStake::<Test>::get(new_coldkey),
+            stake_amount1 + stake_amount2
+        );
         assert!(!TotalColdkeyStake::<Test>::contains_key(old_coldkey));
-        assert_eq!(Stake::<Test>::get(hotkey, new_coldkey), stake_amount);
-        assert!(!Stake::<Test>::contains_key(hotkey, old_coldkey));
-        assert_eq!(OwnedHotkeys::<Test>::get(new_coldkey), vec![hotkey]);
+        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
+        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
+        assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
+        assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
+
+        // Verify OwnedHotkeys
+        let new_owned_hotkeys = OwnedHotkeys::<Test>::get(new_coldkey);
+        assert!(new_owned_hotkeys.contains(&hotkey1));
+        assert!(new_owned_hotkeys.contains(&hotkey2));
+        assert_eq!(new_owned_hotkeys.len(), 2);
         assert!(!OwnedHotkeys::<Test>::contains_key(old_coldkey));
 
         // Verify balance transfer
-        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), balance + balance_new_coldkey);
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&new_coldkey),
+            free_balance_old
+        );
         assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
 
         // Verify event emission
@@ -1174,10 +1195,10 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
         assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
-assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
-assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
-assert_eq!(TotalStake::<Test>::get(), stake_amount1 + stake_amount2);
-assert_eq!(TotalIssuance::<Test>::get(), stake_amount1 + stake_amount2);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+        assert_eq!(TotalStake::<Test>::get(), stake_amount1 + stake_amount2);
+        assert_eq!(TotalIssuance::<Test>::get(), stake_amount1 + stake_amount2);
         // Verify weight update
         let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(3, 4);
         assert_eq!(weight, expected_weight);

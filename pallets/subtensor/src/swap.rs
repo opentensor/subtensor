@@ -128,6 +128,7 @@ impl<T: Config> Pallet<T> {
         let block: u64 = Self::get_current_block_as_u64();
 
         // Swap coldkey references in storage maps
+        // NOTE The order of these calls is important
         Self::swap_total_coldkey_stake(old_coldkey, new_coldkey, &mut weight);
         Self::swap_stake_for_coldkey(old_coldkey, new_coldkey, &mut weight);
         Self::swap_owner_for_coldkey(old_coldkey, new_coldkey, &mut weight);
