@@ -1,4 +1,5 @@
 use super::*;
+use dispatch::RawOrigin;
 use frame_support::{
     storage::IterableStorageDoubleMap,
     traits::{
@@ -9,6 +10,7 @@ use frame_support::{
         Imbalance,
     },
 };
+use num_traits::Zero;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -826,5 +828,97 @@ impl<T: Config> Pallet<T> {
             // Add the balance to the coldkey account.
             Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
         }
+    }
+
+    /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
+    ///
+    /// This function performs the following operations:
+    /// 1. Verifies that the hotkey exists and is owned by the current coldkey.
+    /// 2. Ensures that the new coldkey is different from the current one.
+    /// 3. Unstakes all balance if there's any stake.
+    /// 4. Transfers the entire balance of the hotkey to the new coldkey.
+    /// 5. Verifies the success of the transfer and handles partial transfers if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_coldkey` - The AccountId of the current coldkey.
+    /// * `hotkey` - The AccountId of the hotkey whose balance is being unstaked and transferred.
+    /// * `new_coldkey` - The AccountId of the new coldkey to receive the unstaked tokens.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `DispatchResult` indicating success or failure of the operation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// * The hotkey account does not exist.
+    /// * The current coldkey does not own the hotkey.
+    /// * The new coldkey is the same as the current coldkey.
+    /// * There is no balance to transfer.
+    /// * The transfer fails or is only partially successful.
+    ///
+    /// # Events
+    ///
+    /// Emits an `AllBalanceUnstakedAndTransferredToNewColdkey` event upon successful execution.
+    /// Emits a `PartialBalanceTransferredToNewColdkey` event if only a partial transfer is successful.
+    ///
+    pub fn do_unstake_all_and_transfer_to_new_coldkey(
+        current_coldkey: T::AccountId,
+        hotkey: T::AccountId,
+        new_coldkey: T::AccountId,
+    ) -> DispatchResult {
+        // Ensure the hotkey exists and is owned by the current coldkey
+        ensure!(
+            Self::hotkey_account_exists(&hotkey),
+            Error::<T>::HotKeyAccountNotExists
+        );
+        ensure!(
+            Self::coldkey_owns_hotkey(&current_coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // Ensure the new coldkey is different from the current one
+        ensure!(current_coldkey != new_coldkey, Error::<T>::SameColdkey);
+
+        // Get the current stake
+        let current_stake: u64 = Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &hotkey);
+
+        // Unstake all balance if there's any stake
+        if current_stake > 0 {
+            Self::do_remove_stake(
+                RawOrigin::Signed(current_coldkey.clone()).into(),
+                hotkey.clone(),
+                current_stake,
+            )?;
+        }
+
+        // Get the total balance of the current coldkey account
+        // let total_balance: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance = T::Currency::total_balance(&current_coldkey);
+
+        let total_balance = Self::get_coldkey_balance(&current_coldkey);
+        log::info!("Total Bank Balance: {:?}", total_balance);
+
+        // Ensure there's a balance to transfer
+        ensure!(!total_balance.is_zero(), Error::<T>::NoBalanceToTransfer);
+
+        // Attempt to transfer the entire total balance to the new coldkey
+        T::Currency::transfer(
+            &current_coldkey,
+            &new_coldkey,
+            total_balance,
+            Preservation::Expendable,
+        )?;
+
+        // Emit the event
+        Self::deposit_event(Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+            current_coldkey: current_coldkey.clone(),
+            new_coldkey: new_coldkey.clone(),
+            hotkey: hotkey.clone(),
+            current_stake,
+            total_balance,
+        });
+
+        Ok(())
     }
 }

@@ -1982,7 +1982,21 @@ pub mod pallet {
             Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
         }
 
-        /// The extrinsic for user to change the coldkey
+        /// The extrinsic for user to change the coldkey associated with their account.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the old coldkey.
+        /// * `old_coldkey` - The current coldkey associated with the account.
+        /// * `new_coldkey` - The new coldkey to be associated with the account.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(272))
@@ -1993,6 +2007,34 @@ pub mod pallet {
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_coldkey(origin, &old_coldkey, &new_coldkey)
+        }
+
+        /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the current coldkey.
+        /// * `hotkey` - The hotkey associated with the stakes to be unstaked.
+        /// * `new_coldkey` - The new coldkey to receive the unstaked tokens.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
+        #[pallet::call_index(72)]
+        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(272))
+		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        pub fn unstake_all_and_transfer_to_new_coldkey(
+            origin: OriginFor<T>,
+            hotkey: T::AccountId,
+            new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            let current_coldkey = ensure_signed(origin)?;
+            Self::do_unstake_all_and_transfer_to_new_coldkey(current_coldkey, hotkey, new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

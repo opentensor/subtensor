@@ -142,5 +142,9 @@ mod errors {
         NotExistColdkey,
         /// The coldkey balance is not enough to pay for the swap
         NotEnoughBalanceToPaySwapColdKey,
+        /// No balance to transfer
+        NoBalanceToTransfer,
+        /// Same coldkey
+        SameColdkey,
     }
 }
