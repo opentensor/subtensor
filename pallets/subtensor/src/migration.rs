@@ -481,10 +481,10 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
 pub fn migrate_populate_owned<T: Config>() -> Weight {
     // Setup migration weight
     let mut weight = T::DbWeight::get().reads(1);
-    let migration_name = "Populate Owned map";
+    let migration_name = "Populate OwnedHotkeys map";
 
-    // Check if this migration is needed (if Owned map is empty)
-    let migrate = Owned::<T>::iter().next().is_none();
+    // Check if this migration is needed (if OwnedHotkeys map is empty)
+    let migrate = OwnedHotkeys::<T>::iter().next().is_none();
 
     // Only runs if we haven't already updated version past above new_storage_version.
     if migrate {
@@ -493,7 +493,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
         let mut longest_hotkey_vector = 0;
         let mut longest_coldkey: Option<T::AccountId> = None;
         Owner::<T>::iter().for_each(|(hotkey, coldkey)| {
-            let mut hotkeys = Owned::<T>::get(&coldkey);
+            let mut hotkeys = OwnedHotkeys::<T>::get(&coldkey);
             if !hotkeys.contains(&hotkey) {
                 hotkeys.push(hotkey);
                 if longest_hotkey_vector < hotkeys.len() {
@@ -502,7 +502,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
                 }
             }
 
-            Owned::<T>::insert(&coldkey, hotkeys);
+            OwnedHotkeys::<T>::insert(&coldkey, hotkeys);
 
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
         });

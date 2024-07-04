@@ -561,11 +561,11 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::insert(hotkey, coldkey, 0);
             Owner::<T>::insert(hotkey, coldkey);
 
-            // Update Owned map
-            let mut hotkeys = Owned::<T>::get(coldkey);
+            // Update OwnedHotkeys map
+            let mut hotkeys = OwnedHotkeys::<T>::get(coldkey);
             if !hotkeys.contains(hotkey) {
                 hotkeys.push(hotkey.clone());
-                Owned::<T>::insert(coldkey, hotkeys);
+                OwnedHotkeys::<T>::insert(coldkey, hotkeys);
             }
         }
     }

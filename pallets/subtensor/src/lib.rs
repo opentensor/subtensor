@@ -364,7 +364,7 @@ pub mod pallet {
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
-    pub type Owned<T: Config> =
+    pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
@@ -1207,11 +1207,11 @@ pub mod pallet {
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
-                    // Update Owned map
-                    let mut hotkeys = Owned::<T>::get(coldkey);
+                    // Update OwnedHotkeys map
+                    let mut hotkeys = OwnedHotkeys::<T>::get(coldkey);
                     if !hotkeys.contains(hotkey) {
                         hotkeys.push(hotkey.clone());
-                        Owned::<T>::insert(coldkey, hotkeys);
+                        OwnedHotkeys::<T>::insert(coldkey, hotkeys);
                     }
 
                     TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
@@ -1336,7 +1336,7 @@ pub mod pallet {
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migration5_total_issuance::<T>(false))
-                // Populate Owned map for coldkey swap. Doesn't update storage vesion.
+                // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 .saturating_add(migration::migrate_populate_owned::<T>());
 
             weight
