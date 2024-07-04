@@ -3127,3 +3127,293 @@ fn test_rate_limits_enforced_on_increase_take() {
         assert_eq!(SubtensorModule::get_hotkey_take(&hotkey0), u16::MAX / 8);
     });
 }
+
+// Helper function to set up a test environment
+fn setup_test_environment() -> (AccountId, AccountId, AccountId) {
+    let current_coldkey = U256::from(1);
+    let hotkey = U256::from(2);
+    let new_coldkey = U256::from(3);
+    // Register the neuron to a new network
+    let netuid = 1;
+    add_network(netuid, 0, 0);
+
+    // Register the hotkey and associate it with the current coldkey
+    register_ok_neuron(1, hotkey, current_coldkey, 0);
+
+    // Add some balance to the hotkey
+    SubtensorModule::add_balance_to_coldkey_account(&current_coldkey, 1000);
+
+    // Stake some amount
+    assert_ok!(SubtensorModule::add_stake(
+        RuntimeOrigin::signed(current_coldkey),
+        hotkey,
+        500
+    ));
+
+    (current_coldkey, hotkey, new_coldkey)
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
+    new_test_ext(1).execute_with(|| {
+        let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
+
+        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+            current_coldkey,
+            hotkey,
+            new_coldkey
+        ));
+
+        // Check that the stake has been removed
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 0);
+
+        // Check that the balance has been transferred to the new coldkey
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);
+
+        // Check that the appropriate event was emitted
+        System::assert_last_event(
+            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+                current_coldkey,
+                new_coldkey,
+                hotkey,
+                current_stake: 500,
+                total_balance: 1000,
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_hotkey_not_exists() {
+    new_test_ext(1).execute_with(|| {
+        let current_coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let new_coldkey = U256::from(3);
+
+        assert_err!(
+            SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+                current_coldkey,
+                hotkey,
+                new_coldkey
+            ),
+            Error::<Test>::HotKeyAccountNotExists
+        );
+    });
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_non_associated_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        let (_, hotkey, new_coldkey) = setup_test_environment();
+        let wrong_coldkey = U256::from(4);
+
+        assert_noop!(
+            SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+                wrong_coldkey,
+                hotkey,
+                new_coldkey
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        let (current_coldkey, hotkey, _) = setup_test_environment();
+
+        assert_noop!(
+            SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+                current_coldkey,
+                hotkey,
+                current_coldkey
+            ),
+            Error::<Test>::SameColdkey
+        );
+    });
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
+    new_test_ext(1).execute_with(|| {
+        // Create accounts manually
+        let current_coldkey: AccountId = U256::from(1);
+        let hotkey: AccountId = U256::from(2);
+        let new_coldkey: AccountId = U256::from(3);
+
+        add_network(1, 0, 0);
+
+        // Register the hotkey and associate it with the current coldkey
+        register_ok_neuron(1, hotkey, current_coldkey, 0);
+
+        // Print initial balances
+        log::info!(
+            "Initial current_coldkey balance: {:?}",
+            Balances::total_balance(&current_coldkey)
+        );
+        log::info!(
+            "Initial hotkey balance: {:?}",
+            Balances::total_balance(&hotkey)
+        );
+        log::info!(
+            "Initial new_coldkey balance: {:?}",
+            Balances::total_balance(&new_coldkey)
+        );
+
+        // Ensure there's no balance in any of the accounts
+        assert_eq!(Balances::total_balance(&current_coldkey), 0);
+        assert_eq!(Balances::total_balance(&hotkey), 0);
+        assert_eq!(Balances::total_balance(&new_coldkey), 0);
+
+        // Try to unstake and transfer
+        let result = SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+            current_coldkey,
+            hotkey,
+            new_coldkey,
+        );
+
+        // Print the result
+        log::info!(
+            "Result of do_unstake_all_and_transfer_to_new_coldkey: {:?}",
+            result
+        );
+
+        // Print final balances
+        log::info!(
+            "Final current_coldkey balance: {:?}",
+            Balances::total_balance(&current_coldkey)
+        );
+        log::info!(
+            "Final hotkey balance: {:?}",
+            Balances::total_balance(&hotkey)
+        );
+        log::info!(
+            "Final new_coldkey balance: {:?}",
+            Balances::total_balance(&new_coldkey)
+        );
+
+        // Assert the expected error
+        assert_noop!(result, Error::<Test>::NoBalanceToTransfer);
+
+        // Verify that no balance was transferred
+        assert_eq!(Balances::total_balance(&current_coldkey), 0);
+        assert_eq!(Balances::total_balance(&hotkey), 0);
+        assert_eq!(Balances::total_balance(&new_coldkey), 0);
+    });
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
+    new_test_ext(1).execute_with(|| {
+        // Create accounts manually
+        let current_coldkey: AccountId = U256::from(1);
+        let hotkey: AccountId = U256::from(2);
+        let new_coldkey: AccountId = U256::from(3);
+
+        add_network(1, 0, 0);
+
+        // Register the hotkey and associate it with the current coldkey
+        register_ok_neuron(1, hotkey, current_coldkey, 0);
+
+        // Add balance to the current coldkey without staking
+        let initial_balance = 500;
+        Balances::make_free_balance_be(&current_coldkey, initial_balance);
+
+        // Print initial balances
+        log::info!(
+            "Initial current_coldkey balance: {:?}",
+            Balances::total_balance(&current_coldkey)
+        );
+        log::info!(
+            "Initial hotkey balance: {:?}",
+            Balances::total_balance(&hotkey)
+        );
+        log::info!(
+            "Initial new_coldkey balance: {:?}",
+            Balances::total_balance(&new_coldkey)
+        );
+
+        // Ensure initial balances are correct
+        assert_eq!(Balances::total_balance(&current_coldkey), initial_balance);
+        assert_eq!(Balances::total_balance(&hotkey), 0);
+        assert_eq!(Balances::total_balance(&new_coldkey), 0);
+
+        // Perform unstake and transfer
+        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+            current_coldkey,
+            hotkey,
+            new_coldkey
+        ));
+
+        // Print final balances
+        log::info!(
+            "Final current_coldkey balance: {:?}",
+            Balances::total_balance(&current_coldkey)
+        );
+        log::info!(
+            "Final hotkey balance: {:?}",
+            Balances::total_balance(&hotkey)
+        );
+        log::info!(
+            "Final new_coldkey balance: {:?}",
+            Balances::total_balance(&new_coldkey)
+        );
+
+        // Check that the balance has been transferred to the new coldkey
+        assert_eq!(Balances::total_balance(&new_coldkey), initial_balance);
+        assert_eq!(Balances::total_balance(&current_coldkey), 0);
+
+        // Check that the appropriate event was emitted
+        System::assert_last_event(
+            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+                current_coldkey,
+                new_coldkey,
+                hotkey,
+                current_stake: 0,
+                total_balance: initial_balance,
+            }
+            .into(),
+        );
+    });
+}
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
+    new_test_ext(1).execute_with(|| {
+        let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
+
+        SubtensorModule::set_target_stakes_per_interval(10);
+
+        // Add more stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(current_coldkey),
+            hotkey,
+            300
+        ));
+
+        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+            current_coldkey,
+            hotkey,
+            new_coldkey
+        ));
+
+        // Check that all stake has been removed
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 0);
+
+        // Check that the full balance has been transferred to the new coldkey
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);
+
+        // Check that the appropriate event was emitted
+        System::assert_last_event(
+            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+                current_coldkey,
+                new_coldkey,
+                hotkey,
+                current_stake: 800,
+                total_balance: 1000,
+            }
+            .into(),
+        );
+    });
+}
