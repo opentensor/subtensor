@@ -53,16 +53,6 @@ impl<T: Config> Pallet<T> {
             T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
         );
 
-        let swap_cost = Self::get_hotkey_swap_cost();
-        log::debug!("Swap cost: {:?}", swap_cost);
-
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
-            Error::<T>::NotEnoughBalanceToPaySwapHotKey
-        );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
-        Self::burn_tokens(actual_burn_amount);
-
         Self::swap_owner(old_hotkey, new_hotkey, &coldkey, &mut weight);
         Self::swap_total_hotkey_stake(old_hotkey, new_hotkey, &mut weight);
         Self::swap_delegates(old_hotkey, new_hotkey, &mut weight);
@@ -125,38 +115,17 @@ impl<T: Config> Pallet<T> {
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
-        let caller = ensure_signed(origin)?;
-
-        // Ensure the caller is the old coldkey
-        ensure!(caller == *old_coldkey, Error::<T>::NonAssociatedColdKey);
+        ensure_signed(origin)?;
 
         let mut weight = T::DbWeight::get().reads(2);
 
+        // Check if the new coldkey is already associated with any hotkeys
         ensure!(
-            old_coldkey != new_coldkey,
-            Error::<T>::NewColdKeyIsSameWithOld
+            !Self::coldkey_has_associated_hotkeys(new_coldkey),
+            Error::<T>::ColdKeyAlreadyAssociated
         );
-
-        // // Check if the new coldkey is already associated with any hotkeys
-        // ensure!(
-        //     !Self::coldkey_has_associated_hotkeys(new_coldkey),
-        //     Error::<T>::ColdKeyAlreadyAssociated
-        // );
 
         let block: u64 = Self::get_current_block_as_u64();
-        // ensure!(
-        //     !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(old_coldkey), block),
-        //     Error::<T>::ColdKeySwapTxRateLimitExceeded
-        // );
-
-        // Note: we probably want to make this free
-        let swap_cost = Self::get_coldkey_swap_cost();
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(old_coldkey, swap_cost),
-            Error::<T>::NotEnoughBalanceToPaySwapColdKey
-        );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(old_coldkey, swap_cost)?;
-        Self::burn_tokens(actual_burn_amount);
 
         // Swap coldkey references in storage maps
         Self::swap_total_coldkey_stake(old_coldkey, new_coldkey, &mut weight);
@@ -670,18 +639,5 @@ impl<T: Config> Pallet<T> {
         OwnedHotkeys::<T>::remove(old_coldkey);
         OwnedHotkeys::<T>::insert(new_coldkey, hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(0, 2));
-    }
-
-    /// Returns the cost of swapping a coldkey.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The cost of swapping a coldkey in Rao.
-    ///
-    /// # Note
-    ///
-    /// This function returns a hardcoded value. In a production environment, this should be configurable or determined dynamically.
-    pub fn get_coldkey_swap_cost() -> u64 {
-        1_000_000 // Example cost in Rao
     }
 }

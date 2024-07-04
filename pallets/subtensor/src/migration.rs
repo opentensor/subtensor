@@ -478,6 +478,7 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
     }
 }
 
+/// Migrate the OwnedHotkeys map to the new storage format
 pub fn migrate_populate_owned<T: Config>() -> Weight {
     // Setup migration weight
     let mut weight = T::DbWeight::get().reads(1);
@@ -486,27 +487,48 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
     // Check if this migration is needed (if OwnedHotkeys map is empty)
     let migrate = OwnedHotkeys::<T>::iter().next().is_none();
 
-    // Only runs if we haven't already updated version past above new_storage_version.
+    // Only runs if the migration is needed
     if migrate {
-        info!(target: LOG_TARGET_1, ">>> Migration: {}", migration_name);
+        info!(target: LOG_TARGET_1, ">>> Starting Migration: {}", migration_name);
 
-        let mut longest_hotkey_vector = 0;
+        let mut longest_hotkey_vector: usize = 0;
         let mut longest_coldkey: Option<T::AccountId> = None;
+        let mut keys_touched: u64 = 0;
+        let mut storage_reads: u64 = 0;
+        let mut storage_writes: u64 = 0;
+
+        // Iterate through all Owner entries
         Owner::<T>::iter().for_each(|(hotkey, coldkey)| {
+            storage_reads = storage_reads.saturating_add(1); // Read from Owner storage
             let mut hotkeys = OwnedHotkeys::<T>::get(&coldkey);
+            storage_reads = storage_reads.saturating_add(1); // Read from OwnedHotkeys storage
+
+            // Add the hotkey if it's not already in the vector
             if !hotkeys.contains(&hotkey) {
                 hotkeys.push(hotkey);
+                keys_touched = keys_touched.saturating_add(1);
+
+                // Update longest hotkey vector info
                 if longest_hotkey_vector < hotkeys.len() {
                     longest_hotkey_vector = hotkeys.len();
                     longest_coldkey = Some(coldkey.clone());
                 }
+
+                // Update the OwnedHotkeys storage
+                OwnedHotkeys::<T>::insert(&coldkey, hotkeys);
+                storage_writes = storage_writes.saturating_add(1); // Write to OwnedHotkeys storage
             }
 
-            OwnedHotkeys::<T>::insert(&coldkey, hotkeys);
-
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+            // Accrue weight for reads and writes
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
         });
-        info!(target: LOG_TARGET_1, "Migration {} finished. Longest hotkey vector: {}", migration_name, longest_hotkey_vector);
+
+        // Log migration results
+        info!(
+            target: LOG_TARGET_1,
+            "Migration {} finished. Keys touched: {}, Longest hotkey vector: {}, Storage reads: {}, Storage writes: {}",
+            migration_name, keys_touched, longest_hotkey_vector, storage_reads, storage_writes
+        );
         if let Some(c) = longest_coldkey {
             info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {:?}", c);
         }

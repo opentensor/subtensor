@@ -1057,16 +1057,12 @@ fn test_do_swap_coldkey_success() {
         let hotkey = U256::from(3);
         let netuid = 1u16;
         let stake_amount = 1000u64;
-        let swap_cost = SubtensorModule::get_coldkey_swap_cost();
         let free_balance = 12345;
 
         // Setup initial state
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, old_coldkey, 0);
-        SubtensorModule::add_balance_to_coldkey_account(
-            &old_coldkey,
-            stake_amount + swap_cost + free_balance,
-        );
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount + free_balance);
 
         // Add stake to the neuron
         assert_ok!(SubtensorModule::add_stake(
@@ -1093,7 +1089,7 @@ fn test_do_swap_coldkey_success() {
 
         // Get coldkey free balance before swap
         let balance = SubtensorModule::get_coldkey_balance(&old_coldkey);
-        assert_eq!(balance, free_balance + swap_cost);
+        assert_eq!(balance, free_balance);
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
@@ -1112,10 +1108,7 @@ fn test_do_swap_coldkey_success() {
         assert!(!OwnedHotkeys::<Test>::contains_key(old_coldkey));
 
         // Verify balance transfer
-        assert_eq!(
-            SubtensorModule::get_coldkey_balance(&new_coldkey),
-            balance - swap_cost
-        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), balance);
         assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
 
         // Verify event emission
@@ -1125,45 +1118,6 @@ fn test_do_swap_coldkey_success() {
                 new_coldkey,
             }
             .into(),
-        );
-    });
-}
-
-#[test]
-fn test_do_swap_coldkey_not_enough_balance() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let swap_cost = SubtensorModule::get_coldkey_swap_cost();
-
-        // Setup initial state with insufficient balance
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, swap_cost - 1);
-
-        // Attempt the swap
-        assert_err!(
-            SubtensorModule::do_swap_coldkey(
-                <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-                &old_coldkey,
-                &new_coldkey
-            ),
-            Error::<Test>::NotEnoughBalanceToPaySwapColdKey
-        );
-    });
-}
-
-#[test]
-fn test_do_swap_coldkey_same_keys() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-
-        // Attempt the swap with same old and new coldkeys
-        assert_err!(
-            SubtensorModule::do_swap_coldkey(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                &coldkey,
-                &coldkey
-            ),
-            Error::<Test>::NewColdKeyIsSameWithOld
         );
     });
 }
@@ -1339,8 +1293,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         let new_coldkey = U256::from(2);
         let hotkey = U256::from(3);
         let netuid = 1u16;
-        let stake_amount = 1000u64;
-        let swap_cost = SubtensorModule::get_coldkey_swap_cost();
+        let stake_amount: u64 = 1000u64;
 
         // Setup initial state
         add_network(netuid, 13, 0);
@@ -1349,7 +1302,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         // Set TotalNetworks because swap relies on it
         pallet_subtensor::TotalNetworks::<Test>::set(1);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount + swap_cost);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount);
         SubnetOwner::<Test>::insert(netuid, old_coldkey);
 
         // Populate OwnedHotkeys map
