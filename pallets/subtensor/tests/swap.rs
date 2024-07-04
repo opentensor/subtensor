@@ -1085,7 +1085,7 @@ fn test_do_swap_coldkey_success() {
         assert_eq!(Stake::<Test>::get(hotkey, old_coldkey), stake_amount);
 
         assert_eq!(OwnedHotkeys::<Test>::get(old_coldkey), vec![hotkey]);
-        assert!(!OwnedHotkeys::<Test>::contains_key(new_coldkey));
+        assert!(!OwnedHotkeys::<Test>::get(new_coldkey).contains(hotkey));
 
         // Get coldkey free balance before swap
         let balance = SubtensorModule::get_coldkey_balance(&old_coldkey);
