@@ -1184,6 +1184,14 @@ fn test_swap_stake_for_coldkey() {
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
 
+        // Initialize TotalHotkeyStake
+        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
+        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
+
+        // Initialize TotalStake and TotalIssuance
+        TotalStake::<Test>::put(stake_amount1 + stake_amount2);
+        TotalIssuance::<Test>::put(stake_amount1 + stake_amount2);
+
         // Populate OwnedHotkeys map
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
 
@@ -1195,10 +1203,15 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
         assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
+
+        // Verify TotalHotkeyStake remains unchanged
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+
+        // Verify TotalStake and TotalIssuance remain unchanged
         assert_eq!(TotalStake::<Test>::get(), stake_amount1 + stake_amount2);
         assert_eq!(TotalIssuance::<Test>::get(), stake_amount1 + stake_amount2);
+
         // Verify weight update
         let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(3, 4);
         assert_eq!(weight, expected_weight);
