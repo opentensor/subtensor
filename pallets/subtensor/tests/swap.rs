@@ -1108,7 +1108,7 @@ fn test_do_swap_coldkey_success() {
         assert!(!OwnedHotkeys::<Test>::contains_key(old_coldkey));
 
         // Verify balance transfer
-        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), balance);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), balance + balance_new_coldkey);
         assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
 
         // Verify event emission
