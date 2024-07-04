@@ -1091,6 +1091,8 @@ fn test_do_swap_coldkey_success() {
         let balance = SubtensorModule::get_coldkey_balance(&old_coldkey);
         assert_eq!(balance, free_balance);
 
+let balance_new_coldkey = SubtensorModule::get_coldkey_balance(&new_coldkey);
+
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
