@@ -1208,15 +1208,12 @@ pub mod pallet {
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
                     // Update Owned map
-                    let mut hotkeys = Owned::<T>::get(&coldkey);
-                    if !hotkeys.contains(&hotkey) {
+                    let mut hotkeys = Owned::<T>::get(coldkey);
+                    if !hotkeys.contains(hotkey) {
                         hotkeys.push(hotkey.clone());
-                        Owned::<T>::insert(
-                            &coldkey,
-                            hotkeys,
-                        );
+                        Owned::<T>::insert(coldkey, hotkeys);
                     }
-        
+
                     TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
                     TotalColdkeyStake::<T>::insert(
                         coldkey.clone(),
@@ -1994,7 +1991,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
-            ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResultWithPostInfo {
             Self::do_swap_coldkey(origin, &old_coldkey, &new_coldkey)
         }
 

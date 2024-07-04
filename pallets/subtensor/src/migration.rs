@@ -502,10 +502,7 @@ pub fn migrate_populate_owned<T: Config>() -> Weight {
                 }
             }
 
-            Owned::<T>::insert(
-                &coldkey,
-                hotkeys,
-            );
+            Owned::<T>::insert(&coldkey, hotkeys);
 
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
         });
