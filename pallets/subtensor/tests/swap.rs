@@ -1094,7 +1094,6 @@ fn test_do_swap_coldkey_success() {
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            &old_coldkey,
             &new_coldkey
         ));
 
@@ -1131,7 +1130,6 @@ fn test_do_swap_coldkey_same_keys() {
         assert_err!(
             SubtensorModule::do_swap_coldkey(
                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                &coldkey,
                 &coldkey
             ),
             Error::<Test>::NewColdKeyIsSameWithOld
@@ -1328,7 +1326,6 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            &old_coldkey,
             &new_coldkey
         ));
 

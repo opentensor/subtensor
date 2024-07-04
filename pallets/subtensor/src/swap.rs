@@ -112,36 +112,35 @@ impl<T: Config> Pallet<T> {
     /// Weight is tracked and updated throughout the function execution.
     pub fn do_swap_coldkey(
         origin: T::RuntimeOrigin,
-        old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
-        ensure_signed(origin)?;
+        let old_coldkey = ensure_signed(origin)?;
 
         let mut weight = T::DbWeight::get().reads(2);
 
         ensure!(
-            old_coldkey != new_coldkey,
+            old_coldkey != *new_coldkey,
             Error::<T>::NewColdKeyIsSameWithOld
         );
 
         let block: u64 = Self::get_current_block_as_u64();
 
         // Swap coldkey references in storage maps
-        Self::swap_total_coldkey_stake(old_coldkey, new_coldkey, &mut weight);
-        Self::swap_stake_for_coldkey(old_coldkey, new_coldkey, &mut weight);
-        Self::swap_owner_for_coldkey(old_coldkey, new_coldkey, &mut weight);
+        Self::swap_total_coldkey_stake(&old_coldkey, new_coldkey, &mut weight);
+        Self::swap_stake_for_coldkey(&old_coldkey, new_coldkey, &mut weight);
+        Self::swap_owner_for_coldkey(&old_coldkey, new_coldkey, &mut weight);
         Self::swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey(
-            old_coldkey,
+            &old_coldkey,
             new_coldkey,
             &mut weight,
         );
-        Self::swap_subnet_owner_for_coldkey(old_coldkey, new_coldkey, &mut weight);
-        Self::swap_owned_for_coldkey(old_coldkey, new_coldkey, &mut weight);
+        Self::swap_subnet_owner_for_coldkey(&old_coldkey, new_coldkey, &mut weight);
+        Self::swap_owned_for_coldkey(&old_coldkey, new_coldkey, &mut weight);
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
-        let remaining_balance = Self::get_coldkey_balance(old_coldkey);
+        let remaining_balance = Self::get_coldkey_balance(&old_coldkey);
         if remaining_balance > 0 {
-            Self::kill_coldkey_account(old_coldkey, remaining_balance)?;
+            Self::kill_coldkey_account(&old_coldkey, remaining_balance)?;
             Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
 
