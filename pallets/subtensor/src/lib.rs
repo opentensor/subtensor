@@ -38,11 +38,12 @@ mod block_step;
 mod epoch;
 mod errors;
 mod events;
-mod math;
+pub mod math;
 mod registration;
 mod root;
 mod serving;
 mod staking;
+mod swap;
 mod uids;
 mod utils;
 mod weights;
@@ -238,6 +239,18 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// Cost of swapping a hotkey.
+        #[pallet::constant]
+        type HotkeySwapCost: Get<u64>;
+        /// The upper bound for the alpha parameter. Used for Liquid Alpha.
+        #[pallet::constant]
+        type AlphaHigh: Get<u16>;
+        /// The lower bound for the alpha parameter. Used for Liquid Alpha.
+        #[pallet::constant]
+        type AlphaLow: Get<u16>;
+        /// A flag to indicate if Liquid Alpha is enabled.
+        #[pallet::constant]
+        type LiquidAlphaOn: Get<bool>;
     }
 
     /// Alias for the account ID.
@@ -364,6 +377,14 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    /// -- ITEM (switches liquid alpha on)
+    #[pallet::type_value]
+    pub fn DefaultLiquidAlpha<T: Config>() -> bool {
+        false
+    }
+    #[pallet::storage] // --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
+    pub type LiquidAlphaOn<T> =
+        StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
 
     /// =====================================
     /// ==== Difficulty / Registrations =====
@@ -723,7 +744,7 @@ pub mod pallet {
     pub(super) type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
-    pub(super) type LastTxBlock<T: Config> =
+    pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlockDelegateTake<T: Config> =
@@ -739,10 +760,10 @@ pub mod pallet {
     pub type ServingRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
-    pub(super) type Axons<T: Config> =
+    pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
-    pub(super) type Prometheus<T: Config> = StorageDoubleMap<
+    pub type Prometheus<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -846,6 +867,12 @@ pub mod pallet {
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
         0
     }
+    /// Provides the default value for the upper bound of the alpha parameter.
+
+    #[pallet::type_value]
+    pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
+        (45875, 58982) // (alpha_low: 0.7, alpha_high: 0.9)
+    }
 
     #[pallet::storage] // ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
@@ -917,6 +944,11 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
+    //  MAP ( netuid ) --> (alpha_low, alpha_high)
+    #[pallet::storage]
+    pub type AlphaValues<T> =
+        StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+
     #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
@@ -985,13 +1017,13 @@ pub mod pallet {
     }
 
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> uid
-    pub(super) type Uids<T: Config> =
+    pub type Uids<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> hotkey
-    pub(super) type Keys<T: Config> =
+    pub type Keys<T: Config> =
         StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
-    pub(super) type LoadedEmission<T: Config> =
+    pub type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
     #[pallet::storage] // --- DMAP ( netuid ) --> active
@@ -1144,7 +1176,7 @@ pub mod pallet {
             // Set max allowed uids
             MaxAllowedUids::<T>::insert(netuid, max_uids);
 
-            let mut next_uid = 0;
+            let mut next_uid = 0u16;
 
             for (coldkey, hotkeys) in self.stakes.iter() {
                 for (hotkey, stake_uid) in hotkeys.iter() {
@@ -1183,7 +1215,9 @@ pub mod pallet {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
-                    next_uid += 1;
+                    next_uid = next_uid.checked_add(1).expect(
+                        "should not have total number of hotkey accounts larger than u16::MAX",
+                    );
                 }
             }
 
@@ -1191,7 +1225,11 @@ pub mod pallet {
             SubnetworkN::<T>::insert(netuid, next_uid);
 
             // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
@@ -1200,7 +1238,11 @@ pub mod pallet {
             NetworksAdded::<T>::insert(root_netuid, true);
 
             // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 
@@ -1213,7 +1255,7 @@ pub mod pallet {
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(root_netuid, 0);
 
-            // Set the max weight limit to infitiy, no weight restrictions.
+            // Set the max weight limit to infinity, no weight restrictions.
             MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
 
             // Add default root tempo.
@@ -2061,8 +2103,8 @@ pub mod pallet {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
-                    current_block_number - Self::get_last_update_for_uid(netuid, uid);
-                return default_priority + u32::MAX as u64;
+                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
+                return default_priority.saturating_add(u32::MAX as u64);
             }
             0
         }
@@ -2090,7 +2132,7 @@ pub mod pallet {
                 return false;
             }
             if Self::get_registrations_this_interval(netuid)
-                >= Self::get_target_registrations_per_interval(netuid) * 3
+                >= Self::get_target_registrations_per_interval(netuid).saturating_mul(3)
             {
                 return false;
             }
@@ -2243,7 +2285,8 @@ where
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
                     Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval * 3) {
+                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
+                {
                     // If the registration limit for the interval is exceeded, reject the transaction
                     return InvalidTransaction::ExhaustsResources.into();
                 }

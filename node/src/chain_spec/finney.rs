@@ -5,7 +5,7 @@ use super::*;
 
 pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
     let path: PathBuf = std::path::PathBuf::from("./snapshot.json");
-    let wasm_binary = WASM_BINARY.ok_or_else(|| "Development wasm not available".to_string())?;
+    let wasm_binary = WASM_BINARY.ok_or("Development wasm not available".to_string())?;
 
     // We mmap the file into memory first, as this is *a lot* faster than using
     // `serde_json::from_reader`. See https://github.com/serde-rs/json/issues/160
@@ -53,14 +53,16 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         let key_account = sp_runtime::AccountId32::from(key);
 
         processed_balances.push((key_account, *amount));
-        balances_issuance += *amount;
+        balances_issuance = balances_issuance
+            .checked_add(*amount)
+            .ok_or("Balances issuance overflowed".to_string())?;
     }
 
     // Give front-ends necessary data to present to users
     let mut properties = sc_service::Properties::new();
     properties.insert("tokenSymbol".into(), "TAO".into());
     properties.insert("tokenDecimals".into(), 9.into());
-    properties.insert("ss58Format".into(), 13116.into());
+    properties.insert("ss58Format".into(), 42.into());
 
     Ok(ChainSpec::builder(
         wasm_binary,
@@ -70,8 +72,14 @@ pub fn finney_mainnet_config() -> Result<ChainSpec, String> {
         },
     )
     .with_name("Bittensor")
+    .with_protocol_id("bittensor")
     .with_id("bittensor")
     .with_chain_type(ChainType::Live)
+	.with_boot_nodes(vec![
+        "/dns/bootnode.finney.chain.opentensor.ai/tcp/30333/ws/p2p/12D3KooWRwbMb85RWnT8DSXSYMWQtuDwh4LJzndoRrTDotTR5gDC"
+            .parse()
+            .unwrap(),
+    ])
     .with_genesis_config_patch(finney_genesis(
         // Initial PoA authorities (Validators)
         // aura | grandpa
@@ -191,9 +199,9 @@ fn finney_genesis(
                 .collect::<Vec<_>>(),
         },
         "sudo": { "key": Some(<AccountId32 as Ss58Codec>::from_ss58check("5FCM3DBXWiGcwYYQtT8z4ZD93TqYpYxjaAfgv6aMStV1FTCT").unwrap()) },
-        "subtensor_module": {
+        "subtensorModule": {
             "stakes": stakes,
-            "balances_issuance": balances_issuance,
+            "balancesIssuance": balances_issuance,
         }
     })
 }

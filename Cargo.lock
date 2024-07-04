@@ -4953,6 +4953,7 @@ dependencies = [
  "sp-runtime",
  "sp-tracing 16.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?tag=polkadot-v1.10.0)",
  "sp-weights",
+ "substrate-fixed",
 ]
 
 [[package]]
@@ -5223,6 +5224,7 @@ dependencies = [
  "hex-literal",
  "log",
  "ndarray",
+ "num-traits",
  "pallet-balances",
  "pallet-collective",
  "pallet-membership",

@@ -8,7 +8,10 @@ members = [
 resolver = "2"
 
 [workspace.lints.clippy]
+indexing-slicing = "deny"
+arithmetic-side-effects = "deny"
 type_complexity = "allow"
+unwrap-used = "deny"
 
 [workspace.dependencies]
 cargo-husky = { version = "1", default-features = false }
