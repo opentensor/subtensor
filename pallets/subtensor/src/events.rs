@@ -144,5 +144,23 @@ mod events {
         RevokeChildrenMultiple(T::AccountId, Vec<T::AccountId>, u16),
         /// Network max stake is set
         NetworkMaxStakeSet(u16, u64),
+        /// A coldkey has been swapped
+        ColdkeySwapped {
+            /// the account ID of old coldkey
+            old_coldkey: T::AccountId,
+            /// the account ID of new coldkey
+            new_coldkey: T::AccountId,
+        },
+        /// All balance of a hotkey has been unstaked and transferred to a new coldkey
+        AllBalanceUnstakedAndTransferredToNewColdkey {
+            /// The account ID of the current coldkey
+            current_coldkey: T::AccountId,
+            /// The account ID of the new coldkey
+            new_coldkey: T::AccountId,
+            /// The total balance of the hotkey
+            total_balance: <<T as Config>::Currency as fungible::Inspect<
+                <T as frame_system::Config>::AccountId,
+            >>::Balance,
+        },
     }
 }
