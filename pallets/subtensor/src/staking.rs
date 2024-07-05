@@ -893,6 +893,11 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
 
+        ensure!(
+            current_coldkey != new_coldkey,
+            Error::<T>::SameColdkey
+        );
+
         // Get the current wallets to drain to.
         let mut coldkeys_to_drain_to: Vec<T::AccountId> = ColdkeysToDrainTo::<T>::get( current_coldkey );
 
@@ -902,8 +907,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DuplicateColdkey
         );
     
-        // Add the wallet to the drain wallets. 
-        if coldkeys_to_drain_to.len() == 0 as usize || coldkeys_to_drain_to.len() == 1 as usize {
+        // Add the wallet to the drain wallets.
+        let initial_coldkey_count = coldkeys_to_drain_to.len();
+        if initial_coldkey_count == 0 as usize || initial_coldkey_count == 1 as usize {
 
             // Extend the wallet to drain to.
             coldkeys_to_drain_to.push(new_coldkey.clone());
@@ -915,7 +921,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // If this is the first time we have seen this key we will put the drain period to be in 1 week.
-        if coldkeys_to_drain_to.len() == 0 as usize {
+        if initial_coldkey_count == 0 as usize {
 
             // Get the current block.
             let current_block: u64 = Self::get_current_block_as_u64();

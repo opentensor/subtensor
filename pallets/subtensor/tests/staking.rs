@@ -3163,6 +3163,12 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
             &new_coldkey
         ));
 
+        // Make 7200 * 7 blocks pass
+        run_to_block(7200 * 7 + 1);
+
+        // Run unstaking
+        SubtensorModule::drain_all_pending_coldkeys();
+
         // Check that the stake has been removed
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 0);
 
