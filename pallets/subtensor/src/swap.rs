@@ -139,6 +139,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::swap_subnet_owner_for_coldkey(old_coldkey, new_coldkey, &mut weight);
         Self::swap_owned_for_coldkey(old_coldkey, new_coldkey, &mut weight);
+        Self::swap_staking_hotkeys_for_coldkey(old_coldkey, new_coldkey, &mut weight);
 
         // Transfer any remaining balance from old_coldkey to new_coldkey
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
@@ -531,13 +532,36 @@ impl<T: Config> Pallet<T> {
             let stake = Stake::<T>::get(&hotkey, old_coldkey);
             Stake::<T>::remove(&hotkey, old_coldkey);
             Stake::<T>::insert(&hotkey, new_coldkey, stake);
-
-            // Update StakingHotkeys map
-            let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
-            StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys);
-
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
         }
+    }
+
+    /// Swaps all staking hotkeys associated with a coldkey from the old coldkey to the new coldkey.
+    ///
+    /// # Arguments
+    ///
+    /// * `old_coldkey` - The AccountId of the old coldkey.
+    /// * `new_coldkey` - The AccountId of the new coldkey.
+    /// * `weight` - Mutable reference to the weight of the transaction.
+    ///
+    /// # Effects
+    ///
+    /// * Removes all stakes associated with the old coldkey.
+    /// * Inserts all stakes for the new coldkey.
+    /// * Updates the transaction weight.
+    pub fn swap_staking_hotkeys_for_coldkey(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+        weight: &mut Weight,
+    ) {
+        // Find all hotkeys for this coldkey
+        let hotkeys = OwnedHotkeys::<T>::get(old_coldkey);
+
+        // Update StakingHotkeys map
+        OwnedHotkeys::<T>::remove(old_coldkey);
+        StakingHotkeys::<T>::insert(new_coldkey.clone(), hotkeys);
+
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
     }
 
     /// Swaps the owner of all hotkeys from the old coldkey to the new coldkey.

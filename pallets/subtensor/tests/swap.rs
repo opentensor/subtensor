@@ -1213,7 +1213,7 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(TotalIssuance::<Test>::get(), stake_amount1 + stake_amount2);
 
         // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(5, 6);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(3, 4);
         assert_eq!(weight, expected_weight);
     });
 }

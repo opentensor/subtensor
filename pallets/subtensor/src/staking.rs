@@ -890,34 +890,6 @@ impl<T: Config> Pallet<T> {
         // Ensure the new coldkey is different from the current one
         ensure!(current_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
-        // Get all the hotkeys associated with this coldkey
-        let hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(&current_coldkey);
-
-        // iterate over all hotkeys.
-        for next_hotkey in hotkeys {
-            ensure!(
-                Self::hotkey_account_exists(&next_hotkey),
-                Error::<T>::HotKeyAccountNotExists
-            );
-            ensure!(
-                Self::coldkey_owns_hotkey(&current_coldkey, &next_hotkey),
-                Error::<T>::NonAssociatedColdKey
-            );
-
-            // Get the current stake
-            let current_stake: u64 =
-                Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &next_hotkey);
-
-            // Unstake all balance if there's any stake
-            if current_stake > 0 {
-                Self::do_remove_stake(
-                    RawOrigin::Signed(current_coldkey.clone()).into(),
-                    next_hotkey.clone(),
-                    current_stake,
-                )?;
-            }
-        }
-
         // Unstake all delegate stake make by this coldkey to non-owned hotkeys
         let staking_hotkeys = StakingHotkeys::<T>::get(&current_coldkey);
 
