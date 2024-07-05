@@ -53,6 +53,9 @@ pub struct SubnetHyperparams {
     commit_reveal_weights_interval: Compact<u64>,
     commit_reveal_weights_enabled: bool,
     max_stake: Compact<u64>,
+    alpha_high: Compact<u16>,
+    alpha_low: Compact<u16>,
+    liquid_alpha_enabled: bool,
 }
 
 impl<T: Config> Pallet<T> {
@@ -118,7 +121,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let mut subnets_info = Vec::<Option<SubnetInfo<T>>>::new();
-        for netuid_ in 0..(max_netuid + 1) {
+        for netuid_ in 0..=max_netuid {
             if subnet_netuids.contains(&netuid_) {
                 subnets_info.push(Self::get_subnet_info(netuid_));
             }
@@ -157,6 +160,8 @@ impl<T: Config> Pallet<T> {
         let commit_reveal_weights_interval = Self::get_commit_reveal_weights_interval(netuid);
         let commit_reveal_weights_enabled = Self::get_commit_reveal_weights_enabled(netuid);
         let max_stake = Self::get_network_max_stake(netuid);
+        let liquid_alpha_enabled = Self::get_liquid_alpha_enabled(netuid);
+        let (alpha_low, alpha_high): (u16, u16) = Self::get_alpha_values(netuid);
 
         Some(SubnetHyperparams {
             rho: rho.into(),
@@ -184,6 +189,9 @@ impl<T: Config> Pallet<T> {
             commit_reveal_weights_interval: commit_reveal_weights_interval.into(),
             commit_reveal_weights_enabled,
             max_stake: max_stake.into(),
+            liquid_alpha_enabled,
+            alpha_low: alpha_low.into(),
+            alpha_high: alpha_high.into(),
         })
     }
 }

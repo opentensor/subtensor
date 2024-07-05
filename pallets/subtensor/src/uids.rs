@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // 2. Get and increase the uid count.
-        SubnetworkN::<T>::insert(netuid, next_uid + 1);
+        SubnetworkN::<T>::insert(netuid, next_uid.saturating_add(1));
 
         // 3. Expand Yuma Consensus with new position.
         Rank::<T>::mutate(netuid, |v| v.push(0));
@@ -126,11 +126,7 @@ impl<T: Config> Pallet<T> {
     /// Return the total number of subnetworks available on the chain.
     ///
     pub fn get_number_of_subnets() -> u16 {
-        let mut number_of_subnets: u16 = 0;
-        for (_, _) in <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter() {
-            number_of_subnets += 1;
-        }
-        number_of_subnets
+        <SubnetworkN<T> as IterableStorageMap<u16, u16>>::iter().count() as u16
     }
 
     /// Return a list of all networks a hotkey is registered on.

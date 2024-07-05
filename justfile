@@ -25,19 +25,44 @@ benchmarks:
 
 clippy:
   @echo "Running cargo clippy..."
+<<<<<<< HEAD
   
   cargo +{{RUSTV}} clippy  --workspace --all-targets -- -D  \
+=======
+  cargo +{{RUSTV}}  clippy --workspace --all-targets -- \
+>>>>>>> main
                             -D clippy::todo \
                             -D clippy::unimplemented
 
 clippy-fix:
+<<<<<<< HEAD
   @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
 
   cargo +{{RUSTV}} clippy --fix --allow-dirty  --workspace --all-targets -- -A \
 
                                                       -A clippy::todo \
                                                       -A clippy::unimplemented
+=======
+    @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
+    cargo +{{RUSTV}} clippy --fix --allow-dirty --workspace --all-targets -- \
+        -A clippy::todo \
+        -A clippy::unimplemented \
+        -A clippy::indexing_slicing
+    @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
+    cargo +{{RUSTV}} clippy --fix --allow-dirty --workspace --all-targets -- \
+        -A clippy::todo \
+        -A clippy::unimplemented \
+        -A clippy::indexing_slicing
+>>>>>>> main
 fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace
   git diff --exit-code || (echo "There are local changes after running 'cargo fix --workspace' ❌" && exit 1)
+
+lint:
+  @echo "Running cargo fmt..."
+  just fmt
+  @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
+  just clippy-fix
+  @echo "Running cargo clippy..."
+  just clippy

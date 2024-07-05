@@ -997,6 +997,45 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Enables or disables Liquid Alpha for a given subnet.
+        ///
+        /// # Parameters
+        /// - `origin`: The origin of the call, which must be the root account or subnet owner.
+        /// - `netuid`: The unique identifier for the subnet.
+        /// - `enabled`: A boolean flag to enable or disable Liquid Alpha.
+        ///
+        /// # Weight
+        /// This function has a fixed weight of 0 and is classified as an operational transaction that does not incur any fees.
+        #[pallet::call_index(50)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_liquid_alpha_enabled(
+            origin: OriginFor<T>,
+            netuid: u16,
+            enabled: bool,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin, netuid)?;
+            T::Subtensor::set_liquid_alpha_enabled(netuid, enabled);
+            log::info!(
+                "LiquidAlphaEnableToggled( netuid: {:?}, Enabled: {:?} ) ",
+                netuid,
+                enabled
+            );
+            Ok(())
+        }
+
+        /// Sets values for liquid alpha
+        #[pallet::call_index(51)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_set_alpha_values(
+            origin: OriginFor<T>,
+            netuid: u16,
+            alpha_low: u16,
+            alpha_high: u16,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
+            T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+        }
+
         /// Sets the hotkey emission tempo.
         ///
         /// This extrinsic allows the root account to set the hotkey emission tempo, which determines
@@ -1011,7 +1050,7 @@ pub mod pallet {
         ///
         /// # Errors
         /// * `DispatchError::BadOrigin` - If the origin is not the root account.
-        #[pallet::call_index(50)]
+        #[pallet::call_index(52)]
         #[pallet::weight(T::WeightInfo::sudo_set_hotkey_emission_tempo())]
         pub fn sudo_set_hotkey_emission_tempo(
             origin: OriginFor<T>,
@@ -1053,7 +1092,7 @@ pub mod pallet {
         ///
         // - Consider adding a check to ensure the `netuid` corresponds to an existing network.
         // - Implement a mechanism to gradually adjust the max stake to prevent sudden changes.
-        #[pallet::call_index(52)]
+        #[pallet::call_index(53)]
         #[pallet::weight(T::WeightInfo::sudo_set_network_max_stake())]
         pub fn sudo_set_network_max_stake(
             origin: OriginFor<T>,
@@ -1172,4 +1211,11 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
     fn set_commit_reveal_weights_enabled(netuid: u16, enabled: bool);
     fn set_hotkey_emission_tempo(emission_tempo: u64);
     fn set_network_max_stake(netuid: u16, max_stake: u64);
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool);
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError>;
 }

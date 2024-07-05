@@ -350,7 +350,7 @@ impl<T: Config> Pallet<T> {
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
-            stakes_this_interval + 1,
+            stakes_this_interval.saturating_add(1),
             block,
         );
         log::info!(
@@ -456,7 +456,7 @@ impl<T: Config> Pallet<T> {
         Self::set_stakes_this_interval_for_coldkey_hotkey(
             &coldkey,
             &hotkey,
-            unstakes_this_interval + 1,
+            unstakes_this_interval.saturating_add(1),
             block,
         );
         log::info!(
@@ -534,7 +534,7 @@ impl<T: Config> Pallet<T> {
             TotalHotkeyColdkeyStakesThisInterval::<T>::get(coldkey, hotkey);
 
         // Calculate the block number after which the stakes for the hotkey should be reset.
-        let block_to_reset_after = block_last_staked_at + stake_interval;
+        let block_to_reset_after = block_last_staked_at.saturating_add(stake_interval);
 
         // If the current block number is beyond the reset point,
         // it indicates the end of the staking interval for the hotkey.

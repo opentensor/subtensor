@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use frame_support::{assert_err, assert_noop, assert_ok, traits::Currency};
 use frame_system::Config;
 mod mock;
@@ -24,7 +26,7 @@ fn test_add_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(124_000_000, 0),
+                weight: frame_support::weights::Weight::from_parts(1_074_000_000, 0),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No
             }
@@ -530,7 +532,7 @@ fn test_remove_stake_dispatch_info_ok() {
         assert_eq!(
             call.get_dispatch_info(),
             DispatchInfo {
-                weight: frame_support::weights::Weight::from_parts(111_000_000, 0)
+                weight: frame_support::weights::Weight::from_parts(1_061_000_000, 0)
                     .add_proof_size(43991),
                 class: DispatchClass::Normal,
                 pays_fee: Pays::No

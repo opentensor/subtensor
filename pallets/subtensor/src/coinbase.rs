@@ -349,25 +349,4 @@ impl<T: Config> Pallet<T> {
     pub fn should_run_epoch(netuid: u16, current_block: u64) -> bool {
         Self::blocks_until_next_epoch(netuid, Self::get_tempo(netuid), current_block) == 0
     }
-
-    /// Helper function which returns the number of blocks remaining before we will run the epoch on this
-    /// network. Networks run their epoch when (block_number + netuid + 1 ) % (tempo + 1) = 0
-    /// tempo | netuid | # first epoch block
-    ///   1        0               0
-    ///   1        1               1
-    ///   2        0               1
-    ///   2        1               0
-    ///   100      0              99
-    ///   100      1              98
-    /// Special case: tempo = 0, the network never runs.
-    ///
-    pub fn blocks_until_next_epoch(netuid: u16, tempo: u16, block_number: u64) -> u64 {
-        if tempo == 0 {
-            return u64::MAX;
-        }
-        (tempo as u64).saturating_sub(
-            (block_number.saturating_add((netuid as u64).saturating_add(1)))
-                % (tempo as u64).saturating_add(1),
-        )
-    }
 }
