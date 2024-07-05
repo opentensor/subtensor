@@ -272,11 +272,21 @@ impl<T: Config> Pallet<T> {
         for (coldkey, stake_amount) in stakes {
             Stake::<T>::insert(new_hotkey, &coldkey, stake_amount);
             writes = writes.saturating_add(1u64); // One write for insert
+
+            // Update StakingHotkeys map
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(&coldkey);
+            if !staking_hotkeys.contains(new_hotkey) {
+                staking_hotkeys.push(new_hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey.clone(), staking_hotkeys);
+                writes = writes.saturating_add(1u64); // One write for insert
+            }
         }
 
         // Clear the prefix for the old hotkey after transferring all stakes
         let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
         writes = writes.saturating_add(1); // One write for insert; // One write for clear_prefix
+
+        // TODO: Remove all entries for old hotkey from StakingHotkeys map
 
         weight.saturating_accrue(T::DbWeight::get().writes(writes));
     }
@@ -521,7 +531,12 @@ impl<T: Config> Pallet<T> {
             let stake = Stake::<T>::get(&hotkey, old_coldkey);
             Stake::<T>::remove(&hotkey, old_coldkey);
             Stake::<T>::insert(&hotkey, new_coldkey, stake);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+
+            // Update StakingHotkeys map
+            let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+            StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys);
+
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
         }
     }
 

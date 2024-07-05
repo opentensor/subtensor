@@ -625,7 +625,7 @@ fn test_swap_stake_weight_update() {
         SubtensorModule::swap_stake(&old_hotkey, &new_hotkey, &mut weight);
 
         // Verify the weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().writes(2);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().writes(3);
         assert_eq!(weight, expected_weight);
     });
 }
@@ -1213,7 +1213,7 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(TotalIssuance::<Test>::get(), stake_amount1 + stake_amount2);
 
         // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(3, 4);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(5, 6);
         assert_eq!(weight, expected_weight);
     });
 }

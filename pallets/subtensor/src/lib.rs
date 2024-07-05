@@ -380,6 +380,9 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    pub type StakingHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
@@ -1225,6 +1228,13 @@ pub mod pallet {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
+                    // Update StakingHotkeys map
+                    let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+                    if !staking_hotkeys.contains(hotkey) {
+                        staking_hotkeys.push(hotkey.clone());
+                        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+                    }
+
                     next_uid = next_uid.checked_add(1).expect(
                         "should not have total number of hotkey accounts larger than u16::MAX",
                     );
@@ -1337,7 +1347,9 @@ pub mod pallet {
                 // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migration5_total_issuance::<T>(false))
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
-                .saturating_add(migration::migrate_populate_owned::<T>());
+                .saturating_add(migration::migrate_populate_owned::<T>())
+                // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
+                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>());
 
             weight
         }
