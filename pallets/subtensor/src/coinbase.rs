@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
                 );
 
                 // --- 4.3 Set last step counter.
-                Self::set_blocks_since_last_step(*netuid, 0);
+                Self::set_blocks_since_last_step(*netuid, current_block);
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 // --- 4.4 Distribute owner take.
