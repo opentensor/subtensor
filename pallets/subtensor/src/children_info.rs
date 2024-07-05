@@ -9,7 +9,7 @@ pub struct ChildInfo<T: Config> {
     /// The AccountId of the child neuron
     pub child_ss58: T::AccountId,
     /// The proportion of stake allocated to this child
-    pub proportion: Compact<u64>,
+    pub proportion: Compact<u16>,
     /// The total stake of the child (including its own children and parents)
     pub total_stake: Compact<u64>,
     /// The emissions per day for this child
@@ -71,7 +71,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `ChildInfo<T>` - A struct containing detailed information about the child neuron
-    pub fn get_child_info(netuid: u16, child_bytes: Vec<u8>, proportion: u64) -> ChildInfo<T> {
+    pub fn get_child_info(netuid: u16, child_bytes: Vec<u8>, proportion: u16) -> ChildInfo<T> {
         // Convert Vec<u8> to T::AccountId
         let child = T::AccountId::decode(&mut &child_bytes[..])
             .expect("Failed to decode child_bytes into AccountId");

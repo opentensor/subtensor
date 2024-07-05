@@ -452,7 +452,7 @@ reveal_weights {
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
 
     // Set proportion
-    let proportion: u64 = 500;
+    let proportion: u16 = 500;
 
 }: set_child_singular(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), child.clone(), netuid, proportion)
 
@@ -485,7 +485,7 @@ reveal_weights {
       assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
 
       // Set child
-      let proportion: u64 = 500;
+      let proportion: u16 = 500;
       assert_ok!(Subtensor::<T>::do_set_child_singular(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), child.clone(), netuid, proportion));
 
   }: revoke_child_singular(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), child.clone(), netuid)

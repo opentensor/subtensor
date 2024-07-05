@@ -342,7 +342,7 @@ pub mod pallet {
     }
     /// Default account linkage
     #[pallet::type_value]
-    pub fn DefaultProportion<T: Config>() -> u64 {
+    pub fn DefaultProportion<T: Config>() -> u16 {
         0
     }
     /// Default accumulated emission for a hotkey
@@ -469,7 +469,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         u16,
-        Vec<(u64, T::AccountId)>,
+        Vec<(u16, T::AccountId)>,
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
@@ -481,7 +481,7 @@ pub mod pallet {
         T::AccountId,
         Identity,
         u16,
-        Vec<(u64, T::AccountId)>,
+        Vec<(u16, T::AccountId)>,
         ValueQuery,
         DefaultAccountLinkage<T>,
     >;
@@ -2297,7 +2297,7 @@ pub mod pallet {
         /// * `netuid` (u16):
         ///     - The u16 network identifier where the childkey will exist.
         ///
-        /// * `proportion` (u64):
+        /// * `proportion` (u16):
         ///     - Proportion of the hotkey's stake to be given to the child, the value must be u64 normalized.
         ///
         /// # Events:
@@ -2333,7 +2333,7 @@ pub mod pallet {
             hotkey: T::AccountId,
             child: T::AccountId,
             netuid: u16,
-            proportion: u64,
+            proportion: u16,
         ) -> DispatchResultWithPostInfo {
             Self::do_set_child_singular(origin, hotkey, child, netuid, proportion)?;
             Ok(().into())
@@ -2394,9 +2394,9 @@ pub mod pallet {
         /// * `hotkey` (T::AccountId):
         ///     - The hotkey which will be assigned the children.
         ///
-        /// * `children_with_proportions` (Vec<(T::AccountId, u64)>):
+        /// * `children_with_proportions` (Vec<(T::AccountId, u16)>):
         ///     - A vector of tuples, each containing a child AccountId and its corresponding proportion.
-        ///       The proportion must be a u64 normalized value.
+        ///       The proportion must be a u16 normalized value.
         ///
         /// * `netuid` (u16):
         ///     - The u16 network identifier where the childkeys will exist.
@@ -2431,7 +2431,7 @@ pub mod pallet {
         pub fn set_children_multiple(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
-            children_with_proportions: Vec<(T::AccountId, u64)>,
+            children_with_proportions: Vec<(T::AccountId, u16)>,
             netuid: u16,
         ) -> DispatchResultWithPostInfo {
             Self::do_set_children_multiple(origin, hotkey, children_with_proportions, netuid)?;

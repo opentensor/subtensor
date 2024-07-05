@@ -11,7 +11,7 @@ fn test_do_set_child_singular_success() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -39,7 +39,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = 999; // Non-existent network
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Attempt to set child
         assert_err!(
@@ -61,7 +61,7 @@ fn test_do_set_child_singular_invalid_child() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -88,7 +88,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey with a different coldkey
         add_network(netuid, 13, 0);
@@ -115,7 +115,7 @@ fn test_do_set_child_singular_root_network() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -142,7 +142,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
         let old_child = U256::from(3);
         let new_child = U256::from(4);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -183,7 +183,7 @@ fn test_do_set_child_singular_new_children_assignment() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -221,7 +221,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set child with minimum proportion
-        let min_proportion: u64 = 0;
+        let min_proportion: u16 = 0;
         assert_ok!(SubtensorModule::do_set_child_singular(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -235,7 +235,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
         assert_eq!(children, vec![(min_proportion, child)]);
 
         // Set child with maximum proportion
-        let max_proportion: u64 = u64::MAX;
+        let max_proportion: u16 = u16::MAX;
         assert_ok!(SubtensorModule::do_set_child_singular(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -258,8 +258,8 @@ fn test_do_set_child_singular_multiple_children() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 1;
-        let proportion1: u64 = 500;
-        let proportion2: u64 = 500;
+        let proportion1: u16 = 500;
+        let proportion2: u16 = 500;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -436,7 +436,7 @@ fn test_do_revoke_child_singular_success() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -551,7 +551,7 @@ fn test_do_set_children_multiple_network_does_not_exist() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let netuid: u16 = 999; // Non-existent network
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Attempt to set children
         assert_err!(
@@ -572,7 +572,7 @@ fn test_do_set_children_multiple_invalid_child() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -598,7 +598,7 @@ fn test_do_set_children_multiple_non_associated_coldkey() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey with a different coldkey
         add_network(netuid, 13, 0);
@@ -624,7 +624,7 @@ fn test_do_set_children_multiple_root_network() {
         let hotkey = U256::from(2);
         let child = U256::from(3);
         let netuid: u16 = SubtensorModule::get_root_netuid(); // Root network
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -656,8 +656,8 @@ fn test_do_set_children_multiple_proportion_edge_cases() {
         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
         // Set children with minimum and maximum proportions
-        let min_proportion: u64 = 0;
-        let max_proportion: u64 = u64::MAX;
+        let min_proportion: u16 = 0;
+        let max_proportion: u16 = u16::MAX;
         assert_ok!(SubtensorModule::do_set_children_multiple(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -681,7 +681,7 @@ fn test_do_set_children_multiple_duplicate_child() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let netuid: u16 = 1;
-        let proportion: u64 = 1000;
+        let proportion: u16 = 1000;
 
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
@@ -779,9 +779,9 @@ fn test_do_revoke_children_multiple_complex_scenario() {
         let child2 = U256::from(4);
         let child3 = U256::from(5);
         let netuid: u16 = 1;
-        let proportion1: u64 = u64::MAX / 3;
-        let proportion2: u64 = u64::MAX / 3;
-        let proportion3: u64 = u64::MAX - proportion1 - proportion2; // Ensure sum is u64::MAX
+        let proportion1: u16 = u16::MAX / 3;
+        let proportion2: u16 = u16::MAX / 3;
+        let proportion3: u16 = u16::MAX - proportion1 - proportion2; // Ensure sum is u16::MAX
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -883,9 +883,9 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         let child2 = U256::from(4);
         let child3 = U256::from(5);
         let netuid: u16 = 1;
-        let proportion1: u64 = u64::MAX / 3;
-        let proportion2: u64 = u64::MAX / 3;
-        let proportion3: u64 = u64::MAX - proportion1 - proportion2; // Ensure sum is u64::MAX
+        let proportion1: u16 = u16::MAX / 3;
+        let proportion2: u16 = u16::MAX / 3;
+        let proportion3: u16 = u16::MAX - proportion1 - proportion2; // Ensure sum is u16::MAX
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -935,8 +935,8 @@ fn test_do_revoke_children_multiple_success() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 1;
-        let proportion1: u64 = u64::MAX / 2;
-        let proportion2: u64 = u64::MAX - proportion1; // Ensure sum is u64::MAX
+        let proportion1: u16 = u16::MAX / 2;
+        let proportion2: u16 = u16::MAX - proportion1; // Ensure sum is u16::MAX
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1049,9 +1049,9 @@ fn test_do_set_children_multiple_overwrite_existing() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 1;
-        let initial_proportion: u64 = u64::MAX;
-        let new_proportion1: u64 = u64::MAX / 2;
-        let new_proportion2: u64 = u64::MAX - new_proportion1; // Ensure sum is u64::MAX
+        let initial_proportion: u16 = u16::MAX;
+        let new_proportion1: u16 = u16::MAX / 2;
+        let new_proportion2: u16 = u16::MAX - new_proportion1; // Ensure sum is u16::MAX
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1097,9 +1097,9 @@ fn test_do_set_children_multiple_success() {
         let child2 = U256::from(4);
         let child3 = U256::from(5);
         let netuid: u16 = 1;
-        let proportion1: u64 = u64::MAX / 3;
-        let proportion2: u64 = u64::MAX / 3;
-        let proportion3: u64 = u64::MAX - proportion1 - proportion2; // Ensure sum is u64::MAX
+        let proportion1: u16 = u16::MAX / 3;
+        let proportion2: u16 = u16::MAX / 3;
+        let proportion3: u16 = u16::MAX - proportion1 - proportion2; // Ensure sum is u16::MAX
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1244,10 +1244,10 @@ fn test_do_set_children_multiple_proportions_sum_to_one() {
         let child3 = U256::from(5);
         let netuid: u16 = 1;
 
-        // Proportions that sum to u64::MAX (representing 1)
-        let proportion1: u64 = u64::MAX / 3;
-        let proportion2: u64 = u64::MAX / 3;
-        let proportion3: u64 = u64::MAX - proportion1 - proportion2;
+        // Proportions that sum to u16::MAX (representing 1)
+        let proportion1: u16 = u16::MAX / 3;
+        let proportion2: u16 = u16::MAX / 3;
+        let proportion3: u16 = u16::MAX - proportion1 - proportion2;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1276,9 +1276,9 @@ fn test_do_set_children_multiple_proportions_sum_to_one() {
             ]
         );
 
-        // Verify the sum of proportions is exactly u64::MAX
-        let sum: u64 = children.iter().map(|(prop, _)| prop).sum();
-        assert_eq!(sum, u64::MAX);
+        // Verify the sum of proportions is exactly u16::MAX
+        let sum: u16 = children.iter().map(|(prop, _)| prop).sum();
+        assert_eq!(sum, u16::MAX);
     });
 }
 
@@ -1291,9 +1291,9 @@ fn test_do_set_children_multiple_proportions_sum_less_than_one() {
         let child2 = U256::from(4);
         let netuid: u16 = 1;
 
-        // Proportions that sum to less than u64::MAX
-        let proportion1: u64 = u64::MAX / 3;
-        let proportion2: u64 = u64::MAX / 3;
+        // Proportions that sum to less than u16::MAX
+        let proportion1: u16 = u16::MAX / 3;
+        let proportion2: u16 = u16::MAX / 3;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1321,9 +1321,9 @@ fn test_do_set_children_multiple_proportions_sum_greater_than_one() {
         let child2 = U256::from(4);
         let netuid: u16 = 1;
 
-        // Proportions that sum to more than u64::MAX
-        let proportion1: u64 = u64::MAX / 2 + 1;
-        let proportion2: u64 = u64::MAX / 2 + 1;
+        // Proportions that sum to more than u16::MAX
+        let proportion1: u16 = u16::MAX / 2 + 1;
+        let proportion2: u16 = u16::MAX / 2 + 1;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1358,12 +1358,12 @@ fn test_do_set_children_multiple_single_child_full_proportion() {
         assert_ok!(SubtensorModule::do_set_children_multiple(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            vec![(child, u64::MAX)],
+            vec![(child, u16::MAX)],
             netuid
         ));
 
         // Verify child is set correctly
         let children = SubtensorModule::get_children(&hotkey, netuid);
-        assert_eq!(children, vec![(u64::MAX, child)]);
+        assert_eq!(children, vec![(u16::MAX, child)]);
     });
 }

@@ -12,7 +12,7 @@ fn test_get_child_info() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let proportion: u64 = 500_000_000;
+        let proportion: u16 = 50_000;
 
         // Add network and register hotkey and child
         add_network(netuid, 1, 0);
@@ -54,8 +54,8 @@ fn test_get_children_info() {
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
         let child2 = U256::from(4);
-        let proportion1: u64 = 300_000_000;
-        let proportion2: u64 = u64::MAX - proportion1;
+        let proportion1: u16 = 30_000;
+        let proportion2: u16 = u16::MAX - proportion1;
 
         // Add network and register hotkey and children
         add_network(netuid, 13, 0);
@@ -106,8 +106,8 @@ fn test_get_children_info_multiple_parents() {
         let hotkey1 = U256::from(2);
         let hotkey2 = U256::from(3);
         let child = U256::from(4);
-        let proportion1: u64 = 300_000_000; // 30% of u64::MAX
-        let proportion2: u64 = 200_000_000; // 20% of u64::MAX
+        let proportion1: u16 = 19_660; // 30% of u16::MAX
+        let proportion2: u16 = 13_107; // 20% of u16::MAX
 
         // Add network and register hotkeys and child
         add_network(netuid, 13, 0);
@@ -195,7 +195,7 @@ fn test_get_children_info_after_revoke() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child = U256::from(3);
-        let proportion: u64 = 500_000_000; // 50% of u64::MAX
+        let proportion: u16 = 32_767; // 50% of u16::MAX
 
         // Add network and register hotkey and child
         add_network(netuid, 13, 0);

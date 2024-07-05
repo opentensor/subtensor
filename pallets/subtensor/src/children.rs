@@ -23,7 +23,7 @@ impl<T: Config> Pallet<T> {
     ///     - The u16 network identifier where the childkey will exist.
     ///
     /// * `proportion` (u16):
-    ///     - Proportion of the hotkey's stake to be given to the child, the value must be u64 normalized.
+    ///     - Proportion of the hotkey's stake to be given to the child, the value must be u16 normalized.
     ///
     /// # Events:
     /// * `ChildAddedSingular`:
@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
         hotkey: T::AccountId,
         child: T::AccountId,
         netuid: u16,
-        proportion: u64,
+        proportion: u16,
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
@@ -152,9 +152,9 @@ impl<T: Config> Pallet<T> {
     /// * `hotkey` (T::AccountId):
     ///     The hotkey which will be assigned the children.
     ///
-    /// * `children_with_proportions` (Vec<(T::AccountId, u64)>):
+    /// * `children_with_proportions` (Vec<(T::AccountId, u16)>):
     ///     A vector of tuples, each containing a child AccountId and its corresponding proportion.
-    ///     The proportion must be a u64 normalized value (0 to u64::MAX).
+    ///     The proportion must be a u16 normalized value (0 to u16::MAX).
     ///
     /// * `netuid` (u16):
     ///     The u16 network identifier where the childkeys will exist.
@@ -172,13 +172,11 @@ impl<T: Config> Pallet<T> {
     ///     Thrown when the coldkey does not own the hotkey.
     /// * `InvalidChild`:
     ///     Thrown when any of the children is the same as the hotkey.
-    /// * `ProportionSumIncorrect`:
-    ///     Thrown when the sum of proportions does not equal u64::MAX.
     ///
     /// # Detailed Workflow
     /// 1. Verify the transaction signature and ownership.
     /// 2. Perform various checks (network existence, root network, ownership, valid children).
-    /// 3. Ensure the sum of proportions equals u64::MAX.
+    /// 3. Ensure the sum of proportions equals u16::MAX.
     /// 4. Remove the hotkey from its old children's parent lists.
     /// 5. Create a new list of children with their proportions.
     /// 6. Update the ChildKeys storage with the new children.
@@ -223,8 +221,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 6. Ensure the sum of proportions equals u64::MAX (representing 100%)
-        let (overflowed, total_proportion): (bool, u64) = {
-            let mut sum: u64 = 0;
+        let (overflowed, total_proportion): (bool, u16) = {
+            let mut sum: u16 = 0;
             let mut overflowed = false;
             for (_, proportion) in children_with_proportions.iter() {
                 let result = sum.checked_add(*proportion);
@@ -239,7 +237,7 @@ impl<T: Config> Pallet<T> {
         };
 
         ensure!(
-            !overflowed && total_proportion == u64::MAX,
+            !overflowed && total_proportion == u16::MAX,
             Error::<T>::ProportionSumIncorrect
         );
 
@@ -284,345 +282,8 @@ impl<T: Config> Pallet<T> {
             netuid,
         ));
 
-        // --- 12. Return success
-        Ok(())
-    }
-    /// ---- The implementation for the extrinsic do_revoke_child_singular: Revokes a single child.
-    ///
-    /// This function allows a coldkey to revoke a single child for a given hotkey on a specified network.
-    ///
-    /// # Arguments:
-    /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
-    ///     - The signature of the calling coldkey. Revoking a hotkey child can only be done by the coldkey.
-    ///
-    /// * `hotkey` (T::AccountId):
-    ///     - The hotkey from which the child will be revoked.
-    ///
-    /// * `child` (T::AccountId):
-    ///     - The child which will be revoked from the hotkey.
-    ///
-    /// * `netuid` (u16):
-    ///     - The u16 network identifier where the childkey exists.
-    ///
-    /// # Events:
-    /// * `ChildRevokedSingular`:
-    ///     - On successfully revoking a child from a hotkey.
-    ///
-    /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
-    ///     - Attempting to revoke from a non-existent network.
-    /// * `NonAssociatedColdKey`:
-    ///     - The coldkey does not own the hotkey or the child is not associated with the hotkey.
-    /// * `HotKeyAccountNotExists`:
-    ///     - The hotkey account does not exist.
-    ///
-    pub fn do_revoke_child_singular(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-        child: T::AccountId,
-        netuid: u16,
-    ) -> DispatchResult {
-        // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
-        let coldkey = ensure_signed(origin)?;
-        log::info!(
-            "do_revoke_child_singular( coldkey:{:?} netuid:{:?} hotkey:{:?} child:{:?} )",
-            coldkey,
-            netuid,
-            hotkey,
-            child
-        );
-
-        // --- 2. Check that the network we are trying to revoke the child from exists.
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
-        );
-
-        // --- 3. Check that the coldkey owns the hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 4. Get the current children of the hotkey.
-        let mut children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey.clone(), netuid);
-
-        // --- 5. Ensure that the child is actually a child of the hotkey.
-        ensure!(
-            children.iter().any(|(_, c)| c == &child),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 6. Remove the child from the hotkey's children list.
-        children.retain(|(_, c)| c != &child);
-
-        // --- 7. Update the children list in storage.
-        ChildKeys::<T>::insert(hotkey.clone(), netuid, children.clone());
-
-        // --- 8. Remove the hotkey from the child's parent list.
-        let mut parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(child.clone(), netuid);
-        parents.retain(|(_, p)| p != &hotkey);
-        ParentKeys::<T>::insert(child.clone(), netuid, parents);
-
-        // --- 9. Log and return.
-        log::info!(
-            "RevokeChildSingular( hotkey:{:?}, child:{:?}, netuid:{:?} )",
-            hotkey,
-            child,
-            netuid
-        );
-        Self::deposit_event(Event::RevokeChildSingular(hotkey.clone(), child, netuid));
-
         // Ok and return.
         Ok(())
     }
 
-    /// Revokes multiple children for a given hotkey on a specified network.
-    ///
-    /// This function allows a coldkey to revoke multiple children for a given hotkey on a specified network.
-    ///
-    /// # Arguments:
-    /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
-    ///     - The signature of the calling coldkey. Revoking hotkey children can only be done by the coldkey.
-    ///
-    /// * `hotkey` (T::AccountId):
-    ///     - The hotkey from which the children will be revoked.
-    ///
-    /// * `children` (Vec<T::AccountId>):
-    ///     - A vector of AccountIds representing the children to be revoked.
-    ///
-    /// * `netuid` (u16):
-    ///     - The u16 network identifier where the childkeys exist.
-    ///
-    /// # Events:
-    /// * `ChildrenRevokedMultiple`:
-    ///     - On successfully revoking multiple children from a hotkey.
-    ///
-    /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
-    ///     - Attempting to revoke from a non-existent network.
-    /// * `NonAssociatedColdKey`:
-    ///     - The coldkey does not own the hotkey.
-    /// * `HotKeyAccountNotExists`:
-    ///     - The hotkey account does not exist.
-    pub fn do_revoke_children_multiple(
-        origin: T::RuntimeOrigin,
-        hotkey: T::AccountId,
-        children: Vec<T::AccountId>,
-        netuid: u16,
-    ) -> DispatchResult {
-        // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
-        let coldkey = ensure_signed(origin)?;
-        log::info!(
-            "do_revoke_children_multiple( coldkey:{:?} netuid:{:?} hotkey:{:?} children:{:?} )",
-            coldkey,
-            netuid,
-            hotkey,
-            children
-        );
-
-        // --- 2. Check that the network we are trying to revoke the children from exists.
-        ensure!(
-            Self::if_subnet_exist(netuid),
-            Error::<T>::SubNetworkDoesNotExist
-        );
-
-        // --- 3. Check that the coldkey owns the hotkey.
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        // --- 4. Get the current children of the hotkey.
-        let mut current_children: Vec<(u64, T::AccountId)> =
-            ChildKeys::<T>::get(hotkey.clone(), netuid);
-
-        // --- 5. Remove the specified children from the hotkey's children list.
-        current_children.retain(|(_, child)| !children.contains(child));
-
-        // --- 6. Update the children list in storage.
-        ChildKeys::<T>::insert(hotkey.clone(), netuid, current_children);
-
-        // --- 7. Remove the hotkey from each child's parent list.
-        for child in children.iter() {
-            let mut parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(child.clone(), netuid);
-            parents.retain(|(_, p)| p != &hotkey);
-            ParentKeys::<T>::insert(child.clone(), netuid, parents);
-        }
-
-        // --- 8. Log and return.
-        log::info!(
-            "RevokeChildrenMultiple( hotkey:{:?}, children:{:?}, netuid:{:?} )",
-            hotkey,
-            children,
-            netuid
-        );
-        Self::deposit_event(Event::RevokeChildrenMultiple(
-            hotkey.clone(),
-            children,
-            netuid,
-        ));
-
-        // Ok and return.
-        Ok(())
-    }
-
-    /// Calculates the total stake held by a hotkey on the network, considering child/parent relationships.
-    ///
-    /// This function performs the following steps:
-    /// 1. Checks for self-loops in the delegation graph.
-    /// 2. Retrieves the initial stake of the hotkey.
-    /// 3. Calculates the stake allocated to children.
-    /// 4. Calculates the stake received from parents.
-    /// 5. Computes the final stake by adjusting the initial stake with child and parent contributions.
-    ///
-    /// # Arguments
-    /// * `hotkey` - AccountId of the hotkey whose total network stake is to be calculated.
-    /// * `netuid` - Network unique identifier specifying the network context.
-    ///
-    /// # Returns
-    /// * `u64` - The total stake for the hotkey on the network after considering the stakes
-    ///           from children and parents.
-    ///
-    /// # Note
-    /// This function now includes a check for self-loops in the delegation graph using the
-    /// `dfs_check_self_loops` method. However, it currently only logs warnings for detected loops
-    /// and does not alter the stake calculation based on these findings.
-    ///
-    /// # Panics
-    /// This function does not explicitly panic, but underlying arithmetic operations
-    /// use saturating arithmetic to prevent overflows.
-    ///
-    /// TODO: check for self loops.
-    /// TODO: (@distributedstatemachine): check if we should return error , otherwise self loop
-    /// detection is impossible to test.
-    pub fn get_stake_with_children_and_parents(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        let mut visited = BTreeSet::new();
-        Self::dfs_check_self_loops(hotkey, netuid, &mut visited);
-
-        // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
-        let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
-        let mut stake_to_children: u64 = 0;
-        let mut stake_from_parents: u64 = 0;
-
-        // Retrieve lists of parents and children from storage, based on the hotkey and network ID.
-        let parents: Vec<(u64, T::AccountId)> = Self::get_parents(hotkey, netuid);
-        let children: Vec<(u64, T::AccountId)> = Self::get_children(hotkey, netuid);
-
-        // Iterate over children to calculate the total stake allocated to them.
-        for (proportion, _) in children {
-            // Calculate the stake proportion allocated to the child based on the initial stake.
-            let stake_proportion_to_child: I96F32 = I96F32::from_num(initial_stake)
-                .saturating_mul(I96F32::from_num(proportion))
-                .saturating_div(I96F32::from_num(u64::MAX));
-            // Accumulate the total stake given to children.
-            stake_to_children =
-                stake_to_children.saturating_add(stake_proportion_to_child.to_num::<u64>());
-        }
-
-        // Iterate over parents to calculate the total stake received from them.
-        for (proportion, parent) in parents {
-            // Retrieve the parent's total stake.
-            let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
-            // Calculate the stake proportion received from the parent.
-            let stake_proportion_from_parent: I96F32 = I96F32::from_num(parent_stake)
-                .saturating_mul(I96F32::from_num(proportion))
-                .saturating_div(I96F32::from_num(u64::MAX));
-
-            // Accumulate the total stake received from parents.
-            stake_from_parents =
-                stake_from_parents.saturating_add(stake_proportion_from_parent.to_num::<u64>());
-        }
-
-        // Calculate the final stake for the hotkey by adjusting the initial stake with the stakes
-        // to/from children and parents.
-        let mut finalized_stake: u64 = initial_stake
-            .saturating_sub(stake_to_children)
-            .saturating_add(stake_from_parents);
-
-        // get the max stake for the network
-        let max_stake = Self::get_network_max_stake(netuid);
-
-        // Return the finalized stake value for the hotkey, but capped at the max stake.
-        finalized_stake = finalized_stake.min(max_stake);
-
-        // Return the finalized stake value for the hotkey.
-        finalized_stake
-    }
-
-    /* Retrieves the list of children for a given hotkey and network.
-    ///
-    /// # Arguments
-    /// * `hotkey` - The hotkey whose children are to be retrieved.
-    /// * `netuid` - The network identifier.
-    ///
-    /// # Returns
-    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and child account ID.
-    ///
-    /// # Example
-    /// ```
-    /// let children = SubtensorModule::get_children(&hotkey, netuid);
-     */
-    pub fn get_children(hotkey: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
-        ChildKeys::<T>::get(hotkey, netuid)
-    }
-
-    /* Retrieves the list of parents for a given child and network.
-    ///
-    /// # Arguments
-    /// * `child` - The child whose parents are to be retrieved.
-    /// * `netuid` - The network identifier.
-    ///
-    /// # Returns
-    /// * `Vec<(u64, T::AccountId)>` - A vector of tuples containing the proportion and parent account ID.
-    ///
-    /// # Example
-    /// ```
-    /// let parents = SubtensorModule::get_parents(&child, netuid);
-     */
-    pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
-        ParentKeys::<T>::get(child, netuid)
-    }
-
-    /// Performs a depth-first search to detect self-loops in the delegation graph.
-    ///
-    /// This function traverses the delegation graph starting from a given account,
-    /// checking for circular dependencies (self-loops) in the process.
-    ///
-    /// # Arguments
-    ///
-    /// * `current` - A reference to the `AccountId` of the current node being examined.
-    /// * `netuid` - The network ID in which to perform the check.
-    /// * `visited` - A mutable reference to a `BTreeSet` keeping track of visited accounts.
-    ///
-    /// # Behavior
-    ///
-    /// - If a node is encountered that has already been visited, a warning is logged
-    ///   indicating a self-loop has been detected.
-    /// - The function recursively checks all children of the current node.
-    /// - After checking all children, the current node is removed from the visited set
-    ///   to allow for correct backtracking in the DFS algorithm.
-    ///
-    /// # Note
-    ///
-    /// This function does not return a Result or stop execution when a loop is detected.
-    /// It only logs a warning. Depending on your requirements, you might want to modify
-    /// this behavior to return an error or take other actions when a loop is found.
-    fn dfs_check_self_loops(
-        current: &T::AccountId,
-        netuid: u16,
-        visited: &mut BTreeSet<T::AccountId>,
-    ) {
-        if !visited.insert(current.clone()) {
-            // We've encountered this node before, which means there's a loop
-            log::warn!("Self-loop detected for account: {:?}", current);
-        }
-
-        let children = Self::get_children(current, netuid);
-        for (_, child) in children {
-            Self::dfs_check_self_loops(&child, netuid, visited);
-        }
-
-        visited.remove(current);
-    }
 }
