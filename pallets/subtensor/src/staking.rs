@@ -1,5 +1,4 @@
 use super::*;
-use dispatch::RawOrigin;
 use frame_support::{
     storage::IterableStorageDoubleMap,
     traits::{
@@ -8,9 +7,10 @@ use frame_support::{
             Fortitude, Precision, Preservation,
         },
         Imbalance,
-    },
+    }, weights::Weight,
 };
 use num_traits::Zero;
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -889,31 +889,33 @@ impl<T: Config> Pallet<T> {
     /// Emits a `PartialBalanceTransferredToNewColdkey` event if only a partial transfer is successful.
     ///
     pub fn do_unstake_all_and_transfer_to_new_coldkey(
-        current_coldkey: T::AccountId,
-        new_coldkey: T::AccountId,
+        current_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
     ) -> DispatchResult {
 
         // Get the current wallets to drain to.
-        let mut coldkeys_to_drain_to: Vec<T::AccountId> = ColdkeyToDrainTo::<T>::get( &current_coldkey );
+        let mut coldkeys_to_drain_to: Vec<T::AccountId> = ColdkeysToDrainTo::<T>::get( current_coldkey );
 
         // Check if the new coldkey is already in the drain wallets list
         ensure!(
-            !coldkeys_to_drain_to.contains( &new_coldkey ),
+            !coldkeys_to_drain_to.contains( new_coldkey ),
             Error::<T>::DuplicateColdkey
         );
     
         // Add the wallet to the drain wallets. 
-        if coldkeys_to_drain_to.len() == 0 || coldkeys_to_drain_to.len() == 1 {
+        if coldkeys_to_drain_to.len() == 0 as usize || coldkeys_to_drain_to.len() == 1 as usize {
 
             // Extend the wallet to drain to.
-            coldkeys_to_drain_to.push(new_coldkey);
+            coldkeys_to_drain_to.push(new_coldkey.clone());
 
             // Push the change.
-            ColdkeysToDrainTo::<T>::insert( current_coldkey, drain_wallets );
+            ColdkeysToDrainTo::<T>::insert( current_coldkey, coldkeys_to_drain_to.clone() );
+        } else {
+            return Err(Error::<T>::ColdkeyIsInArbitration.into());
         }
 
         // If this is the first time we have seen this key we will put the drain period to be in 1 week.
-        if coldkeys_to_drain_to.len() == 0 {
+        if coldkeys_to_drain_to.len() == 0 as usize {
 
             // Get the current block.
             let current_block: u64 = Self::get_current_block_as_u64();
@@ -926,8 +928,8 @@ impl<T: Config> Pallet<T> {
 
             // Add this new coldkey to these coldkeys
             // Sanity Check.
-            if !next_period_coldkeys_to_drain.contains(&coldkey_i) {
-                next_period_coldkeys_to_drain.push(coldkey_i);
+            if !next_period_coldkeys_to_drain.contains(new_coldkey) {
+                next_period_coldkeys_to_drain.push(new_coldkey.clone());
             }
 
             // Set the new coldkeys to drain here.
@@ -953,22 +955,24 @@ impl<T: Config> Pallet<T> {
     // 11. ColdToBeDrained( C1 ) returns [ DestD ] and is Drained
     // 12. len([ DestD ]) == 1, call_drain( C1, DestD )
 
-    pub fn drain_all_pending_coldkeys() {
+    pub fn drain_all_pending_coldkeys() -> Weight {
+        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
         // Get the block number
         let current_block: u64 = Self::get_current_block_as_u64();
 
         // Get the coldkeys to drain here.
-        let mut source_coldkeys: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( current_block );
+        let source_coldkeys: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( current_block );
         ColdkeysToDrainOnBlock::<T>::remove( current_block );
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Iterate over all keys in Drain and call drain_to_pending_coldkeys for each
         for coldkey_i in source_coldkeys.iter() {
 
             // Get the wallets to drain to for this coldkey.
-            if !ColdkeysToDrainTo::<T>::contains_key( &coldkey_i ) { continue } // Sanity Check.
             let destinations_coldkeys: Vec<T::AccountId> = ColdkeysToDrainTo::<T>::get( coldkey_i );
             ColdkeysToDrainTo::<T>::remove( &coldkey_i );
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
             // If the wallets to drain is > 1, we extend the period.
             if destinations_coldkeys.len() > 1 {
@@ -978,60 +982,75 @@ impl<T: Config> Pallet<T> {
 
                 // Get the coldkeys to drain at the next arbitrage period.
                 let mut next_period_coldkeys_to_drain: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( next_arbitrage_period );
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
                 // Add this new coldkey to these coldkeys
                 // Sanity Check.
-                if !next_period_coldkeys_to_drain.contains(&coldkey_i) {
-                    next_period_coldkeys_to_drain.push(coldkey_i);
+                if !next_period_coldkeys_to_drain.contains(coldkey_i) {
+                    next_period_coldkeys_to_drain.push(coldkey_i.clone());
                 }
 
                 // Set the new coldkeys to drain here.
                 ColdkeysToDrainOnBlock::<T>::insert( next_arbitrage_period, next_period_coldkeys_to_drain );
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
 
             } else if destinations_coldkeys.len() == 1 {
                 // ONLY 1 wallet: Get the wallet to drain to.
-                let wallet_to_drain_to: T::AccountId = wallets_to_drain[0];
+                let wallet_to_drain_to = &destinations_coldkeys[0];
 
                 // Perform the drain.
-                Self::drain_from_coldkeyA_to_coldkey_B( &coldkey_i, &wallet_to_drain_to );
+                weight = weight.saturating_add(
+                    Self::drain_from_coldkey_a_to_coldkey_b( &coldkey_i, wallet_to_drain_to )
+                );
             }
         }
+
+        weight
     }
 
 
-    pub fn drain_from_coldkeyA_to_coldkey_B( coldkeyA: &T::AccountId, coldkeyB: &T::AccountId ) {
+    pub fn drain_from_coldkey_a_to_coldkey_b( coldkey_a: &T::AccountId, coldkey_b: &T::AccountId ) -> Weight {
+        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-        // Get the hotkeys associated with coldkeyA.
-        let coldkeyA_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get( &coldkeyA );
+        // Get the hotkeys associated with coldkey_a.
+        let coldkey_a_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get( &coldkey_a );
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
         // Iterate over all the hotkeys associated with this coldkey
-        for hotkey_i in coldkeyA_hotkeys.iter() {
+        for hotkey_i in coldkey_a_hotkeys.iter() {
 
-            // Get the current stake from coldkeyA to hotkey_i.
-            let all_current_stake_i: u64 = Self::get_stake_for_coldkey_and_hotkey( &coldkeyA, &hotkey_i );
+            // Get the current stake from coldkey_a to hotkey_i.
+            let all_current_stake_i: u64 = Self::get_stake_for_coldkey_and_hotkey( &coldkey_a, &hotkey_i );
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
             // We remove the balance from the hotkey acount equal to all of it.
-            Self::decrease_stake_on_coldkey_hotkey_account( &coldkeyA, &hotkey_i, all_current_stake_i );
+            Self::decrease_stake_on_coldkey_hotkey_account( &coldkey_a, &hotkey_i, all_current_stake_i );
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 4));
 
             // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-            Self::add_balance_to_coldkey_account( &coldkeyA, all_current_stake_i );
+            Self::add_balance_to_coldkey_account( &coldkey_a, all_current_stake_i );
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
         }
 
         // Get the total balance here.
-        let total_balance = Self::get_coldkey_balance( &coldkeyA );
+        let total_balance = Self::get_coldkey_balance( &coldkey_a );
+        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
         if !total_balance.is_zero() {
-            // Attempt to transfer the entire total balance to coldkeyB.
-            T::Currency::transfer(
-                &current_coldkey,
-                &new_coldkey,
+            // Attempt to transfer the entire total balance to coldkey_b.
+            let _ = T::Currency::transfer(
+                coldkey_a,
+                coldkey_b,
                 total_balance,
                 Preservation::Expendable,
             );
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
         }
+
+        weight
     }
 
     pub fn coldkey_is_locked( coldkey: &T::AccountId ) -> bool {
-        ColdkeyToDrainTo::<T>::contains_key( &coldkey )
+        ColdkeysToDrainTo::<T>::contains_key( coldkey )
     }
 }

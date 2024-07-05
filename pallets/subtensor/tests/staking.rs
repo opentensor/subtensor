@@ -3159,8 +3159,8 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
         let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
 
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-            current_coldkey,
-            new_coldkey
+            &current_coldkey,
+            &new_coldkey
         ));
 
         // Check that the stake has been removed
@@ -3188,8 +3188,8 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
 
         assert_noop!(
             SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-                current_coldkey,
-                current_coldkey
+                &current_coldkey,
+                &current_coldkey
             ),
             Error::<Test>::SameColdkey
         );
@@ -3230,8 +3230,8 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
 
         // Try to unstake and transfer
         let result = SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-            current_coldkey,
-            new_coldkey,
+            &current_coldkey,
+            &new_coldkey,
         );
 
         // Print the result
@@ -3302,8 +3302,8 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
 
         // Perform unstake and transfer
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-            current_coldkey,
-            new_coldkey
+            &current_coldkey,
+            &new_coldkey
         ));
 
         // Print final balances
@@ -3350,8 +3350,8 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
         ));
 
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-            current_coldkey,
-            new_coldkey
+            &current_coldkey,
+            &new_coldkey
         ));
 
         // Check that all stake has been removed
@@ -3397,8 +3397,8 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple
             300
         ));
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-            current_coldkey,
-            new_coldkey
+            &current_coldkey,
+            &new_coldkey
         ));
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 0);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 0);

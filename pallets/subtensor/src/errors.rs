@@ -148,5 +148,7 @@ mod errors {
         SameColdkey,
         /// The coldkey is in arbitration
         ColdkeyIsInArbitration,
+        /// The new coldkey is already registered for the drain
+        DuplicateColdkey,
     }
 }
