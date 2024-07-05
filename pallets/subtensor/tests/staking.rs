@@ -3160,7 +3160,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
 
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
             current_coldkey,
-            hotkey,
             new_coldkey
         ));
 
@@ -3175,8 +3174,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
             Event::AllBalanceUnstakedAndTransferredToNewColdkey {
                 current_coldkey,
                 new_coldkey,
-                hotkey,
-                current_stake: 500,
                 total_balance: 1000,
             }
             .into(),
@@ -3185,49 +3182,13 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
 }
 
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_hotkey_not_exists() {
-    new_test_ext(1).execute_with(|| {
-        let current_coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let new_coldkey = U256::from(3);
-
-        assert_err!(
-            SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-                current_coldkey,
-                hotkey,
-                new_coldkey
-            ),
-            Error::<Test>::HotKeyAccountNotExists
-        );
-    });
-}
-
-#[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_non_associated_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let (_, hotkey, new_coldkey) = setup_test_environment();
-        let wrong_coldkey = U256::from(4);
-
-        assert_noop!(
-            SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
-                wrong_coldkey,
-                hotkey,
-                new_coldkey
-            ),
-            Error::<Test>::NonAssociatedColdKey
-        );
-    });
-}
-
-#[test]
 fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
     new_test_ext(1).execute_with(|| {
-        let (current_coldkey, hotkey, _) = setup_test_environment();
+        let (current_coldkey, _hotkey, _) = setup_test_environment();
 
         assert_noop!(
             SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
                 current_coldkey,
-                hotkey,
                 current_coldkey
             ),
             Error::<Test>::SameColdkey
@@ -3270,7 +3231,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
         // Try to unstake and transfer
         let result = SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
             current_coldkey,
-            hotkey,
             new_coldkey,
         );
 
@@ -3343,7 +3303,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
         // Perform unstake and transfer
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
             current_coldkey,
-            hotkey,
             new_coldkey
         ));
 
@@ -3370,8 +3329,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
             Event::AllBalanceUnstakedAndTransferredToNewColdkey {
                 current_coldkey,
                 new_coldkey,
-                hotkey,
-                current_stake: 0,
                 total_balance: initial_balance,
             }
             .into(),
@@ -3394,7 +3351,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
 
         assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
             current_coldkey,
-            hotkey,
             new_coldkey
         ));
 
@@ -3409,8 +3365,48 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
             Event::AllBalanceUnstakedAndTransferredToNewColdkey {
                 current_coldkey,
                 new_coldkey,
-                hotkey,
-                current_stake: 800,
+                total_balance: 1000,
+            }
+            .into(),
+        );
+    });
+}
+
+#[test]
+fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple() {
+    new_test_ext(1).execute_with(|| {
+        // Register the neuron to a new network
+        let netuid = 1;
+        let hotkey0 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let current_coldkey = U256::from(3);
+        let new_coldkey = U256::from(4);
+        add_network(netuid, 0, 0);
+        register_ok_neuron(1, hotkey0, current_coldkey, 0);
+        register_ok_neuron(1, hotkey2, current_coldkey, 0);
+        SubtensorModule::set_target_stakes_per_interval(10);
+        SubtensorModule::add_balance_to_coldkey_account(&current_coldkey, 1000);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(current_coldkey),
+            hotkey0,
+            500
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(current_coldkey),
+            hotkey2,
+            300
+        ));
+        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+            current_coldkey,
+            new_coldkey
+        ));
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 0);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 0);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);
+        System::assert_last_event(
+            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+                current_coldkey,
+                new_coldkey,
                 total_balance: 1000,
             }
             .into(),
