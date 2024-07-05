@@ -569,6 +569,13 @@ impl<T: Config> Pallet<T> {
                 hotkeys.push(hotkey.clone());
                 OwnedHotkeys::<T>::insert(coldkey, hotkeys);
             }
+
+            // Update StakingHotkeys map
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+            if !staking_hotkeys.contains(hotkey) {
+                staking_hotkeys.push(hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+            }
         }
     }
 
@@ -648,6 +655,13 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if !staking_hotkeys.contains(hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+        }
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -668,6 +682,8 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+
+        // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
     }
 
     /// Empties the stake associated with a given coldkey-hotkey account pairing.
@@ -692,6 +708,11 @@ impl<T: Config> Pallet<T> {
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        staking_hotkeys.retain(|h| h != hotkey);
+        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
         current_stake
     }
@@ -892,6 +913,25 @@ impl<T: Config> Pallet<T> {
                 Self::do_remove_stake(
                     RawOrigin::Signed(current_coldkey.clone()).into(),
                     next_hotkey.clone(),
+                    current_stake,
+                )?;
+            }
+        }
+
+        // Unstake all delegate stake make by this coldkey to non-owned hotkeys
+        let staking_hotkeys = StakingHotkeys::<T>::get(&current_coldkey);
+
+        // iterate over all staking hotkeys.
+        for hotkey in staking_hotkeys {
+            // Get the current stake
+            let current_stake: u64 =
+                Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &hotkey);
+
+            // Unstake all balance if there's any stake
+            if current_stake > 0 {
+                Self::do_remove_stake(
+                    RawOrigin::Signed(current_coldkey.clone()).into(),
+                    hotkey.clone(),
                     current_stake,
                 )?;
             }
