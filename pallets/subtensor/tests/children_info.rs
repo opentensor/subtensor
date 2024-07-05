@@ -46,6 +46,7 @@ fn test_get_child_info() {
 }
 
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_get_children_info() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
@@ -97,6 +98,7 @@ fn test_get_children_info() {
 }
 
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_get_children_info_multiple_parents() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
@@ -186,6 +188,7 @@ fn test_get_children_info_no_children() {
 }
 
 #[test]
+#[allow(clippy::indexing_slicing)]
 fn test_get_children_info_after_revoke() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;

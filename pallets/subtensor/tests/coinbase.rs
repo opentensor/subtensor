@@ -60,7 +60,7 @@ fn test_coinbase_basic() {
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
 
         // Set the subnet emission value to 1.
-        SubtensorModule::set_emission_values(&[netuid], vec![1]).unwrap();
+        assert!(SubtensorModule::set_emission_values(&[netuid], vec![1]).is_ok());
         assert_eq!(SubtensorModule::get_subnet_emission_value(netuid), 1);
 
         // Hotkey has no pending emission
