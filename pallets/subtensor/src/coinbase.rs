@@ -334,9 +334,14 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
+    #[allow(clippy::arithmetic_side_effects)]
     pub fn should_drain_hotkey(hotkey: &T::AccountId, block: u64, emit_tempo: u64) -> bool {
-        let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
-        block % (emit_tempo + 1) == hotkey_idx % (emit_tempo + 1) // Return true every emit_tempo for a unique index.
+        if let Some(hotkey_idx) = Self::hash_hotkey_to_u64(hotkey) {
+            block % (emit_tempo.saturating_add(1)) == hotkey_idx % (emit_tempo.saturating_add(1))
+        } else {
+            false
+        }
+        // Return true every emit_tempo for a unique index.
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.

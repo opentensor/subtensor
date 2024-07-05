@@ -9,7 +9,7 @@ use sp_core::U256;
 fn test_hotkey_hashing() {
     new_test_ext(1).execute_with(|| {
         for i in 0..10000 {
-            SubtensorModule::hash_hotkey_to_u64(&U256::from(i));
+            SubtensorModule::hash_hotkey_to_u64(&U256::from(i)).is_some();
         }
     });
 }

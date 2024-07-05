@@ -2143,7 +2143,7 @@ pub mod pallet {
         /// # Weight
         ///
         /// Weight is calculated based on the number of database reads and writes.
-        #[pallet::call_index(73)]
+        #[pallet::call_index(72)]
         #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(272))
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
@@ -2502,7 +2502,7 @@ pub mod pallet {
         /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
         /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
         /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
-        #[pallet::call_index(72)]
+        #[pallet::call_index(73)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn set_delegate_takes(
             origin: OriginFor<T>,
