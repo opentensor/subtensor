@@ -872,13 +872,6 @@ impl<T: Config> Pallet<T> {
         // Get the current wallets to drain to.
         let mut drain_wallets: Vec<T::AccountId> = Drain::<T>::get( &current_coldkey );
 
-        // DOS protection: If there are more than 10 wallets to drain to, we extend the period.
-        // if drain_wallets.len() > 10 {
-        //     // Set the new coldkey as the first drain wallet.
-        //     drain_wallets.push(new_coldkey);
-        //     Drain::<T>::insert(current_coldkey, drain_wallets);
-        // }
-
         // Check if the new coldkey is already in the drain wallets list
         ensure!(
             !drain_wallets.contains(&new_coldkey),
