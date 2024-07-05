@@ -252,7 +252,7 @@ where
         &self,
         netuid: u16,
         child: Vec<u8>,
-        proportion: u64,
+        proportion: u16,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
