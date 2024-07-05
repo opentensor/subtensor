@@ -381,16 +381,17 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
 
-
-
+    /// Default value for hotkeys.
+    #[pallet::type_value]
+    pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> { vec![] }
     #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
-    pub type Drain<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    pub type ColdkeysToDrainTo<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
+    #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
+    pub type ColdkeysToDrainOnBlock<T: Config> = StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
 
 
-    #[pallet::storage] // --- MAP ( cold ) --> block_when_drain_occurs | Returns the block when the 
-    pub type Period<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
-
-
+    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    pub type StakingHotkeys<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
@@ -1237,6 +1238,13 @@ pub mod pallet {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
+                    // Update StakingHotkeys map
+                    let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+                    if !staking_hotkeys.contains(hotkey) {
+                        staking_hotkeys.push(hotkey.clone());
+                        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+                    }
+
                     next_uid = next_uid.checked_add(1).expect(
                         "should not have total number of hotkey accounts larger than u16::MAX",
                     );
@@ -1349,7 +1357,9 @@ pub mod pallet {
                 // Doesn't check storage version. TODO: Remove after upgrade
                 .saturating_add(migration::migration5_total_issuance::<T>(false))
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
-                .saturating_add(migration::migrate_populate_owned::<T>());
+                .saturating_add(migration::migrate_populate_owned::<T>())
+                // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
+                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>());
 
             weight
         }

@@ -146,5 +146,7 @@ mod errors {
         NoBalanceToTransfer,
         /// Same coldkey
         SameColdkey,
+        /// The coldkey is in arbitration
+        ColdkeyIsInArbitration,
     }
 }
