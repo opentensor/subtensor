@@ -842,7 +842,6 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `current_coldkey` - The AccountId of the current coldkey.
-    /// * `hotkey` - The AccountId of the hotkey whose balance is being unstaked and transferred.
     /// * `new_coldkey` - The AccountId of the new coldkey to receive the unstaked tokens.
     ///
     /// # Returns
@@ -865,36 +864,39 @@ impl<T: Config> Pallet<T> {
     ///
     pub fn do_unstake_all_and_transfer_to_new_coldkey(
         current_coldkey: T::AccountId,
-        hotkey: T::AccountId,
         new_coldkey: T::AccountId,
     ) -> DispatchResult {
-        // Ensure the hotkey exists and is owned by the current coldkey
-        ensure!(
-            Self::hotkey_account_exists(&hotkey),
-            Error::<T>::HotKeyAccountNotExists
-        );
-        ensure!(
-            Self::coldkey_owns_hotkey(&current_coldkey, &hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
+    
         // Ensure the new coldkey is different from the current one
         ensure!(current_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
-        // Get the current stake
-        let current_stake: u64 = Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &hotkey);
+        // Get all the hotkeys associated with this coldkey
+        let hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(&current_coldkey);
 
-        // Unstake all balance if there's any stake
-        if current_stake > 0 {
-            Self::do_remove_stake(
-                RawOrigin::Signed(current_coldkey.clone()).into(),
-                hotkey.clone(),
-                current_stake,
-            )?;
+        // iterate over all hotkeys.
+        for next_hotkey in hotkeys {
+            ensure!(
+                Self::hotkey_account_exists(&next_hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
+            ensure!(
+                Self::coldkey_owns_hotkey(&current_coldkey, &next_hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+
+            // Get the current stake
+            let current_stake: u64 = Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &next_hotkey);
+
+            // Unstake all balance if there's any stake
+            if current_stake > 0 {
+                Self::do_remove_stake(
+                    RawOrigin::Signed(current_coldkey.clone()).into(),
+                    next_hotkey.clone(),
+                    current_stake,
+                )?;
+            }
+
         }
-
-        // Get the total balance of the current coldkey account
-        // let total_balance: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance = T::Currency::total_balance(&current_coldkey);
 
         let total_balance = Self::get_coldkey_balance(&current_coldkey);
         log::info!("Total Bank Balance: {:?}", total_balance);
@@ -914,8 +916,6 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::AllBalanceUnstakedAndTransferredToNewColdkey {
             current_coldkey: current_coldkey.clone(),
             new_coldkey: new_coldkey.clone(),
-            hotkey: hotkey.clone(),
-            current_stake,
             total_balance,
         });
 

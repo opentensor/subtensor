@@ -2030,11 +2030,10 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn unstake_all_and_transfer_to_new_coldkey(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
             let current_coldkey = ensure_signed(origin)?;
-            Self::do_unstake_all_and_transfer_to_new_coldkey(current_coldkey, hotkey, new_coldkey)
+            Self::do_unstake_all_and_transfer_to_new_coldkey(current_coldkey, new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

@@ -145,10 +145,6 @@ mod events {
             current_coldkey: T::AccountId,
             /// The account ID of the new coldkey
             new_coldkey: T::AccountId,
-            /// The account ID of the hotkey
-            hotkey: T::AccountId,
-            /// The current stake of the hotkey
-            current_stake: u64,
             /// The total balance of the hotkey
             total_balance: <<T as Config>::Currency as fungible::Inspect<
                 <T as frame_system::Config>::AccountId,
