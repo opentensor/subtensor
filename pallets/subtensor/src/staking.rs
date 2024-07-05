@@ -869,55 +869,129 @@ impl<T: Config> Pallet<T> {
         // Ensure the new coldkey is different from the current one
         ensure!(current_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
-        // Get all the hotkeys associated with this coldkey
-        let hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(&current_coldkey);
+        // Get the current wallets to drain to.
+        let mut drain_wallets: Vec<T::AccountId> = Drain::<T>::get( &current_coldkey );
 
-        // iterate over all hotkeys.
-        for next_hotkey in hotkeys {
-            ensure!(
-                Self::hotkey_account_exists(&next_hotkey),
-                Error::<T>::HotKeyAccountNotExists
-            );
-            ensure!(
-                Self::coldkey_owns_hotkey(&current_coldkey, &next_hotkey),
-                Error::<T>::NonAssociatedColdKey
-            );
+        // DOS protection: If there are more than 10 wallets to drain to, we extend the period.
+        // if drain_wallets.len() > 10 {
+        //     // Set the new coldkey as the first drain wallet.
+        //     drain_wallets.push(new_coldkey);
+        //     Drain::<T>::insert(current_coldkey, drain_wallets);
+        // }
 
-            // Get the current stake
-            let current_stake: u64 =
-                Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &next_hotkey);
+        // Check if the new coldkey is already in the drain wallets list
+        ensure!(
+            !drain_wallets.contains(&new_coldkey),
+            Error::<T>::DuplicateColdkey
+        );
+    
+        // Extend the period if we have two unique keys in the drain
+        if drain_wallets.len() > 0 {
 
-            // Unstake all balance if there's any stake
-            if current_stake > 0 {
-                Self::do_remove_stake(
-                    RawOrigin::Signed(current_coldkey.clone()).into(),
-                    next_hotkey.clone(),
-                    current_stake,
-                )?;
-            }
+            // Get the current block to drain
+            let mut drain_block: u64 = DrainBlock::<T>::get( current_coldkey );
+
+            // Extend the block to drain.
+            let extended_block: u64 = drain_block + 7200 * 7;
+
+            // Set the new drain block.
+            DrainBlock::<T>::insert( current_coldkey, extended_block );
+
+            // Extend the period.
+            let mut coldkeys_to_drain: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( extended_block );
+
+            // Add the coldkey to drain on this block.
+            coldkeys_to_drain.push( current_coldkey );
+
+            // Set the new coldkeys to drain here.
+            ColdkeysToDrainOnBlock::<T>::insert( extended_block, coldkeys_to_drain.clone() );
+
+            // Clear the pending keys.
+            Drain::<T>::remove(&current_coldkey);
+
+        } else {
+            // There are not other wallets pending.
+
+            // Extend the wallet to drain to.
+            drain_wallets.push(new_coldkey);
+
+            // Push the change.
+            Drain::<T>::insert( current_coldkey, drain_wallets );
         }
 
-        let total_balance = Self::get_coldkey_balance(&current_coldkey);
-        log::info!("Total Bank Balance: {:?}", total_balance);
-
-        // Ensure there's a balance to transfer
-        ensure!(!total_balance.is_zero(), Error::<T>::NoBalanceToTransfer);
-
-        // Attempt to transfer the entire total balance to the new coldkey
-        T::Currency::transfer(
-            &current_coldkey,
-            &new_coldkey,
-            total_balance,
-            Preservation::Expendable,
-        )?;
-
-        // Emit the event
-        Self::deposit_event(Event::AllBalanceUnstakedAndTransferredToNewColdkey {
-            current_coldkey: current_coldkey.clone(),
-            new_coldkey: new_coldkey.clone(),
-            total_balance,
-        });
-
         Ok(())
+    }
+
+    pub fn drain_all_pending_coldkeys(block_num){
+
+        // Get the block number
+        let current_block: u64 = Self::get_current_block_as_u64();
+
+        // Get the coldkeys to drain here.
+        let mut coldkeys_to_drain: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( current_block );
+
+        // Iterate over all keys in Drain and call drain_to_pending_coldkeys for each
+        for coldkey_i in coldkeys_to_drain.iter() {
+
+            // Get the wallets to drain to for this coldkey.
+            let wallets_to_drain: Vec<T::AccountId> = Drain::<T>::get( coldkey_i );
+
+            // If there are no wallets to drain to, remove the key from the drain map.
+            if wallets_to_drain.len() == 0 { 
+
+                // Remove the key from the drain map
+                Drain::<T>::remove( &coldkey );
+                continue 
+            } 
+            // If there is only 1 wallet to drain perform the drain operation.
+            if wallets_to_drain.len() == 1 {
+
+                // Get the wallet to drain to.
+                let wallet_to_drain_to: T::AccountId = wallets_to_drain[0];
+
+                // Perform the drain.
+                Self::drain_from_coldkeyA_to_coldkey_B( &coldkey_i, &wallet_to_drain_to );
+
+                // Remove the key from the drain map
+                Drain::<T>::remove( &coldkey );
+
+                // Set the new drain block.
+                DrainBlock::<T>::remove( &coldkey );
+            }
+        }
+    }
+
+
+    pub fn drain_from_coldkeyA_to_coldkey_B( coldkeyA: &T::AccountId, coldkeyB: &T::AccountId ) {
+
+        // Get the hotkeys associated with coldkeyA.
+        let coldkeyA_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get( &coldkeyA );
+
+        // Iterate over all the hotkeys associated with this coldkey
+        for hotkey_i in coldkeyA_hotkeys.iter() {
+
+            // Get the current stake from coldkeyA to hotkey_i.
+            let all_current_stake_i: u64 = Self::get_stake_for_coldkey_and_hotkey( &coldkeyA, &hotkey_i );
+
+            // We remove the balance from the hotkey acount equal to all of it.
+            Self::decrease_stake_on_coldkey_hotkey_account( &coldkeyA, &hotkey_i, all_current_stake_i );
+
+            // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+            Self::add_balance_to_coldkey_account( &coldkeyA, all_current_stake_i );
+        }
+
+        // Get the total balance here.
+        let total_balance = Self::get_coldkey_balance( &coldkeyA );
+
+        if !total_balance.is_zero() {
+            // Attempt to transfer the entire total balance to coldkeyB.
+            T::Currency::transfer(
+                &current_coldkey,
+                &new_coldkey,
+                total_balance,
+                Preservation::Expendable,
+            );
+        }
+
     }
 }

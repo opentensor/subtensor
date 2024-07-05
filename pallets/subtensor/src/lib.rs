@@ -380,6 +380,18 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+
+
+
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
+    pub type Drain<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
+
+    #[pallet::storage] // --- MAP ( cold ) --> block_when_drain_occurs | Returns the block when the 
+    pub type Period<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
+
+
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
