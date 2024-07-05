@@ -560,29 +560,31 @@ pub fn migrate_populate_staking_hotkeys<T: Config>() -> Weight {
         let mut storage_writes: u64 = 0;
 
         // Iterate through all Owner entries
-        Stake::<T>::iter().for_each(|(hotkey, coldkey, _stake)| {
+        Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
             storage_reads = storage_reads.saturating_add(1); // Read from Owner storage
-            let mut hotkeys = StakingHotkeys::<T>::get(&coldkey);
-            storage_reads = storage_reads.saturating_add(1); // Read from StakingHotkeys storage
-
-            // Add the hotkey if it's not already in the vector
-            if !hotkeys.contains(&hotkey) {
-                hotkeys.push(hotkey);
-                keys_touched = keys_touched.saturating_add(1);
-
-                // Update longest hotkey vector info
-                if longest_hotkey_vector < hotkeys.len() {
-                    longest_hotkey_vector = hotkeys.len();
-                    longest_coldkey = Some(coldkey.clone());
+            if stake > 0 {
+                let mut hotkeys = StakingHotkeys::<T>::get(&coldkey);
+                storage_reads = storage_reads.saturating_add(1); // Read from StakingHotkeys storage
+    
+                // Add the hotkey if it's not already in the vector
+                if !hotkeys.contains(&hotkey) {
+                    hotkeys.push(hotkey);
+                    keys_touched = keys_touched.saturating_add(1);
+    
+                    // Update longest hotkey vector info
+                    if longest_hotkey_vector < hotkeys.len() {
+                        longest_hotkey_vector = hotkeys.len();
+                        longest_coldkey = Some(coldkey.clone());
+                    }
+    
+                    // Update the StakingHotkeys storage
+                    StakingHotkeys::<T>::insert(&coldkey, hotkeys);
+                    storage_writes = storage_writes.saturating_add(1); // Write to StakingHotkeys storage
                 }
-
-                // Update the StakingHotkeys storage
-                StakingHotkeys::<T>::insert(&coldkey, hotkeys);
-                storage_writes = storage_writes.saturating_add(1); // Write to StakingHotkeys storage
+    
+                // Accrue weight for reads and writes
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
             }
-
-            // Accrue weight for reads and writes
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
         });
 
         // Log migration results
