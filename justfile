@@ -25,34 +25,17 @@ benchmarks:
 
 clippy:
   @echo "Running cargo clippy..."
-<<<<<<< HEAD
-  
-  cargo +{{RUSTV}} clippy  --workspace --all-targets -- -D  \
-=======
   cargo +{{RUSTV}}  clippy --workspace --all-targets -- \
->>>>>>> main
                             -D clippy::todo \
                             -D clippy::unimplemented
 
 clippy-fix:
-<<<<<<< HEAD
-  @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
-
-  cargo +{{RUSTV}} clippy --fix --allow-dirty  --workspace --all-targets -- -A \
-
-                                                      -A clippy::todo \
-                                                      -A clippy::unimplemented
-=======
     @echo "Running cargo clippy with automatic fixes on potentially dirty code..."
     cargo +{{RUSTV}} clippy --fix --allow-dirty --allow-staged --workspace --all-targets -- \
         -A clippy::todo \
         -A clippy::unimplemented \
         -A clippy::indexing_slicing
-<<<<<<< HEAD
->>>>>>> main
-=======
 
->>>>>>> main
 fix:
   @echo "Running cargo fix..."
   cargo +{{RUSTV}} fix --workspace
