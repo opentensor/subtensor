@@ -331,6 +331,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                         | pallet_subtensor::Call::sudo { .. }
                         | pallet_subtensor::Call::sudo_unchecked_weight { .. }
                         | pallet_subtensor::Call::swap_hotkey { .. }
+                        | pallet_subtensor::Call::unstake_all_and_transfer_to_new_coldkey { .. }
                         | pallet_subtensor::Call::vote { .. }
                 )
         )
