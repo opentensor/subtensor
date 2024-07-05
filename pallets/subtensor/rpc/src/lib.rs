@@ -58,7 +58,7 @@ pub trait SubtensorCustomApi<BlockHash> {
         &self,
         netuid: u16,
         child: Vec<u8>,
-        proportion: u64,
+        proportion: u16,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
 }

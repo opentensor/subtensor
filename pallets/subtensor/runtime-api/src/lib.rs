@@ -35,6 +35,6 @@ sp_api::decl_runtime_apis! {
 
     pub trait ChildrenInfoRuntimeApi {
         fn get_children_info(netuid: u16) -> Vec<u8>;
-        fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u64) -> Vec<u8>;
+        fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u16) -> Vec<u8>;
     }
 }
