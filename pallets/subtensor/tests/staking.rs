@@ -3181,11 +3181,10 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
     });
 }
 
-
 #[test]
 fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
     new_test_ext(1).execute_with(|| {
-        let (current_coldkey, hotkey, _) = setup_test_environment();
+        let (current_coldkey, _hotkey, _) = setup_test_environment();
 
         assert_noop!(
             SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
@@ -3373,11 +3372,9 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
     });
 }
 
-
 #[test]
 fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple() {
     new_test_ext(1).execute_with(|| {
-
         // Register the neuron to a new network
         let netuid = 1;
         let hotkey0 = U256::from(1);

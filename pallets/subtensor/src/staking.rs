@@ -866,7 +866,6 @@ impl<T: Config> Pallet<T> {
         current_coldkey: T::AccountId,
         new_coldkey: T::AccountId,
     ) -> DispatchResult {
-    
         // Ensure the new coldkey is different from the current one
         ensure!(current_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
@@ -885,7 +884,8 @@ impl<T: Config> Pallet<T> {
             );
 
             // Get the current stake
-            let current_stake: u64 = Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &next_hotkey);
+            let current_stake: u64 =
+                Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &next_hotkey);
 
             // Unstake all balance if there's any stake
             if current_stake > 0 {
@@ -895,7 +895,6 @@ impl<T: Config> Pallet<T> {
                     current_stake,
                 )?;
             }
-
         }
 
         let total_balance = Self::get_coldkey_balance(&current_coldkey);
