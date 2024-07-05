@@ -22,7 +22,7 @@ impl<T: Config> Pallet<T> {
     /// * `netuid` (u16):
     ///     - The u16 network identifier where the childkey will exist.
     ///
-    /// * `proportion` (u64):
+    /// * `proportion` (u16):
     ///     - Proportion of the hotkey's stake to be given to the child, the value must be u64 normalized.
     ///
     /// # Events:
