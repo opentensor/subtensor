@@ -616,6 +616,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
+    pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        OwnedHotkeys::<T>::get(coldkey)
+    }
+    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        StakingHotkeys::<T>::get(coldkey)
+    }
+
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }

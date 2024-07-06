@@ -366,6 +366,8 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    pub type StakingHotkeys<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
@@ -389,9 +391,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
     pub type ColdkeysToArbitrateAtBlock<T: Config> = StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
 
-
-    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
-    pub type StakingHotkeys<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
 
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
@@ -1321,7 +1320,7 @@ pub mod pallet {
             match block_step_result {
                 Ok(_) => {
                     // --- If the block step was successful, return the weight.
-                    log::info!("Successfully ran block step.");
+                    log::debug!("Successfully ran block step.");
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
@@ -2058,11 +2057,13 @@ pub mod pallet {
         #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(272))
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn arbitrated_coldkey_swap(
+        pub fn schedule_arbitrated_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
-            Self::do_arbitrated_coldkey_swap( origin, &new_coldkey )
+            // Attain the calling coldkey from the origin.
+            let old_coldkey:T::AccountId = ensure_signed(origin)?;
+            Self::do_schedule_arbitrated_coldkey_swap( &old_coldkey, &new_coldkey )
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

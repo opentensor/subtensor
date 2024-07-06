@@ -3153,12 +3153,13 @@ fn setup_test_environment() -> (AccountId, AccountId, AccountId) {
     (current_coldkey, hotkey, new_coldkey)
 }
 
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_arbitrated_coldkey_swap_success --exact --nocapture
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
+fn test_arbitrated_coldkey_swap_success() {
     new_test_ext(1).execute_with(|| {
         let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
 
-        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
             &current_coldkey,
             &new_coldkey
         ));
@@ -3175,38 +3176,36 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
             pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(drain_block),
             vec![current_coldkey]
         );
+        log::info!("Drain block set correctly: {:?}", drain_block);
+        log::info!("Drain block {:?}", pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(drain_block));
 
         // Make 7200 * 7 blocks pass
         run_to_block(drain_block);
 
         // Run unstaking
-        SubtensorModule::drain_all_pending_coldkeys();
+        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
+        log::info!("Arbitrated coldkeys for block: {:?}", SubtensorModule::get_current_block_as_u64());
 
-        // Check that the stake has been removed
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 0);
+        // Check the hotkey stake.
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 500);
+
+        // Get the owner of the hotkey now new key.
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey), new_coldkey);
 
         // Check that the balance has been transferred to the new coldkey
-        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 500); // The new key as the 500
 
-        // Check that the appropriate event was emitted
-        System::assert_last_event(
-            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
-                current_coldkey,
-                new_coldkey,
-                total_balance: 1000,
-            }
-            .into(),
-        );
     });
 }
 
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_arbitrated_coldkey_swap_same_coldkey --exact --nocapture
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
+fn test_arbitrated_coldkey_swap_same_coldkey() {
     new_test_ext(1).execute_with(|| {
         let (current_coldkey, _hotkey, _) = setup_test_environment();
 
         assert_noop!(
-            SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
+            SubtensorModule::do_schedule_arbitrated_coldkey_swap(
                 &current_coldkey,
                 &current_coldkey
             ),
@@ -3215,8 +3214,9 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
     });
 }
 
+/// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_arbitrated_coldkey_swap_no_balance --exact --nocapture
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
+fn test_arbitrated_coldkey_swap_no_balance() {
     new_test_ext(1).execute_with(|| {
         // Create accounts manually
         let current_coldkey: AccountId = U256::from(1);
@@ -3248,14 +3248,14 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
         assert_eq!(Balances::total_balance(&new_coldkey), 0);
 
         // Try to unstake and transfer
-        let result = SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
+        let result = SubtensorModule::do_schedule_arbitrated_coldkey_swap(
             &current_coldkey,
             &new_coldkey,
         );
 
         // Print the result
         log::info!(
-            "Result of do_unstake_all_and_transfer_to_new_coldkey: {:?}",
+            "Result of arbitrated_coldkey_swap: {:?}",
             result
         );
 
@@ -3280,8 +3280,10 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
     });
 }
 
+// To run this test, use the following command:
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test staking -- test_arbitrated_coldkey_swap_with_no_stake --exact --nocapture
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
+fn test_arbitrated_coldkey_swap_with_no_stake() {
     new_test_ext(1).execute_with(|| {
         // Create accounts manually
         let current_coldkey: AccountId = U256::from(1);
@@ -3317,7 +3319,7 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
         assert_eq!(Balances::total_balance(&new_coldkey), 0);
 
         // Perform unstake and transfer
-        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
             &current_coldkey,
             &new_coldkey
         ));
@@ -3327,7 +3329,7 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
         run_to_block(drain_block);
 
         // Run unstaking
-        SubtensorModule::drain_all_pending_coldkeys();
+        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
 
         // Print final balances
         log::info!(
@@ -3347,19 +3349,12 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
         assert_eq!(Balances::total_balance(&new_coldkey), initial_balance);
         assert_eq!(Balances::total_balance(&current_coldkey), 0);
 
-        // Check that the appropriate event was emitted
-        System::assert_last_event(
-            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
-                current_coldkey,
-                new_coldkey,
-                total_balance: initial_balance,
-            }
-            .into(),
-        );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_arbitrated_coldkey_swap_with_multiple_stakes --exact --nocapture
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
+fn test_arbitrated_coldkey_swap_with_multiple_stakes() {
     new_test_ext(1).execute_with(|| {
         let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
 
@@ -3372,7 +3367,7 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
             300
         ));
 
-        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
             &current_coldkey,
             &new_coldkey
         ));
@@ -3382,28 +3377,26 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
         run_to_block(drain_block);
 
         // Run unstaking
-        SubtensorModule::drain_all_pending_coldkeys();
+        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
 
         // Check that all stake has been removed
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 0);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 800);
+
+        // Owner has changed
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey), new_coldkey);
 
         // Check that the full balance has been transferred to the new coldkey
-        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 200);
 
-        // Check that the appropriate event was emitted
-        System::assert_last_event(
-            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
-                current_coldkey,
-                new_coldkey,
-                total_balance: 1000,
-            }
-            .into(),
-        );
+        // Check that the full balance has been transferred to the new coldkey
+        assert_eq!(SubtensorModule::get_coldkey_balance(&current_coldkey), 0);
+
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_arbitrated_coldkey_swap_with_multiple_stakes_multiple --exact --nocapture
 #[test]
-fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple() {
+fn test_arbitrated_coldkey_swap_with_multiple_stakes_multiple() {
     new_test_ext(1).execute_with(|| {
         // Register the neuron to a new network
         let netuid = 1;
@@ -3426,7 +3419,7 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple
             hotkey2,
             300
         ));
-        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
             &current_coldkey,
             &new_coldkey
         ));
@@ -3436,18 +3429,22 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple
         run_to_block(drain_block);
 
         // Run unstaking
-        SubtensorModule::drain_all_pending_coldkeys();
+        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
 
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 0);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 0);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);
-        System::assert_last_event(
-            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
-                current_coldkey,
-                new_coldkey,
-                total_balance: 1000,
-            }
-            .into(),
-        );
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 500);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 200);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&current_coldkey), 0);
+        // Owner has changed
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey0), new_coldkey);
+        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey2), new_coldkey);
+        // Get owned keys 
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&new_coldkey), vec![hotkey0, hotkey2]);
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&current_coldkey), vec![]);
+        // Get all staked keys.
+        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&new_coldkey), vec![hotkey0, hotkey2]);
+        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&current_coldkey), vec![]);
+        // Check 
+    
     });
 }
