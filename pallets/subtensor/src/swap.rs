@@ -135,7 +135,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Actually do the swap.
-        weight = weight.saturating_add(Self::perform_swap_coldkey(old_coldkey, new_coldkey, &mut weight).map_err(|_| Error::<T>::SwapError)?);
+        weight = weight.saturating_add(Self::perform_swap_coldkey( old_coldkey, new_coldkey ).map_err(|_| Error::<T>::SwapError)?);
 
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64() );
         weight.saturating_accrue(T::DbWeight::get().writes(1));
@@ -215,7 +215,7 @@ impl<T: Config> Pallet<T> {
 
             // Add the old coldkey to the next period keys to swap.
             // Sanity Check.
-            if !next_period_coldkeys_to_swap.contains( old_coldkey.clone() ) {
+            if !next_period_coldkeys_to_swap.contains( &old_coldkey.clone() ) {
                 next_period_coldkeys_to_swap.push( old_coldkey.clone() );
             }
 
@@ -291,6 +291,10 @@ impl<T: Config> Pallet<T> {
 
 
     pub fn perform_swap_coldkey( old_coldkey: &T::AccountId, new_coldkey: &T::AccountId ) -> Result<Weight, &'static str> {
+
+        // Init the weight.
+        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+
         // Swap coldkey references in storage maps
         // NOTE The order of these calls is important
         Self::swap_total_coldkey_stake(old_coldkey, new_coldkey, &mut weight);
@@ -308,7 +312,7 @@ impl<T: Config> Pallet<T> {
         let remaining_balance = Self::get_coldkey_balance(old_coldkey);
         if remaining_balance > 0 {
             if let Err(e) = Self::kill_coldkey_account(old_coldkey, remaining_balance) {
-                return Err(e);
+                return Err(e.into());
             }
             Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
@@ -323,11 +327,11 @@ impl<T: Config> Pallet<T> {
                 total_balance,
                 Preservation::Expendable,
             ) {
-                return Err(e);
+                return Err(e.into());
             }
         }
 
-        Ok(*weight)
+        Ok(weight)
     }
 
     /// Retrieves the network membership status for a given hotkey.
