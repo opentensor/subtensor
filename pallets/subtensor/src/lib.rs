@@ -2060,7 +2060,7 @@ pub mod pallet {
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
             let current_coldkey = ensure_signed(origin)?;
-            Self::do_unstake_all_and_transfer_to_new_coldkey(&current_coldkey, &new_coldkey)
+            Self::schedule_unstake_all_and_transfer_to_new_coldkey(&current_coldkey, &new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

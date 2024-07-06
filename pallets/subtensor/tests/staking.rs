@@ -3158,13 +3158,26 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
     new_test_ext(1).execute_with(|| {
         let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
 
-        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
             &current_coldkey,
             &new_coldkey
         ));
 
+        // Check that ColdkeysToDrainTo is populated correctly
+        assert_eq!(
+            pallet_subtensor::ColdkeysToDrainTo::<Test>::get(current_coldkey),
+            vec![new_coldkey]
+        );
+
+        // Check that drain block is set correctly
+        let drain_block: u64 = 7200 * 7 + 1;
+        assert_eq!(
+            pallet_subtensor::ColdkeysToDrainOnBlock::<Test>::get(drain_block),
+            vec![current_coldkey]
+        );
+
         // Make 7200 * 7 blocks pass
-        run_to_block(7200 * 7 + 1);
+        run_to_block(drain_block);
 
         // Run unstaking
         SubtensorModule::drain_all_pending_coldkeys();
@@ -3193,7 +3206,7 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_same_coldkey() {
         let (current_coldkey, _hotkey, _) = setup_test_environment();
 
         assert_noop!(
-            SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+            SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
                 &current_coldkey,
                 &current_coldkey
             ),
@@ -3235,7 +3248,7 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
         assert_eq!(Balances::total_balance(&new_coldkey), 0);
 
         // Try to unstake and transfer
-        let result = SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+        let result = SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
             &current_coldkey,
             &new_coldkey,
         );
@@ -3259,9 +3272,6 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_no_balance() {
             "Final new_coldkey balance: {:?}",
             Balances::total_balance(&new_coldkey)
         );
-
-        // Assert the expected error
-        assert_noop!(result, Error::<Test>::NoBalanceToTransfer);
 
         // Verify that no balance was transferred
         assert_eq!(Balances::total_balance(&current_coldkey), 0);
@@ -3307,10 +3317,17 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_no_stake() {
         assert_eq!(Balances::total_balance(&new_coldkey), 0);
 
         // Perform unstake and transfer
-        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
             &current_coldkey,
             &new_coldkey
         ));
+
+        // Make 7200 * 7 blocks pass
+        let drain_block: u64 = 7200 * 7 + 1;
+        run_to_block(drain_block);
+
+        // Run unstaking
+        SubtensorModule::drain_all_pending_coldkeys();
 
         // Print final balances
         log::info!(
@@ -3355,10 +3372,17 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes() {
             300
         ));
 
-        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
             &current_coldkey,
             &new_coldkey
         ));
+
+        // Make 7200 * 7 blocks pass
+        let drain_block: u64 = 7200 * 7 + 1;
+        run_to_block(drain_block);
+
+        // Run unstaking
+        SubtensorModule::drain_all_pending_coldkeys();
 
         // Check that all stake has been removed
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 0);
@@ -3402,10 +3426,18 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_with_multiple_stakes_multiple
             hotkey2,
             300
         ));
-        assert_ok!(SubtensorModule::do_unstake_all_and_transfer_to_new_coldkey(
+        assert_ok!(SubtensorModule::schedule_unstake_all_and_transfer_to_new_coldkey(
             &current_coldkey,
             &new_coldkey
         ));
+
+        // Make 7200 * 7 blocks pass
+        let drain_block: u64 = 7200 * 7 + 1;
+        run_to_block(drain_block);
+
+        // Run unstaking
+        SubtensorModule::drain_all_pending_coldkeys();
+
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 0);
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 0);
         assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 1000);

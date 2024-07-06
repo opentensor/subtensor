@@ -888,7 +888,7 @@ impl<T: Config> Pallet<T> {
     /// Emits an `AllBalanceUnstakedAndTransferredToNewColdkey` event upon successful execution.
     /// Emits a `PartialBalanceTransferredToNewColdkey` event if only a partial transfer is successful.
     ///
-    pub fn do_unstake_all_and_transfer_to_new_coldkey(
+    pub fn schedule_unstake_all_and_transfer_to_new_coldkey(
         current_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
@@ -934,8 +934,8 @@ impl<T: Config> Pallet<T> {
 
             // Add this new coldkey to these coldkeys
             // Sanity Check.
-            if !next_period_coldkeys_to_drain.contains(new_coldkey) {
-                next_period_coldkeys_to_drain.push(new_coldkey.clone());
+            if !next_period_coldkeys_to_drain.contains(current_coldkey) {
+                next_period_coldkeys_to_drain.push(current_coldkey.clone());
             }
 
             // Set the new coldkeys to drain here.
@@ -1052,6 +1052,15 @@ impl<T: Config> Pallet<T> {
             );
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
         }
+
+        // Emit event
+        Self::deposit_event(
+            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+                current_coldkey: coldkey_a.clone(),
+                new_coldkey: coldkey_b.clone(),
+                total_balance
+            }
+        );
 
         weight
     }
