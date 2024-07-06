@@ -3163,16 +3163,16 @@ fn test_do_unstake_all_and_transfer_to_new_coldkey_success() {
             &new_coldkey
         ));
 
-        // Check that ColdkeysToDrainTo is populated correctly
+        // Check that ColdkeySwapDestinations is populated correctly
         assert_eq!(
-            pallet_subtensor::ColdkeysToDrainTo::<Test>::get(current_coldkey),
+            pallet_subtensor::ColdkeySwapDestinations::<Test>::get(current_coldkey),
             vec![new_coldkey]
         );
 
         // Check that drain block is set correctly
         let drain_block: u64 = 7200 * 7 + 1;
         assert_eq!(
-            pallet_subtensor::ColdkeysToDrainOnBlock::<Test>::get(drain_block),
+            pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(drain_block),
             vec![current_coldkey]
         );
 

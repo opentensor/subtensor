@@ -41,7 +41,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_is_locked(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
         log::info!(
             "do_registration( coldkey:{:?} netuid:{:?} hotkey:{:?} )",
             coldkey,

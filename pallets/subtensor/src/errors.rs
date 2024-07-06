@@ -150,5 +150,7 @@ mod errors {
         ColdkeyIsInArbitration,
         /// The new coldkey is already registered for the drain
         DuplicateColdkey,
+        /// Error thrown on a coldkey swap.
+        SwapError,
     }
 }

@@ -385,9 +385,9 @@ pub mod pallet {
     #[pallet::type_value]
     pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> { vec![] }
     #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
-    pub type ColdkeysToDrainTo<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
+    pub type ColdkeySwapDestinations<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
     #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
-    pub type ColdkeysToDrainOnBlock<T: Config> = StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
+    pub type ColdkeysToArbitrateAtBlock<T: Config> = StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
 
 
     #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
@@ -1312,7 +1312,10 @@ pub mod pallet {
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             // Unstake all and transfer pending coldkeys
-            let drain_weight = Self::drain_all_pending_coldkeys();
+            let swap_weight = match Self::arbitrate_coldkeys_this_block() {
+                Ok(weight) => weight,
+                Err(_) => Weight::from_parts(0, 0),
+            };
 
             let block_step_result = Self::block_step();
             match block_step_result {
@@ -1322,7 +1325,7 @@ pub mod pallet {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
-                        .saturating_add(drain_weight)
+                        .saturating_add(swap_weight)
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
@@ -1330,7 +1333,7 @@ pub mod pallet {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
-                        .saturating_add(drain_weight)
+                        .saturating_add(swap_weight)
                 }
             }
         }
@@ -2055,12 +2058,11 @@ pub mod pallet {
         #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(272))
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all_and_transfer_to_new_coldkey(
+        pub fn arbitrated_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
-            let current_coldkey = ensure_signed(origin)?;
-            Self::schedule_unstake_all_and_transfer_to_new_coldkey(&current_coldkey, &new_coldkey)
+            Self::do_arbitrated_coldkey_swap( origin, &new_coldkey )
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

@@ -7,10 +7,8 @@ use frame_support::{
             Fortitude, Precision, Preservation,
         },
         Imbalance,
-    }, weights::Weight,
+    }
 };
-use num_traits::Zero;
-use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -46,7 +44,7 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signuture.
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_is_locked(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
         log::info!(
             "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
@@ -136,7 +134,7 @@ impl<T: Config> Pallet<T> {
             hotkey,
             take
         );
-        ensure!(!Self::coldkey_is_locked(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
@@ -209,7 +207,7 @@ impl<T: Config> Pallet<T> {
             hotkey,
             take
         );
-        ensure!(!Self::coldkey_is_locked(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
@@ -295,7 +293,7 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_added
         );
-        ensure!(!Self::coldkey_is_locked(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
@@ -408,7 +406,7 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_removed
         );
-        ensure!(!Self::coldkey_is_locked(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -856,216 +854,56 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
-    ///
-    /// This function performs the following operations:
-    /// 1. Verifies that the hotkey exists and is owned by the current coldkey.
-    /// 2. Ensures that the new coldkey is different from the current one.
-    /// 3. Unstakes all balance if there's any stake.
-    /// 4. Transfers the entire balance of the hotkey to the new coldkey.
-    /// 5. Verifies the success of the transfer and handles partial transfers if necessary.
-    ///
-    /// # Arguments
-    ///
-    /// * `current_coldkey` - The AccountId of the current coldkey.
-    /// * `new_coldkey` - The AccountId of the new coldkey to receive the unstaked tokens.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `DispatchResult` indicating success or failure of the operation.
-    ///
-    /// # Errors
-    ///
-    /// This function will return an error if:
-    /// * The hotkey account does not exist.
-    /// * The current coldkey does not own the hotkey.
-    /// * The new coldkey is the same as the current coldkey.
-    /// * There is no balance to transfer.
-    /// * The transfer fails or is only partially successful.
-    ///
-    /// # Events
-    ///
-    /// Emits an `AllBalanceUnstakedAndTransferredToNewColdkey` event upon successful execution.
-    /// Emits a `PartialBalanceTransferredToNewColdkey` event if only a partial transfer is successful.
-    ///
-    pub fn schedule_unstake_all_and_transfer_to_new_coldkey(
-        current_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-    ) -> DispatchResult {
-
-        ensure!(
-            current_coldkey != new_coldkey,
-            Error::<T>::SameColdkey
-        );
-
-        // Get the current wallets to drain to.
-        let mut coldkeys_to_drain_to: Vec<T::AccountId> = ColdkeysToDrainTo::<T>::get( current_coldkey );
-
-        // Check if the new coldkey is already in the drain wallets list
-        ensure!(
-            !coldkeys_to_drain_to.contains( new_coldkey ),
-            Error::<T>::DuplicateColdkey
-        );
     
-        // Add the wallet to the drain wallets.
-        let initial_coldkey_count = coldkeys_to_drain_to.len();
-        if initial_coldkey_count == 0 as usize || initial_coldkey_count == 1 as usize {
 
-            // Extend the wallet to drain to.
-            coldkeys_to_drain_to.push(new_coldkey.clone());
+    // pub fn x( coldkey_a: &T::AccountId, coldkey_b: &T::AccountId ) -> Weight {
+    //     let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
-            // Push the change.
-            ColdkeysToDrainTo::<T>::insert( current_coldkey, coldkeys_to_drain_to.clone() );
-        } else {
-            return Err(Error::<T>::ColdkeyIsInArbitration.into());
-        }
+    //     // Get the hotkeys associated with coldkey_a.
+    //     let coldkey_a_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get( &coldkey_a );
+    //     weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
-        // If this is the first time we have seen this key we will put the drain period to be in 1 week.
-        if initial_coldkey_count == 0 as usize {
+    //     // Iterate over all the hotkeys associated with this coldkey
+    //     for hotkey_i in coldkey_a_hotkeys.iter() {
 
-            // Get the current block.
-            let current_block: u64 = Self::get_current_block_as_u64();
+    //         // Get the current stake from coldkey_a to hotkey_i.
+    //         let all_current_stake_i: u64 = Self::get_stake_for_coldkey_and_hotkey( &coldkey_a, &hotkey_i );
+    //         weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
-            // Next arbitrage period
-            let next_arbitrage_period: u64 = current_block + 7200 * 7;
+    //         // We remove the balance from the hotkey acount equal to all of it.
+    //         Self::decrease_stake_on_coldkey_hotkey_account( &coldkey_a, &hotkey_i, all_current_stake_i );
+    //         weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 4));
 
-            // First time seeing this key lets push the drain moment to 1 week in the future.
-            let mut next_period_coldkeys_to_drain: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( next_arbitrage_period );
+    //         // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
+    //         Self::add_balance_to_coldkey_account( &coldkey_a, all_current_stake_i );
+    //         weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
+    //     }
 
-            // Add this new coldkey to these coldkeys
-            // Sanity Check.
-            if !next_period_coldkeys_to_drain.contains(current_coldkey) {
-                next_period_coldkeys_to_drain.push(current_coldkey.clone());
-            }
+    //     // Get the total balance here.
+    //     let total_balance = Self::get_coldkey_balance( &coldkey_a );
+    //     weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
 
-            // Set the new coldkeys to drain here.
-            ColdkeysToDrainOnBlock::<T>::insert( next_arbitrage_period, next_period_coldkeys_to_drain );
-        }
+    //     if !total_balance.is_zero() {
+    //         // Attempt to transfer the entire total balance to coldkey_b.
+    //         let _ = T::Currency::transfer(
+    //             coldkey_a,
+    //             coldkey_b,
+    //             total_balance,
+    //             Preservation::Expendable,
+    //         );
+    //         weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+    //     }
 
-        // Return true.
-        Ok(())
-    }
+    //     // Emit event
+    //     Self::deposit_event(
+    //         Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+    //             current_coldkey: coldkey_a.clone(),
+    //             new_coldkey: coldkey_b.clone(),
+    //             total_balance
+    //         }
+    //     );
 
+    //     weight
+    // }
 
-    // Chain opens, this is the only allowed transaction.
-    // 1. Someone calls drain with key C1, DestA, DestA is added to ColdToBeDrained and C1 is given a drain block in 7 days.
-    // 2. Someone else calls drain with key C1, DestB, DestB is added to ColdToBeDrained and C1 already has a drain block, not updated.
-    // 3. Someone calls drain key with C1, DestC. Dest C is not added to the ColdToBeDrained. No-op/
-    // 4. 7200 * 7 blocks progress.
-    // 5. ColdkeysToDrainOnBlock( block ) returns [ C1 ]
-    // 6. ColdToBeDrained( C1 ) returns [ DestA, DestB ] and is Drained
-    // 7. len([ DestA, DestB ]) == 2, set the drain block to be 7 days in the future.
-    // 8. Someone calls drain with key C1, DestA, DestD is added to ColdToBeDrained and C1 is given a drain block in 7 days.
-    // 9. 7200 * 7 blocks progress.
-    // 10. ColdkeysToDrainOnBlock( block ) returns [ C1 ]
-    // 11. ColdToBeDrained( C1 ) returns [ DestD ] and is Drained
-    // 12. len([ DestD ]) == 1, call_drain( C1, DestD )
-
-    pub fn drain_all_pending_coldkeys() -> Weight {
-        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
-
-        // Get the block number
-        let current_block: u64 = Self::get_current_block_as_u64();
-
-        // Get the coldkeys to drain here.
-        let source_coldkeys: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( current_block );
-        ColdkeysToDrainOnBlock::<T>::remove( current_block );
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-
-        // Iterate over all keys in Drain and call drain_to_pending_coldkeys for each
-        for coldkey_i in source_coldkeys.iter() {
-
-            // Get the wallets to drain to for this coldkey.
-            let destinations_coldkeys: Vec<T::AccountId> = ColdkeysToDrainTo::<T>::get( coldkey_i );
-            ColdkeysToDrainTo::<T>::remove( &coldkey_i );
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-
-            // If the wallets to drain is > 1, we extend the period.
-            if destinations_coldkeys.len() > 1 {
-
-                // Next arbitrage period
-                let next_arbitrage_period: u64 = current_block + 7200 * 30;
-
-                // Get the coldkeys to drain at the next arbitrage period.
-                let mut next_period_coldkeys_to_drain: Vec<T::AccountId> = ColdkeysToDrainOnBlock::<T>::get( next_arbitrage_period );
-                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
-
-                // Add this new coldkey to these coldkeys
-                // Sanity Check.
-                if !next_period_coldkeys_to_drain.contains(coldkey_i) {
-                    next_period_coldkeys_to_drain.push(coldkey_i.clone());
-                }
-
-                // Set the new coldkeys to drain here.
-                ColdkeysToDrainOnBlock::<T>::insert( next_arbitrage_period, next_period_coldkeys_to_drain );
-                weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
-
-            } else if destinations_coldkeys.len() == 1 {
-                // ONLY 1 wallet: Get the wallet to drain to.
-                let wallet_to_drain_to = &destinations_coldkeys[0];
-
-                // Perform the drain.
-                weight = weight.saturating_add(
-                    Self::drain_from_coldkey_a_to_coldkey_b( &coldkey_i, wallet_to_drain_to )
-                );
-            }
-        }
-
-        weight
-    }
-
-
-    pub fn drain_from_coldkey_a_to_coldkey_b( coldkey_a: &T::AccountId, coldkey_b: &T::AccountId ) -> Weight {
-        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
-
-        // Get the hotkeys associated with coldkey_a.
-        let coldkey_a_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get( &coldkey_a );
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
-
-        // Iterate over all the hotkeys associated with this coldkey
-        for hotkey_i in coldkey_a_hotkeys.iter() {
-
-            // Get the current stake from coldkey_a to hotkey_i.
-            let all_current_stake_i: u64 = Self::get_stake_for_coldkey_and_hotkey( &coldkey_a, &hotkey_i );
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
-
-            // We remove the balance from the hotkey acount equal to all of it.
-            Self::decrease_stake_on_coldkey_hotkey_account( &coldkey_a, &hotkey_i, all_current_stake_i );
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 4));
-
-            // We add the balance to the coldkey. If the above fails we will not credit this coldkey.
-            Self::add_balance_to_coldkey_account( &coldkey_a, all_current_stake_i );
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
-        }
-
-        // Get the total balance here.
-        let total_balance = Self::get_coldkey_balance( &coldkey_a );
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
-
-        if !total_balance.is_zero() {
-            // Attempt to transfer the entire total balance to coldkey_b.
-            let _ = T::Currency::transfer(
-                coldkey_a,
-                coldkey_b,
-                total_balance,
-                Preservation::Expendable,
-            );
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
-        }
-
-        // Emit event
-        Self::deposit_event(
-            Event::AllBalanceUnstakedAndTransferredToNewColdkey {
-                current_coldkey: coldkey_a.clone(),
-                new_coldkey: coldkey_b.clone(),
-                total_balance
-            }
-        );
-
-        weight
-    }
-
-    pub fn coldkey_is_locked( coldkey: &T::AccountId ) -> bool {
-        ColdkeysToDrainTo::<T>::contains_key( coldkey )
-    }
 }
