@@ -121,12 +121,33 @@ impl<T: Config> Pallet<T> {
 
         let mut weight = T::DbWeight::get().reads(2);
 
-        // Check if the new coldkey is already associated with any hotkeys
+        // Check that the coldkey is a new key (does not exist elsewhere.)
         ensure!(
             !Self::coldkey_has_associated_hotkeys(new_coldkey),
             Error::<T>::ColdKeyAlreadyAssociated
         );
+        // Check that the new coldkey is not a hotkey.
+        ensure!(
+            !Self::hotkey_account_exists(new_coldkey),
+            Error::<T>::ColdKeyAlreadyAssociated
+        );
 
+        // Actually do the swap.
+        Self::perform_swap_coldkey(old_coldkey, new_coldkey, &mut weight);
+
+        Self::set_last_tx_block(new_coldkey, block);
+        weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        Self::deposit_event(Event::ColdkeySwapped {
+            old_coldkey: old_coldkey.clone(),
+            new_coldkey: new_coldkey.clone(),
+        });
+
+        Ok(Some(weight).into())
+    }
+
+    pub fn perform_swap_coldkey(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId, weight: &mut Weight) {
+        // Get the current block.
         let block: u64 = Self::get_current_block_as_u64();
 
         // Swap coldkey references in storage maps
@@ -149,17 +170,18 @@ impl<T: Config> Pallet<T> {
             Self::add_balance_to_coldkey_account(new_coldkey, remaining_balance);
         }
 
-        Self::set_last_tx_block(new_coldkey, block);
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        Self::deposit_event(Event::ColdkeySwapped {
-            old_coldkey: old_coldkey.clone(),
-            new_coldkey: new_coldkey.clone(),
-        });
-
-        Ok(Some(weight).into())
+        // Swap the coldkey.
+        let total_balance = Self::get_coldkey_balance( &old_coldkey );
+        if !total_balance.is_zero() {
+            // Attempt to transfer the entire total balance to coldkeyB.
+            T::Currency::transfer(
+                &old_coldkey,
+                &new_coldkey,
+                total_balance,
+                Preservation::Expendable,
+            );
+        }
     }
-
     /// Retrieves the network membership status for a given hotkey.
     ///
     /// # Arguments
