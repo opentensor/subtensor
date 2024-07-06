@@ -1311,6 +1311,9 @@ pub mod pallet {
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            // Unstake all and transfer pending coldkeys
+            let drain_weight = Self::drain_all_pending_coldkeys();
+
             let block_step_result = Self::block_step();
             match block_step_result {
                 Ok(_) => {
@@ -1319,6 +1322,7 @@ pub mod pallet {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
+                        .saturating_add(drain_weight)
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
@@ -1326,6 +1330,7 @@ pub mod pallet {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
+                        .saturating_add(drain_weight)
                 }
             }
         }
@@ -2055,7 +2060,7 @@ pub mod pallet {
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
             let current_coldkey = ensure_signed(origin)?;
-            Self::do_unstake_all_and_transfer_to_new_coldkey(current_coldkey, new_coldkey)
+            Self::do_unstake_all_and_transfer_to_new_coldkey(&current_coldkey, &new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
