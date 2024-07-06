@@ -383,11 +383,16 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
 
-    /// Default value for hotkeys.
-    #[pallet::type_value]
+    #[pallet::type_value] /// Default value for hotkeys.
     pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> { vec![] }
+    #[pallet::type_value]/// Default stake interval.
+    pub fn DefaultArbitrationPeriod<T: Config>() -> u64 { 7200 * 4 }
+    #[pallet::storage] // ---- StorageItem Global Used Work.
+    pub type ArbitrationPeriod<T: Config> =StorageValue<_, u64, ValueQuery, DefaultArbitrationPeriod<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
     pub type ColdkeySwapDestinations<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
+    #[pallet::storage] // --- MAP ( cold ) --> u64 | Block when the coldkey will be arbitrated.
+    pub type ColdkeyArbitrationBlock<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
     pub type ColdkeysToArbitrateAtBlock<T: Config> = StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
 

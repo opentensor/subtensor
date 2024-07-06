@@ -3394,57 +3394,78 @@ fn test_arbitrated_coldkey_swap_with_multiple_stakes() {
     });
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_arbitrated_coldkey_swap_with_multiple_stakes_multiple --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_arbitrated_coldkey_swap_multiple_arbitrations --exact --nocapture
 #[test]
-fn test_arbitrated_coldkey_swap_with_multiple_stakes_multiple() {
+fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
     new_test_ext(1).execute_with(|| {
-        // Register the neuron to a new network
-        let netuid = 1;
-        let hotkey0 = U256::from(1);
-        let hotkey2 = U256::from(2);
-        let current_coldkey = U256::from(3);
-        let new_coldkey = U256::from(4);
-        add_network(netuid, 0, 0);
-        register_ok_neuron(1, hotkey0, current_coldkey, 0);
-        register_ok_neuron(1, hotkey2, current_coldkey, 0);
-        SubtensorModule::set_target_stakes_per_interval(10);
-        SubtensorModule::add_balance_to_coldkey_account(&current_coldkey, 1000);
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(current_coldkey),
-            hotkey0,
-            500
-        ));
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(current_coldkey),
-            hotkey2,
-            300
-        ));
-        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
-            &current_coldkey,
-            &new_coldkey
-        ));
 
-        // Make 7200 * 7 blocks pass
-        let drain_block: u64 = 7200 * 7 + 1;
-        run_to_block(drain_block);
+        // Create coldkey with two choices.
+        let coldkey: AccountId = U256::from(1);
+        let new_coldkey1: AccountId = U256::from(2);
+        let new_coldkey2: AccountId = U256::from(3);
+        let hotkey: AccountId = U256::from(4);
 
-        // Run unstaking
-        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
+        // Setup network state.
+        add_network(1, 0, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+        ArbitrationPeriod::<Test>::put(1); // One block arbitration period.
+        register_ok_neuron(1, hotkey, coldkey, 0);
 
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), 500);
-        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey), 200);
-        assert_eq!(SubtensorModule::get_coldkey_balance(&current_coldkey), 0);
-        // Owner has changed
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey0), new_coldkey);
-        assert_eq!(SubtensorModule::get_owning_coldkey_for_hotkey(&hotkey2), new_coldkey);
-        // Get owned keys 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&new_coldkey), vec![hotkey0, hotkey2]);
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&current_coldkey), vec![]);
-        // Get all staked keys.
-        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&new_coldkey), vec![hotkey0, hotkey2]);
-        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&current_coldkey), vec![]);
-        // Check 
-    
+        // Owner schedules a swap for themselves.
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap( &coldkey, &new_coldkey1 ));
+
+        // Attacker schedules the second swap for themselves.
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap( &coldkey, &new_coldkey2 ));
+
+        // Both keys are added in swap destinations.
+        assert_eq!( pallet_subtensor::ColdkeySwapDestinations::<Test>::get(coldkey), vec![new_coldkey1, new_coldkey2] );
+
+        // Check that we are arbitrating next block.
+        assert_eq!( pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(SubtensorModule::get_current_block_as_u64() + 1), vec![coldkey] );
+
+        // Key is in arbitration.
+        assert!( SubtensorModule::coldkey_in_arbitration( &coldkey ) );
+
+        // Arbitrate next block.
+        assert_eq!( pallet_subtensor::ColdkeyArbitrationBlock::<Test>::get( &coldkey ), SubtensorModule::get_current_block_as_u64() + 1 );
+
+        // Arbitrate.
+        step_block(1);
+
+        // Both keys are removed and a new period begins.
+        assert_eq!( pallet_subtensor::ColdkeySwapDestinations::<Test>::get(coldkey), vec![] );
+
+        // Arbitration has been pushed back but there are no keys to add to the list to arbitrate.
+        assert_eq!( pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(SubtensorModule::get_current_block_as_u64() + 1), vec![] );
+
+        // Key is in arbitration.
+        assert!( SubtensorModule::coldkey_in_arbitration( &coldkey ) );
+
+        // Arbitrate next block.
+        assert_eq!( pallet_subtensor::ColdkeyArbitrationBlock::<Test>::get( &coldkey ), SubtensorModule::get_current_block_as_u64() + 1 );
+
+        // Arbitrate.
+        step_block(1);  
+
+        // Key is not in arbitration
+        assert!( !SubtensorModule::coldkey_in_arbitration( &coldkey ) );
+
+        // Owner schedules a swap for themselves leys go back into arbitration.
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap( &coldkey, &new_coldkey1 ));
+
+        // Key goes back into arbitration.
+        assert!( SubtensorModule::coldkey_in_arbitration( &coldkey ) );
+
+        // Arbitrate next block.
+        assert_eq!( pallet_subtensor::ColdkeyArbitrationBlock::<Test>::get( &coldkey ), SubtensorModule::get_current_block_as_u64() + 1 );
+
+        // Arbitrate.
+        step_block(1);
+
+        // New key gets amount the other keys are empty.
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey), 0);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey1), 1000);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey2), 0);
+
     });
 }

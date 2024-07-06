@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
     /// - There are already 2 keys in arbitration for this coldkey.
     ///   
     // The coldkey is in arbitration state.
-    pub fn coldkey_in_arbitration( coldkey: &T::AccountId ) -> bool { ColdkeySwapDestinations::<T>::contains_key( coldkey ) } // Helper
+    pub fn coldkey_in_arbitration( coldkey: &T::AccountId ) -> bool { ColdkeyArbitrationBlock::<T>::get(coldkey) > Self::get_current_block_as_u64() } 
     pub fn do_schedule_arbitrated_coldkey_swap(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
@@ -184,40 +184,29 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DuplicateColdkey
         );
     
-        // Add the wallet to the swap wallets.
-        let initial_destination_count = destination_coldkeys.len();
-
         // If the destinations keys are empty or have size 1 then we will add the new coldkey to the list.
-        if initial_destination_count == 0 as usize || initial_destination_count == 1 as usize {
-            // Extend the wallet to swap to.
+        if destination_coldkeys.len() == 0 as usize || destination_coldkeys.len() == 1 as usize {
+            // Add this wallet to exist in the destination list.
             destination_coldkeys.push( new_coldkey.clone() );
-
-            // Push the change to the storage.
             ColdkeySwapDestinations::<T>::insert( old_coldkey.clone(), destination_coldkeys.clone() );
-
         } else {
-
-            // If the destinations len > 1 we dont add the new coldkey.
             return Err(Error::<T>::ColdkeyIsInArbitration.into());
         }
 
-        // If this is the first time we have seen this key we will put the swap period to be in 7 days.
-        if initial_destination_count == 0 as usize {
+        // It is the first time we have seen this key.
+        if destination_coldkeys.len() == 1 as usize {
 
-            // Set the arbitration period to be 7 days from now.
-            let next_arbitration_period: u64 = Self::get_current_block_as_u64() + 7200 * 7;
+            // Set the arbitration block for this coldkey.
+            let arbitration_block: u64 = Self::get_current_block_as_u64() + ArbitrationPeriod::<T>::get();
+            ColdkeyArbitrationBlock::<T>::insert( old_coldkey.clone(), arbitration_block );
 
-            // First time seeing this key lets push the swap moment to 1 week in the future.
-            let mut next_period_coldkeys_to_swap: Vec<T::AccountId> = ColdkeysToArbitrateAtBlock::<T>::get( next_arbitration_period );
-
-            // Add the old coldkey to the next period keys to swap.
-            // Sanity Check.
-            if !next_period_coldkeys_to_swap.contains( &old_coldkey.clone() ) {
-                next_period_coldkeys_to_swap.push( old_coldkey.clone() );
+            // Update the list of coldkeys arbitrate on this block.
+            let mut key_to_arbitrate_on_this_block: Vec<T::AccountId> = ColdkeysToArbitrateAtBlock::<T>::get( arbitration_block );
+            if !key_to_arbitrate_on_this_block.contains( &old_coldkey.clone() ) {
+                key_to_arbitrate_on_this_block.push( old_coldkey.clone() );
             }
+            ColdkeysToArbitrateAtBlock::<T>::insert( arbitration_block, key_to_arbitrate_on_this_block );
 
-            // Set the new coldkeys to swap here.
-            ColdkeysToArbitrateAtBlock::<T>::insert( next_arbitration_period, next_period_coldkeys_to_swap );
         }
 
         // Return true.
@@ -253,25 +242,12 @@ impl<T: Config> Pallet<T> {
             ColdkeySwapDestinations::<T>::remove( &coldkey_i );
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
-            // If the wallets to swap is > 1, we extend the period.
+            // If the wallets to swap is > 1 we do nothing.
             if destinations_coldkeys.len() > 1 {
 
-                // Next arbitrage period
-                let next_arbitrage_period: u64 = current_block + 7200 * 7;
-
-                // Get the coldkeys to swap at the next arbitrage period.
-                let mut next_period_coldkeys_to_swap: Vec<T::AccountId> = ColdkeysToArbitrateAtBlock::<T>::get( next_arbitrage_period );
-                weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 0));
-
-                // Add this new coldkey to these coldkeys
-                // Sanity Check.
-                if !next_period_coldkeys_to_swap.contains(coldkey_i) {
-                    next_period_coldkeys_to_swap.push(coldkey_i.clone());
-                }
-
-                // Set the new coldkeys to swap here.
-                ColdkeysToArbitrateAtBlock::<T>::insert( next_arbitrage_period, next_period_coldkeys_to_swap );
-                weight = weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
+                // Update the arbitration period but we still have the same wallet to swap to.
+                let next_arbitrage_period: u64 = current_block + ArbitrationPeriod::<T>::get();
+                ColdkeyArbitrationBlock::<T>::insert( coldkey_i.clone(), next_arbitrage_period );
 
             } else if destinations_coldkeys.len() == 1 {
                 // ONLY 1 wallet: Get the wallet to swap to.
