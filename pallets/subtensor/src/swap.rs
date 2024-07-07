@@ -2,7 +2,7 @@ use super::*;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
 use frame_support::{storage::IterableStorageDoubleMap, weights::Weight};
-use sp_core::Get;
+use sp_core::{Get, U256};
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -203,8 +203,11 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `old_coldkey` - The account ID of the old coldkey.
+    /// * `origin` - The origin of the call, which must be signed by the old coldkey.
     /// * `new_coldkey` - The account ID of the new coldkey.
+    /// * `work` - The proof of work submitted by the caller.
+    /// * `block_number` - The block number at which the work was performed.
+    /// * `nonce` - The nonce used for the proof of work.
     ///
     /// # Returns
     ///
@@ -216,62 +219,83 @@ impl<T: Config> Pallet<T> {
     /// - The old coldkey is the same as the new coldkey.
     /// - The new coldkey is already in the list of destination coldkeys.
     /// - There are already 2 destination coldkeys for the old coldkey.
+    /// - The old coldkey doesn't have the minimum required TAO balance.
+    /// - The proof of work is invalid or doesn't meet the required difficulty.
     ///
     /// # Notes
     ///
     /// This function ensures that the new coldkey is not already in the list of destination coldkeys.
-    /// If the list of destination coldkeys is empty or has only one entry, the new coldkey is added to the list.
-    /// If the list of destination coldkeys has two entries, the function returns an error.
-    /// If the new coldkey is added to the list for the first time, the arbitration block is set for the old coldkey.
-    /// The list of coldkeys to arbitrate at the arbitration block is updated.
-    // TOOD:
-    // Check minimum amount of TAO
-    // Add POW functionality / Move Destination Coldkeys to a list that can take X amount of coldkey dests
+    /// It also checks for a minimum TAO balance and verifies the proof of work.
+    /// The difficulty of the proof of work increases exponentially with each subsequent call.
     pub fn do_schedule_coldkey_swap(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
+        work: Vec<u8>,
+        block_number: u64,
+        nonce: u64,
     ) -> DispatchResult {
-        //  TODO: Check minimum amount of TAO
-        // Catch spurious swaps.
-        ensure!(*old_coldkey != *new_coldkey, Error::<T>::SameColdkey);
+        ensure!(old_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
-        // Get current destination coldkeys.
+        // Check minimum amount of TAO (1 TAO)
+        let minimum_balance: u64 = 1_000_000_000; // 1 TAO in RAO
+        ensure!(
+            Self::get_coldkey_balance(&old_coldkey) >= minimum_balance,
+            Error::<T>::InsufficientBalanceToPerformColdkeySwap
+        );
+
+        // Get current destination coldkeys
         let mut destination_coldkeys: Vec<T::AccountId> =
             ColdkeySwapDestinations::<T>::get(old_coldkey.clone());
 
+        // Calculate difficulty based on the number of existing destination coldkeys
+        let difficulty = Self::calculate_pow_difficulty(destination_coldkeys.len() as u32);
+        let work_hash = Self::vec_to_hash(work.clone());
+        ensure!(
+            Self::hash_meets_difficulty(&work_hash, difficulty),
+            Error::<T>::InvalidDifficulty
+        );
+
+        // Verify work is the product of the nonce, the block number, and coldkey
+        let seal = Self::create_seal_hash(block_number, nonce, &old_coldkey);
+        ensure!(seal == work_hash, Error::<T>::InvalidSeal);
+
         // Check if the new coldkey is already in the swap wallets list
         ensure!(
-            !destination_coldkeys.contains(new_coldkey),
+            !destination_coldkeys.contains(&new_coldkey),
             Error::<T>::DuplicateColdkey
         );
 
-        // If the destinations keys are empty or have size 1 then we will add the new coldkey to the list.
+        // If the destinations keys are empty or have size 1 then we will add the new coldkey to the list
         if destination_coldkeys.is_empty() || destination_coldkeys.len() == 1_usize {
-            // Add this wallet to exist in the destination list.
             destination_coldkeys.push(new_coldkey.clone());
             ColdkeySwapDestinations::<T>::insert(old_coldkey.clone(), destination_coldkeys.clone());
         } else {
             return Err(Error::<T>::ColdkeyIsInArbitration.into());
         }
 
-        // It is the first time we have seen this key.
+        // It is the first time we have seen this key
         if destination_coldkeys.len() == 1_usize {
-            // Set the arbitration block for this coldkey.
+            // Set the arbitration block for this coldkey
             let arbitration_block: u64 =
                 Self::get_current_block_as_u64().saturating_add(ArbitrationPeriod::<T>::get());
             ColdkeyArbitrationBlock::<T>::insert(old_coldkey.clone(), arbitration_block);
 
-            // Update the list of coldkeys arbitrate on this block.
+            // Update the list of coldkeys to arbitrate on this block
             let mut key_to_arbitrate_on_this_block: Vec<T::AccountId> =
                 ColdkeysToSwapAtBlock::<T>::get(arbitration_block);
-            if !key_to_arbitrate_on_this_block.contains(&old_coldkey.clone()) {
+            if !key_to_arbitrate_on_this_block.contains(&old_coldkey) {
                 key_to_arbitrate_on_this_block.push(old_coldkey.clone());
             }
             ColdkeysToSwapAtBlock::<T>::insert(arbitration_block, key_to_arbitrate_on_this_block);
         }
 
-        // Return true.
         Ok(())
+    }
+
+    /// Calculate the proof of work difficulty based on the number of swap attempts
+    fn calculate_pow_difficulty(swap_attempts: u32) -> U256 {
+        let base_difficulty: U256 = U256::from(1_000_000); // Base difficulty
+        base_difficulty * U256::from(2).pow(U256::from(swap_attempts))
     }
 
     /// Arbitrates coldkeys that are scheduled to be swapped on this block.

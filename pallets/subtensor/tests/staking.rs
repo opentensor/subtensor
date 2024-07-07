@@ -3164,9 +3164,15 @@ fn test_arbitrated_coldkey_swap_success() {
     new_test_ext(1).execute_with(|| {
         let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &current_coldkey,
-            &new_coldkey
+            &current_coldkey.clone(),
+            &new_coldkey,
+            work,
+            current_block,
+            nonce
         ));
 
         // Check that ColdkeySwapDestinations is populated correctly
@@ -3223,8 +3229,17 @@ fn test_arbitrated_coldkey_swap_same_coldkey() {
     new_test_ext(1).execute_with(|| {
         let (current_coldkey, _hotkey, _) = setup_test_environment();
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+
         assert_noop!(
-            SubtensorModule::do_schedule_coldkey_swap(&current_coldkey, &current_coldkey),
+            SubtensorModule::do_schedule_coldkey_swap(
+                &current_coldkey.clone(),
+                &current_coldkey,
+                work,
+                current_block,
+                nonce
+            ),
             Error::<Test>::SameColdkey
         );
     });
@@ -3263,11 +3278,27 @@ fn test_arbitrated_coldkey_swap_no_balance() {
         assert_eq!(Balances::total_balance(&hotkey), 0);
         assert_eq!(Balances::total_balance(&new_coldkey), 0);
 
-        // Try to unstake and transfer
-        let result = SubtensorModule::do_schedule_coldkey_swap(&current_coldkey, &new_coldkey);
+        // Generate valid PoW
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+
+        // Try to schedule coldkey swap
+        let result = SubtensorModule::do_schedule_coldkey_swap(
+            &current_coldkey.clone(),
+            &new_coldkey,
+            work,
+            current_block,
+            nonce,
+        );
 
         // Print the result
         log::info!("Result of arbitrated_coldkey_swap: {:?}", result);
+
+        // Verify that the operation failed due to insufficient balance
+        assert_noop!(
+            result,
+            Error::<Test>::InsufficientBalanceToPerformColdkeySwap
+        );
 
         // Print final balances
         log::info!(
@@ -3328,14 +3359,20 @@ fn test_arbitrated_coldkey_swap_with_no_stake() {
         assert_eq!(Balances::total_balance(&hotkey), 0);
         assert_eq!(Balances::total_balance(&new_coldkey), 0);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+
         // Perform unstake and transfer
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &current_coldkey,
-            &new_coldkey
+            &current_coldkey.clone(),
+            &new_coldkey,
+            work,
+            current_block,
+            nonce
         ));
 
         // Make 7200 * 4 blocks pass
-        let drain_block: u64 = 7200 * 4 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
         run_to_block(drain_block);
 
         // Print final balances
@@ -3373,13 +3410,19 @@ fn test_arbitrated_coldkey_swap_with_multiple_stakes() {
             300
         ));
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &current_coldkey,
-            &new_coldkey
+            &current_coldkey.clone(),
+            &new_coldkey,
+            work,
+            current_block,
+            nonce
         ));
 
         // Make 7200 * 4 blocks pass
-        let drain_block: u64 = 7200 * 4 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
         run_to_block(drain_block);
 
         // Check that all stake has been removed
@@ -3415,16 +3458,26 @@ fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
         ArbitrationPeriod::<Test>::put(1); // One block arbitration period.
         register_ok_neuron(1, hotkey, coldkey, 0);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work1, nonce1) = generate_valid_pow(&coldkey, current_block, 1_000_000);
+        let (work2, nonce2) = generate_valid_pow(&coldkey, current_block, 2_000_000);
+
         // Owner schedules a swap for themselves.
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey,
-            &new_coldkey1
+            &coldkey.clone(),
+            &new_coldkey1,
+            work1,
+            current_block,
+            nonce1
         ));
 
         // Attacker schedules the second swap for themselves.
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey,
-            &new_coldkey2
+            &coldkey.clone(),
+            &new_coldkey2,
+            work2,
+            current_block,
+            nonce2
         ));
 
         // Both keys are added in swap destinations.
@@ -3482,10 +3535,15 @@ fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
         // Key is not in arbitration
         assert!(!SubtensorModule::coldkey_in_arbitration(&coldkey));
 
-        // Owner schedules a swap for themselves leys go back into arbitration.
+        // Owner schedules a swap for themselves lets go back into arbitration.
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work3, nonce3) = generate_valid_pow(&coldkey, current_block, 4_000_000);
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey,
-            &new_coldkey1
+            &coldkey.clone(),
+            &new_coldkey1,
+            work3,
+            current_block,
+            nonce3
         ));
 
         // Key goes back into arbitration.
@@ -3514,28 +3572,51 @@ fn test_arbitrated_coldkey_swap_existing_destination() {
         let (current_coldkey, _hotkey, new_coldkey) = setup_test_environment();
         let another_coldkey = U256::from(4);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work1, nonce1) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+        let (work2, nonce2) = generate_valid_pow(&current_coldkey, current_block, 2_000_000);
+        let (work3, nonce3) = generate_valid_pow(&current_coldkey, current_block, 4_000_000);
+
         // Schedule a swap to new_coldkey
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
             &current_coldkey,
-            &new_coldkey
+            &new_coldkey,
+            work1,
+            current_block,
+            nonce1
         ));
 
         // Attempt to schedule a swap to the same new_coldkey again
         assert_noop!(
-            SubtensorModule::do_schedule_coldkey_swap(&current_coldkey, &new_coldkey),
+            SubtensorModule::do_schedule_coldkey_swap(
+                &current_coldkey.clone(),
+                &new_coldkey,
+                work2.clone(),
+                current_block,
+                nonce2
+            ),
             Error::<Test>::DuplicateColdkey
         );
 
         // Schedule a swap to another_coldkey
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &current_coldkey,
-            &another_coldkey
+            &current_coldkey.clone(),
+            &another_coldkey,
+            work2,
+            current_block,
+            nonce2
         ));
 
         // Attempt to schedule a third swap
         let third_coldkey = U256::from(5);
         assert_noop!(
-            SubtensorModule::do_schedule_coldkey_swap(&current_coldkey, &third_coldkey),
+            SubtensorModule::do_schedule_coldkey_swap(
+                &current_coldkey.clone(),
+                &third_coldkey,
+                work3,
+                current_block,
+                nonce3
+            ),
             Error::<Test>::ColdkeyIsInArbitration
         );
     });
@@ -3547,16 +3628,26 @@ fn test_arbitration_period_extension() {
         let (current_coldkey, _hotkey, new_coldkey) = setup_test_environment();
         let another_coldkey = U256::from(4);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work1, nonce1) = generate_valid_pow(&current_coldkey, current_block, 1_000_000);
+        let (work2, nonce2) = generate_valid_pow(&current_coldkey, current_block, 2_000_000);
+
         // Schedule a swap to new_coldkey
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &current_coldkey,
-            &new_coldkey
+            &current_coldkey.clone(),
+            &new_coldkey,
+            work1,
+            current_block,
+            nonce1
         ));
 
         // Schedule a swap to another_coldkey
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &current_coldkey,
-            &another_coldkey
+            &current_coldkey.clone(),
+            &another_coldkey,
+            work2,
+            current_block,
+            nonce2
         ));
 
         // Check that the arbitration period is extended
@@ -3595,18 +3686,27 @@ fn test_concurrent_arbitrated_coldkey_swaps() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 1000);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work1, nonce1) = generate_valid_pow(&coldkey1, current_block, 1_000_000);
+        let (work2, nonce2) = generate_valid_pow(&coldkey2, current_block, 1_000_000);
+
         // Schedule swaps for both coldkeys
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey1,
-            &new_coldkey1
+            &coldkey1.clone(),
+            &new_coldkey1,
+            work1,
+            current_block,
+            nonce1
         ));
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey2,
-            &new_coldkey2
+            &coldkey2.clone(),
+            &new_coldkey2,
+            work2,
+            current_block,
+            nonce2
         ));
-
         // Make 7200 * 4 blocks pass
-        let drain_block: u64 = 7200 * 4 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
         run_to_block(drain_block);
 
         // Run arbitration
@@ -3624,10 +3724,16 @@ fn test_get_remaining_arbitration_period() {
         let coldkey_account_id = U256::from(12345); // arbitrary coldkey
         let new_coldkey_account_id = U256::from(54321); // arbitrary new coldkey
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&coldkey_account_id, current_block, 1_000_000);
+
         // Schedule a coldkey swap to set the arbitration block
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey_account_id,
-            &new_coldkey_account_id
+            &coldkey_account_id.clone(),
+            &new_coldkey_account_id,
+            work,
+            current_block,
+            nonce
         ));
 
         // Get the current block number and arbitration period
@@ -3666,10 +3772,16 @@ fn test_transfer_coldkey_in_arbitration() {
         // Add balance to coldkey
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&coldkey_account_id, current_block, 1_000_000);
+
         // Schedule a coldkey swap to put the coldkey in arbitration
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey_account_id,
-            &new_coldkey_account_id
+            &coldkey_account_id.clone(),
+            &new_coldkey_account_id,
+            work,
+            current_block,
+            nonce
         ));
 
         // Try to transfer balance
@@ -3699,12 +3811,17 @@ fn test_add_stake_coldkey_in_arbitration() {
         register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&coldkey_account_id, current_block, 1_000_000);
+
         // Schedule a coldkey swap to put the coldkey in arbitration
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey_account_id,
-            &new_coldkey_account_id
+            &coldkey_account_id.clone(),
+            &new_coldkey_account_id,
+            work,
+            current_block,
+            nonce
         ));
-
         let call = RuntimeCall::SubtensorModule(crate::Call::add_stake {
             hotkey: hotkey_account_id,
             amount_staked: 1000,
@@ -3730,10 +3847,16 @@ fn test_remove_stake_coldkey_in_arbitration() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
         SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 1000);
 
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) = generate_valid_pow(&coldkey_account_id, current_block, 1_000_000);
+
         // Schedule a coldkey swap to put the coldkey in arbitration
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey_account_id,
-            &new_coldkey_account_id
+            &coldkey_account_id.clone(),
+            &new_coldkey_account_id,
+            work,
+            current_block,
+            nonce
         ));
 
         let call = RuntimeCall::SubtensorModule(crate::Call::remove_stake {
@@ -3766,4 +3889,16 @@ fn test_transfer_coldkey_not_in_arbitration() {
 
 fn validate_transaction(who: &AccountId, call: &RuntimeCall) -> TransactionValidity {
     SubtensorSignedExtension::<Test>::new().validate(who, call, &DispatchInfo::default(), 0)
+}
+
+// Helper function to generate valid PoW
+fn generate_valid_pow(coldkey: &AccountId, block_number: u64, difficulty: u32) -> (Vec<u8>, u64) {
+    let mut nonce: u64 = 0;
+    loop {
+        let work = SubtensorModule::create_seal_hash(block_number, nonce, coldkey);
+        if SubtensorModule::hash_meets_difficulty(&work, difficulty.into()) {
+            return (work.as_bytes().to_vec(), nonce);
+        }
+        nonce += 1;
+    }
 }

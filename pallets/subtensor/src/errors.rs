@@ -152,5 +152,7 @@ mod errors {
         DuplicateColdkey,
         /// Error thrown on a coldkey swap.
         SwapError,
+        /// Insufficient Balance to Schedule coldkey swap
+        InsufficientBalanceToPerformColdkeySwap,
     }
 }

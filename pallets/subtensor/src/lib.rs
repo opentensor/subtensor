@@ -2082,10 +2082,13 @@ pub mod pallet {
         pub fn schedule_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
+            work: Vec<u8>,
+            block_number: u64,
+            nonce: u64,
         ) -> DispatchResult {
             // Attain the calling coldkey from the origin.
             let old_coldkey: T::AccountId = ensure_signed(origin)?;
-            Self::do_schedule_coldkey_swap(&old_coldkey, &new_coldkey)
+            Self::do_schedule_coldkey_swap(&old_coldkey, &new_coldkey, work, block_number, nonce)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
