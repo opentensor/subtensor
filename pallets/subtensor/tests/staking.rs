@@ -3171,7 +3171,13 @@ fn test_arbitrated_coldkey_swap_success() {
         );
 
         // Check that drain block is set correctly
-        let drain_block: u64 = 7200 * 7 + 1;
+        let drain_block: u64 = 7200 * 4 + 1;
+
+        log::info!(
+            "ColdkeysToArbitrateAtBlock before scheduling: {:?}",
+            pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(drain_block)
+        );
+
         assert_eq!(
             pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(drain_block),
             vec![current_coldkey]
@@ -3182,7 +3188,7 @@ fn test_arbitrated_coldkey_swap_success() {
             pallet_subtensor::ColdkeysToArbitrateAtBlock::<Test>::get(drain_block)
         );
 
-        // Make 7200 * 7 blocks pass
+        // Make 7200 * 4 blocks pass
         run_to_block(drain_block);
 
         // Run unstaking
@@ -3327,12 +3333,9 @@ fn test_arbitrated_coldkey_swap_with_no_stake() {
             &new_coldkey
         ));
 
-        // Make 7200 * 7 blocks pass
-        let drain_block: u64 = 7200 * 7 + 1;
+        // Make 7200 * 4 blocks pass
+        let drain_block: u64 = 7200 * 4 + 1;
         run_to_block(drain_block);
-
-        // Run unstaking
-        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
 
         // Print final balances
         log::info!(
@@ -3374,12 +3377,9 @@ fn test_arbitrated_coldkey_swap_with_multiple_stakes() {
             &new_coldkey
         ));
 
-        // Make 7200 * 7 blocks pass
-        let drain_block: u64 = 7200 * 7 + 1;
+        // Make 7200 * 4 blocks pass
+        let drain_block: u64 = 7200 * 4 + 1;
         run_to_block(drain_block);
-
-        // Run unstaking
-        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
 
         // Check that all stake has been removed
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey), 800);
@@ -3503,5 +3503,116 @@ fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
         assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey), 0);
         assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey1), 1000);
         assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey2), 0);
+    });
+}
+
+// TODO: Verify that we never want more than 2 destinations for a coldkey
+#[test]
+fn test_arbitrated_coldkey_swap_existing_destination() {
+    new_test_ext(1).execute_with(|| {
+        let (current_coldkey, _hotkey, new_coldkey) = setup_test_environment();
+        let another_coldkey = U256::from(4);
+
+        // Schedule a swap to new_coldkey
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
+            &current_coldkey,
+            &new_coldkey
+        ));
+
+        // Attempt to schedule a swap to the same new_coldkey again
+        assert_noop!(
+            SubtensorModule::do_schedule_arbitrated_coldkey_swap(&current_coldkey, &new_coldkey),
+            Error::<Test>::DuplicateColdkey
+        );
+
+        // Schedule a swap to another_coldkey
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
+            &current_coldkey,
+            &another_coldkey
+        ));
+
+        // Attempt to schedule a third swap
+        let third_coldkey = U256::from(5);
+        assert_noop!(
+            SubtensorModule::do_schedule_arbitrated_coldkey_swap(&current_coldkey, &third_coldkey),
+            Error::<Test>::ColdkeyIsInArbitration
+        );
+    });
+}
+
+#[test]
+fn test_arbitration_period_extension() {
+    new_test_ext(1).execute_with(|| {
+        let (current_coldkey, _hotkey, new_coldkey) = setup_test_environment();
+        let another_coldkey = U256::from(4);
+
+        // Schedule a swap to new_coldkey
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
+            &current_coldkey,
+            &new_coldkey
+        ));
+
+        // Schedule a swap to another_coldkey
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
+            &current_coldkey,
+            &another_coldkey
+        ));
+
+        // Check that the arbitration period is extended
+        let arbitration_block =
+            SubtensorModule::get_current_block_as_u64() + ArbitrationPeriod::<Test>::get();
+        assert_eq!(
+            pallet_subtensor::ColdkeyArbitrationBlock::<Test>::get(current_coldkey),
+            arbitration_block
+        );
+    });
+}
+
+#[test]
+fn test_concurrent_arbitrated_coldkey_swaps() {
+    new_test_ext(1).execute_with(|| {
+        // Manually create accounts
+        let coldkey1: AccountId = U256::from(1);
+        let hotkey1: AccountId = U256::from(2);
+        let new_coldkey1: AccountId = U256::from(3);
+
+        let coldkey2: AccountId = U256::from(4);
+        let hotkey2: AccountId = U256::from(5);
+        let new_coldkey2: AccountId = U256::from(6);
+
+        // Add networks
+        let netuid1: u16 = 1;
+        let netuid2: u16 = 2;
+        add_network(netuid1, 13, 0);
+        add_network(netuid2, 13, 0);
+
+        // Register neurons in different networks
+        register_ok_neuron(netuid1, hotkey1, coldkey1, 0);
+        register_ok_neuron(netuid2, hotkey2, coldkey2, 0);
+
+        // Add balance to coldkeys
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 1000);
+
+        // Schedule swaps for both coldkeys
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
+            &coldkey1,
+            &new_coldkey1
+        ));
+        assert_ok!(SubtensorModule::do_schedule_arbitrated_coldkey_swap(
+            &coldkey2,
+            &new_coldkey2
+        ));
+
+        // Make 7200 * 4 blocks pass
+        let drain_block: u64 = 7200 * 4 + 1;
+        run_to_block(drain_block);
+
+        // Run arbitration
+        SubtensorModule::arbitrate_coldkeys_this_block().unwrap();
+
+        // Check that the balances have been transferred correctly
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey1), 1000);
+        assert_eq!(SubtensorModule::get_coldkey_balance(&new_coldkey2), 1000);
     });
 }

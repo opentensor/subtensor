@@ -428,4 +428,39 @@ reveal_weights {
     let _ = Subtensor::<T>::commit_weights(<T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(hotkey.clone())), netuid, commit_hash);
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
+
+  schedule_arbitrated_coldkey_swap {
+    let seed: u32 = 1;
+    let old_coldkey: T::AccountId = account("OldColdkey", 0, seed);
+    let new_coldkey: T::AccountId = account("NewColdkey", 0, seed + 1);
+    let hotkey: T::AccountId = account("Hotkey", 0, seed);
+
+    let netuid = 1u16;
+    let tempo = 1u16;
+
+    // Initialize the network
+    Subtensor::<T>::init_new_network(netuid, tempo);
+    Subtensor::<T>::set_network_registration_allowed(netuid, true);
+    // Subtensor::<T>::set_network_pow_registration_allowed(netuid, true);
+
+    // Add balance to the old coldkey account
+    let amount_to_be_staked = 1000000u32.into();
+    Subtensor::<T>::add_balance_to_coldkey_account(&old_coldkey.clone(), amount_to_be_staked);
+
+    // // Register the hotkey with the old coldkey
+    // let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
+    // let (nonce, work): (u64, Vec<u8>) = Subtensor::<T>::create_work_for_block_number(
+    //     netuid,
+    //     block_number,
+    //     3,
+    //     &hotkey,
+    // );
+       // Burned register the hotkey with the old coldkey
+       assert_ok!(Subtensor::<T>::burned_register(
+        RawOrigin::Signed(old_coldkey.clone()).into(),
+        netuid,
+        hotkey.clone()
+    ));
+
+  }: schedule_arbitrated_coldkey_swap(RawOrigin::Signed(old_coldkey.clone()), new_coldkey)
 }
