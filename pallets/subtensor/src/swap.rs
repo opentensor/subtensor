@@ -226,13 +226,12 @@ impl<T: Config> Pallet<T> {
     /// The list of coldkeys to arbitrate at the arbitration block is updated.
     // TOOD:
     // Check minimum amount of TAO
-    // Add POW functionality / Move Destination Coldkeys to a list that can take X amount of coldkey dests 
+    // Add POW functionality / Move Destination Coldkeys to a list that can take X amount of coldkey dests
     pub fn do_schedule_coldkey_swap(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
-
-        //  TODO: Check minimum amount of TAO 
+        //  TODO: Check minimum amount of TAO
         // Catch spurious swaps.
         ensure!(*old_coldkey != *new_coldkey, Error::<T>::SameColdkey);
 

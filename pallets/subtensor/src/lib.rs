@@ -2342,7 +2342,7 @@ where
     ) -> TransactionValidity {
         if Pallet::<T>::coldkey_in_arbitration(who) {
             return Err(TransactionValidityError::Invalid(
-                InvalidTransaction::Call.into(),
+                InvalidTransaction::Call,
             ));
         }
 
