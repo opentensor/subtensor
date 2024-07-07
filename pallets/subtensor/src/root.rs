@@ -483,7 +483,10 @@ impl<T: Config> Pallet<T> {
 
         // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
         log::info!(
             "do_root_register( coldkey: {:?}, hotkey: {:?} )",
             coldkey,
@@ -624,7 +627,10 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // Check the caller's signature. This is the coldkey of a registered account.
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
         log::info!(
             "do_set_root_weights( origin:{:?} netuid:{:?}, uids:{:?}, values:{:?})",
             coldkey,
@@ -746,7 +752,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         // --- 1. Ensure that the caller has signed with their coldkey.
         let coldkey = ensure_signed(origin.clone())?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // --- 2. Ensure that the calling coldkey owns the associated hotkey.
         ensure!(
@@ -800,8 +809,11 @@ impl<T: Config> Pallet<T> {
     pub fn user_add_network(origin: T::RuntimeOrigin) -> dispatch::DispatchResult {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
-        
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
+
         // --- 1. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
@@ -889,7 +901,10 @@ impl<T: Config> Pallet<T> {
     pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure the function caller is a signed user.
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // --- 2. Ensure this subnet exists.
         ensure!(

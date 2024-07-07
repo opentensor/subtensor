@@ -367,7 +367,8 @@ pub mod pallet {
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
-    pub type StakingHotkeys<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    pub type StakingHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
@@ -383,19 +384,34 @@ pub mod pallet {
         DefaultAccountTake<T>,
     >;
 
-    #[pallet::type_value] /// Default value for hotkeys.
-    pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> { vec![] }
-    #[pallet::type_value]/// Default stake interval.
-    pub fn DefaultArbitrationPeriod<T: Config>() -> u64 { 7200 * 4 }
+    #[pallet::type_value]
+    /// Default value for hotkeys.
+    pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> {
+        vec![]
+    }
+    #[pallet::type_value]
+    /// Default stake interval.
+    pub fn DefaultArbitrationPeriod<T: Config>() -> u64 {
+        7200 * 4
+    }
     #[pallet::storage] // ---- StorageItem Global Used Work.
-    pub type ArbitrationPeriod<T: Config> =StorageValue<_, u64, ValueQuery, DefaultArbitrationPeriod<T>>;
+    pub type ArbitrationPeriod<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultArbitrationPeriod<T>>;
     #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
-    pub type ColdkeySwapDestinations<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
+    pub type ColdkeySwapDestinations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<T::AccountId>,
+        ValueQuery,
+        EmptyAccounts<T>,
+    >;
     #[pallet::storage] // --- MAP ( cold ) --> u64 | Block when the coldkey will be arbitrated.
-    pub type ColdkeyArbitrationBlock<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+    pub type ColdkeyArbitrationBlock<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
-    pub type ColdkeysToArbitrateAtBlock<T: Config> = StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
-
+    pub type ColdkeysToArbitrateAtBlock<T: Config> =
+        StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
 
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
@@ -2067,8 +2083,8 @@ pub mod pallet {
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
             // Attain the calling coldkey from the origin.
-            let old_coldkey:T::AccountId = ensure_signed(origin)?;
-            Self::do_schedule_arbitrated_coldkey_swap( &old_coldkey, &new_coldkey )
+            let old_coldkey: T::AccountId = ensure_signed(origin)?;
+            Self::do_schedule_arbitrated_coldkey_swap(&old_coldkey, &new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------

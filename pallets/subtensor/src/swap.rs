@@ -1,8 +1,8 @@
 use super::*;
-use sp_core::Get;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
 use frame_support::{storage::IterableStorageDoubleMap, weights::Weight};
+use sp_core::Get;
 
 impl<T: Config> Pallet<T> {
     /// Swaps the hotkey of a coldkey account.
@@ -30,7 +30,10 @@ impl<T: Config> Pallet<T> {
         new_hotkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         let mut weight = T::DbWeight::get().reads(2);
 
@@ -119,7 +122,10 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
         let coldkey_performing_swap = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey_performing_swap), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey_performing_swap),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         let mut weight: Weight = T::DbWeight::get().reads(2);
 
@@ -135,9 +141,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Actually do the swap.
-        weight = weight.saturating_add(Self::perform_swap_coldkey( old_coldkey, new_coldkey ).map_err(|_| Error::<T>::SwapError)?);
+        weight = weight.saturating_add(
+            Self::perform_swap_coldkey(old_coldkey, new_coldkey)
+                .map_err(|_| Error::<T>::SwapError)?,
+        );
 
-        Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64() );
+        Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
         Self::deposit_event(Event::ColdkeySwapped {
@@ -148,65 +157,91 @@ impl<T: Config> Pallet<T> {
         Ok(Some(weight).into())
     }
 
-    /// Swaps the coldkey associated with a set of hotkeys from an old coldkey to a new coldkey over a delayed
-    /// to faciliate arbitration.
+    /// Checks if a coldkey is currently in arbitration.
     ///
     /// # Arguments
     ///
-    /// * `origin` - The origin of the call, which must be signed by the old coldkey.
+    /// * `coldkey` - The account ID of the coldkey to check.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if the coldkey is in arbitration, false otherwise.
+    ///
+    /// # Notes
+    ///
+    /// This function compares the arbitration block number of the coldkey with the current block number.
+    pub fn coldkey_in_arbitration(coldkey: &T::AccountId) -> bool {
+        ColdkeyArbitrationBlock::<T>::get(coldkey) > Self::get_current_block_as_u64()
+    }
+
+    /// Schedules a coldkey swap to a new coldkey with arbitration.
+    ///
+    /// # Arguments
+    ///
+    /// * `old_coldkey` - The account ID of the old coldkey.
     /// * `new_coldkey` - The account ID of the new coldkey.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult` - The result of the dispatch.
     ///
     /// # Errors
     ///
     /// This function will return an error if:
-    /// - The caller is the same key as the new key or if the new key is already in the arbitration keys.
-    /// - There are already 2 keys in arbitration for this coldkey.
-    ///   
-    // The coldkey is in arbitration state.
-    pub fn coldkey_in_arbitration( coldkey: &T::AccountId ) -> bool { ColdkeyArbitrationBlock::<T>::get(coldkey) > Self::get_current_block_as_u64() } 
+    /// - The old coldkey is the same as the new coldkey.
+    /// - The new coldkey is already in the list of destination coldkeys.
+    /// - There are already 2 destination coldkeys for the old coldkey.
+    ///
+    /// # Notes
+    ///
+    /// This function ensures that the new coldkey is not already in the list of destination coldkeys.
+    /// If the list of destination coldkeys is empty or has only one entry, the new coldkey is added to the list.
+    /// If the list of destination coldkeys has two entries, the function returns an error.
+    /// If the new coldkey is added to the list for the first time, the arbitration block is set for the old coldkey.
+    /// The list of coldkeys to arbitrate at the arbitration block is updated.
     pub fn do_schedule_arbitrated_coldkey_swap(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
-
         // Catch spurious swaps.
-        ensure!(
-            *old_coldkey != *new_coldkey,
-            Error::<T>::SameColdkey
-        );
+        ensure!(*old_coldkey != *new_coldkey, Error::<T>::SameColdkey);
 
         // Get current destination coldkeys.
-        let mut destination_coldkeys: Vec<T::AccountId> = ColdkeySwapDestinations::<T>::get( old_coldkey.clone() );
+        let mut destination_coldkeys: Vec<T::AccountId> =
+            ColdkeySwapDestinations::<T>::get(old_coldkey.clone());
 
         // Check if the new coldkey is already in the swap wallets list
         ensure!(
-            !destination_coldkeys.contains( new_coldkey ),
+            !destination_coldkeys.contains(new_coldkey),
             Error::<T>::DuplicateColdkey
         );
-    
+
         // If the destinations keys are empty or have size 1 then we will add the new coldkey to the list.
-        if destination_coldkeys.len() == 0 as usize || destination_coldkeys.len() == 1 as usize {
+        if destination_coldkeys.is_empty() || destination_coldkeys.len() == 1_usize {
             // Add this wallet to exist in the destination list.
-            destination_coldkeys.push( new_coldkey.clone() );
-            ColdkeySwapDestinations::<T>::insert( old_coldkey.clone(), destination_coldkeys.clone() );
+            destination_coldkeys.push(new_coldkey.clone());
+            ColdkeySwapDestinations::<T>::insert(old_coldkey.clone(), destination_coldkeys.clone());
         } else {
             return Err(Error::<T>::ColdkeyIsInArbitration.into());
         }
 
         // It is the first time we have seen this key.
-        if destination_coldkeys.len() == 1 as usize {
-
+        if destination_coldkeys.len() == 1_usize {
             // Set the arbitration block for this coldkey.
-            let arbitration_block: u64 = Self::get_current_block_as_u64() + ArbitrationPeriod::<T>::get();
-            ColdkeyArbitrationBlock::<T>::insert( old_coldkey.clone(), arbitration_block );
+            let arbitration_block: u64 =
+                Self::get_current_block_as_u64().saturating_add(ArbitrationPeriod::<T>::get());
+            ColdkeyArbitrationBlock::<T>::insert(old_coldkey.clone(), arbitration_block);
 
             // Update the list of coldkeys arbitrate on this block.
-            let mut key_to_arbitrate_on_this_block: Vec<T::AccountId> = ColdkeysToArbitrateAtBlock::<T>::get( arbitration_block );
-            if !key_to_arbitrate_on_this_block.contains( &old_coldkey.clone() ) {
-                key_to_arbitrate_on_this_block.push( old_coldkey.clone() );
+            let mut key_to_arbitrate_on_this_block: Vec<T::AccountId> =
+                ColdkeysToArbitrateAtBlock::<T>::get(arbitration_block);
+            if !key_to_arbitrate_on_this_block.contains(&old_coldkey.clone()) {
+                key_to_arbitrate_on_this_block.push(old_coldkey.clone());
             }
-            ColdkeysToArbitrateAtBlock::<T>::insert( arbitration_block, key_to_arbitrate_on_this_block );
-
+            ColdkeysToArbitrateAtBlock::<T>::insert(
+                arbitration_block,
+                key_to_arbitrate_on_this_block,
+            );
         }
 
         // Return true.
@@ -230,31 +265,32 @@ impl<T: Config> Pallet<T> {
         log::debug!("Arbitrating coldkeys for block: {:?}", current_block);
 
         // Get the coldkeys to swap here and then remove them.
-        let source_coldkeys: Vec<T::AccountId> = ColdkeysToArbitrateAtBlock::<T>::get( current_block );
-        ColdkeysToArbitrateAtBlock::<T>::remove( current_block );
+        let source_coldkeys: Vec<T::AccountId> =
+            ColdkeysToArbitrateAtBlock::<T>::get(current_block);
+        ColdkeysToArbitrateAtBlock::<T>::remove(current_block);
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Iterate over all keys in swap and call perform_swap_coldkey for each
         for coldkey_i in source_coldkeys.iter() {
-
             // Get the wallets to swap to for this coldkey.
-            let destinations_coldkeys: Vec<T::AccountId> = ColdkeySwapDestinations::<T>::get( coldkey_i );
-            ColdkeySwapDestinations::<T>::remove( &coldkey_i );
+            let destinations_coldkeys: Vec<T::AccountId> =
+                ColdkeySwapDestinations::<T>::get(coldkey_i);
+            ColdkeySwapDestinations::<T>::remove(&coldkey_i);
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
             // If the wallets to swap is > 1 we do nothing.
             if destinations_coldkeys.len() > 1 {
-
                 // Update the arbitration period but we still have the same wallet to swap to.
-                let next_arbitrage_period: u64 = current_block + ArbitrationPeriod::<T>::get();
-                ColdkeyArbitrationBlock::<T>::insert( coldkey_i.clone(), next_arbitrage_period );
-
-            } else if destinations_coldkeys.len() == 1 {
+                let next_arbitrage_period: u64 =
+                    current_block.saturating_add(ArbitrationPeriod::<T>::get());
+                ColdkeyArbitrationBlock::<T>::insert(coldkey_i.clone(), next_arbitrage_period);
+            } else if let Some(new_coldkey) = destinations_coldkeys.first() {
                 // ONLY 1 wallet: Get the wallet to swap to.
-                let new_coldkey = &destinations_coldkeys[0];
-
                 // Perform the swap.
-                if let Err(_) = Self::perform_swap_coldkey( &coldkey_i, new_coldkey ).map(|w| weight = weight.saturating_add(w)) {
+                if Self::perform_swap_coldkey(coldkey_i, new_coldkey)
+                    .map(|w| weight = weight.saturating_add(w))
+                    .is_err()
+                {
                     return Err("Failed to perform coldkey swap");
                 }
             }
@@ -263,10 +299,15 @@ impl<T: Config> Pallet<T> {
         Ok(weight)
     }
 
-
-    pub fn perform_swap_coldkey( old_coldkey: &T::AccountId, new_coldkey: &T::AccountId ) -> Result<Weight, &'static str> {
-
-        log::info!("Performing swap for coldkey: {:?} to {:?}", old_coldkey, new_coldkey);
+    pub fn perform_swap_coldkey(
+        old_coldkey: &T::AccountId,
+        new_coldkey: &T::AccountId,
+    ) -> Result<Weight, &'static str> {
+        log::info!(
+            "Performing swap for coldkey: {:?} to {:?}",
+            old_coldkey,
+            new_coldkey
+        );
         // Init the weight.
         let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
@@ -291,12 +332,12 @@ impl<T: Config> Pallet<T> {
         }
 
         // Swap the coldkey.
-        let total_balance:u64 = Self::get_coldkey_balance(&old_coldkey);
+        let total_balance: u64 = Self::get_coldkey_balance(old_coldkey);
         if total_balance > 0 {
             // Attempt to transfer the entire total balance to coldkeyB.
             if let Err(e) = T::Currency::transfer(
-                &old_coldkey,
-                &new_coldkey,
+                old_coldkey,
+                new_coldkey,
                 total_balance,
                 Preservation::Expendable,
             ) {
@@ -677,19 +718,18 @@ impl<T: Config> Pallet<T> {
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
-
         // Swap the owners.
         let old_owned_hotkeys = OwnedHotkeys::<T>::get(old_coldkey);
         for owned_key in old_owned_hotkeys.iter() {
             Owner::<T>::insert(owned_key, new_coldkey);
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
         }
-        OwnedHotkeys::<T>::remove( old_coldkey.clone() );
-        OwnedHotkeys::<T>::insert( new_coldkey.clone(), old_owned_hotkeys );
+        OwnedHotkeys::<T>::remove(old_coldkey.clone());
+        OwnedHotkeys::<T>::insert(new_coldkey.clone(), old_owned_hotkeys);
 
         // Swap all the keys the coldkey is staking too.
-        let staking_hotkeys = StakingHotkeys::<T>::get( old_coldkey );
-        StakingHotkeys::<T>::remove( old_coldkey.clone() );
+        let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+        StakingHotkeys::<T>::remove(old_coldkey.clone());
         for hotkey in staking_hotkeys.iter() {
             // Remove the previous stake and re-insert it.
             let stake = Stake::<T>::get(hotkey, old_coldkey);
@@ -698,7 +738,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
         }
         // Add the new staking keys value.
-        StakingHotkeys::<T>::insert( new_coldkey.clone(), staking_hotkeys.clone() );
+        StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys.clone());
     }
 
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.
@@ -739,7 +779,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `bool` - True if the coldkey has any associated hotkeys, false otherwise.
     pub fn coldkey_has_associated_hotkeys(coldkey: &T::AccountId) -> bool {
-        StakingHotkeys::<T>::get(coldkey).len() > 0
+        !StakingHotkeys::<T>::get(coldkey).is_empty()
     }
 
     /// Swaps the subnet owner from the old coldkey to the new coldkey for all networks where the old coldkey is the owner.
@@ -768,5 +808,4 @@ impl<T: Config> Pallet<T> {
         }
         weight.saturating_accrue(T::DbWeight::get().reads(TotalNetworks::<T>::get() as u64));
     }
-
 }

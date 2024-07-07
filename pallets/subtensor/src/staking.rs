@@ -7,7 +7,7 @@ use frame_support::{
             Fortitude, Precision, Preservation,
         },
         Imbalance,
-    }
+    },
 };
 
 impl<T: Config> Pallet<T> {
@@ -44,7 +44,10 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signuture.
         let coldkey = ensure_signed(origin)?;
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
         log::info!(
             "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
@@ -134,7 +137,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             take
         );
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
@@ -207,7 +213,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             take
         );
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
@@ -293,7 +302,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_added
         );
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
         ensure!(
@@ -406,7 +418,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             stake_to_be_removed
         );
-        ensure!(!Self::coldkey_in_arbitration(&coldkey), Error::<T>::ColdkeyIsInArbitration);       
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // Ensure that the hotkey account exists this is only possible through registration.
         ensure!(
@@ -854,8 +869,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    
-
     // pub fn x( coldkey_a: &T::AccountId, coldkey_b: &T::AccountId ) -> Weight {
     //     let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
@@ -905,5 +918,4 @@ impl<T: Config> Pallet<T> {
 
     //     weight
     // }
-
 }

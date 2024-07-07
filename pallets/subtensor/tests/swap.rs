@@ -1180,7 +1180,10 @@ fn test_swap_stake_for_coldkey() {
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
         let mut weight = Weight::zero();
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount1 + stake_amount2 + 123456);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &old_coldkey,
+            stake_amount1 + stake_amount2 + 123456,
+        );
         add_network(1, 13, 0);
         register_ok_neuron(1, hotkey1, old_coldkey, 0);
         register_ok_neuron(1, hotkey2, old_coldkey, 0);
@@ -1195,22 +1198,40 @@ fn test_swap_stake_for_coldkey() {
             stake_amount2
         ));
 
-        // Get owned keys 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![hotkey1, hotkey2]);
+        // Get owned keys
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&old_coldkey),
+            vec![hotkey1, hotkey2]
+        );
         assert_eq!(SubtensorModule::get_owned_hotkeys(&new_coldkey), vec![]);
         // Get all staked keys.
-        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&old_coldkey), vec![hotkey1, hotkey2]);
-        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&new_coldkey), vec![]);
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&old_coldkey),
+            vec![hotkey1, hotkey2]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&new_coldkey),
+            vec![]
+        );
 
         // Perform the swap
         SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
-        // Get owned keys 
-        assert_eq!(SubtensorModule::get_owned_hotkeys(&new_coldkey), vec![hotkey1, hotkey2]);
+        // Get owned keys
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            vec![hotkey1, hotkey2]
+        );
         assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
         // Get all staked keys.
-        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&new_coldkey), vec![hotkey1, hotkey2]);
-        assert_eq!(SubtensorModule::get_all_staked_hotkeys(&old_coldkey), vec![]);
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&new_coldkey),
+            vec![hotkey1, hotkey2]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&old_coldkey),
+            vec![]
+        );
 
         // Verify the swap
         assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
@@ -1223,7 +1244,6 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
     });
 }
-
 
 #[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
