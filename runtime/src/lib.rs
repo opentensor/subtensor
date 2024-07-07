@@ -139,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 159,
+    spec_version: 160,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -294,7 +294,7 @@ parameter_types! {
 
     pub const RootEnterDuration: BlockNumber = 5 * 60 * 24; // 24 hours
 
-    pub const RootExtendDuration: BlockNumber = 5 * 60 * 3; // 3 hours
+    pub const RootExtendDuration: BlockNumber = 5 * 60 * 12; // 12 hours
 
     pub const DisallowPermissionlessEntering: Option<Balance> = None;
     pub const DisallowPermissionlessExtending: Option<Balance> = None;
