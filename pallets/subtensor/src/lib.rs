@@ -2075,9 +2075,9 @@ pub mod pallet {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(72)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        #[pallet::weight((Weight::from_parts(21_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(3))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
         pub fn schedule_arbitrated_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
