@@ -9,6 +9,7 @@ mod mock;
 use frame_support::dispatch::{DispatchClass, DispatchInfo, GetDispatchInfo, Pays};
 use frame_support::sp_runtime::DispatchError;
 use mock::*;
+use pallet_balances::Call as BalancesCall;
 use pallet_subtensor::*;
 use sp_core::{H256, U256};
 use sp_runtime::traits::SignedExtension;
@@ -3175,7 +3176,7 @@ fn test_arbitrated_coldkey_swap_success() {
         );
 
         // Check that drain block is set correctly
-        let drain_block: u64 = 7200 * 4 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
 
         log::info!(
             "ColdkeysToSwapAtBlock before scheduling: {:?}",
@@ -3656,11 +3657,14 @@ fn test_get_remaining_arbitration_period() {
 }
 
 #[test]
-fn test_coldkey_in_arbitration() {
+fn test_transfer_coldkey_in_arbitration() {
     new_test_ext(1).execute_with(|| {
         let coldkey_account_id = U256::from(1);
-        let hotkey_account_id = U256::from(2);
+        let recipient_account_id = U256::from(2);
         let new_coldkey_account_id = U256::from(3);
+
+        // Add balance to coldkey
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
 
         // Schedule a coldkey swap to put the coldkey in arbitration
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
@@ -3668,9 +3672,10 @@ fn test_coldkey_in_arbitration() {
             &new_coldkey_account_id
         ));
 
-        let call = RuntimeCall::SubtensorModule(crate::Call::add_stake {
-            hotkey: hotkey_account_id,
-            amount_staked: 1000,
+        // Try to transfer balance
+        let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+            dest: recipient_account_id.into(),
+            value: 1000,
         });
 
         assert_eq!(
@@ -3705,10 +3710,8 @@ fn test_add_stake_coldkey_in_arbitration() {
             amount_staked: 1000,
         });
 
-        assert_eq!(
-            validate_transaction(&coldkey_account_id, &call),
-            Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-        );
+        // This should now be Ok
+        assert!(validate_transaction(&coldkey_account_id, &call).is_ok());
     })
 }
 
@@ -3738,53 +3741,26 @@ fn test_remove_stake_coldkey_in_arbitration() {
             amount_unstaked: 500,
         });
 
-        assert_eq!(
-            validate_transaction(&coldkey_account_id, &call),
-            Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-        );
+        // This should now be Ok
+        assert!(validate_transaction(&coldkey_account_id, &call).is_ok());
     });
 }
 
 #[test]
-fn test_add_stake_coldkey_not_in_arbitration() {
+fn test_transfer_coldkey_not_in_arbitration() {
     new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(561337);
         let coldkey_account_id = U256::from(61337);
-        let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
+        let recipient_account_id = U256::from(71337);
 
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
 
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            1000
-        ));
-    });
-}
+        let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death {
+            dest: recipient_account_id.into(),
+            value: 1000,
+        });
 
-#[test]
-fn test_remove_stake_coldkey_not_in_arbitration() {
-    new_test_ext(1).execute_with(|| {
-        let hotkey_account_id = U256::from(561337);
-        let coldkey_account_id = U256::from(61337);
-        let netuid: u16 = 1;
-        let start_nonce: u64 = 0;
-        let tempo: u16 = 13;
-
-        add_network(netuid, tempo, 0);
-        register_ok_neuron(netuid, hotkey_account_id, coldkey_account_id, start_nonce);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
-        SubtensorModule::increase_stake_on_hotkey_account(&hotkey_account_id, 1000);
-
-        assert_ok!(SubtensorModule::remove_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-            hotkey_account_id,
-            500
-        ));
+        // This should be Ok
+        assert!(validate_transaction(&coldkey_account_id, &call).is_ok());
     });
 }
 

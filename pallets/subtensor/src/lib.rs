@@ -18,6 +18,7 @@ use frame_support::{
 use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use pallet_balances::Call as BalancesCall;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -392,7 +393,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default stake interval.
     pub fn DefaultArbitrationPeriod<T: Config>() -> u64 {
-        7200 * 4
+        7200 * 3
     }
     #[pallet::storage] // ---- StorageItem Global Used Work.
     pub type ArbitrationPeriod<T: Config> =
@@ -2317,10 +2318,12 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
+    for SubtensorSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
@@ -2340,12 +2343,19 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
-        if Pallet::<T>::coldkey_in_arbitration(who) {
-            return Err(TransactionValidityError::Invalid(
-                InvalidTransaction::Call,
-            ));
+        // Check if the call is one of the balance transfer types we want to reject
+        if let Some(balances_call) = call.is_sub_type() {
+            match balances_call {
+                BalancesCall::transfer_allow_death { .. }
+                | BalancesCall::transfer_keep_alive { .. }
+                | BalancesCall::transfer_all { .. } => {
+                    if Pallet::<T>::coldkey_in_arbitration(who) {
+                        return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+                    }
+                }
+                _ => {} // Other Balances calls are allowed
+            }
         }
-
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
@@ -2422,6 +2432,16 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
+            Some(Call::dissolve_network { .. }) => {
+                if Pallet::<T>::coldkey_in_arbitration(who) {
+                    Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
