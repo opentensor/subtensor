@@ -174,6 +174,31 @@ impl<T: Config> Pallet<T> {
         ColdkeyArbitrationBlock::<T>::get(coldkey) > Self::get_current_block_as_u64()
     }
 
+    /// Returns the remaining arbitration period for a given coldkey.
+    ///
+    /// # Arguments
+    ///
+    /// * `coldkey` - The account ID of the coldkey to check.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The remaining arbitration period in blocks.
+    ///
+    ///
+    /// # Notes
+    ///
+    /// This function calculates the remaining arbitration period by subtracting the current block number
+    /// from the arbitration block number of the coldkey.
+    pub fn get_remaining_arbitration_period(coldkey: &T::AccountId) -> u64 {
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let arbitration_block: u64 = ColdkeyArbitrationBlock::<T>::get(coldkey);
+        if arbitration_block > current_block {
+            arbitration_block.saturating_sub(current_block)
+        } else {
+            0
+        }
+    }
+
     /// Schedules a coldkey swap to a new coldkey with arbitration.
     ///
     /// # Arguments
@@ -199,10 +224,15 @@ impl<T: Config> Pallet<T> {
     /// If the list of destination coldkeys has two entries, the function returns an error.
     /// If the new coldkey is added to the list for the first time, the arbitration block is set for the old coldkey.
     /// The list of coldkeys to arbitrate at the arbitration block is updated.
-    pub fn do_schedule_arbitrated_coldkey_swap(
+    // TOOD:
+    // Check minimum amount of TAO
+    // Add POW functionality / Move Destination Coldkeys to a list that can take X amount of coldkey dests 
+    pub fn do_schedule_coldkey_swap(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResult {
+
+        //  TODO: Check minimum amount of TAO 
         // Catch spurious swaps.
         ensure!(*old_coldkey != *new_coldkey, Error::<T>::SameColdkey);
 
@@ -234,14 +264,11 @@ impl<T: Config> Pallet<T> {
 
             // Update the list of coldkeys arbitrate on this block.
             let mut key_to_arbitrate_on_this_block: Vec<T::AccountId> =
-                ColdkeysToArbitrateAtBlock::<T>::get(arbitration_block);
+                ColdkeysToSwapAtBlock::<T>::get(arbitration_block);
             if !key_to_arbitrate_on_this_block.contains(&old_coldkey.clone()) {
                 key_to_arbitrate_on_this_block.push(old_coldkey.clone());
             }
-            ColdkeysToArbitrateAtBlock::<T>::insert(
-                arbitration_block,
-                key_to_arbitrate_on_this_block,
-            );
+            ColdkeysToSwapAtBlock::<T>::insert(arbitration_block, key_to_arbitrate_on_this_block);
         }
 
         // Return true.
@@ -257,17 +284,16 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `Weight` - The total weight consumed by the operation.
-    pub fn arbitrate_coldkeys_this_block() -> Result<Weight, &'static str> {
+    pub fn swap_coldkeys_this_block() -> Result<Weight, &'static str> {
         let mut weight = frame_support::weights::Weight::from_parts(0, 0);
 
         // Get the block number
         let current_block: u64 = Self::get_current_block_as_u64();
-        log::debug!("Arbitrating coldkeys for block: {:?}", current_block);
+        log::debug!("Swapping coldkeys for block: {:?}", current_block);
 
         // Get the coldkeys to swap here and then remove them.
-        let source_coldkeys: Vec<T::AccountId> =
-            ColdkeysToArbitrateAtBlock::<T>::get(current_block);
-        ColdkeysToArbitrateAtBlock::<T>::remove(current_block);
+        let source_coldkeys: Vec<T::AccountId> = ColdkeysToSwapAtBlock::<T>::get(current_block);
+        ColdkeysToSwapAtBlock::<T>::remove(current_block);
         weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Iterate over all keys in swap and call perform_swap_coldkey for each

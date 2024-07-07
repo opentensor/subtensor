@@ -429,7 +429,7 @@ reveal_weights {
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
 
-  schedule_arbitrated_coldkey_swap {
+  schedule_coldkey_swap {
     let seed: u32 = 1;
     let old_coldkey: T::AccountId = account("OldColdkey", 0, seed);
     let new_coldkey: T::AccountId = account("NewColdkey", 0, seed + 1);
@@ -452,5 +452,5 @@ reveal_weights {
         hotkey.clone()
     ));
 
-  }: schedule_arbitrated_coldkey_swap(RawOrigin::Signed(old_coldkey.clone()), new_coldkey)
+  }: schedule_coldkey_swap(RawOrigin::Signed(old_coldkey.clone()), new_coldkey)
 }

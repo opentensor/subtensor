@@ -40,7 +40,7 @@ $BIN_PATH build-spec --disable-default-bootnode --raw --chain local >$TMP_SPEC
 # Run benchmark
 $BIN_PATH benchmark pallet \
 --chain=$TMP_SPEC \
---pallet pallet-subtensor --extrinsic 'schedule_arbitrated_coldkey_swap' \
+--pallet pallet-subtensor --extrinsic 'schedule_coldkey_swap' \
 --output $OUTPUT_FILE
 
 rm $TMP_SPEC

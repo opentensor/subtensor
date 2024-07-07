@@ -312,7 +312,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::SafeMode(_)
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
-                    pallet_subtensor::Call::do_schedule_arbitrated_coldkey_swap { .. }
+                    pallet_subtensor::Call::schedule_coldkey_swap { .. }
                         | pallet_subtensor::Call::set_weights { .. }
                         | pallet_subtensor::Call::set_root_weights { .. }
                 )

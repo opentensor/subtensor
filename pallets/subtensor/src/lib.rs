@@ -410,7 +410,7 @@ pub mod pallet {
     pub type ColdkeyArbitrationBlock<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
     #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
-    pub type ColdkeysToArbitrateAtBlock<T: Config> =
+    pub type ColdkeysToSwapAtBlock<T: Config> =
         StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
 
     /// -- ITEM (switches liquid alpha on)
@@ -1332,7 +1332,7 @@ pub mod pallet {
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
             // Unstake all and transfer pending coldkeys
-            let swap_weight = match Self::arbitrate_coldkeys_this_block() {
+            let swap_weight = match Self::swap_coldkeys_this_block() {
                 Ok(weight) => weight,
                 Err(_) => Weight::from_parts(0, 0),
             };
@@ -2078,13 +2078,13 @@ pub mod pallet {
         #[pallet::weight((Weight::from_parts(21_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
-        pub fn schedule_arbitrated_coldkey_swap(
+        pub fn schedule_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
         ) -> DispatchResult {
             // Attain the calling coldkey from the origin.
             let old_coldkey: T::AccountId = ensure_signed(origin)?;
-            Self::do_schedule_arbitrated_coldkey_swap(&old_coldkey, &new_coldkey)
+            Self::do_schedule_coldkey_swap(&old_coldkey, &new_coldkey)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
@@ -2340,6 +2340,12 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
+        if Pallet::<T>::coldkey_in_arbitration(who) {
+            return Err(TransactionValidityError::Invalid(
+                InvalidTransaction::Call.into(),
+            ));
+        }
+
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
