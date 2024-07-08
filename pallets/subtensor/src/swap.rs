@@ -246,11 +246,17 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         ensure!(old_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
-        // Check minimum amount of TAO (1 TAO)
-        ensure!(
-            Self::meets_min_allowed_coldkey_balance(&old_coldkey),
-            Error::<T>::InsufficientBalanceToPerformColdkeySwap
-        );
+        // Check if the old_coldkey is a subnet owner for any network
+        let is_subnet_owner = (0..=TotalNetworks::<T>::get())
+            .any(|netuid| SubnetOwner::<T>::get(netuid) == *old_coldkey);
+
+        // Only check the minimum balance if the old_coldkey is not a subnet owner
+        if !is_subnet_owner {
+            ensure!(
+                Self::meets_min_allowed_coldkey_balance(&old_coldkey),
+                Error::<T>::InsufficientBalanceToPerformColdkeySwap
+            );
+        }
 
         // Get current destination coldkeys
         let mut destination_coldkeys: Vec<T::AccountId> =

@@ -3992,7 +3992,8 @@ fn test_coldkey_meets_enough() {
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
         let current_block = SubtensorModule::get_current_block_as_u64();
-        let (work1, nonce1) = generate_valid_pow(&coldkey, current_block, U256::from(10_000_000u64));
+        let (work1, nonce1) =
+            generate_valid_pow(&coldkey, current_block, U256::from(10_000_000u64));
         assert_err!(
             SubtensorModule::do_schedule_coldkey_swap(
                 &coldkey.clone(),
@@ -4014,7 +4015,190 @@ fn test_coldkey_meets_enough() {
             current_block,
             nonce1
         ));
-      
+    });
+}
 
+#[test]
+fn test_comprehensive_coldkey_swap_scenarios() {
+    new_test_ext(1).execute_with(|| {
+        // Set arbitration period to 5 blocks
+        ArbitrationPeriod::<Test>::put(5);
+
+        let subnet_owner1 = U256::from(1);
+        let subnet_owner2 = U256::from(2);
+        let regular_user = U256::from(3);
+        let new_coldkey1 = U256::from(4);
+        let new_coldkey2 = U256::from(5);
+        let new_coldkey3 = U256::from(6);
+        let netuid1 = 1;
+        let netuid2 = 2;
+
+        // Add networks and register subnet owners
+        add_network(netuid1, 13, 0);
+        add_network(netuid2, 13, 0);
+        SubnetOwner::<Test>::insert(netuid1, subnet_owner1);
+        SubnetOwner::<Test>::insert(netuid2, subnet_owner2);
+
+        // Add balance to regular user
+        SubtensorModule::add_balance_to_coldkey_account(
+            &regular_user,
+            MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP * 2,
+        );
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+
+        // Schedule swaps for subnet owners and regular user
+        let (work1, nonce1) =
+            generate_valid_pow(&subnet_owner1, current_block, U256::from(10_000_000u64));
+        let (work2, nonce2) =
+            generate_valid_pow(&subnet_owner2, current_block, U256::from(20_000_000u64));
+        let (work3, nonce3) =
+            generate_valid_pow(&regular_user, current_block, U256::from(30_000_000u64));
+
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &subnet_owner1,
+            &new_coldkey1,
+            work1.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce1
+        ));
+
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &subnet_owner2,
+            &new_coldkey2,
+            work2.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce2
+        ));
+
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &regular_user,
+            &new_coldkey3,
+            work3.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce3
+        ));
+
+        // Check if swaps were scheduled correctly
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(subnet_owner1),
+            vec![new_coldkey1]
+        );
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(subnet_owner2),
+            vec![new_coldkey2]
+        );
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(regular_user),
+            vec![new_coldkey3]
+        );
+
+        // Run through the arbitration period plus one block
+        for i in 0..6 {
+            next_block();
+            SubtensorModule::on_idle(System::block_number(), Weight::MAX);
+
+            log::info!(
+                "Block {}: Coldkey in arbitration: {}, Swap destinations: {:?}",
+                i + 1,
+                SubtensorModule::coldkey_in_arbitration(&subnet_owner1),
+                ColdkeySwapDestinations::<Test>::get(subnet_owner1)
+            );
+
+            // Test edge case: try to schedule another swap during arbitration
+            if i == 2 {
+                let (work4, nonce4) = generate_valid_pow(
+                    &subnet_owner1,
+                    current_block + i as u64,
+                    U256::from(40_000_000u64),
+                );
+                assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+                    &subnet_owner1,
+                    &new_coldkey2,
+                    work4.to_fixed_bytes().to_vec(),
+                    current_block + i as u64,
+                    nonce4
+                ));
+                // This should add new_coldkey2 to subnet_owner1's destinations
+                assert_eq!(
+                    ColdkeySwapDestinations::<Test>::get(subnet_owner1),
+                    vec![new_coldkey1, new_coldkey2]
+                );
+            }
+        }
+
+        // Check if swaps have been executed
+        log::info!(
+            "After arbitration period - Swap destinations for subnet_owner1: {:?}",
+            ColdkeySwapDestinations::<Test>::get(subnet_owner1)
+        );
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(subnet_owner1),
+            vec![new_coldkey1, new_coldkey2],
+            "ColdkeySwapDestinations for subnet_owner1 should still contain two destinations after arbitration period"
+        );
+        assert!(ColdkeySwapDestinations::<Test>::get(subnet_owner2).is_empty());
+        assert!(ColdkeySwapDestinations::<Test>::get(regular_user).is_empty());
+
+        // Verify that subnet ownerships have NOT been transferred for subnet_owner1
+        assert_eq!(SubnetOwner::<Test>::get(netuid1), subnet_owner1);
+        // But subnet_owner2's ownership should have been transferred
+        assert_eq!(SubnetOwner::<Test>::get(netuid2), new_coldkey2);
+
+        // Verify regular user's balance has been transferred
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&new_coldkey3),
+            MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP * 2
+        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&regular_user), 0);
+
+        // Test multiple calls for the same subnet owner
+        let (work5, nonce5) =
+            generate_valid_pow(&new_coldkey1, current_block + 7, U256::from(50_000_000u64));
+        let (work6, nonce6) =
+            generate_valid_pow(&new_coldkey1, current_block + 7, U256::from(60_000_000u64));
+
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &new_coldkey1,
+            &subnet_owner1,
+            work5.to_fixed_bytes().to_vec(),
+            current_block + 7,
+            nonce5
+        ));
+
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &new_coldkey1,
+            &subnet_owner2,
+            work6.to_fixed_bytes().to_vec(),
+            current_block + 7,
+            nonce6
+        ));
+
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(new_coldkey1),
+            vec![subnet_owner1, subnet_owner2]
+        );
+
+        // Run through another arbitration period plus one block
+        for i in 0..6 {
+            next_block();
+            SubtensorModule::on_idle(System::block_number(), Weight::MAX);
+
+            log::info!(
+                "Block {}: Coldkey in arbitration: {}, Swap destinations: {:?}",
+                i + 7,
+                SubtensorModule::coldkey_in_arbitration(&new_coldkey1),
+                ColdkeySwapDestinations::<Test>::get(new_coldkey1)
+            );
+        }
+
+        // Check final state
+        log::info!(
+            "Final state - Swap destinations for new_coldkey1: {:?}",
+            ColdkeySwapDestinations::<Test>::get(new_coldkey1)
+        );
+        assert!(ColdkeySwapDestinations::<Test>::get(new_coldkey1).is_empty());
+        assert_eq!(SubnetOwner::<Test>::get(netuid1), subnet_owner1);
+        assert_eq!(SubnetOwner::<Test>::get(netuid2), subnet_owner2);
     });
 }
