@@ -3547,14 +3547,14 @@ fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
         // Arbitrate next block.
         assert_eq!(
             pallet_subtensor::ColdkeyArbitrationBlock::<Test>::get(coldkey),
-            SubtensorModule::get_current_block_as_u64() + 1
+            u64::MAX
         );
 
         // Arbitrate.
         step_block(1);
 
-        // Key is not in arbitration
-        assert!(!SubtensorModule::coldkey_in_arbitration(&coldkey));
+        // Key is in arbitration
+        assert!(SubtensorModule::coldkey_in_arbitration(&coldkey));
 
         // Owner schedules a swap for themselves lets go back into arbitration.
         let current_block = SubtensorModule::get_current_block_as_u64();

@@ -144,7 +144,7 @@ impl<T: Config> Pallet<T> {
         // Actually do the swap.
         weight = weight.saturating_add(
             Self::perform_swap_coldkey(old_coldkey, new_coldkey)
-                .map_err(|_| Error::<T>::SwapError)?,
+                .map_err(|_| Error::<T>::ColdkeySwapError)?,
         );
 
         Self::set_last_tx_block(new_coldkey, Self::get_current_block_as_u64());
@@ -335,12 +335,14 @@ impl<T: Config> Pallet<T> {
             ColdkeySwapDestinations::<T>::remove(&coldkey_i);
             weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
-            // If the wallets to swap is > 1 we do nothing.
+            // If the wallets to swap is > 1 we bump the arbitration period.
             if destinations_coldkeys.len() > 1 {
-                // Update the arbitration period but we still have the same wallet to swap to.
-                let next_arbitrage_period: u64 =
-                    current_block.saturating_add(ArbitrationPeriod::<T>::get());
-                ColdkeyArbitrationBlock::<T>::insert(coldkey_i.clone(), next_arbitrage_period);
+                // Set the arbitration period to u64::MAX until we have a senate vote
+                ColdkeyArbitrationBlock::<T>::insert(coldkey_i.clone(), u64::MAX);
+
+                Self::deposit_event(Event::ArbitrationPeriodExtended {
+                    coldkey: coldkey_i.clone(),
+                });
             } else if let Some(new_coldkey) = destinations_coldkeys.first() {
                 // ONLY 1 wallet: Get the wallet to swap to.
                 // Perform the swap.
