@@ -3839,7 +3839,7 @@ fn test_transfer_coldkey_in_arbitration() {
 
         // Try to transfer balance
         let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: recipient_account_id.into(),
+            dest: recipient_account_id,
             value: 1000,
         });
 
@@ -3937,7 +3937,7 @@ fn test_transfer_coldkey_not_in_arbitration() {
         SubtensorModule::add_balance_to_coldkey_account(&coldkey_account_id, 60000);
 
         let call = RuntimeCall::Balances(BalancesCall::transfer_allow_death {
-            dest: recipient_account_id.into(),
+            dest: recipient_account_id,
             value: 1000,
         });
 
@@ -3958,6 +3958,6 @@ fn generate_valid_pow(coldkey: &AccountId, block_number: u64, difficulty: u32) -
         if SubtensorModule::hash_meets_difficulty(&work, difficulty.into()) {
             return (work.as_bytes().to_vec(), nonce);
         }
-        nonce += 1;
+        nonce = nonce.saturating_add(1);
     }
 }
