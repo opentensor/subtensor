@@ -204,7 +204,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `origin` - The origin of the call, which must be signed by the old coldkey.
+    /// * `old_coldkey` - The account ID of the old coldkey.
     /// * `new_coldkey` - The account ID of the new coldkey.
     /// * `work` - The proof of work submitted by the caller.
     /// * `block_number` - The block number at which the work was performed.
@@ -288,6 +288,13 @@ impl<T: Config> Pallet<T> {
             }
             ColdkeysToSwapAtBlock::<T>::insert(arbitration_block, key_to_arbitrate_on_this_block);
         }
+
+        // Emit an event indicating that a coldkey swap has been scheduled
+        Self::deposit_event(Event::ColdkeySwapScheduled {
+            old_coldkey: old_coldkey.clone(),
+            new_coldkey: new_coldkey.clone(),
+            arbitration_block: ColdkeyArbitrationBlock::<T>::get(old_coldkey),
+        });
 
         Ok(())
     }

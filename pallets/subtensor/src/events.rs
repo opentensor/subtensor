@@ -150,5 +150,14 @@ mod events {
                 <T as frame_system::Config>::AccountId,
             >>::Balance,
         },
+        /// A coldkey swap has been scheduled
+        ColdkeySwapScheduled {
+            /// The account ID of the old coldkey
+            old_coldkey: T::AccountId,
+            /// The account ID of the new coldkey
+            new_coldkey: T::AccountId,
+            /// The arbitration block for the coldkey swap
+            arbitration_block: u64,
+        },
     }
 }
