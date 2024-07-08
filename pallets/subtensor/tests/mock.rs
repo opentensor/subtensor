@@ -2,7 +2,6 @@
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
-// use frame_support::weights::constants::WEIGHT_PER_SECOND;
 use frame_support::weights::Weight;
 use frame_support::{
     assert_ok, parameter_types,
@@ -415,6 +414,7 @@ pub fn test_ext_with_balances(balances: Vec<(U256, u128)>) -> sp_io::TestExterna
 #[allow(dead_code)]
 pub(crate) fn step_block(n: u16) {
     for _ in 0..n {
+        SubtensorModule::on_idle(System::block_number(), Weight::from_parts(u64::MAX, 0));
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
@@ -426,6 +426,7 @@ pub(crate) fn step_block(n: u16) {
 #[allow(dead_code)]
 pub(crate) fn run_to_block(n: u64) {
     while System::block_number() < n {
+        SubtensorModule::on_idle(System::block_number(), Weight::from_parts(u64::MAX, 0));
         SubtensorModule::on_finalize(System::block_number());
         System::on_finalize(System::block_number());
         System::set_block_number(System::block_number() + 1);
@@ -485,4 +486,9 @@ pub fn add_network(netuid: u16, tempo: u16, _modality: u16) {
     SubtensorModule::init_new_network(netuid, tempo);
     SubtensorModule::set_network_registration_allowed(netuid, true);
     SubtensorModule::set_network_pow_registration_allowed(netuid, true);
+}
+
+#[allow(dead_code)]
+pub fn base_difficulty() -> u32 {
+    <Test as pallet_subtensor::Config>::InitialDifficulty::get() as u32
 }

@@ -1195,6 +1195,7 @@ fn test_swap_stake_for_coldkey() {
 
         // Setup initial state
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
+        StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);

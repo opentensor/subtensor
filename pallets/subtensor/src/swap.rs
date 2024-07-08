@@ -302,7 +302,7 @@ impl<T: Config> Pallet<T> {
     /// Calculate the proof of work difficulty based on the number of swap attempts
     #[allow(clippy::arithmetic_side_effects)]
     pub fn calculate_pow_difficulty(swap_attempts: u32) -> U256 {
-        let base_difficulty: U256 = U256::from(10_000_000); // Base difficulty
+        let base_difficulty: U256 = U256::from(T::InitialDifficulty::get()); // Base difficulty
         base_difficulty * U256::from(2).pow(U256::from(swap_attempts))
     }
 
@@ -547,8 +547,6 @@ impl<T: Config> Pallet<T> {
         let _ = Stake::<T>::clear_prefix(old_hotkey, stake_count, None);
         writes = writes.saturating_add(1); // One write for insert; // One write for clear_prefix
 
-        // TODO: Remove all entries for old hotkey from StakingHotkeys map
-
         weight.saturating_accrue(T::DbWeight::get().writes(writes));
     }
 
@@ -789,7 +787,7 @@ impl<T: Config> Pallet<T> {
         weight: &mut Weight,
     ) {
         // Retrieve the list of hotkeys owned by the old coldkey
-        let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
+        let old_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
 
         // Initialize the total transferred stake to zero
         let mut total_transferred_stake: u64 = 0u64;
@@ -805,7 +803,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Iterate over each hotkey owned by the old coldkey
-        for hotkey in old_owned_hotkeys.iter() {
+        for hotkey in old_staking_hotkeys.iter() {
             // Retrieve and remove the stake associated with the hotkey and old coldkey
             let stake: u64 = Stake::<T>::take(hotkey, old_coldkey);
             log::info!("Transferring stake for hotkey {:?}: {}", hotkey, stake);
@@ -848,14 +846,14 @@ impl<T: Config> Pallet<T> {
         }
 
         // Update the list of owned hotkeys for both old and new coldkeys
-        OwnedHotkeys::<T>::remove(old_coldkey);
-        OwnedHotkeys::<T>::insert(new_coldkey, old_owned_hotkeys);
+        let owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::take(old_coldkey);
+        OwnedHotkeys::<T>::insert(new_coldkey, owned_hotkeys);
         *weight += T::DbWeight::get().reads_writes(1, 2);
 
         // Update the staking hotkeys for both old and new coldkeys
-        let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::take(old_coldkey);
-        StakingHotkeys::<T>::insert(new_coldkey, staking_hotkeys);
-        *weight += T::DbWeight::get().reads_writes(1, 1);
+        StakingHotkeys::<T>::remove(old_coldkey);
+        StakingHotkeys::<T>::insert(new_coldkey, old_staking_hotkeys);
+        *weight += T::DbWeight::get().reads_writes(1, 2);
 
         // Log the total stake of old and new coldkeys after the swap
         log::info!(
