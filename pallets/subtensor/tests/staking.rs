@@ -3206,7 +3206,7 @@ fn test_arbitrated_coldkey_swap_success() {
         run_to_block(drain_block);
 
         // Run unstaking
-        SubtensorModule::swap_coldkeys_this_block().unwrap();
+        SubtensorModule::swap_coldkeys_this_block(&BlockWeights::get().max_block).unwrap();
         log::info!(
             "Arbitrated coldkeys for block: {:?}",
             SubtensorModule::get_current_block_as_u64()
@@ -3547,14 +3547,14 @@ fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
         // Arbitrate next block.
         assert_eq!(
             pallet_subtensor::ColdkeyArbitrationBlock::<Test>::get(coldkey),
-            SubtensorModule::get_current_block_as_u64() + 1
+            u64::MAX
         );
 
         // Arbitrate.
         step_block(1);
 
-        // Key is not in arbitration
-        assert!(!SubtensorModule::coldkey_in_arbitration(&coldkey));
+        // Key is in arbitration
+        assert!(SubtensorModule::coldkey_in_arbitration(&coldkey));
 
         // Owner schedules a swap for themselves lets go back into arbitration.
         let current_block = SubtensorModule::get_current_block_as_u64();
@@ -3749,7 +3749,7 @@ fn test_concurrent_arbitrated_coldkey_swaps() {
         run_to_block(drain_block);
 
         // Run arbitration
-        SubtensorModule::swap_coldkeys_this_block().unwrap();
+        SubtensorModule::swap_coldkeys_this_block(&BlockWeights::get().max_block).unwrap();
 
         // Check that the balances have been transferred correctly
         assert_eq!(

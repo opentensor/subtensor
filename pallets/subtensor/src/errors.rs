@@ -151,7 +151,7 @@ mod errors {
         /// The new coldkey is already registered for the drain
         DuplicateColdkey,
         /// Error thrown on a coldkey swap.
-        SwapError,
+        ColdkeySwapError,
         /// Insufficient Balance to Schedule coldkey swap
         InsufficientBalanceToPerformColdkeySwap,
     }
