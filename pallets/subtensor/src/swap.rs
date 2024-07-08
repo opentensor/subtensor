@@ -302,7 +302,7 @@ impl<T: Config> Pallet<T> {
     /// Calculate the proof of work difficulty based on the number of swap attempts
     #[allow(clippy::arithmetic_side_effects)]
     fn calculate_pow_difficulty(swap_attempts: u32) -> U256 {
-        let base_difficulty: U256 = U256::from(1_000_000); // Base difficulty
+        let base_difficulty: U256 = U256::from(10_000_000); // Base difficulty
         base_difficulty * U256::from(2).pow(U256::from(swap_attempts))
     }
 
