@@ -1328,18 +1328,23 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+            // Unstake and transfer pending coldkeys up to the remaining weight
+            match Self::swap_coldkeys_this_block(&remaining_weight) {
+                Ok(weight_used) => weight_used,
+                Err(e) => {
+                    log::error!("Error while swapping coldkeys: {:?}", e);
+                    Weight::default()
+                }
+            }
+        }
+
         // ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
         //
         // # Args:
         // 	* 'n': (BlockNumberFor<T>):
         // 		- The number of the block we are initializing.
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
-            // Unstake all and transfer pending coldkeys
-            let swap_weight = match Self::swap_coldkeys_this_block() {
-                Ok(weight) => weight,
-                Err(_) => Weight::from_parts(0, 0),
-            };
-
             let block_step_result = Self::block_step();
             match block_step_result {
                 Ok(_) => {
@@ -1348,7 +1353,6 @@ pub mod pallet {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
-                        .saturating_add(swap_weight)
                 }
                 Err(e) => {
                     // --- If the block step was unsuccessful, return the weight anyway.
@@ -1356,7 +1360,6 @@ pub mod pallet {
                     Weight::from_parts(110_634_229_000_u64, 0)
                         .saturating_add(T::DbWeight::get().reads(8304_u64))
                         .saturating_add(T::DbWeight::get().writes(110_u64))
-                        .saturating_add(swap_weight)
                 }
             }
         }
