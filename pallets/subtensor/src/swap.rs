@@ -767,7 +767,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
     }
 
-    /// Swaps all stakes associated with a coldkey from the old coldkey to the new coldkey.
+    /// Swaps the stake associated with a coldkey from the old coldkey to the new coldkey.
     ///
     /// # Arguments
     ///
@@ -777,50 +777,96 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Effects
     ///
-    /// * Removes all stakes associated with the old coldkey.
-    /// * Inserts all stakes for the new coldkey.
+    /// * Transfers all stakes from the old coldkey to the new coldkey.
+    /// * Updates the ownership of hotkeys.
+    /// * Updates the total stake for both old and new coldkeys.
     /// * Updates the transaction weight.
+    ///
+
     pub fn swap_stake_for_coldkey(
         old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
         weight: &mut Weight,
     ) {
-        // Swap the owners.
-        let old_owned_hotkeys = OwnedHotkeys::<T>::get(old_coldkey);
-        for owned_key in old_owned_hotkeys.clone().iter() {
-            Owner::<T>::insert(owned_key, new_coldkey);
-            // Find all hotkeys for this coldkey
-            let hotkeys = OwnedHotkeys::<T>::get(old_coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
-            for hotkey in hotkeys.iter() {
-                let stake = Stake::<T>::get(&hotkey, old_coldkey);
-                Stake::<T>::remove(&hotkey, old_coldkey);
-                Stake::<T>::insert(&hotkey, new_coldkey, stake);
+        // Retrieve the list of hotkeys owned by the old coldkey
+        let old_owned_hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(old_coldkey);
 
-                // Update StakingHotkeys map
-                let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
-                StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys);
+        // Initialize the total transferred stake to zero
+        let mut total_transferred_stake: u64 = 0u64;
 
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
-            }
-            OwnedHotkeys::<T>::remove(old_coldkey.clone());
-            OwnedHotkeys::<T>::insert(new_coldkey.clone(), old_owned_hotkeys.clone());
+        // Log the total stake of old and new coldkeys before the swap
+        log::info!(
+            "Before swap - Old coldkey total stake: {}",
+            TotalColdkeyStake::<T>::get(old_coldkey)
+        );
+        log::info!(
+            "Before swap - New coldkey total stake: {}",
+            TotalColdkeyStake::<T>::get(new_coldkey)
+        );
 
-            // Swap all the keys the coldkey is staking too.
-            let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
-            StakingHotkeys::<T>::remove(old_coldkey.clone());
-            for hotkey in staking_hotkeys.iter() {
-                // Remove the previous stake and re-insert it.
-                let stake = Stake::<T>::get(hotkey, old_coldkey);
-                Stake::<T>::remove(hotkey, old_coldkey);
+        // Iterate over each hotkey owned by the old coldkey
+        for hotkey in old_owned_hotkeys.iter() {
+            // Retrieve and remove the stake associated with the hotkey and old coldkey
+            let stake: u64 = Stake::<T>::take(hotkey, old_coldkey);
+            log::info!("Transferring stake for hotkey {:?}: {}", hotkey, stake);
+            if stake > 0 {
+                // Insert the stake for the hotkey and new coldkey
                 Stake::<T>::insert(hotkey, new_coldkey, stake);
-                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
-            }
-            // Add the new staking keys value.
-            StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys.clone());
-        }
-    }
+                total_transferred_stake = total_transferred_stake.saturating_add(stake);
 
+                // Update the owner of the hotkey to the new coldkey
+                Owner::<T>::insert(hotkey, new_coldkey);
+
+                // Update the transaction weight
+                *weight += T::DbWeight::get().reads_writes(2, 2);
+            }
+        }
+
+        // Log the total transferred stake
+        log::info!("Total transferred stake: {}", total_transferred_stake);
+
+        // Update the total stake for both old and new coldkeys if any stake was transferred
+        if total_transferred_stake > 0 {
+            let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(old_coldkey);
+            let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
+
+            TotalColdkeyStake::<T>::insert(old_coldkey, 0);
+            TotalColdkeyStake::<T>::insert(
+                new_coldkey,
+                new_coldkey_stake.saturating_add(old_coldkey_stake),
+            );
+
+            log::info!("Updated old coldkey stake from {} to 0", old_coldkey_stake);
+            log::info!(
+                "Updated new coldkey stake from {} to {}",
+                new_coldkey_stake,
+                new_coldkey_stake.saturating_add(old_coldkey_stake)
+            );
+
+            // Update the transaction weight
+            *weight += T::DbWeight::get().reads_writes(2, 2);
+        }
+
+        // Update the list of owned hotkeys for both old and new coldkeys
+        OwnedHotkeys::<T>::remove(old_coldkey);
+        OwnedHotkeys::<T>::insert(new_coldkey, old_owned_hotkeys);
+        *weight += T::DbWeight::get().reads_writes(1, 2);
+
+        // Update the staking hotkeys for both old and new coldkeys
+        let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::take(old_coldkey);
+        StakingHotkeys::<T>::insert(new_coldkey, staking_hotkeys);
+        *weight += T::DbWeight::get().reads_writes(1, 1);
+
+        // Log the total stake of old and new coldkeys after the swap
+        log::info!(
+            "After swap - Old coldkey total stake: {}",
+            TotalColdkeyStake::<T>::get(old_coldkey)
+        );
+        log::info!(
+            "After swap - New coldkey total stake: {}",
+            TotalColdkeyStake::<T>::get(new_coldkey)
+        );
+    }
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.
     ///
     /// # Arguments
