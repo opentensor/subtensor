@@ -154,5 +154,7 @@ mod errors {
         ColdkeySwapError,
         /// Insufficient Balance to Schedule coldkey swap
         InsufficientBalanceToPerformColdkeySwap,
+        /// The maximum number of coldkey destinations has been reached
+        MaxColdkeyDestinationsReached,
     }
 }

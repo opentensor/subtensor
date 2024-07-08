@@ -265,12 +265,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DuplicateColdkey
         );
 
-        // If the destinations keys are empty or have size 1 then we will add the new coldkey to the list
-        if destination_coldkeys.is_empty() || destination_coldkeys.len() == 1_usize {
+        // If the destinations keys are empty or have less than the maximum allowed, we will add the new coldkey to the list
+        const MAX_COLDKEY_DESTINATIONS: usize = 10;
+
+        if destination_coldkeys.len() < MAX_COLDKEY_DESTINATIONS {
             destination_coldkeys.push(new_coldkey.clone());
             ColdkeySwapDestinations::<T>::insert(old_coldkey.clone(), destination_coldkeys.clone());
         } else {
-            return Err(Error::<T>::ColdkeyIsInArbitration.into());
+            return Err(Error::<T>::MaxColdkeyDestinationsReached.into());
         }
 
         // It is the first time we have seen this key
@@ -318,43 +320,36 @@ impl<T: Config> Pallet<T> {
     pub fn swap_coldkeys_this_block(weight_limit: &Weight) -> Result<Weight, &'static str> {
         let mut weight_used = frame_support::weights::Weight::from_parts(0, 0);
 
-        // Get the block number
         let current_block: u64 = Self::get_current_block_as_u64();
         log::debug!("Swapping coldkeys for block: {:?}", current_block);
 
-        // Get the coldkeys to swap here and then remove them.
         let source_coldkeys: Vec<T::AccountId> = ColdkeysToSwapAtBlock::<T>::get(current_block);
         ColdkeysToSwapAtBlock::<T>::remove(current_block);
         weight_used = weight_used.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
-        // Iterate over all keys in swap and call perform_swap_coldkey for each
         let mut keys_swapped = 0u64;
         for coldkey_i in source_coldkeys.iter() {
-            // Terminate early if we've exhausted the weight limit
-            //
-            // We care only about ref_time and not proof_size because we are a solochain.
-            if weight_used.ref_time() > weight_limit.ref_time() {
-                log::warn!("Could not finish swapping all coldkeys this block due to weight limit, breaking after swapping {} keys.", keys_swapped);
-                break;
-            }
+            // TODO: need a sane way to terminate early without locking users in.
+            // we should update the swap time
+            // if weight_used.ref_time() > weight_limit.ref_time() {
+            //     log::warn!("Could not finish swapping all coldkeys this block due to weight limit, breaking after swapping {} keys.", keys_swapped);
+            //     break;
+            // }
 
-            // Get the wallets to swap to for this coldkey.
             let destinations_coldkeys: Vec<T::AccountId> =
                 ColdkeySwapDestinations::<T>::get(coldkey_i);
-            ColdkeySwapDestinations::<T>::remove(&coldkey_i);
-            weight_used = weight_used.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+            weight_used = weight_used.saturating_add(T::DbWeight::get().reads(1));
 
-            // If the wallets to swap is > 1 we bump the arbitration period.
             if destinations_coldkeys.len() > 1 {
-                // Set the arbitration period to u64::MAX until we have a senate vote
+                // Do not remove ColdkeySwapDestinations if there are multiple destinations
                 ColdkeyArbitrationBlock::<T>::insert(coldkey_i.clone(), u64::MAX);
-
                 Self::deposit_event(Event::ArbitrationPeriodExtended {
                     coldkey: coldkey_i.clone(),
                 });
             } else if let Some(new_coldkey) = destinations_coldkeys.first() {
-                // ONLY 1 wallet: Get the wallet to swap to.
-                // Perform the swap.
+                // Only remove ColdkeySwapDestinations if there's a single destination
+                ColdkeySwapDestinations::<T>::remove(&coldkey_i);
+                weight_used = weight_used.saturating_add(T::DbWeight::get().writes(1));
                 Self::perform_swap_coldkey(coldkey_i, new_coldkey).map(|weight| {
                     weight_used = weight_used.saturating_add(weight);
                     keys_swapped = keys_swapped.saturating_add(1);
