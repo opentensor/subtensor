@@ -1,4 +1,5 @@
 use super::*;
+use dispatch::RawOrigin;
 use frame_support::{
     storage::IterableStorageDoubleMap,
     traits::{
@@ -9,6 +10,7 @@ use frame_support::{
         Imbalance,
     },
 };
+use num_traits::Zero;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
@@ -560,6 +562,20 @@ impl<T: Config> Pallet<T> {
         if !Self::hotkey_account_exists(hotkey) {
             Stake::<T>::insert(hotkey, coldkey, 0);
             Owner::<T>::insert(hotkey, coldkey);
+
+            // Update OwnedHotkeys map
+            let mut hotkeys = OwnedHotkeys::<T>::get(coldkey);
+            if !hotkeys.contains(hotkey) {
+                hotkeys.push(hotkey.clone());
+                OwnedHotkeys::<T>::insert(coldkey, hotkeys);
+            }
+
+            // Update StakingHotkeys map
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+            if !staking_hotkeys.contains(hotkey) {
+                staking_hotkeys.push(hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+            }
         }
     }
 
@@ -639,6 +655,13 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if !staking_hotkeys.contains(hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+        }
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -659,6 +682,8 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+
+        // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
     }
 
     /// Empties the stake associated with a given coldkey-hotkey account pairing.
@@ -683,6 +708,11 @@ impl<T: Config> Pallet<T> {
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        staking_hotkeys.retain(|h| h != hotkey);
+        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
         current_stake
     }
@@ -781,6 +811,31 @@ impl<T: Config> Pallet<T> {
         Ok(credit)
     }
 
+    pub fn kill_coldkey_account(
+        coldkey: &T::AccountId,
+        amount: <<T as Config>::Currency as fungible::Inspect<<T as system::Config>::AccountId>>::Balance,
+    ) -> Result<u64, DispatchError> {
+        if amount == 0 {
+            return Ok(0);
+        }
+
+        let credit = T::Currency::withdraw(
+            coldkey,
+            amount,
+            Precision::Exact,
+            Preservation::Expendable,
+            Fortitude::Force,
+        )
+        .map_err(|_| Error::<T>::BalanceWithdrawalError)?
+        .peek();
+
+        if credit == 0 {
+            return Err(Error::<T>::ZeroBalanceAfterWithdrawn.into());
+        }
+
+        Ok(credit)
+    }
+
     pub fn unstake_all_coldkeys_from_hotkey_account(hotkey: &T::AccountId) {
         // Iterate through all coldkeys that have a stake on this hotkey account.
         for (delegate_coldkey_i, stake_i) in
@@ -794,5 +849,115 @@ impl<T: Config> Pallet<T> {
             // Add the balance to the coldkey account.
             Self::add_balance_to_coldkey_account(&delegate_coldkey_i, stake_i);
         }
+    }
+
+    /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
+    ///
+    /// This function performs the following operations:
+    /// 1. Verifies that the hotkey exists and is owned by the current coldkey.
+    /// 2. Ensures that the new coldkey is different from the current one.
+    /// 3. Unstakes all balance if there's any stake.
+    /// 4. Transfers the entire balance of the hotkey to the new coldkey.
+    /// 5. Verifies the success of the transfer and handles partial transfers if necessary.
+    ///
+    /// # Arguments
+    ///
+    /// * `current_coldkey` - The AccountId of the current coldkey.
+    /// * `new_coldkey` - The AccountId of the new coldkey to receive the unstaked tokens.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `DispatchResult` indicating success or failure of the operation.
+    ///
+    /// # Errors
+    ///
+    /// This function will return an error if:
+    /// * The hotkey account does not exist.
+    /// * The current coldkey does not own the hotkey.
+    /// * The new coldkey is the same as the current coldkey.
+    /// * There is no balance to transfer.
+    /// * The transfer fails or is only partially successful.
+    ///
+    /// # Events
+    ///
+    /// Emits an `AllBalanceUnstakedAndTransferredToNewColdkey` event upon successful execution.
+    /// Emits a `PartialBalanceTransferredToNewColdkey` event if only a partial transfer is successful.
+    ///
+    pub fn do_unstake_all_and_transfer_to_new_coldkey(
+        current_coldkey: T::AccountId,
+        new_coldkey: T::AccountId,
+    ) -> DispatchResult {
+        // Ensure the new coldkey is different from the current one
+        ensure!(current_coldkey != new_coldkey, Error::<T>::SameColdkey);
+
+        // Get all the hotkeys associated with this coldkey
+        let hotkeys: Vec<T::AccountId> = OwnedHotkeys::<T>::get(&current_coldkey);
+
+        // iterate over all hotkeys.
+        for next_hotkey in hotkeys {
+            ensure!(
+                Self::hotkey_account_exists(&next_hotkey),
+                Error::<T>::HotKeyAccountNotExists
+            );
+            ensure!(
+                Self::coldkey_owns_hotkey(&current_coldkey, &next_hotkey),
+                Error::<T>::NonAssociatedColdKey
+            );
+
+            // Get the current stake
+            let current_stake: u64 =
+                Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &next_hotkey);
+
+            // Unstake all balance if there's any stake
+            if current_stake > 0 {
+                Self::do_remove_stake(
+                    RawOrigin::Signed(current_coldkey.clone()).into(),
+                    next_hotkey.clone(),
+                    current_stake,
+                )?;
+            }
+        }
+
+        // Unstake all delegate stake make by this coldkey to non-owned hotkeys
+        let staking_hotkeys = StakingHotkeys::<T>::get(&current_coldkey);
+
+        // iterate over all staking hotkeys.
+        for hotkey in staking_hotkeys {
+            // Get the current stake
+            let current_stake: u64 =
+                Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &hotkey);
+
+            // Unstake all balance if there's any stake
+            if current_stake > 0 {
+                Self::do_remove_stake(
+                    RawOrigin::Signed(current_coldkey.clone()).into(),
+                    hotkey.clone(),
+                    current_stake,
+                )?;
+            }
+        }
+
+        let total_balance = Self::get_coldkey_balance(&current_coldkey);
+        log::info!("Total Bank Balance: {:?}", total_balance);
+
+        // Ensure there's a balance to transfer
+        ensure!(!total_balance.is_zero(), Error::<T>::NoBalanceToTransfer);
+
+        // Attempt to transfer the entire total balance to the new coldkey
+        T::Currency::transfer(
+            &current_coldkey,
+            &new_coldkey,
+            total_balance,
+            Preservation::Expendable,
+        )?;
+
+        // Emit the event
+        Self::deposit_event(Event::AllBalanceUnstakedAndTransferredToNewColdkey {
+            current_coldkey: current_coldkey.clone(),
+            new_coldkey: new_coldkey.clone(),
+            total_balance,
+        });
+
+        Ok(())
     }
 }
