@@ -1381,24 +1381,24 @@ fn test_coldkey_has_associated_hotkeys() {
     });
 }
 
-#[test]
-fn test_coldkey_arbitrated_sw() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey = U256::from(1);
-        let hotkey = U256::from(2);
-        let netuid = 1u16;
+// #[test]
+// fn test_coldkey_arbitrated_sw() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey = U256::from(1);
+//         let hotkey = U256::from(2);
+//         let netuid = 1u16;
 
-        // Setup initial state
-        add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
+//         // Setup initial state
+//         add_network(netuid, 13, 0);
+//         register_ok_neuron(netuid, hotkey, coldkey, 0);
 
-        // Check if coldkey has associated hotkeys
-        assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
+//         // Check if coldkey has associated hotkeys
+//         assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
 
-        // Check for a coldkey without associated hotkeys
-        let unassociated_coldkey = U256::from(3);
-        assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
-            &unassociated_coldkey
-        ));
-    });
-}
+//         // Check for a coldkey without associated hotkeys
+//         let unassociated_coldkey = U256::from(3);
+//         assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
+//             &unassociated_coldkey
+//         ));
+//     });
+// }
