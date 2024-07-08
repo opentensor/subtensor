@@ -314,9 +314,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Returns
     ///
-    /// * `Weight` - The total weight consumed by the operation.
-    pub fn swap_coldkeys_this_block() -> Result<Weight, &'static str> {
-        let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+    /// * `Weight` - The total weight consumed by this operation
+    pub fn swap_coldkeys_this_block(weight_limit: &Weight) -> Result<Weight, &'static str> {
+        let mut weight_used = frame_support::weights::Weight::from_parts(0, 0);
 
         // Get the block number
         let current_block: u64 = Self::get_current_block_as_u64();
@@ -325,15 +325,24 @@ impl<T: Config> Pallet<T> {
         // Get the coldkeys to swap here and then remove them.
         let source_coldkeys: Vec<T::AccountId> = ColdkeysToSwapAtBlock::<T>::get(current_block);
         ColdkeysToSwapAtBlock::<T>::remove(current_block);
-        weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+        weight_used = weight_used.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
         // Iterate over all keys in swap and call perform_swap_coldkey for each
+        let mut keys_swapped = 0u64;
         for coldkey_i in source_coldkeys.iter() {
+            // Terminate early if we've exhausted the weight limit
+            //
+            // We care only about ref_time and not proof_size because we are a solochain.
+            if weight_used.ref_time() > weight_limit.ref_time() {
+                log::warn!("Could not finish swapping all coldkeys this block due to weight limit, breaking after swapping {} keys.", keys_swapped);
+                break;
+            }
+
             // Get the wallets to swap to for this coldkey.
             let destinations_coldkeys: Vec<T::AccountId> =
                 ColdkeySwapDestinations::<T>::get(coldkey_i);
             ColdkeySwapDestinations::<T>::remove(&coldkey_i);
-            weight = weight.saturating_add(T::DbWeight::get().reads_writes(1, 1));
+            weight_used = weight_used.saturating_add(T::DbWeight::get().reads_writes(1, 1));
 
             // If the wallets to swap is > 1 we do nothing.
             if destinations_coldkeys.len() > 1 {
@@ -344,16 +353,14 @@ impl<T: Config> Pallet<T> {
             } else if let Some(new_coldkey) = destinations_coldkeys.first() {
                 // ONLY 1 wallet: Get the wallet to swap to.
                 // Perform the swap.
-                if Self::perform_swap_coldkey(coldkey_i, new_coldkey)
-                    .map(|w| weight = weight.saturating_add(w))
-                    .is_err()
-                {
-                    return Err("Failed to perform coldkey swap");
-                }
+                Self::perform_swap_coldkey(coldkey_i, new_coldkey).map(|weight| {
+                    weight_used = weight_used.saturating_add(weight);
+                    keys_swapped = keys_swapped.saturating_add(1);
+                })?;
             }
         }
 
-        Ok(weight)
+        Ok(weight_used)
     }
 
     pub fn perform_swap_coldkey(
