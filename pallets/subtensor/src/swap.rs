@@ -199,6 +199,16 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    pub fn meets_min_allowed_coldkey_balance( coldkey: &T::AccountId ) -> bool {
+        let all_staked_keys: Vec<T::AccountId> = StakingHotkeys::<T>::get(coldkey);
+        let mut total_staking_balance: u64 = 0;
+        for hotkey in all_staked_keys {
+            total_staking_balance += Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        }
+        total_staking_balance += Self::get_coldkey_balance(&coldkey);
+        total_staking_balance >= MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP
+    }
+
     /// Schedules a coldkey swap to a new coldkey with arbitration.
     ///
     /// # Arguments
@@ -238,7 +248,7 @@ impl<T: Config> Pallet<T> {
 
         // Check minimum amount of TAO (1 TAO)
         ensure!(
-            Self::get_coldkey_balance(old_coldkey) >= MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
+            Self::meets_min_allowed_coldkey_balance(&old_coldkey),
             Error::<T>::InsufficientBalanceToPerformColdkeySwap
         );
 

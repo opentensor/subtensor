@@ -3980,3 +3980,41 @@ fn next_block() {
     System::on_initialize(System::block_number());
     SubtensorModule::on_initialize(System::block_number());
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_coldkey_meets_enough --exact --nocapture
+#[test]
+fn test_coldkey_meets_enough() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(2);
+        let netuid = 1u16;
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work1, nonce1) = generate_valid_pow(&coldkey, current_block, U256::from(10_000_000u64));
+        assert_err!(
+            SubtensorModule::do_schedule_coldkey_swap(
+                &coldkey.clone(),
+                &new_coldkey,
+                work1.to_fixed_bytes().to_vec(),
+                current_block,
+                nonce1
+            ),
+            Error::<Test>::InsufficientBalanceToPerformColdkeySwap
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
+        );
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &coldkey.clone(),
+            &new_coldkey,
+            work1.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce1
+        ));
+      
+
+    });
+}

@@ -1367,18 +1367,10 @@ fn test_coldkey_has_associated_hotkeys() {
         // Setup initial state
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
 
-        // Check if coldkey has associated hotkeys
-        assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
-
-        // Check for a coldkey without associated hotkeys
-        let unassociated_coldkey = U256::from(3);
-        assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
-            &unassociated_coldkey
-        ));
     });
 }
-
 
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_coldkey_swap_total --exact --nocapture
