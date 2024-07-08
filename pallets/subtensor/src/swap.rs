@@ -374,7 +374,6 @@ impl<T: Config> Pallet<T> {
 
         // Swap coldkey references in storage maps
         // NOTE The order of these calls is important
-        Self::swap_total_coldkey_stake(old_coldkey, new_coldkey, &mut weight);
         Self::swap_stake_for_coldkey(old_coldkey, new_coldkey, &mut weight);
         Self::swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey(
             old_coldkey,
@@ -822,7 +821,7 @@ impl<T: Config> Pallet<T> {
 
         // Update the total stake for both old and new coldkeys if any stake was transferred
         if total_transferred_stake > 0 {
-            let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(old_coldkey);
+            let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::take(old_coldkey); // Remove it here.
             let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
 
             TotalColdkeyStake::<T>::insert(old_coldkey, 0);

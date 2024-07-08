@@ -1381,6 +1381,135 @@ fn test_coldkey_has_associated_hotkeys() {
     });
 }
 
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_coldkey_swap_total --exact --nocapture
+#[test]
+fn test_coldkey_swap_total() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let nominator1 = U256::from(2);
+        let nominator2 = U256::from(3);
+        let nominator3 = U256::from(4);
+        let delegate1 = U256::from(5);
+        let delegate2 = U256::from(6);
+        let delegate3 = U256::from(7);
+        let hotkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let hotkey3 = U256::from(4);
+        let netuid1 = 1u16;
+        let netuid2 = 2u16;
+        let netuid3 = 3u16;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate3, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator3, 1000);
+
+        // Setup initial state
+        add_network(netuid1, 13, 0);
+        add_network(netuid2, 14, 0);
+        add_network(netuid3, 15, 0);
+        register_ok_neuron(netuid1, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid2, hotkey2, coldkey, 0);
+        register_ok_neuron(netuid3, hotkey3, coldkey, 0);
+        register_ok_neuron(netuid1, delegate1, delegate1, 0);
+        register_ok_neuron(netuid2, delegate2, delegate2, 0);
+        register_ok_neuron(netuid3, delegate3, delegate3, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey1, u16::MAX / 10));
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey2, u16::MAX / 10));
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey3, u16::MAX / 10));
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(delegate1), delegate1, u16::MAX / 10));
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(delegate2), delegate2, u16::MAX / 10));
+        assert_ok!(SubtensorModule::do_become_delegate(<<Test as Config>::RuntimeOrigin>::signed(delegate3), delegate3, u16::MAX / 10));
+
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey1, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey2, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey), hotkey3, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey), delegate1, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey), delegate2, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(coldkey), delegate3, 100 ));
+
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate1), hotkey1, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate2), hotkey2, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate3), hotkey3, 100 ));
+
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate1), delegate1, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate2), delegate2, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(delegate3), delegate3, 100 ));
+
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator1), hotkey1, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator2), hotkey2, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator3), hotkey3, 100 ));
+
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator1), delegate1, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator2), delegate2, 100 ));
+        assert_ok!(SubtensorModule::add_stake(<<Test as Config>::RuntimeOrigin>::signed(nominator3), delegate3, 100 ));
+
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&coldkey), vec![hotkey1, hotkey2, hotkey3] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&coldkey), vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3] );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300 );
+
+
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&delegate1), vec![delegate1] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&delegate2), vec![delegate2] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&delegate3), vec![delegate3] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&delegate1), vec![delegate1, hotkey1] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&delegate2), vec![delegate2, hotkey2] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&delegate3), vec![delegate3, hotkey3] );
+
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&nominator1), vec![] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&nominator2), vec![] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&nominator3), vec![] );
+
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&nominator1), vec![hotkey1, delegate1] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&nominator2), vec![hotkey2, delegate2] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&nominator3), vec![hotkey3, delegate3] );
+
+        // Perform the swap
+        let new_coldkey = U256::from(1100);
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600 );
+        assert_ok!(SubtensorModule::perform_swap_coldkey( &coldkey, &new_coldkey ));
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey(&new_coldkey), 600 );
+
+        // Check everything is swapped.
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&new_coldkey), vec![hotkey1, hotkey2, hotkey3] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&new_coldkey), vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3] );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey(&new_coldkey), 600 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300 );
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300 );
+
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&delegate1), vec![delegate1] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&delegate2), vec![delegate2] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&delegate3), vec![delegate3] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&delegate1), vec![delegate1, hotkey1] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&delegate2), vec![delegate2, hotkey2] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&delegate3), vec![delegate3, hotkey3] );
+
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&nominator1), vec![] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&nominator2), vec![] );
+        assert_eq!( SubtensorModule::get_owned_hotkeys(&nominator3), vec![] );
+
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&nominator1), vec![hotkey1, delegate1] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&nominator2), vec![hotkey2, delegate2] );
+        assert_eq!( SubtensorModule::get_all_staked_hotkeys(&nominator3), vec![hotkey3, delegate3] );
+
+
+    });
+}
+
 // #[test]
 // fn test_coldkey_arbitrated_sw() {
 //     new_test_ext(1).execute_with(|| {
