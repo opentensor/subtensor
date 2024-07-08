@@ -3975,6 +3975,77 @@ fn generate_valid_pow(coldkey: &U256, block_number: u64, difficulty: U256) -> (H
     }
 }
 
+#[test]
+fn test_arbitrated_coldkey_swap_with_delegated_stakes() {
+    new_test_ext(1).execute_with(|| {
+        let (current_coldkey, hotkey, new_coldkey) = setup_test_environment();
+        let delegating_coldkey = U256::from(4);
+        let delegate_stake = 1234;
+
+        SubtensorModule::set_target_stakes_per_interval(10);
+        SubtensorModule::add_balance_to_coldkey_account(
+            &current_coldkey,
+            MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &delegating_coldkey,
+            delegate_stake + ExistentialDeposit::get(),
+        );
+
+        // Hotkey becomes delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(current_coldkey),
+            hotkey,
+            SubtensorModule::get_min_take()
+        ));
+        
+        // delegate stake from delegating_coldkey
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegating_coldkey),
+            hotkey,
+            delegate_stake
+        ));
+
+        let current_block = SubtensorModule::get_current_block_as_u64();
+        let (work, nonce) =
+            generate_valid_pow(&current_coldkey, current_block, U256::from(10_000_000u64));
+
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &current_coldkey.clone(),
+            &new_coldkey,
+            work.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce
+        ));
+
+        // Make 7200 * 4 blocks pass, simulating on_idle for each block
+        let drain_block: u64 = 7200 * 3 + 1;
+        for _ in 0..drain_block {
+            next_block();
+            SubtensorModule::on_idle(System::block_number(), Weight::MAX);
+        }
+
+        // Check that owner stake has been moved to the new coldkey
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&current_coldkey, &hotkey),
+            0
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&new_coldkey, &hotkey),
+            500
+        );
+
+        // Check that delegated stake is where it was
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&delegating_coldkey, &hotkey),
+            delegate_stake
+        );
+
+        // Check that the full balance has been transferred to the new coldkey
+        assert_eq!(SubtensorModule::get_coldkey_balance(&current_coldkey), 0);
+    });
+}
+
 // Helper function to advance to the next block and run hooks
 fn next_block() {
     let current_block = System::block_number();
