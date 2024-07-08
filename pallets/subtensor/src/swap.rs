@@ -305,7 +305,7 @@ impl<T: Config> Pallet<T> {
     #[allow(clippy::arithmetic_side_effects)]
     pub fn calculate_pow_difficulty(swap_attempts: u32) -> U256 {
         let base_difficulty: U256 = U256::from(10_000_000); // Base difficulty
-        base_difficulty * U256::from(2).pow(U256::from(swap_attempts))
+        base_difficulty.saturating_mul(U256::from(2).pow(U256::from(swap_attempts)))
     }
 
     /// Arbitrates coldkeys that are scheduled to be swapped on this block.
@@ -317,7 +317,7 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `Weight` - The total weight consumed by this operation
-    pub fn swap_coldkeys_this_block(weight_limit: &Weight) -> Result<Weight, &'static str> {
+    pub fn swap_coldkeys_this_block(_weight_limit: &Weight) -> Result<Weight, &'static str> {
         let mut weight_used = frame_support::weights::Weight::from_parts(0, 0);
 
         let current_block: u64 = Self::get_current_block_as_u64();

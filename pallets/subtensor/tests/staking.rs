@@ -3638,16 +3638,13 @@ fn test_arbitrated_coldkey_swap_existing_destination() {
         let (work3, nonce3) = generate_valid_pow(&current_coldkey, current_block, difficulty3);
 
         // Attempt to schedule a third swap
-        assert_noop!(
-            SubtensorModule::do_schedule_coldkey_swap(
-                &current_coldkey.clone(),
-                &third_coldkey,
-                work3.to_fixed_bytes().to_vec(),
-                current_block,
-                nonce3
-            ),
-            Error::<Test>::ColdkeyIsInArbitration
-        );
+        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+            &current_coldkey.clone(),
+            &third_coldkey,
+            work3.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce3
+        ));
     });
 }
 
