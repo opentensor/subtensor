@@ -119,12 +119,11 @@ impl<T: Config> Pallet<T> {
     /// Weight is tracked and updated throughout the function execution.
     pub fn do_swap_coldkey(
         origin: T::RuntimeOrigin,
-        old_coldkey: &T::AccountId,
         new_coldkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
-        let coldkey_performing_swap = ensure_signed(origin)?;
+        let old_coldkey = ensure_signed(origin)?;
         ensure!(
-            !Self::coldkey_in_arbitration(&coldkey_performing_swap),
+            !Self::coldkey_in_arbitration(&old_coldkey),
             Error::<T>::ColdkeyIsInArbitration
         );
 
@@ -143,7 +142,7 @@ impl<T: Config> Pallet<T> {
 
         // Actually do the swap.
         weight = weight.saturating_add(
-            Self::perform_swap_coldkey(old_coldkey, new_coldkey)
+            Self::perform_swap_coldkey(&old_coldkey, new_coldkey)
                 .map_err(|_| Error::<T>::ColdkeySwapError)?,
         );
 

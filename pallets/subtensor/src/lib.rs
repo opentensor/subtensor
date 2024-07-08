@@ -2059,10 +2059,9 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
-            old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_coldkey(origin, &old_coldkey, &new_coldkey)
+            Self::do_swap_coldkey(origin, &new_coldkey)
         }
 
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
