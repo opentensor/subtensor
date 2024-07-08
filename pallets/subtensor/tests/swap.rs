@@ -625,7 +625,7 @@ fn test_swap_stake_weight_update() {
         SubtensorModule::swap_stake(&old_hotkey, &new_hotkey, &mut weight);
 
         // Verify the weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().writes(3);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().writes(4);
         assert_eq!(weight, expected_weight);
     });
 }
@@ -1059,7 +1059,7 @@ fn test_do_swap_coldkey_success() {
         let netuid = 1u16;
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
-        let free_balance_old = 12345u64;
+        let free_balance_old = 12345u64 + MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP;
 
         // Setup initial state
         add_network(netuid, 13, 0);
