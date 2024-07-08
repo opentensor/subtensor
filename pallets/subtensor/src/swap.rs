@@ -1,4 +1,5 @@
 use super::*;
+use crate::MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
 use frame_support::{storage::IterableStorageDoubleMap, weights::Weight};
@@ -237,9 +238,8 @@ impl<T: Config> Pallet<T> {
         ensure!(old_coldkey != new_coldkey, Error::<T>::SameColdkey);
 
         // Check minimum amount of TAO (1 TAO)
-        let minimum_balance: u64 = 1_000_000_000; // 1 TAO in RAO
         ensure!(
-            Self::get_coldkey_balance(&old_coldkey) >= minimum_balance,
+            Self::get_coldkey_balance(old_coldkey) >= MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
             Error::<T>::InsufficientBalanceToPerformColdkeySwap
         );
 
@@ -256,12 +256,12 @@ impl<T: Config> Pallet<T> {
         );
 
         // Verify work is the product of the nonce, the block number, and coldkey
-        let seal = Self::create_seal_hash(block_number, nonce, &old_coldkey);
+        let seal = Self::create_seal_hash(block_number, nonce, old_coldkey);
         ensure!(seal == work_hash, Error::<T>::InvalidSeal);
 
         // Check if the new coldkey is already in the swap wallets list
         ensure!(
-            !destination_coldkeys.contains(&new_coldkey),
+            !destination_coldkeys.contains(new_coldkey),
             Error::<T>::DuplicateColdkey
         );
 
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
             // Update the list of coldkeys to arbitrate on this block
             let mut key_to_arbitrate_on_this_block: Vec<T::AccountId> =
                 ColdkeysToSwapAtBlock::<T>::get(arbitration_block);
-            if !key_to_arbitrate_on_this_block.contains(&old_coldkey) {
+            if !key_to_arbitrate_on_this_block.contains(old_coldkey) {
                 key_to_arbitrate_on_this_block.push(old_coldkey.clone());
             }
             ColdkeysToSwapAtBlock::<T>::insert(arbitration_block, key_to_arbitrate_on_this_block);
