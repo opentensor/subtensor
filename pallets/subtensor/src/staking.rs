@@ -891,6 +891,27 @@ impl<T: Config> Pallet<T> {
     //         Self::add_balance_to_coldkey_account( &coldkey_a, all_current_stake_i );
     //         weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 2));
     //     }
+    // Unstake all delegate stake make by this coldkey to non-owned hotkeys
+    // let staking_hotkeys = StakingHotkeys::<T>::get(&current_coldkey);
+
+    // // iterate over all staking hotkeys.
+    // for hotkey in staking_hotkeys {
+    //     // Get the current stake
+    //     let current_stake: u64 =
+    //         Self::get_stake_for_coldkey_and_hotkey(&current_coldkey, &hotkey);
+
+    //     // Unstake all balance if there's any stake
+    //     if current_stake > 0 {
+    //         Self::do_remove_stake(
+    //             RawOrigin::Signed(current_coldkey.clone()).into(),
+    //             hotkey.clone(),
+    //             current_stake,
+    //         )?;
+    //     }
+    // }
+
+    // let total_balance = Self::get_coldkey_balance(&current_coldkey);
+    // log::info!("Total Bank Balance: {:?}", total_balance);
 
     //     // Get the total balance here.
     //     let total_balance = Self::get_coldkey_balance( &coldkey_a );

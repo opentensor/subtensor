@@ -416,7 +416,6 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
     pub type ColdkeysToSwapAtBlock<T: Config> =
         StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
-
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {

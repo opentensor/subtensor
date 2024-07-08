@@ -523,6 +523,7 @@ impl<T: Config> Pallet<T> {
                 writes = writes.saturating_add(1u64); // One write for remove
             }
             StakingHotkeys::<T>::insert(coldkey.clone(), staking_hotkeys);
+            writes = writes.saturating_add(1u64); // One write for insert
         }
 
         // Clear the prefix for the old hotkey after transferring all stakes
@@ -769,25 +770,38 @@ impl<T: Config> Pallet<T> {
     ) {
         // Swap the owners.
         let old_owned_hotkeys = OwnedHotkeys::<T>::get(old_coldkey);
-        for owned_key in old_owned_hotkeys.iter() {
+        for owned_key in old_owned_hotkeys.clone().iter() {
             Owner::<T>::insert(owned_key, new_coldkey);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
-        }
-        OwnedHotkeys::<T>::remove(old_coldkey.clone());
-        OwnedHotkeys::<T>::insert(new_coldkey.clone(), old_owned_hotkeys);
+            // Find all hotkeys for this coldkey
+            let hotkeys = OwnedHotkeys::<T>::get(old_coldkey);
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
+            for hotkey in hotkeys.iter() {
+                let stake = Stake::<T>::get(&hotkey, old_coldkey);
+                Stake::<T>::remove(&hotkey, old_coldkey);
+                Stake::<T>::insert(&hotkey, new_coldkey, stake);
 
-        // Swap all the keys the coldkey is staking too.
-        let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
-        StakingHotkeys::<T>::remove(old_coldkey.clone());
-        for hotkey in staking_hotkeys.iter() {
-            // Remove the previous stake and re-insert it.
-            let stake = Stake::<T>::get(hotkey, old_coldkey);
-            Stake::<T>::remove(hotkey, old_coldkey);
-            Stake::<T>::insert(hotkey, new_coldkey, stake);
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
+                // Update StakingHotkeys map
+                let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+                StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys);
+
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
+            }
+            OwnedHotkeys::<T>::remove(old_coldkey.clone());
+            OwnedHotkeys::<T>::insert(new_coldkey.clone(), old_owned_hotkeys.clone());
+
+            // Swap all the keys the coldkey is staking too.
+            let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+            StakingHotkeys::<T>::remove(old_coldkey.clone());
+            for hotkey in staking_hotkeys.iter() {
+                // Remove the previous stake and re-insert it.
+                let stake = Stake::<T>::get(hotkey, old_coldkey);
+                Stake::<T>::remove(hotkey, old_coldkey);
+                Stake::<T>::insert(hotkey, new_coldkey, stake);
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 3));
+            }
+            // Add the new staking keys value.
+            StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys.clone());
         }
-        // Add the new staking keys value.
-        StakingHotkeys::<T>::insert(new_coldkey.clone(), staking_hotkeys.clone());
     }
 
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.
