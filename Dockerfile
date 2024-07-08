@@ -45,8 +45,9 @@ COPY ./raw_spec_finney.json /subtensor/raw_spec_finney.json
 COPY ./node /subtensor/node
 COPY ./pallets /subtensor/pallets
 COPY ./runtime /subtensor/runtime
+COPY ./support /subtensor/support
 
-# Update to nightly toolchain
+# Copy our toolchain
 COPY rust-toolchain.toml /subtensor/
 RUN /subtensor/scripts/init.sh
 
