@@ -437,6 +437,8 @@ reveal_weights {
 
     let netuid = 1u16;
     let tempo = 1u16;
+    let block_number: u64 = Subtensor::<T>::get_current_block_as_u64();
+    let nonce = 0;
 
     // Initialize the network
     Subtensor::<T>::init_new_network(netuid, tempo);
@@ -452,5 +454,5 @@ reveal_weights {
         hotkey.clone()
     ));
 
-  }: schedule_coldkey_swap(RawOrigin::Signed(old_coldkey.clone()), new_coldkey)
+  }: schedule_coldkey_swap(RawOrigin::Signed(old_coldkey.clone()), new_coldkey.clone(), vec![], block_number, nonce)
 }
