@@ -132,5 +132,19 @@ mod errors {
         AlphaHighTooLow,
         /// Alpha low is out of range: alpha_low > 0 && alpha_low < 0.8
         AlphaLowOutOfRange,
+        /// The coldkey has already been swapped
+        ColdKeyAlreadyAssociated,
+        /// The coldkey swap transaction rate limit exceeded
+        ColdKeySwapTxRateLimitExceeded,
+        /// The new coldkey is the same as the old coldkey
+        NewColdKeyIsSameWithOld,
+        /// The coldkey does not exist
+        NotExistColdkey,
+        /// The coldkey balance is not enough to pay for the swap
+        NotEnoughBalanceToPaySwapColdKey,
+        /// No balance to transfer
+        NoBalanceToTransfer,
+        /// Same coldkey
+        SameColdkey,
     }
 }
