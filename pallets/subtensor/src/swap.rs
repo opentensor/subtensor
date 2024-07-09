@@ -402,7 +402,7 @@ impl<T: Config> Pallet<T> {
         );
         Self::swap_subnet_owner_for_coldkey(old_coldkey, new_coldkey, &mut weight);
 
-        // Swap the coldkey.
+        // Transfer any remaining balance from old_coldkey to new_coldkey
         let total_balance: u64 = Self::get_coldkey_balance(old_coldkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
         if total_balance > 0 {
