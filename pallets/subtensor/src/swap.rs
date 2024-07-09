@@ -203,9 +203,9 @@ impl<T: Config> Pallet<T> {
         let all_staked_keys: Vec<T::AccountId> = StakingHotkeys::<T>::get(coldkey);
         let mut total_staking_balance: u64 = 0;
         for hotkey in all_staked_keys {
-            total_staking_balance += Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+            total_staking_balance += Self::get_stake_for_coldkey_and_hotkey(coldkey, &hotkey);
         }
-        total_staking_balance += Self::get_coldkey_balance(&coldkey);
+        total_staking_balance += Self::get_coldkey_balance(coldkey);
         total_staking_balance >= MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP
     }
 
@@ -250,10 +250,15 @@ impl<T: Config> Pallet<T> {
         let is_subnet_owner = (0..=TotalNetworks::<T>::get())
             .any(|netuid| SubnetOwner::<T>::get(netuid) == *old_coldkey);
 
+        // Check if the old_coldkey has more than 500 TAO delegated
+        let total_delegated = Self::get_total_delegated_stake(old_coldkey);
+        let has_sufficient_delegation = total_delegated > 500_000_000_000; // 500 TAO in RAO
+
         // Only check the minimum balance if the old_coldkey is not a subnet owner
-        if !is_subnet_owner {
+        // and doesn't have sufficient delegation
+        if !(is_subnet_owner || has_sufficient_delegation) {
             ensure!(
-                Self::meets_min_allowed_coldkey_balance(&old_coldkey),
+                Self::meets_min_allowed_coldkey_balance(old_coldkey),
                 Error::<T>::InsufficientBalanceToPerformColdkeySwap
             );
         }

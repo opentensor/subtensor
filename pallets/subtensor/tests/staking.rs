@@ -13,7 +13,6 @@ use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_balances::Call as BalancesCall;
 use pallet_subtensor::*;
-use serde::de;
 use sp_core::{H256, U256};
 use sp_runtime::traits::SignedExtension;
 
@@ -4200,22 +4199,21 @@ fn test_comprehensive_coldkey_swap_scenarios() {
 #[test]
 fn test_get_total_delegated_stake_after_unstaking() {
     new_test_ext(1).execute_with(|| {
-        let delegate = U256::from(1);
-        let coldkey = U256::from(2);
+        let netuid = 1u16;
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
         let delegator = U256::from(3);
         let initial_stake = 2000;
         let unstake_amount = 500;
-        let netuid = 1u16;
         let existential_deposit = 1; // Account for the existential deposit
 
         add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
-        register_ok_neuron(netuid, delegate, coldkey, 0);
-
-        // Make the delegate a delegate
+        // Make the account a delegate
         assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            delegate
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
         ));
 
         // Add balance to delegator
@@ -4224,24 +4222,42 @@ fn test_get_total_delegated_stake_after_unstaking() {
         // Delegate stake
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator),
-            delegate,
+            delegate_hotkey,
             initial_stake
         ));
+
+        // Check initial delegated stake
+        assert_eq!(
+            SubtensorModule::get_total_delegated_stake(&delegate_coldkey),
+            initial_stake - existential_deposit,
+            "Initial delegated stake is incorrect"
+        );
 
         // Unstake part of the delegation
         assert_ok!(SubtensorModule::remove_stake(
             RuntimeOrigin::signed(delegator),
-            delegate,
+            delegate_hotkey,
             unstake_amount
         ));
 
         // Calculate the expected delegated stake
         let expected_delegated_stake = initial_stake - unstake_amount - existential_deposit;
 
+        // Debug prints
+        println!("Initial stake: {}", initial_stake);
+        println!("Unstake amount: {}", unstake_amount);
+        println!("Existential deposit: {}", existential_deposit);
+        println!("Expected delegated stake: {}", expected_delegated_stake);
+        println!(
+            "Actual delegated stake: {}",
+            SubtensorModule::get_total_delegated_stake(&delegate_coldkey)
+        );
+
         // Check the total delegated stake after unstaking
         assert_eq!(
-            SubtensorModule::get_total_delegated_stake(&delegate),
-            expected_delegated_stake
+            SubtensorModule::get_total_delegated_stake(&delegate_coldkey),
+            expected_delegated_stake,
+            "Delegated stake mismatch after unstaking"
         );
     });
 }
@@ -4270,35 +4286,49 @@ fn test_get_total_delegated_stake_no_delegations() {
 #[test]
 fn test_get_total_delegated_stake_single_delegator() {
     new_test_ext(1).execute_with(|| {
-        let delegate = U256::from(1);
-        let coldkey = U256::from(2);
-        let delegator = U256::from(3);
-        let stake_amount = 1000;
         let netuid = 1u16;
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
+        let delegator = U256::from(3);
+        let stake_amount = 999;
+        let existential_deposit = 1; // Account for the existential deposit
 
         add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, delegate, coldkey, 0);
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
-        // Make the delegate a delegate
+        // Make the account a delegate
         assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            delegate
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
         ));
 
-        // Add balance to delegator
+        // Add stake from delegator
         SubtensorModule::add_balance_to_coldkey_account(&delegator, stake_amount);
-
-        // Delegate stake
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator),
-            delegate,
+            delegate_hotkey,
             stake_amount
         ));
 
-        // Check the total delegated stake
+        // Debug prints
+        println!("Delegate coldkey: {:?}", delegate_coldkey);
+        println!("Delegate hotkey: {:?}", delegate_hotkey);
+        println!("Delegator: {:?}", delegator);
+        println!("Stake amount: {}", stake_amount);
+        println!("Existential deposit: {}", existential_deposit);
+        println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
+        println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
+
+        // Calculate expected delegated stake
+        let expected_delegated_stake = stake_amount - existential_deposit;
+        let actual_delegated_stake = SubtensorModule::get_total_delegated_stake(&delegate_coldkey);
+
         assert_eq!(
-            SubtensorModule::get_total_delegated_stake(&delegate),
-            stake_amount - 1 // Subtract 1 for existential deposit
+            actual_delegated_stake,
+            expected_delegated_stake,
+            "Total delegated stake should match the delegator's stake minus existential deposit. Expected: {}, Actual: {}",
+            expected_delegated_stake,
+            actual_delegated_stake
         );
     });
 }
@@ -4306,43 +4336,57 @@ fn test_get_total_delegated_stake_single_delegator() {
 #[test]
 fn test_get_total_delegated_stake_multiple_delegators() {
     new_test_ext(1).execute_with(|| {
-        let delegate = U256::from(1);
-        let coldkey = U256::from(2);
+        let netuid = 1u16;
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
         let delegator1 = U256::from(3);
         let delegator2 = U256::from(4);
-        let stake_amount1 = 1000;
-        let stake_amount2 = 2000;
-        let netuid = 1u16;
+        let stake1 = 1000;
+        let stake2 = 1999;
+        let existential_deposit = 1; // Account for the existential deposit
 
         add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, delegate, coldkey, 0);
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
-        // Make the delegate a delegate
+        // Make the account a delegate
         assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            delegate
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
         ));
 
-        // Add balance to delegators
-        SubtensorModule::add_balance_to_coldkey_account(&delegator1, stake_amount1);
-        SubtensorModule::add_balance_to_coldkey_account(&delegator2, stake_amount2);
-
-        // Delegate stakes
+        // Add stake from delegator1
+        SubtensorModule::add_balance_to_coldkey_account(&delegator1, stake1);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator1),
-            delegate,
-            stake_amount1
-        ));
-        assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(delegator2),
-            delegate,
-            stake_amount2
+            delegate_hotkey,
+            stake1
         ));
 
-        // Check the total delegated stake
+        // Add stake from delegator2
+        SubtensorModule::add_balance_to_coldkey_account(&delegator2, stake2);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator2),
+            delegate_hotkey,
+            stake2
+        ));
+
+        // Debug prints
+        println!("Delegator1 stake: {}", stake1);
+        println!("Delegator2 stake: {}", stake2);
+        println!("Existential deposit: {}", existential_deposit);
+        println!("Total stake for hotkey: {}", SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey));
+        println!("Delegated stake for coldkey: {}", SubtensorModule::get_total_delegated_stake(&delegate_coldkey));
+
+        // Calculate expected total delegated stake
+        let expected_total_delegated = stake1 + stake2 - 2 * existential_deposit;
+        let actual_total_delegated = SubtensorModule::get_total_delegated_stake(&delegate_coldkey);
+
         assert_eq!(
-            SubtensorModule::get_total_delegated_stake(&delegate),
-            stake_amount1 + stake_amount2 - 2 // Subtract 2 for existential deposits
+            actual_total_delegated,
+            expected_total_delegated,
+            "Total delegated stake should match the sum of delegators' stakes minus existential deposits. Expected: {}, Actual: {}",
+            expected_total_delegated,
+            actual_total_delegated
         );
     });
 }
@@ -4350,44 +4394,327 @@ fn test_get_total_delegated_stake_multiple_delegators() {
 #[test]
 fn test_get_total_delegated_stake_exclude_owner_stake() {
     new_test_ext(1).execute_with(|| {
-        let delegate = U256::from(1);
-        let coldkey = U256::from(2);
-        let delegator = U256::from(3);
-        let owner_stake = 5000;
-        let delegator_stake = 1000;
         let netuid = 1u16;
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
+        let delegator = U256::from(3);
+        let owner_stake = 1000;
+        let delegator_stake = 999;
+        let existential_deposit = 1; // Account for the existential deposit
 
         add_network(netuid, 0, 0);
-        register_ok_neuron(netuid, delegate, coldkey, 0);
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
 
-        // Make the delegate a delegate
+        // Make the account a delegate
         assert_ok!(SubtensorModule::become_delegate(
-            RuntimeOrigin::signed(coldkey),
-            delegate
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
         ));
 
-        // Add balance to owner and delegator
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, owner_stake);
-        SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_stake);
-
-        // Owner adds stake
+        // Add owner stake
+        SubtensorModule::add_balance_to_coldkey_account(&delegate_coldkey, owner_stake);
         assert_ok!(SubtensorModule::add_stake(
-            RuntimeOrigin::signed(coldkey),
-            delegate,
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey,
             owner_stake
         ));
 
-        // Delegator adds stake
+        // Add delegator stake
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_stake);
         assert_ok!(SubtensorModule::add_stake(
             RuntimeOrigin::signed(delegator),
-            delegate,
+            delegate_hotkey,
             delegator_stake
         ));
 
+        // Debug prints
+        println!("Owner stake: {}", owner_stake);
+        println!("Delegator stake: {}", delegator_stake);
+        println!("Existential deposit: {}", existential_deposit);
+        println!(
+            "Total stake for hotkey: {}",
+            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
+        );
+        println!(
+            "Delegated stake for coldkey: {}",
+            SubtensorModule::get_total_delegated_stake(&delegate_coldkey)
+        );
+
         // Check the total delegated stake (should exclude owner's stake)
+        let expected_delegated_stake = delegator_stake - existential_deposit;
+        let actual_delegated_stake = SubtensorModule::get_total_delegated_stake(&delegate_coldkey);
+
         assert_eq!(
-            SubtensorModule::get_total_delegated_stake(&delegate),
-            delegator_stake - 1 // Subtract 1 for existential deposit
+            actual_delegated_stake, expected_delegated_stake,
+            "Delegated stake should exclude owner's stake. Expected: {}, Actual: {}",
+            expected_delegated_stake, actual_delegated_stake
+        );
+    });
+}
+
+#[test]
+fn test_do_schedule_coldkey_swap_subnet_owner_skips_min_balance() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1u16;
+        let subnet_owner = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let current_block = 0u64;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, subnet_owner, 0);
+
+        // Make subnet_owner the owner of the subnet
+        SubnetOwner::<Test>::insert(netuid, subnet_owner);
+
+        // Ensure subnet_owner has less than minimum balance
+        assert!(
+            SubtensorModule::get_coldkey_balance(&subnet_owner)
+                < MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP
+        );
+
+        // Generate valid PoW
+        let difficulty = U256::from(4) * U256::from(BaseDifficulty::<Test>::get());
+        let (work, nonce) = generate_valid_pow(&subnet_owner, current_block, difficulty);
+
+        // Debug prints
+        println!("Subnet owner: {:?}", subnet_owner);
+        println!("New coldkey: {:?}", new_coldkey);
+        println!("Current block: {}", current_block);
+        println!("Difficulty: {:?}", difficulty);
+        println!("Work: {:?}", work);
+        println!("Nonce: {}", nonce);
+
+        // Verify the PoW
+        let seal = SubtensorModule::create_seal_hash(current_block, nonce, &subnet_owner);
+        println!("Calculated seal: {:?}", seal);
+        println!("Work matches seal: {}", work == seal);
+        println!(
+            "Seal meets difficulty: {}",
+            SubtensorModule::hash_meets_difficulty(&seal, difficulty)
+        );
+
+        // Attempt to schedule coldkey swap
+        let result = SubtensorModule::do_schedule_coldkey_swap(
+            &subnet_owner,
+            &new_coldkey,
+            work.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce,
+        );
+
+        // Print the result
+        println!("Swap result: {:?}", result);
+
+        assert_ok!(result);
+
+        // Verify that the swap was scheduled
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(subnet_owner),
+            vec![new_coldkey]
+        );
+    });
+}
+
+#[test]
+fn test_do_schedule_coldkey_swap_delegate_with_500_tao_skips_min_balance() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1u16;
+        let delegate_coldkey = U256::from(1);
+        let delegate_hotkey = U256::from(2);
+        let new_coldkey = U256::from(3);
+        let delegator = U256::from(4);
+        let current_block = 0u64;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate_hotkey, delegate_coldkey, 0);
+
+        // Make delegate a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(delegate_coldkey),
+            delegate_hotkey
+        ));
+
+        // Add more than 500 TAO of stake to the delegate's hotkey
+        let stake_amount = 501_000_000_000; // 501 TAO in RAO
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, stake_amount);
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate_hotkey,
+            stake_amount
+        ));
+
+        // Debug prints
+        println!(
+            "Delegator balance: {}",
+            SubtensorModule::get_coldkey_balance(&delegator)
+        );
+        println!(
+            "Delegate coldkey balance: {}",
+            SubtensorModule::get_coldkey_balance(&delegate_coldkey)
+        );
+        println!("Stake amount: {}", stake_amount);
+        println!(
+            "Delegate hotkey total stake: {}",
+            SubtensorModule::get_total_stake_for_hotkey(&delegate_hotkey)
+        );
+        println!(
+            "Delegate coldkey delegated stake: {}",
+            SubtensorModule::get_total_delegated_stake(&delegate_coldkey)
+        );
+
+        // Ensure delegate's coldkey has less than minimum balance
+        assert!(
+            SubtensorModule::get_coldkey_balance(&delegate_coldkey)
+                < MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
+            "Delegate coldkey balance should be less than minimum required"
+        );
+
+        // Ensure the delegate's hotkey has more than 500 TAO delegated
+        assert!(
+            SubtensorModule::get_total_delegated_stake(&delegate_coldkey) >= 500_000_000_000,
+            "Delegate hotkey should have at least 500 TAO delegated"
+        );
+
+        // Generate valid PoW
+        let (work, nonce) = generate_valid_pow(
+            &delegate_coldkey,
+            current_block,
+            U256::from(4) * U256::from(BaseDifficulty::<Test>::get()),
+        );
+
+        // Debug prints
+        println!("Work: {:?}", work);
+        println!("Nonce: {}", nonce);
+
+        // Attempt to schedule coldkey swap
+        let result = SubtensorModule::do_schedule_coldkey_swap(
+            &delegate_coldkey,
+            &new_coldkey,
+            work.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce,
+        );
+
+        // Print the result
+        println!("Swap result: {:?}", result);
+
+        assert_ok!(result);
+
+        // Verify that the swap was scheduled
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(delegate_coldkey),
+            vec![new_coldkey]
+        );
+
+        // Additional debug prints after swap
+        println!(
+            "Coldkey swap destinations: {:?}",
+            ColdkeySwapDestinations::<Test>::get(delegate_coldkey)
+        );
+        println!(
+            "Is coldkey in arbitration: {}",
+            SubtensorModule::coldkey_in_arbitration(&delegate_coldkey)
+        );
+    });
+}
+
+#[test]
+fn test_do_schedule_coldkey_swap_regular_user_fails_min_balance() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1u16;
+        let regular_user = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let current_block = 0u64;
+        let nonce = 0u64;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, regular_user, 0);
+
+        // Ensure regular_user has less than minimum balance
+        assert!(
+            SubtensorModule::get_coldkey_balance(&regular_user)
+                < MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP
+        );
+
+        let (work, _) = generate_valid_pow(
+            &regular_user,
+            current_block,
+            U256::from(4) * U256::from(BaseDifficulty::<Test>::get()),
+        );
+
+        // Attempt to schedule coldkey swap
+        assert_noop!(
+            SubtensorModule::do_schedule_coldkey_swap(
+                &regular_user,
+                &new_coldkey,
+                work.to_fixed_bytes().to_vec(),
+                current_block,
+                nonce
+            ),
+            Error::<Test>::InsufficientBalanceToPerformColdkeySwap
+        );
+
+        // Verify that the swap was not scheduled
+        assert!(ColdkeySwapDestinations::<Test>::get(regular_user).is_empty());
+    });
+}
+
+#[test]
+fn test_do_schedule_coldkey_swap_regular_user_passes_min_balance() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1u16;
+        let regular_user = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey = U256::from(3);
+        let current_block = 0u64;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey, regular_user, 0);
+
+        // Ensure regular_user has more than minimum balance
+        SubtensorModule::add_balance_to_coldkey_account(
+            &regular_user,
+            MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP + 1,
+        );
+        assert!(
+            SubtensorModule::get_coldkey_balance(&regular_user)
+                > MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP
+        );
+
+        // Generate valid PoW
+        let (work, nonce) = generate_valid_pow(
+            &regular_user,
+            current_block,
+            U256::from(4) * U256::from(BaseDifficulty::<Test>::get()),
+        );
+
+        // Debug prints
+        println!("Regular user: {:?}", regular_user);
+        println!("New coldkey: {:?}", new_coldkey);
+        println!("Current block: {}", current_block);
+        println!("Work: {:?}", work);
+        println!("Nonce: {}", nonce);
+
+        // Attempt to schedule coldkey swap
+        let result = SubtensorModule::do_schedule_coldkey_swap(
+            &regular_user,
+            &new_coldkey,
+            work.to_fixed_bytes().to_vec(),
+            current_block,
+            nonce,
+        );
+
+        // Print the result
+        println!("Swap result: {:?}", result);
+
+        assert_ok!(result);
+
+        // Verify that the swap was scheduled
+        assert_eq!(
+            ColdkeySwapDestinations::<Test>::get(regular_user),
+            vec![new_coldkey]
         );
     });
 }

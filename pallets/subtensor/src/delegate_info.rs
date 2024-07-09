@@ -131,39 +131,46 @@ impl<T: Config> Pallet<T> {
         delegates
     }
 
-    /// Returns the total delegated stake for a given delegate, excluding the stake from the delegate's owner.
-    ///
-    /// # Arguments
-    ///
-    /// * `delegate` - A reference to the account ID of the delegate.
-    ///
-    /// # Returns
-    ///
-    /// * `u64` - The total amount of stake delegated to the delegate, excluding the owner's stake.
-    ///
-    ///
-    /// # Notes
-    ///
-    /// This function retrieves the delegate's information and calculates the total stake from all nominators,
-    /// excluding the stake from the delegate's owner.
-    pub fn get_total_delegated_stake(delegate: &T::AccountId) -> u64 {
-        if !<Delegates<T>>::contains_key(delegate) {
-            return 0;
+    pub fn get_total_delegated_stake(coldkey: &T::AccountId) -> u64 {
+        let mut total_delegated = 0u64;
+
+        // Get all hotkeys associated with this coldkey
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+
+        for hotkey in hotkeys {
+            let owner = Owner::<T>::get(&hotkey);
+
+            for (delegator, stake) in Stake::<T>::iter_prefix(&hotkey) {
+                if delegator != owner {
+                    total_delegated += stake;
+                }
+            }
         }
 
-        // Retrieve the delegate's information
-        let delegate_info: DelegateInfo<T> =
-            Self::get_delegate_by_existing_account(delegate.clone());
+        log::info!(
+            "Total delegated stake for coldkey {:?}: {}",
+            coldkey,
+            total_delegated
+        );
+        total_delegated
+    }
 
-        // Retrieve the owner's account ID for the given delegate
-        let owner: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
+    // Helper function to get total delegated stake for a hotkey
+    pub fn get_total_hotkey_delegated_stake(hotkey: &T::AccountId) -> u64 {
+        let mut total_delegated = 0u64;
 
-        // Calculate the total stake from all nominators, excluding the owner's stake
-        delegate_info
-            .nominators
-            .iter()
-            .filter(|(nominator, _)| nominator != &owner) // Exclude the owner's stake
-            .map(|(_, stake)| stake.0 as u64) // Map the stake to u64
-            .sum() // Sum the stakes
+        // Iterate through all delegators for this hotkey
+        for (delegator, stake) in Stake::<T>::iter_prefix(hotkey) {
+            if delegator != Self::get_coldkey_for_hotkey(hotkey) {
+                total_delegated += stake;
+            }
+        }
+
+        total_delegated
+    }
+
+    // Helper function to get the coldkey associated with a hotkey
+    pub fn get_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
+        Owner::<T>::get(hotkey)
     }
 }

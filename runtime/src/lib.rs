@@ -315,6 +315,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                     pallet_subtensor::Call::schedule_coldkey_swap { .. }
                         | pallet_subtensor::Call::set_weights { .. }
                         | pallet_subtensor::Call::set_root_weights { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
                 )
         )
     }
