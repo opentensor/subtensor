@@ -1663,6 +1663,23 @@ impl_runtime_apis! {
             SubtensorModule::get_network_lock_cost()
         }
     }
+
+    impl subtensor_custom_rpc_runtime_api::ColdkeySwapRuntimeApi<Block> for Runtime {
+        fn get_scheduled_coldkey_swap( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_scheduled_coldkey_swap( coldkey_account_vec );
+            result.encode()
+        }
+
+        fn get_remaining_arbitration_period( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_remaining_arbitration_period( coldkey_account_vec );
+            result.encode()
+        }
+
+        fn get_coldkey_swap_destinations( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_coldkey_swap_destinations( coldkey_account_vec );
+            result.encode()
+        }
+    }
 }
 
 // #[cfg(test)]

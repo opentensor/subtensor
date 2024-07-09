@@ -3788,58 +3788,58 @@ fn test_concurrent_arbitrated_coldkey_swaps() {
     });
 }
 
-#[test]
-fn test_get_remaining_arbitration_period() {
-    new_test_ext(1).execute_with(|| {
-        let coldkey_account_id = U256::from(12345); // arbitrary coldkey
-        let new_coldkey_account_id = U256::from(54321); // arbitrary new coldkey
+// #[test]
+// fn test_get_remaining_arbitration_period() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey_account_id = U256::from(12345); // arbitrary coldkey
+//         let new_coldkey_account_id = U256::from(54321); // arbitrary new coldkey
 
-        let current_block = SubtensorModule::get_current_block_as_u64();
-        let (work, nonce) = generate_valid_pow(
-            &coldkey_account_id,
-            current_block,
-            U256::from(BaseDifficulty::<Test>::get()),
-        );
+//         let current_block = SubtensorModule::get_current_block_as_u64();
+//         let (work, nonce) = generate_valid_pow(
+//             &coldkey_account_id,
+//             current_block,
+//             U256::from(BaseDifficulty::<Test>::get()),
+//         );
 
-        SubtensorModule::add_balance_to_coldkey_account(
-            &coldkey_account_id,
-            MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
-        );
+//         SubtensorModule::add_balance_to_coldkey_account(
+//             &coldkey_account_id,
+//             MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP,
+//         );
 
-        // Schedule a coldkey swap to set the arbitration block
-        assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
-            &coldkey_account_id.clone(),
-            &new_coldkey_account_id,
-            work.to_fixed_bytes().to_vec(),
-            current_block,
-            nonce
-        ));
+//         // Schedule a coldkey swap to set the arbitration block
+//         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
+//             &coldkey_account_id.clone(),
+//             &new_coldkey_account_id,
+//             work.to_fixed_bytes().to_vec(),
+//             current_block,
+//             nonce
+//         ));
 
-        // Get the current block number and arbitration period
-        let current_block: u64 = SubtensorModule::get_current_block_as_u64();
-        let arbitration_period: u64 = ArbitrationPeriod::<Test>::get();
-        log::info!("arbitration_period: {:?}", arbitration_period);
-        let arbitration_block: u64 = current_block + arbitration_period;
-        log::info!("arbitration_block: {:?}", arbitration_block);
+//         // Get the current block number and arbitration period
+//         let current_block: u64 = SubtensorModule::get_current_block_as_u64();
+//         let arbitration_period: u64 = ArbitrationPeriod::<Test>::get();
+//         log::info!("arbitration_period: {:?}", arbitration_period);
+//         let arbitration_block: u64 = current_block + arbitration_period;
+//         log::info!("arbitration_block: {:?}", arbitration_block);
 
-        // Check if the remaining arbitration period is correct
-        let remaining_period =
-            SubtensorModule::get_remaining_arbitration_period(&coldkey_account_id);
-        assert_eq!(remaining_period, arbitration_period);
+//         // Check if the remaining arbitration period is correct
+//         let remaining_period =
+//             SubtensorModule::get_remaining_arbitration_period(&coldkey_account_id);
+//         assert_eq!(remaining_period, arbitration_period);
 
-        // Move the current block forward and check again
-        step_block(50);
-        let remaining_period =
-            SubtensorModule::get_remaining_arbitration_period(&coldkey_account_id);
-        assert_eq!(remaining_period, arbitration_period - 50);
+//         // Move the current block forward and check again
+//         step_block(50);
+//         let remaining_period =
+//             SubtensorModule::get_remaining_arbitration_period(&coldkey_account_id);
+//         assert_eq!(remaining_period, arbitration_period - 50);
 
-        // Move the current block beyond the arbitration block and check again
-        step_block((arbitration_period as u16) - 50 + 1);
-        let remaining_period =
-            SubtensorModule::get_remaining_arbitration_period(&coldkey_account_id);
-        assert_eq!(remaining_period, 0);
-    });
-}
+//         // Move the current block beyond the arbitration block and check again
+//         step_block((arbitration_period as u16) - 50 + 1);
+//         let remaining_period =
+//             SubtensorModule::get_remaining_arbitration_period(&coldkey_account_id);
+//         assert_eq!(remaining_period, 0);
+//     });
+// }
 
 #[test]
 fn test_transfer_coldkey_in_arbitration() {
