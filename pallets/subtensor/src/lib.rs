@@ -87,7 +87,6 @@ pub mod pallet {
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: u64 = 1_000_000_000; // 1 TAO in RAO
 
-
     #[pallet::pallet]
     #[pallet::without_storage_info]
     #[pallet::storage_version(STORAGE_VERSION)]
