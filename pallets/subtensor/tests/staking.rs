@@ -4094,8 +4094,8 @@ fn test_comprehensive_coldkey_swap_scenarios() {
 
         // Schedule swaps for subnet owners and regular user
         let (work1, nonce1) = generate_valid_pow(&subnet_owner1, current_block, U256::from(BaseDifficulty::<Test>::get()));
-        let (work2, nonce2) = generate_valid_pow(&subnet_owner2, current_block, U256::from(2) * U256::from(BaseDifficulty::<Test>::get()));
-        let (work3, nonce3) = generate_valid_pow(&regular_user, current_block,  U256::from(3)*  U256::from(BaseDifficulty::<Test>::get()),);
+        let (work2, nonce2) = generate_valid_pow(&subnet_owner2, current_block, U256::from(BaseDifficulty::<Test>::get()));
+        let (work3, nonce3) = generate_valid_pow(&regular_user, current_block,  U256::from(BaseDifficulty::<Test>::get()));
 
         assert_ok!(SubtensorModule::do_schedule_coldkey_swap(
             &subnet_owner1,
