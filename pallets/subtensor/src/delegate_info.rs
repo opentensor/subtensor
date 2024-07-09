@@ -40,11 +40,7 @@ impl<T: Config> Pallet<T> {
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);
 
         for netuid in registrations.iter() {
-            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
-            if _uid.is_err() {
-                continue; // this should never happen
-            } else {
-                let uid = _uid.expect("Delegate's UID should be ok");
+            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone()) {
                 let validator_permit = Self::get_validator_permit_for_uid(*netuid, uid);
                 if validator_permit {
                     validator_permits.push((*netuid).into());
@@ -52,9 +48,11 @@ impl<T: Config> Pallet<T> {
 
                 let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
                 let tempo: U64F64 = Self::get_tempo(*netuid).into();
-                let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
-                emissions_per_day =
-                    emissions_per_day.saturating_add(emission.saturating_mul(epochs_per_day));
+                if tempo > U64F64::from_num(0) {
+                    let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
+                    emissions_per_day =
+                        emissions_per_day.saturating_add(emission.saturating_mul(epochs_per_day));
+                }
             }
         }
 
@@ -63,15 +61,15 @@ impl<T: Config> Pallet<T> {
 
         let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
 
-        let mut return_per_1000: U64F64 = U64F64::from_num(0);
-
-        if total_stake > U64F64::from_num(0) {
-            return_per_1000 = emissions_per_day
+        let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
+            emissions_per_day
                 .saturating_mul(U64F64::from_num(0.82))
-                .saturating_div(total_stake.saturating_div(U64F64::from_num(1000)));
-        }
+                .saturating_div(total_stake.saturating_div(U64F64::from_num(1000)))
+        } else {
+            U64F64::from_num(0)
+        };
 
-        return DelegateInfo {
+        DelegateInfo {
             delegate_ss58: delegate.clone(),
             take,
             nominators,
@@ -80,7 +78,7 @@ impl<T: Config> Pallet<T> {
             validator_permits,
             return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
             total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
-        };
+        }
     }
 
     pub fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<DelegateInfo<T>> {
@@ -131,5 +129,41 @@ impl<T: Config> Pallet<T> {
         }
 
         delegates
+    }
+
+    /// Returns the total delegated stake for a given delegate, excluding the stake from the delegate's owner.
+    ///
+    /// # Arguments
+    ///
+    /// * `delegate` - A reference to the account ID of the delegate.
+    ///
+    /// # Returns
+    ///
+    /// * `u64` - The total amount of stake delegated to the delegate, excluding the owner's stake.
+    ///
+    ///
+    /// # Notes
+    ///
+    /// This function retrieves the delegate's information and calculates the total stake from all nominators,
+    /// excluding the stake from the delegate's owner.
+    pub fn get_total_delegated_stake(delegate: &T::AccountId) -> u64 {
+        if !<Delegates<T>>::contains_key(delegate) {
+            return 0;
+        }
+
+        // Retrieve the delegate's information
+        let delegate_info: DelegateInfo<T> =
+            Self::get_delegate_by_existing_account(delegate.clone());
+
+        // Retrieve the owner's account ID for the given delegate
+        let owner: T::AccountId = Self::get_owning_coldkey_for_hotkey(delegate);
+
+        // Calculate the total stake from all nominators, excluding the owner's stake
+        delegate_info
+            .nominators
+            .iter()
+            .filter(|(nominator, _)| nominator != &owner) // Exclude the owner's stake
+            .map(|(_, stake)| stake.0 as u64) // Map the stake to u64
+            .sum() // Sum the stakes
     }
 }

@@ -13,6 +13,7 @@ use frame_support::sp_runtime::DispatchError;
 use mock::*;
 use pallet_balances::Call as BalancesCall;
 use pallet_subtensor::*;
+use serde::de;
 use sp_core::{H256, U256};
 use sp_runtime::traits::SignedExtension;
 
@@ -4193,5 +4194,200 @@ fn test_comprehensive_coldkey_swap_scenarios() {
             MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP * 2
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&regular_user), 0);
+    });
+}
+
+#[test]
+fn test_get_total_delegated_stake_after_unstaking() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(1);
+        let coldkey = U256::from(2);
+        let delegator = U256::from(3);
+        let initial_stake = 2000;
+        let unstake_amount = 500;
+        let netuid = 1u16;
+        let existential_deposit = 1; // Account for the existential deposit
+
+        add_network(netuid, 0, 0);
+
+        register_ok_neuron(netuid, delegate, coldkey, 0);
+
+        // Make the delegate a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            delegate
+        ));
+
+        // Add balance to delegator
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, initial_stake);
+
+        // Delegate stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate,
+            initial_stake
+        ));
+
+        // Unstake part of the delegation
+        assert_ok!(SubtensorModule::remove_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate,
+            unstake_amount
+        ));
+
+        // Calculate the expected delegated stake
+        let expected_delegated_stake = initial_stake - unstake_amount - existential_deposit;
+
+        // Check the total delegated stake after unstaking
+        assert_eq!(
+            SubtensorModule::get_total_delegated_stake(&delegate),
+            expected_delegated_stake
+        );
+    });
+}
+
+#[test]
+fn test_get_total_delegated_stake_no_delegations() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(1);
+        let coldkey = U256::from(2);
+        let netuid = 1u16;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate, coldkey, 0);
+
+        // Make the delegate a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            delegate
+        ));
+
+        // Check that there's no delegated stake
+        assert_eq!(SubtensorModule::get_total_delegated_stake(&delegate), 0);
+    });
+}
+
+#[test]
+fn test_get_total_delegated_stake_single_delegator() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(1);
+        let coldkey = U256::from(2);
+        let delegator = U256::from(3);
+        let stake_amount = 1000;
+        let netuid = 1u16;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate, coldkey, 0);
+
+        // Make the delegate a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            delegate
+        ));
+
+        // Add balance to delegator
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, stake_amount);
+
+        // Delegate stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate,
+            stake_amount
+        ));
+
+        // Check the total delegated stake
+        assert_eq!(
+            SubtensorModule::get_total_delegated_stake(&delegate),
+            stake_amount - 1 // Subtract 1 for existential deposit
+        );
+    });
+}
+
+#[test]
+fn test_get_total_delegated_stake_multiple_delegators() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(1);
+        let coldkey = U256::from(2);
+        let delegator1 = U256::from(3);
+        let delegator2 = U256::from(4);
+        let stake_amount1 = 1000;
+        let stake_amount2 = 2000;
+        let netuid = 1u16;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate, coldkey, 0);
+
+        // Make the delegate a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            delegate
+        ));
+
+        // Add balance to delegators
+        SubtensorModule::add_balance_to_coldkey_account(&delegator1, stake_amount1);
+        SubtensorModule::add_balance_to_coldkey_account(&delegator2, stake_amount2);
+
+        // Delegate stakes
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator1),
+            delegate,
+            stake_amount1
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator2),
+            delegate,
+            stake_amount2
+        ));
+
+        // Check the total delegated stake
+        assert_eq!(
+            SubtensorModule::get_total_delegated_stake(&delegate),
+            stake_amount1 + stake_amount2 - 2 // Subtract 2 for existential deposits
+        );
+    });
+}
+
+#[test]
+fn test_get_total_delegated_stake_exclude_owner_stake() {
+    new_test_ext(1).execute_with(|| {
+        let delegate = U256::from(1);
+        let coldkey = U256::from(2);
+        let delegator = U256::from(3);
+        let owner_stake = 5000;
+        let delegator_stake = 1000;
+        let netuid = 1u16;
+
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, delegate, coldkey, 0);
+
+        // Make the delegate a delegate
+        assert_ok!(SubtensorModule::become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            delegate
+        ));
+
+        // Add balance to owner and delegator
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, owner_stake);
+        SubtensorModule::add_balance_to_coldkey_account(&delegator, delegator_stake);
+
+        // Owner adds stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            delegate,
+            owner_stake
+        ));
+
+        // Delegator adds stake
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(delegator),
+            delegate,
+            delegator_stake
+        ));
+
+        // Check the total delegated stake (should exclude owner's stake)
+        assert_eq!(
+            SubtensorModule::get_total_delegated_stake(&delegate),
+            delegator_stake - 1 // Subtract 1 for existential deposit
+        );
     });
 }
