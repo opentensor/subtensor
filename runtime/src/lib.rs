@@ -317,6 +317,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                         | pallet_subtensor::Call::set_root_weights { .. }
                         | pallet_subtensor::Call::serve_axon { .. }
                 )
+                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
         )
     }
 }
