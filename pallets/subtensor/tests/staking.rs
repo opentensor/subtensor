@@ -3192,7 +3192,7 @@ fn test_arbitrated_coldkey_swap_success() {
         );
 
         // Check that drain block is set correctly
-        let drain_block: u64 = 5400 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
 
         log::info!(
             "ColdkeysToSwapAtBlock before scheduling: {:?}",
@@ -3399,7 +3399,7 @@ fn test_arbitrated_coldkey_swap_with_no_stake() {
         ));
 
         // Make 5400 blocks pass, simulating on_idle for each block
-        let drain_block: u64 = 5400 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
         for _ in 0..drain_block {
             next_block();
             SubtensorModule::on_idle(System::block_number(), Weight::MAX);
@@ -3463,7 +3463,7 @@ fn test_arbitrated_coldkey_swap_with_multiple_stakes() {
         ));
 
         // Make 5400 blocks pass, simulating on_idle for each block
-        let drain_block: u64 = 5400 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
         for _ in 0..drain_block {
             next_block();
             SubtensorModule::on_idle(System::block_number(), Weight::MAX);
@@ -3548,7 +3548,7 @@ fn test_arbitrated_coldkey_swap_multiple_arbitrations() {
         );
 
         // Simulate the passage of blocks and on_idle calls
-        for i in 0..(5400 + 1) {
+        for i in 0..(7200 * 3 + 1) {
             next_block();
             SubtensorModule::on_idle(System::block_number(), Weight::MAX);
 
@@ -3771,7 +3771,7 @@ fn test_concurrent_arbitrated_coldkey_swaps() {
             nonce2
         ));
         // Make 5400 blocks pass
-        let drain_block: u64 = 5400 + 1;
+        let drain_block: u64 = 7200 * 3 + 1;
         run_to_block(drain_block);
 
         // Run arbitration

@@ -411,7 +411,7 @@ pub mod pallet {
     /// This value represents the default arbitration period in blocks.
     /// The period is set to 18 hours, assuming a block time of 12 seconds.
     pub fn DefaultArbitrationPeriod<T: Config>() -> u64 {
-        5400 // 18 hours * 60 minutes/hour * 5 blocks/minute
+        7200 * 3 // 3 days
     }
     #[pallet::storage] // ---- StorageItem Global Used Work.
     pub type ArbitrationPeriod<T: Config> =
