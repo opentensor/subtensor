@@ -1,6 +1,7 @@
 use super::*;
 use codec::Compact;
 use frame_support::pallet_prelude::{Decode, Encode};
+
 use sp_core::hexdisplay::AsBytesRef;
 
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
@@ -37,7 +38,10 @@ impl<T: Config> Pallet<T> {
 
         Some(ScheduledColdkeySwapInfo {
             old_coldkey: coldkey,
-            new_coldkey: destinations[0].clone(),
+            new_coldkey: destinations.first().cloned().unwrap_or_else(|| {
+                T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+                    .expect("Infinite length input; no invalid inputs for type; qed")
+            }),
             arbitration_block: arbitration_block.into(),
         })
     }

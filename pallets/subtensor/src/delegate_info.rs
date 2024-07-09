@@ -142,7 +142,7 @@ impl<T: Config> Pallet<T> {
 
             for (delegator, stake) in Stake::<T>::iter_prefix(&hotkey) {
                 if delegator != owner {
-                    total_delegated += stake;
+                    total_delegated = total_delegated.saturating_add(stake);
                 }
             }
         }
@@ -162,7 +162,7 @@ impl<T: Config> Pallet<T> {
         // Iterate through all delegators for this hotkey
         for (delegator, stake) in Stake::<T>::iter_prefix(hotkey) {
             if delegator != Self::get_coldkey_for_hotkey(hotkey) {
-                total_delegated += stake;
+                total_delegated = total_delegated.saturating_add(stake);
             }
         }
 

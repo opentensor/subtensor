@@ -1343,40 +1343,48 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-            // Unstake and transfer pending coldkeys up to the remaining weight
-            match Self::swap_coldkeys_this_block(&remaining_weight) {
+        fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+            Weight::zero()
+        }
+
+        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            let mut total_weight = Weight::zero();
+
+            // Create a Weight::MAX value to pass to swap_coldkeys_this_block
+            let max_weight = Weight::MAX;
+
+            // Perform coldkey swapping
+            let swap_weight = match Self::swap_coldkeys_this_block(&max_weight) {
                 Ok(weight_used) => weight_used,
                 Err(e) => {
                     log::error!("Error while swapping coldkeys: {:?}", e);
-                    Weight::default()
+                    Weight::zero()
                 }
-            }
-        }
+            };
+            total_weight = total_weight.saturating_add(swap_weight);
 
-        // ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
-        //
-        // # Args:
-        // 	* 'n': (BlockNumberFor<T>):
-        // 		- The number of the block we are initializing.
-        fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            // Perform block step
             let block_step_result = Self::block_step();
             match block_step_result {
                 Ok(_) => {
-                    // --- If the block step was successful, return the weight.
                     log::debug!("Successfully ran block step.");
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                    total_weight = total_weight.saturating_add(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64)),
+                    );
                 }
                 Err(e) => {
-                    // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                    total_weight = total_weight.saturating_add(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64)),
+                    );
                 }
             }
+
+            total_weight
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {

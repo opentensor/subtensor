@@ -1,4 +1,5 @@
 #![allow(clippy::unwrap_used)]
+#![allow(clippy::arithmetic_side_effects)]
 
 use frame_support::pallet_prelude::{
     InvalidTransaction, TransactionValidity, TransactionValidityError,
