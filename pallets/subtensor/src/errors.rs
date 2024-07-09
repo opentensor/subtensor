@@ -146,5 +146,15 @@ mod errors {
         NoBalanceToTransfer,
         /// Same coldkey
         SameColdkey,
+        /// The coldkey is in arbitration
+        ColdkeyIsInArbitration,
+        /// The new coldkey is already registered for the drain
+        DuplicateColdkey,
+        /// Error thrown on a coldkey swap.
+        ColdkeySwapError,
+        /// Insufficient Balance to Schedule coldkey swap
+        InsufficientBalanceToPerformColdkeySwap,
+        /// The maximum number of coldkey destinations has been reached
+        MaxColdkeyDestinationsReached,
     }
 }

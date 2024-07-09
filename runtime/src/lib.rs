@@ -139,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 160,
+    spec_version: 194,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -312,27 +312,12 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::SafeMode(_)
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
-                    pallet_subtensor::Call::add_stake { .. }
-                        | pallet_subtensor::Call::become_delegate { .. }
-                        | pallet_subtensor::Call::burned_register { .. }
-                        | pallet_subtensor::Call::commit_weights { .. }
-                        | pallet_subtensor::Call::decrease_take { .. }
-                        | pallet_subtensor::Call::faucet { .. }
-                        | pallet_subtensor::Call::increase_take { .. }
-                        | pallet_subtensor::Call::register { .. }
-                        | pallet_subtensor::Call::register_network { .. }
-                        | pallet_subtensor::Call::remove_stake { .. }
-                        | pallet_subtensor::Call::reveal_weights { .. }
-                        | pallet_subtensor::Call::root_register { .. }
-                        | pallet_subtensor::Call::serve_axon { .. }
-                        | pallet_subtensor::Call::serve_prometheus { .. }
-                        | pallet_subtensor::Call::set_root_weights { .. }
+                    pallet_subtensor::Call::schedule_coldkey_swap { .. }
                         | pallet_subtensor::Call::set_weights { .. }
-                        | pallet_subtensor::Call::sudo { .. }
-                        | pallet_subtensor::Call::sudo_unchecked_weight { .. }
-                        | pallet_subtensor::Call::swap_hotkey { .. }
-                        | pallet_subtensor::Call::vote { .. }
+                        | pallet_subtensor::Call::set_root_weights { .. }
+                        | pallet_subtensor::Call::serve_axon { .. }
                 )
+                | RuntimeCall::Commitments(pallet_commitments::Call::set_commitment { .. })
         )
     }
 }
@@ -896,6 +881,7 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const SubtensorInitialBaseDifficulty: u64 = 10_000_000; // Base difficulty
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -951,6 +937,7 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
 }
 
 use sp_runtime::BoundedVec;
@@ -1675,6 +1662,23 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
             SubtensorModule::get_network_lock_cost()
+        }
+    }
+
+    impl subtensor_custom_rpc_runtime_api::ColdkeySwapRuntimeApi<Block> for Runtime {
+        fn get_scheduled_coldkey_swap( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_scheduled_coldkey_swap( coldkey_account_vec );
+            result.encode()
+        }
+
+        fn get_remaining_arbitration_period( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_remaining_arbitration_period( coldkey_account_vec );
+            result.encode()
+        }
+
+        fn get_coldkey_swap_destinations( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
+            let result = SubtensorModule::get_coldkey_swap_destinations( coldkey_account_vec );
+            result.encode()
         }
     }
 }

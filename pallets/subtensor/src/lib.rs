@@ -18,6 +18,7 @@ use frame_support::{
 use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use pallet_balances::Call as BalancesCall;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -50,6 +51,7 @@ mod weights;
 
 pub mod delegate_info;
 pub mod neuron_info;
+pub mod schedule_coldkey_swap_info;
 pub mod stake_info;
 pub mod subnet_info;
 
@@ -84,6 +86,9 @@ pub mod pallet {
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
     const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+
+    /// Minimum balance required to perform a coldkey swap
+    pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: u64 = 100_000_000; // 0.1 TAO in RAO
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -253,6 +258,9 @@ pub mod pallet {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
+        /// The base difficulty for proof of work for coldkey swaps
+        #[pallet::constant]
+        type InitialBaseDifficulty: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -329,6 +337,12 @@ pub mod pallet {
         360
     }
 
+    /// Default base difficulty for proof of work for coldkey swaps
+    #[pallet::type_value]
+    pub fn DefaultBaseDifficulty<T: Config>() -> u64 {
+        T::InitialBaseDifficulty::get()
+    }
+
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -342,6 +356,9 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
+
+    #[pallet::storage] // --- ITEM ( base_difficulty )
+    pub type BaseDifficulty<T> = StorageValue<_, u64, ValueQuery, DefaultBaseDifficulty<T>>;
     #[pallet::storage] // --- ITEM (default_stake_interval)
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
@@ -368,6 +385,9 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
     pub type OwnedHotkeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    pub type StakingHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
@@ -382,9 +402,37 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
-    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
-    pub type StakingHotkeys<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+
+    #[pallet::type_value]
+    /// Default value for hotkeys.
+    pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> {
+        vec![]
+    }
+    #[pallet::type_value]
+    /// Default arbitration period.
+    /// This value represents the default arbitration period in blocks.
+    /// The period is set to 18 hours, assuming a block time of 12 seconds.
+    pub fn DefaultArbitrationPeriod<T: Config>() -> u64 {
+        7200 * 3 // 3 days
+    }
+    #[pallet::storage] // ---- StorageItem Global Used Work.
+    pub type ArbitrationPeriod<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultArbitrationPeriod<T>>;
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
+    pub type ColdkeySwapDestinations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<T::AccountId>,
+        ValueQuery,
+        EmptyAccounts<T>,
+    >;
+    #[pallet::storage] // --- MAP ( cold ) --> u64 | Block when the coldkey will be arbitrated.
+    pub type ColdkeyArbitrationBlock<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
+    pub type ColdkeysToSwapAtBlock<T: Config> =
+        StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
     /// -- ITEM (switches liquid alpha on)
     #[pallet::type_value]
     pub fn DefaultLiquidAlpha<T: Config>() -> bool {
@@ -1299,29 +1347,48 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        // ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
-        //
-        // # Args:
-        // 	* 'n': (BlockNumberFor<T>):
-        // 		- The number of the block we are initializing.
+        fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+            Weight::zero()
+        }
+
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            let mut total_weight = Weight::zero();
+
+            // Create a Weight::MAX value to pass to swap_coldkeys_this_block
+            let max_weight = Weight::MAX;
+
+            // Perform coldkey swapping
+            let swap_weight = match Self::swap_coldkeys_this_block(&max_weight) {
+                Ok(weight_used) => weight_used,
+                Err(e) => {
+                    log::error!("Error while swapping coldkeys: {:?}", e);
+                    Weight::zero()
+                }
+            };
+            total_weight = total_weight.saturating_add(swap_weight);
+
+            // Perform block step
             let block_step_result = Self::block_step();
             match block_step_result {
                 Ok(_) => {
-                    // --- If the block step was successful, return the weight.
-                    log::info!("Successfully ran block step.");
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                    log::debug!("Successfully ran block step.");
+                    total_weight = total_weight.saturating_add(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64)),
+                    );
                 }
                 Err(e) => {
-                    // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                    total_weight = total_weight.saturating_add(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64)),
+                    );
                 }
             }
+
+            total_weight
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -2019,10 +2086,9 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
         pub fn swap_coldkey(
             origin: OriginFor<T>,
-            old_coldkey: T::AccountId,
             new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_coldkey(origin, &old_coldkey, &new_coldkey)
+            Self::do_swap_coldkey(origin, &new_coldkey)
         }
 
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
@@ -2041,15 +2107,19 @@ pub mod pallet {
         ///
         /// Weight is calculated based on the number of database reads and writes.
         #[pallet::call_index(72)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn unstake_all_and_transfer_to_new_coldkey(
+        #[pallet::weight((Weight::from_parts(21_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(3))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
+        pub fn schedule_coldkey_swap(
             origin: OriginFor<T>,
             new_coldkey: T::AccountId,
+            work: Vec<u8>,
+            block_number: u64,
+            nonce: u64,
         ) -> DispatchResult {
-            let current_coldkey = ensure_signed(origin)?;
-            Self::do_unstake_all_and_transfer_to_new_coldkey(current_coldkey, new_coldkey)
+            // Attain the calling coldkey from the origin.
+            let old_coldkey: T::AccountId = ensure_signed(origin)?;
+            Self::do_schedule_coldkey_swap(&old_coldkey, &new_coldkey, work, block_number, nonce)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
@@ -2283,10 +2353,12 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
+    for SubtensorSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
@@ -2306,6 +2378,19 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
+        // Check if the call is one of the balance transfer types we want to reject
+        if let Some(balances_call) = call.is_sub_type() {
+            match balances_call {
+                BalancesCall::transfer_allow_death { .. }
+                | BalancesCall::transfer_keep_alive { .. }
+                | BalancesCall::transfer_all { .. } => {
+                    if Pallet::<T>::coldkey_in_arbitration(who) {
+                        return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+                    }
+                }
+                _ => {} // Other Balances calls are allowed
+            }
+        }
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
@@ -2382,6 +2467,16 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
+            Some(Call::dissolve_network { .. }) => {
+                if Pallet::<T>::coldkey_in_arbitration(who) {
+                    Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()

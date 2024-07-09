@@ -2,20 +2,21 @@
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::weights::constants::RocksDbWeight;
+// use frame_support::weights::constants::WEIGHT_PER_SECOND;
+use frame_support::weights::Weight;
 use frame_support::{
     assert_ok, parameter_types,
     traits::{Everything, Hooks},
-    weights,
 };
 use frame_system as system;
 use frame_system::{limits, EnsureNever, EnsureRoot, RawOrigin};
+use pallet_collective::MemberCount;
 use sp_core::{Get, H256, U256};
+use sp_runtime::Perbill;
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     BuildStorage,
 };
-
-use pallet_collective::MemberCount;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -86,7 +87,7 @@ impl pallet_balances::Config for Test {
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
     type BaseCallFilter = Everything;
-    type BlockWeights = ();
+    type BlockWeights = BlockWeights;
     type BlockLength = ();
     type DbWeight = RocksDbWeight;
     type RuntimeOrigin = RuntimeOrigin;
@@ -114,7 +115,10 @@ parameter_types! {
     pub const InitialMinAllowedWeights: u16 = 0;
     pub const InitialEmissionValue: u16 = 0;
     pub const InitialMaxWeightsLimit: u16 = u16::MAX;
-    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::simple_max(weights::Weight::from_parts(1024, 0));
+    pub BlockWeights: limits::BlockWeights = limits::BlockWeights::with_sensible_defaults(
+        Weight::from_parts(2_000_000_000_000, u64::MAX),
+        Perbill::from_percent(75),
+    );
     pub const ExistentialDeposit: Balance = 1;
     pub const TransactionByteFee: Balance = 100;
     pub const SDebug:u64 = 1;
@@ -164,6 +168,7 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const SubtensorInitialBaseDifficulty: u64 = 10_000; // Base difficulty
 }
 
 // Configure collective pallet for council
@@ -368,6 +373,7 @@ impl pallet_subtensor::Config for Test {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
 }
 
 impl pallet_utility::Config for Test {

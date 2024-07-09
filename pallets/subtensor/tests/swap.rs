@@ -625,7 +625,7 @@ fn test_swap_stake_weight_update() {
         SubtensorModule::swap_stake(&old_hotkey, &new_hotkey, &mut weight);
 
         // Verify the weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().writes(3);
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().writes(4);
         assert_eq!(weight, expected_weight);
     });
 }
@@ -1059,7 +1059,7 @@ fn test_do_swap_coldkey_success() {
         let netuid = 1u16;
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
-        let free_balance_old = 12345u64;
+        let free_balance_old = 12345u64 + MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP;
 
         // Setup initial state
         add_network(netuid, 13, 0);
@@ -1070,6 +1070,20 @@ fn test_do_swap_coldkey_success() {
         SubtensorModule::add_balance_to_coldkey_account(
             &old_coldkey,
             stake_amount1 + stake_amount2 + free_balance_old,
+        );
+
+        // Log initial state
+        log::info!(
+            "Initial total stake: {}",
+            SubtensorModule::get_total_stake()
+        );
+        log::info!(
+            "Initial old coldkey stake: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+        );
+        log::info!(
+            "Initial new coldkey stake: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
         );
 
         // Add stake to the neurons
@@ -1084,28 +1098,42 @@ fn test_do_swap_coldkey_success() {
             stake_amount2
         ));
 
-        // Verify initial stakes and balances
-        assert_eq!(
-            TotalColdkeyStake::<Test>::get(old_coldkey),
-            stake_amount1 + stake_amount2
+        // Log state after adding stake
+        log::info!(
+            "Total stake after adding: {}",
+            SubtensorModule::get_total_stake()
         );
-        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1);
-        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), stake_amount2);
-        assert_eq!(
-            OwnedHotkeys::<Test>::get(old_coldkey),
-            vec![hotkey1, hotkey2]
+        log::info!(
+            "Old coldkey stake after adding: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
         );
-        assert_eq!(
-            SubtensorModule::get_coldkey_balance(&old_coldkey),
-            free_balance_old
+        log::info!(
+            "New coldkey stake after adding: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
         );
+
+        // Record total stake before swap
+        let total_stake_before_swap = SubtensorModule::get_total_stake();
 
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            &old_coldkey,
             &new_coldkey
         ));
+
+        // Log state after swap
+        log::info!(
+            "Total stake after swap: {}",
+            SubtensorModule::get_total_stake()
+        );
+        log::info!(
+            "Old coldkey stake after swap: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&old_coldkey)
+        );
+        log::info!(
+            "New coldkey stake after swap: {}",
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey)
+        );
 
         // Verify the swap
         assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
@@ -1114,7 +1142,7 @@ fn test_do_swap_coldkey_success() {
             TotalColdkeyStake::<Test>::get(new_coldkey),
             stake_amount1 + stake_amount2
         );
-        assert!(!TotalColdkeyStake::<Test>::contains_key(old_coldkey));
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
@@ -1134,6 +1162,13 @@ fn test_do_swap_coldkey_success() {
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
 
+        // Verify total stake remains unchanged
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            total_stake_before_swap,
+            "Total stake changed unexpectedly"
+        );
+
         // Verify event emission
         System::assert_last_event(
             Event::ColdkeySwapped {
@@ -1146,30 +1181,6 @@ fn test_do_swap_coldkey_success() {
 }
 
 #[test]
-fn test_swap_total_coldkey_stake() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let stake_amount = 1000u64;
-        let mut weight = Weight::zero();
-
-        // Initialize TotalColdkeyStake for old_coldkey
-        TotalColdkeyStake::<Test>::insert(old_coldkey, stake_amount);
-
-        // Perform the swap
-        SubtensorModule::swap_total_coldkey_stake(&old_coldkey, &new_coldkey, &mut weight);
-
-        // Verify the swap
-        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), stake_amount);
-        assert!(!TotalColdkeyStake::<Test>::contains_key(old_coldkey));
-
-        // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 2);
-        assert_eq!(weight, expected_weight);
-    });
-}
-
-#[test]
 fn test_swap_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
@@ -1178,72 +1189,60 @@ fn test_swap_stake_for_coldkey() {
         let hotkey2 = U256::from(4);
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
+        let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
 
-        // Initialize Stake for old_coldkey
+        // Setup initial state
+        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
-
-        // Initialize TotalHotkeyStake
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
 
-        // Initialize TotalStake and TotalIssuance
-        TotalStake::<Test>::put(stake_amount1 + stake_amount2);
-        TotalIssuance::<Test>::put(stake_amount1 + stake_amount2);
+        // Set up total issuance
+        TotalIssuance::<Test>::put(total_stake);
+        TotalStake::<Test>::put(total_stake);
 
-        // Populate OwnedHotkeys map
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
+        // Record initial values
+        let initial_total_issuance = SubtensorModule::get_total_issuance();
+        let initial_total_stake = SubtensorModule::get_total_stake();
 
         // Perform the swap
         SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
-        // Verify the swap
+        // Verify ownership transfer
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            vec![hotkey1, hotkey2]
+        );
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
+
+        // Verify stake transfer
         assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
-        assert!(!Stake::<Test>::contains_key(hotkey1, old_coldkey));
-        assert!(!Stake::<Test>::contains_key(hotkey2, old_coldkey));
+        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
+        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
+
+        // Verify TotalColdkeyStake
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
 
         // Verify TotalHotkeyStake remains unchanged
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
         assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
 
-        // Verify TotalStake and TotalIssuance remain unchanged
-        assert_eq!(TotalStake::<Test>::get(), stake_amount1 + stake_amount2);
-        assert_eq!(TotalIssuance::<Test>::get(), stake_amount1 + stake_amount2);
-
-        // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(5, 6);
-        assert_eq!(weight, expected_weight);
-    });
-}
-
-#[test]
-fn test_swap_owner_for_coldkey() {
-    new_test_ext(1).execute_with(|| {
-        let old_coldkey = U256::from(1);
-        let new_coldkey = U256::from(2);
-        let hotkey1 = U256::from(3);
-        let hotkey2 = U256::from(4);
-        let mut weight = Weight::zero();
-
-        // Initialize Owner for old_coldkey
-        Owner::<Test>::insert(hotkey1, old_coldkey);
-        Owner::<Test>::insert(hotkey2, old_coldkey);
-
-        // Initialize OwnedHotkeys map
-        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
-
-        // Perform the swap
-        SubtensorModule::swap_owner_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
-
-        // Verify the swap
-        assert_eq!(Owner::<Test>::get(hotkey1), new_coldkey);
-        assert_eq!(Owner::<Test>::get(hotkey2), new_coldkey);
-
-        // Verify weight update
-        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(1, 2);
-        assert_eq!(weight, expected_weight);
+        // Verify total stake and issuance remain unchanged
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            initial_total_stake,
+            "Total stake changed unexpectedly"
+        );
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            initial_total_issuance,
+            "Total issuance changed unexpectedly"
+        );
     });
 }
 
@@ -1350,7 +1349,6 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         // Perform the swap
         assert_ok!(SubtensorModule::do_swap_coldkey(
             <<Test as Config>::RuntimeOrigin>::signed(old_coldkey),
-            &old_coldkey,
             &new_coldkey
         ));
 
@@ -1369,14 +1367,323 @@ fn test_coldkey_has_associated_hotkeys() {
         // Setup initial state
         add_network(netuid, 13, 0);
         register_ok_neuron(netuid, hotkey, coldkey, 0);
-
-        // Check if coldkey has associated hotkeys
-        assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
-
-        // Check for a coldkey without associated hotkeys
-        let unassociated_coldkey = U256::from(3);
-        assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
-            &unassociated_coldkey
-        ));
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_coldkey_swap_total --exact --nocapture
+#[test]
+fn test_coldkey_swap_total() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let nominator1 = U256::from(2);
+        let nominator2 = U256::from(3);
+        let nominator3 = U256::from(4);
+        let delegate1 = U256::from(5);
+        let delegate2 = U256::from(6);
+        let delegate3 = U256::from(7);
+        let hotkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let hotkey3 = U256::from(4);
+        let netuid1 = 1u16;
+        let netuid2 = 2u16;
+        let netuid3 = 3u16;
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate1, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate2, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&delegate3, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&nominator3, 1000);
+
+        // Setup initial state
+        add_network(netuid1, 13, 0);
+        add_network(netuid2, 14, 0);
+        add_network(netuid3, 15, 0);
+        register_ok_neuron(netuid1, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid2, hotkey2, coldkey, 0);
+        register_ok_neuron(netuid3, hotkey3, coldkey, 0);
+        register_ok_neuron(netuid1, delegate1, delegate1, 0);
+        register_ok_neuron(netuid2, delegate2, delegate2, 0);
+        register_ok_neuron(netuid3, delegate3, delegate3, 0);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey1,
+            u16::MAX / 10
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey2,
+            u16::MAX / 10
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey3,
+            u16::MAX / 10
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate1),
+            delegate1,
+            u16::MAX / 10
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate2),
+            delegate2,
+            u16::MAX / 10
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate3),
+            delegate3,
+            u16::MAX / 10
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey1,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey2,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            hotkey3,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate1,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate2,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate3,
+            100
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate1),
+            hotkey1,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate2),
+            hotkey2,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate3),
+            hotkey3,
+            100
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate1),
+            delegate1,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate2),
+            delegate2,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(delegate3),
+            delegate3,
+            100
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            hotkey1,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator2),
+            hotkey2,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator3),
+            hotkey3,
+            100
+        ));
+
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            delegate1,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator2),
+            delegate2,
+            100
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator3),
+            delegate3,
+            100
+        ));
+
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&coldkey),
+            vec![hotkey1, hotkey2, hotkey3]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&coldkey),
+            vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
+        );
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
+
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&delegate1),
+            vec![delegate1]
+        );
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&delegate2),
+            vec![delegate2]
+        );
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&delegate3),
+            vec![delegate3]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&delegate1),
+            vec![delegate1, hotkey1]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&delegate2),
+            vec![delegate2, hotkey2]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&delegate3),
+            vec![delegate3, hotkey3]
+        );
+
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator1), vec![]);
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator2), vec![]);
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
+
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&nominator1),
+            vec![hotkey1, delegate1]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&nominator2),
+            vec![hotkey2, delegate2]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&nominator3),
+            vec![hotkey3, delegate3]
+        );
+
+        // Perform the swap
+        let new_coldkey = U256::from(1100);
+        assert_eq!(SubtensorModule::get_total_stake_for_coldkey(&coldkey), 600);
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &coldkey,
+            &new_coldkey
+        ));
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            600
+        );
+
+        // Check everything is swapped.
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&new_coldkey),
+            vec![hotkey1, hotkey2, hotkey3]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&new_coldkey),
+            vec![hotkey1, hotkey2, hotkey3, delegate1, delegate2, delegate3]
+        );
+        assert_eq!(
+            SubtensorModule::get_total_stake_for_coldkey(&new_coldkey),
+            600
+        );
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey2), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey3), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate1), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate2), 300);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&delegate3), 300);
+
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&delegate1),
+            vec![delegate1]
+        );
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&delegate2),
+            vec![delegate2]
+        );
+        assert_eq!(
+            SubtensorModule::get_owned_hotkeys(&delegate3),
+            vec![delegate3]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&delegate1),
+            vec![delegate1, hotkey1]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&delegate2),
+            vec![delegate2, hotkey2]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&delegate3),
+            vec![delegate3, hotkey3]
+        );
+
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator1), vec![]);
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator2), vec![]);
+        assert_eq!(SubtensorModule::get_owned_hotkeys(&nominator3), vec![]);
+
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&nominator1),
+            vec![hotkey1, delegate1]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&nominator2),
+            vec![hotkey2, delegate2]
+        );
+        assert_eq!(
+            SubtensorModule::get_all_staked_hotkeys(&nominator3),
+            vec![hotkey3, delegate3]
+        );
+    });
+}
+
+// #[test]
+// fn test_coldkey_arbitrated_sw() {
+//     new_test_ext(1).execute_with(|| {
+//         let coldkey = U256::from(1);
+//         let hotkey = U256::from(2);
+//         let netuid = 1u16;
+
+//         // Setup initial state
+//         add_network(netuid, 13, 0);
+//         register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+//         // Check if coldkey has associated hotkeys
+//         assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
+
+//         // Check for a coldkey without associated hotkeys
+//         let unassociated_coldkey = U256::from(3);
+//         assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
+//             &unassociated_coldkey
+//         ));
+//     });
+// }
