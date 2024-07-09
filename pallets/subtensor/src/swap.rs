@@ -76,6 +76,7 @@ impl<T: Config> Pallet<T> {
         Self::swap_prometheus(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
 
         Self::swap_total_hotkey_coldkey_stakes_this_interval(old_hotkey, new_hotkey, &mut weight);
+        Self::swap_senate_member(old_hotkey, new_hotkey, &mut weight)?;
 
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
@@ -947,5 +948,18 @@ impl<T: Config> Pallet<T> {
             }
         }
         weight.saturating_accrue(T::DbWeight::get().reads(TotalNetworks::<T>::get() as u64));
+    }
+
+    /// Swaps the Senate membership from the old hotkey to the new hotkey if applicable.
+    pub fn swap_senate_member(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        weight: &mut Weight,
+    ) -> DispatchResult {
+        if T::SenateMembers::is_member(old_hotkey) {
+            T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
+        }
+        Ok(())
     }
 }
