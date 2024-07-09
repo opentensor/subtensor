@@ -862,8 +862,16 @@ impl<T: Config> Pallet<T> {
         }
 
         // Update the list of owned hotkeys for both old and new coldkeys
+        // Two lists need to be merged: list of owned hotkeys for the new coldkey
+        // and list of the owned hotkeys for the old coldkey
+        let mut owned_hotkeys_for_new_coldkey = OwnedHotkeys::<T>::get(new_coldkey);
+        old_owned_hotkeys.iter().for_each(|old_owned_hotkey| {
+            if !owned_hotkeys_for_new_coldkey.contains(old_owned_hotkey) {
+                owned_hotkeys_for_new_coldkey.push(old_owned_hotkey.clone());
+            }
+        });
         OwnedHotkeys::<T>::remove(old_coldkey);
-        OwnedHotkeys::<T>::insert(new_coldkey, old_owned_hotkeys);
+        OwnedHotkeys::<T>::insert(new_coldkey, owned_hotkeys_for_new_coldkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // Update the staking hotkeys for both old and new coldkeys

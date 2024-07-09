@@ -1666,6 +1666,58 @@ fn test_coldkey_swap_total() {
     });
 }
 
+#[test]
+fn test_new_and_old_coldkeys_have_associated_hotkeys() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey1 = U256::from(1);
+        let hotkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+        let hotkey2 = U256::from(4);
+        let netuid = 1u16;
+
+        // Setup initial state
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey2, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, 1000);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey2, 1000);
+
+        // Verify that coldkey1 owns hotkey1
+        assert_eq!(
+            OwnedHotkeys::<Test>::get(coldkey1),
+            vec![hotkey1]
+        );
+
+        // Verify that coldkey2 owns hotkey2
+        assert_eq!(
+            OwnedHotkeys::<Test>::get(coldkey2),
+            vec![hotkey2]
+        );
+
+        // Perform the swap from coldkey1 to coldkey2
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &coldkey1,
+            &coldkey2
+        ));
+
+        // Verify that coldkey1 owns no hotkeys
+        assert_eq!(
+            OwnedHotkeys::<Test>::get(coldkey1),
+            vec![]
+        );
+
+        // Verify that coldkey2 now owns both hotkey1 and hotkey2
+        let mut expected_hotkey_list = vec![hotkey1, hotkey2];
+        let mut actual_hotkey_list = OwnedHotkeys::<Test>::get(coldkey2);
+        expected_hotkey_list.sort();
+        actual_hotkey_list.sort();
+        assert_eq!(
+            actual_hotkey_list,
+            expected_hotkey_list
+        );
+    });
+}
+
 // #[test]
 // fn test_coldkey_arbitrated_sw() {
 //     new_test_ext(1).execute_with(|| {
