@@ -199,7 +199,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn meets_min_allowed_coldkey_balance( coldkey: &T::AccountId ) -> bool {
+    pub fn meets_min_allowed_coldkey_balance(coldkey: &T::AccountId) -> bool {
         let all_staked_keys: Vec<T::AccountId> = StakingHotkeys::<T>::get(coldkey);
         let mut total_staking_balance: u64 = 0;
         for hotkey in all_staked_keys {
@@ -225,12 +225,12 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Errors
     ///
-    /// This function will return an error if:
-    /// - The old coldkey is the same as the new coldkey.
-    /// - The new coldkey is already in the list of destination coldkeys.
-    /// - There are already 2 destination coldkeys for the old coldkey.
-    /// - The old coldkey doesn't have the minimum required TAO balance.
-    /// - The proof of work is invalid or doesn't meet the required difficulty.
+
+    /// - `SameColdkey`: The old coldkey is the same as the new coldkey.
+    /// - `DuplicateColdkey`: The new coldkey is already in the list of destination coldkeys.
+    /// - `MaxColdkeyDestinationsReached`: There are already the maximum allowed destination coldkeys for the old coldkey.
+    /// - `InsufficientBalanceToPerformColdkeySwap`: The old coldkey doesn't have the minimum required TAO balance.
+    /// - `InvalidDifficulty`: The proof of work is invalid or doesn't meet the required difficulty.
     ///
     /// # Notes
     ///
@@ -319,7 +319,7 @@ impl<T: Config> Pallet<T> {
     /// Calculate the proof of work difficulty based on the number of swap attempts
     #[allow(clippy::arithmetic_side_effects)]
     pub fn calculate_pow_difficulty(swap_attempts: u32) -> U256 {
-        let base_difficulty: U256 = U256::from(10_000_000); // Base difficulty
+        let base_difficulty: U256 = U256::from(BaseDifficulty::<T>::get()); // Base difficulty
         base_difficulty.saturating_mul(U256::from(2).pow(U256::from(swap_attempts)))
     }
 

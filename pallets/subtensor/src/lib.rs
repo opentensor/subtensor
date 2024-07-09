@@ -87,6 +87,7 @@ pub mod pallet {
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: u64 = 1_000_000_000; // 1 TAO in RAO
 
+
     #[pallet::pallet]
     #[pallet::without_storage_info]
     #[pallet::storage_version(STORAGE_VERSION)]
@@ -255,6 +256,9 @@ pub mod pallet {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
+        /// The base difficulty for proof of work for coldkey swaps
+        #[pallet::constant]
+        type InitialBaseDifficulty: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -331,6 +335,12 @@ pub mod pallet {
         360
     }
 
+    /// Default base difficulty for proof of work for coldkey swaps
+    #[pallet::type_value]
+    pub fn DefaultBaseDifficulty<T: Config>() -> u64 {
+        T::InitialBaseDifficulty::get()
+    }
+
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -344,6 +354,9 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
+
+    #[pallet::storage] // --- ITEM ( base_difficulty )
+    pub type BaseDifficulty<T> = StorageValue<_, u64, ValueQuery, DefaultBaseDifficulty<T>>;
     #[pallet::storage] // --- ITEM (default_stake_interval)
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
