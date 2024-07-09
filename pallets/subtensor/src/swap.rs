@@ -404,6 +404,7 @@ impl<T: Config> Pallet<T> {
 
         // Swap the coldkey.
         let total_balance: u64 = Self::get_coldkey_balance(old_coldkey);
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 0));
         if total_balance > 0 {
             // Attempt to transfer the entire total balance to coldkeyB.
             if let Err(e) = T::Currency::transfer(
@@ -414,6 +415,7 @@ impl<T: Config> Pallet<T> {
             ) {
                 return Err(e.into());
             }
+            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
         }
 
         Ok(weight)
