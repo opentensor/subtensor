@@ -577,7 +577,11 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 15. Update the registration counters for both the block and interval.
+        #[allow(clippy::arithmetic_side_effects)]
+        // note this RA + clippy false positive is a known substrate issue
         RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
+        #[allow(clippy::arithmetic_side_effects)]
+        // note this RA + clippy false positive is a known substrate issue
         RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
 
         // --- 16. Log and announce the successful registration.
