@@ -83,6 +83,7 @@ use sp_core::U256;
 //            - Set and then remove all chidren - epoch works
 //            - Set the same child for two different parents
 //            - Set same child for two parents, remove from one parent, epoch still working correctly
+//            - Neuron hotkey sets non-neuron child with 100% proportion => parent stake is 0
 // ----    8. Neuron registration
 //            - Neuron with zero own stake and higher total stake (including stake from parent) 
 //              has higher pruning score
