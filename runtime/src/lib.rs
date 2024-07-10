@@ -1502,7 +1502,7 @@ impl_runtime_apis! {
             result.encode()
         }
 
-        fn get_delegate_identitites() -> Vec<u8> {
+        fn get_delegate_identitities() -> Vec<u8> {
             let result = SubtensorModule::get_delegate_identities();
             result.encode()
         }

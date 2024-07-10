@@ -10,7 +10,7 @@ impl<T: Config> Pallet<T> {
         None
     }
 
-    pub fn get_delegate_identitites() -> Vec<IdentityInfo<T::MaxAdditionalFields>> {
+    pub fn get_delegate_identitities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
         let mut identities = Vec::<IdentityInfo<T::MaxAdditionalFields>>::new();
         for id in IdentityOf::<T>::iter_keys() {
             let delegate_id = Self::get_identity_of_delegate(&id);
@@ -23,6 +23,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        identities
+        Some(identities)
     }
 }

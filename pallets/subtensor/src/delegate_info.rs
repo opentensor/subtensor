@@ -132,8 +132,8 @@ impl<T: Config + pallet_registry::Config> Pallet<T> {
         delegates
     }
 
-    pub fn get_delegate_identities() -> Vec<IdentityInfo<T::MaxAdditionalFields>> {
-        RegistryPallet::<T>::get_delegate_identitites()
+    pub fn get_delegate_identities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
+        RegistryPallet::<T>::get_delegate_identitities()
     }
 
     pub fn get_identity_of_delegate(delegate_account_vec: Vec<u8>) -> Option<IdentityInfo<T::MaxAdditionalFields>> {
