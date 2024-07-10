@@ -1,6 +1,6 @@
 use super::*;
-use dispatch::RawOrigin;
 use frame_support::{
+    dispatch::RawOrigin,
     storage::IterableStorageDoubleMap,
     traits::{
         tokens::{
@@ -10,6 +10,7 @@ use frame_support::{
         Imbalance,
     },
 };
+
 use num_traits::Zero;
 use sp_core::Get;
 
@@ -47,6 +48,10 @@ impl<T: Config> Pallet<T> {
     ) -> dispatch::DispatchResult {
         // --- 1. We check the coldkey signuture.
         let coldkey = ensure_signed(origin)?;
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
         log::info!(
             "do_become_delegate( origin:{:?} hotkey:{:?}, take:{:?} )",
             coldkey,
@@ -136,6 +141,10 @@ impl<T: Config> Pallet<T> {
             hotkey,
             take
         );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
 
         // --- 2. Ensure we are delegating a known key.
         //        Ensure that the coldkey is the owner.
@@ -207,6 +216,10 @@ impl<T: Config> Pallet<T> {
             coldkey,
             hotkey,
             take
+        );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
         );
 
         // --- 2. Ensure we are delegating a known key.
@@ -292,6 +305,10 @@ impl<T: Config> Pallet<T> {
             coldkey,
             hotkey,
             stake_to_be_added
+        );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
         );
 
         // Ensure the callers coldkey has enough stake to perform the transaction.
@@ -407,6 +424,10 @@ impl<T: Config> Pallet<T> {
             coldkey,
             hotkey,
             stake_to_be_removed
+        );
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
         );
 
         // Ensure that the hotkey account exists this is only possible through registration.
@@ -573,6 +594,13 @@ impl<T: Config> Pallet<T> {
                 hotkeys.push(hotkey.clone());
                 OwnedHotkeys::<T>::insert(coldkey, hotkeys);
             }
+
+            // Update StakingHotkeys map
+            let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+            if !staking_hotkeys.contains(hotkey) {
+                staking_hotkeys.push(hotkey.clone());
+                StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+            }
         }
     }
 
@@ -652,6 +680,13 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_add(increment),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_add(increment));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        if !staking_hotkeys.contains(hotkey) {
+            staking_hotkeys.push(hotkey.clone());
+            StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+        }
     }
 
     // Decreases the stake on the cold - hot pairing by the decrement while decreasing other counters.
@@ -672,6 +707,8 @@ impl<T: Config> Pallet<T> {
             Stake::<T>::get(hotkey, coldkey).saturating_sub(decrement),
         );
         TotalStake::<T>::put(TotalStake::<T>::get().saturating_sub(decrement));
+
+        // TODO: Tech debt: Remove StakingHotkeys entry if stake goes to 0
     }
 
     /// Empties the stake associated with a given coldkey-hotkey account pairing.
@@ -696,6 +733,11 @@ impl<T: Config> Pallet<T> {
         Stake::<T>::remove(hotkey, coldkey);
         TotalStake::<T>::mutate(|stake| *stake = stake.saturating_sub(current_stake));
         TotalIssuance::<T>::mutate(|issuance| *issuance = issuance.saturating_sub(current_stake));
+
+        // Update StakingHotkeys map
+        let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+        staking_hotkeys.retain(|h| h != hotkey);
+        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
 
         current_stake
     }
