@@ -1684,10 +1684,7 @@ fn test_dissolve_subnet_after_swap() {
         pallet_subtensor::SubnetLocked::<Test>::insert(netuid, lock_cost);
 
         // Perform the swap from coldkey1 to coldkey2
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &coldkey1,
-            &coldkey2
-        ));
+        assert_ok!(SubtensorModule::perform_swap_coldkey(&coldkey1, &coldkey2));
 
         // Check that Subnet still has its lock
         assert_eq!(
@@ -1704,10 +1701,7 @@ fn test_dissolve_subnet_after_swap() {
         assert!(SubtensorModule::if_subnet_exist(netuid));
 
         // Check new subnet owner balance before dissolving
-        assert_eq!(
-            SubtensorModule::get_coldkey_balance(&coldkey2),
-            balance
-        );
+        assert_eq!(SubtensorModule::get_coldkey_balance(&coldkey2), balance);
 
         // Dissolve subnet using coldkey2
         assert_ok!(SubtensorModule::dissolve_network(
