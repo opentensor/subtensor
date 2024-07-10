@@ -1666,6 +1666,64 @@ fn test_coldkey_swap_total() {
     });
 }
 
+#[test]
+fn test_dissolve_subnet_after_swap() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey1 = U256::from(1);
+        let hotkey1 = U256::from(2);
+        let coldkey2 = U256::from(3);
+        let netuid = 1u16;
+        let lock_cost: u64 = 1234;
+        let balance: u64 = 1000;
+
+        // Setup initial state
+        add_network(netuid, 13, 0);
+        pallet_subtensor::SubnetOwner::<Test>::insert(netuid, coldkey1);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey1, balance);
+        pallet_subtensor::SubnetLocked::<Test>::insert(netuid, lock_cost);
+
+        // Perform the swap from coldkey1 to coldkey2
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &coldkey1,
+            &coldkey2
+        ));
+
+        // Check that Subnet still has its lock
+        assert_eq!(
+            SubtensorModule::get_subnet_locked_balance(netuid),
+            lock_cost,
+        );
+
+        // Dissolve subnet using coldkey1 - should fail
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+        assert_err!(
+            SubtensorModule::dissolve_network(RuntimeOrigin::signed(coldkey1), netuid),
+            Error::<Test>::NotSubnetOwner
+        );
+        assert!(SubtensorModule::if_subnet_exist(netuid));
+
+        // Check new subnet owner balance before dissolving
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey2),
+            balance
+        );
+
+        // Dissolve subnet using coldkey2
+        assert_ok!(SubtensorModule::dissolve_network(
+            RuntimeOrigin::signed(coldkey2),
+            netuid
+        ));
+        assert!(!SubtensorModule::if_subnet_exist(netuid));
+
+        // Check that new subnet owner received the lock
+        assert_eq!(
+            SubtensorModule::get_coldkey_balance(&coldkey2),
+            balance + lock_cost
+        );
+    });
+}
+
 // #[test]
 // fn test_coldkey_arbitrated_sw() {
 //     new_test_ext(1).execute_with(|| {
