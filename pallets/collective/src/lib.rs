@@ -65,6 +65,7 @@ mod benchmarking;
 pub mod weights;
 
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::collective";
@@ -150,6 +151,7 @@ impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 }
 
 /// Info for keeping track of a motion being voted on.
+#[freeze_struct("a8e7b0b34ad52b17")]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct Votes<AccountId, BlockNumber> {
     /// The proposal's unique index.

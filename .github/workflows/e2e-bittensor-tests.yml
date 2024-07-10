@@ -5,16 +5,10 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  ## Run automatically for all PRs against main, regardless of what the changes are
-  ## to be safe and so we can more easily force re-run the CI when github is being
-  ## weird by using a blank commit
   push:
-    branches: [main, development, staging]
+    branches: [main, devnet-ready, devnet, testnet, finney]
 
-  ##
-  # Run automatically for PRs against default/main branch if Rust files change
   pull_request:
-    branches: [main, development, staging]
 
   ## Allow running workflow manually from the Actions tab
   workflow_dispatch:

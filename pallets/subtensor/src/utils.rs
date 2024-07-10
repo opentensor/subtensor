@@ -3,6 +3,7 @@ use crate::{
     system::{ensure_root, ensure_signed_or_root},
     Error,
 };
+use sp_core::Get;
 use sp_core::U256;
 use substrate_fixed::types::I32F32;
 
@@ -615,6 +616,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
+    pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        OwnedHotkeys::<T>::get(coldkey)
+    }
+    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        StakingHotkeys::<T>::get(coldkey)
+    }
+
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }
@@ -661,6 +669,10 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+
+    pub fn get_hotkey_swap_cost() -> u64 {
+        T::HotkeySwapCost::get()
     }
 
     pub fn get_alpha_values(netuid: u16) -> (u16, u16) {

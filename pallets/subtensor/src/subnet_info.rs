@@ -4,6 +4,7 @@ use frame_support::storage::IterableStorageMap;
 extern crate alloc;
 use codec::Compact;
 
+#[freeze_struct("fe79d58173da662a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetInfo<T: Config> {
     netuid: Compact<u16>,
@@ -26,6 +27,7 @@ pub struct SubnetInfo<T: Config> {
     owner: T::AccountId,
 }
 
+#[freeze_struct("55b472510f10e76a")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct SubnetHyperparams {
     rho: Compact<u16>,
