@@ -4,6 +4,102 @@ mod mock;
 use pallet_subtensor::*;
 use sp_core::U256;
 
+////////////////////////////////////////////////////////////////////////////////////////////////
+// Test cases
+// ----    1. Setting single child
+// done       - Simple happy path
+// done       - Subnet doesn't exist - fails
+// done       - Child is the same key as hotkey - fails
+//            - Child is already set - fails
+// done       - Coldkey is not owner of hotkey - fails
+// done       - Set child on root subnet - fails
+// done       - Old single child is removed
+// done       - Hotkey is removed from parents of old single child - case with one parent
+//            - Hotkey is removed from parents of old single child - case with multiple parents
+//            - Old multiple children are removed
+// done       - New children list of hotkey contains child + proportion
+// done       - New parent list of child contains hotkey + proportion
+//            - New parent list of child contains old parents (hotkeys and proportions) - case with multiple parents
+//            - Set too many children (to DOS the epoch) - fails
+// done       - Edge case: Set child with 0 proportion
+// done       - Edge case: Set child with MAX proportion
+// ----    2. get_stake_with_children_and_parents
+//            - Single child inherits 100% stake of single parent, parent's stake is 0% 
+//            - Single child inherits 50% stake of single parent, parent's stake is 50%
+//            - Single child inherits 100% stake of two parents
+//            - Two children inherit 30/70% stake of single parent
+//            - Two children inherit 30/70% / 40/60% stake of two parents
+//            - Child's stake does not depend on grand-parent's stake
+// done       - Child with own stake, parent with own stake, 50% proportion
+// ----    3. Setting multiple children
+// done       - Set empty vector of children
+//            - Set too many children (to DOS the epoch) - fails
+// done       - Subnet doesn't exist - fails
+// done       - One child, and it is the same key as hotkey - fails
+//            - Multiple children, and one is the same key as hotkey (not first) - fails
+// done       - Coldkey is not owner of hotkey - fails
+// done       - Set children on root subnet - fails
+// done       - Edge cases (min and max proportion)
+// done       - Sum of proportions is 100% - ok
+// done       - Sum of proportions is not 100% (greater or lower) - fails
+// done       - Duplicate children in one transaction fails
+//            - One of multiple children (not first) is already a child - fails
+// done       - Old children list is cleaned
+// done       - Hotkey is removed from old children's parent lists
+//            - Set multiple children, some of them with 0 proportion
+// ----    4. Set the same child for two different parents
+//            - Single child: Parent list is correct
+//            - Single child: Child lists are correct 
+//            - Single child: Removing from one parent updates lists correctly
+//            - Multiple children: Parent list is correct
+//            - Multiple children: Child lists are correct 
+//            - Multiple children: Removing from one parent updates lists correctly
+// ----    5. Remove single child
+// done       - Simple happy path
+// done       - Subnet doesn't exist
+// done       - Coldkey doesn't own hotkey
+// done       - Key being removed is not a child
+//            - Hotkey is removed from child's parent list - multiple parents case
+//            - Child key is removed from parent's child list - multiple children case
+// ----    6. Remove multiple children
+// done       - Subnet doesn't exist
+// done       - Coldkey doesn't own hotkey
+// done       - Simple happy path: Parent list is correct, Child list is correct 
+//            - Removing duplicate keys in one transaction - ok
+// done       - Can remove different sets of chidren in multiple transactions
+// done       - Key to remove is not a child - ok
+//            - One of multiple keys to remove (not first) is not a child - ok 
+//            - Removing keys that have already been removed - ok, noop
+// done       - Hotkey is removed from children's parent lists - multiple parents case (test_do_revoke_children_multiple_complex_scenario)
+// done       - Children keys are removed from parent's child list - multiple children case (test_do_revoke_children_multiple_complex_scenario)
+// ----    7. Epoch function - tests based on Emission values after epoch function executes
+//            - Edge case: There's difference in how epoch works for following children sets:
+//                - Set 1 = { proportion1 = 1u64, proportion2 = u64::MAX - 1 } 
+//                - Set 2 = { proportion1 = 2u64, proportion2 = u64::MAX - 2 }
+//            - Edge case: There's difference in how epoch works for following children sets:
+//                - Set 1 = { proportion1 = u64::MAX/2, proportion2 = u64::MAX/2 } 
+//                - Set 2 = { proportion1 = u64::MAX/2-1, proportion2 = u64::MAX/2+1 } 
+//            - Set multiple chidren, remove some, check that stake weight is as expected in epoch
+//            - Set and then remove all chidren - epoch works
+//            - Set the same child for two different parents
+//            - Set same child for two parents, remove from one parent, epoch still working correctly
+// ----    8. Neuron registration
+//            - Neuron with zero own stake and higher total stake (including stake from parent) 
+//              has higher pruning score
+//            - Neuron with own stake and higher child proportion has lower pruning score
+// ----    9. Coldkey swap
+//            - New coldkey can remove hotkey's children
+// ----    10. Hotkey swap
+//            - Swaps hotkey children, updates children's parents lists - multiple children with multiple parents case
+// ----    11. Detecting internal loops (not sure this is needed)
+//            - A --> B --> A
+//            - A --> B --> C --> A
+//            - A --> B --> C --> D --> A
+//            - A --> B --> C --> D --> B
+//            - 1000 key long loop
+//            - A --> B --> A: Function get_stake_with_children_and_parents returns (TBD: error or OK)
+//
+
 #[test]
 fn test_do_set_child_singular_success() {
     new_test_ext(1).execute_with(|| {

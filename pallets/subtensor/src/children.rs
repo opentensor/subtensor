@@ -360,7 +360,7 @@ impl<T: Config> Pallet<T> {
         ChildKeys::<T>::insert(hotkey.clone(), netuid, children.clone());
 
         // --- 8. Remove the hotkey from the child's parent list.
-        let mut parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(child.clone(), netuid);
+        let mut parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(&child, netuid);
         parents.retain(|(_, p)| p != &hotkey);
         ParentKeys::<T>::insert(child.clone(), netuid, parents);
 

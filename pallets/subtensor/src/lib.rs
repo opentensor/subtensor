@@ -2370,8 +2370,8 @@ pub mod pallet {
         // TODO: Benchmark this call
         #[pallet::call_index(64)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
-    .saturating_add(T::DbWeight::get().reads(6))
-    .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        .saturating_add(T::DbWeight::get().reads(6))
+        .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
         pub fn revoke_child_singular(
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
