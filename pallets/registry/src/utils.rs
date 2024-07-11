@@ -13,9 +13,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_delegate_identitities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
         let mut identities = Vec::<IdentityInfo<T::MaxAdditionalFields>>::new();
         for id in IdentityOf::<T>::iter_keys() {
-            let delegate_id = Self::get_identity_of_delegate(&id);
+            let identity_info = Self::get_identity_of_delegate(&id);
 
-            match delegate_id {
+            match identity_info {
                 Some(identity) => {
                     identities.push(identity);
                 }
@@ -23,6 +23,10 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Some(identities)
+        if identities.len() > 0 {
+            return Some(identities)
+        }
+        
+        None
     }
 }
