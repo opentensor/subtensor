@@ -486,10 +486,12 @@ pub mod pallet {
     pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
         T::InitialHotkeyEmissionTempo::get()
     }
+
     /// Maps to the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
     #[pallet::storage] // --- ITEM ( hotkey_emission_tempo )
     pub type HotkeyEmissionTempo<T> =
         StorageValue<_, u64, ValueQuery, DefaultHotkeyEmissionTempo<T>>;
+
     // Maps from hotkey to emission accumulated on that key, before distribution.
     #[pallet::storage] // --- Map ( hot ) --> emission | Accumulated hotkey emission.
     pub type PendingdHotkeyEmission<T: Config> = StorageMap<
