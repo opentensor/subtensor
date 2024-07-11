@@ -155,8 +155,17 @@ impl<T: Config> Pallet<T> {
         let min_take = MinTake::<T>::get();
         ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
-        // Set last block for rate limiting
+        // --- 5. Enforce the rate limit (independently on do_add_stake rate limits)
         let block: u64 = Self::get_current_block_as_u64();
+        ensure!(
+            !Self::exceeds_tx_delegate_take_rate_limit(
+                Self::get_last_tx_block_delegate_take(&coldkey),
+                block
+            ),
+            Error::<T>::DelegateTxRateLimitExceeded
+        );
+
+        // Set last block for rate limiting
         Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 4. Set the new take value.
