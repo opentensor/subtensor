@@ -3,6 +3,7 @@ use frame_support::{assert_err, assert_ok};
 mod mock;
 use pallet_subtensor::*;
 use sp_core::U256;
+use substrate_fixed::types::I96F32;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 // Test cases
@@ -73,6 +74,7 @@ use sp_core::U256;
 // done       - Hotkey is removed from children's parent lists - multiple parents case (test_do_revoke_children_multiple_complex_scenario)
 // done       - Children keys are removed from parent's child list - multiple children case (test_do_revoke_children_multiple_complex_scenario)
 // ----    7. Epoch function - tests based on Emission values after epoch function executes
+//            - Simple happy path
 //            - Edge case: There's difference in how epoch works for following children sets:
 //                - Set 1 = { proportion1 = 1u64, proportion2 = u64::MAX - 1 } 
 //                - Set 2 = { proportion1 = 2u64, proportion2 = u64::MAX - 2 }
@@ -523,6 +525,54 @@ fn test_get_stake_with_children_and_parents() {
 
         assert_eq!(stake0, 1001);
         assert!(stake1 >= max_stake - 1 && stake1 <= max_stake);
+    });
+}
+
+#[test]
+fn test_get_stake_one_child() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey0 = U256::from(1);
+        let child = U256::from(2);
+        let coldkey0 = U256::from(3);
+        let stake: u64 = 1_000_000_000_000; // 1000 TAO 
+
+        add_network(netuid, 0, 0);
+
+        let max_stake= stake;
+        SubtensorModule::set_network_max_stake(netuid, max_stake);
+
+        SubtensorModule::create_account_if_non_existent(&coldkey0, &hotkey0);
+
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey0, &hotkey0, stake);
+
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey0), stake);
+        assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&child), 0);
+
+        assert_eq!(
+            SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid),
+            stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_with_children_and_parents(&child, netuid),
+            0
+        );
+
+        // Set child relationship
+        assert_ok!(SubtensorModule::do_set_child_singular(
+            RuntimeOrigin::signed(coldkey0),
+            hotkey0,
+            child,
+            netuid,
+            u64::MAX
+        ));
+
+        // Check stakes after setting child
+        let stake_parent = SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid);
+        let stake_child = SubtensorModule::get_stake_with_children_and_parents(&child, netuid);
+
+        assert_eq!(stake_parent, 0);
+        assert_eq!(stake_child, stake);
     });
 }
 
@@ -1462,5 +1512,101 @@ fn test_do_set_children_multiple_single_child_full_proportion() {
         // Verify child is set correctly
         let children = SubtensorModule::get_children(&hotkey, netuid);
         assert_eq!(children, vec![(u64::MAX, child)]);
+    });
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+// Childkey-epoch tests
+
+const COLDKEY: u16 = 1;
+const PARENT1: u16 = 2;
+// const PARENT2: u16 = 3;
+const CHILD1: u16 = 4;
+const CHILD2: u16 = 5;
+const NETUID: u16 = 1;
+const BLOCK_EMISSION: u64 = 1_000_000_000;
+// const BLOCK_EMISSION: u64 = u64::MAX;
+
+fn helper_epoch_setup(neurons: Vec::<u16>) {
+    let coldkey = U256::from(COLDKEY);
+    let netuid: u16 = NETUID;
+
+    // Add network and register hotkey
+    add_network(netuid, 13, 0);
+    neurons.iter().for_each(|&uid| {
+        register_ok_neuron(netuid, U256::from(uid), coldkey, 0);
+    });
+}
+
+fn helper_set_children(parent: u16, children: &Vec::<u16>, proportions: &Vec::<u64>) {
+    assert!(children.len() == proportions.len());
+    let coldkey = U256::from(COLDKEY);
+    let hotkey = U256::from(parent);
+
+    // Create cold-hot account for parent
+    SubtensorModule::create_account_if_non_existent(&coldkey, &hotkey);
+
+    if children.len() == 1 {
+        let child = U256::from(children[0]);
+        assert_ok!(SubtensorModule::do_set_child_singular(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            child,
+            NETUID,
+            proportions[0]
+        ));
+    } else {
+        assert_ok!(SubtensorModule::do_set_children_multiple(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            children.iter().zip(proportions.iter()).map(|(&c, &p)| (U256::from(c), p)).collect(),
+            NETUID
+        ));
+    }
+}
+
+fn helper_add_stake(hotkey: u16, stake: u64) {
+    let coldkey = U256::from(COLDKEY);
+    let hotkey = U256::from(hotkey);
+    SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake);
+}
+
+fn helper_calculate_expected_emissions(proportions: &Vec::<u64>) -> Vec::<u64> {
+    proportions.iter().map(|&p| {
+        let pf = I96F32::from_num(p);
+        let bef = I96F32::from_num(BLOCK_EMISSION);
+        let one = I96F32::from_num(u64::MAX);
+        let ratio = pf / one;
+        (bef * ratio).to_num::<u64>()
+    })
+    .collect()
+}
+
+fn helper_verify_epoch(proportions: &Vec::<u64>) {
+    let expected_emissions = helper_calculate_expected_emissions(proportions);
+    let emissions = SubtensorModule::get_emission(NETUID);
+    assert!(emissions.len() == expected_emissions.len());
+
+    println!("{:?}", expected_emissions);
+    println!("{:?}", emissions);
+    
+    expected_emissions.iter().zip(emissions.iter())
+        .for_each(|(expected, actual)| {
+            assert_eq!(expected, actual);
+        })
+}
+
+#[test]
+fn test_child_epoch_simple() {
+    new_test_ext(1).execute_with(|| {
+        let proportions = vec![1000000000000, u64::MAX - 1000000000000];
+
+        helper_epoch_setup(vec![CHILD1, CHILD2]);
+        helper_set_children(PARENT1, &vec![CHILD1, CHILD2], &proportions);
+        helper_add_stake(PARENT1, 1000000000);
+
+        SubtensorModule::epoch(NETUID, BLOCK_EMISSION);
+
+        helper_verify_epoch(&proportions);
     });
 }
