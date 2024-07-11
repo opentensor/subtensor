@@ -3136,6 +3136,66 @@ fn test_rate_limits_enforced_on_increase_take() {
     });
 }
 
+// Test rate-limiting on increase_take
+#[test]
+fn test_rate_limits_enforced_on_increase_take_after_decrease() {
+    new_test_ext(1).execute_with(|| {
+        // Make account
+        let hotkey0 = U256::from(1);
+        let coldkey0 = U256::from(3);
+
+        // Add balance
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey0, 100000);
+
+        // Register the neuron to a new network
+        let netuid = 1;
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, hotkey0, coldkey0, 124124);
+
+        // Coldkey / hotkey 0 become delegates with max take
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            pallet_subtensor::MaxTake::<Test>::get()
+        ));
+
+        // Coldkey / hotkey 0 decreases take
+        assert_ok!(SubtensorModule::do_decrease_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            SubtensorModule::get_min_take()
+        ));
+
+        // Attempt to immediately increase fails due to rate limit
+        assert_eq!(
+            SubtensorModule::do_increase_take(
+                <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+                hotkey0,
+                pallet_subtensor::MaxTake::<Test>::get()
+            ),
+            Err(Error::<Test>::DelegateTxRateLimitExceeded.into())
+        );
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            SubtensorModule::get_min_take()
+        );
+
+        // After number of blocks, take can be increased
+        step_block(1 + InitialTxDelegateTakeRateLimit::get() as u16);
+
+        // Can increase after waiting
+        assert_ok!(SubtensorModule::do_increase_take(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey0),
+            hotkey0,
+            pallet_subtensor::MaxTake::<Test>::get()
+        ));
+        assert_eq!(
+            SubtensorModule::get_hotkey_take(&hotkey0),
+            pallet_subtensor::MaxTake::<Test>::get()
+        );
+    });
+}
+
 // Helper function to set up a test environment
 fn setup_test_environment() -> (AccountId, AccountId, AccountId) {
     let current_coldkey = U256::from(1);

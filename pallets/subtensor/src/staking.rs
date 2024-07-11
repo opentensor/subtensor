@@ -155,6 +155,10 @@ impl<T: Config> Pallet<T> {
         let min_take = MinTake::<T>::get();
         ensure!(take >= min_take, Error::<T>::DelegateTakeTooLow);
 
+        // Set last block for rate limiting
+        let block: u64 = Self::get_current_block_as_u64();
+        Self::set_last_tx_block_delegate_take(&coldkey, block);
+
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
 
