@@ -165,11 +165,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
-        // Set last block for rate limiting
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
-
         // --- 4. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
+
+        // Set last block for rate limiting
+        Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 5. Emit the take value.
         log::info!(
@@ -254,11 +254,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DelegateTxRateLimitExceeded
         );
 
-        // Set last block for rate limiting
-        Self::set_last_tx_block_delegate_take(&coldkey, block);
-
         // --- 6. Set the new take value.
         Delegates::<T>::insert(hotkey.clone(), take);
+
+        // Set last block for rate limiting
+        Self::set_last_tx_block_delegate_take(&coldkey, block);
 
         // --- 7. Emit the take value.
         log::info!(
