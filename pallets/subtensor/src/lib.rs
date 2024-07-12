@@ -247,7 +247,7 @@ pub mod pallet {
         type InitialTargetStakesPerInterval: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
-        type HotkeySwapCost: Get<u64>;
+        type KeySwapCost: Get<u64>;
         /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;
@@ -2098,7 +2098,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_coldkey(origin, &new_coldkey)
         }
-
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
         ///
         /// # Arguments
@@ -2114,6 +2113,7 @@ pub mod pallet {
         /// # Weight
         ///
         /// Weight is calculated based on the number of database reads and writes.
+        #[cfg(test)]
         #[pallet::call_index(72)]
         #[pallet::weight((Weight::from_parts(21_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))

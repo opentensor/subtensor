@@ -2,8 +2,8 @@
 
 use codec::Encode;
 use frame_support::weights::Weight;
-use frame_support::{assert_err, assert_ok};
-use frame_system::Config;
+use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::{Config, RawOrigin};
 mod mock;
 use mock::*;
 use pallet_subtensor::*;
@@ -167,6 +167,22 @@ fn test_do_swap_hotkey_ok_robust() {
             SubtensorModule::add_balance_to_coldkey_account(coldkey, swap_cost);
         }
 
+        // Add old_hotkeys[0] and old_hotkeys[1] to Senate
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkeys[0]
+        ));
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkeys[1]
+        ));
+
+        // Verify initial Senate membership
+        assert!(Senate::is_member(&old_hotkeys[0]));
+        assert!(Senate::is_member(&old_hotkeys[1]));
+        assert!(!Senate::is_member(&new_hotkeys[0]));
+        assert!(!Senate::is_member(&new_hotkeys[1]));
+
         // Perform the swaps for only two hotkeys
         assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkeys[0]),
@@ -268,6 +284,10 @@ fn test_do_swap_hotkey_ok_robust() {
                             assert_eq!(Keys::<Test>::get(netuid, uid), new_hotkeys[i]);
                         }
                     }
+
+                    // Verify Senate membership swap
+                    assert!(!Senate::is_member(&old_hotkeys[i]));
+                    assert!(Senate::is_member(&new_hotkeys[i]));
                 } else {
                     // Ensure other hotkeys remain unchanged
                     assert_eq!(
@@ -278,6 +298,10 @@ fn test_do_swap_hotkey_ok_robust() {
                         SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkeys[i]),
                         coldkeys[i]
                     );
+
+                    // Verify Senate membership remains unchanged for other hotkeys
+                    assert!(!Senate::is_member(&old_hotkeys[i]));
+                    assert!(!Senate::is_member(&new_hotkeys[i]));
                 }
             }
         }
@@ -1059,7 +1083,8 @@ fn test_do_swap_coldkey_success() {
         let netuid = 1u16;
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
-        let free_balance_old = 12345u64 + MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP;
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+        let free_balance_old = 12345u64 + swap_cost;
 
         // Setup initial state
         add_network(netuid, 13, 0);
@@ -1158,7 +1183,7 @@ fn test_do_swap_coldkey_success() {
         // Verify balance transfer
         assert_eq!(
             SubtensorModule::get_coldkey_balance(&new_coldkey),
-            free_balance_old
+            free_balance_old - swap_cost
         );
         assert_eq!(SubtensorModule::get_coldkey_balance(&old_coldkey), 0);
 
@@ -1332,6 +1357,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         let hotkey = U256::from(3);
         let netuid = 1u16;
         let stake_amount: u64 = 1000u64;
+        let swap_cost = SubtensorModule::get_key_swap_cost();
 
         // Setup initial state
         add_network(netuid, 13, 0);
@@ -1340,7 +1366,7 @@ fn test_do_swap_coldkey_with_subnet_ownership() {
         // Set TotalNetworks because swap relies on it
         pallet_subtensor::TotalNetworks::<Test>::set(1);
 
-        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount);
+        SubtensorModule::add_balance_to_coldkey_account(&old_coldkey, stake_amount + swap_cost);
         SubnetOwner::<Test>::insert(netuid, old_coldkey);
 
         // Populate OwnedHotkeys map
@@ -1666,24 +1692,47 @@ fn test_coldkey_swap_total() {
     });
 }
 
-// #[test]
-// fn test_coldkey_arbitrated_sw() {
-//     new_test_ext(1).execute_with(|| {
-//         let coldkey = U256::from(1);
-//         let hotkey = U256::from(2);
-//         let netuid = 1u16;
+#[test]
+fn test_swap_senate_member() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let non_member_hotkey = U256::from(3);
+        let mut weight = Weight::zero();
 
-//         // Setup initial state
-//         add_network(netuid, 13, 0);
-//         register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Setup: Add old_hotkey as a Senate member
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkey
+        ));
 
-//         // Check if coldkey has associated hotkeys
-//         assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
+        // Test 1: Successful swap
+        assert_ok!(SubtensorModule::swap_senate_member(
+            &old_hotkey,
+            &new_hotkey,
+            &mut weight
+        ));
+        assert!(Senate::is_member(&new_hotkey));
+        assert!(!Senate::is_member(&old_hotkey));
 
-//         // Check for a coldkey without associated hotkeys
-//         let unassociated_coldkey = U256::from(3);
-//         assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
-//             &unassociated_coldkey
-//         ));
-//     });
-// }
+        // Verify weight update
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
+        assert_eq!(weight, expected_weight);
+
+        // Reset weight for next test
+        weight = Weight::zero();
+
+        // Test 2: Swap with non-member (should not change anything)
+        assert_ok!(SubtensorModule::swap_senate_member(
+            &non_member_hotkey,
+            &new_hotkey,
+            &mut weight
+        ));
+        assert!(Senate::is_member(&new_hotkey));
+        assert!(!Senate::is_member(&non_member_hotkey));
+
+        // Verify weight update (should only have read operations)
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
