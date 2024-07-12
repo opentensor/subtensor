@@ -2275,6 +2275,117 @@ fn test_full_block_emission_occurs() {
     });
 }
 
+#[test]
+fn test_only_validators_provide_rewards_to_nominators() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let stake: u64 = 1_000_000_000;
+        let block_emission: u64 = 1_000_000_000;
+        let coldkey = U256::from(1);
+        // Validator hotkey
+        let validator = U256::from(2);
+        // Miner hotkey
+        let miner = U256::from(3);
+        // Nominating user hotkeys
+        let nominator1 = U256::from(4);
+        let nominator2 = U256::from(5);
+
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_max_allowed_uids(netuid, 2);
+        SubtensorModule::set_target_stakes_per_interval(10);
+
+        // Add balances.
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 11 * stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(&nominator1, stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(&nominator2, stake + ExistentialDeposit::get());
+
+        // Register the 2 neurons to a new network.
+        add_network(netuid, 0, 0);
+        register_ok_neuron(netuid, validator, coldkey, 124124);
+        register_ok_neuron(netuid, miner, coldkey, 987907);
+        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator));
+        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &miner));
+
+        // Setup validator and miner roles: 
+        //   Validator is in top k by stake because it has 10x stake of a regular user
+        //   Validator has validator permit (and epoch function will not change it because it is still the top staker)
+        //   Max validators is 1
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            validator,
+            10 * stake
+        ));
+        pallet_subtensor::MaxAllowedValidators::<Test>::insert(netuid, 1);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, false);
+
+        // Both miner and validator become delegates
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            validator,
+            SubtensorModule::get_default_take()
+        ));
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            miner,
+            SubtensorModule::get_default_take()
+        ));
+        assert!(SubtensorModule::hotkey_is_delegate(&validator));
+        assert!(SubtensorModule::hotkey_is_delegate(&miner));
+
+        // Staking:
+        //   Validator already has its 10x stake
+        //   Nominator 1 delegates 1x stake to validator
+        //   Nominator 2 delegates 1x stake to miner
+        //   Miner has 1x own stake
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            validator,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(nominator2),
+            miner,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            miner,
+            stake
+        ));
+
+        // Verify stakes
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &validator),
+            10 * stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&coldkey, &miner),
+            stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator1, &validator),
+            stake
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_coldkey_and_hotkey(&nominator2, &miner),
+            stake
+        );
+
+        // Run epoch
+        let emission_tuples = SubtensorModule::epoch(netuid, block_emission);
+
+        // Only validator gets validator emission
+        assert!(emission_tuples.len() == 2);
+        assert_eq!(emission_tuples[0].0, validator);
+        assert_eq!(emission_tuples[1].0, miner);
+        assert_eq!(emission_tuples[0].1, 0);
+        assert_eq!(emission_tuples[1].1, 0);
+        assert_eq!(emission_tuples[0].2, block_emission);
+        assert_eq!(emission_tuples[1].2, 0);
+    });
+}
+
 /************************************************************
     staking::unstake_all_coldkeys_from_hotkey_account() tests
 ************************************************************/
