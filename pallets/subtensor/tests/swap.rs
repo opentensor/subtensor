@@ -3,7 +3,7 @@
 use codec::Encode;
 use frame_support::weights::Weight;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use frame_system::Config;
+use frame_system::{Config, RawOrigin};
 mod mock;
 use mock::*;
 use pallet_subtensor::*;
@@ -1675,11 +1675,9 @@ fn test_swap_senate_member() {
         let mut weight = Weight::zero();
 
         // Setup: Add old_hotkey as a Senate member
-        assert_ok!(Senate::set_members(
-            RuntimeOrigin::root(),
-            vec![old_hotkey],
-            None,
-            0
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkey
         ));
 
         // Test 1: Successful swap
@@ -1710,29 +1708,5 @@ fn test_swap_senate_member() {
         // Verify weight update (should only have read operations)
         let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
         assert_eq!(weight, expected_weight);
-
-        // Reset weight for next test
-        weight = Weight::zero();
-
-        // Test 3: Setup for swap to an existing member
-        let another_member = U256::from(4);
-        assert_ok!(Senate::set_members(
-            RuntimeOrigin::root(),
-            vec![new_hotkey, another_member],
-            None,
-            1
-        ));
-
-        // Test 4: Setup for swap with maximum members reached
-        let mut members = vec![new_hotkey, another_member];
-        for i in 5..=SenateMaxMembers::get() {
-            members.push(U256::from(i as u64));
-        }
-        assert_ok!(Senate::set_members(
-            RuntimeOrigin::root(),
-            members.clone(),
-            None,
-            2
-        ));
     });
 }
