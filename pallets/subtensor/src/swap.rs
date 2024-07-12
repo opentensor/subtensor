@@ -33,7 +33,7 @@ impl<T: Config> Pallet<T> {
         let coldkey = ensure_signed(origin)?;
 
         ensure!(
-            !Self::coldkey_in_arbitration(&old_coldkey),
+            !Self::coldkey_in_arbitration(&old_hotkey),
             Error::<T>::ColdkeyIsInArbitration
         );
 
