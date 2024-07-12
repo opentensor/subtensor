@@ -247,7 +247,7 @@ pub mod pallet {
         type InitialTargetStakesPerInterval: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
-        type HotkeySwapCost: Get<u64>;
+        type KeySwapCost: Get<u64>;
         /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;

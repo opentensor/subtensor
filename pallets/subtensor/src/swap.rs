@@ -56,7 +56,7 @@ impl<T: Config> Pallet<T> {
             T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
         );
 
-        let swap_cost = Self::get_hotkey_swap_cost();
+        let swap_cost = Self::get_key_swap_cost();
         log::debug!("Swap cost: {:?}", swap_cost);
 
         ensure!(
@@ -145,6 +145,20 @@ impl<T: Config> Pallet<T> {
             !Self::hotkey_account_exists(new_coldkey),
             Error::<T>::ColdKeyAlreadyAssociated
         );
+
+        // Calculate and charge the swap fee
+        let swap_cost = Self::get_key_swap_cost();
+        log::debug!("Coldkey swap cost: {:?}", swap_cost);
+
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&old_coldkey, swap_cost),
+            Error::<T>::NotEnoughBalanceToPaySwapColdKey
+        );
+        let actual_burn_amount =
+            Self::remove_balance_from_coldkey_account(&old_coldkey, swap_cost)?;
+        Self::burn_tokens(actual_burn_amount);
+
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // Actually do the swap.
         weight = weight.saturating_add(
