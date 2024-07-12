@@ -31,10 +31,6 @@ impl<T: Config> Pallet<T> {
         new_hotkey: &T::AccountId,
     ) -> DispatchResultWithPostInfo {
         let coldkey = ensure_signed(origin)?;
-        ensure!(
-            !Self::coldkey_in_arbitration(&coldkey),
-            Error::<T>::ColdkeyIsInArbitration
-        );
 
         let mut weight = T::DbWeight::get().reads(2);
 
@@ -59,6 +55,16 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(
             T::DbWeight::get().reads((TotalNetworks::<T>::get().saturating_add(1u16)) as u64),
         );
+
+        let swap_cost = Self::get_hotkey_swap_cost();
+        log::debug!("Swap cost: {:?}", swap_cost);
+
+        ensure!(
+            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
+            Error::<T>::NotEnoughBalanceToPaySwapHotKey
+        );
+        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
+        Self::burn_tokens(actual_burn_amount);
 
         Self::swap_owner(old_hotkey, new_hotkey, &coldkey, &mut weight);
         Self::swap_total_hotkey_stake(old_hotkey, new_hotkey, &mut weight);
@@ -189,15 +195,15 @@ impl<T: Config> Pallet<T> {
     ///
     /// This function calculates the remaining arbitration period by subtracting the current block number
     /// from the arbitration block number of the coldkey.
-    // pub fn get_remaining_arbitration_period(coldkey: &T::AccountId) -> u64 {
-    //     let current_block: u64 = Self::get_current_block_as_u64();
-    //     let arbitration_block: u64 = ColdkeyArbitrationBlock::<T>::get(coldkey);
-    //     if arbitration_block > current_block {
-    //         arbitration_block.saturating_sub(current_block)
-    //     } else {
-    //         0
-    //     }
-    // }
+    pub fn get_remaining_arbitration_period(coldkey: &T::AccountId) -> u64 {
+        let current_block: u64 = Self::get_current_block_as_u64();
+        let arbitration_block: u64 = ColdkeyArbitrationBlock::<T>::get(coldkey);
+        if arbitration_block > current_block {
+            arbitration_block.saturating_sub(current_block)
+        } else {
+            0
+        }
+    }
 
     pub fn meets_min_allowed_coldkey_balance(coldkey: &T::AccountId) -> bool {
         let all_staked_keys: Vec<T::AccountId> = StakingHotkeys::<T>::get(coldkey);

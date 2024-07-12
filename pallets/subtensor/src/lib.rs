@@ -2089,7 +2089,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_coldkey(origin, &new_coldkey)
         }
-
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
         ///
         /// # Arguments
@@ -2105,6 +2104,7 @@ pub mod pallet {
         /// # Weight
         ///
         /// Weight is calculated based on the number of database reads and writes.
+        #[cfg(test)]
         #[pallet::call_index(72)]
         #[pallet::weight((Weight::from_parts(21_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
