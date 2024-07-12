@@ -32,6 +32,11 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResultWithPostInfo {
         let coldkey = ensure_signed(origin)?;
 
+        ensure!(
+            !Self::coldkey_in_arbitration(&old_coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
+
         let mut weight = T::DbWeight::get().reads(2);
 
         ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
@@ -80,6 +85,7 @@ impl<T: Config> Pallet<T> {
         Self::swap_loaded_emission(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_uids(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
         Self::swap_prometheus(old_hotkey, new_hotkey, &netuid_is_member, &mut weight);
+        Self::swap_senate_member(old_hotkey, new_hotkey, &mut weight)?;
 
         Self::swap_total_hotkey_coldkey_stakes_this_interval(old_hotkey, new_hotkey, &mut weight);
 

@@ -167,6 +167,22 @@ fn test_do_swap_hotkey_ok_robust() {
             SubtensorModule::add_balance_to_coldkey_account(coldkey, swap_cost);
         }
 
+        // Add old_hotkeys[0] and old_hotkeys[1] to Senate
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkeys[0]
+        ));
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkeys[1]
+        ));
+
+        // Verify initial Senate membership
+        assert!(Senate::is_member(&old_hotkeys[0]));
+        assert!(Senate::is_member(&old_hotkeys[1]));
+        assert!(!Senate::is_member(&new_hotkeys[0]));
+        assert!(!Senate::is_member(&new_hotkeys[1]));
+
         // Perform the swaps for only two hotkeys
         assert_ok!(SubtensorModule::do_swap_hotkey(
             <<Test as Config>::RuntimeOrigin>::signed(coldkeys[0]),
@@ -268,6 +284,10 @@ fn test_do_swap_hotkey_ok_robust() {
                             assert_eq!(Keys::<Test>::get(netuid, uid), new_hotkeys[i]);
                         }
                     }
+
+                    // Verify Senate membership swap
+                    assert!(!Senate::is_member(&old_hotkeys[i]));
+                    assert!(Senate::is_member(&new_hotkeys[i]));
                 } else {
                     // Ensure other hotkeys remain unchanged
                     assert_eq!(
@@ -278,6 +298,10 @@ fn test_do_swap_hotkey_ok_robust() {
                         SubtensorModule::get_owning_coldkey_for_hotkey(&new_hotkeys[i]),
                         coldkeys[i]
                     );
+
+                    // Verify Senate membership remains unchanged for other hotkeys
+                    assert!(!Senate::is_member(&old_hotkeys[i]));
+                    assert!(!Senate::is_member(&new_hotkeys[i]));
                 }
             }
         }
