@@ -2038,6 +2038,15 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
+        /// Attempt to adjust the senate membership to include a hotkey
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
+        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_adjust_senate(origin, hotkey)
+        }
+
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(177_000_000, 0)

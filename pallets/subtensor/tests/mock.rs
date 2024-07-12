@@ -203,23 +203,29 @@ use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::add_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::add_member(RawOrigin::Root.into(), who)
     }
 
     fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::remove_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
+        let remove = *rm;
+        let add = *add;
+
+        Triumvirate::remove_votes(rm)?;
+        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
     fn is_member(account: &AccountId) -> bool {
-        Senate::is_member(account)
+        SenateMembers::members().contains(account)
     }
 
     fn members() -> Vec<AccountId> {
-        Senate::members()
+        SenateMembers::members().into()
     }
 
     fn max_members() -> u32 {
