@@ -118,13 +118,17 @@ impl<T: Config> Pallet<T> {
         // --- 1. Iterate across each network and add pending emission into stash.
         for (netuid, tempo) in <Tempo<T> as IterableStorageMap<u16, u16>>::iter() {
             // Skip the root network or subnets with registrations turned off
-            if netuid == Self::get_root_netuid() || !Self::is_registration_allowed(netuid) {
+            if netuid == Self::get_root_netuid() {
                 // Root emission or subnet emission is burned
                 continue;
             }
 
             // --- 2. Queue the emission due to this network.
-            let new_queued_emission: u64 = Self::get_subnet_emission_value(netuid);
+            let mut new_queued_emission: u64 = Self::get_subnet_emission_value(netuid);
+            if !Self::is_registration_allowed(netuid) {
+                new_queued_emission = 0; // No emission for this network if registration is off.
+            }
+
             log::debug!(
                 "generate_emission for netuid: {:?} with tempo: {:?} and emission: {:?}",
                 netuid,

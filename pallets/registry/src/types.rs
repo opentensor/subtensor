@@ -279,7 +279,7 @@ impl TypeInfo for IdentityFields {
 ///
 /// NOTE: This should be stored at the end of the storage item to facilitate the addition of extra
 /// fields in a backwards compatible way through a specialized `Decode` impl.
-#[freeze_struct("9d47309f8e379957")]
+#[freeze_struct("98e2d7fc7536226b")]
 #[derive(
     CloneNoBound, Encode, Decode, Eq, MaxEncodedLen, PartialEqNoBound, RuntimeDebugNoBound, TypeInfo,
 )]
