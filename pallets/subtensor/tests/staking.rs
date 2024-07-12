@@ -2295,9 +2295,18 @@ fn test_only_validators_provide_rewards_to_nominators() {
         SubtensorModule::set_target_stakes_per_interval(10);
 
         // Add balances.
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 11 * stake + ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator1, stake + ExistentialDeposit::get());
-        SubtensorModule::add_balance_to_coldkey_account(&nominator2, stake + ExistentialDeposit::get());
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            11 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator1,
+            stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator2,
+            stake + ExistentialDeposit::get(),
+        );
 
         // Register the 2 neurons to a new network.
         add_network(netuid, 0, 0);
@@ -2306,7 +2315,7 @@ fn test_only_validators_provide_rewards_to_nominators() {
         assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator));
         assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &miner));
 
-        // Setup validator and miner roles: 
+        // Setup validator and miner roles:
         //   Validator is in top k by stake because it has 10x stake of a regular user
         //   Validator has validator permit (and epoch function will not change it because it is still the top staker)
         //   Max validators is 1
