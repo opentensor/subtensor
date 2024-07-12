@@ -2,8 +2,8 @@
 
 use codec::Encode;
 use frame_support::weights::Weight;
-use frame_support::{assert_err, assert_ok};
-use frame_system::Config;
+use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::{Config, RawOrigin};
 mod mock;
 use mock::*;
 use pallet_subtensor::*;
@@ -1666,24 +1666,47 @@ fn test_coldkey_swap_total() {
     });
 }
 
-// #[test]
-// fn test_coldkey_arbitrated_sw() {
-//     new_test_ext(1).execute_with(|| {
-//         let coldkey = U256::from(1);
-//         let hotkey = U256::from(2);
-//         let netuid = 1u16;
+#[test]
+fn test_swap_senate_member() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let non_member_hotkey = U256::from(3);
+        let mut weight = Weight::zero();
 
-//         // Setup initial state
-//         add_network(netuid, 13, 0);
-//         register_ok_neuron(netuid, hotkey, coldkey, 0);
+        // Setup: Add old_hotkey as a Senate member
+        assert_ok!(SenateMembers::add_member(
+            RawOrigin::Root.into(),
+            old_hotkey
+        ));
 
-//         // Check if coldkey has associated hotkeys
-//         assert!(SubtensorModule::coldkey_has_associated_hotkeys(&coldkey));
+        // Test 1: Successful swap
+        assert_ok!(SubtensorModule::swap_senate_member(
+            &old_hotkey,
+            &new_hotkey,
+            &mut weight
+        ));
+        assert!(Senate::is_member(&new_hotkey));
+        assert!(!Senate::is_member(&old_hotkey));
 
-//         // Check for a coldkey without associated hotkeys
-//         let unassociated_coldkey = U256::from(3);
-//         assert!(!SubtensorModule::coldkey_has_associated_hotkeys(
-//             &unassociated_coldkey
-//         ));
-//     });
-// }
+        // Verify weight update
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads_writes(2, 2);
+        assert_eq!(weight, expected_weight);
+
+        // Reset weight for next test
+        weight = Weight::zero();
+
+        // Test 2: Swap with non-member (should not change anything)
+        assert_ok!(SubtensorModule::swap_senate_member(
+            &non_member_hotkey,
+            &new_hotkey,
+            &mut weight
+        ));
+        assert!(Senate::is_member(&new_hotkey));
+        assert!(!Senate::is_member(&non_member_hotkey));
+
+        // Verify weight update (should only have read operations)
+        let expected_weight = <Test as frame_system::Config>::DbWeight::get().reads(1);
+        assert_eq!(weight, expected_weight);
+    });
+}
