@@ -17,7 +17,6 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
     use frame_system::pallet_prelude::*;
-    use pallet_subtensor::StakingHotkeys;
     use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
