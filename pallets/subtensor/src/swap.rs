@@ -872,7 +872,8 @@ impl<T: Config> Pallet<T> {
 				log::info!("Transferring delegated stake for hotkey {:?}: {}", hotkey, stake);
 				if stake > 0 {
 					// Insert the stake for the hotkey and new coldkey
-					Stake::<T>::insert(hotkey, new_coldkey, stake);
+					let old_stake = Stake::<T>::get(hotkey, new_coldkey);
+					Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
 					total_transferred_stake = total_transferred_stake.saturating_add(stake);
 
 					// Update the transaction weight
@@ -915,7 +916,7 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // Update the staking hotkeys for both old and new coldkeys
-		let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::take(old_coldkey);
+		let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
         StakingHotkeys::<T>::remove(old_coldkey);
         StakingHotkeys::<T>::insert(new_coldkey, staking_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
