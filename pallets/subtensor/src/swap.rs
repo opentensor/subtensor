@@ -851,7 +851,8 @@ impl<T: Config> Pallet<T> {
             log::info!("Transferring stake for hotkey {:?}: {}", hotkey, stake);
             if stake > 0 {
                 // Insert the stake for the hotkey and new coldkey
-                Stake::<T>::insert(hotkey, new_coldkey, stake);
+                let old_stake = Stake::<T>::get(hotkey, new_coldkey);
+                Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
                 total_transferred_stake = total_transferred_stake.saturating_add(stake);
 
                 // Update the owner of the hotkey to the new coldkey
@@ -861,10 +862,11 @@ impl<T: Config> Pallet<T> {
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
             }
         }
+		log::info!("Starting transfer of delegated stakes for old coldkey: {:?}", old_coldkey);
 
 		for staking_hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+			log::info!("Processing staking hotkey: {:?}", staking_hotkey);
 			if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
-
 				let hotkey = &staking_hotkey;
 				// Retrieve and remove the stake associated with the hotkey and old coldkey
 				let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
@@ -875,15 +877,18 @@ impl<T: Config> Pallet<T> {
 					let old_stake = Stake::<T>::get(hotkey, new_coldkey);
 					Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
 					total_transferred_stake = total_transferred_stake.saturating_add(stake);
+					log::info!("Updated stake for hotkey {:?} under new coldkey {:?}: {}", hotkey, new_coldkey, stake.saturating_add(old_stake));
 
 					// Update the transaction weight
 					weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
 				}
 			} else {
+				log::info!("No stake found for staking hotkey {:?} under old coldkey {:?}", staking_hotkey, old_coldkey);
 				weight.saturating_accrue(T::DbWeight::get().reads(1));
 			}
 		}
 
+		log::info!("Completed transfer of delegated stakes for old coldkey: {:?}", old_coldkey);
 
         // Log the total transferred stake
         log::info!("Total transferred stake: {}", total_transferred_stake);

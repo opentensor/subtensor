@@ -1205,6 +1205,7 @@ fn test_do_swap_coldkey_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_swap_stake_for_coldkey --exact --nocaptur
 #[test]
 fn test_swap_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -1223,6 +1224,8 @@ fn test_swap_stake_for_coldkey() {
 		StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
+		assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1 );
+		assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), stake_amount1 );
 
 		// Insert existing for same hotkey1
 		Stake::<Test>::insert(hotkey1, new_coldkey, stake_amount3);
@@ -1243,6 +1246,9 @@ fn test_swap_stake_for_coldkey() {
         // Perform the swap
         SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
 
+        // Verify stake is additive, not replaced
+		assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1 + stake_amount3);
+
         // Verify ownership transfer
         assert_eq!(
             SubtensorModule::get_owned_hotkeys(&new_coldkey),
@@ -1254,9 +1260,6 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
-
-		// Verify stake is additive, not replaced
-		assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1 + stake_amount3);
 
         // Verify TotalColdkeyStake
         assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
@@ -1878,46 +1881,88 @@ fn test_coldkey_delegations() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_sudo_hotfix_swap_coldkey_delegates --exact --nocapture
+// #[test]
+// fn test_sudo_hotfix_swap_coldkey_delegates() {
+//     new_test_ext(1).execute_with(|| {
+//         let new_coldkey = U256::from(0);
+//         let owner = U256::from(1);
+//         let coldkey = U256::from(4);
+//         let delegate = U256::from(2);
+//         let netuid = 1u16;
+//         add_network(netuid, 13, 0);
+//         register_ok_neuron(netuid, delegate, owner, 0);
+//         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+//         assert_ok!(SubtensorModule::do_become_delegate(
+//             <<Test as Config>::RuntimeOrigin>::signed(owner),
+//             delegate,
+//             u16::MAX / 10
+//         ));
+//         assert_ok!(SubtensorModule::add_stake(
+//             <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+//             delegate,
+//             100
+//         ));
+
+//         assert_ok!(SubtensorModule::perform_swap_coldkey(
+//             &coldkey,
+//             &new_coldkey
+//         ));
+
+
+// 		assert_ok!(AdminUtils::sudo_hotfix_swap_coldkey_delegates(
+//             <<Test as Config>::RuntimeOrigin>::root(),
+//             to_be_set
+//         ));
+
+//         assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &delegate), 100 );
+//         assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey), 0 );
+//         assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &new_coldkey), 100 );
+//         assert_eq!( Stake::<Test>::get( delegate, new_coldkey ), 100 );
+//         assert_eq!( Stake::<Test>::get( delegate, coldkey ), 0 );
+
+
+//     });
+// }
+
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_sudo_hotfix_swap_coldkey_delegates --exact --nocapture
 #[test]
 fn test_sudo_hotfix_swap_coldkey_delegates() {
     new_test_ext(1).execute_with(|| {
         let new_coldkey = U256::from(0);
-        let owner = U256::from(1);
         let coldkey = U256::from(4);
-        let delegate = U256::from(2);
-        let netuid = 1u16;
-        add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, delegate, owner, 0);
-        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
-        assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(owner),
-            delegate,
-            u16::MAX / 10
-        ));
-        assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-            delegate,
-            100
-        ));
-
-        assert_ok!(SubtensorModule::perform_swap_coldkey(
-            &coldkey,
-            &new_coldkey
-        ));
-
-
-		assert_ok!(AdminUtils::sudo_hotfix_swap_coldkey_delegates(
-            <<Test as Config>::RuntimeOrigin>::root(),
-            to_be_set
-        ));
-
-        assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &delegate), 100 );
-        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey), 0 );
-        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &new_coldkey), 100 );
-        assert_eq!( Stake::<Test>::get( delegate, new_coldkey ), 100 );
-        assert_eq!( Stake::<Test>::get( delegate, coldkey ), 0 );
-
-
+		assert_ok!(SubtensorModule::sudo_hotfix_swap_coldkey_delegates(<<Test as Config>::RuntimeOrigin>::root(),coldkey,new_coldkey));
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_sudo_hotfix_swap_coldkey_delegates_with_broken_stake --exact --nocapture
+#[test]
+fn test_sudo_hotfix_swap_coldkey_delegates_with_broken_stake() {
+    new_test_ext(1).execute_with(|| {
+        let new_coldkey = U256::from(0);
+        let old_coldkey = U256::from(4);
+        let h1 = U256::from(5);
+        let h2 = U256::from(6);
+        let h3 = U256::from(7);
+        Stake::<Test>::insert( h3, old_coldkey, 100 );
+        Stake::<Test>::insert( h2, old_coldkey, 100 );
+        assert_eq!(Stake::<Test>::get( h3, old_coldkey ), 100 );
+        assert_eq!(Stake::<Test>::get( h2, old_coldkey ), 100 );
+        StakingHotkeys::<Test>::insert( new_coldkey, vec![h1, h2 ] );
+        StakingHotkeys::<Test>::insert( old_coldkey, vec![ h3, h2] );
+        assert_ok!(SubtensorModule::sudo_hotfix_swap_coldkey_delegates(<<Test as Config>::RuntimeOrigin>::root(), old_coldkey, new_coldkey));
+        let hotkeys = StakingHotkeys::<Test>::get( new_coldkey);
+        assert_eq!(hotkeys.len(), 3);
+        assert_eq!(hotkeys[0], h1);
+        assert_eq!(hotkeys[1], h2);
+        assert_eq!(hotkeys[2], h3);
+        let hotkeys_old = StakingHotkeys::<Test>::get( old_coldkey);
+        assert_eq!(hotkeys_old.len(), 0);
+        assert_eq!(Stake::<Test>::get( h3, old_coldkey ), 0 );
+        assert_eq!(Stake::<Test>::get( h2, old_coldkey ), 0 );
+        assert_eq!(Stake::<Test>::get( h3, new_coldkey ), 100 );
+        assert_eq!(Stake::<Test>::get( h2, new_coldkey ), 100 );
+
+    });
+}

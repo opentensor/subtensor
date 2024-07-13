@@ -1036,21 +1036,6 @@ pub mod pallet {
             T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
         }
-
-		/// Sets values for liquid alpha
-        #[pallet::call_index(52)]
-        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
-        pub fn sudo_hotfix_swap_coldkey_delegates(
-            origin: OriginFor<T>,
-			old_coldkey: T::AccountId,
-			new_coldkey: T::AccountId,
-        ) -> DispatchResult {
-            T::Subtensor::ensure_root(origin.clone())?;
-
-			T::Subtensor::swap_hotfix(old_coldkey, new_coldkey);
-
-			Ok(())
-		}
     }
 }
 

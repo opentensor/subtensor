@@ -6,6 +6,7 @@
 // <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
+use crate::system::ensure_root;
 use frame_system::{self as system, ensure_signed};
 
 use frame_support::{
@@ -2253,6 +2254,19 @@ pub mod pallet {
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
         }
+
+		/// Sets values for liquid alpha
+        #[pallet::call_index(64)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            origin: OriginFor<T>,
+			old_coldkey: T::AccountId,
+			new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+			Self::swap_hotfix(&old_coldkey, &new_coldkey);
+			Ok(())
+		}
     }
 
     // ---- Subtensor helper functions.
