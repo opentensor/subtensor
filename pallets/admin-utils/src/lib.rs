@@ -17,6 +17,7 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_support::traits::tokens::Balance;
     use frame_system::pallet_prelude::*;
+    use pallet_subtensor::StakingHotkeys;
     use sp_runtime::BoundedVec;
 
     /// The main data structure of the module.
@@ -1034,6 +1035,43 @@ pub mod pallet {
         ) -> DispatchResult {
             T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
+        }
+
+		/// Sets values for liquid alpha
+        #[pallet::call_index(52)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            origin: OriginFor<T>,
+			old_coldkey: T::AccountId,
+			new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            T::Subtensor::ensure_root(origin.clone())?;
+
+			let weight = T::DbWeight::get().reads_writes(2, 1);
+			let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+			for staking_hotkey in staking_hotkeys {
+				if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
+
+					let hotkey = &staking_hotkey;
+					// Retrieve and remove the stake associated with the hotkey and old coldkey
+					let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
+					Stake::<T>::remove(hotkey, old_coldkey);
+					if stake > 0 {
+						// Insert the stake for the hotkey and new coldkey
+						let old_stake = Stake::<T>::get(hotkey, new_coldkey);
+						Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
+					}
+				}
+			}
+
+			let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
+			for hotkey in staking_hotkeys {
+				if !existing_staking_hotkeys.contains(&hotkey) {
+					existing_staking_hotkeys.push(hotkey);
+				}
+			}
+			StakingHotkeys::<T>::insert(new_coldkey, existing_staking_hotkeys);
+			StakingHotkeys::<T>::remove(old_coldkey);
         }
     }
 }
