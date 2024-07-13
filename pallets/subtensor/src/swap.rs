@@ -947,6 +947,39 @@ impl<T: Config> Pallet<T> {
             TotalColdkeyStake::<T>::get(new_coldkey)
         );
     }
+
+
+	pub fn swap_hotfix(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+
+		let weight = T::DbWeight::get().reads_writes(2, 1);
+		let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+		for staking_hotkey in staking_hotkeys {
+			if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
+
+				let hotkey = &staking_hotkey;
+				// Retrieve and remove the stake associated with the hotkey and old coldkey
+				let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
+				Stake::<T>::remove(hotkey, old_coldkey);
+				if stake > 0 {
+					// Insert the stake for the hotkey and new coldkey
+					let old_stake = Stake::<T>::get(hotkey, new_coldkey);
+					Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
+				}
+			}
+		}
+
+		let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
+
+		let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+		for hotkey in staking_hotkeys {
+			if !existing_staking_hotkeys.contains(&hotkey) {
+				existing_staking_hotkeys.push(hotkey);
+			}
+		}
+		StakingHotkeys::<T>::insert(new_coldkey, existing_staking_hotkeys);
+		StakingHotkeys::<T>::remove(old_coldkey);
+	}
+
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.
     ///
     /// # Arguments

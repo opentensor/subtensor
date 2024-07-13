@@ -1361,3 +1361,21 @@ fn test_sudo_get_set_alpha() {
         ));
     });
 }
+
+
+#[test]
+fn test_sudo_hotfix_swap_coldkey_delegates() {
+    new_test_ext().execute_with(|| {
+        let new_coldkey = U256::from(0);
+        let owner = U256::from(1);
+        let coldkey = U256::from(4);
+
+		assert_ok!(AdminUtils::sudo_hotfix_swap_coldkey_delegates(
+            <<Test as Config>::RuntimeOrigin>::root(),
+            coldkey,
+			new_coldkey
+        ));
+
+
+    });
+}
