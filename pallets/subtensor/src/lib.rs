@@ -2061,17 +2061,17 @@ pub mod pallet {
         }
 
         /// The extrinsic for user to change its hotkey
-        #[pallet::call_index(70)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn swap_hotkey(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
-        }
+        ///#[pallet::call_index(70)]
+        ///#[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+		///.saturating_add(T::DbWeight::get().reads(272))
+		///.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        ///pub fn swap_hotkey(
+        ///    origin: OriginFor<T>,
+        ///    hotkey: T::AccountId,
+        ///    new_hotkey: T::AccountId,
+        ///) -> DispatchResultWithPostInfo {
+        ///    Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        ///}
 
         /// The extrinsic for user to change the coldkey associated with their account.
         ///
