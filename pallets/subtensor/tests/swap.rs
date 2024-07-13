@@ -1272,6 +1272,40 @@ fn test_swap_stake_for_coldkey() {
 }
 
 #[test]
+fn test_swap_staking_hotkeys_for_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey1 = U256::from(3);
+        let hotkey2 = U256::from(4);
+        let stake_amount1 = 1000u64;
+        let stake_amount2 = 2000u64;
+        let total_stake = stake_amount1 + stake_amount2;
+        let mut weight = Weight::zero();
+
+        // Setup initial state
+        OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
+        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
+        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
+        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
+        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
+
+        // Set up total issuance
+        TotalIssuance::<Test>::put(total_stake);
+        TotalStake::<Test>::put(total_stake);
+
+        // Perform the swap
+        SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+
+
+        // Verify StakingHotkeys transfer
+		assert_eq!(StakingHotkeys::<Test>::get(new_coldkey), vec![hotkey1, hotkey2]);
+		assert_eq!(StakingHotkeys::<Test>::get(old_coldkey), vec![]);
+    });
+}
+
+#[test]
 fn test_swap_delegated_stake_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
