@@ -917,8 +917,11 @@ impl<T: Config> Pallet<T> {
 
         // Update the staking hotkeys for both old and new coldkeys
 		let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
+		let old_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(new_coldkey);
+
+		let combined_staking_hotkeys: Vec<T::AccountId> = staking_hotkeys.into_iter().chain(old_staking_hotkeys.into_iter()).collect();
         StakingHotkeys::<T>::remove(old_coldkey);
-        StakingHotkeys::<T>::insert(new_coldkey, staking_hotkeys);
+        StakingHotkeys::<T>::insert(new_coldkey, combined_staking_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // Log the total stake of old and new coldkeys after the swap
