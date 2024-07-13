@@ -1736,3 +1736,37 @@ fn test_swap_senate_member() {
         assert_eq!(weight, expected_weight);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test swap -- test_coldkey_delegations --exact --nocapture
+#[test]
+fn test_coldkey_delegations() {
+    new_test_ext(1).execute_with(|| {
+        let new_coldkey = U256::from(0);
+        let owner = U256::from(1);
+        let coldkey = U256::from(4);
+        let delegate = U256::from(2);
+        let netuid = 1u16;
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, delegate, owner, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1000);
+        assert_ok!(SubtensorModule::do_become_delegate(
+            <<Test as Config>::RuntimeOrigin>::signed(owner),
+            delegate,
+            u16::MAX / 10
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            delegate,
+            100
+        ));
+        assert_ok!(SubtensorModule::perform_swap_coldkey(
+            &coldkey,
+            &new_coldkey
+        ));
+        assert_eq!( SubtensorModule::get_total_stake_for_hotkey( &delegate), 100 );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &coldkey), 0 );
+        assert_eq!( SubtensorModule::get_total_stake_for_coldkey( &new_coldkey), 100 );
+        assert_eq!( Stake::<Test>::get( delegate, new_coldkey ), 100 );
+        assert_eq!( Stake::<Test>::get( delegate, coldkey ), 0 );
+    });
+}

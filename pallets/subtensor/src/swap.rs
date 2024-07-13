@@ -782,31 +782,7 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(2)); // One write for insert and one for remove
         }
     }
-
-    /// Swaps the total stake associated with a coldkey from the old coldkey to the new coldkey.
-    ///
-    /// # Arguments
-    ///
-    /// * `old_coldkey` - The AccountId of the old coldkey.
-    /// * `new_coldkey` - The AccountId of the new coldkey.
-    /// * `weight` - Mutable reference to the weight of the transaction.
-    ///
-    /// # Effects
-    ///
-    /// * Removes the total stake from the old coldkey.
-    /// * Inserts the total stake for the new coldkey.
-    /// * Updates the transaction weight.
-    pub fn swap_total_coldkey_stake(
-        old_coldkey: &T::AccountId,
-        new_coldkey: &T::AccountId,
-        weight: &mut Weight,
-    ) {
-        let stake = TotalColdkeyStake::<T>::get(old_coldkey);
-        TotalColdkeyStake::<T>::remove(old_coldkey);
-        TotalColdkeyStake::<T>::insert(new_coldkey, stake);
-        weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
-    }
-
+    
     /// Swaps the stake associated with a coldkey from the old coldkey to the new coldkey.
     ///
     /// # Arguments
@@ -866,35 +842,42 @@ impl<T: Config> Pallet<T> {
         log::info!("Total transferred stake: {}", total_transferred_stake);
 
         // Update the total stake for both old and new coldkeys if any stake was transferred
-        if total_transferred_stake > 0 {
-            let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::take(old_coldkey); // Remove it here.
-            let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
+        let old_coldkey_stake: u64 = TotalColdkeyStake::<T>::take(old_coldkey); // Remove it here.
+        let new_coldkey_stake: u64 = TotalColdkeyStake::<T>::get(new_coldkey);
 
-            TotalColdkeyStake::<T>::insert(old_coldkey, 0);
-            TotalColdkeyStake::<T>::insert(
-                new_coldkey,
-                new_coldkey_stake.saturating_add(old_coldkey_stake),
-            );
+        TotalColdkeyStake::<T>::insert(old_coldkey, 0);
+        TotalColdkeyStake::<T>::insert(
+            new_coldkey,
+            new_coldkey_stake.saturating_add(old_coldkey_stake),
+        );
 
-            log::info!("Updated old coldkey stake from {} to 0", old_coldkey_stake);
-            log::info!(
-                "Updated new coldkey stake from {} to {}",
-                new_coldkey_stake,
-                new_coldkey_stake.saturating_add(old_coldkey_stake)
-            );
+        log::info!("Updated old coldkey stake from {} to 0", old_coldkey_stake);
+        log::info!(
+            "Updated new coldkey stake from {} to {}",
+            new_coldkey_stake,
+            new_coldkey_stake.saturating_add(old_coldkey_stake)
+        );
 
-            // Update the transaction weight
-            weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
-        }
+        // Update the transaction weight
+        weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
         // Update the list of owned hotkeys for both old and new coldkeys
         OwnedHotkeys::<T>::remove(old_coldkey);
         OwnedHotkeys::<T>::insert(new_coldkey, old_owned_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
-        // Update the staking hotkeys for both old and new coldkeys
+        // Iterate over all hotkeys which have an entry [old_cold | hotkey] -> stake_a
+        // We are going to move all of these entries to [new_cold | hotkey] -> stake_a + stake_b
+        // And we are going to remove all the entries for [old_cold | hotkey] -> stake_a
         let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::take(old_coldkey);
-        StakingHotkeys::<T>::insert(new_coldkey, staking_hotkeys);
+        for hotkey in staking_hotkeys.iter() {
+            let other_amount: u64 = Stake::<T>::get(hotkey, old_coldkey);
+            let current_amount: u64 = Stake::<T>::get(hotkey, new_coldkey);
+            Stake::<T>::insert(hotkey, new_coldkey, other_amount.saturating_add( current_amount ));
+            Stake::<T>::remove(hotkey, old_coldkey);
+        }
+        StakingHotkeys::<T>::insert( new_coldkey, staking_hotkeys );
+        StakingHotkeys::<T>::remove( old_coldkey );
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // Log the total stake of old and new coldkeys after the swap
