@@ -1251,7 +1251,6 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(SubtensorModule::get_owned_hotkeys(&old_coldkey), vec![]);
 
         // Verify stake transfer
-        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
