@@ -909,7 +909,8 @@ impl<T: Config> Pallet<T> {
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // Update the staking hotkeys for both old and new coldkeys
-        let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::take(old_coldkey);
+		let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::take(old_coldkey);
+        StakingHotkeys::<T>::remove(old_coldkey);
         StakingHotkeys::<T>::insert(new_coldkey, staking_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
