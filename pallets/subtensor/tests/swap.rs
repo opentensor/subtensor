@@ -1214,6 +1214,7 @@ fn test_swap_stake_for_coldkey() {
         let hotkey2 = U256::from(4);
         let stake_amount1 = 1000u64;
         let stake_amount2 = 2000u64;
+		let stake_amount3 = 3000u64;
         let total_stake = stake_amount1 + stake_amount2;
         let mut weight = Weight::zero();
 
@@ -1221,6 +1222,10 @@ fn test_swap_stake_for_coldkey() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
+
+		// Insert existing for same hotkey1
+		Stake::<Test>::insert(hotkey1, new_coldkey, stake_amount3);
+
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
         TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
@@ -1248,6 +1253,9 @@ fn test_swap_stake_for_coldkey() {
         assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
         assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
         assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
+
+		// Verify stake is additive, not replaced
+		assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1 + stake_amount3);
 
         // Verify TotalColdkeyStake
         assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
