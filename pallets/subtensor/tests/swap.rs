@@ -1220,11 +1220,13 @@ fn test_swap_stake_for_coldkey() {
 
         // Setup initial state
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
+		StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
 
 		// Insert existing for same hotkey1
 		Stake::<Test>::insert(hotkey1, new_coldkey, stake_amount3);
+		StakingHotkeys::<Test>::insert(new_coldkey, vec![hotkey1]);
 
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
@@ -1295,6 +1297,7 @@ fn test_swap_staking_hotkeys_for_coldkey() {
         OwnedHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
+		StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
         TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
         TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
@@ -1329,6 +1332,7 @@ fn test_swap_delegated_stake_for_coldkey() {
 		// coldkey therefore delegates stake to them
 
         // Setup initial state
+		StakingHotkeys::<Test>::insert(old_coldkey, vec![hotkey1, hotkey2]);
         Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
         Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
         TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
