@@ -862,33 +862,52 @@ impl<T: Config> Pallet<T> {
                 weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
             }
         }
-		log::info!("Starting transfer of delegated stakes for old coldkey: {:?}", old_coldkey);
+        log::info!(
+            "Starting transfer of delegated stakes for old coldkey: {:?}",
+            old_coldkey
+        );
 
-		for staking_hotkey in StakingHotkeys::<T>::get(old_coldkey) {
-			log::info!("Processing staking hotkey: {:?}", staking_hotkey);
-			if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
-				let hotkey = &staking_hotkey;
-				// Retrieve and remove the stake associated with the hotkey and old coldkey
-				let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
-				Stake::<T>::remove(hotkey, old_coldkey);
-				log::info!("Transferring delegated stake for hotkey {:?}: {}", hotkey, stake);
-				if stake > 0 {
-					// Insert the stake for the hotkey and new coldkey
-					let old_stake = Stake::<T>::get(hotkey, new_coldkey);
-					Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
-					total_transferred_stake = total_transferred_stake.saturating_add(stake);
-					log::info!("Updated stake for hotkey {:?} under new coldkey {:?}: {}", hotkey, new_coldkey, stake.saturating_add(old_stake));
+        for staking_hotkey in StakingHotkeys::<T>::get(old_coldkey) {
+            log::info!("Processing staking hotkey: {:?}", staking_hotkey);
+            if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
+                let hotkey = &staking_hotkey;
+                // Retrieve and remove the stake associated with the hotkey and old coldkey
+                let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
+                Stake::<T>::remove(hotkey, old_coldkey);
+                log::info!(
+                    "Transferring delegated stake for hotkey {:?}: {}",
+                    hotkey,
+                    stake
+                );
+                if stake > 0 {
+                    // Insert the stake for the hotkey and new coldkey
+                    let old_stake = Stake::<T>::get(hotkey, new_coldkey);
+                    Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
+                    total_transferred_stake = total_transferred_stake.saturating_add(stake);
+                    log::info!(
+                        "Updated stake for hotkey {:?} under new coldkey {:?}: {}",
+                        hotkey,
+                        new_coldkey,
+                        stake.saturating_add(old_stake)
+                    );
 
-					// Update the transaction weight
-					weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
-				}
-			} else {
-				log::info!("No stake found for staking hotkey {:?} under old coldkey {:?}", staking_hotkey, old_coldkey);
-				weight.saturating_accrue(T::DbWeight::get().reads(1));
-			}
-		}
+                    // Update the transaction weight
+                    weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 1));
+                }
+            } else {
+                log::info!(
+                    "No stake found for staking hotkey {:?} under old coldkey {:?}",
+                    staking_hotkey,
+                    old_coldkey
+                );
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+            }
+        }
 
-		log::info!("Completed transfer of delegated stakes for old coldkey: {:?}", old_coldkey);
+        log::info!(
+            "Completed transfer of delegated stakes for old coldkey: {:?}",
+            old_coldkey
+        );
 
         // Log the total transferred stake
         log::info!("Total transferred stake: {}", total_transferred_stake);
@@ -917,7 +936,7 @@ impl<T: Config> Pallet<T> {
 
         // Update the list of owned hotkeys for both old and new coldkeys
 
-		let mut new_owned_hotkeys = OwnedHotkeys::<T>::get(new_coldkey);
+        let mut new_owned_hotkeys = OwnedHotkeys::<T>::get(new_coldkey);
         for hotkey in old_owned_hotkeys {
             if !new_owned_hotkeys.contains(&hotkey) {
                 new_owned_hotkeys.push(hotkey);
@@ -925,13 +944,13 @@ impl<T: Config> Pallet<T> {
         }
 
         OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
-		OwnedHotkeys::<T>::remove(old_coldkey);
+        OwnedHotkeys::<T>::remove(old_coldkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // Update the staking hotkeys for both old and new coldkeys
-		let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
+        let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
 
-		let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
+        let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
         for hotkey in staking_hotkeys {
             if !existing_staking_hotkeys.contains(&hotkey) {
                 existing_staking_hotkeys.push(hotkey);
@@ -953,37 +972,34 @@ impl<T: Config> Pallet<T> {
         );
     }
 
+    pub fn swap_hotfix(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+        let weight = T::DbWeight::get().reads_writes(2, 1);
+        let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+        for staking_hotkey in staking_hotkeys {
+            if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
+                let hotkey = &staking_hotkey;
+                // Retrieve and remove the stake associated with the hotkey and old coldkey
+                let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
+                Stake::<T>::remove(hotkey, old_coldkey);
+                if stake > 0 {
+                    // Insert the stake for the hotkey and new coldkey
+                    let old_stake = Stake::<T>::get(hotkey, new_coldkey);
+                    Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
+                }
+            }
+        }
 
-	pub fn swap_hotfix(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
+        let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
 
-		let weight = T::DbWeight::get().reads_writes(2, 1);
-		let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
-		for staking_hotkey in staking_hotkeys {
-			if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
-
-				let hotkey = &staking_hotkey;
-				// Retrieve and remove the stake associated with the hotkey and old coldkey
-				let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
-				Stake::<T>::remove(hotkey, old_coldkey);
-				if stake > 0 {
-					// Insert the stake for the hotkey and new coldkey
-					let old_stake = Stake::<T>::get(hotkey, new_coldkey);
-					Stake::<T>::insert(hotkey, new_coldkey, stake.saturating_add(old_stake));
-				}
-			}
-		}
-
-		let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
-
-		let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
-		for hotkey in staking_hotkeys {
-			if !existing_staking_hotkeys.contains(&hotkey) {
-				existing_staking_hotkeys.push(hotkey);
-			}
-		}
-		StakingHotkeys::<T>::insert(new_coldkey, existing_staking_hotkeys);
-		StakingHotkeys::<T>::remove(old_coldkey);
-	}
+        let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
+        for hotkey in staking_hotkeys {
+            if !existing_staking_hotkeys.contains(&hotkey) {
+                existing_staking_hotkeys.push(hotkey);
+            }
+        }
+        StakingHotkeys::<T>::insert(new_coldkey, existing_staking_hotkeys);
+        StakingHotkeys::<T>::remove(old_coldkey);
+    }
 
     /// Swaps the total hotkey-coldkey stakes for the current interval from the old coldkey to the new coldkey.
     ///
