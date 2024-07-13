@@ -867,7 +867,8 @@ impl<T: Config> Pallet<T> {
 
 				let hotkey = &staking_hotkey;
 				// Retrieve and remove the stake associated with the hotkey and old coldkey
-				let stake: u64 = Stake::<T>::take(hotkey, old_coldkey);
+				let stake: u64 = Stake::<T>::get(hotkey, old_coldkey);
+				Stake::<T>::remove(hotkey, old_coldkey);
 				log::info!("Transferring delegated stake for hotkey {:?}: {}", hotkey, stake);
 				if stake > 0 {
 					// Insert the stake for the hotkey and new coldkey
