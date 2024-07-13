@@ -911,17 +911,30 @@ impl<T: Config> Pallet<T> {
         }
 
         // Update the list of owned hotkeys for both old and new coldkeys
-        OwnedHotkeys::<T>::remove(old_coldkey);
-        OwnedHotkeys::<T>::insert(new_coldkey, old_owned_hotkeys);
+
+		let mut new_owned_hotkeys = OwnedHotkeys::<T>::get(new_coldkey);
+        for hotkey in old_owned_hotkeys {
+            if !new_owned_hotkeys.contains(&hotkey) {
+                new_owned_hotkeys.push(hotkey);
+            }
+        }
+
+        OwnedHotkeys::<T>::insert(new_coldkey, new_owned_hotkeys);
+		OwnedHotkeys::<T>::remove(old_coldkey);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
 
         // Update the staking hotkeys for both old and new coldkeys
 		let staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(old_coldkey);
-		let old_staking_hotkeys: Vec<T::AccountId> = StakingHotkeys::<T>::get(new_coldkey);
 
-		let combined_staking_hotkeys: Vec<T::AccountId> = staking_hotkeys.into_iter().chain(old_staking_hotkeys.into_iter()).collect();
+		let mut existing_staking_hotkeys = StakingHotkeys::<T>::get(new_coldkey);
+        for hotkey in staking_hotkeys {
+            if !existing_staking_hotkeys.contains(&hotkey) {
+                existing_staking_hotkeys.push(hotkey);
+            }
+        }
+
         StakingHotkeys::<T>::remove(old_coldkey);
-        StakingHotkeys::<T>::insert(new_coldkey, combined_staking_hotkeys);
+        StakingHotkeys::<T>::insert(new_coldkey, existing_staking_hotkeys);
         weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
         // Log the total stake of old and new coldkeys after the swap
