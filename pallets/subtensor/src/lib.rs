@@ -6,7 +6,6 @@
 // <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
-use crate::system::ensure_root;
 use frame_system::{self as system, ensure_signed};
 
 use frame_support::{
