@@ -1272,6 +1272,67 @@ fn test_swap_stake_for_coldkey() {
 }
 
 #[test]
+fn test_swap_delegated_stake_for_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        let old_coldkey = U256::from(1);
+        let new_coldkey = U256::from(2);
+        let hotkey1 = U256::from(3);
+        let hotkey2 = U256::from(4);
+        let stake_amount1 = 1000u64;
+        let stake_amount2 = 2000u64;
+        let total_stake = stake_amount1 + stake_amount2;
+        let mut weight = Weight::zero();
+
+		// Notice hotkey1 and hotkey2 are not in OwnedHotkeys
+		// coldkey therefore delegates stake to them
+
+        // Setup initial state
+        Stake::<Test>::insert(hotkey1, old_coldkey, stake_amount1);
+        Stake::<Test>::insert(hotkey2, old_coldkey, stake_amount2);
+        TotalHotkeyStake::<Test>::insert(hotkey1, stake_amount1);
+        TotalHotkeyStake::<Test>::insert(hotkey2, stake_amount2);
+        TotalColdkeyStake::<Test>::insert(old_coldkey, total_stake);
+
+        // Set up total issuance
+        TotalIssuance::<Test>::put(total_stake);
+        TotalStake::<Test>::put(total_stake);
+
+        // Record initial values
+        let initial_total_issuance = SubtensorModule::get_total_issuance();
+        let initial_total_stake = SubtensorModule::get_total_stake();
+
+        // Perform the swap
+        SubtensorModule::swap_stake_for_coldkey(&old_coldkey, &new_coldkey, &mut weight);
+
+        // Verify stake transfer
+        assert_eq!(Stake::<Test>::get(hotkey1, new_coldkey), stake_amount1);
+        assert_eq!(Stake::<Test>::get(hotkey2, new_coldkey), stake_amount2);
+        assert_eq!(Stake::<Test>::get(hotkey1, old_coldkey), 0);
+        assert_eq!(Stake::<Test>::get(hotkey2, old_coldkey), 0);
+
+        // Verify TotalColdkeyStake
+        assert_eq!(TotalColdkeyStake::<Test>::get(new_coldkey), total_stake);
+        assert_eq!(TotalColdkeyStake::<Test>::get(old_coldkey), 0);
+
+        // Verify TotalHotkeyStake remains unchanged
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey1), stake_amount1);
+        assert_eq!(TotalHotkeyStake::<Test>::get(hotkey2), stake_amount2);
+
+        // Verify total stake and issuance remain unchanged
+        assert_eq!(
+            SubtensorModule::get_total_stake(),
+            initial_total_stake,
+            "Total stake changed unexpectedly"
+        );
+        assert_eq!(
+            SubtensorModule::get_total_issuance(),
+            initial_total_issuance,
+            "Total issuance changed unexpectedly"
+        );
+    });
+}
+
+#[test]
 fn test_swap_total_hotkey_coldkey_stakes_this_interval_for_coldkey() {
     new_test_ext(1).execute_with(|| {
         let old_coldkey = U256::from(1);
