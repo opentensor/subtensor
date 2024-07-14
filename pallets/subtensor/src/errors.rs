@@ -128,5 +128,11 @@ mod errors {
         CommitRevealDisabled,
         /// Attempting to set an invalid child for a hotkey on a network.
         InvalidChild,
+        /// Duplicate child when setting children.
+        DuplicateChild,
+        /// Proportion overflow when setting children.
+        ProportionOverflow,
+        /// Too many children MAX 5.
+        TooManyChildren,
     }
 }

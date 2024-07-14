@@ -132,16 +132,10 @@ mod events {
         MinDelegateTakeSet(u16),
         /// the target stakes per interval is set by sudo/admin transaction
         TargetStakesPerIntervalSet(u64),
-        /// a child has been added to a hotkey on network with proportion.
-        SetChildSingular(T::AccountId, T::AccountId, u16, u64),
-        /// a child has been revoked from a hotkey on network.
-        RevokeChildSingular(T::AccountId, T::AccountId, u16),
         /// the hotkey emission tempo is set.
         HotkeyEmissionTempoSet(u64),
-        /// Multiple children were set for a hotkey
-        SetChildrenMultiple(T::AccountId, Vec<(u64, T::AccountId)>, u16),
-        /// Multiple children were revoked for a hotkey
-        RevokeChildrenMultiple(T::AccountId, Vec<T::AccountId>, u16),
+        /// Multiple hotkey children.
+        SetChildren( T::AccountId, u16, Vec<(u64, T::AccountId)> ),
         /// Network max stake is set
         NetworkMaxStakeSet(u16, u64),
     }
