@@ -77,7 +77,7 @@ impl<T: Config> Pallet<T> {
             .expect("Failed to decode child_bytes into AccountId");
 
         // Calculate the total stake for the child, including its own children and parents
-        let total_stake: u64 = Self::get_stake_with_children_and_parents(&child, netuid);
+        let total_stake: u64 = Self::get_stake_for_hotkey_on_subnet(&child, netuid);
 
         // Get the UID for the child neuron, defaulting to 0 if not found
         let uid: u16 = Self::get_uid_for_net_and_hotkey(netuid, &child).unwrap_or(0);

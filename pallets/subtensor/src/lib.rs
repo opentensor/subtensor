@@ -1188,6 +1188,9 @@ pub mod pallet {
     pub type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
+    #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight
+    pub(super) type S<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> active
     pub(super) type Active<T: Config> =
         StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;

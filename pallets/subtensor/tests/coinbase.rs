@@ -444,8 +444,8 @@ fn test_set_and_get_hotkey_emission_tempo() {
 //         assert!(hotkey_stake > child_stake, "Hotkey should have more stake than child");
 //         assert!(hotkey_stake > parent_stake - 2000, "Hotkey should have gained more stake than parent");
 
-//         // Check get_stake_with_children_and_parents
-//         let total_stake = SubtensorModule::get_stake_with_children_and_parents(&hotkey, netuid);
+//         // Check get_stake_for_hotkey_on_subnet
+//         let total_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
 //         assert!(total_stake > hotkey_stake, "Total stake should be higher than hotkey's own stake");
 
 //         // Check root_epoch

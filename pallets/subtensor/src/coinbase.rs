@@ -203,7 +203,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Calculate the total stake of the hotkey, adjusted by the stakes of parents and children.
         // Parents contribute to the stake, while children reduce it.
         // If this value is zero, no distribution to anyone is necessary.
-        let total_hotkey_stake: u64 = Self::get_stake_with_children_and_parents(hotkey, netuid);
+        let total_hotkey_stake: u64 = Self::get_stake_for_hotkey_on_subnet(hotkey, netuid);
         if total_hotkey_stake != 0 {
             // --- 5. If the total stake is not zero, iterate over each parent to determine their contribution to the hotkey's stake,
             // and calculate their share of the emission accordingly.

@@ -373,9 +373,9 @@ fn test_add_singular_child() {
     })
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_stake_with_children_and_parents --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_stake_for_hotkey_on_subnet --exact --nocapture
 #[test]
-fn test_get_stake_with_children_and_parents() {
+fn test_get_stake_for_hotkey_on_subnet() {
     new_test_ext(1).execute_with(|| {
         let netuid: u16 = 1;
         let hotkey0 = U256::from(1);
@@ -400,11 +400,11 @@ fn test_get_stake_with_children_and_parents() {
         assert_eq!(SubtensorModule::get_total_stake_for_hotkey(&hotkey1), 2000);
 
         assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey0, netuid),
             2000
         );
         assert_eq!(
-            SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid),
             2000
         );
 
@@ -419,8 +419,8 @@ fn test_get_stake_with_children_and_parents() {
         ));
 
         // Check stakes after setting child
-        let stake0 = SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid);
-        let stake1 = SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid);
+        let stake0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey0, netuid);
+        let stake1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid);
 
         assert_eq!(stake0, 0);
         assert_eq!(stake1, max_stake);
@@ -436,8 +436,8 @@ fn test_get_stake_with_children_and_parents() {
         ));
 
         // Check stakes after changing child relationship
-        let stake0 = SubtensorModule::get_stake_with_children_and_parents(&hotkey0, netuid);
-        let stake1 = SubtensorModule::get_stake_with_children_and_parents(&hotkey1, netuid);
+        let stake0 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey0, netuid);
+        let stake1 = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey1, netuid);
 
         assert_eq!(stake0, 1001);
         assert!(stake1 >= max_stake - 1 && stake1 <= max_stake);
@@ -1273,5 +1273,68 @@ fn test_set_network_max_stake_update() {
 
         // Check that the event is emitted for the update
         System::assert_last_event(Event::NetworkMaxStakeSet(netuid, updated_max_stake).into());
+    });
+}
+
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_children_stake_values --exact --nocapture
+#[test]
+fn test_children_stake_values() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let child3 = U256::from(5);
+        let netuid: u16 = 1;
+        let proportion1: u64 = u64::MAX/4;
+        let proportion2: u64 = u64::MAX/4;
+        let proportion3: u64 = u64::MAX/4;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_target_registrations_per_interval(netuid, 4);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
+        register_ok_neuron(netuid, child3, coldkey, 0);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 100_000_000_000_000);
+
+        // Set multiple children with proportions.
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![
+                (proportion1, child1),
+                (proportion2, child2),
+                (proportion3, child3)
+            ]
+        ));
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            25_000_000_069_852
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid),
+            24_999_999_976_716
+        );
+        assert_eq!(
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid) + 
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid) + 
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid) +
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            100_000_000_000_000
+        );
     });
 }

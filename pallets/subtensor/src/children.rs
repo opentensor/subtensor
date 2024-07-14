@@ -1,5 +1,4 @@
 use super::*;
-use sp_std::collections::btree_set::BTreeSet;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
@@ -180,10 +179,7 @@ impl<T: Config> Pallet<T> {
     /// TODO: check for self loops.
     /// TODO: (@distributedstatemachine): check if we should return error , otherwise self loop
     /// detection is impossible to test.
-    pub fn get_stake_with_children_and_parents(hotkey: &T::AccountId, netuid: u16) -> u64 {
-        let mut visited = BTreeSet::new();
-        Self::dfs_check_self_loops(hotkey, netuid, &mut visited);
-
+    pub fn get_stake_for_hotkey_on_subnet(hotkey: &T::AccountId, netuid: u16) -> u64 {
         // Retrieve the initial total stake for the hotkey without any child/parent adjustments.
         let initial_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
         let mut stake_to_children: u64 = 0;
@@ -196,9 +192,9 @@ impl<T: Config> Pallet<T> {
         // Iterate over children to calculate the total stake allocated to them.
         for (proportion, _) in children {
             // Calculate the stake proportion allocated to the child based on the initial stake.
-            let stake_proportion_to_child: I96F32 = I96F32::from_num(initial_stake)
-                .saturating_mul(I96F32::from_num(proportion))
-                .saturating_div(I96F32::from_num(u64::MAX));
+            let normalized_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            let stake_proportion_to_child: I96F32 = I96F32::from_num(initial_stake).saturating_mul( normalized_proportion );
+    
             // Accumulate the total stake given to children.
             stake_to_children =
                 stake_to_children.saturating_add(stake_proportion_to_child.to_num::<u64>());
@@ -209,9 +205,9 @@ impl<T: Config> Pallet<T> {
             // Retrieve the parent's total stake.
             let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
             // Calculate the stake proportion received from the parent.
-            let stake_proportion_from_parent: I96F32 = I96F32::from_num(parent_stake)
-                .saturating_mul(I96F32::from_num(proportion))
-                .saturating_div(I96F32::from_num(u64::MAX));
+            let normalized_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            let stake_proportion_from_parent: I96F32 = I96F32::from_num(parent_stake).saturating_mul(normalized_proportion);
+    
 
             // Accumulate the total stake received from parents.
             stake_from_parents =
@@ -266,47 +262,5 @@ impl<T: Config> Pallet<T> {
      */
     pub fn get_parents(child: &T::AccountId, netuid: u16) -> Vec<(u64, T::AccountId)> {
         ParentKeys::<T>::get(child, netuid)
-    }
-
-    /// Performs a depth-first search to detect self-loops in the delegation graph.
-    ///
-    /// This function traverses the delegation graph starting from a given account,
-    /// checking for circular dependencies (self-loops) in the process.
-    ///
-    /// # Arguments
-    ///
-    /// * `current` - A reference to the `AccountId` of the current node being examined.
-    /// * `netuid` - The network ID in which to perform the check.
-    /// * `visited` - A mutable reference to a `BTreeSet` keeping track of visited accounts.
-    ///
-    /// # Behavior
-    ///
-    /// - If a node is encountered that has already been visited, a warning is logged
-    ///   indicating a self-loop has been detected.
-    /// - The function recursively checks all children of the current node.
-    /// - After checking all children, the current node is removed from the visited set
-    ///   to allow for correct backtracking in the DFS algorithm.
-    ///
-    /// # Note
-    ///
-    /// This function does not return a Result or stop execution when a loop is detected.
-    /// It only logs a warning. Depending on your requirements, you might want to modify
-    /// this behavior to return an error or take other actions when a loop is found.
-    fn dfs_check_self_loops(
-        current: &T::AccountId,
-        netuid: u16,
-        visited: &mut BTreeSet<T::AccountId>,
-    ) {
-        if !visited.insert(current.clone()) {
-            // We've encountered this node before, which means there's a loop
-            log::warn!("Self-loop detected for account: {:?}", current);
-        }
-
-        let children = Self::get_children(current, netuid);
-        for (_, child) in children {
-            Self::dfs_check_self_loops(&child, netuid, visited);
-        }
-
-        visited.remove(current);
     }
 }

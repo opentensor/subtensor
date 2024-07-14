@@ -429,7 +429,7 @@ reveal_weights {
 
   }: reveal_weights(RawOrigin::Signed(hotkey.clone()), netuid, uids, weight_values, salt, version_key)
   // TODO: fix me (sd)
-  benchmark_set_child_singular {
+  benchmark_set_children{
     let netuid: u16 = 1;
     let tempo: u16 = 1;
     let modality: u16 = 0;
@@ -454,40 +454,6 @@ reveal_weights {
     // Set proportion
     let proportion: u64 = 500;
 
-}: set_child_singular(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), child.clone(), netuid, proportion)
-
-    // Benchmark for revoke_child_singular
-      // TODO: fix me (sd)
-    benchmark_revoke_child_singular {
-      let netuid: u16 = 1;
-      let tempo: u16 = 1;
-      let modality: u16 = 0;
-      let seed: u32 = 1;
-
-      // Initialize network
-      Subtensor::<T>::init_new_network(netuid, tempo);
-      Subtensor::<T>::set_network_registration_allowed(netuid, true);
-
-      // Create accounts
-      let coldkey: T::AccountId = account("Test", 0, seed);
-      let hotkey: T::AccountId = account("Alice", 0, seed);
-      let child: T::AccountId = account("Bob", 0, seed + 1);
-
-      // Add balance to coldkey account
-      let amount_to_be_staked = 1000000u32.into();
-      Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-
-      // Add balance to coldkey account
-      let amount_to_be_staked = 1000000u32.into();
-      Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-
-      // Register hotkey
-      assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-
-      // Set child
-      let proportion: u64 = 500;
-      assert_ok!(Subtensor::<T>::do_set_child_singular(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), child.clone(), netuid, proportion));
-
-  }: revoke_child_singular(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), child.clone(), netuid)
+}: set_children(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), netuid, vec![(proportion, child.clone())])
 
 }

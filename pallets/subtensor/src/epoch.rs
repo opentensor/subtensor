@@ -68,7 +68,7 @@ impl<T: Config> Pallet<T> {
         let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
             stake_64[*uid_i as usize] =
-                I64F64::from_num(Self::get_stake_with_children_and_parents(hotkey, netuid));
+                I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
         }
         inplace_normalize_64(&mut stake_64);
         let stake: Vec<I32F32> = vec_fixed64_to_fixed32(stake_64);
@@ -266,6 +266,10 @@ impl<T: Config> Pallet<T> {
         // == Value storage ==
         // ===================
         let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_stake: Vec<u16> = stake
+            .iter()
+            .map(|xi| fixed_proportion_to_u16(*xi))
+            .collect::<Vec<u16>>();
         let cloned_ranks: Vec<u16> = ranks
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -291,6 +295,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
+        S::<T>::insert(netuid, cloned_stake.clone());
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
         Rank::<T>::insert(netuid, cloned_ranks);
@@ -397,7 +402,7 @@ impl<T: Config> Pallet<T> {
         let mut stake_64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
         for (uid_i, hotkey) in &hotkeys {
             stake_64[*uid_i as usize] =
-                I64F64::from_num(Self::get_stake_with_children_and_parents(hotkey, netuid));
+                I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
         }
         log::trace!("Stake : {:?}", &stake_64);
         inplace_normalize_64(&mut stake_64);
@@ -634,6 +639,10 @@ impl<T: Config> Pallet<T> {
         // == Value storage ==
         // ===================
         let cloned_emission: Vec<u64> = combined_emission.clone();
+        let cloned_stake_weight: Vec<u16> = stake
+            .iter()
+            .map(|xi| fixed_proportion_to_u16(*xi))
+            .collect::<Vec<u16>>();
         let cloned_ranks: Vec<u16> = ranks
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
@@ -659,6 +668,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
+        S::<T>::insert(netuid, cloned_stake_weight.clone());
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
         Rank::<T>::insert(netuid, cloned_ranks);

@@ -166,11 +166,8 @@ impl<T: Config> Pallet<T> {
         };
 
         let axon_info = Self::get_axon_info(netuid, &hotkey.clone());
-
         let prometheus_info = Self::get_prometheus_info(netuid, &hotkey.clone());
-
         let coldkey = Owner::<T>::get(hotkey.clone()).clone();
-
         let active = Self::get_active_for_uid(netuid, uid);
         let rank = Self::get_rank_for_uid(netuid, uid);
         let emission = Self::get_emission_for_uid(netuid, uid);
@@ -182,14 +179,8 @@ impl<T: Config> Pallet<T> {
         let pruning_score = Self::get_pruning_score_for_uid(netuid, uid);
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
-
-        let stake: Vec<(T::AccountId, Compact<u64>)> =
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
-                hotkey.clone(),
-            )
-            .map(|(coldkey, stake)| (coldkey, stake.into()))
-            .collect();
-
+        // Returns the owner and the stake for this hotkey on the subnet.
+        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![ (coldkey.clone(), Self::get_stake_for_hotkey_on_subnet(&hotkey.clone(), netuid).into() )];
         let neuron = NeuronInfoLite {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),
