@@ -20,14 +20,14 @@ fn test_get_child_info() {
         register_ok_neuron(netuid, child, coldkey, 1);
 
         // Set child relationship
-        assert_ok!(SubtensorModule::do_set_child_singular(
+        assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            child,
             netuid,
-            proportion
+            vec![
+                (proportion, child),
+            ]
         ));
-
         // Add some stake to both hotkey and child
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &child, 500);
@@ -63,11 +63,14 @@ fn test_get_children_info() {
         register_ok_neuron(netuid, child2, coldkey, 0);
 
         // Set child relationships
-        assert_ok!(SubtensorModule::do_set_children_multiple(
+        assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            vec![(child1, proportion1), (child2, proportion2)],
-            netuid
+            netuid,
+            vec![
+                (proportion1, child1),
+                (proportion2, child2),
+            ]
         ));
 
         // Add some stake
@@ -114,19 +117,21 @@ fn test_get_children_info_multiple_parents() {
         register_ok_neuron(netuid, child, coldkey, 0);
 
         // Set child relationships
-        assert_ok!(SubtensorModule::do_set_child_singular(
+        assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey1,
-            child,
             netuid,
-            proportion1
+            vec![
+                (proportion1, child),
+            ]
         ));
-        assert_ok!(SubtensorModule::do_set_child_singular(
+        assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey2,
-            child,
             netuid,
-            proportion2
+            vec![
+                (proportion2, child),
+            ]
         ));
 
         // Add some stake
@@ -200,12 +205,13 @@ fn test_get_children_info_after_revoke() {
         register_ok_neuron(netuid, child, coldkey, 0);
 
         // Set child relationship
-        assert_ok!(SubtensorModule::do_set_child_singular(
+        assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            child,
             netuid,
-            proportion
+            vec![
+                (proportion, child),
+            ]
         ));
 
         // Get children info before revoke
@@ -214,11 +220,11 @@ fn test_get_children_info_after_revoke() {
         assert_eq!(children_info_before[0].1.len(), 1);
 
         // Revoke child
-        assert_ok!(SubtensorModule::do_revoke_child_singular(
+        assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
-            child,
-            netuid
+            netuid,
+            vec![]
         ));
 
         // Get children info after revoke

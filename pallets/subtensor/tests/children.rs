@@ -4,6 +4,7 @@ mod mock;
 use pallet_subtensor::*;
 use sp_core::U256;
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
 #[test]
 fn test_do_set_child_singular_success() {
     new_test_ext(1).execute_with(|| {
@@ -33,6 +34,7 @@ fn test_do_set_child_singular_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_network_does_not_exist --exact --nocapture
 #[test]
 fn test_do_set_child_singular_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -57,6 +59,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_invalid_child --exact --nocapture
 #[test]
 fn test_do_set_child_singular_invalid_child() {
     new_test_ext(1).execute_with(|| {
@@ -84,6 +87,7 @@ fn test_do_set_child_singular_invalid_child() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_non_associated_coldkey --exact --nocapture
 #[test]
 fn test_do_set_child_singular_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -112,6 +116,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_root_network --exact --nocapture
 #[test]
 fn test_do_set_child_singular_root_network() {
     new_test_ext(1).execute_with(|| {
@@ -139,6 +144,7 @@ fn test_do_set_child_singular_root_network() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_old_children_cleanup --exact --nocapture
 #[test]
 fn test_do_set_child_singular_old_children_cleanup() {
     new_test_ext(1).execute_with(|| {
@@ -183,6 +189,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_old_children_cleanup --exact --nocapture
 #[test]
 fn test_do_set_child_singular_new_children_assignment() {
     new_test_ext(1).execute_with(|| {
@@ -216,6 +223,7 @@ fn test_do_set_child_singular_new_children_assignment() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_proportion_edge_cases --exact --nocapture
 #[test]
 fn test_do_set_child_singular_proportion_edge_cases() {
     new_test_ext(1).execute_with(|| {
@@ -260,6 +268,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_multiple_children --exact --nocapture
 #[test]
 fn test_do_set_child_singular_multiple_children() {
     new_test_ext(1).execute_with(|| {
@@ -308,8 +317,7 @@ fn test_do_set_child_singular_multiple_children() {
     });
 }
 
-// To run this test specifically, use the following command:
-// cargo test --test children test_add_singular_child -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_add_singular_child --exact --nocapture
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_add_singular_child() {
@@ -333,17 +341,6 @@ fn test_add_singular_child() {
         assert_eq!(
             SubtensorModule::do_set_children(
                 RuntimeOrigin::signed(coldkey),
-                hotkey,
-                netuid,
-                vec![
-                    (u64::MAX, child)
-                ]
-            ),
-            Err(Error::<Test>::RegistrationNotPermittedOnRootSubnet.into())
-        );
-        assert_eq!(
-            SubtensorModule::do_set_children(
-                RuntimeOrigin::signed(child),
                 hotkey,
                 netuid,
                 vec![
@@ -376,8 +373,7 @@ fn test_add_singular_child() {
     })
 }
 
-// To run this test specifically, use the following command:
-// cargo test --test children test_get_stake_with_children_and_parents -- --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_stake_with_children_and_parents --exact --nocapture
 #[test]
 fn test_get_stake_with_children_and_parents() {
     new_test_ext(1).execute_with(|| {
@@ -448,6 +444,7 @@ fn test_get_stake_with_children_and_parents() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_success --exact --nocapture
 #[test]
 fn test_do_revoke_child_singular_success() {
     new_test_ext(1).execute_with(|| {
@@ -493,12 +490,12 @@ fn test_do_revoke_child_singular_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_network_does_not_exist --exact --nocapture
 #[test]
 fn test_do_revoke_child_singular_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let child = U256::from(3);
         let netuid: u16 = 999; // Non-existent network
 
         // Attempt to revoke child
@@ -514,12 +511,12 @@ fn test_do_revoke_child_singular_network_does_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_non_associated_coldkey --exact --nocapture
 #[test]
 fn test_do_revoke_child_singular_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let child = U256::from(3);
         let netuid: u16 = 1;
 
         // Add network and register hotkey with a different coldkey
@@ -539,6 +536,7 @@ fn test_do_revoke_child_singular_non_associated_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_child_singular_child_not_associated --exact --nocapture
 #[test]
 fn test_do_revoke_child_singular_child_not_associated() {
     new_test_ext(1).execute_with(|| {
@@ -549,8 +547,6 @@ fn test_do_revoke_child_singular_child_not_associated() {
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
-        register_ok_neuron(netuid, hotkey, coldkey, 0);
-
         // Attempt to revoke child that is not associated
         assert_err!(
             SubtensorModule::do_set_children(
@@ -566,6 +562,7 @@ fn test_do_revoke_child_singular_child_not_associated() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_success --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_success() {
     new_test_ext(1).execute_with(|| {
@@ -605,6 +602,7 @@ fn test_do_set_children_multiple_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_network_does_not_exist --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
@@ -629,6 +627,7 @@ fn test_do_set_children_multiple_network_does_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_invalid_child --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_invalid_child() {
     new_test_ext(1).execute_with(|| {
@@ -656,6 +655,7 @@ fn test_do_set_children_multiple_invalid_child() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_non_associated_coldkey --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
@@ -684,6 +684,7 @@ fn test_do_set_children_multiple_non_associated_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_root_network --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_root_network() {
     new_test_ext(1).execute_with(|| {
@@ -711,6 +712,7 @@ fn test_do_set_children_multiple_root_network() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_old_children_cleanup --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_old_children_cleanup() {
     new_test_ext(1).execute_with(|| {
@@ -760,8 +762,7 @@ fn test_do_set_children_multiple_old_children_cleanup() {
     });
 }
 
-// TODO (@distributedstatemachine): verify if its ok to set children with 0 proportion
-
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_proportion_edge_cases --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_proportion_edge_cases() {
     new_test_ext(1).execute_with(|| {
@@ -797,6 +798,7 @@ fn test_do_set_children_multiple_proportion_edge_cases() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_overwrite_existing --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_overwrite_existing() {
     new_test_ext(1).execute_with(|| {
@@ -853,7 +855,7 @@ fn test_do_set_children_multiple_overwrite_existing() {
     });
 }
 
-// TODO (@distributedstatemachine): verify if its ok to set empty children list
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_children_multiple_empty_list --exact --nocapture
 #[test]
 fn test_do_set_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
@@ -879,6 +881,7 @@ fn test_do_set_children_multiple_empty_list() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_success --exact --nocapture
 #[test]
 fn test_do_revoke_children_multiple_success() {
     new_test_ext(1).execute_with(|| {
@@ -926,14 +929,15 @@ fn test_do_revoke_children_multiple_success() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_network_does_not_exist --exact --nocapture
 #[test]
 fn test_do_revoke_children_multiple_network_does_not_exist() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
+        let child2 = U256::from(4);
         let netuid: u16 = 999; // Non-existent network
-
         // Attempt to revoke children
         assert_err!(
             SubtensorModule::do_set_children(
@@ -941,8 +945,8 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
                 hotkey,
                 netuid,
                 vec![
-                    (proportion1, child1),
-                    (proportion2, child2)
+                    (u64::MAX/2, child1),
+                    (u64::MAX/2, child2)
                 ]
             ),
             Error::<Test>::SubNetworkDoesNotExist
@@ -950,12 +954,14 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_non_associated_coldkey --exact --nocapture
 #[test]
 fn test_do_revoke_children_multiple_non_associated_coldkey() {
     new_test_ext(1).execute_with(|| {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
-        let child = U256::from(3);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
         let netuid: u16 = 1;
 
         // Add network and register hotkey with a different coldkey
@@ -969,8 +975,8 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
                 hotkey,
                 netuid,
                 vec![
-                    (proportion1, child1),
-                    (proportion2, child2)
+                    (u64::MAX/2, child1),
+                    (u64::MAX/2, child2)
                 ]
             ),
             Error::<Test>::NonAssociatedColdKey
@@ -978,6 +984,7 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_partial_revocation --exact --nocapture
 #[test]
 fn test_do_revoke_children_multiple_partial_revocation() {
     new_test_ext(1).execute_with(|| {
@@ -1005,7 +1012,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             ]
         ));
 
-        // Revoke only two children
+        // Revoke only child3
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey,
@@ -1018,20 +1025,20 @@ fn test_do_revoke_children_multiple_partial_revocation() {
 
         // Verify children removal
         let children = SubtensorModule::get_children(&hotkey, netuid);
-        assert_eq!(children, vec![(proportion, child3)]);
+        assert_eq!(children, vec![(proportion, child1), (proportion, child2)]);
 
-        // Verify parent removal for revoked children
-        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        // Verify parents.
+        let parents1 = SubtensorModule::get_parents(&child3, netuid);
         assert!(parents1.is_empty());
-
+        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        assert_eq!(parents1, vec![(proportion, hotkey)]);
         let parents2 = SubtensorModule::get_parents(&child2, netuid);
-        assert!(parents2.is_empty());
+        assert_eq!(parents2, vec![(proportion, hotkey)]);
 
-        // Verify remaining child's parent
-        let parents3 = SubtensorModule::get_parents(&child3, netuid);
-        assert_eq!(parents3, vec![(proportion, hotkey)]);
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_non_existent_children --exact --nocapture
 
 #[test]
 fn test_do_revoke_children_multiple_non_existent_children() {
@@ -1039,7 +1046,6 @@ fn test_do_revoke_children_multiple_non_existent_children() {
         let coldkey = U256::from(1);
         let hotkey = U256::from(2);
         let child1 = U256::from(3);
-        let non_existent_child = U256::from(999);
         let netuid: u16 = 1;
         let proportion: u64 = 1000;
 
@@ -1062,10 +1068,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child1),
-                (proportion, non_existent_child)
-            ]
+            vec![]
         ));
 
         // Verify all children are removed
@@ -1078,6 +1081,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_empty_list --exact --nocapture
 #[test]
 fn test_do_revoke_children_multiple_empty_list() {
     new_test_ext(1).execute_with(|| {
@@ -1103,6 +1107,7 @@ fn test_do_revoke_children_multiple_empty_list() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_revoke_children_multiple_complex_scenario --exact --nocapture
 #[test]
 fn test_do_revoke_children_multiple_complex_scenario() {
     new_test_ext(1).execute_with(|| {
@@ -1138,7 +1143,8 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             hotkey,
             netuid,
             vec![
-                (proportion2, child2)
+                (proportion1, child1),
+                (proportion3, child3)
             ]
         ));
 
@@ -1155,10 +1161,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion1, child1),
-                (proportion3, child3)
-            ]
+            vec![]
         ));
 
         // Verify all children are removed
@@ -1173,6 +1176,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_get_network_max_stake --exact --nocapture
 #[test]
 fn test_get_network_max_stake() {
     new_test_ext(1).execute_with(|| {
@@ -1194,6 +1198,7 @@ fn test_get_network_max_stake() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_network_max_stake --exact --nocapture
 #[test]
 fn test_set_network_max_stake() {
     new_test_ext(1).execute_with(|| {
@@ -1219,6 +1224,7 @@ fn test_set_network_max_stake() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_network_max_stake_multiple_networks --exact --nocapture
 #[test]
 fn test_set_network_max_stake_multiple_networks() {
     new_test_ext(1).execute_with(|| {
@@ -1241,6 +1247,7 @@ fn test_set_network_max_stake_multiple_networks() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_set_network_max_stake_update --exact --nocapture
 #[test]
 fn test_set_network_max_stake_update() {
     new_test_ext(1).execute_with(|| {

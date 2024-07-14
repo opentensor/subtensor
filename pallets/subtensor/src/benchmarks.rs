@@ -1,5 +1,5 @@
 //! Subtensor pallet benchmarking.
-
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::Pallet as Subtensor;
@@ -489,4 +489,5 @@ reveal_weights {
       assert_ok!(Subtensor::<T>::do_set_child_singular(RawOrigin::Signed(coldkey.clone()).into(), hotkey.clone(), child.clone(), netuid, proportion));
 
   }: revoke_child_singular(RawOrigin::Signed(coldkey.clone()), hotkey.clone(), child.clone(), netuid)
+
 }

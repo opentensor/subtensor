@@ -20,6 +20,7 @@ name = "spec_version"
 path = "src/spec_version.rs"
 
 [dependencies]
+subtensor-macros.workspace = true
 subtensor-custom-rpc-runtime-api = { version = "0.0.2", path = "../pallets/subtensor/runtime-api", default-features = false }
 smallvec = { workspace = true }
 log = { workspace = true }
@@ -73,6 +74,10 @@ pallet-proxy = { workspace = true }
 pallet-scheduler = { workspace = true }
 pallet-preimage = { workspace = true }
 
+# Safe mode pallet
+
+pallet-safe-mode = { workspace = true }
+
 # Used for the node subtensor's RPCs
 frame-system-rpc-runtime-api = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
@@ -115,6 +120,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-grandpa/std",
 	"pallet-insecure-randomness-collective-flip/std",
+	"pallet-safe-mode/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
@@ -159,6 +165,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
+	"pallet-safe-mode/runtime-benchmarks",
 	"pallet-subtensor/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-membership/runtime-benchmarks",
@@ -184,6 +191,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-safe-mode/try-runtime",
 	"pallet-subtensor/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-membership/try-runtime",

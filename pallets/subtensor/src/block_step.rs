@@ -35,7 +35,7 @@ impl<T: Config> Pallet<T> {
 
             // --- 3. Check if we are at the adjustment interval for this network.
             // If so, we need to adjust the registration difficulty based on target and actual registrations.
-            if (current_block - last_adjustment_block) >= adjustment_interval as u64 {
+            if current_block.saturating_sub(last_adjustment_block) >= adjustment_interval as u64 {
                 log::debug!("interval reached.");
 
                 // --- 4. Get the current counters for this network w.r.t burn and difficulty values.
@@ -182,14 +182,21 @@ impl<T: Config> Pallet<T> {
         target_registrations_per_interval: u16,
     ) -> u64 {
         let updated_difficulty: I110F18 = I110F18::from_num(current_difficulty)
-            * I110F18::from_num(registrations_this_interval + target_registrations_per_interval)
-            / I110F18::from_num(
-                target_registrations_per_interval + target_registrations_per_interval,
+            .saturating_mul(I110F18::from_num(
+                registrations_this_interval.saturating_add(target_registrations_per_interval),
+            ))
+            .saturating_div(I110F18::from_num(
+                target_registrations_per_interval.saturating_add(target_registrations_per_interval),
+            ));
+        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+            .saturating_div(I110F18::from_num(u64::MAX));
+        let next_value: I110F18 = alpha
+            .saturating_mul(I110F18::from_num(current_difficulty))
+            .saturating_add(
+                I110F18::from_num(1.0)
+                    .saturating_sub(alpha)
+                    .saturating_mul(updated_difficulty),
             );
-        let alpha: I110F18 =
-            I110F18::from_num(Self::get_adjustment_alpha(netuid)) / I110F18::from_num(u64::MAX);
-        let next_value: I110F18 = alpha * I110F18::from_num(current_difficulty)
-            + (I110F18::from_num(1.0) - alpha) * updated_difficulty;
         if next_value >= I110F18::from_num(Self::get_max_difficulty(netuid)) {
             Self::get_max_difficulty(netuid)
         } else if next_value <= I110F18::from_num(Self::get_min_difficulty(netuid)) {
@@ -209,14 +216,21 @@ impl<T: Config> Pallet<T> {
         target_registrations_per_interval: u16,
     ) -> u64 {
         let updated_burn: I110F18 = I110F18::from_num(current_burn)
-            * I110F18::from_num(registrations_this_interval + target_registrations_per_interval)
-            / I110F18::from_num(
-                target_registrations_per_interval + target_registrations_per_interval,
+            .saturating_mul(I110F18::from_num(
+                registrations_this_interval.saturating_add(target_registrations_per_interval),
+            ))
+            .saturating_div(I110F18::from_num(
+                target_registrations_per_interval.saturating_add(target_registrations_per_interval),
+            ));
+        let alpha: I110F18 = I110F18::from_num(Self::get_adjustment_alpha(netuid))
+            .saturating_div(I110F18::from_num(u64::MAX));
+        let next_value: I110F18 = alpha
+            .saturating_mul(I110F18::from_num(current_burn))
+            .saturating_add(
+                I110F18::from_num(1.0)
+                    .saturating_sub(alpha)
+                    .saturating_mul(updated_burn),
             );
-        let alpha: I110F18 =
-            I110F18::from_num(Self::get_adjustment_alpha(netuid)) / I110F18::from_num(u64::MAX);
-        let next_value: I110F18 = alpha * I110F18::from_num(current_burn)
-            + (I110F18::from_num(1.0) - alpha) * updated_burn;
         if next_value >= I110F18::from_num(Self::get_max_burn_as_u64(netuid)) {
             Self::get_max_burn_as_u64(netuid)
         } else if next_value <= I110F18::from_num(Self::get_min_burn_as_u64(netuid)) {

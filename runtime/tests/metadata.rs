@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing)]
+
 use frame_metadata::RuntimeMetadata;
 use node_subtensor_runtime::Runtime;
 use scale_info::TypeDef;

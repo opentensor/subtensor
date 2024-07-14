@@ -1,3 +1,5 @@
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
+
 use frame_support::{
     assert_ok, derive_impl, parameter_types,
     traits::{Everything, Hooks},
@@ -22,7 +24,7 @@ frame_support::construct_runtime!(
         System: frame_system,
         Balances: pallet_balances,
         AdminUtils: pallet_admin_utils,
-        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
+        SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>, Error<T>},
     }
 );
 
@@ -110,6 +112,11 @@ parameter_types! {
     pub const InitialTargetStakesPerInterval: u16 = 1;
     pub const InitialHotkeyEmissionTempo: u64 = 1;
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
+    pub const InitialKeySwapCost: u64 = 1_000_000_000;
+    pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
+    pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
+    pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
+    pub const InitialBaseDifficulty: u64 = 10_000; // Base difficulty
 }
 
 impl pallet_subtensor::Config for Test {
@@ -163,6 +170,11 @@ impl pallet_subtensor::Config for Test {
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
+    type KeySwapCost = InitialKeySwapCost;
+    type AlphaHigh = InitialAlphaHigh;
+    type AlphaLow = InitialAlphaLow;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
+    type InitialBaseDifficulty = InitialBaseDifficulty;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -472,6 +484,19 @@ impl pallet_admin_utils::SubtensorInterface<AccountId, Balance, RuntimeOrigin> f
 
     fn set_network_max_stake(netuid: u16, max_stake: u64) {
         SubtensorModule::set_network_max_stake(netuid, max_stake)
+    }
+
+    fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
+    }
+    
+    fn do_set_alpha_values(
+        origin: RuntimeOrigin,
+        netuid: u16,
+        alpha_low: u16,
+        alpha_high: u16,
+    ) -> Result<(), DispatchError> {
+        SubtensorModule::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
     }
 }
 
