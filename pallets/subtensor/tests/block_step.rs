@@ -896,3 +896,45 @@ fn test_emission_based_on_registration_status() {
         );
     });
 }
+
+#[test]
+fn test_epoch_runs_when_registration_disabled() {
+    new_test_ext(1).execute_with(|| {
+        let n: u16 = 100;
+        let netuid_off: u16 = 1;
+        let tempo: u16 = 1;
+        let netuids: Vec<u16> = vec![netuid_off];
+        let emissions: Vec<u64> = vec![1000000000];
+
+        // Add subnets with registration turned off and on
+        add_network(netuid_off, tempo, 0);
+        SubtensorModule::set_max_allowed_uids(netuid_off, n);
+        SubtensorModule::set_emission_values(&netuids, emissions).unwrap();
+        SubtensorModule::set_network_registration_allowed(netuid_off, false);
+
+        // Populate the subnets with neurons
+        for i in 0..n {
+            SubtensorModule::append_neuron(netuid_off, &U256::from(i), 0);
+        }
+
+        // Generate emission at block 1
+        let block: u64 = 1;
+        SubtensorModule::generate_emission(block);
+
+        step_block(1); // Now block 2
+
+        // Verify blocks since last step was set
+        assert_eq!(SubtensorModule::get_blocks_since_last_step(netuid_off), 1);
+
+        // Step to the next epoch block
+        let epoch_block: u16 = tempo;
+        step_block(epoch_block);
+
+        // Verify blocks since last step was set, this indicates we ran the epoch
+        assert_eq!(
+            SubtensorModule::get_blocks_since_last_step(netuid_off),
+            0_u64
+        );
+        assert!(SubtensorModule::get_loaded_emission_tuples(netuid_off).is_some());
+    });
+}
