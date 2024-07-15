@@ -1419,7 +1419,9 @@ pub mod pallet {
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 .saturating_add(migration::migrate_populate_owned::<T>())
                 // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
-                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>());
+                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>())
+                // Fix total coldkey stake.
+                .saturating_add(migration::migrate_fix_total_coldkey_stake::<T>());
 
             weight
         }
@@ -2258,12 +2260,10 @@ pub mod pallet {
         #[pallet::call_index(64)]
         #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
         pub fn sudo_hotfix_swap_coldkey_delegates(
-            origin: OriginFor<T>,
-            old_coldkey: T::AccountId,
-            new_coldkey: T::AccountId,
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
         ) -> DispatchResult {
-            ensure_root(origin)?;
-            Self::swap_hotfix(&old_coldkey, &new_coldkey);
             Ok(())
         }
     }

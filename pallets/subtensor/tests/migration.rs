@@ -3,6 +3,7 @@
 mod mock;
 use frame_support::assert_ok;
 use frame_system::Config;
+use pallet_subtensor::*;
 use mock::*;
 use sp_core::U256;
 
@@ -276,3 +277,62 @@ fn test_migration_delete_subnet_21() {
         assert!(!SubtensorModule::if_subnet_exist(21));
     })
 }
+
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
+#[test]
+fn test_migrate_fix_total_coldkey_stake() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(0); 
+        TotalColdkeyStake::<Test>::insert(coldkey, 0);
+        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
+        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
+        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
+    })
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_value_already_in_total --exact --nocapture
+#[test]
+fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(0); 
+        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
+        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
+        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
+        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
+    })
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_no_entry --exact --nocapture
+#[test]
+fn test_migrate_fix_total_coldkey_stake_no_entry() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(0); 
+        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
+        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
+        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
+    })
+}
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys --exact --nocapture
+#[test]
+fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(0); 
+        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
+        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
+        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
+    })
+}
+
+
