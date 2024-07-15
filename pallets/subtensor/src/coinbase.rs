@@ -336,7 +336,8 @@ impl<T: Config> Pallet<T> {
     /// * `bool` - True if the hotkey emission should be drained, false otherwise.
     pub fn should_drain_hotkey(hotkey: &T::AccountId, block: u64, emit_tempo: u64) -> bool {
         let hotkey_idx: u64 = Self::hash_hotkey_to_u64(hotkey);
-        block % (emit_tempo + 1) == hotkey_idx % (emit_tempo + 1) // Return true every emit_tempo for a unique index.
+        block.rem_euclid(emit_tempo.saturating_add(1))
+            == hotkey_idx.rem_euclid(emit_tempo.saturating_add(1))
     }
 
     /// Checks if the epoch should run for a given subnet based on the current block.
@@ -365,9 +366,13 @@ impl<T: Config> Pallet<T> {
         if tempo == 0 {
             return u64::MAX;
         }
-        (tempo as u64).saturating_sub(
-            (block_number.saturating_add((netuid as u64).saturating_add(1)))
-                % (tempo as u64).saturating_add(1),
+        let tempo_u64 = tempo as u64;
+        let netuid_u64 = netuid as u64;
+
+        (tempo_u64).saturating_sub(
+            block_number
+                .saturating_add(netuid_u64.saturating_add(1))
+                .rem_euclid(tempo_u64.saturating_add(1)),
         )
     }
 }

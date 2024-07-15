@@ -180,7 +180,10 @@ impl<T: Config> Pallet<T> {
         let last_update = Self::get_last_update_for_uid(netuid, uid);
         let validator_permit = Self::get_validator_permit_for_uid(netuid, uid);
         // Returns the owner and the stake for this hotkey on the subnet.
-        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![ (coldkey.clone(), Self::get_stake_for_hotkey_on_subnet(&hotkey.clone(), netuid).into() )];
+        let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(
+            coldkey.clone(),
+            Self::get_stake_for_hotkey_on_subnet(&hotkey.clone(), netuid).into(),
+        )];
         let neuron = NeuronInfoLite {
             hotkey: hotkey.clone(),
             coldkey: coldkey.clone(),

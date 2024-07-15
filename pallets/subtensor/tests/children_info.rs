@@ -1,3 +1,5 @@
+#![allow(clippy::indexing_slicing)]
+
 use crate::mock::*;
 use codec::{Compact, Encode};
 use frame_support::assert_ok;
@@ -24,9 +26,7 @@ fn test_get_child_info() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child),
-            ]
+            vec![(proportion, child),]
         ));
         // Add some stake to both hotkey and child
         SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 1000);
@@ -67,10 +67,7 @@ fn test_get_children_info() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion1, child1),
-                (proportion2, child2),
-            ]
+            vec![(proportion1, child1), (proportion2, child2),]
         ));
 
         // Add some stake
@@ -121,17 +118,13 @@ fn test_get_children_info_multiple_parents() {
             RuntimeOrigin::signed(coldkey),
             hotkey1,
             netuid,
-            vec![
-                (proportion1, child),
-            ]
+            vec![(proportion1, child),]
         ));
         assert_ok!(SubtensorModule::do_set_children(
             RuntimeOrigin::signed(coldkey),
             hotkey2,
             netuid,
-            vec![
-                (proportion2, child),
-            ]
+            vec![(proportion2, child),]
         ));
 
         // Add some stake
@@ -209,9 +202,7 @@ fn test_get_children_info_after_revoke() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child),
-            ]
+            vec![(proportion, child),]
         ));
 
         // Get children info before revoke

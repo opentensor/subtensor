@@ -1223,7 +1223,7 @@ impl
     fn set_network_max_stake(netuid: u16, max_stake: u64) {
         SubtensorModule::set_network_max_stake(netuid, max_stake);
     }
-    
+
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }

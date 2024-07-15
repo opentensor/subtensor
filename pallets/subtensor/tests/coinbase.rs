@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used)]
 use crate::mock::*;
 mod mock;
 // use frame_support::{assert_err, assert_ok};

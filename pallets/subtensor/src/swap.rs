@@ -1023,7 +1023,7 @@ impl<T: Config> Pallet<T> {
         // Skip root network
         for netuid in 1..=total_networks {
             let children = Self::get_children(old_hotkey, netuid);
-            println!("Swapping children for netuid {}: {:?}", netuid, children);
+            log::info!("Swapping children for netuid {}: {:?}", netuid, children);
             if !children.is_empty() {
                 // Remove children from old hotkey
                 ChildKeys::<T>::remove(old_hotkey, netuid);
@@ -1036,7 +1036,11 @@ impl<T: Config> Pallet<T> {
                     let mut parents = Self::get_parents(&child, netuid);
                     if let Some(index) = parents.iter().position(|(_, parent)| parent == old_hotkey)
                     {
-                        parents[index] = (proportion, new_hotkey.clone());
+                        if let Some(parent) = parents.get_mut(index) {
+                            *parent = (proportion, new_hotkey.clone());
+                        } else {
+                            log::warn!("Parent index out of bounds in swap operation");
+                        }
                         ParentKeys::<T>::insert(&child, netuid, parents);
                     }
                 }
@@ -1076,11 +1080,11 @@ impl<T: Config> Pallet<T> {
         weight: &mut Weight,
     ) -> DispatchResult {
         let total_networks = TotalNetworks::<T>::get();
-        println!("Total networks: {}", total_networks);
+        log::info!("Total networks: {}", total_networks);
         // Skip root network
         for netuid in 1..=total_networks {
             let parents = Self::get_parents(old_hotkey, netuid);
-            println!("Swapping parents for netuid {}: {:?}", netuid, parents);
+            log::info!("Swapping parents for netuid {}: {:?}", netuid, parents);
             if !parents.is_empty() {
                 // Remove parents from old hotkey
                 ParentKeys::<T>::remove(old_hotkey, netuid);
@@ -1093,7 +1097,11 @@ impl<T: Config> Pallet<T> {
                     let mut children = Self::get_children(&parent, netuid);
                     if let Some(index) = children.iter().position(|(_, child)| child == old_hotkey)
                     {
-                        children[index] = (proportion, new_hotkey.clone());
+                        if let Some(child) = children.get_mut(index) {
+                            *child = (proportion, new_hotkey.clone());
+                        } else {
+                            log::warn!("Child index out of bounds in swap operation");
+                        }
                         ChildKeys::<T>::insert(&parent, netuid, children);
                     }
                 }

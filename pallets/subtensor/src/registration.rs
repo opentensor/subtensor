@@ -554,8 +554,11 @@ impl<T: Config> Pallet<T> {
         // Copy the hotkey_bytes into the first half of full_bytes
         full_bytes[..32].copy_from_slice(hotkey_bytes);
         let keccak_256_seal_hash_vec: [u8; 32] = keccak_256(&full_bytes[..]);
-        let hash_u64: u64 = u64::from_le_bytes(keccak_256_seal_hash_vec[0..8].try_into().unwrap());
-        hash_u64
+        u64::from_le_bytes(
+            keccak_256_seal_hash_vec[0..8]
+                .try_into()
+                .expect("Slice must be 8 bytes long"),
+        )
     }
 
     pub fn create_seal_hash(block_number_u64: u64, nonce_u64: u64, hotkey: &T::AccountId) -> H256 {

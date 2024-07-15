@@ -135,7 +135,7 @@ mod events {
         /// the hotkey emission tempo is set.
         HotkeyEmissionTempoSet(u64),
         /// Multiple hotkey children.
-        SetChildren( T::AccountId, u16, Vec<(u64, T::AccountId)> ),
+        SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
         /// Network max stake is set
         NetworkMaxStakeSet(u16, u64),
         /// a member of the senate is adjusted

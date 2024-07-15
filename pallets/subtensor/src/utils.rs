@@ -722,7 +722,7 @@ impl<T: Config> Pallet<T> {
         // Emit an event to notify listeners about the change
         Self::deposit_event(Event::NetworkMaxStakeSet(netuid, max_stake));
     }
-    
+
     pub fn get_key_swap_cost() -> u64 {
         T::KeySwapCost::get()
     }
