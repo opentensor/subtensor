@@ -1,6 +1,7 @@
 use super::*;
 use crate::system::{ensure_root, ensure_signed_or_root};
 use sp_core::U256;
+use pallet_registry::Pallet as RegistryPallet;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -657,5 +658,11 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+}
+
+impl<T: Config + pallet_registry::Config> Pallet<T> {
+    pub fn swap_delegate_identity_hotkey(old_hotkey: &T::AccountId, new_hotkey: &T::AccountId) -> bool {
+        RegistryPallet::<T>::swap_delegate_identity_hotkey(old_hotkey, new_hotkey)
     }
 }

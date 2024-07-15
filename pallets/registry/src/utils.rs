@@ -42,4 +42,33 @@ impl<T: Config> Pallet<T> {
         
         None
     }
+
+    /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
+    ///
+    /// # Parameters
+    /// - `old_hotkey`: A reference to the current account ID (old hotkey) of the delegate identity.
+    /// - `new_hotkey`: A reference to the new account ID (new hotkey) to be assigned to the delegate identity.
+    ///
+    /// # Returns
+    /// - `bool`: A boolean value indicating success or failure. Returns `true` if the swap is
+    /// successful, otherwise returns `false`.
+    pub fn swap_delegate_identity_hotkey(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+    ) -> bool {
+        // Check if the old hotkey exists in the identity map.
+        if let Some(identity_info) = IdentityOf::<T>::take(old_hotkey) {
+            // Check if the new hotkey is already in use.
+            if IdentityOf::<T>::contains_key(new_hotkey) {
+                // Reinsert the old hotkey back into the identity map to maintain consistency.
+                IdentityOf::<T>::insert(old_hotkey, identity_info);
+                return false; // New hotkey is already in use.
+            }
+            IdentityOf::<T>::insert(new_hotkey, identity_info);
+            return true;
+        }
+
+        return false; // Old hotkey does not exist in Identities.
+    }
+    
 }
