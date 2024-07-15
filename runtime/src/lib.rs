@@ -880,7 +880,6 @@ parameter_types! {
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
-    pub const SubtensorInitialBaseDifficulty: u64 = 10_000_000; // Base difficulty
 }
 
 impl pallet_subtensor::Config for Runtime {
@@ -936,7 +935,6 @@ impl pallet_subtensor::Config for Runtime {
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
-    type InitialBaseDifficulty = SubtensorInitialBaseDifficulty;
 }
 
 use sp_runtime::BoundedVec;

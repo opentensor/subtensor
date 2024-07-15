@@ -33,10 +33,10 @@ pub mod deprecated_loaded_emission_format {
 ///
 /// # Example
 ///
+/// ```ignore
+///  let weight = migrate_total_issuance::<Runtime>(false);
 /// ```
-/// let weight = migration5_total_issuance::<Runtime>(false);
-/// ```
-pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
+pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
     // Initialize migration weight with the cost of reading the storage version
     let mut weight = T::DbWeight::get().reads(1);
 

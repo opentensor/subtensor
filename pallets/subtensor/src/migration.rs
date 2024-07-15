@@ -85,7 +85,7 @@ pub fn migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
 ///
 /// # Returns
 /// Weight of the migration process.
-pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
+pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
     let mut weight = T::DbWeight::get().reads(1); // Initialize migration weight
 
     // Execute migration if the current storage version is 5

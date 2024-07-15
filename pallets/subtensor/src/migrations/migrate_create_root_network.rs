@@ -35,7 +35,7 @@ pub mod deprecated_loaded_emission_format {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let weight = migrate_create_root_network::<Runtime>();
 /// ```
 pub fn migrate_create_root_network<T: Config>() -> Weight {

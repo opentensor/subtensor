@@ -36,7 +36,7 @@ pub mod deprecated_loaded_emission_format {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let weight = migrate_delete_subnet_21::<T>();
 /// ```
 pub fn migrate_delete_subnet_21<T: Config>() -> Weight {

@@ -168,8 +168,5 @@ mod config {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
-        /// The base difficulty for proof of work for coldkey swaps
-        #[pallet::constant]
-        type InitialBaseDifficulty: Get<u64>;
     }
 } 

@@ -33,7 +33,7 @@ pub mod deprecated_loaded_emission_format {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let foundation_coldkey = [0u8; 32]; // Replace with actual foundation coldkey
 /// let weight = migrate_transfer_ownership_to_foundation::<T>(foundation_coldkey);
 /// ```

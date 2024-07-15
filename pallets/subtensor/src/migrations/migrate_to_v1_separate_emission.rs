@@ -34,7 +34,7 @@ pub mod deprecated_loaded_emission_format {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let weight = migrate_to_v1_separate_emission::<Runtime>();
 /// ```
 pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {

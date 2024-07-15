@@ -37,7 +37,8 @@ mod benchmarks;
 // =========================
 mod rpc_info;
 mod coinbase;
-mod epoch;
+pub mod epoch;
+pub mod swap;
 mod macros;
 use macros::{events, errors, dispatches, genesis, hooks, config};
 
@@ -45,7 +46,6 @@ mod registration;
 mod root;
 mod serving;
 mod staking;
-mod swap;
 mod uids;
 mod utils;
 mod weights;
@@ -308,7 +308,7 @@ pub mod pallet {
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) { (45875, 58982) }
 
     #[pallet::storage]
-    pub(super) type SenateRequiredStakePercentage<T> = StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
+    pub type SenateRequiredStakePercentage<T> = StorageValue<_, u64, ValueQuery, DefaultSenateRequiredStakePercentage<T>>;
 
     /// ============================
     /// ==== Staking Variables ====
@@ -483,9 +483,9 @@ pub mod pallet {
     #[pallet::storage] /// --- MAP ( netuid ) --> global_RAO_recycled_for_registration
     pub type RAORecycledForRegistration<T> = StorageMap<_, Identity, u16, u64, ValueQuery, DefaultRAORecycledForRegistration<T>>;
     #[pallet::storage] /// --- ITEM ( tx_rate_limit )
-    pub(super) type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
+    pub type TxRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxRateLimit<T>>;
     #[pallet::storage] /// --- ITEM ( tx_rate_limit )
-    pub(super) type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
+    pub type TxDelegateTakeRateLimit<T> = StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] /// --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
     pub type LiquidAlphaOn<T> = StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
     #[pallet::storage] ///  MAP ( netuid ) --> (alpha_low, alpha_high)
@@ -496,94 +496,55 @@ pub mod pallet {
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
     #[pallet::storage] /// --- DMAP ( netuid, hotkey ) --> uid
-    pub(super) type Uids<T: Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
+    pub type Uids<T: Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
     #[pallet::storage] /// --- DMAP ( netuid, uid ) --> hotkey
-    pub(super) type Keys<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
+    pub type Keys<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> (hotkey, se, ve)
-    pub(super) type LoadedEmission<T: Config> = StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
+    pub type LoadedEmission<T: Config> = StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> active
-    pub(super) type Active<T: Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
+    pub type Active<T: Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> rank
-    pub(super) type Rank<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Rank<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> trust
-    pub(super) type Trust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Trust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> consensus
-    pub(super) type Consensus<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Consensus<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> incentive
-    pub(super) type Incentive<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Incentive<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> dividends
-    pub(super) type Dividends<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type Dividends<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> emission
-    pub(super) type Emission<T: Config> = StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+    pub type Emission<T: Config> = StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> last_update
-    pub(super) type LastUpdate<T: Config> = StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
+    pub type LastUpdate<T: Config> = StorageMap<_, Identity, u16, Vec<u64>, ValueQuery, EmptyU64Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> validator_trust
-    pub(super) type ValidatorTrust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type ValidatorTrust<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> pruning_scores
-    pub(super) type PruningScores<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
+    pub type PruningScores<T: Config> = StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid ) --> validator_permit
-    pub(super) type ValidatorPermit<T: Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
+    pub type ValidatorPermit<T: Config> = StorageMap<_, Identity, u16, Vec<bool>, ValueQuery, EmptyBoolVec<T>>;
     #[pallet::storage] /// --- DMAP ( netuid, uid ) --> weights
-    pub(super) type Weights<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultWeights<T>>;
+    pub type Weights<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultWeights<T>>;
     #[pallet::storage] /// --- DMAP ( netuid, uid ) --> bonds
-    pub(super) type Bonds<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T>>;
+    pub type Bonds<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, Vec<(u16, u16)>, ValueQuery, DefaultBonds<T>>;
     #[pallet::storage] /// --- DMAP ( netuid, uid ) --> block_at_registration
     pub type BlockAtRegistration<T: Config> = StorageDoubleMap<_, Identity, u16, Identity, u16, u64, ValueQuery, DefaultBlockAtRegistration<T>>;
     #[pallet::storage] /// --- MAP ( netuid, hotkey ) --> axon_info
-    pub(super) type Axons<T: Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
+    pub type Axons<T: Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
     #[pallet::storage] /// --- MAP ( netuid, hotkey ) --> prometheus_info
-    pub(super) type Prometheus<T: Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
+    pub type Prometheus<T: Config> = StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, PrometheusInfoOf, OptionQuery>;
 
     /// =================================
     /// ==== Axon / Promo Endpoints =====
     /// =================================
     #[pallet::storage] /// --- MAP ( key ) --> last_block
-    pub(super) type LastTxBlock<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    pub type LastTxBlock<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage] /// --- MAP ( key ) --> last_block
-    pub(super) type LastTxBlockDelegateTake<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
+    pub type LastTxBlockDelegateTake<T: Config> = StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage] /// ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
     #[pallet::storage] /// --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<_, Twox64Concat, u16, Twox64Concat, T::AccountId, (H256, u64), OptionQuery>;
-
-    /// ===============================
-    /// ==== Coldkey Arbitrations =====
-    /// ===============================
-    #[pallet::type_value] /// Default base difficulty for proof of work for coldkey swaps
-    pub fn DefaultBaseDifficulty<T: Config>() -> u64 { T::InitialBaseDifficulty::get() }
-    #[pallet::storage] // --- ITEM ( base_difficulty )
-    pub type BaseDifficulty<T> = StorageValue<_, u64, ValueQuery, DefaultBaseDifficulty<T>>;
-    #[pallet::type_value]
-    /// Default value for hotkeys.
-    pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> {
-        vec![]
-    }
-    #[pallet::type_value]
-    /// Default arbitration period.
-    /// This value represents the default arbitration period in blocks.
-    /// The period is set to 18 hours, assuming a block time of 12 seconds.
-    pub fn DefaultArbitrationPeriod<T: Config>() -> u64 {
-        7200 * 3 // 3 days
-    }
-    #[pallet::storage] // ---- StorageItem Global Used Work.
-    pub type ArbitrationPeriod<T: Config> =
-        StorageValue<_, u64, ValueQuery, DefaultArbitrationPeriod<T>>;
-    #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
-    pub type ColdkeySwapDestinations<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        T::AccountId,
-        Vec<T::AccountId>,
-        ValueQuery,
-        EmptyAccounts<T>,
-    >;
-    #[pallet::storage] // --- MAP ( cold ) --> u64 | Block when the coldkey will be arbitrated.
-    pub type ColdkeyArbitrationBlock<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
-    #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
-    pub type ColdkeysToSwapAtBlock<T: Config> =
-        StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
-
     /// ==================
     /// ==== Genesis =====
     /// ==================
@@ -736,19 +697,6 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
-        // Check if the call is one of the balance transfer types we want to reject
-        if let Some(balances_call) = call.is_sub_type() {
-            match balances_call {
-                BalancesCall::transfer_allow_death { .. }
-                | BalancesCall::transfer_keep_alive { .. }
-                | BalancesCall::transfer_all { .. } => {
-                    if Pallet::<T>::coldkey_in_arbitration(who) {
-                        return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
-                    }
-                }
-                _ => {} // Other Balances calls are allowed
-            }
-        }
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
@@ -826,14 +774,10 @@ where
                 ..Default::default()
             }),
             Some(Call::dissolve_network { .. }) => {
-                if Pallet::<T>::coldkey_in_arbitration(who) {
-                    Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
-                } else {
-                    Ok(ValidTransaction {
-                        priority: Self::get_priority_vanilla(),
-                        ..Default::default()
-                    })
-                }
+                Ok(ValidTransaction {
+                    priority: Self::get_priority_vanilla(),
+                    ..Default::default()
+                })
             }
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),

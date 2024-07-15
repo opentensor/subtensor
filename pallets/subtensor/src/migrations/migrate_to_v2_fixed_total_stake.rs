@@ -36,7 +36,7 @@ pub mod deprecated_loaded_emission_format {
 ///
 /// # Example
 ///
-/// ```
+/// ```ignore
 /// let weight = migrate_to_v2_fixed_total_stake::<T>();
 /// ```
 pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {

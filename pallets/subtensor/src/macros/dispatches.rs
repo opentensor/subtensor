@@ -677,6 +677,7 @@ mod dispatches {
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_coldkey(origin, &new_coldkey)
         }
+
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
         ///
         /// # Arguments
@@ -698,15 +699,13 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(3))
 		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
         pub fn schedule_coldkey_swap(
-            origin: OriginFor<T>,
-            new_coldkey: T::AccountId,
-            work: Vec<u8>,
-            block_number: u64,
-            nonce: u64,
+            _origin: OriginFor<T>,
+            _new_coldkey: T::AccountId,
+            _work: Vec<u8>,
+            _block_number: u64,
+            _nonce: u64,
         ) -> DispatchResult {
-            // Attain the calling coldkey from the origin.
-            let old_coldkey: T::AccountId = ensure_signed(origin)?;
-            Self::do_schedule_coldkey_swap(&old_coldkey, &new_coldkey, work, block_number, nonce)
+            Ok(())
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
