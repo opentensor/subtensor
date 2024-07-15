@@ -502,7 +502,7 @@ pub mod pallet {
     #[pallet::type_value]
     /// Default value for network immunity period.
     pub fn DefaultHotkeyEmissionTempo<T: Config>() -> u64 {
-        7200
+        T::InitialHotkeyEmissionTempo::get()
     }
     #[pallet::type_value]
     /// Default value for rate limiting
@@ -548,6 +548,11 @@ pub mod pallet {
     /// (alpha_low: 0.7, alpha_high: 0.9)
     pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
         (45875, 58982)
+    }
+    #[pallet::type_value]
+    /// Default value for network max stake.
+    pub fn DefaultNetworkMaxStake<T: Config>() -> u64 {
+        T::InitialNetworkMaxStake::get()
     }
 
     #[pallet::storage]
@@ -926,6 +931,10 @@ pub mod pallet {
     ///  MAP ( netuid ) --> (alpha_low, alpha_high)
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+    /// MAP ( netuid ) --> max stake allowed on a subnet.
+    #[pallet::storage]
+    pub type NetworkMaxStake<T> =
+        StorageMap<_, Identity, u16, u64, ValueQuery, DefaultNetworkMaxStake<T>>;
 
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====

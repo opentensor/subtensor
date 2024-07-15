@@ -118,8 +118,8 @@ impl<T: Config> Pallet<T> {
             })
             .collect::<Vec<(Compact<u16>, Compact<u16>)>>();
         let stake: Vec<(T::AccountId, Compact<u64>)> = vec![(
-            coldkey,
-            Self::get_stake_for_hotkey_on_subnet(hotkey, netuid).into(),
+            coldkey.clone(),
+            Self::get_stake_for_hotkey_on_subnet(&hotkey, netuid).into(),
         )];
         let neuron = NeuronInfo {
             hotkey: hotkey.clone(),

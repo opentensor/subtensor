@@ -62,8 +62,6 @@ pub trait WeightInfo {
 	fn sudo_set_tempo() -> Weight;
 	fn sudo_set_commit_reveal_weights_interval() -> Weight;
 	fn sudo_set_commit_reveal_weights_enabled() -> Weight;
-	fn sudo_set_hotkey_emission_tempo() -> Weight;
-	
 }
 
 /// Weights for `pallet_admin_utils` using the Substrate node and recommended hardware.
@@ -806,15 +804,5 @@ impl WeightInfo for () {
 		Weight::from_parts(19_780_000, 456)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `SubtensorModule::HotkeyEmissionTempo` (r:0 w:1)
-	/// Proof: `SubtensorModule::HotkeyEmissionTempo` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	fn sudo_set_hotkey_emission_tempo() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 5_000_000 picoseconds.
-		Weight::from_parts(6_000_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }

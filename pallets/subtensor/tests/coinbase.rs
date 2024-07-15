@@ -135,6 +135,7 @@ fn test_coinbase_basic() {
 }
 
 // Test getting and setting hotkey emission tempo
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test coinbase test_set_and_get_hotkey_emission_tempo -- --nocapture
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_set_and_get_hotkey_emission_tempo() {

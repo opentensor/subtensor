@@ -1,5 +1,4 @@
 use super::*;
-use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.

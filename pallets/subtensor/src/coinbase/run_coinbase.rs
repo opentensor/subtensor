@@ -1,8 +1,5 @@
 use super::*;
 use frame_support::storage::IterableStorageDoubleMap;
-use frame_support::storage::IterableStorageMap;
-use sp_runtime::Saturating;
-use substrate_fixed::types::I110F18;
 use substrate_fixed::types::I64F64;
 use substrate_fixed::types::I96F32;
 
@@ -190,8 +187,8 @@ impl<T: Config> Pallet<T> {
         mining_emission: u64,
     ) {
         // --- 1. First, calculate the hotkey's share of the emission.
-        let take_proportion: I64F64 =
-            I64F64::from_num(Delegates::<T>::get(hotkey)).saturating_div(I64F64::from_num(u16::MAX));
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
+            .saturating_div(I64F64::from_num(u16::MAX));
         let hotkey_take: u64 = take_proportion
             .saturating_mul(I64F64::from_num(validating_emission))
             .to_num::<u64>();
@@ -274,8 +271,8 @@ impl<T: Config> Pallet<T> {
         let total_hotkey_stake: u64 = Self::get_total_stake_for_hotkey(hotkey);
 
         // --- 5 Calculate the emission take for the hotkey.
-        let take_proportion: I64F64 =
-            I64F64::from_num(Delegates::<T>::get(hotkey)).saturating_div(I64F64::from_num(u16::MAX));
+        let take_proportion: I64F64 = I64F64::from_num(Delegates::<T>::get(hotkey))
+            .saturating_div(I64F64::from_num(u16::MAX));
         let hotkey_take: u64 =
             (take_proportion.saturating_mul(I64F64::from_num(emission))).to_num::<u64>();
 
@@ -287,11 +284,15 @@ impl<T: Config> Pallet<T> {
 
         // --- 8 Iterate over each nominator.
         for (nominator, nominator_stake) in
-            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(hotkey)
+            <Stake<T> as IterableStorageDoubleMap<T::AccountId, T::AccountId, u64>>::iter_prefix(
+                hotkey,
+            )
         {
             // --- 9 Check if the stake was manually increased by the user since the last emission drain for this hotkey.
             // If it was, skip this nominator as they will not receive their proportion of the emission.
-            if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone()) > last_hotkey_emission_drain {
+            if LastAddStakeIncrease::<T>::get(hotkey, nominator.clone())
+                > last_hotkey_emission_drain
+            {
                 continue;
             }
 
@@ -365,9 +366,10 @@ impl<T: Config> Pallet<T> {
         if tempo == 0 {
             return u64::MAX;
         }
-        (tempo as u64).saturating_sub(
-            (block_number.saturating_add((netuid as u64).saturating_add(1)))
-                % (tempo as u64).saturating_add(1),
-        )
+        let netuid_plus_one = (netuid as u64).saturating_add(1);
+        let block_plus_netuid = block_number.saturating_add(netuid_plus_one);
+        let tempo_plus_one = (tempo as u64).saturating_add(1);
+        let remainder = block_plus_netuid.rem_euclid(tempo_plus_one);
+        (tempo as u64).saturating_sub(remainder)
     }
 }

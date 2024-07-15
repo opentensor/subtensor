@@ -168,5 +168,11 @@ mod config {
         /// A flag to indicate if Liquid Alpha is enabled.
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
+        /// Initial network max stake.
+        #[pallet::constant]
+        type InitialNetworkMaxStake: Get<u64>;
+        /// Initial hotkey emission tempo.
+        #[pallet::constant]
+        type InitialHotkeyEmissionTempo: Get<u64>;
     }
 }
