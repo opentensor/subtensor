@@ -2423,25 +2423,46 @@ pub mod pallet {
 
         /// Revokes all children from a hotkey on a specific subnet.
         ///
-        /// # Arguments
-        /// * `origin` - The origin of the call, expected to be a signed extrinsic.
-        /// * `hotkey` - The AccountId of the hotkey from which to revoke children.
-        /// * `netuid` - The network ID of the subnet.
+        /// This function allows a coldkey to revoke all children from a given hotkey on a specified network.
         ///
-        /// # Weight
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Revoking children can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey from which all children will be revoked.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the revocation will take place.
+        ///
+        /// # Events:
+        /// * `ChildrenRevoked`:
+        ///     - On successfully revoking all children from a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to revoke children on a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to revoke children on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the revocation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Children Removal**: Removes all children from the hotkey's list of children.
+        /// 6. **Parent List Update**: Updates the parent list for all former children, removing the hotkey as their parent.
+        ///
+        /// # Weight:
         /// - Base weight: 100,000,000 + 5 DB reads + 20 DB writes
         /// - Dispatch class: Operational
         /// - Pays fee: Yes
         ///
-        /// # Returns
+        /// # Returns:
         /// Returns `DispatchResultWithPostInfo` which is `Ok` if the operation was successful,
         /// or an error if it failed.
-        ///
-        /// # Errors
-        /// This function may return errors from the `do_revoke_children` function.
-        ///
-        /// # Events
-        /// Emits a `ChildrenRevoked` event if the operation is successful.
         #[pallet::call_index(73)]
         #[pallet::weight((Weight::from_parts(100_000_000, 0)
     .saturating_add(T::DbWeight::get().reads(5))

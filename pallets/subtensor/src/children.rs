@@ -2,46 +2,36 @@ use super::*;
 use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
-    /// ---- The implementation for the extrinsic do_set_child_singular: Sets a single child.
+    /// Sets children for a hotkey on a specific network.
     ///
-    /// This function allows a coldkey to set children keys.
+    /// This function allows a coldkey to set children keys for a hotkey.
     ///
     /// # Arguments:
-    /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
-    ///     - The signature of the calling coldkey. Setting a hotkey child can only be done by the coldkey.
-    ///
-    /// * `hotkey` (T::AccountId):
-    ///     - The hotkey which will be assigned the child.
-    ///
-    /// * `netuid` (u16):
-    ///     - The u16 network identifier where the child keys will exist.
-    ///
-    /// * `children` Vec[(u64, T::AccountId)]:
-    ///     - A list of children with their proportions.
+    /// * `origin`: The signature of the calling coldkey. Setting hotkey children can only be done by the coldkey.
+    /// * `hotkey`: The hotkey which will be assigned the children.
+    /// * `netuid`: The network identifier where the child keys will exist.
+    /// * `children`: A list of children with their proportions.
     ///
     /// # Events:
-    /// * `ChildrenAdded`:
-    ///     - On successfully registering children to a hotkey.
+    /// * `SetChildren`: On successfully registering children to a hotkey.
     ///
     /// # Errors:
-    /// * `SubNetworkDoesNotExist`:
-    ///     - Attempting to register to a non-existent network.
-    /// * `RegistrationNotPermittedOnRootSubnet`:
-    ///     - Attempting to register a child on the root network.
-    /// * `NonAssociatedColdKey`:
-    ///     - The coldkey does not own the hotkey or the child is the same as the hotkey.
-    /// * `HotKeyAccountNotExists`:
-    ///     - The hotkey account does not exist.
+    /// * `SubNetworkDoesNotExist`: Attempting to register to a non-existent network.
+    /// * `RegistrationNotPermittedOnRootSubnet`: Attempting to register a child on the root network.
+    /// * `NonAssociatedColdKey`: The coldkey does not own the hotkey.
+    /// * `TooManyChildren`: The number of children exceeds the maximum allowed (5).
+    /// * `InvalidChild`: A child is the same as the hotkey.
+    /// * `ProportionOverflow`: The sum of proportions exceeds u64::MAX.
+    /// * `DuplicateChild`: There are duplicate children in the list.
     ///
     /// # Detailed Explanation of Checks:
-    /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
-    /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
-    /// 3. **Network Existence Check**: Ensures that the specified network exists.
-    /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
-    /// 5. **Hotkey Account Existence Check**: Ensures that the hotkey account already exists.
-    /// 6. **Child-Hotkey Distinction**: Ensures that the child is not the same as the hotkey.
-    /// 7. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
-    /// 8. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
+    /// 1. Signature Verification: Ensures that the caller has signed the transaction, verifying the coldkey.
+    /// 2. Root Network Check: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+    /// 3. Network Existence Check: Ensures that the specified network exists.
+    /// 4. Ownership Verification: Ensures that the coldkey owns the hotkey.
+    /// 5. Children Validation: Checks for the maximum number of children, invalid children, proportion overflow, and duplicates.
+    /// 6. Old Children Cleanup: Removes the hotkey from the parent list of its old children.
+    /// 7. New Children Assignment: Assigns the new children to the hotkey and updates the parent list for each new child.
     ///
     pub fn do_set_children(
         origin: T::RuntimeOrigin,
