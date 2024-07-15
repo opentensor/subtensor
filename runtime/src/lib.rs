@@ -12,6 +12,7 @@ pub mod check_nonce;
 mod migrations;
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_metadata_hash_extension::CheckMetadataHash;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     genesis_builder_helper::{build_config, create_default_config},
@@ -23,7 +24,6 @@ use pallet_commitments::CanCommit;
 use pallet_grandpa::{
     fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList,
 };
-use frame_metadata_hash_extension::CheckMetadataHash;
 use pallet_registry::CanRegisterIdentity;
 use scale_info::TypeInfo;
 use smallvec::smallvec;
@@ -1284,7 +1284,7 @@ pub type SignedExtra = (
     pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
     pallet_subtensor::SubtensorSignedExtension<Runtime>,
     pallet_commitments::CommitmentsSignedExtension<Runtime>,
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+    frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 );
 
 type Migrations = pallet_grandpa::migrations::MigrateV4ToV5<Runtime>;
