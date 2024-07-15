@@ -59,8 +59,8 @@ pub fn do_migrate_fix_total_coldkey_stake<T: Config>() -> Weight{
 // Public migrate function to be called by Lib.rs on upgrade.
 pub fn migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
 
-    let current_storage_version: u16 = 6;
-    let next_storage_version: u16 = 7;
+    let current_storage_version: u16 = 7;
+    let next_storage_version: u16 = 8;
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
