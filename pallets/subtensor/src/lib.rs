@@ -930,6 +930,9 @@ pub mod pallet {
     /// =======================================
     /// ==== Subnetwork Consensus Storage  ====
     /// =======================================
+    #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight | weight for stake used in YC.
+    pub(super) type StakeWeight<T: Config> =
+        StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage]
     /// --- DMAP ( netuid, hotkey ) --> uid
     pub type Uids<T: Config> =

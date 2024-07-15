@@ -1213,6 +1213,10 @@ impl
     fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
         SubtensorModule::set_liquid_alpha_enabled(netuid, enabled);
     }
+    
+    fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        SubtensorModule::set_hotkey_emission_tempo(emission_tempo);
+    }
 
     fn do_set_alpha_values(
         origin: RuntimeOrigin,

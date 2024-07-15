@@ -1035,6 +1035,35 @@ pub mod pallet {
             T::Subtensor::ensure_subnet_owner_or_root(origin.clone(), netuid)?;
             T::Subtensor::do_set_alpha_values(origin, netuid, alpha_low, alpha_high)
         }
+
+        /// Sets the hotkey emission tempo.
+        ///
+        /// This extrinsic allows the root account to set the hotkey emission tempo, which determines
+        /// the number of blocks before a hotkey drains accumulated emissions through to nominator staking accounts.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, which must be the root account.
+        /// * `emission_tempo` - The new emission tempo value to set.
+        ///
+        /// # Emits
+        /// * `Event::HotkeyEmissionTempoSet` - When the hotkey emission tempo is successfully set.
+        ///
+        /// # Errors
+        /// * `DispatchError::BadOrigin` - If the origin is not the root account.
+        #[pallet::call_index(52)]
+        #[pallet::weight(T::WeightInfo::sudo_set_hotkey_emission_tempo())]
+        pub fn sudo_set_hotkey_emission_tempo(
+            origin: OriginFor<T>,
+            emission_tempo: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            T::Subtensor::set_hotkey_emission_tempo(emission_tempo);
+            log::info!(
+                "HotkeyEmissionTempoSet( emission_tempo: {:?} )",
+                emission_tempo
+            );
+            Ok(())
+        }
     }
 }
 
@@ -1137,4 +1166,5 @@ pub trait SubtensorInterface<AccountId, Balance, RuntimeOrigin> {
         alpha_low: u16,
         alpha_high: u16,
     ) -> Result<(), DispatchError>;
+    fn set_hotkey_emission_tempo(emission_tempo: u64);
 }

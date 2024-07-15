@@ -842,5 +842,64 @@ mod dispatches {
         ) -> DispatchResult {
             Ok(())
         }
+
+        /// Set a single child for a given hotkey on a specified network.
+        ///
+        /// This function allows a coldkey to set a single child for a given hotkey on a specified network.
+        /// The proportion of the hotkey's stake to be allocated to the child is also specified.
+        ///
+        /// # Arguments:
+        /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+        ///     - The signature of the calling coldkey. Setting a hotkey child can only be done by the coldkey.
+        ///
+        /// * `hotkey` (T::AccountId):
+        ///     - The hotkey which will be assigned the child.
+        ///
+        /// * `child` (T::AccountId):
+        ///     - The child which will be assigned to the hotkey.
+        ///
+        /// * `netuid` (u16):
+        ///     - The u16 network identifier where the childkey will exist.
+        ///
+        /// * `proportion` (u64):
+        ///     - Proportion of the hotkey's stake to be given to the child, the value must be u64 normalized.
+        ///
+        /// # Events:
+        /// * `ChildAddedSingular`:
+        ///     - On successfully registering a child to a hotkey.
+        ///
+        /// # Errors:
+        /// * `SubNetworkDoesNotExist`:
+        ///     - Attempting to register to a non-existent network.
+        /// * `RegistrationNotPermittedOnRootSubnet`:
+        ///     - Attempting to register a child on the root network.
+        /// * `NonAssociatedColdKey`:
+        ///     - The coldkey does not own the hotkey or the child is the same as the hotkey.
+        /// * `HotKeyAccountNotExists`:
+        ///     - The hotkey account does not exist.
+        ///
+        /// # Detailed Explanation of Checks:
+        /// 1. **Signature Verification**: Ensures that the caller has signed the transaction, verifying the coldkey.
+        /// 2. **Root Network Check**: Ensures that the delegation is not on the root network, as child hotkeys are not valid on the root.
+        /// 3. **Network Existence Check**: Ensures that the specified network exists.
+        /// 4. **Ownership Verification**: Ensures that the coldkey owns the hotkey.
+        /// 5. **Hotkey Account Existence Check**: Ensures that the hotkey account already exists.
+        /// 6. **Child-Hotkey Distinction**: Ensures that the child is not the same as the hotkey.
+        /// 7. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
+        /// 8. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
+        // TODO: Benchmark this call
+        #[pallet::call_index(67)]
+        #[pallet::weight((Weight::from_parts(119_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(6))
+		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
+        pub fn set_children(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: u16,
+            children: Vec<(u64, T::AccountId)>,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_set_children(origin, hotkey, netuid, children)?;
+            Ok(().into())
+        }
     }
 }

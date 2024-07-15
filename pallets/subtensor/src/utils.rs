@@ -695,4 +695,20 @@ impl<T: Config> Pallet<T> {
     pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
         LiquidAlphaOn::<T>::get(netuid)
     }
+
+    /// Gets the current hotkey emission tempo.
+    ///
+    /// # Returns
+    /// * `u64` - The current emission tempo value.
+    pub fn get_hotkey_emission_tempo() -> u64 {
+        HotkeyEmissionTempo::<T>::get()
+    }
+    /// Sets the hotkey emission tempo.
+    ///
+    /// # Arguments
+    /// * `emission_tempo` - The new emission tempo value to set.
+    pub fn set_hotkey_emission_tempo(emission_tempo: u64) {
+        HotkeyEmissionTempo::<T>::set(emission_tempo);
+        Self::deposit_event(Event::HotkeyEmissionTempoSet(emission_tempo));
+    }
 }

@@ -171,5 +171,6 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        SetChildren(T::AccountId, u16, Vec<(u64, T::AccountId)>),
     }
 }
