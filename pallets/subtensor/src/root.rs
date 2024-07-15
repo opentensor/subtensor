@@ -16,7 +16,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 use super::*;
-use crate::math::*;
+use crate::epoch::math::*;
 use frame_support::dispatch::Pays;
 use frame_support::storage::{IterableStorageDoubleMap, IterableStorageMap};
 use frame_support::traits::Get;
