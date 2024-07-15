@@ -1,9 +1,11 @@
+#![allow(clippy::crate_in_macro_def)]
 use frame_support::pallet_macros::pallet_section;
 
 /// A [`pallet_section`] that defines the errors for a pallet.
 /// This can later be imported into the pallet using [`import_section`].
 #[pallet_section]
 mod config {
+    use crate::{CollectiveInterface, MemberManagement};
 
     /// Configure the pallet by specifying the parameters and types on which it depends.
     #[pallet::config]
@@ -24,10 +26,10 @@ mod config {
             + fungible::Mutate<Self::AccountId>;
 
         /// Senate members with members management functions.
-        type SenateMembers: crate::MemberManagement<Self::AccountId>;
+        type SenateMembers: MemberManagement<Self::AccountId>;
 
         /// Interface to allow other pallets to control who can register identities
-        type TriumvirateInterface: crate::CollectiveInterface<Self::AccountId, Self::Hash, u32>;
+        type TriumvirateInterface: CollectiveInterface<Self::AccountId, Self::Hash, u32>;
 
         /// =================================
         /// ==== Initial Value Constants ====
