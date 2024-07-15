@@ -148,6 +148,84 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Revokes all children for a given hotkey on a specific network.
+    ///
+    /// This function allows a coldkey to remove all children associated with a hotkey.
+    ///
+    /// # Arguments:
+    /// * `origin` (<T as frame_system::Config>::RuntimeOrigin):
+    ///     - The signature of the calling coldkey. Revoking children can only be done by the coldkey.
+    ///
+    /// * `hotkey` (T::AccountId):
+    ///     - The hotkey from which all children will be revoked.
+    ///
+    /// * `netuid` (u16):
+    ///     - The u16 network identifier where the children exist.
+    ///
+    /// # Events:
+    /// * `ChildrenRevoked`:
+    ///     - On successfully revoking all children from a hotkey.
+    ///
+    /// # Errors:
+    /// * `SubNetworkDoesNotExist`:
+    ///     - Attempting to revoke children on a non-existent network.
+    /// * `RegistrationNotPermittedOnRootSubnet`:
+    ///     - Attempting to revoke children on the root network.
+    /// * `NonAssociatedColdKey`:
+    ///     - The coldkey does not own the hotkey.
+    ///
+    pub fn do_revoke_children(
+        origin: T::RuntimeOrigin,
+        hotkey: T::AccountId,
+        netuid: u16,
+    ) -> DispatchResult {
+        // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
+        let coldkey = ensure_signed(origin)?;
+        log::trace!(
+            "do_revoke_children( coldkey:{:?} hotkey:{:?} netuid:{:?} )",
+            coldkey,
+            hotkey,
+            netuid
+        );
+
+        // --- 2. Check that this operation is not on the root network.
+        ensure!(
+            netuid != Self::get_root_netuid(),
+            Error::<T>::RegistrationNotPermittedOnRootSubnet
+        );
+
+        // --- 3. Check that the network exists.
+        ensure!(
+            Self::if_subnet_exist(netuid),
+            Error::<T>::SubNetworkDoesNotExist
+        );
+
+        // --- 4. Check that the coldkey owns the hotkey.
+        ensure!(
+            Self::coldkey_owns_hotkey(&coldkey, &hotkey),
+            Error::<T>::NonAssociatedColdKey
+        );
+
+        // --- 5. Get the current children of the hotkey.
+        let children: Vec<(u64, T::AccountId)> = ChildKeys::<T>::get(hotkey.clone(), netuid);
+
+        // --- 6. Remove the hotkey from each child's parent list.
+        for (_, child) in children.iter() {
+            let mut child_parents = ParentKeys::<T>::get(child.clone(), netuid);
+            child_parents.retain(|(_, parent)| parent != &hotkey);
+            ParentKeys::<T>::insert(child, netuid, child_parents);
+        }
+
+        // --- 7. Clear the children list for the hotkey.
+        ChildKeys::<T>::remove(hotkey.clone(), netuid);
+
+        // --- 8. Log and emit event.
+        log::trace!("RevokeChildren( netuid:{:?}, hotkey:{:?} )", netuid, hotkey);
+        Self::deposit_event(Event::ChildrenRevoked { hotkey, netuid });
+
+        Ok(())
+    }
+
     /// Calculates the total stake held by a hotkey on the network, considering child/parent relationships.
     ///
     /// This function performs the following steps:

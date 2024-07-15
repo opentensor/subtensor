@@ -2420,6 +2420,40 @@ pub mod pallet {
             Self::do_set_children(origin, hotkey, netuid, children)?;
             Ok(().into())
         }
+
+        /// Revokes all children from a hotkey on a specific subnet.
+        ///
+        /// # Arguments
+        /// * `origin` - The origin of the call, expected to be a signed extrinsic.
+        /// * `hotkey` - The AccountId of the hotkey from which to revoke children.
+        /// * `netuid` - The network ID of the subnet.
+        ///
+        /// # Weight
+        /// - Base weight: 100,000,000 + 5 DB reads + 20 DB writes
+        /// - Dispatch class: Operational
+        /// - Pays fee: Yes
+        ///
+        /// # Returns
+        /// Returns `DispatchResultWithPostInfo` which is `Ok` if the operation was successful,
+        /// or an error if it failed.
+        ///
+        /// # Errors
+        /// This function may return errors from the `do_revoke_children` function.
+        ///
+        /// # Events
+        /// Emits a `ChildrenRevoked` event if the operation is successful.
+        #[pallet::call_index(73)]
+        #[pallet::weight((Weight::from_parts(100_000_000, 0)
+    .saturating_add(T::DbWeight::get().reads(5))
+    .saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Operational, Pays::Yes))]
+        pub fn revoke_children(
+            origin: T::RuntimeOrigin,
+            hotkey: T::AccountId,
+            netuid: u16,
+        ) -> DispatchResultWithPostInfo {
+            Self::do_revoke_children(origin, hotkey, netuid)?;
+            Ok(().into())
+        }
     }
 
     // ---- Subtensor helper functions.

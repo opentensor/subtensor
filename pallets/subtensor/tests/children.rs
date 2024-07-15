@@ -1,9 +1,10 @@
 #![allow(clippy::indexing_slicing)]
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 mod mock;
 use pallet_subtensor::*;
 use sp_core::U256;
+use sp_runtime::traits::BadOrigin;
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_do_set_child_singular_success --exact --nocapture
 #[test]
@@ -1484,5 +1485,211 @@ fn test_remove_child_with_multiple_parents() {
         let children2 = SubtensorModule::get_children(&hotkey2, netuid);
         assert_eq!(children2.len(), 1);
         assert_eq!(children2[0], (proportion2, child));
+    });
+}
+
+#[test]
+fn test_revoke_children_success() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(1);
+        let child1 = U256::from(2);
+        let child2 = U256::from(3);
+
+        // Add network
+        add_network(netuid, 13, 0);
+
+        // Register neurons
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
+
+        // Set up the initial state
+        assert_ok!(SubtensorModule::set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![(100, child1), (200, child2)]
+        ));
+
+        // Revoke children
+        assert_ok!(SubtensorModule::revoke_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid
+        ));
+
+        // Check that children are removed
+        assert_eq!(SubtensorModule::get_children(&hotkey, netuid), vec![]);
+
+        // Check that parent relationships are removed
+        assert_eq!(SubtensorModule::get_parents(&child1, netuid), vec![]);
+        assert_eq!(SubtensorModule::get_parents(&child2, netuid), vec![]);
+        // Check that the event was emitted
+        System::assert_last_event(RuntimeEvent::SubtensorModule(Event::ChildrenRevoked {
+            hotkey,
+            netuid,
+        }));
+    });
+}
+
+#[test]
+fn test_revoke_children_root_network() {
+    new_test_ext(1).execute_with(|| {
+        let root_netuid = SubtensorModule::get_root_netuid();
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(1);
+
+        assert_noop!(
+            SubtensorModule::revoke_children(RuntimeOrigin::signed(coldkey), hotkey, root_netuid),
+            Error::<Test>::RegistrationNotPermittedOnRootSubnet
+        );
+    });
+}
+
+#[test]
+fn test_revoke_children_non_existent_network() {
+    new_test_ext(1).execute_with(|| {
+        let non_existent_netuid = 999;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(1);
+
+        assert_noop!(
+            SubtensorModule::revoke_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                non_existent_netuid
+            ),
+            Error::<Test>::SubNetworkDoesNotExist
+        );
+    });
+}
+
+#[test]
+fn test_revoke_children_non_associated_coldkey() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(1);
+        let non_associated_coldkey = U256::from(2);
+
+        // Add network
+        add_network(netuid, 13, 0);
+
+        // Register neuron with hotkey
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Set up the initial state
+        assert_ok!(SubtensorModule::set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            vec![(100, U256::from(2))]
+        ));
+
+        assert_noop!(
+            SubtensorModule::revoke_children(
+                RuntimeOrigin::signed(non_associated_coldkey),
+                hotkey,
+                netuid
+            ),
+            Error::<Test>::NonAssociatedColdKey
+        );
+    });
+}
+
+#[test]
+fn test_revoke_children_unsigned_origin() {
+    new_test_ext(1).execute_with(|| {
+        let netuid = 1;
+        let hotkey = U256::from(1);
+
+        assert_noop!(
+            SubtensorModule::revoke_children(RuntimeOrigin::none(), hotkey, netuid),
+            BadOrigin
+        );
+    });
+}
+
+#[test]
+fn test_revoke_children_no_existing_children() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey = U256::from(1);
+        let coldkey = U256::from(1);
+
+        // Add network and register neuron
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Revoke children when there are no existing children
+        assert_ok!(SubtensorModule::revoke_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid
+        ));
+
+        // Check that the event was still emitted
+        System::assert_last_event(RuntimeEvent::SubtensorModule(Event::ChildrenRevoked {
+            hotkey,
+            netuid,
+        }));
+
+        // Verify that the children list is empty
+        assert_eq!(SubtensorModule::get_children(&hotkey, netuid), vec![]);
+    });
+}
+
+#[test]
+fn test_revoke_children_multiple_parents() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let hotkey1 = U256::from(1);
+        let hotkey2 = U256::from(2);
+        let coldkey1 = U256::from(1);
+        let coldkey2 = U256::from(2);
+        let child = U256::from(3);
+
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey1, coldkey1, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey2, 0);
+        register_ok_neuron(netuid, child, U256::from(4), 0);
+
+        // Set up the initial state with two parents for the child
+        assert_ok!(SubtensorModule::set_children(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1,
+            netuid,
+            vec![(100, child)]
+        ));
+        assert_ok!(SubtensorModule::set_children(
+            RuntimeOrigin::signed(coldkey2),
+            hotkey2,
+            netuid,
+            vec![(200, child)]
+        ));
+
+        // Revoke children for hotkey1
+        assert_ok!(SubtensorModule::revoke_children(
+            RuntimeOrigin::signed(coldkey1),
+            hotkey1,
+            netuid
+        ));
+
+        // Check that child's parent list only contains hotkey2
+        assert_eq!(
+            SubtensorModule::get_parents(&child, netuid),
+            vec![(200, hotkey2)]
+        );
+
+        // Check that hotkey1's children list is empty
+        assert_eq!(SubtensorModule::get_children(&hotkey1, netuid), vec![]);
+
+        // Check that hotkey2's children list is unchanged
+        assert_eq!(
+            SubtensorModule::get_children(&hotkey2, netuid),
+            vec![(200, child)]
+        );
     });
 }

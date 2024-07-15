@@ -177,5 +177,12 @@ mod events {
             /// The account ID of the coldkey
             coldkey: T::AccountId,
         },
+        /// All children have been revoked from a hotkey
+        ChildrenRevoked {
+            /// The account ID of the hotkey
+            hotkey: T::AccountId,
+            /// The u16 network identifier
+            netuid: u16,
+        },
     }
 }
