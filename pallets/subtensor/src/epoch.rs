@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        S::<T>::insert(netuid, cloned_stake.clone());
+        StakeWeight::<T>::insert(netuid, cloned_stake.clone());
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
         Rank::<T>::insert(netuid, cloned_ranks);
@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|xi| fixed_proportion_to_u16(*xi))
             .collect::<Vec<u16>>();
-        S::<T>::insert(netuid, cloned_stake_weight.clone());
+        StakeWeight::<T>::insert(netuid, cloned_stake_weight.clone());
         Active::<T>::insert(netuid, active.clone());
         Emission::<T>::insert(netuid, cloned_emission);
         Rank::<T>::insert(netuid, cloned_ranks);

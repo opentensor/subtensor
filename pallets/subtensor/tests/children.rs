@@ -23,9 +23,7 @@ fn test_do_set_child_singular_success() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child)
-            ]
+            vec![(proportion, child)]
         ));
 
         // Verify child assignment
@@ -50,9 +48,7 @@ fn test_do_set_child_singular_network_does_not_exist() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, child)
-                ]
+                vec![(proportion, child)]
             ),
             Error::<Test>::SubNetworkDoesNotExist
         );
@@ -107,9 +103,7 @@ fn test_do_set_child_singular_non_associated_coldkey() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, child)
-                ]
+                vec![(proportion, child)]
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -135,9 +129,7 @@ fn test_do_set_child_singular_root_network() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, child)
-                ]
+                vec![(proportion, child)]
             ),
             Error::<Test>::RegistrationNotPermittedOnRootSubnet
         );
@@ -164,9 +156,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, old_child)
-            ]
+            vec![(proportion, old_child)]
         ));
 
         // Set new child
@@ -174,9 +164,7 @@ fn test_do_set_child_singular_old_children_cleanup() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, new_child)
-            ]
+            vec![(proportion, new_child)]
         ));
 
         // Verify old child is removed
@@ -208,9 +196,7 @@ fn test_do_set_child_singular_new_children_assignment() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child)
-            ]
+            vec![(proportion, child)]
         ));
 
         // Verify child assignment
@@ -242,9 +228,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (min_proportion, child)
-            ]
+            vec![(min_proportion, child)]
         ));
 
         // Verify child assignment with minimum proportion
@@ -257,9 +241,7 @@ fn test_do_set_child_singular_proportion_edge_cases() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (max_proportion, child)
-            ]
+            vec![(max_proportion, child)]
         ));
 
         // Verify child assignment with maximum proportion
@@ -289,9 +271,7 @@ fn test_do_set_child_singular_multiple_children() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion1, child1)
-            ]
+            vec![(proportion1, child1)]
         ));
 
         // Set second child
@@ -299,9 +279,7 @@ fn test_do_set_child_singular_multiple_children() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion2, child2)
-            ]
+            vec![(proportion2, child2)]
         ));
 
         // Verify children assignment
@@ -331,9 +309,7 @@ fn test_add_singular_child() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (u64::MAX, child)
-                ]
+                vec![(u64::MAX, child)]
             ),
             Err(Error::<Test>::SubNetworkDoesNotExist.into())
         );
@@ -343,9 +319,7 @@ fn test_add_singular_child() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (u64::MAX, child)
-                ]
+                vec![(u64::MAX, child)]
             ),
             Err(Error::<Test>::NonAssociatedColdKey.into())
         );
@@ -355,9 +329,7 @@ fn test_add_singular_child() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (u64::MAX, child)
-                ]
+                vec![(u64::MAX, child)]
             ),
             Err(Error::<Test>::InvalidChild.into())
         );
@@ -366,9 +338,7 @@ fn test_add_singular_child() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (u64::MAX, child)
-            ]
+            vec![(u64::MAX, child)]
         ));
     })
 }
@@ -413,9 +383,7 @@ fn test_get_stake_for_hotkey_on_subnet() {
             RuntimeOrigin::signed(coldkey0),
             hotkey0,
             netuid,
-            vec![
-                (u64::MAX, hotkey1)
-            ]
+            vec![(u64::MAX, hotkey1)]
         ));
 
         // Check stakes after setting child
@@ -430,9 +398,7 @@ fn test_get_stake_for_hotkey_on_subnet() {
             RuntimeOrigin::signed(coldkey0),
             hotkey0,
             netuid,
-            vec![
-                (u64::MAX / 2, hotkey1)
-            ]
+            vec![(u64::MAX / 2, hotkey1)]
         ));
 
         // Check stakes after changing child relationship
@@ -463,9 +429,7 @@ fn test_do_revoke_child_singular_success() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child)
-            ]
+            vec![(proportion, child)]
         ));
 
         // Verify child assignment
@@ -553,9 +517,7 @@ fn test_do_revoke_child_singular_child_not_associated() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (u64::MAX, child)
-                ]
+                vec![(u64::MAX, child)]
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -583,10 +545,7 @@ fn test_do_set_children_multiple_success() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion1, child1),
-                (proportion2, child2)
-            ]
+            vec![(proportion1, child1), (proportion2, child2)]
         ));
 
         // Verify children assignment
@@ -618,9 +577,7 @@ fn test_do_set_children_multiple_network_does_not_exist() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, child1)
-                ]
+                vec![(proportion, child1)]
             ),
             Error::<Test>::SubNetworkDoesNotExist
         );
@@ -646,9 +603,7 @@ fn test_do_set_children_multiple_invalid_child() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, hotkey)
-                ]
+                vec![(proportion, hotkey)]
             ),
             Error::<Test>::InvalidChild
         );
@@ -675,9 +630,7 @@ fn test_do_set_children_multiple_non_associated_coldkey() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, child)
-                ]
+                vec![(proportion, child)]
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -703,9 +656,7 @@ fn test_do_set_children_multiple_root_network() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (proportion, child)
-                ]
+                vec![(proportion, child)]
             ),
             Error::<Test>::RegistrationNotPermittedOnRootSubnet
         );
@@ -733,9 +684,7 @@ fn test_do_set_children_multiple_old_children_cleanup() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, old_child)
-            ]
+            vec![(proportion, old_child)]
         ));
 
         // Set new children
@@ -743,10 +692,7 @@ fn test_do_set_children_multiple_old_children_cleanup() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, new_child1),
-                (proportion, new_child2)
-            ]
+            vec![(proportion, new_child1), (proportion, new_child2)]
         ));
 
         // Verify old child is removed
@@ -783,10 +729,7 @@ fn test_do_set_children_multiple_proportion_edge_cases() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (min_proportion, child1),
-                (max_proportion, child2)
-            ]
+            vec![(min_proportion, child1), (max_proportion, child2)]
         ));
 
         // Verify children assignment
@@ -819,10 +762,7 @@ fn test_do_set_children_multiple_overwrite_existing() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child1),
-                (proportion, child2)
-            ]
+            vec![(proportion, child1), (proportion, child2)]
         ));
 
         // Overwrite with new children
@@ -830,10 +770,7 @@ fn test_do_set_children_multiple_overwrite_existing() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion * 2, child2),
-                (proportion * 3, child3)
-            ]
+            vec![(proportion * 2, child2), (proportion * 3, child3)]
         ));
 
         // Verify final children assignment
@@ -902,10 +839,7 @@ fn test_do_revoke_children_multiple_success() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion1, child1),
-                (proportion2, child2)
-            ]
+            vec![(proportion1, child1), (proportion2, child2)]
         ));
 
         // Revoke multiple children
@@ -938,16 +872,13 @@ fn test_do_revoke_children_multiple_network_does_not_exist() {
         let child1 = U256::from(3);
         let child2 = U256::from(4);
         let netuid: u16 = 999; // Non-existent network
-        // Attempt to revoke children
+                               // Attempt to revoke children
         assert_err!(
             SubtensorModule::do_set_children(
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (u64::MAX/2, child1),
-                    (u64::MAX/2, child2)
-                ]
+                vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
             ),
             Error::<Test>::SubNetworkDoesNotExist
         );
@@ -974,10 +905,7 @@ fn test_do_revoke_children_multiple_non_associated_coldkey() {
                 RuntimeOrigin::signed(coldkey),
                 hotkey,
                 netuid,
-                vec![
-                    (u64::MAX/2, child1),
-                    (u64::MAX/2, child2)
-                ]
+                vec![(u64::MAX / 2, child1), (u64::MAX / 2, child2)]
             ),
             Error::<Test>::NonAssociatedColdKey
         );
@@ -1017,10 +945,7 @@ fn test_do_revoke_children_multiple_partial_revocation() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child1),
-                (proportion, child2)
-            ]
+            vec![(proportion, child1), (proportion, child2)]
         ));
 
         // Verify children removal
@@ -1034,7 +959,6 @@ fn test_do_revoke_children_multiple_partial_revocation() {
         assert_eq!(parents1, vec![(proportion, hotkey)]);
         let parents2 = SubtensorModule::get_parents(&child2, netuid);
         assert_eq!(parents2, vec![(proportion, hotkey)]);
-
     });
 }
 
@@ -1058,9 +982,7 @@ fn test_do_revoke_children_multiple_non_existent_children() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion, child1)
-            ]
+            vec![(proportion, child1)]
         ));
 
         // Attempt to revoke existing and non-existent children
@@ -1142,10 +1064,7 @@ fn test_do_revoke_children_multiple_complex_scenario() {
             RuntimeOrigin::signed(coldkey),
             hotkey,
             netuid,
-            vec![
-                (proportion1, child1),
-                (proportion3, child3)
-            ]
+            vec![(proportion1, child1), (proportion3, child3)]
         ));
 
         // Verify remaining children
@@ -1276,8 +1195,6 @@ fn test_set_network_max_stake_update() {
     });
 }
 
-
-
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test children -- test_children_stake_values --exact --nocapture
 #[test]
 fn test_children_stake_values() {
@@ -1288,9 +1205,9 @@ fn test_children_stake_values() {
         let child2 = U256::from(4);
         let child3 = U256::from(5);
         let netuid: u16 = 1;
-        let proportion1: u64 = u64::MAX/4;
-        let proportion2: u64 = u64::MAX/4;
-        let proportion3: u64 = u64::MAX/4;
+        let proportion1: u64 = u64::MAX / 4;
+        let proportion2: u64 = u64::MAX / 4;
+        let proportion3: u64 = u64::MAX / 4;
 
         // Add network and register hotkey
         add_network(netuid, 13, 0);
@@ -1300,7 +1217,11 @@ fn test_children_stake_values() {
         register_ok_neuron(netuid, child1, coldkey, 0);
         register_ok_neuron(netuid, child2, coldkey, 0);
         register_ok_neuron(netuid, child3, coldkey, 0);
-        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, 100_000_000_000_000);
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(
+            &coldkey,
+            &hotkey,
+            100_000_000_000_000,
+        );
 
         // Set multiple children with proportions.
         assert_ok!(SubtensorModule::do_set_children(
@@ -1330,11 +1251,237 @@ fn test_children_stake_values() {
             24_999_999_976_716
         );
         assert_eq!(
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid) + 
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid) + 
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid) +
-            SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
+            SubtensorModule::get_stake_for_hotkey_on_subnet(&child3, netuid)
+                + SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid)
+                + SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid)
+                + SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid),
             100_000_000_000_000
         );
+    });
+}
+
+/// Tests that setting children with a total proportion exceeding u64::MAX fails.
+#[test]
+fn test_set_children_proportion_overflow() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to set children with total proportion exceeding u64::MAX
+        let children = vec![(u64::MAX, U256::from(3)), (1, U256::from(4))];
+
+        assert_err!(
+            SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                children
+            ),
+            Error::<Test>::ProportionOverflow
+        );
+    });
+}
+
+/// Tests that setting duplicate children fails.
+#[test]
+fn test_set_duplicate_children() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child = U256::from(3);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to set duplicate children
+        let children = vec![(1000, child), (2000, child)];
+
+        assert_err!(
+            SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                children
+            ),
+            Error::<Test>::DuplicateChild
+        );
+    });
+}
+
+/// Tests the correct distribution of stake among children.
+#[test]
+fn test_stake_distribution_among_children() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid: u16 = 1;
+
+        // Add network and register neurons
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+        register_ok_neuron(netuid, child1, coldkey, 0);
+        register_ok_neuron(netuid, child2, coldkey, 0);
+
+        // Set initial stake
+        let initial_stake: u64 = 1_000_000_000_000;
+        SubtensorModule::increase_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, initial_stake);
+
+        // Set children with different proportions
+        let children = vec![(u64::MAX / 2, child1), (u64::MAX / 4, child2)];
+
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey,
+            netuid,
+            children
+        ));
+
+        // Check stake distribution
+        let hotkey_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&hotkey, netuid);
+        let child1_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child1, netuid);
+        let child2_stake = SubtensorModule::get_stake_for_hotkey_on_subnet(&child2, netuid);
+
+        assert!(hotkey_stake < initial_stake, "Hotkey stake should decrease");
+        assert!(
+            child1_stake > child2_stake,
+            "Child1 should have more stake than Child2"
+        );
+        assert_eq!(
+            hotkey_stake + child1_stake + child2_stake,
+            initial_stake,
+            "Total stake should remain constant"
+        );
+    });
+}
+
+/// Tests that setting more than the maximum allowed number of children (5) fails.
+#[test]
+fn test_set_children_exceeds_maximum() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey = U256::from(2);
+        let netuid: u16 = 1;
+
+        // Add network and register hotkey
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey, coldkey, 0);
+
+        // Attempt to set 6 children (exceeding the maximum of 5)
+        let children: Vec<(u64, U256)> = (3..9).map(|i| (1000, U256::from(i))).collect();
+
+        assert_err!(
+            SubtensorModule::do_set_children(
+                RuntimeOrigin::signed(coldkey),
+                hotkey,
+                netuid,
+                children
+            ),
+            Error::<Test>::TooManyChildren
+        );
+    });
+}
+
+#[test]
+fn test_set_child_with_multiple_parents() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let child = U256::from(4);
+        let netuid: u16 = 1;
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkeys and child
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        register_ok_neuron(netuid, child, coldkey, 0);
+
+        // Set child for first parent
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey1,
+            netuid,
+            vec![(proportion1, child)]
+        ));
+
+        // Set child for second parent
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey2,
+            netuid,
+            vec![(proportion2, child)]
+        ));
+
+        // Check that child's parent list contains both parents
+        let parents = SubtensorModule::get_parents(&child, netuid);
+        assert_eq!(parents.len(), 2);
+        assert!(parents.contains(&(proportion1, hotkey1)));
+        assert!(parents.contains(&(proportion2, hotkey2)));
+    });
+}
+
+#[test]
+fn test_remove_child_with_multiple_parents() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(1);
+        let hotkey1 = U256::from(2);
+        let hotkey2 = U256::from(3);
+        let child = U256::from(4);
+        let netuid: u16 = 1;
+        let proportion1: u64 = 1000;
+        let proportion2: u64 = 2000;
+
+        // Add network and register hotkeys and child
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, hotkey1, coldkey, 0);
+        register_ok_neuron(netuid, hotkey2, coldkey, 0);
+        register_ok_neuron(netuid, child, coldkey, 0);
+
+        // Set child for both parents
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey1,
+            netuid,
+            vec![(proportion1, child)]
+        ));
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey2,
+            netuid,
+            vec![(proportion2, child)]
+        ));
+
+        // Remove child from first parent
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            hotkey1,
+            netuid,
+            vec![]
+        ));
+
+        // Check that child's parent list only contains the second parent
+        let parents = SubtensorModule::get_parents(&child, netuid);
+        assert_eq!(parents.len(), 1);
+        assert_eq!(parents[0], (proportion2, hotkey2));
+
+        // Check that first parent's child list is empty
+        let children1 = SubtensorModule::get_children(&hotkey1, netuid);
+        assert!(children1.is_empty());
+
+        // Check that second parent's child list still contains the child
+        let children2 = SubtensorModule::get_children(&hotkey2, netuid);
+        assert_eq!(children2.len(), 1);
+        assert_eq!(children2[0], (proportion2, child));
     });
 }

@@ -1736,3 +1736,193 @@ fn test_swap_senate_member() {
         assert_eq!(weight, expected_weight);
     });
 }
+
+#[test]
+fn test_swap_child_keys_success() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let child1 = U256::from(3);
+        let child2 = U256::from(4);
+        let netuid: u16 = 1;
+        let proportion1 = 5000u64;
+        let proportion2 = 5000u64;
+        let mut weight = Weight::zero();
+
+        // Setup initial state
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, old_hotkey, old_hotkey, 0);
+        register_ok_neuron(netuid, child1, child1, 0);
+        register_ok_neuron(netuid, child2, child2, 0);
+
+        // Set children for old_hotkey
+        assert_ok!(SubtensorModule::do_set_children(
+            <<Test as Config>::RuntimeOrigin>::signed(old_hotkey),
+            old_hotkey,
+            netuid,
+            vec![(proportion1, child1), (proportion2, child2)]
+        ));
+
+        // Verify initial state
+        let initial_children = SubtensorModule::get_children(&old_hotkey, netuid);
+        log::info!("Initial children: {:?}", initial_children);
+        assert_eq!(
+            initial_children.len(),
+            2,
+            "Initial children not set correctly"
+        );
+
+        // Perform the swap
+        let result = SubtensorModule::swap_child_keys(&old_hotkey, &new_hotkey, &mut weight);
+        println!("Swap result: {:?}", result);
+
+        // Verify the swap
+        let new_children = SubtensorModule::get_children(&new_hotkey, netuid);
+        println!("New children: {:?}", new_children);
+        assert_eq!(new_children.len(), 2, "Children not swapped correctly");
+
+        let old_children = SubtensorModule::get_children(&old_hotkey, netuid);
+        println!("Old children after swap: {:?}", old_children);
+        assert!(old_children.is_empty(), "Old children not cleared");
+
+        // Check that parent references are updated
+        let parents1 = SubtensorModule::get_parents(&child1, netuid);
+        println!("Parents of child1: {:?}", parents1);
+        assert!(
+            parents1.contains(&(proportion1, new_hotkey)),
+            "Child1's parent not updated"
+        );
+        assert!(
+            !parents1.contains(&(proportion1, old_hotkey)),
+            "Child1 still has old parent"
+        );
+
+        let parents2 = SubtensorModule::get_parents(&child2, netuid);
+        println!("Parents of child2: {:?}", parents2);
+        assert!(
+            parents2.contains(&(proportion2, new_hotkey)),
+            "Child2's parent not updated"
+        );
+        assert!(
+            !parents2.contains(&(proportion2, old_hotkey)),
+            "Child2 still has old parent"
+        );
+    });
+}
+
+#[test]
+fn test_swap_parent_keys_success() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let parent1 = U256::from(3);
+        let parent2 = U256::from(4);
+        let netuid: u16 = 1;
+        let proportion1 = 6000u64;
+        let proportion2 = 4000u64;
+        let mut weight = Weight::zero();
+
+        // Setup initial state
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, old_hotkey, old_hotkey, 0);
+        register_ok_neuron(netuid, parent1, parent1, 0);
+        register_ok_neuron(netuid, parent2, parent2, 0);
+
+        // Set old_hotkey as child for parent1 and parent2
+        assert_ok!(SubtensorModule::do_set_children(
+            <<Test as Config>::RuntimeOrigin>::signed(parent1),
+            parent1,
+            netuid,
+            vec![(proportion1, old_hotkey)]
+        ));
+        assert_ok!(SubtensorModule::do_set_children(
+            <<Test as Config>::RuntimeOrigin>::signed(parent2),
+            parent2,
+            netuid,
+            vec![(proportion2, old_hotkey)]
+        ));
+
+        // Perform the swap
+        SubtensorModule::swap_parent_keys(&old_hotkey, &new_hotkey, &mut weight);
+
+        // Verify the swap
+        let new_parents = SubtensorModule::get_parents(&new_hotkey, netuid);
+        assert_eq!(new_parents.len(), 2);
+        assert!(new_parents.contains(&(proportion1, parent1)));
+        assert!(new_parents.contains(&(proportion2, parent2)));
+
+        let old_parents = SubtensorModule::get_parents(&old_hotkey, netuid);
+        assert!(old_parents.is_empty());
+
+        // Check that child references are updated
+        let children1 = SubtensorModule::get_children(&parent1, netuid);
+        assert!(children1.contains(&(proportion1, new_hotkey)));
+        assert!(!children1.contains(&(proportion1, old_hotkey)));
+
+        let children2 = SubtensorModule::get_children(&parent2, netuid);
+        assert!(children2.contains(&(proportion2, new_hotkey)));
+        assert!(!children2.contains(&(proportion2, old_hotkey)));
+    });
+}
+
+#[test]
+fn test_swap_hotkey_with_children_and_parents() {
+    new_test_ext(1).execute_with(|| {
+        let old_hotkey = U256::from(1);
+        let new_hotkey = U256::from(2);
+        let parent = U256::from(3);
+        let child = U256::from(4);
+        let coldkey = U256::from(5);
+        let netuid: u16 = 1;
+        let parent_proportion = 7000u64;
+        let child_proportion = 3000u64;
+        let swap_cost = SubtensorModule::get_key_swap_cost();
+
+        // Setup initial state
+        add_network(netuid, 13, 0);
+        register_ok_neuron(netuid, old_hotkey, coldkey, 0);
+        register_ok_neuron(netuid, parent, parent, 0);
+        register_ok_neuron(netuid, child, child, 0);
+        SubtensorModule::add_balance_to_coldkey_account(&coldkey, swap_cost);
+
+        // Set parent-child relationships
+        assert_ok!(SubtensorModule::do_set_children(
+            <<Test as Config>::RuntimeOrigin>::signed(parent),
+            parent,
+            netuid,
+            vec![(parent_proportion, old_hotkey)]
+        ));
+        assert_ok!(SubtensorModule::do_set_children(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            old_hotkey,
+            netuid,
+            vec![(child_proportion, child)]
+        ));
+
+        // Perform the swap
+        assert_ok!(SubtensorModule::do_swap_hotkey(
+            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            &old_hotkey,
+            &new_hotkey
+        ));
+
+        // Verify parent-child relationships after swap
+        let new_parents = SubtensorModule::get_parents(&new_hotkey, netuid);
+        assert_eq!(new_parents, vec![(parent_proportion, parent)]);
+
+        let new_children = SubtensorModule::get_children(&new_hotkey, netuid);
+        assert_eq!(new_children, vec![(child_proportion, child)]);
+
+        let parent_children = SubtensorModule::get_children(&parent, netuid);
+        assert!(parent_children.contains(&(parent_proportion, new_hotkey)));
+        assert!(!parent_children.contains(&(parent_proportion, old_hotkey)));
+
+        let child_parents = SubtensorModule::get_parents(&child, netuid);
+        assert!(child_parents.contains(&(child_proportion, new_hotkey)));
+        assert!(!child_parents.contains(&(child_proportion, old_hotkey)));
+
+        // Verify old_hotkey has no relationships
+        assert!(SubtensorModule::get_parents(&old_hotkey, netuid).is_empty());
+        assert!(SubtensorModule::get_children(&old_hotkey, netuid).is_empty());
+    });
+}

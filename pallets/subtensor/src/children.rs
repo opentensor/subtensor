@@ -51,7 +51,13 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
-        log::trace!( "do_set_children( coldkey:{:?} hotkey:{:?} netuid:{:?} children:{:?} )", coldkey, netuid, hotkey, children );
+        log::trace!(
+            "do_set_children( coldkey:{:?} hotkey:{:?} netuid:{:?} children:{:?} )",
+            coldkey,
+            netuid,
+            hotkey,
+            children
+        );
 
         // --- 2. Check that this delegation is not on the root network. Child hotkeys are not valid on root.
         ensure!(
@@ -72,22 +78,17 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 4.1. Ensure that the number of children does not exceed 5.
-        ensure!(
-            children.len() <= 5,
-            Error::<T>::TooManyChildren
-        );
+        ensure!(children.len() <= 5, Error::<T>::TooManyChildren);
 
         // --- 5. Ensure that each child is not the hotkey.
         for (_, child_i) in &children {
             ensure!(child_i != &hotkey, Error::<T>::InvalidChild);
         }
         // --- 5.1. Ensure that the sum of the proportions does not exceed u64::MAX.
-        let total_proportion: u64 = children.iter().map(|(proportion, _ )| *proportion).sum();
-        ensure!(
-            total_proportion <= u64::MAX,
-            Error::<T>::ProportionOverflow
-        );
-
+        let _total_proportion: u64 = children
+            .iter()
+            .try_fold(0u64, |acc, &(proportion, _)| acc.checked_add(proportion))
+            .ok_or(Error::<T>::ProportionOverflow)?;
         // --- 5.2. Ensure there are no duplicates in the list of children.
         let mut unique_children = Vec::new();
         for (_, child_i) in &children {
@@ -104,7 +105,8 @@ impl<T: Config> Pallet<T> {
         // --- 6.0. Iterate over all my old children and remove myself from their parent's map.
         for (_, old_child_i) in old_children.clone().iter() {
             // --- 6.1. Get the old child's parents on this network.
-            let my_old_child_parents: Vec<(u64, T::AccountId)> = ParentKeys::<T>::get(old_child_i.clone(), netuid);
+            let my_old_child_parents: Vec<(u64, T::AccountId)> =
+                ParentKeys::<T>::get(old_child_i.clone(), netuid);
 
             // --- 6.2. Filter my hotkey from my old children's parents list.
             let filtered_parents: Vec<(u64, T::AccountId)> = my_old_child_parents
@@ -140,11 +142,7 @@ impl<T: Config> Pallet<T> {
             netuid,
             children.clone()
         );
-        Self::deposit_event(Event::SetChildren(
-            hotkey.clone(),
-            netuid,
-            children.clone(),
-        ));
+        Self::deposit_event(Event::SetChildren(hotkey.clone(), netuid, children.clone()));
 
         // Ok and return.
         Ok(())
@@ -192,9 +190,11 @@ impl<T: Config> Pallet<T> {
         // Iterate over children to calculate the total stake allocated to them.
         for (proportion, _) in children {
             // Calculate the stake proportion allocated to the child based on the initial stake.
-            let normalized_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            let stake_proportion_to_child: I96F32 = I96F32::from_num(initial_stake).saturating_mul( normalized_proportion );
-    
+            let normalized_proportion: I96F32 =
+                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            let stake_proportion_to_child: I96F32 =
+                I96F32::from_num(initial_stake).saturating_mul(normalized_proportion);
+
             // Accumulate the total stake given to children.
             stake_to_children =
                 stake_to_children.saturating_add(stake_proportion_to_child.to_num::<u64>());
@@ -205,9 +205,10 @@ impl<T: Config> Pallet<T> {
             // Retrieve the parent's total stake.
             let parent_stake: u64 = Self::get_total_stake_for_hotkey(&parent);
             // Calculate the stake proportion received from the parent.
-            let normalized_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
-            let stake_proportion_from_parent: I96F32 = I96F32::from_num(parent_stake).saturating_mul(normalized_proportion);
-    
+            let normalized_proportion: I96F32 =
+                I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
+            let stake_proportion_from_parent: I96F32 =
+                I96F32::from_num(parent_stake).saturating_mul(normalized_proportion);
 
             // Accumulate the total stake received from parents.
             stake_from_parents =

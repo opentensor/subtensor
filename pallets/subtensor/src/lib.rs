@@ -1189,7 +1189,7 @@ pub mod pallet {
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
     #[pallet::storage] // --- DMAP ( netuid ) --> stake_weight
-    pub(super) type S<T: Config> =
+    pub(super) type StakeWeight<T: Config> =
         StorageMap<_, Identity, u16, Vec<u16>, ValueQuery, EmptyU16Vec<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> active
     pub(super) type Active<T: Config> =
@@ -2415,9 +2415,9 @@ pub mod pallet {
             origin: T::RuntimeOrigin,
             hotkey: T::AccountId,
             netuid: u16,
-            children: Vec<( u64, T::AccountId )>,
+            children: Vec<(u64, T::AccountId)>,
         ) -> DispatchResultWithPostInfo {
-            Self::do_set_children( origin, hotkey, netuid, children )?;
+            Self::do_set_children(origin, hotkey, netuid, children)?;
             Ok(().into())
         }
     }

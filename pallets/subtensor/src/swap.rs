@@ -89,6 +89,10 @@ impl<T: Config> Pallet<T> {
 
         Self::swap_total_hotkey_coldkey_stakes_this_interval(old_hotkey, new_hotkey, &mut weight);
 
+        // Swap both child and parent keys
+        Self::swap_child_keys(old_hotkey, new_hotkey, &mut weight)?;
+        Self::swap_parent_keys(old_hotkey, new_hotkey, &mut weight)?;
+
         Self::set_last_tx_block(&coldkey, block);
         weight.saturating_accrue(T::DbWeight::get().writes(1));
 
@@ -984,6 +988,120 @@ impl<T: Config> Pallet<T> {
         if T::SenateMembers::is_member(old_hotkey) {
             T::SenateMembers::swap_member(old_hotkey, new_hotkey).map_err(|e| e.error)?;
             weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 2));
+        }
+        Ok(())
+    }
+
+    /// Swaps the child keys from the old hotkey to the new hotkey.
+    ///
+    /// This function updates the child-parent relationships when a hotkey is swapped.
+    /// It iterates through all networks, updates the ChildKeys storage, and adjusts
+    /// the ParentKeys for each child.
+    ///
+    /// # Arguments
+    ///
+    /// * `old_hotkey` - The AccountId of the old hotkey.
+    /// * `new_hotkey` - The AccountId of the new hotkey.
+    /// * `weight` - Mutable reference to the weight of the transaction.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult` - The result of the dispatch operation.
+    ///
+    /// # Effects
+    ///
+    /// * Updates ChildKeys storage, removing entries for the old hotkey and adding them for the new hotkey.
+    /// * Updates ParentKeys storage for each child, replacing the old hotkey with the new one.
+    /// * Accumulates weight for database operations.
+    pub fn swap_child_keys(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        weight: &mut Weight,
+    ) -> DispatchResult {
+        let total_networks = TotalNetworks::<T>::get();
+        log::info!("Total networks: {}", total_networks);
+        // Skip root network
+        for netuid in 1..=total_networks {
+            let children = Self::get_children(old_hotkey, netuid);
+            println!("Swapping children for netuid {}: {:?}", netuid, children);
+            if !children.is_empty() {
+                // Remove children from old hotkey
+                ChildKeys::<T>::remove(old_hotkey, netuid);
+
+                // Add children to new hotkey
+                ChildKeys::<T>::insert(new_hotkey, netuid, children.clone());
+
+                // Update parent in children's ParentKeys
+                for (proportion, child) in children {
+                    let mut parents = Self::get_parents(&child, netuid);
+                    if let Some(index) = parents.iter().position(|(_, parent)| parent == old_hotkey)
+                    {
+                        parents[index] = (proportion, new_hotkey.clone());
+                        ParentKeys::<T>::insert(&child, netuid, parents);
+                    }
+                }
+
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 3));
+            } else {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+            }
+        }
+        Ok(())
+    }
+    /// Swaps the parent keys from the old hotkey to the new hotkey.
+    ///
+    /// This function updates the parent-child relationships when a hotkey is swapped.
+    /// It iterates through all networks, updates the ParentKeys storage, and adjusts
+    /// the ChildKeys for each parent.
+    ///
+    /// # Arguments
+    ///
+    /// * `old_hotkey` - The AccountId of the old hotkey.
+    /// * `new_hotkey` - The AccountId of the new hotkey.
+    /// * `weight` - Mutable reference to the weight of the transaction.
+    ///
+    /// # Returns
+    ///
+    /// * `DispatchResult` - The result of the dispatch operation.
+    ///
+    /// # Effects
+    ///
+    /// * Updates ParentKeys storage, removing entries for the old hotkey and adding them for the new hotkey.
+    /// * Updates ChildKeys storage for each parent, replacing the old hotkey with the new one.
+    /// * Accumulates weight for database operations.
+    ///
+    pub fn swap_parent_keys(
+        old_hotkey: &T::AccountId,
+        new_hotkey: &T::AccountId,
+        weight: &mut Weight,
+    ) -> DispatchResult {
+        let total_networks = TotalNetworks::<T>::get();
+        println!("Total networks: {}", total_networks);
+        // Skip root network
+        for netuid in 1..=total_networks {
+            let parents = Self::get_parents(old_hotkey, netuid);
+            println!("Swapping parents for netuid {}: {:?}", netuid, parents);
+            if !parents.is_empty() {
+                // Remove parents from old hotkey
+                ParentKeys::<T>::remove(old_hotkey, netuid);
+
+                // Add parents to new hotkey
+                ParentKeys::<T>::insert(new_hotkey, netuid, parents.clone());
+
+                // Update child in parents' ChildKeys
+                for (proportion, parent) in parents {
+                    let mut children = Self::get_children(&parent, netuid);
+                    if let Some(index) = children.iter().position(|(_, child)| child == old_hotkey)
+                    {
+                        children[index] = (proportion, new_hotkey.clone());
+                        ChildKeys::<T>::insert(&parent, netuid, children);
+                    }
+                }
+
+                weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 3));
+            } else {
+                weight.saturating_accrue(T::DbWeight::get().reads(1));
+            }
         }
         Ok(())
     }
