@@ -1,6 +1,5 @@
 use super::*;
 
-
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic decrease_take
     ///

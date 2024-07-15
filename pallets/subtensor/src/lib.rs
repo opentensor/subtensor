@@ -38,12 +38,12 @@ mod benchmarks;
 pub mod coinbase;
 pub mod epoch;
 pub mod macros;
+pub mod migrations;
 pub mod rpc_info;
 pub mod staking;
-pub mod swap;
 pub mod subnets;
+pub mod swap;
 pub mod utils;
-pub mod migrations;
 use macros::{config, dispatches, errors, events, genesis, hooks};
 
 // apparently this is stabilized since rust 1.36

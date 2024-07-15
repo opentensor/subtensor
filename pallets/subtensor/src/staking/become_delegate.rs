@@ -1,6 +1,5 @@
 use super::*;
 
-
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic become_delegate: signals that this hotkey allows delegated stake.
     ///

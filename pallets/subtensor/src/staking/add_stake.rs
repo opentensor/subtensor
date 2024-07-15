@@ -1,6 +1,5 @@
 use super::*;
 
-
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic add_stake: Adds stake to a hotkey account.
     ///
