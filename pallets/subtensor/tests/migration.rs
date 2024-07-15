@@ -335,4 +335,18 @@ fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
     })
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing --exact --nocapture
+#[test]
+fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
+    new_test_ext(1).execute_with(|| {
+        let coldkey = U256::from(0); 
+        TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
+        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
+        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
+        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 20000);
+    })
+}
+
 
