@@ -973,7 +973,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn swap_hotfix(old_coldkey: &T::AccountId, new_coldkey: &T::AccountId) {
-        let weight = T::DbWeight::get().reads_writes(2, 1);
+        // let weight = T::DbWeight::get().reads_writes(2, 1);
         let staking_hotkeys = StakingHotkeys::<T>::get(old_coldkey);
         for staking_hotkey in staking_hotkeys {
             if Stake::<T>::contains_key(staking_hotkey.clone(), old_coldkey) {
