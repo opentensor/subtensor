@@ -132,10 +132,14 @@ impl<T: Config + pallet_registry::Config> Pallet<T> {
         delegates
     }
 
+    /// Get all delegate identity info for a given delegate
+    /// 
     pub fn get_delegate_identities() -> Option<Vec<IdentityInfo<T::MaxAdditionalFields>>> {
         RegistryPallet::<T>::get_delegate_identitities()
     }
 
+    /// Get all delegate identities
+    /// 
     pub fn get_identity_of_delegate(delegate_account_vec: Vec<u8>) -> Option<IdentityInfo<T::MaxAdditionalFields>> {
         if delegate_account_vec.len() != 32 {
             return None;
