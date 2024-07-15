@@ -35,24 +35,19 @@ mod benchmarks;
 // =========================
 //	==== Pallet Imports =====
 // =========================
-mod coinbase;
+pub mod coinbase;
 pub mod epoch;
-mod macros;
-mod rpc_info;
+pub mod macros;
+pub mod rpc_info;
 pub mod staking;
 pub mod swap;
+pub mod subnets;
+pub mod utils;
+pub mod migrations;
 use macros::{config, dispatches, errors, events, genesis, hooks};
-
-mod registration;
-mod root;
-mod serving;
-mod uids;
-mod utils;
-mod weights;
 
 // apparently this is stabilized since rust 1.36
 extern crate alloc;
-pub mod migrations;
 
 #[deny(missing_docs)]
 #[import_section(errors::errors)]
