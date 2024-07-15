@@ -32,6 +32,7 @@ fn test_root_register_network_exist() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_set_weights_not_root_error --exact --nocapture
 #[test]
 fn test_set_weights_not_root_error() {
     new_test_ext(0).execute_with(|| {
@@ -60,6 +61,7 @@ fn test_set_weights_not_root_error() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_register_normal_on_root_fails --exact --nocapture
 #[test]
 fn test_root_register_normal_on_root_fails() {
     new_test_ext(1).execute_with(|| {
@@ -104,6 +106,7 @@ fn test_root_register_normal_on_root_fails() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_register_stake_based_pruning_works --exact --nocapture
 #[test]
 fn test_root_register_stake_based_pruning_works() {
     new_test_ext(1).execute_with(|| {
@@ -192,6 +195,7 @@ fn test_root_register_stake_based_pruning_works() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
 #[test]
 fn test_root_set_weights() {
     new_test_ext(1).execute_with(|| {
@@ -334,6 +338,7 @@ fn test_root_set_weights() {
     });
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
 #[test]
 fn test_root_set_weights_out_of_order_netuids() {
     new_test_ext(1).execute_with(|| {

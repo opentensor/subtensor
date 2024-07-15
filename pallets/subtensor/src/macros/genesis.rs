@@ -124,7 +124,7 @@ mod genesis {
             SubnetworkN::<T>::insert(netuid, next_uid);
 
             // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| n.saturating_add( 1 ));
+            TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
@@ -133,7 +133,8 @@ mod genesis {
             NetworksAdded::<T>::insert(root_netuid, true);
 
             // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| n.saturating_add(1));
+            TotalNetworks::<T>::mutate(|n| *n = n.saturating_add(1));
+
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 

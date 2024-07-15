@@ -391,6 +391,9 @@ impl<T: Config> Pallet<T> {
 
         // --- 9. Calculates the trust of networks. Trust is a sum of all stake with weights > 0.
         // Trust will have shape k, a score for each subnet.
+        log::debug!("Subnets:\n{:?}\n", Self::get_all_subnet_netuids());
+        log::debug!("N Subnets:\n{:?}\n", Self::get_num_subnets());
+
         let total_networks = Self::get_num_subnets();
         let mut trust = vec![I64F64::from_num(0); total_networks as usize];
         let mut total_stake: I64F64 = I64F64::from_num(0);
@@ -1031,7 +1034,7 @@ impl<T: Config> Pallet<T> {
         NetworkModality::<T>::insert(netuid, 0);
 
         // --- 5. Increase total network count.
-        TotalNetworks::<T>::mutate(|n| n.saturating_inc());
+        TotalNetworks::<T>::mutate(|n|  *n = n.saturating_add(1));
 
         // --- 6. Set all default values **explicitly**.
         Self::set_network_registration_allowed(netuid, true);
@@ -1123,7 +1126,7 @@ impl<T: Config> Pallet<T> {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
+        TotalNetworks::<T>::mutate(|n| *n = n.saturating_sub(1));
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
