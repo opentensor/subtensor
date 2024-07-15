@@ -122,26 +122,47 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Returns the coldkey owning this hotkey. This function should only be called for active accounts.
-    //
+    /// Returns the coldkey owning this hotkey. This function should only be called for active accounts.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The hotkey account ID.
+    ///
+    /// # Returns
+    /// The coldkey account ID that owns the hotkey.
     pub fn get_owning_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
         Owner::<T>::get(hotkey)
     }
 
-    // Returns the hotkey take
-    //
+    /// Returns the hotkey take.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The hotkey account ID.
+    ///
+    /// # Returns
+    /// The take value of the hotkey.
     pub fn get_hotkey_take(hotkey: &T::AccountId) -> u16 {
         Delegates::<T>::get(hotkey)
     }
 
-    // Returns true if the hotkey account has been created.
-    //
+    /// Returns true if the hotkey account has been created.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The hotkey account ID.
+    ///
+    /// # Returns
+    /// True if the hotkey account exists, false otherwise.
     pub fn hotkey_account_exists(hotkey: &T::AccountId) -> bool {
         Owner::<T>::contains_key(hotkey)
     }
 
-    // Return true if the passed coldkey owns the hotkey.
-    //
+    /// Returns true if the passed coldkey owns the hotkey.
+    ///
+    /// # Arguments
+    /// * `coldkey` - The coldkey account ID.
+    /// * `hotkey` - The hotkey account ID.
+    ///
+    /// # Returns
+    /// True if the coldkey owns the hotkey, false otherwise.
     pub fn coldkey_owns_hotkey(coldkey: &T::AccountId, hotkey: &T::AccountId) -> bool {
         if Self::hotkey_account_exists(hotkey) {
             Owner::<T>::get(hotkey) == *coldkey
@@ -150,14 +171,24 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    // Returns true if the cold-hot staking account has enough balance to fufil the decrement.
-    //
+    /// Returns true if the cold-hot staking account has enough balance to fulfill the decrement.
+    ///
+    /// # Arguments
+    /// * `coldkey` - The coldkey account ID.
+    /// * `hotkey` - The hotkey account ID.
+    /// * `decrement` - The amount to be decremented.
+    ///
+    /// # Returns
+    /// True if the account has enough balance, false otherwise.
     pub fn has_enough_stake(coldkey: &T::AccountId, hotkey: &T::AccountId, decrement: u64) -> bool {
         Self::get_stake_for_coldkey_and_hotkey(coldkey, hotkey) >= decrement
     }
 
-    // Increases the stake on the hotkey account under its owning coldkey.
-    //
+    /// Increases the stake on the hotkey account under its owning coldkey.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The hotkey account ID.
+    /// * `increment` - The amount to be incremented.
     pub fn increase_stake_on_hotkey_account(hotkey: &T::AccountId, increment: u64) {
         Self::increase_stake_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),
@@ -166,8 +197,11 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    // Decreases the stake on the hotkey account under its owning coldkey.
-    //
+    /// Decreases the stake on the hotkey account under its owning coldkey.
+    ///
+    /// # Arguments
+    /// * `hotkey` - The hotkey account ID.
+    /// * `decrement` - The amount to be decremented.
     pub fn decrease_stake_on_hotkey_account(hotkey: &T::AccountId, decrement: u64) {
         Self::decrease_stake_on_coldkey_hotkey_account(
             &Self::get_owning_coldkey_for_hotkey(hotkey),

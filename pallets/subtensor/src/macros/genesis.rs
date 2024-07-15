@@ -77,7 +77,7 @@ mod genesis {
             // Set max allowed uids
             MaxAllowedUids::<T>::insert(netuid, max_uids);
 
-            let mut next_uid = 0;
+            let mut next_uid: u16 = 0;
 
             for (coldkey, hotkeys) in self.stakes.iter() {
                 for (hotkey, stake_uid) in hotkeys.iter() {
@@ -116,7 +116,7 @@ mod genesis {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
-                    next_uid += 1;
+                    next_uid = next_uid.saturating_add(1);
                 }
             }
 
@@ -124,7 +124,7 @@ mod genesis {
             SubnetworkN::<T>::insert(netuid, next_uid);
 
             // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| n.saturating_add( 1 ));
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
@@ -133,7 +133,7 @@ mod genesis {
             NetworksAdded::<T>::insert(root_netuid, true);
 
             // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| n.saturating_add(1));
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 

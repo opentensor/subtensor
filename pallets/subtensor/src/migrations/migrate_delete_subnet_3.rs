@@ -69,7 +69,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         NetworksAdded::<T>::remove(netuid);
 
         // Decrement the network counter
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_sub(1));
 
         // Remove network registration time
         NetworkRegisteredAt::<T>::remove(netuid);

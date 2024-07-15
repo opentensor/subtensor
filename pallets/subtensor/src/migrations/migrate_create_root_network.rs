@@ -55,7 +55,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     NetworksAdded::<T>::insert(root_netuid, true);
 
     // Increment the total number of networks
-    TotalNetworks::<T>::mutate(|n| *n += 1);
+    TotalNetworks::<T>::mutate(|n| n.saturating_add( 1 ));
 
     // Set the maximum number of UIDs to the number of senate members
     MaxAllowedUids::<T>::insert(root_netuid, 64);
