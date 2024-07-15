@@ -53,7 +53,7 @@ EXEC_TYPE="docker"
 NETWORK="mainnet"
 NODE_TYPE="lite"
 BUILD=""
-BIN_PATH="./target/release/node-subtensor"
+BIN_PATH="./target/production/node-subtensor"
 
 # Getting arguments from user
 while [[ $# -gt 0 ]]; do
