@@ -1419,7 +1419,9 @@ pub mod pallet {
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 .saturating_add(migration::migrate_populate_owned::<T>())
                 // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
-                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>());
+                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>())
+                // Fix total coldkey stake.
+                .saturating_add(migration::migrate_fix_total_coldkey_stake::<T>());
 
             weight
         }
@@ -2061,17 +2063,17 @@ pub mod pallet {
         }
 
         /// The extrinsic for user to change its hotkey
-        #[pallet::call_index(70)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn swap_hotkey(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
-        }
+        ///#[pallet::call_index(70)]
+        ///#[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+        ///.saturating_add(T::DbWeight::get().reads(272))
+        ///.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        ///pub fn swap_hotkey(
+        ///    origin: OriginFor<T>,
+        ///    hotkey: T::AccountId,
+        ///    new_hotkey: T::AccountId,
+        ///) -> DispatchResultWithPostInfo {
+        ///    Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        ///}
 
         /// The extrinsic for user to change the coldkey associated with their account.
         ///
@@ -2252,6 +2254,17 @@ pub mod pallet {
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::No))]
         pub fn dissolve_network(origin: OriginFor<T>, netuid: u16) -> DispatchResult {
             Self::user_remove_network(origin, netuid)
+        }
+
+        /// Sets values for liquid alpha
+        #[pallet::call_index(64)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            Ok(())
         }
     }
 
