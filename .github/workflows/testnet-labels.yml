@@ -2,6 +2,7 @@ name: Tested on Testnet
 on:
   pull_request:
     types: [opened, labeled, unlabeled, synchronize]
+    branches: [main]
 jobs:
   check-labels:
     runs-on: ubuntu-latest

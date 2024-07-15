@@ -7,6 +7,7 @@ use frame_support::{
     weights::Weight,
 };
 use log::info;
+use sp_runtime::Saturating;
 use sp_std::vec::Vec;
 
 // TODO (camfairchild): TEST MIGRATION
@@ -56,7 +57,9 @@ pub fn migration5_total_issuance<T: Config>(test: bool) -> Weight {
                 weight = weight.saturating_add(T::DbWeight::get().reads(1));
 
                 // Compute the total issuance value
-                let total_issuance_value: u64 = stake_sum + total_balance_sum + locked_sum;
+                let total_issuance_value: u64 = stake_sum
+                    .saturating_add(total_balance_sum)
+                    .saturating_add(locked_sum);
 
                 // Update the total issuance in storage
                 TotalIssuance::<T>::put(total_issuance_value);
@@ -134,7 +137,7 @@ pub fn migrate_create_root_network<T: Config>() -> Weight {
     NetworksAdded::<T>::insert(root_netuid, true);
 
     // Increment the number of total networks.
-    TotalNetworks::<T>::mutate(|n| *n += 1);
+    TotalNetworks::<T>::mutate(|n| n.saturating_inc());
 
     // Set the maximum number to the number of senate members.
     MaxAllowedUids::<T>::insert(root_netuid, 64);
@@ -201,7 +204,7 @@ pub fn migrate_delete_subnet_3<T: Config>() -> Weight {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
@@ -285,7 +288,7 @@ pub fn migrate_delete_subnet_21<T: Config>() -> Weight {
         NetworksAdded::<T>::remove(netuid);
 
         // --- 6. Decrement the network counter.
-        TotalNetworks::<T>::mutate(|n| *n -= 1);
+        TotalNetworks::<T>::mutate(|n| n.saturating_dec());
 
         // --- 7. Remove various network-related storages.
         NetworkRegisteredAt::<T>::remove(netuid);
@@ -471,6 +474,132 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
         weight
     } else {
         info!(target: LOG_TARGET_1, "Migration to v2 already done!");
+        Weight::zero()
+    }
+}
+
+/// Migrate the OwnedHotkeys map to the new storage format
+pub fn migrate_populate_owned<T: Config>() -> Weight {
+    // Setup migration weight
+    let mut weight = T::DbWeight::get().reads(1);
+    let migration_name = "Populate OwnedHotkeys map";
+
+    // Check if this migration is needed (if OwnedHotkeys map is empty)
+    let migrate = OwnedHotkeys::<T>::iter().next().is_none();
+
+    // Only runs if the migration is needed
+    if migrate {
+        info!(target: LOG_TARGET_1, ">>> Starting Migration: {}", migration_name);
+
+        let mut longest_hotkey_vector: usize = 0;
+        let mut longest_coldkey: Option<T::AccountId> = None;
+        let mut keys_touched: u64 = 0;
+        let mut storage_reads: u64 = 0;
+        let mut storage_writes: u64 = 0;
+
+        // Iterate through all Owner entries
+        Owner::<T>::iter().for_each(|(hotkey, coldkey)| {
+            storage_reads = storage_reads.saturating_add(1); // Read from Owner storage
+            let mut hotkeys = OwnedHotkeys::<T>::get(&coldkey);
+            storage_reads = storage_reads.saturating_add(1); // Read from OwnedHotkeys storage
+
+            // Add the hotkey if it's not already in the vector
+            if !hotkeys.contains(&hotkey) {
+                hotkeys.push(hotkey);
+                keys_touched = keys_touched.saturating_add(1);
+
+                // Update longest hotkey vector info
+                if longest_hotkey_vector < hotkeys.len() {
+                    longest_hotkey_vector = hotkeys.len();
+                    longest_coldkey = Some(coldkey.clone());
+                }
+
+                // Update the OwnedHotkeys storage
+                OwnedHotkeys::<T>::insert(&coldkey, hotkeys);
+                storage_writes = storage_writes.saturating_add(1); // Write to OwnedHotkeys storage
+            }
+
+            // Accrue weight for reads and writes
+            weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+        });
+
+        // Log migration results
+        info!(
+            target: LOG_TARGET_1,
+            "Migration {} finished. Keys touched: {}, Longest hotkey vector: {}, Storage reads: {}, Storage writes: {}",
+            migration_name, keys_touched, longest_hotkey_vector, storage_reads, storage_writes
+        );
+        if let Some(c) = longest_coldkey {
+            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {:?}", c);
+        }
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_1, "Migration {} already done!", migration_name);
+        Weight::zero()
+    }
+}
+
+/// Populate the StakingHotkeys map from Stake map
+pub fn migrate_populate_staking_hotkeys<T: Config>() -> Weight {
+    // Setup migration weight
+    let mut weight = T::DbWeight::get().reads(1);
+    let migration_name = "Populate StakingHotkeys map";
+
+    // Check if this migration is needed (if StakingHotkeys map is empty)
+    let migrate = StakingHotkeys::<T>::iter().next().is_none();
+
+    // Only runs if the migration is needed
+    if migrate {
+        info!(target: LOG_TARGET_1, ">>> Starting Migration: {}", migration_name);
+
+        let mut longest_hotkey_vector: usize = 0;
+        let mut longest_coldkey: Option<T::AccountId> = None;
+        let mut keys_touched: u64 = 0;
+        let mut storage_reads: u64 = 0;
+        let mut storage_writes: u64 = 0;
+
+        // Iterate through all Owner entries
+        Stake::<T>::iter().for_each(|(hotkey, coldkey, stake)| {
+            storage_reads = storage_reads.saturating_add(1); // Read from Owner storage
+            if stake > 0 {
+                let mut hotkeys = StakingHotkeys::<T>::get(&coldkey);
+                storage_reads = storage_reads.saturating_add(1); // Read from StakingHotkeys storage
+
+                // Add the hotkey if it's not already in the vector
+                if !hotkeys.contains(&hotkey) {
+                    hotkeys.push(hotkey);
+                    keys_touched = keys_touched.saturating_add(1);
+
+                    // Update longest hotkey vector info
+                    if longest_hotkey_vector < hotkeys.len() {
+                        longest_hotkey_vector = hotkeys.len();
+                        longest_coldkey = Some(coldkey.clone());
+                    }
+
+                    // Update the StakingHotkeys storage
+                    StakingHotkeys::<T>::insert(&coldkey, hotkeys);
+                    storage_writes = storage_writes.saturating_add(1); // Write to StakingHotkeys storage
+                }
+
+                // Accrue weight for reads and writes
+                weight = weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+            }
+        });
+
+        // Log migration results
+        info!(
+            target: LOG_TARGET_1,
+            "Migration {} finished. Keys touched: {}, Longest hotkey vector: {}, Storage reads: {}, Storage writes: {}",
+            migration_name, keys_touched, longest_hotkey_vector, storage_reads, storage_writes
+        );
+        if let Some(c) = longest_coldkey {
+            info!(target: LOG_TARGET_1, "Longest hotkey vector is controlled by: {:?}", c);
+        }
+
+        weight
+    } else {
+        info!(target: LOG_TARGET_1, "Migration {} already done!", migration_name);
         Weight::zero()
     }
 }

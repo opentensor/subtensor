@@ -4,6 +4,7 @@ use frame_support::storage::IterableStorageDoubleMap;
 extern crate alloc;
 use codec::Compact;
 
+#[freeze_struct("45e69321f5c74b4b")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfo<T: Config> {
     hotkey: T::AccountId,
@@ -28,6 +29,7 @@ pub struct NeuronInfo<T: Config> {
     pruning_score: Compact<u16>,
 }
 
+#[freeze_struct("c21f0f4f22bcb2a1")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct NeuronInfoLite<T: Config> {
     hotkey: T::AccountId,

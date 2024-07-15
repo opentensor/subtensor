@@ -54,7 +54,7 @@ use frame_support::{
 use scale_info::TypeInfo;
 use sp_io::storage;
 use sp_runtime::traits::Dispatchable;
-use sp_runtime::{traits::Hash, RuntimeDebug};
+use sp_runtime::{traits::Hash, RuntimeDebug, Saturating};
 use sp_std::{marker::PhantomData, prelude::*, result};
 
 #[cfg(test)]
@@ -65,6 +65,7 @@ mod benchmarking;
 pub mod weights;
 
 pub use pallet::*;
+use subtensor_macros::freeze_struct;
 pub use weights::WeightInfo;
 
 const LOG_TARGET: &str = "runtime::collective";
@@ -119,7 +120,7 @@ impl DefaultVote for MoreThanMajorityThenPrimeDefaultVote {
         _no_votes: MemberCount,
         len: MemberCount,
     ) -> bool {
-        let more_than_majority = yes_votes * 2 > len;
+        let more_than_majority = yes_votes.saturating_mul(2) > len;
         more_than_majority || prime_vote.unwrap_or(false)
     }
 }
@@ -150,6 +151,7 @@ impl<AccountId, I> GetBacking for RawOrigin<AccountId, I> {
 }
 
 /// Info for keeping track of a motion being voted on.
+#[freeze_struct("a8e7b0b34ad52b17")]
 #[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct Votes<AccountId, BlockNumber> {
     /// The proposal's unique index.
@@ -545,7 +547,9 @@ pub mod pallet {
                 Error::<T, I>::DurationLowerThanConfiguredMotionDuration
             );
 
-            let threshold = (T::GetVotingMembers::get_count() / 2) + 1;
+            let threshold = T::GetVotingMembers::get_count()
+                .saturating_div(2)
+                .saturating_add(1);
 
             let members = Self::members();
             let (proposal_len, active_proposals) =
@@ -716,10 +720,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             })?;
 
         let index = Self::proposal_count();
-        <ProposalCount<T, I>>::mutate(|i| *i += 1);
+        <ProposalCount<T, I>>::try_mutate(|i| {
+            *i = i
+                .checked_add(1)
+                .ok_or(Error::<T, I>::TooManyActiveProposals)?;
+            Ok::<(), Error<T, I>>(())
+        })?;
         <ProposalOf<T, I>>::insert(proposal_hash, proposal);
         let votes = {
-            let end = frame_system::Pallet::<T>::block_number() + duration;
+            let end = frame_system::Pallet::<T>::block_number().saturating_add(duration);
             Votes {
                 index,
                 threshold,
@@ -862,10 +871,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         // default voting strategy.
         let default = T::DefaultVote::default_vote(prime_vote, yes_votes, no_votes, seats);
 
-        let abstentions = seats - (yes_votes + no_votes);
+        let abstentions = seats.saturating_sub(yes_votes.saturating_add(no_votes));
         match default {
-            true => yes_votes += abstentions,
-            false => no_votes += abstentions,
+            true => yes_votes = yes_votes.saturating_add(abstentions),
+            false => no_votes = no_votes.saturating_add(abstentions),
         }
         let approved = yes_votes >= voting.threshold;
 
@@ -981,7 +990,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Voting::<T, I>::remove(proposal_hash);
         let num_proposals = Proposals::<T, I>::mutate(|proposals| {
             proposals.retain(|h| h != &proposal_hash);
-            proposals.len() + 1 // calculate weight based on original length
+            proposals.len().saturating_add(1) // calculate weight based on original length
         });
         num_proposals as u32
     }
@@ -1154,7 +1163,7 @@ impl<
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
         o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D > N * m => Ok(()),
+            RawOrigin::Members(n, m) if n.saturating_mul(D) > N.saturating_mul(m) => Ok(()),
             r => Err(O::from(r)),
         })
     }
@@ -1179,7 +1188,7 @@ impl<
     type Success = ();
     fn try_origin(o: O) -> Result<Self::Success, O> {
         o.into().and_then(|o| match o {
-            RawOrigin::Members(n, m) if n * D >= N * m => Ok(()),
+            RawOrigin::Members(n, m) if n.saturating_mul(D) >= N.saturating_mul(m) => Ok(()),
             r => Err(O::from(r)),
         })
     }

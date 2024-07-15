@@ -1,6 +1,11 @@
 use super::*;
-use crate::system::{ensure_root, ensure_signed_or_root};
+use crate::{
+    system::{ensure_root, ensure_signed_or_root},
+    Error,
+};
+use sp_core::Get;
 use sp_core::U256;
+use substrate_fixed::types::I32F32;
 
 impl<T: Config> Pallet<T> {
     pub fn ensure_subnet_owner_or_root(
@@ -291,7 +296,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        current_block - prev_tx_block <= rate_limit
+        current_block.saturating_sub(prev_tx_block) <= rate_limit
     }
     pub fn exceeds_tx_delegate_take_rate_limit(prev_tx_block: u64, current_block: u64) -> bool {
         let rate_limit: u64 = Self::get_tx_delegate_take_rate_limit();
@@ -299,7 +304,7 @@ impl<T: Config> Pallet<T> {
             return false;
         }
 
-        current_block - prev_tx_block <= rate_limit
+        current_block.saturating_sub(prev_tx_block) <= rate_limit
     }
 
     // ========================
@@ -611,6 +616,13 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::SubnetOwnerCutSet(subnet_owner_cut));
     }
 
+    pub fn get_owned_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        OwnedHotkeys::<T>::get(coldkey)
+    }
+    pub fn get_all_staked_hotkeys(coldkey: &T::AccountId) -> Vec<T::AccountId> {
+        StakingHotkeys::<T>::get(coldkey)
+    }
+
     pub fn set_total_issuance(total_issuance: u64) {
         TotalIssuance::<T>::put(total_issuance);
     }
@@ -657,5 +669,30 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_nominator_min_required_stake(min_stake: u64) {
         NominatorMinRequiredStake::<T>::put(min_stake);
+    }
+
+    pub fn get_hotkey_swap_cost() -> u64 {
+        T::HotkeySwapCost::get()
+    }
+
+    pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
+        AlphaValues::<T>::get(netuid)
+    }
+
+    pub fn get_alpha_values_32(netuid: u16) -> (I32F32, I32F32) {
+        let (alpha_low, alpha_high): (u16, u16) = AlphaValues::<T>::get(netuid);
+        let converted_low = I32F32::from_num(alpha_low).saturating_div(I32F32::from_num(u16::MAX));
+        let converted_high =
+            I32F32::from_num(alpha_high).saturating_div(I32F32::from_num(u16::MAX));
+
+        (converted_low, converted_high)
+    }
+
+    pub fn set_liquid_alpha_enabled(netuid: u16, enabled: bool) {
+        LiquidAlphaOn::<T>::set(netuid, enabled);
+    }
+
+    pub fn get_liquid_alpha_enabled(netuid: u16) -> bool {
+        LiquidAlphaOn::<T>::get(netuid)
     }
 }

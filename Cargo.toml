@@ -4,11 +4,15 @@ members = [
     "pallets/commitments",
     "pallets/subtensor",
     "runtime",
+    "support/macros",
 ]
 resolver = "2"
 
 [workspace.lints.clippy]
+indexing-slicing = "deny"
+arithmetic-side-effects = "deny"
 type_complexity = "allow"
+unwrap-used = "deny"
 
 [workspace.dependencies]
 cargo-husky = { version = "1", default-features = false }
@@ -33,6 +37,8 @@ serde_with = { version = "=2.0.0", default-features = false }
 smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }
 
+subtensor-macros = { path = "support/macros" }
+
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 frame-benchmarking-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0" }
 frame-executive = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
@@ -50,6 +56,7 @@ pallet-membership = { git = "https://github.com/paritytech/polkadot-sdk.git", ta
 pallet-multisig = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 pallet-preimage = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 pallet-proxy = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
+pallet-safe-mode = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 pallet-scheduler = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.10.0", default-features = false }
