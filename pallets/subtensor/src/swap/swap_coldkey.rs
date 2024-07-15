@@ -1,7 +1,7 @@
 use super::*;
 use frame_support::traits::fungible::Mutate;
 use frame_support::traits::tokens::Preservation;
-use frame_support::{storage::IterableStorageDoubleMap, weights::Weight};
+use frame_support::weights::Weight;
 use sp_core::Get;
 
 impl<T: Config> Pallet<T> {

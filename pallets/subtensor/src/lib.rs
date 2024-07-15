@@ -39,13 +39,13 @@ mod rpc_info;
 mod coinbase;
 pub mod epoch;
 pub mod swap;
+pub mod staking;
 mod macros;
 use macros::{events, errors, dispatches, genesis, hooks, config};
 
 mod registration;
 mod root;
 mod serving;
-mod staking;
 mod uids;
 mod utils;
 mod weights;
