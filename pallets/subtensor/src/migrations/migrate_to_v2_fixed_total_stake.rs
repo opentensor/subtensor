@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::{
-    pallet_prelude::*, storage_alias,
+    pallet_prelude::*,
+    storage_alias,
     traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
@@ -71,7 +72,7 @@ pub fn migrate_to_v2_fixed_total_stake<T: Config>() -> Weight {
         // Recalculate TotalStake and TotalColdkeyStake based on the Stake map
         for (_, coldkey, stake) in Stake::<T>::iter() {
             weight.saturating_accrue(T::DbWeight::get().reads(1));
-            
+
             // Update TotalColdkeyStake
             let mut total_coldkey_stake = TotalColdkeyStake::<T>::get(coldkey.clone());
             weight.saturating_accrue(T::DbWeight::get().reads(1));

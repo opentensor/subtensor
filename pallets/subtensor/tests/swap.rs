@@ -88,8 +88,12 @@ fn test_do_swap_hotkey_ok() {
 
         // IsNetworkMember
         for netuid in SubtensorModule::get_netuid_is_member(&old_hotkey, &mut weight) {
-            assert!(pallet_subtensor::IsNetworkMember::<Test>::contains_key(new_hotkey, netuid));
-            assert!(!pallet_subtensor::IsNetworkMember::<Test>::contains_key(old_hotkey, netuid));
+            assert!(pallet_subtensor::IsNetworkMember::<Test>::contains_key(
+                new_hotkey, netuid
+            ));
+            assert!(!pallet_subtensor::IsNetworkMember::<Test>::contains_key(
+                old_hotkey, netuid
+            ));
         }
 
         // Owner
@@ -123,8 +127,12 @@ fn test_do_swap_hotkey_ok() {
 
         // TotalHotkeyColdkeyStakesThisInterval
         assert_eq!(
-            pallet_subtensor::TotalHotkeyColdkeyStakesThisInterval::<Test>::get(new_hotkey, coldkey),
-            pallet_subtensor::TotalHotkeyColdkeyStakesThisInterval::<Test>::get(old_hotkey, coldkey)
+            pallet_subtensor::TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                new_hotkey, coldkey
+            ),
+            pallet_subtensor::TotalHotkeyColdkeyStakesThisInterval::<Test>::get(
+                old_hotkey, coldkey
+            )
         );
     });
 }
@@ -226,8 +234,13 @@ fn test_do_swap_hotkey_ok_robust() {
 
                     // Verify raw storage maps
                     // Stake
-                    for (coldkey, stake_amount) in pallet_subtensor::Stake::<Test>::iter_prefix(old_hotkeys[i]) {
-                        assert_eq!(pallet_subtensor::Stake::<Test>::get(new_hotkeys[i], coldkey), stake_amount);
+                    for (coldkey, stake_amount) in
+                        pallet_subtensor::Stake::<Test>::iter_prefix(old_hotkeys[i])
+                    {
+                        assert_eq!(
+                            pallet_subtensor::Stake::<Test>::get(new_hotkeys[i], coldkey),
+                            stake_amount
+                        );
                     }
 
                     let mut weight = Weight::zero();
@@ -276,12 +289,18 @@ fn test_do_swap_hotkey_ok_robust() {
                     }
 
                     // Owner
-                    assert_eq!(pallet_subtensor::Owner::<Test>::get(new_hotkeys[i]), coldkeys[i]);
+                    assert_eq!(
+                        pallet_subtensor::Owner::<Test>::get(new_hotkeys[i]),
+                        coldkeys[i]
+                    );
 
                     // Keys
                     for (uid, hotkey) in pallet_subtensor::Keys::<Test>::iter_prefix(netuid) {
                         if hotkey == old_hotkeys[i] {
-                            assert_eq!(pallet_subtensor::Keys::<Test>::get(netuid, uid), new_hotkeys[i]);
+                            assert_eq!(
+                                pallet_subtensor::Keys::<Test>::get(netuid, uid),
+                                new_hotkeys[i]
+                            );
                         }
                     }
 
@@ -738,8 +757,13 @@ fn test_swap_axons_success() {
 
         // Verify the swap
         for netuid in &netuid_is_member {
-            assert_eq!(pallet_subtensor::Axons::<Test>::get(netuid, new_hotkey).unwrap(), axon_info);
-            assert!(!pallet_subtensor::Axons::<Test>::contains_key(netuid, old_hotkey));
+            assert_eq!(
+                pallet_subtensor::Axons::<Test>::get(netuid, new_hotkey).unwrap(),
+                axon_info
+            );
+            assert!(!pallet_subtensor::Axons::<Test>::contains_key(
+                netuid, old_hotkey
+            ));
         }
     });
 }
@@ -924,8 +948,13 @@ fn test_swap_uids_success() {
 
         // Verify the swap
         for netuid in &netuid_is_member {
-            assert_eq!(pallet_subtensor::Uids::<Test>::get(netuid, new_hotkey).unwrap(), uid);
-            assert!(!pallet_subtensor::Uids::<Test>::contains_key(netuid, old_hotkey));
+            assert_eq!(
+                pallet_subtensor::Uids::<Test>::get(netuid, new_hotkey).unwrap(),
+                uid
+            );
+            assert!(!pallet_subtensor::Uids::<Test>::contains_key(
+                netuid, old_hotkey
+            ));
         }
     });
 }
@@ -970,7 +999,11 @@ fn test_swap_prometheus_success() {
 
         // Initialize Prometheus for old_hotkey
         for netuid in &netuid_is_member {
-            pallet_subtensor::Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
+            pallet_subtensor::Prometheus::<Test>::insert(
+                netuid,
+                old_hotkey,
+                prometheus_info.clone(),
+            );
         }
 
         // Perform the swap
@@ -982,7 +1015,9 @@ fn test_swap_prometheus_success() {
                 pallet_subtensor::Prometheus::<Test>::get(netuid, new_hotkey).unwrap(),
                 prometheus_info
             );
-            assert!(!pallet_subtensor::Prometheus::<Test>::contains_key(netuid, old_hotkey));
+            assert!(!pallet_subtensor::Prometheus::<Test>::contains_key(
+                netuid, old_hotkey
+            ));
         }
     });
 }
@@ -1004,7 +1039,11 @@ fn test_swap_prometheus_weight_update() {
 
         // Initialize Prometheus for old_hotkey
         for netuid in &netuid_is_member {
-            pallet_subtensor::Prometheus::<Test>::insert(netuid, old_hotkey, prometheus_info.clone());
+            pallet_subtensor::Prometheus::<Test>::insert(
+                netuid,
+                old_hotkey,
+                prometheus_info.clone(),
+            );
         }
 
         // Perform the swap

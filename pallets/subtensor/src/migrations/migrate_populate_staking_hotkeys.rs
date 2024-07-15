@@ -1,9 +1,8 @@
-
 use super::*;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     storage_alias,
-    traits::{Get},
+    traits::Get,
     weights::Weight,
 };
 use log::info;
@@ -18,7 +17,6 @@ pub mod deprecated_loaded_emission_format {
     pub(super) type LoadedEmission<T: Config> =
         StorageMap<Pallet<T>, Identity, u16, Vec<(AccountIdOf<T>, u64)>, OptionQuery>;
 }
-
 
 /// Populate the StakingHotkeys map from Stake map
 pub fn migrate_populate_staking_hotkeys<T: Config>() -> Weight {

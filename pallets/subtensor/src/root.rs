@@ -905,7 +905,6 @@ impl<T: Config> Pallet<T> {
         // --- 0. Ensure the caller is a signed user.
         let coldkey = ensure_signed(origin)?;
 
-
         // --- 1. Rate limit for network registrations.
         let current_block = Self::get_current_block_as_u64();
         let last_lock_block = Self::get_network_last_lock_block();
@@ -993,7 +992,7 @@ impl<T: Config> Pallet<T> {
     pub fn user_remove_network(origin: T::RuntimeOrigin, netuid: u16) -> dispatch::DispatchResult {
         // --- 1. Ensure the function caller is a signed user.
         let coldkey = ensure_signed(origin)?;
-        
+
         // --- 2. Ensure this subnet exists.
         ensure!(
             Self::if_subnet_exist(netuid),

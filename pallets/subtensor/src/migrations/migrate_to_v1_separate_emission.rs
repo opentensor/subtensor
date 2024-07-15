@@ -1,6 +1,7 @@
 use super::*;
 use frame_support::{
-    pallet_prelude::*, storage_alias,
+    pallet_prelude::*,
+    storage_alias,
     traits::{Get, GetStorageVersion, StorageVersion},
     weights::Weight,
 };
@@ -39,7 +40,7 @@ pub mod deprecated_loaded_emission_format {
 /// ```
 pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
     use deprecated_loaded_emission_format as old;
-    
+
     // Initialize weight counter
     let mut weight = T::DbWeight::get().reads_writes(1, 0);
 
@@ -55,7 +56,7 @@ pub fn migrate_to_v1_separate_emission<T: Config>() -> Weight {
 
         // Collect all network IDs (netuids) from old LoadedEmission storage
         let curr_loaded_emission: Vec<u16> = old::LoadedEmission::<T>::iter_keys().collect();
-        
+
         // Remove any undecodable entries
         for netuid in curr_loaded_emission {
             weight.saturating_accrue(T::DbWeight::get().reads(1));

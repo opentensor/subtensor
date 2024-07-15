@@ -2,7 +2,7 @@ use super::*;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
     storage_alias,
-    traits::{Get, DefensiveResult},
+    traits::{DefensiveResult, Get},
     weights::Weight,
 };
 use sp_std::vec::Vec;

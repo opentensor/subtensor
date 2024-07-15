@@ -11,7 +11,6 @@ use frame_support::{
 };
 
 impl<T: Config> Pallet<T> {
-
     // Returns true if the passed hotkey allow delegative staking.
     //
     pub fn hotkey_is_delegate(hotkey: &T::AccountId) -> bool {

@@ -92,7 +92,7 @@ impl<T: Config> Pallet<T> {
 
         Ok(Some(weight).into())
     }
-   
+
     /// Retrieves the network membership status for a given hotkey.
     ///
     /// # Arguments
@@ -421,7 +421,6 @@ impl<T: Config> Pallet<T> {
             weight.saturating_accrue(T::DbWeight::get().writes(2)); // One write for insert and one for remove
         }
     }
-
 
     pub fn swap_senate_member(
         old_hotkey: &T::AccountId,

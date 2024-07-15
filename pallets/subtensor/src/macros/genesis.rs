@@ -159,5 +159,4 @@ mod genesis {
             TargetRegistrationsPerInterval::<T>::insert(root_netuid, 1);
         }
     }
-
 }

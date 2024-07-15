@@ -169,4 +169,4 @@ mod config {
         #[pallet::constant]
         type LiquidAlphaOn: Get<bool>;
     }
-} 
+}

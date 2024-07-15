@@ -1,4 +1,5 @@
 use super::*;
+use frame_support::pallet_prelude::OptionQuery;
 use frame_support::{
     pallet_prelude::Identity,
     storage_alias,
@@ -6,7 +7,6 @@ use frame_support::{
     weights::Weight,
 };
 use sp_std::vec::Vec;
-use frame_support::pallet_prelude::OptionQuery;
 
 // TODO: Implement comprehensive tests for this migration
 
@@ -43,14 +43,17 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
     // Execute migration if the current storage version is 5 or if in test mode
     if Pallet::<T>::on_chain_storage_version() == StorageVersion::new(5) || test {
         // Calculate the sum of all stake values
-        let stake_sum: u64 = Stake::<T>::iter().fold(0, |acc, (_, _, stake)| acc.saturating_add(stake));
+        let stake_sum: u64 =
+            Stake::<T>::iter().fold(0, |acc, (_, _, stake)| acc.saturating_add(stake));
         // Add weight for reading all stake entries
         weight = weight.saturating_add(T::DbWeight::get().reads(Stake::<T>::iter().count() as u64));
 
         // Calculate the sum of all locked subnet values
-        let locked_sum: u64 = SubnetLocked::<T>::iter().fold(0, |acc, (_, locked)| acc.saturating_add(locked));
+        let locked_sum: u64 =
+            SubnetLocked::<T>::iter().fold(0, |acc, (_, locked)| acc.saturating_add(locked));
         // Add weight for reading all subnet locked entries
-        weight = weight.saturating_add(T::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
+        weight = weight
+            .saturating_add(T::DbWeight::get().reads(SubnetLocked::<T>::iter().count() as u64));
 
         // Retrieve the total balance sum
         let total_balance = T::Currency::total_issuance();
@@ -61,7 +64,9 @@ pub fn migrate_total_issuance<T: Config>(test: bool) -> Weight {
         match TryInto::<u64>::try_into(total_balance) {
             Ok(total_balance_sum) => {
                 // Compute the total issuance value
-                let total_issuance_value: u64 = stake_sum.saturating_add(total_balance_sum).saturating_add(locked_sum);
+                let total_issuance_value: u64 = stake_sum
+                    .saturating_add(total_balance_sum)
+                    .saturating_add(locked_sum);
 
                 // Update the total issuance in storage
                 TotalIssuance::<T>::put(total_issuance_value);
