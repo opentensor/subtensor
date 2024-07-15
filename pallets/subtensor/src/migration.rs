@@ -493,7 +493,7 @@ pub fn migrate_to_v7_weight_commits<T: Config>() -> Weight {
     let mut weight = T::DbWeight::get().reads(1);
     let current_version = Pallet::<T>::on_chain_storage_version();
 
-    if current_version < 7 {
+    if current_version == 6 {
         log::info!(
             target: "runtime::subtensor",
             "Migrating WeightCommits to new format (v7)"
