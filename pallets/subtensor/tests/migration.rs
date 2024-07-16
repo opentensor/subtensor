@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 mod mock;
-use frame_support::assert_ok;
+use frame_support::{assert_ok, weights::Weight};
 use frame_system::Config;
 use mock::*;
 use pallet_subtensor::*;
@@ -279,16 +279,24 @@ fn test_migration_delete_subnet_21() {
 }
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake --exact --nocapture
 #[test]
 fn test_migrate_fix_total_coldkey_stake() {
     new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+
+        let weight = run_migration_and_check(migration_name);
+        assert!(weight != Weight::zero());
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
+
+        let second_weight = run_migration_and_check(migration_name);
+        assert_eq!(second_weight, Weight::zero());
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -297,13 +305,16 @@ fn test_migrate_fix_total_coldkey_stake() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
     new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+
+        let weight = run_migration_and_check(migration_name);
+        assert!(weight != Weight::zero());
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -312,12 +323,15 @@ fn test_migrate_fix_total_coldkey_stake_value_already_in_total() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_no_entry() {
     new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
-        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+
+        let weight = run_migration_and_check(migration_name);
+        assert!(weight != Weight::zero());
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
     })
 }
@@ -326,10 +340,13 @@ fn test_migrate_fix_total_coldkey_stake_no_entry() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
     new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
-        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+
+        let weight = run_migration_and_check(migration_name);
+        assert!(weight != Weight::zero());
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
     })
 }
@@ -338,12 +355,56 @@ fn test_migrate_fix_total_coldkey_stake_no_entry_in_hotkeys() {
 #[test]
 fn test_migrate_fix_total_coldkey_stake_one_hotkey_stake_missing() {
     new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
         TotalColdkeyStake::<Test>::insert(coldkey, 100000000);
         StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
         Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
         Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
-        pallet_subtensor::migration::do_migrate_fix_total_coldkey_stake::<Test>();
+
+        let weight = run_migration_and_check(migration_name);
+        assert!(weight != Weight::zero());
         assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 20000);
     })
 }
+
+// New test to check if migration runs only once
+#[test]
+fn test_migrate_fix_total_coldkey_stake_runs_once() {
+    new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
+        let coldkey = U256::from(0);
+        TotalColdkeyStake::<Test>::insert(coldkey, 0);
+        StakingHotkeys::<Test>::insert(coldkey, vec![U256::from(1), U256::from(2), U256::from(3)]);
+        Stake::<Test>::insert(U256::from(1), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(2), U256::from(0), 10000);
+        Stake::<Test>::insert(U256::from(3), U256::from(0), 10000);
+
+        // First run
+        let first_weight = run_migration_and_check(migration_name);
+        assert!(first_weight != Weight::zero());
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
+
+        // Second run
+        let second_weight = run_migration_and_check(migration_name);
+        assert_eq!(second_weight, Weight::zero());
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 30000);
+    })
+}
+
+fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
+    // Execute the migration and store its weight
+    let weight: frame_support::weights::Weight =
+        pallet_subtensor::migration::migrate_fix_total_coldkey_stake::<Test>();
+
+    // Check if the migration has been marked as completed
+    assert!(HasMigrationRun::<Test>::get(
+        migration_name.as_bytes().to_vec()
+    ));
+
+    // Return the weight of the executed migration
+    weight
+}
+
+// TODO: Consider adding error handling for cases where the migration fails or is already completed.
+// NOTE: The use of `as_bytes().to_vec()` might be inefficient for larger strings. Consider using a more efficient encoding method if performance becomes an issue.
