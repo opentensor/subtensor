@@ -235,53 +235,6 @@ where
         })
     }
 
-    // fn get_scheduled_coldkey_swap(
-    //     &self,
-    //     coldkey_account_vec: Vec<u8>,
-    //     at: Option<<Block as BlockT>::Hash>,
-    // ) -> RpcResult<Vec<u8>> {
-    //     let api = self.client.runtime_api();
-    //     let at = at.unwrap_or_else(|| self.client.info().best_hash);
-
-    //     api.get_scheduled_coldkey_swap(at, coldkey_account_vec)
-    //         .map_err(|e| {
-    //             Error::RuntimeError(format!("Unable to get scheduled coldkey swap: {:?}", e)).into()
-    //         })
-    // }
-
-    // fn get_remaining_arbitration_period(
-    //     &self,
-    //     coldkey_account_vec: Vec<u8>,
-    //     at: Option<<Block as BlockT>::Hash>,
-    // ) -> RpcResult<Vec<u8>> {
-    //     let api = self.client.runtime_api();
-    //     let at = at.unwrap_or_else(|| self.client.info().best_hash);
-
-    //     api.get_remaining_arbitration_period(at, coldkey_account_vec)
-    //         .map_err(|e| {
-    //             Error::RuntimeError(format!(
-    //                 "Unable to get remaining arbitration period: {:?}",
-    //                 e
-    //             ))
-    //             .into()
-    //         })
-    // }
-
-    // fn get_coldkey_swap_destinations(
-    //     &self,
-    //     coldkey_account_vec: Vec<u8>,
-    //     at: Option<<Block as BlockT>::Hash>,
-    // ) -> RpcResult<Vec<u8>> {
-    //     let api = self.client.runtime_api();
-    //     let at = at.unwrap_or_else(|| self.client.info().best_hash);
-
-    //     api.get_coldkey_swap_destinations(at, coldkey_account_vec)
-    //         .map_err(|e| {
-    //             Error::RuntimeError(format!("Unable to get coldkey swap destinations: {:?}", e))
-    //                 .into()
-    //         })
-    // }
-
     fn get_children_info(
         &self,
         netuid: u16,
