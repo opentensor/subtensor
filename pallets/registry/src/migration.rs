@@ -58,7 +58,7 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
             for delegate in delegates.iter() {
                 // Convert fields to bounded vecs
                 let name_result = string_to_bounded_vec(&delegate.name);
-                let desc_result = string_to_bounded_vec(&delegate.description);
+                let desc_result = string_to_bounded_vec(&truncate_string(&delegate.description));
                 let url_result = string_to_bounded_vec(&delegate.url);
 
                 // Convert string address into AccountID
@@ -139,4 +139,13 @@ pub fn migrate_set_hotkey_identities<T: Config>() -> Weight {
 
     log::info!("Final weight: {:?}", weight);
     weight
+}
+
+fn truncate_string(s: &str) -> String {
+    let max_len: usize = 64;
+    if s.len() > max_len {
+        s.chars().take(max_len).collect()
+    } else {
+        s.to_string()
+    }
 }
