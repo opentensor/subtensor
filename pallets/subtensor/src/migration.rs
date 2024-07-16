@@ -57,10 +57,6 @@ pub fn do_migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
     weight
 }
 
-// #[pallet::storage]
-// #[pallet::getter(fn has_migration_run)]
-// pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, &'static str, bool, ValueQuery>;
-
 /// Migrates and fixes the total coldkey stake.
 ///
 /// This function checks if the migration has already run, and if not, it performs the migration
