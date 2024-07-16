@@ -1423,7 +1423,7 @@ pub mod pallet {
                 .saturating_add(migration::migrate_populate_owned::<T>())
                 // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
                 .saturating_add(migration::migrate_populate_staking_hotkeys::<T>())
-                //Fix total coldkey stake.
+                // Fix total coldkey stake.
                 .saturating_add(migration::migrate_fix_total_coldkey_stake::<T>());
 
             weight
