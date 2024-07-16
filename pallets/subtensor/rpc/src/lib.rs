@@ -12,8 +12,8 @@ use std::sync::Arc;
 use sp_api::ProvideRuntimeApi;
 
 pub use subtensor_custom_rpc_runtime_api::{
-    ChildrenInfoRuntimeApi, ColdkeySwapRuntimeApi, DelegateInfoRuntimeApi, NeuronInfoRuntimeApi,
-    SubnetInfoRuntimeApi, SubnetRegistrationRuntimeApi,
+    ChildrenInfoRuntimeApi, DelegateInfoRuntimeApi, NeuronInfoRuntimeApi, SubnetInfoRuntimeApi,
+    SubnetRegistrationRuntimeApi,
 };
 
 #[rpc(client, server)]
@@ -51,6 +51,7 @@ pub trait SubtensorCustomApi<BlockHash> {
 
     #[method(name = "subnetInfo_getLockCost")]
     fn get_network_lock_cost(&self, at: Option<BlockHash>) -> RpcResult<u64>;
+
     #[method(name = "childrenInfo_getChildrenInfo")]
     fn get_children_info(&self, netuid: u16, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
     #[method(name = "childrenInfo_getChildInfo")]
@@ -61,28 +62,9 @@ pub trait SubtensorCustomApi<BlockHash> {
         proportion: u64,
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
-    #[method(name = "coldkeySwap_getScheduledColdkeySwap")]
-    fn get_scheduled_coldkey_swap(
-        &self,
-        coldkey_account_vec: Vec<u8>,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<u8>>;
-    #[method(name = "coldkeySwap_getRemainingArbitrationPeriod")]
-    fn get_remaining_arbitration_period(
-        &self,
-        coldkey_account_vec: Vec<u8>,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<u8>>;
-    #[method(name = "coldkeySwap_getColdkeySwapDestinations")]
-    fn get_coldkey_swap_destinations(
-        &self,
-        coldkey_account_vec: Vec<u8>,
-        at: Option<BlockHash>,
-    ) -> RpcResult<Vec<u8>>;
 }
 
 pub struct SubtensorCustom<C, P> {
-    /// Shared reference to the client.
     client: Arc<C>,
     _marker: std::marker::PhantomData<P>,
 }
@@ -128,7 +110,6 @@ where
     C::Api: SubnetInfoRuntimeApi<Block>,
     C::Api: SubnetRegistrationRuntimeApi<Block>,
     C::Api: ChildrenInfoRuntimeApi<Block>,
-    C::Api: ColdkeySwapRuntimeApi<Block>,
 {
     fn get_delegates(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
@@ -254,52 +235,52 @@ where
         })
     }
 
-    fn get_scheduled_coldkey_swap(
-        &self,
-        coldkey_account_vec: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<u8>> {
-        let api = self.client.runtime_api();
-        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+    // fn get_scheduled_coldkey_swap(
+    //     &self,
+    //     coldkey_account_vec: Vec<u8>,
+    //     at: Option<<Block as BlockT>::Hash>,
+    // ) -> RpcResult<Vec<u8>> {
+    //     let api = self.client.runtime_api();
+    //     let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_scheduled_coldkey_swap(at, coldkey_account_vec)
-            .map_err(|e| {
-                Error::RuntimeError(format!("Unable to get scheduled coldkey swap: {:?}", e)).into()
-            })
-    }
+    //     api.get_scheduled_coldkey_swap(at, coldkey_account_vec)
+    //         .map_err(|e| {
+    //             Error::RuntimeError(format!("Unable to get scheduled coldkey swap: {:?}", e)).into()
+    //         })
+    // }
 
-    fn get_remaining_arbitration_period(
-        &self,
-        coldkey_account_vec: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<u8>> {
-        let api = self.client.runtime_api();
-        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+    // fn get_remaining_arbitration_period(
+    //     &self,
+    //     coldkey_account_vec: Vec<u8>,
+    //     at: Option<<Block as BlockT>::Hash>,
+    // ) -> RpcResult<Vec<u8>> {
+    //     let api = self.client.runtime_api();
+    //     let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_remaining_arbitration_period(at, coldkey_account_vec)
-            .map_err(|e| {
-                Error::RuntimeError(format!(
-                    "Unable to get remaining arbitration period: {:?}",
-                    e
-                ))
-                .into()
-            })
-    }
+    //     api.get_remaining_arbitration_period(at, coldkey_account_vec)
+    //         .map_err(|e| {
+    //             Error::RuntimeError(format!(
+    //                 "Unable to get remaining arbitration period: {:?}",
+    //                 e
+    //             ))
+    //             .into()
+    //         })
+    // }
 
-    fn get_coldkey_swap_destinations(
-        &self,
-        coldkey_account_vec: Vec<u8>,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<u8>> {
-        let api = self.client.runtime_api();
-        let at = at.unwrap_or_else(|| self.client.info().best_hash);
+    // fn get_coldkey_swap_destinations(
+    //     &self,
+    //     coldkey_account_vec: Vec<u8>,
+    //     at: Option<<Block as BlockT>::Hash>,
+    // ) -> RpcResult<Vec<u8>> {
+    //     let api = self.client.runtime_api();
+    //     let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_coldkey_swap_destinations(at, coldkey_account_vec)
-            .map_err(|e| {
-                Error::RuntimeError(format!("Unable to get coldkey swap destinations: {:?}", e))
-                    .into()
-            })
-    }
+    //     api.get_coldkey_swap_destinations(at, coldkey_account_vec)
+    //         .map_err(|e| {
+    //             Error::RuntimeError(format!("Unable to get coldkey swap destinations: {:?}", e))
+    //                 .into()
+    //         })
+    // }
 
     fn get_children_info(
         &self,

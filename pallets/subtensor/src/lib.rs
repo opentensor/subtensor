@@ -54,7 +54,6 @@ mod weights;
 pub mod children_info;
 pub mod delegate_info;
 pub mod neuron_info;
-pub mod schedule_coldkey_swap_info;
 pub mod stake_info;
 pub mod subnet_info;
 
@@ -257,7 +256,7 @@ pub mod pallet {
         type InitialNetworkMaxStake: Get<u64>;
         /// Cost of swapping a hotkey.
         #[pallet::constant]
-        type HotkeySwapCost: Get<u64>;
+        type KeySwapCost: Get<u64>;
         /// The upper bound for the alpha parameter. Used for Liquid Alpha.
         #[pallet::constant]
         type AlphaHigh: Get<u16>;
@@ -1541,7 +1540,9 @@ pub mod pallet {
                 // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
                 .saturating_add(migration::migrate_populate_owned::<T>())
                 // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
-                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>());
+                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>())
+                // Fix total coldkey stake.
+                .saturating_add(migration::migrate_fix_total_coldkey_stake::<T>());
 
             weight
         }
@@ -2160,6 +2161,15 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
+        /// Attempt to adjust the senate membership to include a hotkey
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
+        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_adjust_senate(origin, hotkey)
+        }
+
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(177_000_000, 0)
@@ -2174,17 +2184,17 @@ pub mod pallet {
         }
 
         /// The extrinsic for user to change its hotkey
-        #[pallet::call_index(70)]
-        #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
-		.saturating_add(T::DbWeight::get().reads(272))
-		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn swap_hotkey(
-            origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
-        }
+        ///#[pallet::call_index(70)]
+        ///#[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+        ///.saturating_add(T::DbWeight::get().reads(272))
+        ///.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        ///pub fn swap_hotkey(
+        ///    origin: OriginFor<T>,
+        ///    hotkey: T::AccountId,
+        ///    new_hotkey: T::AccountId,
+        ///) -> DispatchResultWithPostInfo {
+        ///    Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        ///}
 
         /// The extrinsic for user to change the coldkey associated with their account.
         ///
@@ -2211,7 +2221,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             Self::do_swap_coldkey(origin, &new_coldkey)
         }
-
         /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
         ///
         /// # Arguments
@@ -2227,6 +2236,7 @@ pub mod pallet {
         /// # Weight
         ///
         /// Weight is calculated based on the number of database reads and writes.
+        #[cfg(test)]
         #[pallet::call_index(72)]
         #[pallet::weight((Weight::from_parts(21_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(3))
@@ -2412,7 +2422,7 @@ pub mod pallet {
         /// 7. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
         /// 8. **New Children Assignment**: Assigns the new child to the hotkey and updates the parent list for the new child.
         // TODO: Benchmark this call
-        #[pallet::call_index(63)]
+        #[pallet::call_index(64)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(6))
 		.saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
@@ -2456,7 +2466,7 @@ pub mod pallet {
         /// * `HotKeyAccountNotExists`:
         ///     - The hotkey account does not exist.
         // TODO: Benchmark this call
-        #[pallet::call_index(64)]
+        #[pallet::call_index(68)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
     .saturating_add(T::DbWeight::get().reads(6))
     .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
@@ -2512,7 +2522,7 @@ pub mod pallet {
         /// 6. **Old Children Cleanup**: Removes the hotkey from the parent list of its old children.
         /// 7. **New Children Assignment**: Assigns the new children to the hotkey and updates the parent list for each new child.
         // TODO: Benchmark this call
-        #[pallet::call_index(68)]
+        #[pallet::call_index(69)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(6))
         .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
@@ -2566,7 +2576,7 @@ pub mod pallet {
         ///
         /// # Note:
         /// This function is more efficient than revoking children one by one, especially when dealing with multiple children.
-        #[pallet::call_index(69)]
+        #[pallet::call_index(73)]
         #[pallet::weight((Weight::from_parts(119_000_000, 0)
         .saturating_add(T::DbWeight::get().reads(6))
         .saturating_add(T::DbWeight::get().writes(31)), DispatchClass::Operational, Pays::Yes))]
@@ -2590,7 +2600,7 @@ pub mod pallet {
         /// Returns `Error::<T>::NetworkDoesNotExist` if any of the subnets do not exist.
         /// Returns `Error::<T>::InvalidTake` if any take exceeds the initial default take.
         /// Returns `Error::<T>::TxRateLimitExceeded` if the rate limit is exceeded.
-        #[pallet::call_index(73)]
+        #[pallet::call_index(74)]
         #[pallet::weight((0, DispatchClass::Normal, Pays::No))]
         pub fn set_delegate_takes(
             origin: OriginFor<T>,
@@ -2598,6 +2608,17 @@ pub mod pallet {
             takes: Vec<(u16, u16)>,
         ) -> DispatchResult {
             Self::do_set_delegate_takes(origin, &hotkey, takes)
+        }
+
+        /// Sets values for liquid alpha
+        #[pallet::call_index(75)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            Ok(())
         }
     }
 

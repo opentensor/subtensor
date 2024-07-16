@@ -144,6 +144,13 @@ mod events {
         RevokeChildrenMultiple(T::AccountId, Vec<T::AccountId>, u16),
         /// Network max stake is set
         NetworkMaxStakeSet(u16, u64),
+        /// a member of the senate is adjusted
+        SenateAdjusted {
+            /// the account ID of the old senate member, if any
+            old_member: Option<T::AccountId>,
+            /// the account ID of the new senate member
+            new_member: T::AccountId,
+        },
         /// A coldkey has been swapped
         ColdkeySwapped {
             /// the account ID of old coldkey

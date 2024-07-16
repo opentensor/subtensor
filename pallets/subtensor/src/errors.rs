@@ -132,6 +132,8 @@ mod errors {
         ProportionSumIncorrect,
         /// Duplicate child when set children keys
         DuplicateChild,
+        /// Not able to join the senate.
+        CouldNotJoinSenate,
         /// Attempting to set alpha high/low while disabled
         LiquidAlphaDisabled,
         /// Alpha high is too low: alpha_high > 0.8

@@ -139,7 +139,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     //   `spec_version`, and `authoring_version` are the same between Wasm and native.
     // This value is set to 100 to notify Polkadot-JS App (https://polkadot.js.org/apps) to use
     //   the compatible custom types.
-    spec_version: 194,
+    spec_version: 165,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -312,8 +312,7 @@ impl Contains<RuntimeCall> for SafeModeWhitelistedCalls {
                 | RuntimeCall::SafeMode(_)
                 | RuntimeCall::Timestamp(_)
                 | RuntimeCall::SubtensorModule(
-                    pallet_subtensor::Call::schedule_coldkey_swap { .. }
-                        | pallet_subtensor::Call::set_weights { .. }
+                    pallet_subtensor::Call::set_weights { .. }
                         | pallet_subtensor::Call::set_root_weights { .. }
                         | pallet_subtensor::Call::serve_axon { .. }
                 )
@@ -880,6 +879,7 @@ parameter_types! {
     pub const SubtensorInitialHotkeyEmissionTempo: u64 = 7200; // Drain every day.
     pub const SubtensorInitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const SubtensorInitialHotkeySwapCost: u64 = 1_000_000_000;
+    pub const SubtensorInitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -937,7 +937,7 @@ impl pallet_subtensor::Config for Runtime {
     type InitialTargetStakesPerInterval = SubtensorInitialTargetStakesPerInterval;
     type InitialHotkeyEmissionTempo = SubtensorInitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = SubtensorInitialNetworkMaxStake;
-    type HotkeySwapCost = SubtensorInitialHotkeySwapCost;
+    type KeySwapCost = SubtensorInitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;
@@ -1674,23 +1674,6 @@ impl_runtime_apis! {
     impl subtensor_custom_rpc_runtime_api::SubnetRegistrationRuntimeApi<Block> for Runtime {
         fn get_network_registration_cost() -> u64 {
             SubtensorModule::get_network_lock_cost()
-        }
-    }
-
-    impl subtensor_custom_rpc_runtime_api::ColdkeySwapRuntimeApi<Block> for Runtime {
-        fn get_scheduled_coldkey_swap( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_scheduled_coldkey_swap( coldkey_account_vec );
-            result.encode()
-        }
-
-        fn get_remaining_arbitration_period( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_remaining_arbitration_period( coldkey_account_vec );
-            result.encode()
-        }
-
-        fn get_coldkey_swap_destinations( coldkey_account_vec: Vec<u8> ) -> Vec<u8> {
-            let result = SubtensorModule::get_coldkey_swap_destinations( coldkey_account_vec );
-            result.encode()
         }
     }
 

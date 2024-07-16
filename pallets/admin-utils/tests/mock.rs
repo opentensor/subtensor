@@ -113,6 +113,7 @@ parameter_types! {
     pub const InitialHotkeyEmissionTempo: u64 = 1;
     pub const InitialNetworkMaxStake: u64 = 500_000_000_000_000; // 500_000 TAO
     pub const InitialHotkeySwapCost: u64 = 1_000_000_000;
+    pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -170,10 +171,10 @@ impl pallet_subtensor::Config for Test {
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
-    type HotkeySwapCost = InitialHotkeySwapCost;
+    type KeySwapCost = InitialKeySwapCost;
+    type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type AlphaHigh = InitialAlphaHigh;
-    type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialBaseDifficulty = InitialBaseDifficulty;
 }
 

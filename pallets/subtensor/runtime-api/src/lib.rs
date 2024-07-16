@@ -37,10 +37,4 @@ sp_api::decl_runtime_apis! {
         fn get_children_info(netuid: u16) -> Vec<u8>;
         fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u64) -> Vec<u8>;
     }
-
-    pub trait ColdkeySwapRuntimeApi {
-        fn get_scheduled_coldkey_swap( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
-        fn get_remaining_arbitration_period( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
-        fn get_coldkey_swap_destinations( coldkey_account_vec: Vec<u8> ) -> Vec<u8>;
-    }
 }
