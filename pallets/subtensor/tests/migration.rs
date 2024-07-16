@@ -392,9 +392,9 @@ fn test_migrate_fix_total_coldkey_stake_runs_once() {
     })
 }
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_starts_with_value_no_more_entries --exact --nocapture
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries --exact --nocapture
 #[test]
-fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_more_entries() {
+fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries() {
     new_test_ext(1).execute_with(|| {
         let migration_name = "fix_total_coldkey_stake_v7";
         let coldkey = U256::from(0);
