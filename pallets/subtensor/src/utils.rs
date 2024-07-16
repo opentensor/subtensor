@@ -327,7 +327,7 @@ impl<T: Config> Pallet<T> {
         let prev_total = TotalSubnetLocked::<T>::get();
         let prev = SubnetLocked::<T>::get(netuid);
 
-        // Deduct the prev amount and add the new amount to the total
+        // Deduct the previous amount and add the new amount to the total
         TotalSubnetLocked::<T>::put(prev_total.saturating_sub(prev).saturating_add(amount));
 
         // Finally, set the new amount
