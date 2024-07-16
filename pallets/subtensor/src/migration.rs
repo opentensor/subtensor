@@ -37,6 +37,13 @@ pub fn do_migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
 
+    // Clear everything from the map first, no limit (u32::MAX)
+    let removal_results = TotalColdkeyStake::<T>::clear(u32::MAX, None);
+    // 1 read/write per removal
+    let entries_removed: u64 = removal_results.backend.into();
+    weight =
+        weight.saturating_add(T::DbWeight::get().reads_writes(entries_removed, entries_removed));
+
     // Iterate through all staking hotkeys.
     for (coldkey, hotkey_vec) in StakingHotkeys::<T>::iter() {
         // Init the zero value.

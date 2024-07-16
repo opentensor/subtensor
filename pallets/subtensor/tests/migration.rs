@@ -392,6 +392,23 @@ fn test_migrate_fix_total_coldkey_stake_runs_once() {
     })
 }
 
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test migration -- test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries --exact --nocapture
+#[test]
+fn test_migrate_fix_total_coldkey_stake_starts_with_value_no_stake_map_entries() {
+    new_test_ext(1).execute_with(|| {
+        let migration_name = "fix_total_coldkey_stake_v7";
+        let coldkey = U256::from(0);
+        TotalColdkeyStake::<Test>::insert(coldkey, 123_456_789);
+
+        // Notably, coldkey has no stake map or staking_hotkeys map entries
+
+        let weight = run_migration_and_check(migration_name);
+        assert!(weight != Weight::zero());
+        // Therefore 0
+        assert_eq!(TotalColdkeyStake::<Test>::get(coldkey), 0);
+    })
+}
+
 fn run_migration_and_check(migration_name: &'static str) -> frame_support::weights::Weight {
     // Execute the migration and store its weight
     let weight: frame_support::weights::Weight =

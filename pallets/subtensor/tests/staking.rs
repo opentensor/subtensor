@@ -4719,3 +4719,35 @@ fn test_do_schedule_coldkey_swap_regular_user_passes_min_balance() {
         );
     });
 }
+
+// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test staking -- test_emission_creates_staking_hotkeys_entry --exact --nocapture
+#[test]
+fn test_emission_creates_staking_hotkeys_entry() {
+    new_test_ext(1).execute_with(|| {
+        let hotkey0 = U256::from(1);
+        let hotkey1 = U256::from(2);
+
+        let coldkey = U256::from(3);
+
+        // Add to Owner map
+        Owner::<Test>::insert(hotkey0, coldkey);
+        Owner::<Test>::insert(hotkey1, coldkey);
+        OwnedHotkeys::<Test>::insert(coldkey, vec![hotkey0, hotkey1]);
+
+        // Emit through hotkey
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey0, 0, 1_000);
+
+        // Verify StakingHotkeys has an entry
+        assert_eq!(StakingHotkeys::<Test>::get(coldkey).len(), 1);
+        assert!(StakingHotkeys::<Test>::get(coldkey).contains(&hotkey0));
+
+        // Try again with another emission on hotkey1
+        SubtensorModule::emit_inflation_through_hotkey_account(&hotkey1, 0, 2_000);
+
+        // Verify both hotkeys are now in the map
+        assert_eq!(StakingHotkeys::<Test>::get(coldkey).len(), 2);
+        let final_map = StakingHotkeys::<Test>::get(coldkey);
+        assert!(final_map.contains(&hotkey0));
+        assert!(final_map.contains(&hotkey1));
+    })
+}
