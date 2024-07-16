@@ -4673,6 +4673,7 @@ dependencies = [
  "clap",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "frame-metadata-hash-extension",
  "frame-system",
  "futures",
  "jsonrpsee",
