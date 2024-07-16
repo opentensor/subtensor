@@ -1,4 +1,5 @@
 use super::*;
+use alloc::string::String;
 use frame_support::traits::DefensiveResult;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
@@ -56,30 +57,53 @@ pub fn do_migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
     }
     weight
 }
-// Public migrate function to be called by Lib.rs on upgrade.
+
+/// Migrates and fixes the total coldkey stake.
+///
+/// This function checks if the migration has already run, and if not, it performs the migration
+/// to fix the total coldkey stake. It also marks the migration as completed after running.
+///
+/// # Returns
+/// The weight of the migration process.
 pub fn migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
-    let current_storage_version: u16 = 7;
-    let next_storage_version: u16 = 8;
+    let migration_name = b"fix_total_coldkey_stake_v7".to_vec();
 
     // Initialize the weight with one read operation.
     let mut weight = T::DbWeight::get().reads(1);
 
-    // Grab the current on-chain storage version.
-    // Cant fail on retrieval.
-    let onchain_version = Pallet::<T>::on_chain_storage_version();
-
-    // Only run this migration on storage version 6.
-    if onchain_version == current_storage_version {
-        weight = weight.saturating_add(do_migrate_fix_total_coldkey_stake::<T>());
-        // Cant fail on insert.
-        StorageVersion::new(next_storage_version).put::<Pallet<T>>();
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
+    // Check if the migration has already run
+    if HasMigrationRun::<T>::get(&migration_name) {
+        log::info!(
+            "Migration '{:?}' has already run. Skipping.",
+            migration_name
+        );
+        return Weight::zero();
     }
+
+    log::info!(
+        "Running migration '{}'",
+        String::from_utf8_lossy(&migration_name)
+    );
+
+    // Run the migration
+    weight = weight.saturating_add(do_migrate_fix_total_coldkey_stake::<T>());
+
+    // Mark the migration as completed
+    HasMigrationRun::<T>::insert(&migration_name, true);
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    // Set the storage version to 7
+    StorageVersion::new(7).put::<Pallet<T>>();
+    weight = weight.saturating_add(T::DbWeight::get().writes(1));
+
+    log::info!(
+        "Migration '{:?}' completed. Storage version set to 7.",
+        String::from_utf8_lossy(&migration_name)
+    );
 
     // Return the migration weight.
     weight
 }
-
 /// Performs migration to update the total issuance based on the sum of stakes and total balances.
 /// This migration is applicable only if the current storage version is 5, after which it updates the storage version to 6.
 ///

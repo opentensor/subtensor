@@ -84,7 +84,7 @@ pub mod pallet {
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
 
     /// Minimum balance required to perform a coldkey swap
     pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: u64 = 100_000_000; // 0.1 TAO in RAO
@@ -1139,6 +1139,9 @@ pub mod pallet {
         ValueQuery,
         DefaultBonds<T>,
     >;
+
+    #[pallet::storage] // --- Storage for migration run status
+    pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
     /// ==================
     /// ==== Genesis =====
