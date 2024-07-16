@@ -1,4 +1,5 @@
 use super::*;
+use alloc::string::String;
 use frame_support::traits::DefensiveResult;
 use frame_support::{
     pallet_prelude::{Identity, OptionQuery},
@@ -79,7 +80,10 @@ pub fn migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
         return Weight::zero();
     }
 
-    log::info!("Running migration '{:?}'", migration_name);
+    log::info!(
+        "Running migration '{}'",
+        String::from_utf8_lossy(&migration_name)
+    );
 
     // Run the migration
     weight = weight.saturating_add(do_migrate_fix_total_coldkey_stake::<T>());
@@ -94,7 +98,7 @@ pub fn migrate_fix_total_coldkey_stake<T: Config>() -> Weight {
 
     log::info!(
         "Migration '{:?}' completed. Storage version set to 7.",
-        migration_name
+        String::from_utf8_lossy(&migration_name)
     );
 
     // Return the migration weight.
