@@ -332,7 +332,7 @@ pub mod pallet {
     /// - The total amount of tokens locked up for subnet reg, tracked in [`TotalSubnetLocked`]
     ///
     /// Eventually, Bittensor should migrate to using Holds afterwhich time we will not require this
-    /// seperate accounting.
+    /// separate accounting.
     #[pallet::storage] // --- ITEM ( total_issuance )
     pub type TotalIssuance<T> = StorageValue<_, u64, ValueQuery, DefaultTotalIssuance<T>>;
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
