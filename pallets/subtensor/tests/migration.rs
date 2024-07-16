@@ -405,6 +405,3 @@ fn run_migration_and_check(migration_name: &'static str) -> frame_support::weigh
     // Return the weight of the executed migration
     weight
 }
-
-// TODO: Consider adding error handling for cases where the migration fails or is already completed.
-// NOTE: The use of `as_bytes().to_vec()` might be inefficient for larger strings. Consider using a more efficient encoding method if performance becomes an issue.
