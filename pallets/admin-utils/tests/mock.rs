@@ -172,9 +172,9 @@ impl pallet_subtensor::Config for Test {
     type InitialHotkeyEmissionTempo = InitialHotkeyEmissionTempo;
     type InitialNetworkMaxStake = InitialNetworkMaxStake;
     type KeySwapCost = InitialKeySwapCost;
-    type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type AlphaHigh = InitialAlphaHigh;
+    type LiquidAlphaOn = InitialLiquidAlphaOn;
     type InitialBaseDifficulty = InitialBaseDifficulty;
 }
 
