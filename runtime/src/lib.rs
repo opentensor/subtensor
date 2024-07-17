@@ -1673,6 +1673,18 @@ impl_runtime_apis! {
             SubtensorModule::get_network_lock_cost()
         }
     }
+
+    impl subtensor_custom_rpc_runtime_api::ChildrenInfoRuntimeApi<Block> for Runtime {
+        fn get_children_info(netuid: u16) -> Vec<u8> {
+            let result = SubtensorModule::get_children_info(netuid);
+            result.encode()
+        }
+
+        fn get_child_info(netuid: u16, child: Vec<u8>, proportion: u64) -> Vec<u8> {
+            let result = SubtensorModule::get_child_info(netuid, child, proportion);
+            result.encode()
+        }
+    }
 }
 
 // #[cfg(test)]
