@@ -174,7 +174,7 @@ You can now run the public subtensor node either as a lite node or as an archive
 To run a lite node connected to the mainchain, execute the below command (note the `--sync=warp` flag which runs the subtensor node in lite mode):
 
 ```bash title="With --sync=warp setting, for lite node"
-./target/release/node-subtensor --chain raw_spec_finney.json --base-path /tmp/blockchain --sync=warp --port 30333 --max-runtime-instances 32 --rpc-max-response-size 2048 --rpc-cors all --rpc-port 9944 --bootnodes /ip4/13.58.175.193/tcp/30333/p2p/12D3KooWDe7g2JbNETiKypcKT1KsCEZJbTzEHCn8hpd4PHZ6pdz5 --no-mdns --in-peers 8000 --out-peers 8000 --prometheus-external --rpc-external
+./target/production/node-subtensor --chain raw_spec_finney.json --base-path /tmp/blockchain --sync=warp --port 30333 --max-runtime-instances 32 --rpc-max-response-size 2048 --rpc-cors all --rpc-port 9944 --bootnodes /ip4/13.58.175.193/tcp/30333/p2p/12D3KooWDe7g2JbNETiKypcKT1KsCEZJbTzEHCn8hpd4PHZ6pdz5 --no-mdns --in-peers 8000 --out-peers 8000 --prometheus-external --rpc-external
 ```
 
 ### Archive node on mainchain
