@@ -3,6 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
+mod lints;
+
 fn main() {
     // Get the root directory of the workspace
     let workspace_root = env::var("CARGO_MANIFEST_DIR").unwrap();
