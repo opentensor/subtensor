@@ -16,6 +16,11 @@ pallet-subtensor = { path = "pallets/subtensor", version = "4.0.0-dev" }
 node-subtensor-runtime = { path = "runtime", version = "4.0.0-dev" }
 subtensor-macros = { path = "support/macros", version = "0.1.0" }
 
+[build-dependencies]
+syn.workspace = true
+proc-macro2.workspace = true
+walkdir.workspace = true
+
 [workspace]
 members = [
     "node",
@@ -54,6 +59,10 @@ serde_json = { version = "1.0.116", default-features = false }
 serde_with = { version = "=2.0.0", default-features = false }
 smallvec = "1.13.2"
 litep2p = { git = "https://github.com/paritytech/litep2p", branch = "master" }
+syn = { version = "2", features = ["full", "visit-mut", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
+walkdir = "2"
 
 subtensor-macros = { path = "support/macros" }
 
