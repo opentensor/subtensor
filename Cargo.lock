@@ -9121,6 +9121,7 @@ dependencies = [
  "pallet-commitments",
  "pallet-subtensor",
  "proc-macro2",
+ "rayon",
  "subtensor-macros",
  "syn 2.0.71",
  "walkdir",
