@@ -1,3 +1,21 @@
+[package]
+name = "subtensor"
+version = "0.1.0"
+description = "Implementation of the bittensor blockchain"
+authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
+homepage = "https://substrate.io/"
+edition = "2021"
+license = "Unlicense"
+publish = false
+repository = "https://github.com/opentensor/subtensor"
+
+[dependencies]
+node-subtensor = { path = "node", version = "4.0.0-dev" }
+pallet-commitments = { path = "pallets/commitments", version = "4.0.0-dev" }
+pallet-subtensor = { path = "pallets/subtensor", version = "4.0.0-dev" }
+node-subtensor-runtime = { path = "runtime", version = "4.0.0-dev" }
+subtensor-macros = { path = "support/macros", version = "0.1.0" }
+
 [workspace]
 members = [
     "node",

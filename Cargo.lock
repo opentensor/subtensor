@@ -9113,6 +9113,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "subtensor"
+version = "0.1.0"
+dependencies = [
+ "node-subtensor",
+ "node-subtensor-runtime",
+ "pallet-commitments",
+ "pallet-subtensor",
+ "subtensor-macros",
+]
+
+[[package]]
 name = "subtensor-custom-rpc"
 version = "0.0.2"
 dependencies = [
