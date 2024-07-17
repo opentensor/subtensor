@@ -18,6 +18,7 @@ use frame_support::{
 use codec::{Decode, Encode};
 use frame_support::sp_runtime::transaction_validity::InvalidTransaction;
 use frame_support::sp_runtime::transaction_validity::ValidTransaction;
+use pallet_balances::Call as BalancesCall;
 use scale_info::TypeInfo;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, SignedExtension},
@@ -38,11 +39,12 @@ mod block_step;
 mod epoch;
 mod errors;
 mod events;
-mod math;
+pub mod math;
 mod registration;
 mod root;
 mod serving;
 mod staking;
+mod swap;
 mod uids;
 mod utils;
 mod weights;
@@ -73,6 +75,8 @@ pub mod pallet {
     use sp_std::vec;
     use sp_std::vec::Vec;
 
+    use subtensor_macros::freeze_struct;
+
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     #[cfg(feature = "std")]
@@ -80,7 +84,10 @@ pub mod pallet {
 
     /// Tracks version for migrations. Should be monotonic with respect to the
     /// order of migrations. (i.e. always increasing)
-    const STORAGE_VERSION: StorageVersion = StorageVersion::new(6);
+    const STORAGE_VERSION: StorageVersion = StorageVersion::new(7);
+
+    /// Minimum balance required to perform a coldkey swap
+    pub const MIN_BALANCE_TO_PERFORM_COLDKEY_SWAP: u64 = 100_000_000; // 0.1 TAO in RAO
 
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -239,6 +246,21 @@ pub mod pallet {
         /// Initial target stakes per interval issuance.
         #[pallet::constant]
         type InitialTargetStakesPerInterval: Get<u64>;
+        /// Cost of swapping a hotkey.
+        #[pallet::constant]
+        type KeySwapCost: Get<u64>;
+        /// The upper bound for the alpha parameter. Used for Liquid Alpha.
+        #[pallet::constant]
+        type AlphaHigh: Get<u16>;
+        /// The lower bound for the alpha parameter. Used for Liquid Alpha.
+        #[pallet::constant]
+        type AlphaLow: Get<u16>;
+        /// A flag to indicate if Liquid Alpha is enabled.
+        #[pallet::constant]
+        type LiquidAlphaOn: Get<bool>;
+        /// The base difficulty for proof of work for coldkey swaps
+        #[pallet::constant]
+        type InitialBaseDifficulty: Get<u64>;
     }
 
     /// Alias for the account ID.
@@ -315,6 +337,12 @@ pub mod pallet {
         360
     }
 
+    /// Default base difficulty for proof of work for coldkey swaps
+    #[pallet::type_value]
+    pub fn DefaultBaseDifficulty<T: Config>() -> u64 {
+        T::InitialBaseDifficulty::get()
+    }
+
     #[pallet::storage] // --- ITEM ( total_stake )
     pub type TotalStake<T> = StorageValue<_, u64, ValueQuery>;
     #[pallet::storage] // --- ITEM ( default_take )
@@ -338,6 +366,9 @@ pub mod pallet {
     #[pallet::storage] // --- ITEM (target_stakes_per_interval)
     pub type TargetStakesPerInterval<T> =
         StorageValue<_, u64, ValueQuery, DefaultTargetStakesPerInterval<T>>;
+
+    #[pallet::storage] // --- ITEM ( base_difficulty )
+    pub type BaseDifficulty<T> = StorageValue<_, u64, ValueQuery, DefaultBaseDifficulty<T>>;
     #[pallet::storage] // --- ITEM (default_stake_interval)
     pub type StakeInterval<T> = StorageValue<_, u64, ValueQuery, DefaultStakeInterval<T>>;
     #[pallet::storage] // --- MAP ( hot ) --> stake | Returns the total amount of stake under a hotkey.
@@ -361,6 +392,12 @@ pub mod pallet {
     #[pallet::storage] // --- MAP ( hot ) --> cold | Returns the controlling coldkey for a hotkey.
     pub type Owner<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, T::AccountId, ValueQuery, DefaultAccount<T>>;
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<hot> | Returns the vector of hotkeys controlled by this coldkey.
+    pub type OwnedHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
+    #[pallet::storage] // --- DMAP ( cold ) --> Vec<hot> | Maps coldkey to hotkeys that stake to it
+    pub type StakingHotkeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<T::AccountId>, ValueQuery>;
     #[pallet::storage] // --- MAP ( hot ) --> take | Returns the hotkey delegation take. And signals that this key is open for delegation.
     pub type Delegates<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u16, ValueQuery, DefaultDefaultTake<T>>;
@@ -375,6 +412,45 @@ pub mod pallet {
         ValueQuery,
         DefaultAccountTake<T>,
     >;
+
+    #[pallet::type_value]
+    /// Default value for hotkeys.
+    pub fn EmptyAccounts<T: Config>() -> Vec<T::AccountId> {
+        vec![]
+    }
+    #[pallet::type_value]
+    /// Default arbitration period.
+    /// This value represents the default arbitration period in blocks.
+    /// The period is set to 18 hours, assuming a block time of 12 seconds.
+    pub fn DefaultArbitrationPeriod<T: Config>() -> u64 {
+        7200 * 3 // 3 days
+    }
+    #[pallet::storage] // ---- StorageItem Global Used Work.
+    pub type ArbitrationPeriod<T: Config> =
+        StorageValue<_, u64, ValueQuery, DefaultArbitrationPeriod<T>>;
+    #[pallet::storage] // --- MAP ( cold ) --> Vec<wallet_to_drain_to> | Returns a list of keys to drain to, if there are two, we extend the period.
+    pub type ColdkeySwapDestinations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        Vec<T::AccountId>,
+        ValueQuery,
+        EmptyAccounts<T>,
+    >;
+    #[pallet::storage] // --- MAP ( cold ) --> u64 | Block when the coldkey will be arbitrated.
+    pub type ColdkeyArbitrationBlock<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+    #[pallet::storage] // --- MAP ( u64 ) --> Vec<coldkeys_to_drain>  | Coldkeys to drain on the specific block.
+    pub type ColdkeysToSwapAtBlock<T: Config> =
+        StorageMap<_, Identity, u64, Vec<T::AccountId>, ValueQuery, EmptyAccounts<T>>;
+    /// -- ITEM (switches liquid alpha on)
+    #[pallet::type_value]
+    pub fn DefaultLiquidAlpha<T: Config>() -> bool {
+        false
+    }
+    #[pallet::storage] // --- MAP ( netuid ) --> Whether or not Liquid Alpha is enabled
+    pub type LiquidAlphaOn<T> =
+        StorageMap<_, Blake2_128Concat, u16, bool, ValueQuery, DefaultLiquidAlpha<T>>;
 
     /// =====================================
     /// ==== Difficulty / Registrations =====
@@ -678,6 +754,7 @@ pub mod pallet {
     pub type AxonInfoOf = AxonInfo;
 
     /// Data structure for Axon information.
+    #[freeze_struct("3545cfb0cac4c1f5")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct AxonInfo {
         ///  Axon serving block.
@@ -701,6 +778,7 @@ pub mod pallet {
     ///  Struct for Prometheus.
     pub type PrometheusInfoOf = PrometheusInfo;
     /// Data structure for Prometheus information.
+    #[freeze_struct("5dde687e63baf0cd")]
     #[derive(Encode, Decode, Default, TypeInfo, Clone, PartialEq, Eq, Debug)]
     pub struct PrometheusInfo {
         /// Prometheus serving block.
@@ -737,7 +815,7 @@ pub mod pallet {
     pub(super) type TxDelegateTakeRateLimit<T> =
         StorageValue<_, u64, ValueQuery, DefaultTxDelegateTakeRateLimit<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
-    pub(super) type LastTxBlock<T: Config> =
+    pub type LastTxBlock<T: Config> =
         StorageMap<_, Identity, T::AccountId, u64, ValueQuery, DefaultLastTxBlock<T>>;
     #[pallet::storage] // --- MAP ( key ) --> last_block
     pub(super) type LastTxBlockDelegateTake<T: Config> =
@@ -753,10 +831,10 @@ pub mod pallet {
     pub type ServingRateLimit<T> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultServingRateLimit<T>>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> axon_info
-    pub(super) type Axons<T: Config> =
+    pub type Axons<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, AxonInfoOf, OptionQuery>;
     #[pallet::storage] // --- MAP ( netuid, hotkey ) --> prometheus_info
-    pub(super) type Prometheus<T: Config> = StorageDoubleMap<
+    pub type Prometheus<T: Config> = StorageDoubleMap<
         _,
         Identity,
         u16,
@@ -860,6 +938,12 @@ pub mod pallet {
     pub fn DefaultWeightsMinStake<T: Config>() -> u64 {
         0
     }
+    /// Provides the default value for the upper bound of the alpha parameter.
+
+    #[pallet::type_value]
+    pub fn DefaultAlphaValues<T: Config>() -> (u16, u16) {
+        (45875, 58982) // (alpha_low: 0.7, alpha_high: 0.9)
+    }
 
     #[pallet::storage] // ITEM( weights_min_stake )
     pub type WeightsMinStake<T> = StorageValue<_, u64, ValueQuery, DefaultWeightsMinStake<T>>;
@@ -931,6 +1015,11 @@ pub mod pallet {
     pub type AdjustmentAlpha<T: Config> =
         StorageMap<_, Identity, u16, u64, ValueQuery, DefaultAdjustmentAlpha<T>>;
 
+    //  MAP ( netuid ) --> (alpha_low, alpha_high)
+    #[pallet::storage]
+    pub type AlphaValues<T> =
+        StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
+
     #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
@@ -999,13 +1088,13 @@ pub mod pallet {
     }
 
     #[pallet::storage] // --- DMAP ( netuid, hotkey ) --> uid
-    pub(super) type Uids<T: Config> =
+    pub type Uids<T: Config> =
         StorageDoubleMap<_, Identity, u16, Blake2_128Concat, T::AccountId, u16, OptionQuery>;
     #[pallet::storage] // --- DMAP ( netuid, uid ) --> hotkey
-    pub(super) type Keys<T: Config> =
+    pub type Keys<T: Config> =
         StorageDoubleMap<_, Identity, u16, Identity, u16, T::AccountId, ValueQuery, DefaultKey<T>>;
     #[pallet::storage] // --- DMAP ( netuid ) --> (hotkey, se, ve)
-    pub(super) type LoadedEmission<T: Config> =
+    pub type LoadedEmission<T: Config> =
         StorageMap<_, Identity, u16, Vec<(T::AccountId, u64, u64)>, OptionQuery>;
 
     #[pallet::storage] // --- DMAP ( netuid ) --> active
@@ -1064,6 +1153,9 @@ pub mod pallet {
         ValueQuery,
         DefaultBonds<T>,
     >;
+
+    #[pallet::storage] // --- Storage for migration run status
+    pub type HasMigrationRun<T: Config> = StorageMap<_, Identity, Vec<u8>, bool, ValueQuery>;
 
     /// ==================
     /// ==== Genesis =====
@@ -1158,7 +1250,7 @@ pub mod pallet {
             // Set max allowed uids
             MaxAllowedUids::<T>::insert(netuid, max_uids);
 
-            let mut next_uid = 0;
+            let mut next_uid = 0u16;
 
             for (coldkey, hotkeys) in self.stakes.iter() {
                 for (hotkey, stake_uid) in hotkeys.iter() {
@@ -1186,6 +1278,13 @@ pub mod pallet {
                     // Fill stake information.
                     Owner::<T>::insert(hotkey.clone(), coldkey.clone());
 
+                    // Update OwnedHotkeys map
+                    let mut hotkeys = OwnedHotkeys::<T>::get(coldkey);
+                    if !hotkeys.contains(hotkey) {
+                        hotkeys.push(hotkey.clone());
+                        OwnedHotkeys::<T>::insert(coldkey, hotkeys);
+                    }
+
                     TotalHotkeyStake::<T>::insert(hotkey.clone(), stake);
                     TotalColdkeyStake::<T>::insert(
                         coldkey.clone(),
@@ -1197,7 +1296,16 @@ pub mod pallet {
 
                     Stake::<T>::insert(hotkey.clone(), coldkey.clone(), stake);
 
-                    next_uid += 1;
+                    // Update StakingHotkeys map
+                    let mut staking_hotkeys = StakingHotkeys::<T>::get(coldkey);
+                    if !staking_hotkeys.contains(hotkey) {
+                        staking_hotkeys.push(hotkey.clone());
+                        StakingHotkeys::<T>::insert(coldkey, staking_hotkeys);
+                    }
+
+                    next_uid = next_uid.checked_add(1).expect(
+                        "should not have total number of hotkey accounts larger than u16::MAX",
+                    );
                 }
             }
 
@@ -1205,7 +1313,11 @@ pub mod pallet {
             SubnetworkN::<T>::insert(netuid, next_uid);
 
             // --- Increase total network count.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
 
             // Get the root network uid.
             let root_netuid: u16 = 0;
@@ -1214,7 +1326,11 @@ pub mod pallet {
             NetworksAdded::<T>::insert(root_netuid, true);
 
             // Increment the number of total networks.
-            TotalNetworks::<T>::mutate(|n| *n += 1);
+            TotalNetworks::<T>::mutate(|n| {
+                *n = n.checked_add(1).expect(
+                    "should not have total number of networks larger than u16::MAX in genesis",
+                )
+            });
             // Set the number of validators to 1.
             SubnetworkN::<T>::insert(root_netuid, 0);
 
@@ -1227,7 +1343,7 @@ pub mod pallet {
             // Set the min allowed weights to zero, no weights restrictions.
             MinAllowedWeights::<T>::insert(root_netuid, 0);
 
-            // Set the max weight limit to infitiy, no weight restrictions.
+            // Set the max weight limit to infinity, no weight restrictions.
             MaxWeightsLimit::<T>::insert(root_netuid, u16::MAX);
 
             // Add default root tempo.
@@ -1247,29 +1363,48 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        // ---- Called on the initialization of this pallet. (the order of on_finalize calls is determined in the runtime)
-        //
-        // # Args:
-        // 	* 'n': (BlockNumberFor<T>):
-        // 		- The number of the block we are initializing.
+        fn on_idle(_n: BlockNumberFor<T>, _remaining_weight: Weight) -> Weight {
+            Weight::zero()
+        }
+
         fn on_initialize(_block_number: BlockNumberFor<T>) -> Weight {
+            let mut total_weight = Weight::zero();
+
+            // Create a Weight::MAX value to pass to swap_coldkeys_this_block
+            let max_weight = Weight::MAX;
+
+            // Perform coldkey swapping
+            let swap_weight = match Self::swap_coldkeys_this_block(&max_weight) {
+                Ok(weight_used) => weight_used,
+                Err(e) => {
+                    log::error!("Error while swapping coldkeys: {:?}", e);
+                    Weight::zero()
+                }
+            };
+            total_weight = total_weight.saturating_add(swap_weight);
+
+            // Perform block step
             let block_step_result = Self::block_step();
             match block_step_result {
                 Ok(_) => {
-                    // --- If the block step was successful, return the weight.
-                    log::info!("Successfully ran block step.");
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                    log::debug!("Successfully ran block step.");
+                    total_weight = total_weight.saturating_add(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64)),
+                    );
                 }
                 Err(e) => {
-                    // --- If the block step was unsuccessful, return the weight anyway.
                     log::error!("Error while stepping block: {:?}", e);
-                    Weight::from_parts(110_634_229_000_u64, 0)
-                        .saturating_add(T::DbWeight::get().reads(8304_u64))
-                        .saturating_add(T::DbWeight::get().writes(110_u64))
+                    total_weight = total_weight.saturating_add(
+                        Weight::from_parts(110_634_229_000_u64, 0)
+                            .saturating_add(T::DbWeight::get().reads(8304_u64))
+                            .saturating_add(T::DbWeight::get().writes(110_u64)),
+                    );
                 }
             }
+
+            total_weight
         }
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
@@ -1297,7 +1432,13 @@ pub mod pallet {
                 // Storage version v4 -> v5
                 .saturating_add(migration::migrate_delete_subnet_3::<T>())
                 // Doesn't check storage version. TODO: Remove after upgrade
-                .saturating_add(migration::migration5_total_issuance::<T>(false));
+                .saturating_add(migration::migration5_total_issuance::<T>(false))
+                // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
+                .saturating_add(migration::migrate_populate_owned::<T>())
+                // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
+                .saturating_add(migration::migrate_populate_staking_hotkeys::<T>())
+                // Fix total coldkey stake.
+                .saturating_add(migration::migrate_fix_total_coldkey_stake::<T>());
 
             weight
         }
@@ -1305,11 +1446,12 @@ pub mod pallet {
         #[cfg(feature = "try-runtime")]
         fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
             use frame_support::traits::fungible::Inspect;
+            use sp_runtime::Saturating;
 
             // Assert [`TotalStake`] accounting is correct
             let mut total_staked = 0;
             for stake in Stake::<T>::iter() {
-                total_staked += stake.2;
+                total_staked.saturating_accrue(stake.2);
             }
             ensure!(
                 total_staked == TotalStake::<T>::get(),
@@ -1319,7 +1461,7 @@ pub mod pallet {
             // Assert [`TotalSubnetLocked`] accounting is correct
             let mut total_subnet_locked = 0;
             for (_, locked) in SubnetLocked::<T>::iter() {
-                total_subnet_locked += locked;
+                total_subnet_locked.saturating_accrue(locked);
             }
             ensure!(
                 total_subnet_locked == TotalSubnetLocked::<T>::get(),
@@ -1329,7 +1471,10 @@ pub mod pallet {
             // Assert [`TotalIssuance`] accounting is correct
             let currency_issuance = T::Currency::total_issuance();
             ensure!(
-                TotalIssuance::<T>::get() == currency_issuance + total_staked + total_subnet_locked,
+                TotalIssuance::<T>::get()
+                    == currency_issuance
+                        .saturating_add(total_staked)
+                        .saturating_add(total_subnet_locked),
                 "TotalIssuance accounting discrepancy"
             );
 
@@ -1950,6 +2095,15 @@ pub mod pallet {
             Self::do_root_register(origin, hotkey)
         }
 
+        /// Attempt to adjust the senate membership to include a hotkey
+        #[pallet::call_index(63)]
+        #[pallet::weight((Weight::from_parts(0, 0)
+		.saturating_add(T::DbWeight::get().reads(0))
+		.saturating_add(T::DbWeight::get().writes(0)), DispatchClass::Normal, Pays::Yes))]
+        pub fn adjust_senate(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
+            Self::do_adjust_senate(origin, hotkey)
+        }
+
         /// User register a new subnetwork via burning token
         #[pallet::call_index(7)]
         #[pallet::weight((Weight::from_parts(177_000_000, 0)
@@ -1964,16 +2118,73 @@ pub mod pallet {
         }
 
         /// The extrinsic for user to change its hotkey
-        #[pallet::call_index(70)]
+        ///#[pallet::call_index(70)]
+        ///#[pallet::weight((Weight::from_parts(1_940_000_000, 0)
+        ///.saturating_add(T::DbWeight::get().reads(272))
+        ///.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
+        ///pub fn swap_hotkey(
+        ///    origin: OriginFor<T>,
+        ///    hotkey: T::AccountId,
+        ///    new_hotkey: T::AccountId,
+        ///) -> DispatchResultWithPostInfo {
+        ///    Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+        ///}
+
+        /// The extrinsic for user to change the coldkey associated with their account.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the old coldkey.
+        /// * `old_coldkey` - The current coldkey associated with the account.
+        /// * `new_coldkey` - The new coldkey to be associated with the account.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResultWithPostInfo` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
+        #[pallet::call_index(71)]
         #[pallet::weight((Weight::from_parts(1_940_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(272))
 		.saturating_add(T::DbWeight::get().writes(527)), DispatchClass::Operational, Pays::No))]
-        pub fn swap_hotkey(
+        pub fn swap_coldkey(
             origin: OriginFor<T>,
-            hotkey: T::AccountId,
-            new_hotkey: T::AccountId,
+            new_coldkey: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            Self::do_swap_hotkey(origin, &hotkey, &new_hotkey)
+            Self::do_swap_coldkey(origin, &new_coldkey)
+        }
+        /// Unstakes all tokens associated with a hotkey and transfers them to a new coldkey.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - The origin of the call, must be signed by the current coldkey.
+        /// * `hotkey` - The hotkey associated with the stakes to be unstaked.
+        /// * `new_coldkey` - The new coldkey to receive the unstaked tokens.
+        ///
+        /// # Returns
+        ///
+        /// Returns a `DispatchResult` indicating success or failure of the operation.
+        ///
+        /// # Weight
+        ///
+        /// Weight is calculated based on the number of database reads and writes.
+        #[cfg(test)]
+        #[pallet::call_index(72)]
+        #[pallet::weight((Weight::from_parts(21_000_000, 0)
+		.saturating_add(T::DbWeight::get().reads(3))
+		.saturating_add(T::DbWeight::get().writes(3)), DispatchClass::Operational, Pays::No))]
+        pub fn schedule_coldkey_swap(
+            origin: OriginFor<T>,
+            new_coldkey: T::AccountId,
+            work: Vec<u8>,
+            block_number: u64,
+            nonce: u64,
+        ) -> DispatchResult {
+            // Attain the calling coldkey from the origin.
+            let old_coldkey: T::AccountId = ensure_signed(origin)?;
+            Self::do_schedule_coldkey_swap(&old_coldkey, &new_coldkey, work, block_number, nonce)
         }
 
         // ---- SUDO ONLY FUNCTIONS ------------------------------------------------------------
@@ -2100,9 +2311,20 @@ pub mod pallet {
             Self::user_remove_network(origin, netuid)
         }
 
+        /// Sets values for liquid alpha
+        #[pallet::call_index(64)]
+        #[pallet::weight((0, DispatchClass::Operational, Pays::No))]
+        pub fn sudo_hotfix_swap_coldkey_delegates(
+            _origin: OriginFor<T>,
+            _old_coldkey: T::AccountId,
+            _new_coldkey: T::AccountId,
+        ) -> DispatchResult {
+            Ok(())
+        }
+
         /// Set the [`TotalIssuance`] storage value to the total account balances issued + the
         /// total amount staked + the total amount locked in subnets.
-        #[pallet::call_index(63)]
+        #[pallet::call_index(67)]
         #[pallet::weight((
             Weight::default()
                 .saturating_add(T::DbWeight::get().reads(3))
@@ -2145,8 +2367,8 @@ pub mod pallet {
                 let _stake = Self::get_total_stake_for_hotkey(hotkey);
                 let current_block_number: u64 = Self::get_current_block_as_u64();
                 let default_priority: u64 =
-                    current_block_number - Self::get_last_update_for_uid(netuid, uid);
-                return default_priority + u32::MAX as u64;
+                    current_block_number.saturating_sub(Self::get_last_update_for_uid(netuid, uid));
+                return default_priority.saturating_add(u32::MAX as u64);
             }
             0
         }
@@ -2174,7 +2396,7 @@ pub mod pallet {
                 return false;
             }
             if Self::get_registrations_this_interval(netuid)
-                >= Self::get_target_registrations_per_interval(netuid) * 3
+                >= Self::get_target_registrations_per_interval(netuid).saturating_mul(3)
             {
                 return false;
             }
@@ -2199,6 +2421,7 @@ pub enum CallType {
     Other,
 }
 
+#[freeze_struct("61e2b893d5ce6701")]
 #[derive(Encode, Decode, Clone, Eq, PartialEq, TypeInfo)]
 pub struct SubtensorSignedExtension<T: Config + Send + Sync + TypeInfo>(pub PhantomData<T>);
 
@@ -2242,10 +2465,12 @@ impl<T: Config + Send + Sync + TypeInfo> sp_std::fmt::Debug for SubtensorSignedE
     }
 }
 
-impl<T: Config + Send + Sync + TypeInfo> SignedExtension for SubtensorSignedExtension<T>
+impl<T: Config + Send + Sync + TypeInfo + pallet_balances::Config> SignedExtension
+    for SubtensorSignedExtension<T>
 where
     T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
     <T as frame_system::Config>::RuntimeCall: IsSubType<Call<T>>,
+    <T as frame_system::Config>::RuntimeCall: IsSubType<BalancesCall<T>>,
 {
     const IDENTIFIER: &'static str = "SubtensorSignedExtension";
 
@@ -2265,6 +2490,19 @@ where
         _info: &DispatchInfoOf<Self::Call>,
         _len: usize,
     ) -> TransactionValidity {
+        // Check if the call is one of the balance transfer types we want to reject
+        if let Some(balances_call) = call.is_sub_type() {
+            match balances_call {
+                BalancesCall::transfer_allow_death { .. }
+                | BalancesCall::transfer_keep_alive { .. }
+                | BalancesCall::transfer_all { .. } => {
+                    if Pallet::<T>::coldkey_in_arbitration(who) {
+                        return Err(TransactionValidityError::Invalid(InvalidTransaction::Call));
+                    }
+                }
+                _ => {} // Other Balances calls are allowed
+            }
+        }
         match call.is_sub_type() {
             Some(Call::commit_weights { netuid, .. }) => {
                 if Self::check_weights_min_stake(who) {
@@ -2327,7 +2565,8 @@ where
                     Pallet::<T>::get_registrations_this_interval(*netuid);
                 let max_registrations_per_interval =
                     Pallet::<T>::get_target_registrations_per_interval(*netuid);
-                if registrations_this_interval >= (max_registrations_per_interval * 3) {
+                if registrations_this_interval >= (max_registrations_per_interval.saturating_mul(3))
+                {
                     // If the registration limit for the interval is exceeded, reject the transaction
                     return InvalidTransaction::ExhaustsResources.into();
                 }
@@ -2340,6 +2579,16 @@ where
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
             }),
+            Some(Call::dissolve_network { .. }) => {
+                if Pallet::<T>::coldkey_in_arbitration(who) {
+                    Err(TransactionValidityError::Invalid(InvalidTransaction::Call))
+                } else {
+                    Ok(ValidTransaction {
+                        priority: Self::get_priority_vanilla(),
+                        ..Default::default()
+                    })
+                }
+            }
             _ => Ok(ValidTransaction {
                 priority: Self::get_priority_vanilla(),
                 ..Default::default()
@@ -2431,6 +2680,7 @@ use sp_std::vec;
 // used not 25 lines below
 #[allow(unused)]
 use sp_std::vec::Vec;
+use subtensor_macros::freeze_struct;
 
 /// Trait for managing a membership pallet instance in the runtime
 pub trait MemberManagement<AccountId> {

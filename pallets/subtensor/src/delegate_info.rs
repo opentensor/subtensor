@@ -7,6 +7,7 @@ extern crate alloc;
 use codec::Compact;
 use sp_core::hexdisplay::AsBytesRef;
 
+#[freeze_struct("5752e4c650a83e0d")]
 #[derive(Decode, Encode, PartialEq, Eq, Clone, Debug)]
 pub struct DelegateInfo<T: Config> {
     delegate_ss58: T::AccountId,
@@ -40,11 +41,7 @@ impl<T: Config> Pallet<T> {
         let mut emissions_per_day: U64F64 = U64F64::from_num(0);
 
         for netuid in registrations.iter() {
-            let _uid = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone());
-            if _uid.is_err() {
-                continue; // this should never happen
-            } else {
-                let uid = _uid.expect("Delegate's UID should be ok");
+            if let Ok(uid) = Self::get_uid_for_net_and_hotkey(*netuid, &delegate.clone()) {
                 let validator_permit = Self::get_validator_permit_for_uid(*netuid, uid);
                 if validator_permit {
                     validator_permits.push((*netuid).into());
@@ -52,8 +49,11 @@ impl<T: Config> Pallet<T> {
 
                 let emission: U64F64 = Self::get_emission_for_uid(*netuid, uid).into();
                 let tempo: U64F64 = Self::get_tempo(*netuid).into();
-                let epochs_per_day: U64F64 = U64F64::from_num(7200) / tempo;
-                emissions_per_day += emission * epochs_per_day;
+                if tempo > U64F64::from_num(0) {
+                    let epochs_per_day: U64F64 = U64F64::from_num(7200).saturating_div(tempo);
+                    emissions_per_day =
+                        emissions_per_day.saturating_add(emission.saturating_mul(epochs_per_day));
+                }
             }
         }
 
@@ -62,14 +62,15 @@ impl<T: Config> Pallet<T> {
 
         let total_stake: U64F64 = Self::get_total_stake_for_hotkey(&delegate.clone()).into();
 
-        let mut return_per_1000: U64F64 = U64F64::from_num(0);
+        let return_per_1000: U64F64 = if total_stake > U64F64::from_num(0) {
+            emissions_per_day
+                .saturating_mul(U64F64::from_num(0.82))
+                .saturating_div(total_stake.saturating_div(U64F64::from_num(1000)))
+        } else {
+            U64F64::from_num(0)
+        };
 
-        if total_stake > U64F64::from_num(0) {
-            return_per_1000 = (emissions_per_day * U64F64::from_num(0.82))
-                / (total_stake / U64F64::from_num(1000));
-        }
-
-        return DelegateInfo {
+        DelegateInfo {
             delegate_ss58: delegate.clone(),
             take,
             nominators,
@@ -78,7 +79,7 @@ impl<T: Config> Pallet<T> {
             validator_permits,
             return_per_1000: U64F64::to_num::<u64>(return_per_1000).into(),
             total_daily_return: U64F64::to_num::<u64>(emissions_per_day).into(),
-        };
+        }
     }
 
     pub fn get_delegate(delegate_account_vec: Vec<u8>) -> Option<DelegateInfo<T>> {
@@ -129,5 +130,48 @@ impl<T: Config> Pallet<T> {
         }
 
         delegates
+    }
+
+    pub fn get_total_delegated_stake(coldkey: &T::AccountId) -> u64 {
+        let mut total_delegated = 0u64;
+
+        // Get all hotkeys associated with this coldkey
+        let hotkeys = StakingHotkeys::<T>::get(coldkey);
+
+        for hotkey in hotkeys {
+            let owner = Owner::<T>::get(&hotkey);
+
+            for (delegator, stake) in Stake::<T>::iter_prefix(&hotkey) {
+                if delegator != owner {
+                    total_delegated = total_delegated.saturating_add(stake);
+                }
+            }
+        }
+
+        log::info!(
+            "Total delegated stake for coldkey {:?}: {}",
+            coldkey,
+            total_delegated
+        );
+        total_delegated
+    }
+
+    // Helper function to get total delegated stake for a hotkey
+    pub fn get_total_hotkey_delegated_stake(hotkey: &T::AccountId) -> u64 {
+        let mut total_delegated = 0u64;
+
+        // Iterate through all delegators for this hotkey
+        for (delegator, stake) in Stake::<T>::iter_prefix(hotkey) {
+            if delegator != Self::get_coldkey_for_hotkey(hotkey) {
+                total_delegated = total_delegated.saturating_add(stake);
+            }
+        }
+
+        total_delegated
+    }
+
+    // Helper function to get the coldkey associated with a hotkey
+    pub fn get_coldkey_for_hotkey(hotkey: &T::AccountId) -> T::AccountId {
+        Owner::<T>::get(hotkey)
     }
 }

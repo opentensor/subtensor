@@ -1,7 +1,7 @@
 use super::*;
-use frame_support::storage::IterableStorageDoubleMap;
-use sp_core::{Get, H256, U256};
+use sp_core::{H256, U256};
 use sp_io::hashing::{keccak_256, sha2_256};
+use sp_runtime::Saturating;
 use system::pallet_prelude::BlockNumberFor;
 
 const LOG_TARGET: &str = "runtime::subtensor::registration";
@@ -41,6 +41,10 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         // --- 1. Check that the caller has signed the transaction. (the coldkey of the pairing)
         let coldkey = ensure_signed(origin)?;
+        ensure!(
+            !Self::coldkey_in_arbitration(&coldkey),
+            Error::<T>::ColdkeyIsInArbitration
+        );
         log::info!(
             "do_registration( coldkey:{:?} netuid:{:?} hotkey:{:?} )",
             coldkey,
@@ -74,7 +78,7 @@ impl<T: Config> Pallet<T> {
         // --- 4. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
             Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid) * 3,
+                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
@@ -143,9 +147,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 14. Record the registration and increment block and interval counters.
-        BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| *val += 1);
+        BurnRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
         Self::increase_rao_recycled(netuid, Self::get_burn_as_u64(netuid));
 
         // --- 15. Deposit successful event.
@@ -259,7 +263,7 @@ impl<T: Config> Pallet<T> {
         // --- 5. Ensure we are not exceeding the max allowed registrations per interval.
         ensure!(
             Self::get_registrations_this_interval(netuid)
-                < Self::get_target_registrations_per_interval(netuid) * 3,
+                < Self::get_target_registrations_per_interval(netuid).saturating_mul(3),
             Error::<T>::TooManyRegistrationsThisInterval
         );
 
@@ -277,7 +281,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidWorkBlock
         );
         ensure!(
-            current_block_number - block_number < 3,
+            current_block_number.saturating_sub(block_number) < 3,
             Error::<T>::InvalidWorkBlock
         );
 
@@ -338,9 +342,9 @@ impl<T: Config> Pallet<T> {
         }
 
         // --- 12. Record the registration and increment block and interval counters.
-        POWRegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisInterval::<T>::mutate(netuid, |val| *val += 1);
-        RegistrationsThisBlock::<T>::mutate(netuid, |val| *val += 1);
+        POWRegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisInterval::<T>::mutate(netuid, |val| val.saturating_inc());
+        RegistrationsThisBlock::<T>::mutate(netuid, |val| val.saturating_inc());
 
         // --- 13. Deposit successful event.
         log::info!(
@@ -376,7 +380,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidWorkBlock
         );
         ensure!(
-            current_block_number - block_number < 3,
+            current_block_number.saturating_sub(block_number) < 3,
             Error::<T>::InvalidWorkBlock
         );
 
@@ -394,7 +398,7 @@ impl<T: Config> Pallet<T> {
         UsedWork::<T>::insert(work.clone(), current_block_number);
 
         // --- 5. Add Balance via faucet.
-        let balance_to_add: u64 = 100_000_000_000;
+        let balance_to_add: u64 = 1_000_000_000_000;
         Self::coinbase(100_000_000_000); // We are creating tokens here from the coinbase.
 
         Self::add_balance_to_coldkey_account(&coldkey, balance_to_add);
@@ -440,7 +444,7 @@ impl<T: Config> Pallet<T> {
                 Self::get_neuron_block_at_registration(netuid, neuron_uid_i);
             #[allow(clippy::comparison_chain)]
             if min_score == pruning_score {
-                if current_block - block_at_registration < immunity_period {
+                if current_block.saturating_sub(block_at_registration) < immunity_period {
                     //neuron is in immunity period
                     if min_score_in_immunity_period > pruning_score {
                         min_score_in_immunity_period = pruning_score;
@@ -452,7 +456,7 @@ impl<T: Config> Pallet<T> {
             }
             // Find min pruning score.
             else if min_score > pruning_score {
-                if current_block - block_at_registration < immunity_period {
+                if current_block.saturating_sub(block_at_registration) < immunity_period {
                     //neuron is in immunity period
                     if min_score_in_immunity_period > pruning_score {
                         min_score_in_immunity_period = pruning_score;
@@ -584,145 +588,10 @@ impl<T: Config> Pallet<T> {
         let mut nonce: u64 = start_nonce;
         let mut work: H256 = Self::create_seal_hash(block_number, nonce, hotkey);
         while !Self::hash_meets_difficulty(&work, difficulty) {
-            nonce += 1;
+            nonce.saturating_inc();
             work = Self::create_seal_hash(block_number, nonce, hotkey);
         }
         let vec_work: Vec<u8> = Self::hash_to_vec(work);
         (nonce, vec_work)
-    }
-
-    pub fn do_swap_hotkey(
-        origin: T::RuntimeOrigin,
-        old_hotkey: &T::AccountId,
-        new_hotkey: &T::AccountId,
-    ) -> DispatchResultWithPostInfo {
-        let coldkey = ensure_signed(origin)?;
-
-        let mut weight = T::DbWeight::get().reads_writes(2, 0);
-        ensure!(
-            Self::coldkey_owns_hotkey(&coldkey, old_hotkey),
-            Error::<T>::NonAssociatedColdKey
-        );
-
-        let block: u64 = Self::get_current_block_as_u64();
-        ensure!(
-            !Self::exceeds_tx_rate_limit(Self::get_last_tx_block(&coldkey), block),
-            Error::<T>::HotKeySetTxRateLimitExceeded
-        );
-
-        weight.saturating_accrue(T::DbWeight::get().reads(2));
-
-        ensure!(old_hotkey != new_hotkey, Error::<T>::NewHotKeyIsSameWithOld);
-        ensure!(
-            !Self::is_hotkey_registered_on_any_network(new_hotkey),
-            Error::<T>::HotKeyAlreadyRegisteredInSubNet
-        );
-
-        weight
-            .saturating_accrue(T::DbWeight::get().reads((TotalNetworks::<T>::get() + 1u16) as u64));
-
-        let swap_cost = 1_000_000_000u64;
-        ensure!(
-            Self::can_remove_balance_from_coldkey_account(&coldkey, swap_cost),
-            Error::<T>::NotEnoughBalanceToPaySwapHotKey
-        );
-        let actual_burn_amount = Self::remove_balance_from_coldkey_account(&coldkey, swap_cost)?;
-        Self::burn_tokens(actual_burn_amount);
-
-        Owner::<T>::remove(old_hotkey);
-        Owner::<T>::insert(new_hotkey, coldkey.clone());
-        weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-        if let Ok(total_hotkey_stake) = TotalHotkeyStake::<T>::try_get(old_hotkey) {
-            TotalHotkeyStake::<T>::remove(old_hotkey);
-            TotalHotkeyStake::<T>::insert(new_hotkey, total_hotkey_stake);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
-        if let Ok(delegate_take) = Delegates::<T>::try_get(old_hotkey) {
-            Delegates::<T>::remove(old_hotkey);
-            Delegates::<T>::insert(new_hotkey, delegate_take);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
-        if let Ok(last_tx) = LastTxBlock::<T>::try_get(old_hotkey) {
-            LastTxBlock::<T>::remove(old_hotkey);
-            LastTxBlock::<T>::insert(new_hotkey, last_tx);
-
-            weight.saturating_accrue(T::DbWeight::get().writes(2));
-        }
-
-        let mut coldkey_stake: Vec<(T::AccountId, u64)> = vec![];
-        for (coldkey, stake_amount) in Stake::<T>::iter_prefix(old_hotkey) {
-            coldkey_stake.push((coldkey.clone(), stake_amount));
-        }
-
-        let _ = Stake::<T>::clear_prefix(old_hotkey, coldkey_stake.len() as u32, None);
-        weight.saturating_accrue(T::DbWeight::get().writes(coldkey_stake.len() as u64));
-
-        for (coldkey, stake_amount) in coldkey_stake {
-            Stake::<T>::insert(new_hotkey, coldkey, stake_amount);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
-        let mut netuid_is_member: Vec<u16> = vec![];
-        for netuid in <IsNetworkMember<T> as IterableStorageDoubleMap<T::AccountId, u16, bool>>::iter_key_prefix(old_hotkey) {
-            netuid_is_member.push(netuid);
-        }
-
-        let _ = IsNetworkMember::<T>::clear_prefix(old_hotkey, netuid_is_member.len() as u32, None);
-        weight.saturating_accrue(T::DbWeight::get().writes(netuid_is_member.len() as u64));
-
-        for netuid in netuid_is_member.iter() {
-            IsNetworkMember::<T>::insert(new_hotkey, netuid, true);
-            weight.saturating_accrue(T::DbWeight::get().writes(1));
-        }
-
-        for netuid in netuid_is_member.iter() {
-            if let Ok(axon_info) = Axons::<T>::try_get(netuid, old_hotkey) {
-                Axons::<T>::remove(netuid, old_hotkey);
-                Axons::<T>::insert(netuid, new_hotkey, axon_info);
-
-                weight.saturating_accrue(T::DbWeight::get().writes(2));
-            }
-        }
-
-        for netuid in netuid_is_member.iter() {
-            if let Ok(uid) = Uids::<T>::try_get(netuid, old_hotkey) {
-                Uids::<T>::remove(netuid, old_hotkey);
-                Uids::<T>::insert(netuid, new_hotkey, uid);
-
-                weight.saturating_accrue(T::DbWeight::get().writes(2));
-
-                Keys::<T>::insert(netuid, uid, new_hotkey);
-
-                weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-                LoadedEmission::<T>::mutate(netuid, |emission_exists| match emission_exists {
-                    Some(emissions) => {
-                        if let Some(emission) = emissions.get_mut(uid as usize) {
-                            let (_, se, ve) = emission;
-                            *emission = (new_hotkey.clone(), *se, *ve);
-                        }
-                    }
-                    None => {}
-                });
-
-                weight.saturating_accrue(T::DbWeight::get().writes(1));
-            }
-        }
-
-        Self::set_last_tx_block(&coldkey, block);
-        weight.saturating_accrue(T::DbWeight::get().writes(1));
-
-        Self::deposit_event(Event::HotkeySwapped {
-            coldkey,
-            old_hotkey: old_hotkey.clone(),
-            new_hotkey: new_hotkey.clone(),
-        });
-
-        Ok(Some(weight).into())
     }
 }

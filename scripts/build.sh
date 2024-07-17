@@ -1,1 +1,2 @@
-cargo build --release --features runtime-benchmarks
+cargo build --profile production --features runtime-benchmarks
+
