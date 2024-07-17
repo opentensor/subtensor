@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 mod lints;
+use lints::*;
 
 fn main() {
     // Get the root directory of the workspace
