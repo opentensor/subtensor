@@ -51,6 +51,10 @@ impl<T: Config> Pallet<T> {
         log::debug!("All subnet netuids: {:?}", subnets);
 
         // -- 2. Count tao per mechanism
+        // This loop calculates the total TAO for each mechanism:
+        // For each subnet s with mechanism m:
+        //   T_m = Σ T_s
+        // Where T_m is the total TAO for mechanism m, and T_s is the TAO for subnet s.
         let mut tao_per_mechanism: BTreeMap<u16, u64> = BTreeMap::new();
         for netuid in subnets.clone().iter() {
             let mechid: u16 = SubnetMechanism::<T>::get( *netuid );
@@ -60,6 +64,12 @@ impl<T: Config> Pallet<T> {
         log::debug!("TAO per mechanism: {:?}", tao_per_mechanism);
 
         // --- 3. Compute emission per mechanism.
+        // This loop calculates the emission for each mechanism based on its proportion of total TAO.
+        // For each mechanism m:
+        // 1. Calculate mechanism's proportion of total TAO: P_m = T_m / T_total
+        // 2. Calculate mechanism's emission: E_m = P_m * E_total
+        // Where T_m is the total TAO for mechanism m, T_total is the total TAO across all mechanisms,
+        // and E_total is implicitly 1 (representing 100% of the emission).
         let total_tao_on_mechanisms: u64 = tao_per_mechanism.values().sum();
         let mut emission_per_mechanism: BTreeMap<u16, u64> = BTreeMap::new();
         for (mechid, total_mechanism_tao) in tao_per_mechanism.iter() {
@@ -69,7 +79,15 @@ impl<T: Config> Pallet<T> {
         log::debug!("Emission per mechanism: {:?}", emission_per_mechanism);
 
         // --- 4. Compute EmissionValues per subnet.
-        // Iterate over mechanisms.
+        // This loop calculates the emission for each subnet based on its mechanism and proportion of TAO.
+        // For each subnet s in a mechanism m:
+        // 1. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
+        // 2. Calculate subnet's TAO emission: E_s = P_s * E_m
+        // 3. Convert TAO emission to alpha emission: E_α = tao_to_alpha(E_s)
+        // 4. Update total issuance: I_new = I_old + E_s
+        // 5. Update subnet TAO: T_s_new = T_s_old + E_s
+        // 6. Update subnet alpha: A_s_new = A_s_old + E_α
+        // 7. Accumulate pending emission: P_e_new = P_e_old + E_α
         for netuid in subnets.clone().iter() {
             // 1. Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
