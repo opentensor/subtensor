@@ -2275,6 +2275,10 @@ fn test_full_block_emission_occurs() {
     });
 }
 
+// This test sets up one validator and one miner for a subnet, and 
+// then runs an epoch and checks that validator gets validator emission only
+// and miner gets miner emission only.
+//
 #[test]
 fn test_only_validators_provide_rewards_to_nominators() {
     new_test_ext(1).execute_with(|| {
@@ -2290,12 +2294,15 @@ fn test_only_validators_provide_rewards_to_nominators() {
         let nominator1 = U256::from(4);
         let nominator2 = U256::from(5);
 
+        // Remove limitations that are not needed for this test
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 2);
         SubtensorModule::set_target_stakes_per_interval(10);
         pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
 
-        // Add balances.
+        // Add balances
+        // Coldkey will need 11x stake amount to stake 10x stake with validator hotkey
+        // and 1x stake amount with miner hotkey
         SubtensorModule::add_balance_to_coldkey_account(
             &coldkey,
             11 * stake + ExistentialDeposit::get(),
@@ -2309,7 +2316,7 @@ fn test_only_validators_provide_rewards_to_nominators() {
             stake + ExistentialDeposit::get(),
         );
 
-        // Register the 2 neurons to a new network.
+        // Register a subnet and 2 neurons to the new network.
         add_network(netuid, 0, 0);
         register_ok_neuron(netuid, validator, coldkey, 124124);
         register_ok_neuron(netuid, miner, coldkey, 987907);
@@ -2329,6 +2336,9 @@ fn test_only_validators_provide_rewards_to_nominators() {
             validator,
             10 * stake
         ));
+
+        // Make sure only 1 validator is possible, so that only neuron 0 gets validator permit
+        // and epoch functions doesn't update it
         pallet_subtensor::MaxAllowedValidators::<Test>::insert(netuid, 1);
         SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
         SubtensorModule::set_validator_permit_for_uid(netuid, 1, false);
@@ -2398,13 +2408,20 @@ fn test_only_validators_provide_rewards_to_nominators() {
         // Run epoch
         let emission_tuples = SubtensorModule::epoch(netuid, block_emission);
 
-        // Only validator gets validator emission
+        // Make with epoch returned two tuples, one for each neuron
         assert!(emission_tuples.len() == 2);
         assert_eq!(emission_tuples[0].0, validator);
         assert_eq!(emission_tuples[1].0, miner);
+
+        // Each group: Validators and miners get one half of the rewards regardless of their stakes
+        // relatively to each other
+
+        // Validator gets only validator emission
         assert_eq!(emission_tuples[0].1, 0);
-        assert_eq!(emission_tuples[1].1, block_emission / 2);
         assert_eq!(emission_tuples[0].2, block_emission / 2);
+
+        // Miner gets only server emission
+        assert_eq!(emission_tuples[1].1, block_emission / 2);
         assert_eq!(emission_tuples[1].2, 0);
     });
 }
