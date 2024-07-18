@@ -132,6 +132,13 @@ mod events {
         MinDelegateTakeSet(u16),
         /// the target stakes per interval is set by sudo/admin transaction
         TargetStakesPerIntervalSet(u64),
+        /// a member of the senate is adjusted
+        SenateAdjusted {
+            /// the account ID of the old senate member, if any
+            old_member: Option<T::AccountId>,
+            /// the account ID of the new senate member
+            new_member: T::AccountId,
+        },
         /// A coldkey has been swapped
         ColdkeySwapped {
             /// the account ID of old coldkey

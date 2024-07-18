@@ -571,9 +571,133 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let current_stake = Self::get_total_stake_for_hotkey(&hotkey);
+        // --- 13. Join the Senate if eligible.
+        // Returns the replaced member, if any.
+        let _ = Self::join_senate_if_eligible(&hotkey)?;
+
+        // --- 14. Force all members on root to become a delegate.
+        if !Self::hotkey_is_delegate(&hotkey) {
+            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
+        }
+
+        // --- 15. Update the registration counters for both the block and interval.
+        #[allow(clippy::arithmetic_side_effects)]
+        // note this RA + clippy false positive is a known substrate issue
+        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| *val += 1);
+        #[allow(clippy::arithmetic_side_effects)]
+        // note this RA + clippy false positive is a known substrate issue
+        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| *val += 1);
+
+        // --- 16. Log and announce the successful registration.
+        log::info!(
+            "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
+            root_netuid,
+            subnetwork_uid,
+            hotkey
+        );
+        Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
+
+        // --- 17. Finish and return success.
+        Ok(())
+    }
+
+    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
+    //
+    // This function is responsible for adding a hotkey to the Senate if they meet the requirements.
+    // The root key with the least stake is pruned in the event of a filled membership.
+    //
+    // # Arguments:
+    // * 'origin': Represents the origin of the call.
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'DispatchResult': A result type indicating success or failure of the registration.
+    //
+    pub fn do_adjust_senate(origin: T::RuntimeOrigin, hotkey: T::AccountId) -> DispatchResult {
+        // --- 0. Get the unique identifier (UID) for the root network.
+        let root_netuid: u16 = Self::get_root_netuid();
+        ensure!(
+            Self::if_subnet_exist(root_netuid),
+            Error::<T>::RootNetworkDoesNotExist
+        );
+
+        // --- 1. Ensure that the call originates from a signed source and retrieve the caller's account ID (coldkey).
+        let coldkey = ensure_signed(origin)?;
+        log::info!(
+            "do_root_register( coldkey: {:?}, hotkey: {:?} )",
+            coldkey,
+            hotkey
+        );
+
+        // --- 2. Check if the hotkey is already registered to the root network. If not, error out.
+        ensure!(
+            Uids::<T>::contains_key(root_netuid, &hotkey),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
+        // --- 3. Create a network account for the user if it doesn't exist.
+        Self::create_account_if_non_existent(&coldkey, &hotkey);
+
+        // --- 4. Join the Senate if eligible.
+        // Returns the replaced member, if any.
+        let replaced = Self::join_senate_if_eligible(&hotkey)?;
+
+        if replaced.is_none() {
+            // Not eligible to join the Senate, or no replacement needed.
+            // Check if the hotkey is *now* a member of the Senate.
+            // Otherwise, error out.
+            ensure!(
+                T::SenateMembers::is_member(&hotkey),
+                Error::<T>::StakeTooLowForRoot, // Had less stake than the lowest stake incumbent.
+            );
+        }
+
+        // --- 5. Log and announce the successful Senate adjustment.
+        log::info!(
+            "SenateAdjusted(old_hotkey:{:?} hotkey:{:?})",
+            replaced,
+            hotkey
+        );
+        Self::deposit_event(Event::SenateAdjusted {
+            old_member: replaced.cloned(),
+            new_member: hotkey,
+        });
+
+        // --- 6. Finish and return success.
+        Ok(())
+    }
+
+    // Checks if a hotkey should be a member of the Senate, and if so, adds them.
+    //
+    // # Arguments:
+    // * 'hotkey': The hotkey that the user wants to register to the root network.
+    //
+    // # Returns:
+    // * 'Result<Option<&T::AccountId>, Error<T>>': A result containing the replaced member, if any.
+    //
+    fn join_senate_if_eligible(hotkey: &T::AccountId) -> Result<Option<&T::AccountId>, Error<T>> {
+        // Get the root network UID.
+        let root_netuid: u16 = Self::get_root_netuid();
+
+        // --- 1. Check the hotkey is registered in the root network.
+        ensure!(
+            Uids::<T>::contains_key(root_netuid, hotkey),
+            Error::<T>::HotKeyNotRegisteredInSubNet
+        );
+
+        // --- 2. Verify the hotkey is NOT already a member of the Senate.
+        ensure!(
+            !T::SenateMembers::is_member(hotkey),
+            Error::<T>::HotKeyAlreadyRegisteredInSubNet
+        );
+
+        // --- 3. Grab the hotkey's stake.
+        let current_stake = Self::get_total_stake_for_hotkey(hotkey);
+
+        // Add the hotkey to the Senate.
         // If we're full, we'll swap out the lowest stake member.
         let members = T::SenateMembers::members();
+        let last: Option<&T::AccountId> = None;
         if (members.len() as u32) == T::SenateMembers::max_members() {
             let mut sorted_members = members.clone();
             sorted_members.sort_by(|a, b| {
@@ -587,34 +711,17 @@ impl<T: Config> Pallet<T> {
                 let last_stake = Self::get_total_stake_for_hotkey(last);
 
                 if last_stake < current_stake {
-                    T::SenateMembers::swap_member(last, &hotkey).map_err(|e| e.error)?;
-                    T::TriumvirateInterface::remove_votes(last)?;
+                    // Swap the member with the lowest stake.
+                    T::SenateMembers::swap_member(last, hotkey)
+                        .map_err(|_| Error::<T>::CouldNotJoinSenate)?;
                 }
             }
         } else {
-            T::SenateMembers::add_member(&hotkey).map_err(|e| e.error)?;
+            T::SenateMembers::add_member(hotkey).map_err(|_| Error::<T>::CouldNotJoinSenate)?;
         }
 
-        // --- 13. Force all members on root to become a delegate.
-        if !Self::hotkey_is_delegate(&hotkey) {
-            Self::delegate_hotkey(&hotkey, 11_796); // 18% cut defaulted.
-        }
-
-        // --- 14. Update the registration counters for both the block and interval.
-        RegistrationsThisInterval::<T>::mutate(root_netuid, |val| val.saturating_inc());
-        RegistrationsThisBlock::<T>::mutate(root_netuid, |val| val.saturating_inc());
-
-        // --- 15. Log and announce the successful registration.
-        log::info!(
-            "RootRegistered(netuid:{:?} uid:{:?} hotkey:{:?})",
-            root_netuid,
-            subnetwork_uid,
-            hotkey
-        );
-        Self::deposit_event(Event::NeuronRegistered(root_netuid, subnetwork_uid, hotkey));
-
-        // --- 16. Finish and return success.
-        Ok(())
+        // Return the swapped out member, if any.
+        Ok(last)
     }
 
     pub fn do_set_root_weights(

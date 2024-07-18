@@ -126,6 +126,8 @@ mod errors {
         CommitRevealEnabled,
         /// Attemtping to commit/reveal weights when disabled.
         CommitRevealDisabled,
+        /// Not able to join the senate.
+        CouldNotJoinSenate,
         /// Attempting to set alpha high/low while disabled
         LiquidAlphaDisabled,
         /// Alpha high is too low: alpha_high > 0.8
