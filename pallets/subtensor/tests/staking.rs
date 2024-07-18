@@ -2275,7 +2275,7 @@ fn test_full_block_emission_occurs() {
     });
 }
 
-// This test sets up one validator and one miner for a subnet, and 
+// This test sets up one validator and one miner for a subnet, and
 // then runs an epoch and checks that validator gets validator emission only
 // and miner gets miner emission only.
 //
