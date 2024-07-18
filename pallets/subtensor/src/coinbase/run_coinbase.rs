@@ -71,38 +71,30 @@ impl<T: Config> Pallet<T> {
         // --- 4. Compute EmissionValues per subnet.
         // Iterate over mechanisms.
         for netuid in subnets.clone().iter() {
-            // Get subnet mechanims.
+            // 1. Get subnet mechanism ID
             let mechid: u16 = SubnetMechanism::<T>::get(*netuid);
-            // Get the emission for the mechanism.
-            let emission_for_mechanism: I96F32 = I96F32::from_num( *emission_per_mechanism.get(&mechid).unwrap() );
-            // Get the tao for this mechanism.
-            let tao_for_mechanism: I96F32 = I96F32::from_num( *tao_per_mechanism.get(&mechid).unwrap() );
-            // Get the subnet tao.
-            let subnet_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get(*netuid) );
-            // TAO proportion in mechanism.
-            let subnet_proportion: I96F32 = subnet_tao.checked_div( tao_for_mechanism ).unwrap_or(I96F32::from_num(0));
-            // Get the emission for this subnet.
-            let subnet_tao_emission_per_block: I96F32 = subnet_proportion.checked_mul( emission_for_mechanism ).unwrap_or(I96F32::from_num(0));
-            // Compute the alpha emission.
-            let subnet_alpha_emission: I96F32;
-            if mechid == 2 { // STAO
-                subnet_alpha_emission = Self::tao_to_alpha( subnet_tao_emission_per_block.to_num::<u64>(), *netuid );
-            } else { // ROOT and other.
-                subnet_alpha_emission = subnet_tao_emission_per_block;
-            }
-            // Increment total TAO.
-            TotalIssuance::<T>::mutate(|total_issuance| { *total_issuance = total_issuance.saturating_add(subnet_tao_emission_per_block.to_num::<u64>());});
-            // Increment Subnet TAO.
-            SubnetTAO::<T>::mutate(*netuid, |tao| { *tao = tao.saturating_add(subnet_tao_emission_per_block.to_num::<u64>());});
-            // Increment Subnet Alpha.
-            // TODO evaluate whether this should be here or below.
-            SubnetAlpha::<T>::mutate(*netuid, |alpha| { *alpha = alpha.saturating_add(subnet_alpha_emission.to_num::<u64>());});
-            // Insert the emission for this subnet from the proportion.
-            EmissionValues::<T>::insert( *netuid, subnet_alpha_emission.to_num::<u64>());
-            // Accumulate the subnet emission on the subnet.
-            PendingEmission::<T>::mutate(*netuid, |subnet_emission| { 
-                *subnet_emission = subnet_emission.saturating_add(subnet_alpha_emission.to_num::<u64>())
-            });
+            // 2. Get mechanism emission (E_m)
+            let mechanism_emission: I96F32 = I96F32::from_num(*emission_per_mechanism.get(&mechid).unwrap());
+            // 3. Get mechanism TAO (T_m)
+            let mechanism_tao: I96F32 = I96F32::from_num(*tao_per_mechanism.get(&mechid).unwrap());
+            // 4. Get subnet TAO (T_s)
+            let subnet_tao: I96F32 = I96F32::from_num(SubnetTAO::<T>::get(*netuid));
+            // 5. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
+            let subnet_proportion: I96F32 = subnet_tao.checked_div(mechanism_tao).unwrap_or(I96F32::from_num(0));
+            // 6. Calculate subnet's TAO emission: E_s = P_s * E_m
+            let tao_emission: u64 = subnet_proportion.checked_mul(mechanism_emission).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+            // 7. Convert TAO emission to alpha emission
+            let alpha_emission: u64 = Self::tao_to_alpha(tao_emission, *netuid);
+            // 8. Update total issuance: I_new = I_old + E_s
+            TotalIssuance::<T>::mutate(|issuance| { *issuance = issuance.saturating_add(tao_emission) });
+            // 9. Update subnet TAO: T_s_new = T_s_old + E_s
+            SubnetTAO::<T>::mutate(*netuid, |subtao| { *subtao = subtao.saturating_add(tao_emission) });
+            // 10. Update subnet alpha: A_s_new = A_s_old + E_α
+            SubnetAlpha::<T>::mutate(*netuid, |alpha| { *alpha = alpha.saturating_add(alpha_emission) });
+            // 11. Store alpha emission for this subnet
+            EmissionValues::<T>::insert(*netuid, alpha_emission);
+            // 12. Accumulate pending emission: P_e_new = P_e_old + E_α
+            PendingEmission::<T>::mutate(netuid, |emission| { *emission = emission.saturating_add(alpha_emission) });
         }
         log::debug!("Emission per subnet: {:?}", EmissionValues::<T>::iter().collect::<Vec<_>>());
 

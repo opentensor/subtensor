@@ -360,11 +360,11 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The dynamic value equivalent to the given alpha value on the specified subnet.
     pub fn alpha_to_tao( alpha: u64, netuid: u16 ) -> u64 {
+        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
         if mechid == 2 { 
             // Dynamic
             let alpha_in: I96F32 = I96F32::from_num( alpha );
 
-            let mechid: u16 = SubnetMechanism::<T>::get( netuid );
             let total_mechanism_tao: I96F32 = I96F32::from_num( Self::get_total_mechanism_tao( mechid ) );
             let total_alpha: I96F32 = I96F32::from_num( SubnetAlpha::<T>::get( netuid ) );
             let total_tao: I96F32 = I96F32::from_num( SubnetTAO::<T>::get( netuid ) );
@@ -395,12 +395,12 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// * `u64` - The dynamic value equivalent to the given alpha value on the specified subnet.
     pub fn tao_to_alpha( tao: u64, netuid: u16 ) -> u64 {
+        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
         if mechid == 2 { 
             // Dynamic
             let total_subnet_tao: u64 = SubnetTAO::<T>::get( netuid );
-            let total_mechanism_tao: u64 = Self::get_total_mechanism_tao( SubnetMechanism::<T>::get( netuid ) );
-            alpha = amount_tao_staked * ((total_mechanism_tao + amount_tao_staked) / (total_subnet_tao + amount_tao_staked));
-            return alpha;
+            let total_mechanism_tao: u64 = Self::get_total_mechanism_tao( mechid );
+            return tao * ((total_mechanism_tao + tao) / (total_subnet_tao + tao));
         } else {
             // Stable.
             return tao;
