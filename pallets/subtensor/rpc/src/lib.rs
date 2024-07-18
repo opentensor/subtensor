@@ -33,7 +33,11 @@ pub trait SubtensorCustomApi<BlockHash> {
         at: Option<BlockHash>,
     ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getIdentityOfDelegate")]
-    fn get_identity_of_delegate(&self, delegate_account_vec: Vec<u8>, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
+    fn get_identity_of_delegate(
+        &self,
+        delegate_account_vec: Vec<u8>,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Vec<u8>>;
     #[method(name = "delegateInfo_getDelegateIdentities")]
     fn get_delegate_identities(&self, at: Option<BlockHash>) -> RpcResult<Vec<u8>>;
 
@@ -147,12 +151,13 @@ where
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 
-        api.get_identity_of_delegate(at, delegatee_account_vec).map_err(|e| {
-            Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
-        })
+        api.get_identity_of_delegate(at, delegatee_account_vec)
+            .map_err(|e| {
+                Error::RuntimeError(format!("Unable to get delegates info: {:?}", e)).into()
+            })
     }
 
-    fn get_delegate_identities(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>>  {
+    fn get_delegate_identities(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Vec<u8>> {
         let api = self.client.runtime_api();
         let at = at.unwrap_or_else(|| self.client.info().best_hash);
 

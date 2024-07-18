@@ -1,6 +1,6 @@
 use super::*;
-use sp_std::vec::Vec;
 use sp_runtime::DispatchResult;
+use sp_std::vec::Vec;
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the identity information of a given delegate account.
@@ -11,7 +11,9 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     /// - `Option<IdentityInfo<T::MaxAdditionalFields>>`: An `Option` containing the identity information of the delegate
     /// if it exists, otherwise `None`.
-    pub fn get_identity_of_delegate(account: &T::AccountId) -> Option<IdentityInfo<T::MaxAdditionalFields>> {
+    pub fn get_identity_of_delegate(
+        account: &T::AccountId,
+    ) -> Option<IdentityInfo<T::MaxAdditionalFields>> {
         if let Some(value) = IdentityOf::<T>::get(account) {
             return Some(value.info);
         }
@@ -38,12 +40,11 @@ impl<T: Config> Pallet<T> {
         }
 
         if identities.len() > 0 {
-            return Some(identities)
+            return Some(identities);
         }
-        
+
         None
     }
-
 
     /// Sets the identity information for a given delegate account with provided values.
     ///
@@ -57,7 +58,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Errors
     /// - `IdentityAlreadyExists`: Returned if the delegate already has an identity set.
-    pub fn set_identity_for_delegate(account: &T::AccountId, info: IdentityInfo<T::MaxAdditionalFields>) -> DispatchResult {
+    pub fn set_identity_for_delegate(
+        account: &T::AccountId,
+        info: IdentityInfo<T::MaxAdditionalFields>,
+    ) -> DispatchResult {
         if IdentityOf::<T>::contains_key(account) {
             return Err(<Error<T>>::IdentityAlreadyExists.into());
         }
@@ -91,11 +95,10 @@ impl<T: Config> Pallet<T> {
                 IdentityOf::<T>::insert(old_hotkey, identity);
                 return Err(Error::<T>::NewHotkeyInUse.into()); // New hotkey is already in use.
             }
-            IdentityOf::<T>::insert(new_hotkey,  identity);
+            IdentityOf::<T>::insert(new_hotkey, identity);
             return Ok(());
         }
 
         Err(Error::<T>::OldHotkeyNotFound.into()) // Old hotkey does not exist in Identities.
     }
-    
 }

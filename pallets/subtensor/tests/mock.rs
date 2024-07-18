@@ -16,11 +16,10 @@ use sp_runtime::{
 
 use pallet_collective::MemberCount;
 type Block = frame_system::mocking::MockBlock<Test>;
-use sp_core::RuntimeDebug;
+use codec::MaxEncodedLen;
 use frame_support::pallet_prelude::TypeInfo;
 use frame_support::traits::VariantCount;
-use codec::MaxEncodedLen;
-
+use sp_core::RuntimeDebug;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -101,8 +100,8 @@ impl pallet_registry::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type WeightInfo = ();
-    type CanRegister = (); 
-    type MaxAdditionalFields = (); 
+    type CanRegister = ();
+    type MaxAdditionalFields = ();
     type InitialDeposit = InitialDeposit;
     type FieldDeposit = FieldDeposit;
     type RuntimeHoldReason = CustomHoldReason;
