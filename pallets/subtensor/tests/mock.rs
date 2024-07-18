@@ -164,7 +164,7 @@ parameter_types! {
     pub const InitialSubnetLimit: u16 = 10; // Max 10 subnets.
     pub const InitialNetworkRateLimit: u64 = 0;
     pub const InitialTargetStakesPerInterval: u16 = 2;
-    pub const InitialHotkeySwapCost: u64 = 1_000_000_000;
+    pub const InitialKeySwapCost: u64 = 1_000_000_000;
     pub const InitialAlphaHigh: u16 = 58982; // Represents 0.9 as per the production default
     pub const InitialAlphaLow: u16 = 45875; // Represents 0.7 as per the production default
     pub const InitialLiquidAlphaOn: bool = false; // Default value for LiquidAlphaOn
@@ -203,23 +203,29 @@ use pallet_subtensor::{CollectiveInterface, MemberManagement};
 pub struct ManageSenateMembers;
 impl MemberManagement<AccountId> for ManageSenateMembers {
     fn add_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::add_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::add_member(RawOrigin::Root.into(), who)
     }
 
     fn remove_member(account: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::remove_member(RawOrigin::Root.into(), *account)
+        let who = *account;
+        SenateMembers::remove_member(RawOrigin::Root.into(), who)
     }
 
-    fn swap_member(remove: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
-        SenateMembers::swap_member(RawOrigin::Root.into(), *remove, *add)
+    fn swap_member(rm: &AccountId, add: &AccountId) -> DispatchResultWithPostInfo {
+        let remove = *rm;
+        let add = *add;
+
+        Triumvirate::remove_votes(rm)?;
+        SenateMembers::swap_member(RawOrigin::Root.into(), remove, add)
     }
 
     fn is_member(account: &AccountId) -> bool {
-        Senate::is_member(account)
+        SenateMembers::members().contains(account)
     }
 
     fn members() -> Vec<AccountId> {
-        Senate::members()
+        SenateMembers::members().into()
     }
 
     fn max_members() -> u32 {
@@ -369,7 +375,7 @@ impl pallet_subtensor::Config for Test {
     type InitialSubnetLimit = InitialSubnetLimit;
     type InitialNetworkRateLimit = InitialNetworkRateLimit;
     type InitialTargetStakesPerInterval = InitialTargetStakesPerInterval;
-    type HotkeySwapCost = InitialHotkeySwapCost;
+    type KeySwapCost = InitialKeySwapCost;
     type AlphaHigh = InitialAlphaHigh;
     type AlphaLow = InitialAlphaLow;
     type LiquidAlphaOn = InitialLiquidAlphaOn;

@@ -671,8 +671,8 @@ impl<T: Config> Pallet<T> {
         NominatorMinRequiredStake::<T>::put(min_stake);
     }
 
-    pub fn get_hotkey_swap_cost() -> u64 {
-        T::HotkeySwapCost::get()
+    pub fn get_key_swap_cost() -> u64 {
+        T::KeySwapCost::get()
     }
 
     pub fn get_alpha_values(netuid: u16) -> (u16, u16) {
