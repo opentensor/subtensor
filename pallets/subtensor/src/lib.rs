@@ -1006,7 +1006,7 @@ pub mod pallet {
     pub type AlphaValues<T> =
         StorageMap<_, Identity, u16, (u16, u16), ValueQuery, DefaultAlphaValues<T>>;
 
-    #[pallet::storage] // --- MAP (netuid, who) --> (hash, weight) | Returns the hash and weight committed by an account for a given netuid.
+    #[pallet::storage] // --- MAP (netuid, who) --> (hash, block height) | Returns the hash and block height committed by an account for a given netuid.
     pub type WeightCommits<T: Config> = StorageDoubleMap<
         _,
         Twox64Concat,
