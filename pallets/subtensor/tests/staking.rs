@@ -2293,6 +2293,7 @@ fn test_only_validators_provide_rewards_to_nominators() {
         SubtensorModule::set_max_registrations_per_block(netuid, 4);
         SubtensorModule::set_max_allowed_uids(netuid, 2);
         SubtensorModule::set_target_stakes_per_interval(10);
+        pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
 
         // Add balances.
         SubtensorModule::add_balance_to_coldkey_account(
@@ -2315,12 +2316,16 @@ fn test_only_validators_provide_rewards_to_nominators() {
         assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator));
         assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &miner));
 
+        // Bump current block by 1 so that weights don't get masked for neurons as deregistered
+        // (last update block needs to be different from block of registration)
+        step_block(1);
+
         // Setup validator and miner roles:
         //   Validator is in top k by stake because it has 10x stake of a regular user
         //   Validator has validator permit (and epoch function will not change it because it is still the top staker)
         //   Max validators is 1
         assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RuntimeOrigin::signed(coldkey),
             validator,
             10 * stake
         ));
@@ -2330,12 +2335,12 @@ fn test_only_validators_provide_rewards_to_nominators() {
 
         // Both miner and validator become delegates
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RuntimeOrigin::signed(coldkey),
             validator,
             SubtensorModule::get_default_take()
         ));
         assert_ok!(SubtensorModule::do_become_delegate(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RuntimeOrigin::signed(coldkey),
             miner,
             SubtensorModule::get_default_take()
         ));
@@ -2348,17 +2353,17 @@ fn test_only_validators_provide_rewards_to_nominators() {
         //   Nominator 2 delegates 1x stake to miner
         //   Miner has 1x own stake
         assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(nominator1),
+            RuntimeOrigin::signed(nominator1),
             validator,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(nominator2),
+            RuntimeOrigin::signed(nominator2),
             miner,
             stake
         ));
         assert_ok!(SubtensorModule::add_stake(
-            <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+            RuntimeOrigin::signed(coldkey),
             miner,
             stake
         ));
@@ -2381,6 +2386,15 @@ fn test_only_validators_provide_rewards_to_nominators() {
             stake
         );
 
+        // Validator sets weights
+        assert_ok!(SubtensorModule::do_set_weights(
+            RuntimeOrigin::signed(validator),
+            netuid,
+            vec![0, 1],
+            vec![u16::MAX, u16::MAX],
+            0
+        ));
+
         // Run epoch
         let emission_tuples = SubtensorModule::epoch(netuid, block_emission);
 
@@ -2389,8 +2403,8 @@ fn test_only_validators_provide_rewards_to_nominators() {
         assert_eq!(emission_tuples[0].0, validator);
         assert_eq!(emission_tuples[1].0, miner);
         assert_eq!(emission_tuples[0].1, 0);
-        assert_eq!(emission_tuples[1].1, 0);
-        assert_eq!(emission_tuples[0].2, block_emission);
+        assert_eq!(emission_tuples[1].1, block_emission / 2);
+        assert_eq!(emission_tuples[0].2, block_emission / 2);
         assert_eq!(emission_tuples[1].2, 0);
     });
 }
