@@ -1,5 +1,6 @@
 use super::*;
 use sp_std::vec::Vec;
+use sp_runtime::DispatchResult;
 
 impl<T: Config> Pallet<T> {
     /// Retrieves the identity information of a given delegate account.
@@ -43,6 +44,33 @@ impl<T: Config> Pallet<T> {
         None
     }
 
+
+    /// Sets the identity information for a given delegate account with provided values.
+    ///
+    /// # Parameters
+    /// - `account`: A reference to the account ID of the delegate.
+    /// - `info`: The identity information to set for the delegate.
+    ///
+    /// # Returns
+    /// - `DispatchResult`: Returns `Ok(())` if the identity is set successfully, otherwise returns
+    /// a `DispatchError`.
+    ///
+    /// # Errors
+    /// - `IdentityAlreadyExists`: Returned if the delegate already has an identity set.
+    pub fn set_identity_for_delegate(account: &T::AccountId, info: IdentityInfo<T::MaxAdditionalFields>) -> DispatchResult {
+        if IdentityOf::<T>::contains_key(account) {
+            return Err(<Error<T>>::IdentityAlreadyExists.into());
+        }
+
+        let reg: Registration<BalanceOf<T>, T::MaxAdditionalFields> = Registration {
+            deposit: Zero::zero(),
+            info,
+        };
+
+        IdentityOf::<T>::insert(account, reg);
+        Ok(()) // Identity set successfully
+    }
+
     /// Swaps the hotkey of a delegate identity from an old account ID to a new account ID.
     ///
     /// # Parameters
@@ -50,25 +78,24 @@ impl<T: Config> Pallet<T> {
     /// - `new_hotkey`: A reference to the new account ID (new hotkey) to be assigned to the delegate identity.
     ///
     /// # Returns
-    /// - `bool`: A boolean value indicating success or failure. Returns `true` if the swap is
-    /// successful, otherwise returns `false`.
+    /// - `Result<(), SwapError>`: Returns `Ok(())` if the swap is successful. Returns `Err(SwapError)` otherwise.
     pub fn swap_delegate_identity_hotkey(
         old_hotkey: &T::AccountId,
         new_hotkey: &T::AccountId,
-    ) -> bool {
+    ) -> DispatchResult {
         // Check if the old hotkey exists in the identity map.
-        if let Some(identity_info) = IdentityOf::<T>::take(old_hotkey) {
+        if let Some(identity) = IdentityOf::<T>::take(old_hotkey) {
             // Check if the new hotkey is already in use.
             if IdentityOf::<T>::contains_key(new_hotkey) {
                 // Reinsert the old hotkey back into the identity map to maintain consistency.
-                IdentityOf::<T>::insert(old_hotkey, identity_info);
-                return false; // New hotkey is already in use.
+                IdentityOf::<T>::insert(old_hotkey, identity);
+                return Err(Error::<T>::NewHotkeyInUse.into()); // New hotkey is already in use.
             }
-            IdentityOf::<T>::insert(new_hotkey, identity_info);
-            return true;
+            IdentityOf::<T>::insert(new_hotkey,  identity);
+            return Ok(());
         }
 
-        return false; // Old hotkey does not exist in Identities.
+        Err(Error::<T>::OldHotkeyNotFound.into()) // Old hotkey does not exist in Identities.
     }
     
 }

@@ -1,3 +1,4 @@
+use codec::{Decode, Encode};
 use frame_support::derive_impl;
 use frame_support::dispatch::DispatchResultWithPostInfo;
 use frame_support::{
@@ -14,8 +15,12 @@ use sp_runtime::{
 };
 
 use pallet_collective::MemberCount;
-
 type Block = frame_system::mocking::MockBlock<Test>;
+use sp_core::RuntimeDebug;
+use frame_support::pallet_prelude::TypeInfo;
+use frame_support::traits::VariantCount;
+use codec::MaxEncodedLen;
+
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -29,6 +34,7 @@ frame_support::construct_runtime!(
         SenateMembers: pallet_membership::<Instance2>::{Pallet, Call, Storage, Event<T>, Config<T>},
         SubtensorModule: pallet_subtensor::{Pallet, Call, Storage, Event<T>},
         Utility: pallet_utility::{Pallet, Call, Storage, Event},
+        Registry: pallet_registry::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -47,6 +53,8 @@ pub type TestRuntimeCall = frame_system::Call<Test>;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 42;
+    pub const InitialDeposit: u32 = 10_000;
+    pub const FieldDeposit: u32 = 1_000;
 }
 
 #[allow(dead_code)]
@@ -64,6 +72,42 @@ pub type Balance = u64;
 #[allow(dead_code)]
 pub type BlockNumber = u64;
 
+#[derive(Encode, Decode, RuntimeDebug, PartialEq, Eq, Clone, Copy, Default, TypeInfo)]
+pub struct CustomHoldReason;
+
+impl From<pallet_registry::HoldReason> for CustomHoldReason {
+    fn from(_: pallet_registry::HoldReason) -> Self {
+        CustomHoldReason
+    }
+}
+
+impl VariantCount for CustomHoldReason {
+    const VARIANT_COUNT: u32 = 1; // Since CustomHoldReason is a single variant
+}
+
+impl MaxEncodedLen for CustomHoldReason {
+    fn max_encoded_len() -> usize {
+        1 // The maximum encoded length of CustomHoldReason is 1 byte.
+    }
+}
+
+impl Get<u32> for CustomHoldReason {
+    fn get() -> u32 {
+        0
+    }
+}
+
+impl pallet_registry::Config for Test {
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type WeightInfo = ();
+    type CanRegister = (); 
+    type MaxAdditionalFields = (); 
+    type InitialDeposit = InitialDeposit;
+    type FieldDeposit = FieldDeposit;
+    type RuntimeHoldReason = CustomHoldReason;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
     type Balance = Balance;
@@ -76,7 +120,7 @@ impl pallet_balances::Config for Test {
     type MaxReserves = ();
     type ReserveIdentifier = ();
 
-    type RuntimeHoldReason = ();
+    type RuntimeHoldReason = CustomHoldReason;
     type FreezeIdentifier = ();
     type MaxFreezes = ();
 }

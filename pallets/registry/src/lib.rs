@@ -89,6 +89,12 @@ pub mod pallet {
         TooManyFieldsInIdentityInfo,
         /// Account doesn't have a registered identity
         NotRegistered,
+        /// The old hotkey does not exist in the identity map.
+        OldHotkeyNotFound,
+        /// The new hotkey is already in use.
+        NewHotkeyInUse,
+        /// Attempting to set an Identity for a hotkey that already has one.
+        IdentityAlreadyExists,
     }
 
     /// Enum to hold reasons for putting funds on hold.
