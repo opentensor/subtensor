@@ -106,358 +106,366 @@ fn test_root_register_normal_on_root_fails() {
     });
 }
 
+// DEPRECATED.
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_register_stake_based_pruning_works --exact --nocapture
-#[test]
-fn test_root_register_stake_based_pruning_works() {
-    new_test_ext(1).execute_with(|| {
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
-        // Add two networks.
-        let root_netuid: u16 = 0;
-        let other_netuid: u16 = 1;
-        add_network(other_netuid, 0, 0);
+// #[test]
+// fn test_root_register_stake_based_pruning_works() {
+//     new_test_ext(1).execute_with(|| {
+//         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+//         // Add two networks.
+//         let root_netuid: u16 = 0;
+//         let other_netuid: u16 = 1;
+//         add_network(other_netuid, 0, 0);
 
-        // Set params to allow all registrations to subnet.
-        SubtensorModule::set_burn(other_netuid, 0);
-        SubtensorModule::set_max_registrations_per_block(other_netuid, 256);
-        SubtensorModule::set_target_registrations_per_interval(other_netuid, 256);
+//         // Set params to allow all registrations to subnet.
+//         SubtensorModule::set_burn(other_netuid, 0);
+//         SubtensorModule::set_max_registrations_per_block(other_netuid, 256);
+//         SubtensorModule::set_target_registrations_per_interval(other_netuid, 256);
 
-        SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
-        SubtensorModule::set_target_registrations_per_interval(root_netuid, 1000);
+//         SubtensorModule::set_max_registrations_per_block(root_netuid, 1000);
+//         SubtensorModule::set_target_registrations_per_interval(root_netuid, 1000);
 
-        // Register 128 accounts with stake to the other network.
-        for i in 0..128 {
-            let hot: U256 = U256::from(i);
-            let cold: U256 = U256::from(i);
-            // Add balance
-            SubtensorModule::add_balance_to_coldkey_account(&cold, 1000 + (i as u64));
-            // Register
-            assert_ok!(SubtensorModule::burned_register(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                other_netuid,
-                hot
-            ));
-            // Add stake on other network
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                hot,
-                1000 + (i as u64)
-            ));
-            // Check successful registration.
-            assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
-            // Check that they are NOT all delegates
-            assert!(!SubtensorModule::hotkey_is_delegate(&hot));
-        }
+//         // Register 128 accounts with stake to the other network.
+//         for i in 0..128 {
+//             let hot: U256 = U256::from(i);
+//             let cold: U256 = U256::from(i);
+//             // Add balance
+//             SubtensorModule::add_balance_to_coldkey_account(&cold, 1000 + (i as u64));
+//             // Register
+//             assert_ok!(SubtensorModule::burned_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 other_netuid,
+//                 hot
+//             ));
+//             // Add stake on other network
+//             assert_ok!(SubtensorModule::add_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 hot,
+//                 other_netuid,
+//                 1000 + (i as u64)
+//             ));
+//             // Check successful registration.
+//             assert!(SubtensorModule::get_uid_for_net_and_hotkey(other_netuid, &hot).is_ok());
+//             // Check that they are NOT all delegates
+//             assert!(!SubtensorModule::hotkey_is_delegate(&hot));
+//         }
 
-        // Register the first 64 accounts with stake to the root network.
-        for i in 0..64 {
-            let hot: U256 = U256::from(i);
-            let cold: U256 = U256::from(i);
-            assert_ok!(SubtensorModule::root_register(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                hot,
-            ));
-            // Check successful registration.
-            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            // Check that they are all delegates
-            assert!(SubtensorModule::hotkey_is_delegate(&hot));
-        }
+//         // Register the first 64 accounts with stake to the root network.
+//         for i in 0..64 {
+//             let hot: U256 = U256::from(i);
+//             let cold: U256 = U256::from(i);
+//             assert_ok!(SubtensorModule::root_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 hot,
+//             ));
+//             // Check successful registration.
+//             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+//             // Check that they are all delegates
+//             assert!(SubtensorModule::hotkey_is_delegate(&hot));
+//         }
 
-        // Register the second 64 accounts with stake to the root network.
-        // Replaces the first 64
-        for i in 64..128 {
-            let hot: U256 = U256::from(i);
-            let cold: U256 = U256::from(i);
-            assert_ok!(SubtensorModule::root_register(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                hot,
-            ));
-            // Check successful registration.
-            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-        }
+//         // Register the second 64 accounts with stake to the root network.
+//         // Replaces the first 64
+//         for i in 64..128 {
+//             let hot: U256 = U256::from(i);
+//             let cold: U256 = U256::from(i);
+//             assert_ok!(SubtensorModule::root_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 hot,
+//             ));
+//             // Check successful registration.
+//             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+//         }
 
-        // Register the first 64 accounts again, this time failing because they
-        // don't have enough stake.
-        for i in 0..64 {
-            let hot: U256 = U256::from(i);
-            let cold: U256 = U256::from(i);
-            assert_eq!(
-                SubtensorModule::root_register(
-                    <<Test as Config>::RuntimeOrigin>::signed(cold),
-                    hot,
-                ),
-                Err(Error::<Test>::StakeTooLowForRoot.into())
-            );
-            // Check for unsuccessful registration.
-            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_err());
-            // Check that they are NOT senate members
-            assert!(!SubtensorModule::is_senate_member(&hot));
-        }
-    });
-}
+//         // Register the first 64 accounts again, this time failing because they
+//         // don't have enough stake.
+//         for i in 0..64 {
+//             let hot: U256 = U256::from(i);
+//             let cold: U256 = U256::from(i);
+//             assert_eq!(
+//                 SubtensorModule::root_register(
+//                     <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                     hot,
+//                 ),
+//                 Err(Error::<Test>::StakeTooLowForRoot.into())
+//             );
+//             // Check for unsuccessful registration.
+//             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_err());
+//             // Check that they are NOT senate members
+//             assert!(!SubtensorModule::is_senate_member(&hot));
+//         }
+//     });
+// }
+
+// DEPRECATED.
+
+// // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
+// #[test]
+// fn test_root_set_weights() {
+//     new_test_ext(1).execute_with(|| {
+//         System::set_block_number(0);
+//         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+
+//         let n: usize = 10;
+//         let root_netuid: u16 = 0;
+//         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
+//         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
+//         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
+//         for i in 0..n {
+//             let hotkey_account_id: U256 = U256::from(i);
+//             let coldkey_account_id: U256 = U256::from(i + 456);
+//             SubtensorModule::add_balance_to_coldkey_account(
+//                 &coldkey_account_id,
+//                 1_000_000_000_000_000,
+//             );
+//             assert_ok!(SubtensorModule::root_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//             ));
+//             assert_ok!(SubtensorModule::add_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//                 netuid,
+//                 1000
+//             ));
+//         }
+
+//         log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
+//         log::info!(
+//             "current subnet count: {:?}",
+//             SubtensorModule::get_num_subnets()
+//         );
+
+//         // Lets create n networks
+//         for netuid in 1..n {
+//             log::debug!("Adding network with netuid: {}", netuid);
+//             assert_ok!(SubtensorModule::register_network(
+//                 <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid + 456))
+//             ));
+//         }
+
+//         // Test that signing with hotkey will fail.
+//         for i in 0..n {
+//             let hotkey = U256::from(i);
+//             let uids: Vec<u16> = vec![i as u16];
+//             let values: Vec<u16> = vec![1];
+//             assert_err!(
+//                 SubtensorModule::set_root_weights(
+//                     <<Test as Config>::RuntimeOrigin>::signed(hotkey),
+//                     root_netuid,
+//                     hotkey,
+//                     uids,
+//                     values,
+//                     0,
+//                 ),
+//                 Error::<Test>::NonAssociatedColdKey
+//             );
+//         }
+
+//         // Test that signing an unassociated coldkey will fail.
+//         let unassociated_coldkey = U256::from(612);
+//         for i in 0..n {
+//             let hotkey = U256::from(i);
+//             let uids: Vec<u16> = vec![i as u16];
+//             let values: Vec<u16> = vec![1];
+//             assert_err!(
+//                 SubtensorModule::set_root_weights(
+//                     <<Test as Config>::RuntimeOrigin>::signed(unassociated_coldkey),
+//                     root_netuid,
+//                     hotkey,
+//                     uids,
+//                     values,
+//                     0,
+//                 ),
+//                 Error::<Test>::NonAssociatedColdKey
+//             );
+//         }
+
+//         // Set weights into diagonal matrix.
+//         for i in 0..n {
+//             let hotkey = U256::from(i);
+//             let coldkey = U256::from(i + 456);
+//             let uids: Vec<u16> = vec![i as u16];
+//             let values: Vec<u16> = vec![1];
+//             assert_ok!(SubtensorModule::set_root_weights(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+//                 root_netuid,
+//                 hotkey,
+//                 uids,
+//                 values,
+//                 0,
+//             ));
+//         }
+//         // Run the root epoch
+//         log::debug!("Running Root epoch");
+//         SubtensorModule::set_tempo(root_netuid, 1);
+//         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
+//         // Check that the emission values have been set.
+//         for netuid in 1..n {
+//             log::debug!("check emission for netuid: {}", netuid);
+//             assert_eq!(
+//                 SubtensorModule::get_subnet_emission_value(netuid as u16),
+//                 99_999_999
+//             );
+//         }
+//         step_block(2);
+//         // Check that the pending emission values have been set.
+//         for netuid in 1..n {
+//             log::debug!(
+//                 "check pending emission for netuid {} has pending {}",
+//                 netuid,
+//                 SubtensorModule::get_pending_emission(netuid as u16)
+//             );
+//             assert_eq!(
+//                 SubtensorModule::get_pending_emission(netuid as u16),
+//                 199_999_998
+//             );
+//         }
+//         step_block(1);
+//         for netuid in 1..n {
+//             log::debug!(
+//                 "check pending emission for netuid {} has pending {}",
+//                 netuid,
+//                 SubtensorModule::get_pending_emission(netuid as u16)
+//             );
+//             assert_eq!(
+//                 SubtensorModule::get_pending_emission(netuid as u16),
+//                 299_999_997
+//             );
+//         }
+//         let step = SubtensorModule::blocks_until_next_epoch(
+//             10,
+//             1000,
+//             SubtensorModule::get_current_block_as_u64(),
+//         );
+//         step_block(step as u16);
+//         assert_eq!(SubtensorModule::get_pending_emission(10), 0);
+//     });
+// }
+
+// DEPRECATED.
 
 // SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
-#[test]
-fn test_root_set_weights() {
-    new_test_ext(1).execute_with(|| {
-        System::set_block_number(0);
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+// #[test]
+// fn test_root_set_weights_out_of_order_netuids() {
+//     new_test_ext(1).execute_with(|| {
+//         System::set_block_number(0);
+//         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        let n: usize = 10;
-        let root_netuid: u16 = 0;
-        SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
-        SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
-        SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
-        for i in 0..n {
-            let hotkey_account_id: U256 = U256::from(i);
-            let coldkey_account_id: U256 = U256::from(i + 456);
-            SubtensorModule::add_balance_to_coldkey_account(
-                &coldkey_account_id,
-                1_000_000_000_000_000,
-            );
-            assert_ok!(SubtensorModule::root_register(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-            ));
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                1000
-            ));
-        }
+//         let n: usize = 10;
+//         let root_netuid: u16 = 0;
+//         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
+//         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
+//         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
+//         for i in 0..n {
+//             let hotkey_account_id: U256 = U256::from(i);
+//             let coldkey_account_id: U256 = U256::from(i);
+//             SubtensorModule::add_balance_to_coldkey_account(
+//                 &coldkey_account_id,
+//                 1_000_000_000_000_000,
+//             );
+//             assert_ok!(SubtensorModule::root_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//             ));
+//             assert_ok!(SubtensorModule::add_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
+//                 hotkey_account_id,
+//                 root_netuid,
+//                 1000
+//             ));
+//         }
 
-        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
-        log::info!(
-            "current subnet count: {:?}",
-            SubtensorModule::get_num_subnets()
-        );
+//         log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
+//         log::info!(
+//             "current subnet count: {:?}",
+//             SubtensorModule::get_num_subnets()
+//         );
 
-        // Lets create n networks
-        for netuid in 1..n {
-            log::debug!("Adding network with netuid: {}", netuid);
-            assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid + 456))
-            ));
-        }
+//         // Lets create n networks
+//         for netuid in 1..n {
+//             log::debug!("Adding network with netuid: {}", netuid);
 
-        // Test that signing with hotkey will fail.
-        for i in 0..n {
-            let hotkey = U256::from(i);
-            let uids: Vec<u16> = vec![i as u16];
-            let values: Vec<u16> = vec![1];
-            assert_err!(
-                SubtensorModule::set_root_weights(
-                    <<Test as Config>::RuntimeOrigin>::signed(hotkey),
-                    root_netuid,
-                    hotkey,
-                    uids,
-                    values,
-                    0,
-                ),
-                Error::<Test>::NonAssociatedColdKey
-            );
-        }
+//             if netuid % 2 == 0 {
+//                 assert_ok!(SubtensorModule::register_network(
+//                     <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
+//                 ));
+//             } else {
+//                 add_network(netuid as u16 * 10, 1000, 0)
+//             }
+//         }
 
-        // Test that signing an unassociated coldkey will fail.
-        let unassociated_coldkey = U256::from(612);
-        for i in 0..n {
-            let hotkey = U256::from(i);
-            let uids: Vec<u16> = vec![i as u16];
-            let values: Vec<u16> = vec![1];
-            assert_err!(
-                SubtensorModule::set_root_weights(
-                    <<Test as Config>::RuntimeOrigin>::signed(unassociated_coldkey),
-                    root_netuid,
-                    hotkey,
-                    uids,
-                    values,
-                    0,
-                ),
-                Error::<Test>::NonAssociatedColdKey
-            );
-        }
+//         log::info!("netuids: {:?}", SubtensorModule::get_all_subnet_netuids());
+//         log::info!(
+//             "root network count: {:?}",
+//             SubtensorModule::get_subnetwork_n(0)
+//         );
 
-        // Set weights into diagonal matrix.
-        for i in 0..n {
-            let hotkey = U256::from(i);
-            let coldkey = U256::from(i + 456);
-            let uids: Vec<u16> = vec![i as u16];
-            let values: Vec<u16> = vec![1];
-            assert_ok!(SubtensorModule::set_root_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                root_netuid,
-                hotkey,
-                uids,
-                values,
-                0,
-            ));
-        }
-        // Run the root epoch
-        log::debug!("Running Root epoch");
-        SubtensorModule::set_tempo(root_netuid, 1);
-        assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        // Check that the emission values have been set.
-        for netuid in 1..n {
-            log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!(
-                SubtensorModule::get_subnet_emission_value(netuid as u16),
-                99_999_999
-            );
-        }
-        step_block(2);
-        // Check that the pending emission values have been set.
-        for netuid in 1..n {
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
-            );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                199_999_998
-            );
-        }
-        step_block(1);
-        for netuid in 1..n {
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(netuid as u16)
-            );
-            assert_eq!(
-                SubtensorModule::get_pending_emission(netuid as u16),
-                299_999_997
-            );
-        }
-        let step = SubtensorModule::blocks_until_next_epoch(
-            10,
-            1000,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(10), 0);
-    });
-}
+//         let subnets = SubtensorModule::get_all_subnet_netuids();
+//         // Set weights into diagonal matrix.
+//         for (i, netuid) in subnets.iter().enumerate() {
+//             let uids: Vec<u16> = vec![*netuid];
+//             let values: Vec<u16> = vec![1];
 
-// SKIP_WASM_BUILD=1 RUST_LOG=info cargo test --test root -- test_root_set_weights --exact --nocapture
-#[test]
-fn test_root_set_weights_out_of_order_netuids() {
-    new_test_ext(1).execute_with(|| {
-        System::set_block_number(0);
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+//             let coldkey = U256::from(i);
+//             let hotkey = U256::from(i);
+//             assert_ok!(SubtensorModule::set_root_weights(
+//                 <<Test as Config>::RuntimeOrigin>::signed(coldkey),
+//                 root_netuid,
+//                 hotkey,
+//                 uids,
+//                 values,
+//                 0,
+//             ));
+//         }
+//         // Run the root epoch
+//         log::debug!("Running Root epoch");
+//         SubtensorModule::set_tempo(root_netuid, 1);
+//         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
+//         // Check that the emission values have been set.
+//         for netuid in subnets.iter() {
+//             log::debug!("check emission for netuid: {}", netuid);
+//             assert_eq!(
+//                 SubtensorModule::get_subnet_emission_value(*netuid),
+//                 99_999_999
+//             );
+//         }
+//         step_block(2);
+//         // Check that the pending emission values have been set.
+//         for netuid in subnets.iter() {
+//             if *netuid == 0 {
+//                 continue;
+//             }
 
-        let n: usize = 10;
-        let root_netuid: u16 = 0;
-        SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
-        SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
-        SubtensorModule::set_max_allowed_uids(root_netuid, n as u16);
-        for i in 0..n {
-            let hotkey_account_id: U256 = U256::from(i);
-            let coldkey_account_id: U256 = U256::from(i);
-            SubtensorModule::add_balance_to_coldkey_account(
-                &coldkey_account_id,
-                1_000_000_000_000_000,
-            );
-            assert_ok!(SubtensorModule::root_register(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-            ));
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey_account_id),
-                hotkey_account_id,
-                1000
-            ));
-        }
+//             log::debug!(
+//                 "check pending emission for netuid {} has pending {}",
+//                 netuid,
+//                 SubtensorModule::get_pending_emission(*netuid)
+//             );
+//             assert_eq!(SubtensorModule::get_pending_emission(*netuid), 199_999_998);
+//         }
+//         step_block(1);
+//         for netuid in subnets.iter() {
+//             if *netuid == 0 {
+//                 continue;
+//             }
 
-        log::info!("subnet limit: {:?}", SubtensorModule::get_max_subnets());
-        log::info!(
-            "current subnet count: {:?}",
-            SubtensorModule::get_num_subnets()
-        );
-
-        // Lets create n networks
-        for netuid in 1..n {
-            log::debug!("Adding network with netuid: {}", netuid);
-
-            if netuid % 2 == 0 {
-                assert_ok!(SubtensorModule::register_network(
-                    <<Test as Config>::RuntimeOrigin>::signed(U256::from(netuid))
-                ));
-            } else {
-                add_network(netuid as u16 * 10, 1000, 0)
-            }
-        }
-
-        log::info!("netuids: {:?}", SubtensorModule::get_all_subnet_netuids());
-        log::info!(
-            "root network count: {:?}",
-            SubtensorModule::get_subnetwork_n(0)
-        );
-
-        let subnets = SubtensorModule::get_all_subnet_netuids();
-        // Set weights into diagonal matrix.
-        for (i, netuid) in subnets.iter().enumerate() {
-            let uids: Vec<u16> = vec![*netuid];
-            let values: Vec<u16> = vec![1];
-
-            let coldkey = U256::from(i);
-            let hotkey = U256::from(i);
-            assert_ok!(SubtensorModule::set_root_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(coldkey),
-                root_netuid,
-                hotkey,
-                uids,
-                values,
-                0,
-            ));
-        }
-        // Run the root epoch
-        log::debug!("Running Root epoch");
-        SubtensorModule::set_tempo(root_netuid, 1);
-        assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        // Check that the emission values have been set.
-        for netuid in subnets.iter() {
-            log::debug!("check emission for netuid: {}", netuid);
-            assert_eq!(
-                SubtensorModule::get_subnet_emission_value(*netuid),
-                99_999_999
-            );
-        }
-        step_block(2);
-        // Check that the pending emission values have been set.
-        for netuid in subnets.iter() {
-            if *netuid == 0 {
-                continue;
-            }
-
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(*netuid)
-            );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 199_999_998);
-        }
-        step_block(1);
-        for netuid in subnets.iter() {
-            if *netuid == 0 {
-                continue;
-            }
-
-            log::debug!(
-                "check pending emission for netuid {} has pending {}",
-                netuid,
-                SubtensorModule::get_pending_emission(*netuid)
-            );
-            assert_eq!(SubtensorModule::get_pending_emission(*netuid), 299_999_997);
-        }
-        let step = SubtensorModule::blocks_until_next_epoch(
-            9,
-            1000,
-            SubtensorModule::get_current_block_as_u64(),
-        );
-        step_block(step as u16);
-        assert_eq!(SubtensorModule::get_pending_emission(9), 0);
-    });
-}
+//             log::debug!(
+//                 "check pending emission for netuid {} has pending {}",
+//                 netuid,
+//                 SubtensorModule::get_pending_emission(*netuid)
+//             );
+//             assert_eq!(SubtensorModule::get_pending_emission(*netuid), 299_999_997);
+//         }
+//         let step = SubtensorModule::blocks_until_next_epoch(
+//             9,
+//             1000,
+//             SubtensorModule::get_current_block_as_u64(),
+//         );
+//         step_block(step as u16);
+//         assert_eq!(SubtensorModule::get_pending_emission(9), 0);
+//     });
+// }
 
 #[test]
 fn test_root_subnet_creation_deletion() {
@@ -471,14 +479,14 @@ fn test_root_subnet_creation_deletion() {
         SubtensorModule::add_balance_to_coldkey_account(&owner, 1_000_000_000_000_000);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 0, mult: 1 lock_cost: 100000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000);
         step_block(1);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 0, lock_reduction_interval: 2, current_block: 1, mult: 1 lock_cost: 100000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 1, lock_reduction_interval: 2, current_block: 1, mult: 2 lock_cost: 200000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // Doubles from previous subnet creation
@@ -492,38 +500,38 @@ fn test_root_subnet_creation_deletion() {
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 1, lock_reduction_interval: 2, current_block: 4, mult: 2 lock_cost: 100000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 100_000_000_000); // Reaches min value
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 4, lock_reduction_interval: 2, current_block: 4, mult: 2 lock_cost: 200000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 200_000_000_000); // Doubles from previous subnet creation
         step_block(1);
         // last_lock: 100000000000, min_lock: 100000000000, last_lock_block: 4, lock_reduction_interval: 2, current_block: 5, mult: 2 lock_cost: 150000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 150000000000, min_lock: 100000000000, last_lock_block: 5, lock_reduction_interval: 2, current_block: 5, mult: 2 lock_cost: 300000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 300_000_000_000); // Doubles from previous subnet creation
         step_block(1);
         // last_lock: 150000000000, min_lock: 100000000000, last_lock_block: 5, lock_reduction_interval: 2, current_block: 6, mult: 2 lock_cost: 225000000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 225000000000, min_lock: 100000000000, last_lock_block: 6, lock_reduction_interval: 2, current_block: 6, mult: 2 lock_cost: 450000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 450_000_000_000); // Increasing
         step_block(1);
         // last_lock: 225000000000, min_lock: 100000000000, last_lock_block: 6, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 337500000000
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 337500000000, min_lock: 100000000000, last_lock_block: 7, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 675000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 675_000_000_000); // Increasing.
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         // last_lock: 337500000000, min_lock: 100000000000, last_lock_block: 7, lock_reduction_interval: 2, current_block: 7, mult: 2 lock_cost: 675000000000
         assert_eq!(SubtensorModule::get_network_lock_cost(), 1_350_000_000_000); // Double increasing.
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         assert_eq!(SubtensorModule::get_network_lock_cost(), 2_700_000_000_000); // Double increasing again.
 
@@ -539,98 +547,100 @@ fn test_root_subnet_creation_deletion() {
     });
 }
 
-#[test]
-fn test_network_pruning() {
-    new_test_ext(1).execute_with(|| {
-        System::set_block_number(0);
-        migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
+// DEPRECATED.
+// #[test]
+// fn test_network_pruning() {
+//     new_test_ext(1).execute_with(|| {
+//         System::set_block_number(0);
+//         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
 
-        assert_eq!(SubtensorModule::get_total_issuance(), 0);
+//         assert_eq!(SubtensorModule::get_total_issuance(), 0);
 
-        let n: usize = 10;
-        let root_netuid: u16 = 0;
-        SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
-        SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
-        SubtensorModule::set_max_allowed_uids(root_netuid, n as u16 + 1);
-        SubtensorModule::set_tempo(root_netuid, 1);
-        // No validators yet.
-        assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
+//         let n: usize = 10;
+//         let root_netuid: u16 = 0;
+//         SubtensorModule::set_max_registrations_per_block(root_netuid, n as u16);
+//         SubtensorModule::set_target_registrations_per_interval(root_netuid, n as u16);
+//         SubtensorModule::set_max_allowed_uids(root_netuid, n as u16 + 1);
+//         SubtensorModule::set_tempo(root_netuid, 1);
+//         // No validators yet.
+//         assert_eq!(SubtensorModule::get_subnetwork_n(root_netuid), 0);
 
-        for i in 0..n {
-            let hot: U256 = U256::from(i);
-            let cold: U256 = U256::from(i);
-            let uids: Vec<u16> = (0..i as u16).collect();
-            let values: Vec<u16> = vec![1; i];
-            SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000);
-            assert_ok!(SubtensorModule::root_register(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                hot
-            ));
-            assert_ok!(SubtensorModule::add_stake(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                hot,
-                1_000
-            ));
-            assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(cold)
-            ));
-            log::debug!("Adding network with netuid: {}", (i as u16) + 1);
-            assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
-            assert!(SubtensorModule::is_hotkey_registered_on_network(
-                root_netuid,
-                &hot
-            ));
-            assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
-            assert_ok!(SubtensorModule::set_root_weights(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                root_netuid,
-                hot,
-                uids,
-                values,
-                0
-            ));
-            SubtensorModule::set_tempo((i as u16) + 1, 1);
-            SubtensorModule::set_burn((i as u16) + 1, 0);
-            assert_ok!(SubtensorModule::burned_register(
-                <<Test as Config>::RuntimeOrigin>::signed(cold),
-                (i as u16) + 1,
-                hot
-            ));
-            assert_eq!(
-                SubtensorModule::get_subnetwork_n(root_netuid),
-                (i as u16) + 1
-            );
-        }
-        // Stakes
-        // 0 : 10_000
-        // 1 : 9_000
-        // 2 : 8_000
-        // 3 : 7_000
-        // 4 : 6_000
-        // 5 : 5_000
-        // 6 : 4_000
-        // 7 : 3_000
-        // 8 : 2_000
-        // 9 : 1_000
+//         for i in 0..n {
+//             let hot: U256 = U256::from(i);
+//             let cold: U256 = U256::from(i);
+//             let uids: Vec<u16> = (0..i as u16).collect();
+//             let values: Vec<u16> = vec![1; i];
+//             SubtensorModule::add_balance_to_coldkey_account(&cold, 1_000_000_000_000_000);
+//             assert_ok!(SubtensorModule::root_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 hot
+//             ));
+//             assert_ok!(SubtensorModule::add_stake(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 hot,
+//                 netuid,
+//                 1_000
+//             ));
+//             assert_ok!(SubtensorModule::register_network(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold)
+//             ));
+//             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
+//             assert!(SubtensorModule::if_subnet_exist((i as u16) + 1));
+//             assert!(SubtensorModule::is_hotkey_registered_on_network(
+//                 root_netuid,
+//                 &hot
+//             ));
+//             assert!(SubtensorModule::get_uid_for_net_and_hotkey(root_netuid, &hot).is_ok());
+//             assert_ok!(SubtensorModule::set_root_weights(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 root_netuid,
+//                 hot,
+//                 uids,
+//                 values,
+//                 0
+//             ));
+//             SubtensorModule::set_tempo((i as u16) + 1, 1);
+//             SubtensorModule::set_burn((i as u16) + 1, 0);
+//             assert_ok!(SubtensorModule::burned_register(
+//                 <<Test as Config>::RuntimeOrigin>::signed(cold),
+//                 (i as u16) + 1,
+//                 hot
+//             ));
+//             assert_eq!(
+//                 SubtensorModule::get_subnetwork_n(root_netuid),
+//                 (i as u16) + 1
+//             );
+//         }
+//         // Stakes
+//         // 0 : 10_000
+//         // 1 : 9_000
+//         // 2 : 8_000
+//         // 3 : 7_000
+//         // 4 : 6_000
+//         // 5 : 5_000
+//         // 6 : 4_000
+//         // 7 : 3_000
+//         // 8 : 2_000
+//         // 9 : 1_000
 
-        step_block(1);
-        assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
-        assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
-        assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
-        step_block(1);
-        assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
-        assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
-        assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
-        assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
-        assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
-        step_block(1);
-    });
-}
+//         step_block(1);
+//         assert_ok!(SubtensorModule::root_epoch(1_000_000_000));
+//         assert_eq!(SubtensorModule::get_subnet_emission_value(0), 385_861_815);
+//         assert_eq!(SubtensorModule::get_subnet_emission_value(1), 249_435_914);
+//         assert_eq!(SubtensorModule::get_subnet_emission_value(2), 180_819_837);
+//         assert_eq!(SubtensorModule::get_subnet_emission_value(3), 129_362_980);
+//         assert_eq!(SubtensorModule::get_subnet_emission_value(4), 50_857_187);
+//         assert_eq!(SubtensorModule::get_subnet_emission_value(5), 3_530_356);
+//         step_block(1);
+//         assert_eq!(SubtensorModule::get_pending_emission(0), 0); // root network gets no pending emission.
+//         assert_eq!(SubtensorModule::get_pending_emission(1), 249_435_914);
+//         assert_eq!(SubtensorModule::get_pending_emission(2), 0); // This has been drained.
+//         assert_eq!(SubtensorModule::get_pending_emission(3), 129_362_980);
+//         assert_eq!(SubtensorModule::get_pending_emission(4), 0); // This network has been drained.
+//         assert_eq!(SubtensorModule::get_pending_emission(5), 3_530_356);
+//         step_block(1);
+//     });
+// }
 
 #[test]
 fn test_network_prune_results() {
@@ -645,17 +655,17 @@ fn test_network_prune_results() {
         SubtensorModule::add_balance_to_coldkey_account(&owner, 1_000_000_000_000_000);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         step_block(3);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         step_block(3);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(owner)
+            <<Test as Config>::RuntimeOrigin>::signed(owner), 0
         ));
         step_block(3);
 
@@ -699,7 +709,7 @@ fn test_weights_after_network_pruning() {
 
             // Register a network
             assert_ok!(SubtensorModule::register_network(
-                <<Test as Config>::RuntimeOrigin>::signed(cold)
+                <<Test as Config>::RuntimeOrigin>::signed(cold), 0
             ));
 
             log::debug!("Adding network with netuid: {}", (i as u16) + 1);
@@ -718,6 +728,7 @@ fn test_weights_after_network_pruning() {
         assert_ok!(SubtensorModule::add_stake(
             <<Test as Config>::RuntimeOrigin>::signed(cold),
             hot,
+            root_netuid,
             1_000
         ));
 
@@ -759,7 +770,7 @@ fn test_weights_after_network_pruning() {
         assert_eq!(latest_weights[0][1], 21845);
 
         assert_ok!(SubtensorModule::register_network(
-            <<Test as Config>::RuntimeOrigin>::signed(cold)
+            <<Test as Config>::RuntimeOrigin>::signed(cold), 0
         ));
 
         // Subnet should not exist, as it would replace a previous subnet.

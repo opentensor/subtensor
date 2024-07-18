@@ -224,14 +224,16 @@ mod dispatches {
 		.saturating_add(T::DbWeight::get().reads(4104))
 		.saturating_add(T::DbWeight::get().writes(2)), DispatchClass::Normal, Pays::No))]
         pub fn set_root_weights(
-            origin: OriginFor<T>,
-            netuid: u16,
-            hotkey: T::AccountId,
-            dests: Vec<u16>,
-            weights: Vec<u16>,
-            version_key: u64,
+            _origin: OriginFor<T>,
+            _netuid: u16,
+            _hotkey: T::AccountId,
+            _dests: Vec<u16>,
+            _weights: Vec<u16>,
+            _version_key: u64,
         ) -> DispatchResult {
-            Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            // DEPRECATED
+            // Self::do_set_root_weights(origin, netuid, hotkey, dests, weights, version_key)
+            Ok(())
         }
 
         /// --- Sets the key as a delegate.
@@ -385,9 +387,10 @@ mod dispatches {
         pub fn add_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_staked: u64,
         ) -> DispatchResult {
-            Self::do_add_stake(origin, hotkey, amount_staked)
+            Self::do_add_stake(origin, hotkey, netuid, amount_staked)
         }
 
         /// Remove stake from the staking account. The call must be made
@@ -426,9 +429,10 @@ mod dispatches {
         pub fn remove_stake(
             origin: OriginFor<T>,
             hotkey: T::AccountId,
+            netuid: u16,
             amount_unstaked: u64,
         ) -> DispatchResult {
-            Self::do_remove_stake(origin, hotkey, amount_unstaked)
+            Self::do_remove_stake(origin, hotkey, netuid, amount_unstaked)
         }
 
         /// Serves or updates axon /promethteus information for the neuron associated with the caller. If the caller is
@@ -613,8 +617,9 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(164_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(23))
 		.saturating_add(T::DbWeight::get().writes(20)), DispatchClass::Normal, Pays::No))]
-        pub fn root_register(origin: OriginFor<T>, hotkey: T::AccountId) -> DispatchResult {
-            Self::do_root_register(origin, hotkey)
+        pub fn root_register(_origin: OriginFor<T>, _hotkey: T::AccountId) -> DispatchResult {
+            // Self::do_root_register(origin, hotkey)
+            Ok(())
         }
 
         /// Attempt to adjust the senate membership to include a hotkey
@@ -798,8 +803,8 @@ mod dispatches {
         #[pallet::weight((Weight::from_parts(157_000_000, 0)
 		.saturating_add(T::DbWeight::get().reads(16))
 		.saturating_add(T::DbWeight::get().writes(30)), DispatchClass::Operational, Pays::No))]
-        pub fn register_network(origin: OriginFor<T>) -> DispatchResult {
-            Self::user_add_network(origin)
+        pub fn register_network(origin: OriginFor<T>, hotkey: T::AccountId, mechid: u16) -> DispatchResult {
+            Self::user_add_network(origin, &hotkey, mechid)
         }
 
         /// Facility extrinsic for user to get taken from faucet

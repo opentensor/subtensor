@@ -1,4 +1,5 @@
 use super::*;
+use substrate_fixed::types::I96F32;
 
 impl<T: Config> Pallet<T> {
     /// ---- The implementation for the extrinsic remove_stake: Removes stake from a hotkey account and adds it onto a coldkey.
@@ -33,15 +34,16 @@ impl<T: Config> Pallet<T> {
     pub fn do_remove_stake(
         origin: T::RuntimeOrigin,
         hotkey: T::AccountId,
-        stake_to_be_removed: u64,
+        netuid: u16,
+        alpha_to_be_removed: u64,
     ) -> dispatch::DispatchResult {
         // We check the transaction is signed by the caller and retrieve the T::AccountId coldkey information.
         let coldkey = ensure_signed(origin)?;
         log::info!(
-            "do_remove_stake( origin:{:?} hotkey:{:?}, stake_to_be_removed:{:?} )",
+            "do_remove_stake( origin:{:?} hotkey:{:?}, alpha_to_be_removed:{:?} )",
             coldkey,
             hotkey,
-            stake_to_be_removed
+            alpha_to_be_removed
         );
 
         // Ensure that the hotkey account exists this is only possible through registration.
@@ -57,11 +59,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Ensure that the stake amount to be removed is above zero.
-        ensure!(stake_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
+        ensure!(alpha_to_be_removed > 0, Error::<T>::StakeToWithdrawIsZero);
 
         // Ensure that the hotkey has enough stake to withdraw.
         ensure!(
-            Self::has_enough_stake(&coldkey, &hotkey, stake_to_be_removed),
+            Self::has_enough_stake(&coldkey, &hotkey, alpha_to_be_removed),
             Error::<T>::NotEnoughStakeToWithdraw
         );
 
@@ -73,17 +75,59 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnstakeRateLimitExceeded
         );
 
-        // We remove the balance from the hotkey.
-        Self::decrease_stake_on_coldkey_hotkey_account(&coldkey, &hotkey, stake_to_be_removed);
+        let mechid: u16 = SubnetMechanism::<T>::get( netuid );
+        let tao_unstaked: u64;
+        if mechid == 2 { // STAO
+            tao_unstaked = Self::alpha_to_tao( alpha_to_be_removed, netuid );
+        } else { // ROOT and other.
+            tao_unstaked = alpha_to_be_removed
+        }
+
+        // Increment counters.
+        TotalStake::<T>::put(
+            TotalStake::<T>::get().saturating_sub( tao_unstaked )
+        );
+        SubnetAlpha::<T>::insert(
+            netuid,
+            SubnetAlpha::<T>::get(netuid).saturating_sub( alpha_to_be_removed ),
+        );
+        SubnetTAO::<T>::insert(
+            netuid,
+            SubnetTAO::<T>::get(netuid).saturating_sub( tao_unstaked ),
+        );
+        // TotalColdkeyStake::<T>::insert(
+        //     coldkey,
+        //     TotalColdkeyStake::<T>::get(coldkey).saturating_sub( tao_unstaked ),
+        // );
+        // TotalHotkeyStake::<T>::insert(
+        //     hotkey,
+        //     TotalHotkeyStake::<T>::get(hotkey).saturating_sub( tao_unstaked ),
+        // );
+        Stake::<T>::insert(
+            &hotkey,
+            &coldkey,
+            Stake::<T>::get( &hotkey, &coldkey ).saturating_sub( tao_unstaked ),
+        );
+        TotalHotkeyAlpha::<T>::insert(
+            &hotkey,
+            &netuid,
+            TotalHotkeyAlpha::<T>::get( &hotkey, netuid ).saturating_sub( alpha_to_be_removed ),
+        );
+        Alpha::<T>::insert(
+            (&hotkey, &coldkey, netuid),
+            Alpha::<T>::get((&hotkey, &coldkey, netuid)).saturating_sub( alpha_to_be_removed ),
+        );
+
 
         // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
-        Self::add_balance_to_coldkey_account(&coldkey, stake_to_be_removed);
+        Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);
 
         // If the stake is below the minimum, we clear the nomination from storage.
         // This only applies to nominator stakes.
         // If the coldkey does not own the hotkey, it's a nominator stake.
-        let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
-        Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
+        // TODO: add back in.
+        // let new_stake = Self::get_stake_for_coldkey_and_hotkey(&coldkey, &hotkey);
+        // Self::clear_small_nomination_if_required(&hotkey, &coldkey, new_stake);
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();
@@ -98,10 +142,10 @@ impl<T: Config> Pallet<T> {
         );
         log::info!(
             "StakeRemoved( hotkey:{:?}, stake_to_be_removed:{:?} )",
-            hotkey,
-            stake_to_be_removed
+            hotkey.clone(),
+            alpha_to_be_removed
         );
-        Self::deposit_event(Event::StakeRemoved(hotkey, stake_to_be_removed));
+        Self::deposit_event(Event::StakeRemoved(hotkey.clone(), alpha_to_be_removed));
 
         // Done and ok.
         Ok(())

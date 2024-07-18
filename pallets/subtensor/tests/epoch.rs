@@ -1499,9 +1499,9 @@ fn test_set_alpha_disabled() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
+        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
         // Only owner can set alpha values
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), 0));
 
         // Explicitly set to false
         SubtensorModule::set_liquid_alpha_enabled(netuid, false);
@@ -2577,7 +2577,7 @@ fn test_get_set_alpha() {
         migrations::migrate_create_root_network::migrate_create_root_network::<Test>();
         SubtensorModule::add_balance_to_coldkey_account(&coldkey, 1_000_000_000_000_000);
         assert_ok!(SubtensorModule::root_register(signer.clone(), hotkey,));
-        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, 1000));
+        assert_ok!(SubtensorModule::add_stake(signer.clone(), hotkey, netuid, 1000));
 
         // Should fail as signer does not own the subnet
         assert_err!(
@@ -2585,7 +2585,7 @@ fn test_get_set_alpha() {
             DispatchError::BadOrigin
         );
 
-        assert_ok!(SubtensorModule::register_network(signer.clone()));
+        assert_ok!(SubtensorModule::register_network(signer.clone(), 0));
 
         assert_ok!(SubtensorModule::do_set_alpha_values(
             signer.clone(),

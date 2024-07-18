@@ -36,39 +36,39 @@ mod hooks {
 
         fn on_runtime_upgrade() -> frame_support::weights::Weight {
             // --- Migrate storage
-            let mut weight = frame_support::weights::Weight::from_parts(0, 0);
+            let weight = frame_support::weights::Weight::from_parts(0, 0);
 
             // Hex encoded foundation coldkey
-            let hex = hex_literal::hex![
-                "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
-            ];
-            weight = weight
-                // Initializes storage version (to 1)
-                .saturating_add(migrations::migrate_to_v1_separate_emission::migrate_to_v1_separate_emission::<T>())
-                // Storage version v1 -> v2
-                .saturating_add(migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<T>())
-                // Doesn't check storage version. TODO: Remove after upgrade
-                .saturating_add(migrations::migrate_create_root_network::migrate_create_root_network::<T>())
-                // Storage version v2 -> v3
-                .saturating_add(migrations::migrate_transfer_ownership_to_foundation::migrate_transfer_ownership_to_foundation::<T>(
-                    hex,
-                ))
-                // Storage version v3 -> v4
-                .saturating_add(migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<T>())
-                // Storage version v4 -> v5
-                .saturating_add(migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<T>())
-                // Doesn't check storage version. TODO: Remove after upgrade
-                // Storage version v5 -> v6
-                .saturating_add(migrations::migrate_total_issuance::migrate_total_issuance::<T>(false))
-                // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
-                // Storage version v6 -> v7
-                .saturating_add(migrations::migrate_populate_owned_hotkeys::migrate_populate_owned::<T>())
-                // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
-                // Storage version v7 -> v8
-                .saturating_add(migrations::migrate_populate_staking_hotkeys::migrate_populate_staking_hotkeys::<T>())
-                // Fix total coldkey stake.
-                // Storage version v8 -> v9
-                .saturating_add(migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<T>());
+            // let hex = hex_literal::hex![
+            //     "feabaafee293d3b76dae304e2f9d885f77d2b17adab9e17e921b321eccd61c77"
+            // ];
+            // weight = weight
+            //     // Initializes storage version (to 1)
+            //     .saturating_add(migrations::migrate_to_v1_separate_emission::migrate_to_v1_separate_emission::<T>())
+            //     // Storage version v1 -> v2
+            //     .saturating_add(migrations::migrate_to_v2_fixed_total_stake::migrate_to_v2_fixed_total_stake::<T>())
+            //     // Doesn't check storage version. TODO: Remove after upgrade
+            //     .saturating_add(migrations::migrate_create_root_network::migrate_create_root_network::<T>())
+            //     // Storage version v2 -> v3
+            //     .saturating_add(migrations::migrate_transfer_ownership_to_foundation::migrate_transfer_ownership_to_foundation::<T>(
+            //         hex,
+            //     ))
+            //     // Storage version v3 -> v4
+            //     .saturating_add(migrations::migrate_delete_subnet_21::migrate_delete_subnet_21::<T>())
+            //     // Storage version v4 -> v5
+            //     .saturating_add(migrations::migrate_delete_subnet_3::migrate_delete_subnet_3::<T>())
+            //     // Doesn't check storage version. TODO: Remove after upgrade
+            //     // Storage version v5 -> v6
+            //     .saturating_add(migrations::migrate_total_issuance::migrate_total_issuance::<T>(false))
+            //     // Populate OwnedHotkeys map for coldkey swap. Doesn't update storage vesion.
+            //     // Storage version v6 -> v7
+            //     .saturating_add(migrations::migrate_populate_owned_hotkeys::migrate_populate_owned::<T>())
+            //     // Populate StakingHotkeys map for coldkey swap. Doesn't update storage vesion.
+            //     // Storage version v7 -> v8
+            //     .saturating_add(migrations::migrate_populate_staking_hotkeys::migrate_populate_staking_hotkeys::<T>())
+            //     // Fix total coldkey stake.
+            //     // Storage version v8 -> v9
+            //     .saturating_add(migrations::migrate_fix_total_coldkey_stake::migrate_fix_total_coldkey_stake::<T>());
             weight
         }
     }

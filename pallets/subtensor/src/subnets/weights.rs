@@ -227,10 +227,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // --- 6. Check to see if the hotkey has enought stake to set weights.
-        ensure!(
-            Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
-            Error::<T>::NotEnoughStakeToSetWeights
-        );
+        // TODO rethink this to use validator permit.
+        // ensure!(
+        //     Self::get_total_stake_for_hotkey(&hotkey) >= Self::get_weights_min_stake(),
+        //     Error::<T>::NotEnoughStakeToSetWeights
+        // );
 
         // --- 7. Ensure version_key is up-to-date.
         ensure!(

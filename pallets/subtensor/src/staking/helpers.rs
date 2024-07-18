@@ -47,8 +47,8 @@ impl<T: Config> Pallet<T> {
         TotalHotkeyStake::<T>::get(hotkey)
     }
 
-    // Returns the total amount of stake held by the coldkey (delegative or otherwise)
-    //
+    // // Returns the total amount of stake held by the coldkey (delegative or otherwise)
+    // //
     pub fn get_total_stake_for_coldkey(coldkey: &T::AccountId) -> u64 {
         TotalColdkeyStake::<T>::get(coldkey)
     }

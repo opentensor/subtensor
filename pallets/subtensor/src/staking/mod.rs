@@ -1,4 +1,5 @@
 use super::*;
+pub mod alpha;
 pub mod add_stake;
 pub mod become_delegate;
 pub mod decrease_take;

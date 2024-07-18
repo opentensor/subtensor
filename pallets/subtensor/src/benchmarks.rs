@@ -129,7 +129,7 @@ benchmarks! {
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
 
     assert_ok!(Subtensor::<T>::do_burned_registration(RawOrigin::Signed(coldkey.clone()).into(), netuid, hotkey.clone()));
-  }: add_stake(RawOrigin::Signed( coldkey.clone() ), hotkey, amount)
+  }: add_stake(RawOrigin::Signed( coldkey.clone() ), hotkey, netuid, amount)
 
   benchmark_remove_stake{
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
@@ -165,10 +165,10 @@ benchmarks! {
       let u64_staked_amt = 100_000_000_000;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), u64_staked_amt);
 
-    assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), u64_staked_amt));
+    assert_ok!( Subtensor::<T>::add_stake(RawOrigin::Signed( coldkey.clone() ).into() , hotkey.clone(), netuid, u64_staked_amt));
 
     let amount_unstaked: u64 = u64_staked_amt - 1;
-  }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), amount_unstaked)
+  }: remove_stake(RawOrigin::Signed( coldkey.clone() ), hotkey.clone(), netuid, amount_unstaked)
 
   benchmark_serve_axon{
     let caller: T::AccountId = whitelisted_caller::<AccountIdOf<T>>();
@@ -299,7 +299,7 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-  }: register_network(RawOrigin::Signed(coldkey))
+  }: register_network(RawOrigin::Signed(coldkey), 0)
 
   benchmark_dissolve_network {
     let seed : u32 = 1;
@@ -311,7 +311,7 @@ benchmarks! {
     let amount: u64 = 1;
     let amount_to_be_staked = 100_000_000_000_000u64;
     Subtensor::<T>::add_balance_to_coldkey_account(&coldkey.clone(), amount_to_be_staked);
-    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into()));
+    assert_ok!(Subtensor::<T>::register_network(RawOrigin::Signed(coldkey.clone()).into(), 0));
   }: dissolve_network(RawOrigin::Signed(coldkey), 1)
 
   // swap_hotkey {
