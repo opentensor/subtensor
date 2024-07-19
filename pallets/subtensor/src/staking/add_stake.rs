@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
         let tao_staked: u64 = Self::remove_balance_from_coldkey_account(&coldkey, stake_to_be_added)?;
 
         // Convert and stake to alpha on the subnet.
-        let alpha_staked: u64 = Self::stake_into_subnet( hotkey, netuid, tao_staked );
+        let alpha_staked: u64 = Self::stake_into_subnet( &hotkey, &coldkey, netuid, tao_staked );
 
         // Set last block for rate limiting
         let block: u64 = Self::get_current_block_as_u64();

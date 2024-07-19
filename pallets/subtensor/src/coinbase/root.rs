@@ -371,7 +371,7 @@ impl<T: Config> Pallet<T> {
     //     // Stakes are stored in a 64-bit fixed point representation for precise calculations.
     //     let mut stake_i64: Vec<I64F64> = vec![I64F64::from_num(0.0); n as usize];
     //     for ((_, hotkey), stake) in hotkeys.iter().zip(&mut stake_i64) {
-    //         *stake = I64F64::from_num(Self::get_alpha_for_hotkey_on_subnet(hotkey, netuid));
+    //         *stake = I64F64::from_num(Self::get_stake_for_hotkey_on_subnet(hotkey, netuid));
     //     }
     //     inplace_normalize_64(&mut stake_i64);
     //     log::debug!("S:\n{:?}\n", &stake_i64);

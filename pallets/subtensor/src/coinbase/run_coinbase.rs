@@ -105,19 +105,11 @@ impl<T: Config> Pallet<T> {
             // 5. Calculate subnet's proportion of mechanism TAO: P_s = T_s / T_m
             let subnet_proportion: I96F32 = subnet_tao.checked_div(mechanism_tao).unwrap_or(I96F32::from_num(0));
             // 6. Calculate subnet's TAO emission: E_s = P_s * E_m
-            let tao_emission: u64 = subnet_proportion.checked_mul(mechanism_emission).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
-            // 7. Convert TAO emission to alpha emission
-            let alpha_emission: u64 = Self::tao_to_alpha(tao_emission, *netuid);
-            // 8. Update total issuance: I_new = I_old + E_s
-            TotalIssuance::<T>::mutate(|total| { *total = total.saturating_add(tao_emission) });
-            // 9. Update subnet TAO: T_s_new = T_s_old + E_s
-            SubnetTAO::<T>::mutate(*netuid, |total| { *total = total.saturating_add(tao_emission) });
-            // 10. Update subnet alpha: A_s_new = A_s_old + E_α
-            SubnetAlpha::<T>::mutate(*netuid, |total| { *total = total.saturating_add(alpha_emission) });
-            // 11. Store alpha emission for this subnet
-            EmissionValues::<T>::insert(*netuid, alpha_emission);
+            let emission: u64 = subnet_proportion.checked_mul(mechanism_emission).unwrap_or(I96F32::from_num(0)).to_num::<u64>();
+            // 11. Store the block emission for this subnet
+            EmissionValues::<T>::insert(*netuid, emission);
             // 12. Accumulate pending emission: P_e_new = P_e_old + E_α
-            PendingEmission::<T>::mutate(netuid, |total| { *total = total.saturating_add(alpha_emission) });
+            PendingEmission::<T>::mutate(netuid, |total| { *total = total.saturating_add(emission) });
         }
         log::debug!("Emission per subnet: {:?}", EmissionValues::<T>::iter().collect::<Vec<_>>());
         log::debug!("Pending Emission per subnet: {:?}", PendingEmission::<T>::iter().collect::<Vec<_>>());
@@ -131,12 +123,12 @@ impl<T: Config> Pallet<T> {
             // --- 5.1 Check to see if the subnet should run its epoch.
             if Self::should_run_epoch(*netuid, current_block) {
                 // --- 5.2 Drain the subnet emission.
-                let subnet_alpha_emission: u64 = PendingEmission::<T>::get(*netuid);
+                let subnet_emission: u64 = PendingEmission::<T>::get(*netuid);
                 PendingEmission::<T>::insert(*netuid, 0);
                 log::debug!(
-                    "Drained subnet alpha emission for netuid {:?}: {:?}",
+                    "Drained subnet emission for netuid {:?}: {:?}",
                     *netuid,
-                    subnet_alpha_emission
+                    subnet_emission
                 );
 
                 // --- 5.3 Set last step counter.
@@ -144,15 +136,15 @@ impl<T: Config> Pallet<T> {
                 Self::set_last_mechanism_step_block(*netuid, current_block);
 
                 // 5.3 Pass emission through epoch() --> hotkey emission.
-                let hotkey_alpha_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, subnet_alpha_emission);
+                let hotkey_emission: Vec<(T::AccountId, u64, u64)> = Self::epoch(*netuid, subnet_emission);
                 log::debug!(
-                    "Hotkey alpha emission results for netuid {:?}: {:?}",
+                    "Hotkey emission results for netuid {:?}: {:?}",
                     *netuid,
-                    hotkey_alpha_emission
+                    hotkey_emission
                 );
 
                 // 5.4 Accumulate the tuples on hotkeys:
-                for (hotkey, mining_emission, validator_emission) in hotkey_alpha_emission {
+                for (hotkey, mining_emission, validator_emission) in hotkey_emission {
                     // Distribute the emission on the hotkey and parent hotkeys appending new vectors to hotkey_emission_tuples.
                     Self::source_hotkey_emission(
                         &hotkey,
@@ -182,14 +174,14 @@ impl<T: Config> Pallet<T> {
         let mut nominator_emission_limit: u64 = 0;
         let mut nominator_emission: Vec<(T::AccountId, T::AccountId, u16, u64)> = vec![];
         let emission_tempo: u64 = Self::get_hotkey_emission_tempo();
-        for (hotkey, netuid_i, hotkey_alpha_emission) in PendingdHotkeyEmissionOnNetuid::<T>::iter() {
+        for (hotkey, netuid_i, hotkey_emission) in PendingdHotkeyEmissionOnNetuid::<T>::iter() {
             if Self::should_drain_hotkey(&hotkey, current_block, emission_tempo) {
-                log::debug!("Draining hotkey {:?} on netuid {:?} on block {:?}: {:?}", hotkey, netuid_i, current_block, hotkey_alpha_emission);
+                log::debug!("Draining hotkey {:?} on netuid {:?} on block {:?}: {:?}", hotkey, netuid_i, current_block, hotkey_emission);
                 // Remove the hotkey emission from the pending emissions.
                 PendingdHotkeyEmissionOnNetuid::<T>::remove( &hotkey, netuid_i );
                 // Drain the hotkey emission.
-                Self::source_nominator_emission( &hotkey, netuid_i, hotkey_alpha_emission, current_block, &mut nominator_emission );
-                nominator_emission_limit += hotkey_alpha_emission;
+                Self::source_nominator_emission( &hotkey, netuid_i, hotkey_emission, current_block, &mut nominator_emission );
+                nominator_emission_limit += hotkey_emission;
             }
         }
         // Update drain blocks.
@@ -234,7 +226,7 @@ impl<T: Config> Pallet<T> {
         let split: I96F32 = I96F32::from_num( 0.5 );
         let mut remainder: I96F32 = validating_emission - hotkey_take;
         let parnet_emission: I96F32 = validating_emission - hotkey_take;
-        let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_alpha_for_hotkey_on_subnet( hotkey, netuid ) );
+        let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( hotkey, netuid ) );
         let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( hotkey ) );
 
         // Iterate over parents.
@@ -242,11 +234,11 @@ impl<T: Config> Pallet<T> {
             // Proportion from parent.
             let parent_proportion: I96F32 = I96F32::from_num(proportion).saturating_div(I96F32::from_num(u64::MAX));
             let parent_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( &parent ) );
-            let parent_alpha: I96F32 = I96F32::from_num( Self::get_alpha_for_hotkey_on_subnet( &parent, netuid ) );
+            let parent_alpha: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( &parent, netuid ) );
 
             // Compute dynamic proportion due.
-            let parent_alpha_emission: I96F32 = split * parnet_emission * (parent_alpha * parent_proportion) / hotkey_alpha;
-            let parent_dynamic_emission: I96F32 = split * parnet_emission * (parent_dynamic * parent_proportion) / hotkey_dynamic;
+            let parent_alpha_emission: I96F32 = split * parnet_emission * (parent_alpha * parent_proportion).checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0.0));
+            let parent_dynamic_emission: I96F32 = split * parnet_emission * (parent_dynamic * parent_proportion).checked_div(hotkey_dynamic).unwrap_or(I96F32::from_num(0.0));
             let total_parent_emission: I96F32 = parent_alpha_emission + parent_dynamic_emission;
             hotkey_emission_tuples.push((parent, netuid, total_parent_emission.to_num::<u64>()));
 
@@ -273,12 +265,12 @@ impl<T: Config> Pallet<T> {
     pub fn source_nominator_emission(
         hotkey: &T::AccountId, 
         netuid: u16,
-        alpha_emission: u64, 
+        emission: u64, 
         _block_number: u64,
         emission_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)>,
     ) {
         // Append the hotkey take here.
-        let emission: I96F32 = I96F32::from_num(alpha_emission);
+        let emission: I96F32 = I96F32::from_num(emission);
         let take_proportion: I96F32 = I96F32::from_num(Delegates::<T>::get(hotkey)).saturating_div(I96F32::from_num(u16::MAX));
         let hotkey_take: I96F32 = take_proportion * emission;
         
@@ -287,7 +279,7 @@ impl<T: Config> Pallet<T> {
         let mut remainder: I96F32 = emission - hotkey_take;
         let nominator_emission: I96F32 = emission - hotkey_take;
         let hotkey_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey( hotkey ) );
-        let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_alpha_for_hotkey_on_subnet( hotkey, netuid ) );
+        let hotkey_alpha: I96F32 = I96F32::from_num( Self::get_stake_for_hotkey_on_subnet( hotkey, netuid ) );
 
         // Iterate over all nominators to this hotkey.
         for (nominator, _) in Stake::<T>::iter_prefix(hotkey) {
@@ -296,8 +288,8 @@ impl<T: Config> Pallet<T> {
             let nominator_dynamic: I96F32 = I96F32::from_num( Self::get_dynamic_for_hotkey_and_coldkey( hotkey, &nominator ) );  
 
             // Compute contributions to nominators and alpha holders.
-            let nominator_emission_from_alpha: I96F32 = nominator_emission * ( nominator_alpha / hotkey_alpha ) * split;
-            let nominator_emission_from_dynamic: I96F32 = nominator_emission * ( nominator_dynamic / hotkey_dynamic ) * split;
+            let nominator_emission_from_alpha: I96F32 = nominator_emission * ( nominator_alpha.checked_div(hotkey_alpha).unwrap_or(I96F32::from_num(0)) ) * split;
+            let nominator_emission_from_dynamic: I96F32 = nominator_emission * ( nominator_dynamic.checked_div(hotkey_dynamic).unwrap_or(I96F32::from_num(0)) ) * split;
 
             // Append the emission tuple.
             let nominator_emission_total: I96F32 = nominator_emission_from_alpha + nominator_emission_from_dynamic;
@@ -347,7 +339,7 @@ impl<T: Config> Pallet<T> {
     ///   - `u64`: The emission value to be added
     pub fn accumulate_nominator_emission( nominator_tuples: &mut Vec<(T::AccountId, T::AccountId, u16, u64)> ) {
         for (hotkey, coldkey, netuid, emission) in nominator_tuples {
-            Self::increase_subnet_alpha_for_hotkey_and_coldkey(hotkey, coldkey, netuid, emission);
+            Self::stake_into_subnet( hotkey, coldkey, *netuid, *emission );
         }
     }
 

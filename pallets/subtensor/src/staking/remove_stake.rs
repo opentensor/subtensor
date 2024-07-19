@@ -75,7 +75,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Convert and unstake from the subnet.
-        let tao_unstaked: u64  = Self::unstake_from_subnet( &hotkey, &coldkey, netuid, alpha_unstaked );
+        let tao_unstaked: u64 = Self::unstake_from_subnet( &hotkey, &coldkey, netuid, alpha_unstaked );
 
         // We add the balance to the coldkey.  If the above fails we will not credit this coldkey.
         Self::add_balance_to_coldkey_account(&coldkey, tao_unstaked);

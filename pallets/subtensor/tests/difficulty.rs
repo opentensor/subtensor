@@ -4,6 +4,7 @@ use crate::mock::*;
 mod mock;
 use sp_core::U256;
 
+// SKIP_WASM_BUILD=1 RUST_LOG=debug cargo test --test difficulty test_registration_difficulty_adjustment -- --nocapture
 #[test]
 #[cfg(not(tarpaulin))]
 fn test_registration_difficulty_adjustment() {
@@ -22,7 +23,7 @@ fn test_registration_difficulty_adjustment() {
         SubtensorModule::set_adjustment_interval(netuid, 100);
         assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Default registration allowed.
 
-        // Set values and check.
+        // // Set values and check.
         SubtensorModule::set_difficulty(netuid, 20000);
         SubtensorModule::set_adjustment_interval(netuid, 1);
         SubtensorModule::set_target_registrations_per_interval(netuid, 1);
@@ -39,7 +40,7 @@ fn test_registration_difficulty_adjustment() {
         assert_eq!(SubtensorModule::get_max_allowed_uids(netuid), 3); // Check set registrations per block.
         assert!(SubtensorModule::get_network_registration_allowed(netuid)); // Check set registration allowed
 
-        // Lets register 3 neurons...
+        // // Lets register 3 neurons...
         let hotkey0 = U256::from(0);
         let hotkey1 = U256::from(100);
         let hotkey2 = U256::from(2000);
