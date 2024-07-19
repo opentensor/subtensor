@@ -1259,3 +1259,154 @@ fn test_children_stake_values() {
         );
     });
 }
+
+#[test]
+fn test_drain_hotkey_emission_division_by_zero() {
+    new_test_ext(1).execute_with(|| {
+        let netuid: u16 = 1;
+        let tempo = 10;
+        let coldkey = U256::from(1);
+        let nominator = U256::from(2);
+        let validator1 = U256::from(3);
+        let validator2 = U256::from(4);
+        let childkey = U256::from(5);
+        let stake: u64 = 1_000_000_000;
+
+        // Remove limitations that are not needed for this test
+        SubtensorModule::set_max_registrations_per_block(netuid, 4);
+        SubtensorModule::set_max_allowed_uids(netuid, 2);
+        SubtensorModule::set_target_stakes_per_interval(10);
+        pallet_subtensor::WeightsSetRateLimit::<Test>::insert(netuid, 0);
+
+        // Add balances
+        SubtensorModule::add_balance_to_coldkey_account(
+            &coldkey,
+            2 * stake + ExistentialDeposit::get(),
+        );
+        SubtensorModule::add_balance_to_coldkey_account(
+            &nominator,
+            stake + ExistentialDeposit::get(),
+        );
+
+        // Register a subnet and neurons to the new network.
+        add_network(netuid, tempo, 0);
+        register_ok_neuron(netuid, validator1, coldkey, 124124);
+        register_ok_neuron(netuid, validator2, coldkey, 456456);
+        register_ok_neuron(netuid, childkey, coldkey, 987987);
+        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator1));
+        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &validator2));
+        assert!(SubtensorModule::coldkey_owns_hotkey(&coldkey, &childkey));
+
+        // Bump current block by 1 so that weights don't get masked for neurons as deregistered
+        // (last update block needs to be different from block of registration)
+        step_block(1);
+
+        // Add validator stakes and permits
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            validator1,
+            stake
+        ));
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(coldkey),
+            validator2,
+            stake
+        ));
+        pallet_subtensor::MaxAllowedValidators::<Test>::insert(netuid, 3);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 0, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 1, true);
+        SubtensorModule::set_validator_permit_for_uid(netuid, 2, true);
+
+        // Validator2 becomes delegate
+        assert_ok!(SubtensorModule::do_become_delegate(
+            RuntimeOrigin::signed(coldkey),
+            validator2,
+            SubtensorModule::get_default_take()
+        ));
+        assert!(SubtensorModule::hotkey_is_delegate(&validator2));
+
+        // Staking:
+        //   Validators already have their stake
+        //   Nominator delegates stake to validator2
+        assert_ok!(SubtensorModule::add_stake(
+            RuntimeOrigin::signed(nominator),
+            validator2,
+            stake
+        ));
+
+        // Validators set weights
+        assert_ok!(SubtensorModule::do_set_weights(
+            RuntimeOrigin::signed(validator1),
+            netuid,
+            vec![0, 1, 2],
+            vec![u16::MAX, u16::MAX, u16::MAX],
+            0
+        ));
+        assert_ok!(SubtensorModule::do_set_weights(
+            RuntimeOrigin::signed(validator2),
+            netuid,
+            vec![0, 1, 2],
+            vec![u16::MAX, u16::MAX, u16::MAX],
+            0
+        ));
+        assert_ok!(SubtensorModule::do_set_weights(
+            RuntimeOrigin::signed(childkey),
+            netuid,
+            vec![0, 1, 2],
+            vec![u16::MAX, u16::MAX, u16::MAX],
+            0
+        ));
+
+        // Set child relationships
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            validator1,
+            netuid,
+            vec![(u64::MAX, childkey)]
+        ));
+        assert_ok!(SubtensorModule::do_set_children(
+            RuntimeOrigin::signed(coldkey),
+            validator2,
+            netuid,
+            vec![(u64::MAX, childkey)]
+        ));
+
+        // Simulate subnet emission
+        PendingEmission::<Test>::insert(netuid, 1_000_000_000);
+
+        // Check that we don't have PendingdHotkeyEmission yet
+        assert!(PendingdHotkeyEmission::<Test>::get(validator1) == 0);
+        assert!(PendingdHotkeyEmission::<Test>::get(validator2) == 0);
+        assert!(PendingdHotkeyEmission::<Test>::get(childkey) == 0);
+
+        // Run blocks until the end of epoch
+        loop {
+            step_block(1);
+            let block = SubtensorModule::get_current_block_as_u64();
+
+            if SubtensorModule::should_run_epoch(netuid, block) {
+                break;
+            }
+
+            // Shouldn't be more than 100 blocks
+            assert!(block < 100);
+        }
+
+        // Run blocks until we hit drain_hotkey_emission in run_coinbase
+        HotkeyEmissionTempo::<Test>::set(tempo as u64);
+        loop {
+            step_block(1);
+            let block = SubtensorModule::get_current_block_as_u64();
+
+            println!("block = {}, should drain = {}", block, SubtensorModule::should_drain_hotkey(&validator2, block, 10u64));
+
+
+            if SubtensorModule::should_drain_hotkey(&validator2, block, tempo as u64) {
+                break;
+            }
+
+            // Shouldn't be more than 100 blocks
+            assert!(block < 100);
+        }
+    });
+}
